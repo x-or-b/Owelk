@@ -13,6 +13,59 @@ class ResearchStoreTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void removalPreservesOriginalAndCaptureTrash() {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("keep.pdf");
+        writeFixture(path);
+        const auto source = QUrl::fromLocalFile(path);
+        const auto originalSize = QFileInfo(path).size();
+        QString captureId;
+        {
+            ResearchStore store(directory.filePath("data"));
+            QString error;
+            QVERIFY(store.initialize(&error));
+            QVERIFY(store.rememberDocument(source));
+            store.captureRegion(source, 0, QRectF(.1, .1, .4, .2));
+            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+            QCOMPARE(store.captures().size(), 1);
+            captureId = store.captures().first().toMap()["id"].toString();
+            QVERIFY(store.removeRecentDocument(source));
+            QVERIFY(store.recentDocuments().isEmpty());
+            QCOMPARE(store.captures().size(), 1);
+            QVERIFY(store.deleteCapture(captureId));
+            QVERIFY(!store.deleteCapture(captureId));
+            QVERIFY(!store.deleteCapture("../../keep.pdf"));
+            QVERIFY(store.captures().isEmpty());
+            QVERIFY(store.searchKnowledge("keep").isEmpty());
+            QVERIFY(!QFileInfo::exists(directory.filePath("data/captures/" + captureId + ".png")));
+            QVERIFY(QFileInfo::exists(directory.filePath("data/captures/trash/" + captureId + ".png")));
+            QCOMPARE(QFileInfo(path).size(), originalSize);
+        }
+        ResearchStore reopened(directory.filePath("data"));
+        QString error;
+        QVERIFY(reopened.initialize(&error));
+        QVERIFY(reopened.captures().isEmpty());
+        QVERIFY(reopened.recentDocuments().isEmpty());
+        QVERIFY(QFileInfo::exists(path));
+    }
+    void tabSessionsAndWorkspacesPersist() {
+        QTemporaryDir directory;
+        ResearchStore store(directory.path());
+        QString error;
+        QVERIFY(store.initialize(&error));
+        const auto source = QUrl::fromLocalFile(directory.filePath("paper.pdf"));
+        const QVariantMap first{{"id", "t1"}, {"source", source.toString()}, {"position", QVariantMap{{"page", 2}}}};
+        const QVariantMap second{{"id", "t2"}, {"source", source.toString()}, {"position", QVariantMap{{"page", 6}}}};
+        const QVariantMap group{{"kind", "group"}, {"id", "g1"}, {"activeTab", "t1"}, {"tabs", QVariantList{first, second}}};
+        const QVariantMap state{{"version", 2}, {"tree", group}, {"activeGroup", "g1"}};
+        QVERIFY(store.saveSession(state));
+        QCOMPARE(store.readingPosition(source)["page"].toInt(), 2);
+        QCOMPARE(store.continueReading()["id"].toString(), "t1");
+        const auto id = store.createWorkspace("Tabs");
+        QVERIFY(store.saveWorkspace(id, state));
+        QCOMPARE(store.loadWorkspace(id)["tree"].toMap()["tabs"].toList().size(), 2);
+        QCOMPARE(store.recentWorkspaces()[0].toMap()["papers"].toInt(), 1);
+    }
     void activePaneOwnsRecentPosition() {
         QTemporaryDir directory;
         ResearchStore store(directory.path());

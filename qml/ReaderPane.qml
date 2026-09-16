@@ -7,6 +7,7 @@ Rectangle {
     id: root
     property int paneIndex: 0
     property bool isActive: false
+    property bool managed: false
     property alias source: canvas.source
     property alias selectedText: canvas.selectedText
     property var sourceToReveal: null
@@ -15,6 +16,7 @@ Rectangle {
     signal changed()
     signal documentAboutToOpen()
     signal documentOpened()
+    signal fileChosen(url source)
     color: "#e8e8e8"
     border.color: isActive ? "#888888" : "#d6d6d6"
 
@@ -78,9 +80,9 @@ Rectangle {
 
     FileDialog {
         id: fileDialog
-        title: root.paneIndex === 0 ? "Open PDF on the left" : "Open PDF on the right"
+        title: "Open PDF"
         nameFilters: ["PDF documents (*.pdf)"]
-        onAccepted: root.openFile(selectedFile)
+        onAccepted: { if (root.managed) root.fileChosen(selectedFile); else root.openFile(selectedFile) }
     }
 
     ColumnLayout {
@@ -89,8 +91,9 @@ Rectangle {
         spacing: 0
 
         Rectangle {
+            visible: !root.managed
             Layout.fillWidth: true
-            Layout.preferredHeight: 48
+            Layout.preferredHeight: visible ? 48 : 0
             color: "#ffffff"
             RowLayout {
                 anchors.fill: parent
@@ -129,6 +132,7 @@ Rectangle {
                     Layout.preferredWidth: 42
                     horizontalAlignment: Text.AlignHCenter
                     text: (canvas.currentPage + 1).toString()
+                    onActiveFocusChanged: if (activeFocus) root.activated()
                     validator: IntValidator { bottom: 1; top: Math.max(1, canvas.pageCount) }
                     onAccepted: {
                         canvas.jump(Number(text) - 1, 0, 0)
@@ -140,7 +144,7 @@ Rectangle {
                 ToolButton { text: "−"; onClicked: { root.activated(); canvas.zoom(1 / 1.2) } }
                 ToolButton {
                     text: Math.round(canvas.zoomFactor * 100) + "%"
-                    onClicked: canvas.fitWidth()
+                    onClicked: { root.activated(); canvas.fitWidth() }
                     ToolTip.visible: hovered
                     ToolTip.text: "Click to fit width · Ctrl+wheel to zoom"
                 }
@@ -154,7 +158,7 @@ Rectangle {
                 ToolButton {
                     text: "Copy"
                     enabled: canvas.selectedText.length > 0
-                    onClicked: canvas.copySelection()
+                    onClicked: { root.activated(); canvas.copySelection() }
                 }
             }
         }
@@ -260,7 +264,7 @@ Rectangle {
                 anchors.fill: parent
                 onDropped: function(drop) {
                     if (drop.hasUrls && /\.pdf$/i.test(drop.urls[0].toString())) {
-                        root.openFile(drop.urls[0])
+                        if (root.managed) root.fileChosen(drop.urls[0]); else root.openFile(drop.urls[0])
                         drop.acceptProposedAction()
                     }
                 }

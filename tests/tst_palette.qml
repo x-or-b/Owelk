@@ -35,7 +35,8 @@ Item {
         function test_commandsAndArguments() {
             const query = findChild(palette, "paletteQuery")
             query.text = "/split"
-            compare(palette.results.length, 2)
+            compare(palette.results.length, 3)
+            keyClick(Qt.Key_Down)
             keyClick(Qt.Key_Down)
             keyClick(Qt.Key_Return)
             tryCompare(command, "count", 1)

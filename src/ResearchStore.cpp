@@ -20,6 +20,38 @@
 #include <cmath>
 
 namespace {
+void collectTabs(const QVariantMap &node, QVariantList &tabs)
+{
+    if (node.value("kind") == "group") tabs.append(node.value("tabs").toList());
+    else if (node.value("kind") == "split") {
+        collectTabs(node.value("first").toMap(), tabs);
+        collectTabs(node.value("second").toMap(), tabs);
+    }
+}
+QVariantMap activeTab(const QVariantMap &node, const QString &group)
+{
+    if (node.value("kind") == "group" && node.value("id") == group) {
+        for (const auto &tab : node.value("tabs").toList())
+            if (tab.toMap().value("id") == node.value("activeTab")) return tab.toMap();
+    } else if (node.value("kind") == "split") {
+        auto tab = activeTab(node.value("first").toMap(), group);
+        return tab.isEmpty() ? activeTab(node.value("second").toMap(), group) : tab;
+    }
+    return {};
+}
+QVariantList readers(const QVariantMap &state)
+{
+    QVariantList result;
+    if (state.value("version").toInt() == 2) {
+        collectTabs(state.value("tree").toMap(), result);
+        const auto active = activeTab(state.value("tree").toMap(), state.value("activeGroup").toString());
+        if (!active.isEmpty()) result.append(active); // Last write owns recent position, not other copies of the same PDF.
+    } else {
+        const bool right = state.value("active").toInt() == 1 && state.value("split").toBool();
+        result << state.value(right ? "left" : "right") << state.value(right ? "right" : "left");
+    }
+    return result;
+}
 QString fingerprint(const QString &path)
 {
     QFile file(path);
@@ -71,6 +103,7 @@ bool ResearchStore::initialize(QString *error)
         "CREATE TABLE IF NOT EXISTS reading_positions (url TEXT PRIMARY KEY, position TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, state TEXT NOT NULL, opened_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS workspace_documents (workspace_id TEXT NOT NULL, url TEXT NOT NULL, PRIMARY KEY(workspace_id,url))",
+        "CREATE TABLE IF NOT EXISTS deleted_captures (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, "
         "sha256 TEXT NOT NULL, page INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, "
         "width REAL NOT NULL, height REAL NOT NULL, image TEXT NOT NULL, created_at TEXT NOT NULL)"
@@ -107,10 +140,8 @@ bool ResearchStore::saveSession(const QVariantMap &state)
         emit message(tr("Cannot save reading position: %1").arg(query.lastError().text()));
         return false;
     }
-    const QStringList order = state.value("active").toInt() == 1 && state.value("split").toBool()
-        ? QStringList{"left", "right"} : QStringList{"right", "left"};
-    for (const auto &key : order) {
-        const auto reader = state.value(key).toMap();
+    for (const auto &value : readers(state)) {
+        const auto reader = value.toMap();
         const auto source = QUrl(reader.value("source").toString());
         if (!source.isLocalFile()) continue;
         QSqlQuery position(m_database);
@@ -170,7 +201,7 @@ void ResearchStore::reloadCaptures()
 {
     m_captures.clear();
     QSqlQuery query(m_database);
-    query.exec("SELECT id,source,page,image,created_at FROM captures ORDER BY created_at DESC");
+    query.exec("SELECT id,source,page,image,created_at FROM captures WHERE id NOT IN (SELECT id FROM deleted_captures) ORDER BY created_at DESC");
     while (query.next()) {
         const auto url = QUrl(query.value(1).toString());
         m_captures.append(QVariantMap{
@@ -196,6 +227,14 @@ QVariantMap ResearchStore::readingPosition(const QUrl &source) const
 QVariantMap ResearchStore::continueReading() const
 {
     const auto state = session();
+    if (state.value("version").toInt() == 2) {
+        auto tab = activeTab(state.value("tree").toMap(), state.value("activeGroup").toString());
+        if (tab.isEmpty()) { const auto all = readers(state); if (!all.isEmpty()) tab = all.first().toMap(); }
+        const QUrl source(tab.value("source").toString());
+        if (!source.isLocalFile()) return {};
+        tab.insert("name", fileName(source));
+        return tab;
+    }
     const QString preferred = state.value("active").toInt() == 1 && state.value("split").toBool() ? "right" : "left";
     auto reader = state.value(preferred).toMap();
     if (reader.value("source").toString().isEmpty()) reader = state.value(preferred == "left" ? "right" : "left").toMap();
@@ -258,8 +297,8 @@ bool ResearchStore::saveWorkspace(const QString &id, const QVariantMap &state)
     query.addBindValue(QString::fromUtf8(QJsonDocument::fromVariant(state).toJson(QJsonDocument::Compact)));
     query.addBindValue(id);
     if (!query.exec() || query.numRowsAffected() != 1) { m_database.rollback(); emit message(tr("Cannot save this workspace.")); return false; }
-    for (const auto &key : {"left", "right"}) {
-        const auto source = state.value(key).toMap().value("source").toString();
+    for (const auto &value : readers(state)) {
+        const auto source = value.toMap().value("source").toString();
         if (source.isEmpty()) continue;
         QSqlQuery link(m_database);
         link.prepare("INSERT OR IGNORE INTO workspace_documents VALUES(?,?)");
@@ -398,7 +437,7 @@ void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &re
 void ResearchStore::openCapture(const QString &id)
 {
     QSqlQuery query(m_database);
-    query.prepare("SELECT source,sha256,page,x,y,width,height FROM captures WHERE id=?");
+    query.prepare("SELECT source,sha256,page,x,y,width,height FROM captures WHERE id=? AND id NOT IN (SELECT id FROM deleted_captures)");
     query.addBindValue(id);
     if (!query.exec() || !query.next()) return;
     const auto url = QUrl(query.value(0).toString());
@@ -407,9 +446,12 @@ void ResearchStore::openCapture(const QString &id)
     const QRectF rect(query.value(3).toDouble(), query.value(4).toDouble(),
                       query.value(5).toDouble(), query.value(6).toDouble());
     auto *watcher = new QFutureWatcher<QString>(this);
-    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, url, expectedHash, page, rect] {
+    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, id, url, expectedHash, page, rect] {
         const auto hash = watcher->result();
         watcher->deleteLater();
+        QSqlQuery deleted(m_database);
+        deleted.prepare("SELECT id FROM deleted_captures WHERE id=?"); deleted.addBindValue(id);
+        if (!deleted.exec() || deleted.next()) return;
         if (hash.isEmpty())
             emit message(tr("Source file not found. The saved capture image is preserved."));
         else if (hash != expectedHash)
@@ -423,6 +465,46 @@ void ResearchStore::openCapture(const QString &id)
 void ResearchStore::copyText(const QString &text)
 {
     QGuiApplication::clipboard()->setText(text);
+}
+
+bool ResearchStore::removeRecentDocument(const QUrl &url)
+{
+    QSqlQuery query(m_database);
+    query.prepare("DELETE FROM recent_documents WHERE url=?");
+    query.addBindValue(url.toString());
+    if (!query.exec()) { emit message(query.lastError().text()); return false; }
+    emit recentDocumentsChanged(); emit homeChanged();
+    emit message(tr("Removed from Recent Papers. The original PDF and open tabs were kept."));
+    return true;
+}
+
+bool ResearchStore::deleteCapture(const QString &id)
+{
+    QSqlQuery query(m_database);
+    query.prepare("SELECT image FROM captures WHERE id=? AND id NOT IN (SELECT id FROM deleted_captures)");
+    query.addBindValue(id);
+    if (!query.exec() || !query.next()) return false;
+    const QString image = query.value(0).toString();
+    // Only an app-generated single PNG file may be moved, never an arbitrary stored path.
+    if (QUuid(id).isNull() || image != id + ".png") { emit message(tr("Invalid capture image path.")); return false; }
+    const QString original = m_directory + "/captures/" + image;
+    const QString archived = m_directory + "/captures/trash/" + image;
+    if (!QDir().mkpath(m_directory + "/captures/trash") || !m_database.transaction()) {
+        emit message(tr("Cannot prepare local capture trash. Check storage and permissions.")); return false;
+    }
+    const bool exists = QFileInfo::exists(original);
+    if (exists && !QFile::rename(original, archived)) { m_database.rollback(); emit message(tr("Cannot move capture to local trash.")); return false; }
+    QSqlQuery mark(m_database);
+    mark.prepare("INSERT INTO deleted_captures VALUES(?,?)"); mark.addBindValue(id);
+    mark.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+    if (!mark.exec() || !m_database.commit()) {
+        m_database.rollback();
+        if (exists) QFile::rename(archived, original);
+        emit message(tr("Cannot delete capture.")); return false;
+    }
+    reloadCaptures();
+    emit message(tr("Capture moved to local trash. The source PDF was kept."));
+    return true;
 }
 
 int ResearchStore::listFolder(const QUrl &folder)

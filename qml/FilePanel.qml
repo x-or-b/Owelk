@@ -123,14 +123,10 @@ Item {
             model: researchStore.recentDocuments
             clip: true
             ScrollBar.vertical: ScrollBar {}
-            delegate: ItemDelegate {
-                required property var modelData
+            delegate: RecentPaperDelegate {
                 width: ListView.view.width
                 height: 30
-                text: modelData.name
-                onClicked: root.documentChosen(modelData.url)
-                ToolTip.visible: hovered
-                ToolTip.text: modelData.url.toString()
+                onDocumentChosen: function(source, position) { root.documentChosen(source) }
             }
         }
     }

@@ -1,0 +1,74 @@
+.pragma library
+
+// Serializable model. PDF paths identify sources; tab IDs identify independent views.
+var serial = 0
+function id(prefix) { return prefix + "-" + Date.now().toString(36) + "-" + (++serial) + "-" + Math.random().toString(36).slice(2, 8) }
+function clone(value) { return JSON.parse(JSON.stringify(value)) }
+function group(tabs) { return {kind: "group", id: id("group"), tabs: tabs || [], activeTab: tabs && tabs.length ? tabs[0].id : ""} }
+function tab(source, position) { return {id: id("tab"), source: source.toString(), position: Object.assign({page: 0, y: 0, x: 0, zoom: 1}, clone(position || {}))} }
+function leaves(node) { return node.kind === "group" ? [node] : leaves(node.first).concat(leaves(node.second)) }
+function find(node, key) { if (node.id === key) return node; return node.kind === "split" ? find(node.first, key) || find(node.second, key) : null }
+function owner(node, tabId) { return leaves(node).find(function(g) { return g.tabs.some(function(t) { return t.id === tabId }) }) }
+function replace(node, key, replacement) {
+    if (node.id === key) return replacement
+    if (node.kind === "split") { node.first = replace(node.first, key, replacement); node.second = replace(node.second, key, replacement) }
+    return node
+}
+function prune(node) {
+    if (node.kind === "group") return node.tabs.length ? node : null
+    node.first = prune(node.first); node.second = prune(node.second)
+    return !node.first ? node.second : !node.second ? node.first : node
+}
+function split(node, target, added, edge) {
+    const old = find(node, target)
+    const before = edge === "left" || edge === "top"
+    return replace(node, target, {kind: "split", id: id("split"), axis: edge === "top" || edge === "bottom" ? "vertical" : "horizontal",
+        ratio: .5, first: before ? added : old, second: before ? old : added})
+}
+function minimum(node) {
+    if (node.kind === "group") return {width: 440, height: 280}
+    const a = minimum(node.first), b = minimum(node.second)
+    return node.axis === "horizontal" ? {width: a.width + b.width + 6, height: Math.max(a.height, b.height)}
+        : {width: Math.max(a.width, b.width), height: a.height + b.height + 6}
+}
+function geometry(node, x, y, width, height, groups, handles) {
+    if (node.kind === "group") { groups.push({node: node, x: x, y: y, width: width, height: height}); return }
+    const horizontal = node.axis === "horizontal"
+    const a = minimum(node.first), b = minimum(node.second)
+    const span = (horizontal ? width : height) - 6
+    const first = Math.max(horizontal ? a.width : a.height, Math.min(span - (horizontal ? b.width : b.height), span * node.ratio))
+    handles.push({nodeId: node.id, horizontal: horizontal, x: x + (horizontal ? first : 0), y: y + (horizontal ? 0 : first),
+        width: horizontal ? 6 : width, height: horizontal ? height : 6, span: span})
+    geometry(node.first, x, y, horizontal ? first : width, horizontal ? height : first, groups, handles)
+    geometry(node.second, x + (horizontal ? first + 6 : 0), y + (horizontal ? 0 : first + 6), horizontal ? span - first : width, horizontal ? height : span - first, groups, handles)
+}
+function validate(node, ids, depth) {
+    if (!node || depth > 128 || typeof node.id !== "string" || !node.id || ids[node.id]) return false
+    ids[node.id] = true
+    if (node.kind === "split") return ["horizontal", "vertical"].indexOf(node.axis) >= 0 && Number.isFinite(node.ratio) && node.ratio > 0 && node.ratio < 1 && validate(node.first, ids, depth + 1) && validate(node.second, ids, depth + 1)
+    if (node.kind !== "group" || !Array.isArray(node.tabs)) return false
+    for (let i = 0; i < node.tabs.length; ++i) {
+        const t = node.tabs[i]
+        if (!t || typeof t.id !== "string" || !t.id || ids[t.id] || typeof t.source !== "string" || !t.source.startsWith("file:")) return false
+        ids[t.id] = true
+        if (!t.position || !Number.isFinite(t.position.page) || t.position.page < 0) return false
+    }
+    return node.tabs.length ? node.tabs.some(function(t) { return t.id === node.activeTab }) : node.activeTab === ""
+}
+function restore(state) {
+    if (state.version === 2) {
+        const tree = clone(state.tree)
+        if (!validate(tree, {}, 0)) throw new Error("Invalid saved tab layout. The saved data has not been overwritten.")
+        const list = leaves(tree)
+        return {tree: tree, activeGroup: list.some(function(g) { return g.id === state.activeGroup }) ? state.activeGroup : list[0].id}
+    }
+    if (state.version && state.version !== 1) throw new Error("This session needs a newer Owelk version. Saved data has not been overwritten.")
+    const a = group(state.left && state.left.source ? [tab(state.left.source, state.left.position)] : [])
+    const b = group(state.right && state.right.source ? [tab(state.right.source, state.right.position)] : [])
+    let tree = a
+    // A hidden legacy right pane is preserved as a background tab, never discarded.
+    if (state.split && b.tabs.length) tree = {kind: "split", id: id("split"), axis: "horizontal", ratio: .5, first: a, second: b}
+    else if (b.tabs.length) a.tabs = a.tabs.concat(b.tabs)
+    if (!a.activeTab && a.tabs.length) a.activeTab = a.tabs[0].id
+    return {tree: tree, activeGroup: state.split && state.active === 1 && b.tabs.length ? b.id : a.id}
+}

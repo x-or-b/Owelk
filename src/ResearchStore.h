@@ -11,7 +11,7 @@
 class ResearchStore final : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QVariantMap session READ session CONSTANT)
+    Q_PROPERTY(QVariantMap session READ session NOTIFY homeChanged)
     Q_PROPERTY(QVariantList captures READ captures NOTIFY capturesChanged)
     Q_PROPERTY(QVariantList recentDocuments READ recentDocuments NOTIFY recentDocumentsChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
@@ -31,6 +31,8 @@ public:
 
     Q_INVOKABLE bool saveSession(const QVariantMap &state);
     Q_INVOKABLE bool rememberDocument(const QUrl &url);
+    Q_INVOKABLE bool removeRecentDocument(const QUrl &url);
+    Q_INVOKABLE bool deleteCapture(const QString &id);
     Q_INVOKABLE QString fileName(const QUrl &url) const;
     Q_INVOKABLE void captureRegion(const QUrl &source, int page, const QRectF &normalizedRegion);
     Q_INVOKABLE void openCapture(const QString &id);

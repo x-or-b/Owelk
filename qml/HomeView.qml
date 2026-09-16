@@ -131,7 +131,7 @@ Rectangle {
                         }
                     }
                     Label { visible: researchStore.recentWorkspaces.length === 0; text: "No workspaces yet"; color: "#777777" }
-                    Label { Layout.fillWidth: true; text: "Keep papers and reading state together by topic."; wrapMode: Text.Wrap; font.pixelSize: 11; color: "#777777" }
+                    Label { Layout.fillWidth: true; text: "Keep papers, tabs and reading state together by topic."; wrapMode: Text.Wrap; font.pixelSize: 11; color: "#777777" }
                 }
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -141,14 +141,10 @@ Rectangle {
                     Label { text: "Recent Papers"; font.pixelSize: 14; font.weight: Font.DemiBold; Layout.preferredHeight: 32 }
                     Repeater {
                         model: researchStore.recentDocuments
-                        delegate: ItemDelegate {
-                            required property var modelData
+                        delegate: RecentPaperDelegate {
                             Layout.fillWidth: true
                             implicitHeight: 44
-                            text: modelData.name
-                            onClicked: root.documentChosen(modelData.url, modelData.position)
-                            ToolTip.visible: hovered
-                            ToolTip.text: modelData.url.toString()
+                            onDocumentChosen: function(source, position) { root.documentChosen(source, position) }
                         }
                     }
                     Label { visible: researchStore.recentDocuments.length === 0; text: "No recent papers"; color: "#777777" }

@@ -18,8 +18,9 @@ Popup {
         {kind: "command", command: "/open paper", title: "Open PDF…"},
         {kind: "command", command: "/find", title: "Find in current document"},
         {kind: "command", command: "/files", title: "Show files", description: "Browse recent PDFs or open a paper folder"},
-        {kind: "command", command: "/split right", title: "Split right"},
-        {kind: "command", command: "/split off", title: "Single pane"},
+        {kind: "command", command: "/split right", title: "Duplicate tab to right split"},
+        {kind: "command", command: "/split down", title: "Duplicate tab to bottom split"},
+        {kind: "command", command: "/split off", title: "Join all groups", description: "Keep all tabs in one group"},
         {kind: "command", command: "/capture", title: "Toggle region capture", description: "Save a figure, table or equation with its source"},
         {kind: "command", command: "/captures", title: "Show saved captures", description: "Select a saved capture to return to its source"}
     ]

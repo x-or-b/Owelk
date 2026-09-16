@@ -6,10 +6,9 @@ Item {
     property string kind
     property string description
     property bool selected: false
-    property bool draggable: false
+    property string dockSide: ""
     signal triggered()
-    signal dragProgress(string panel, real windowX, real windowY)
-    signal dragEnded(string panel, real windowX, real windowY, bool cancelled)
+    signal dockSideChosen(string side)
     implicitWidth: 30
     implicitHeight: 28
     Accessible.role: Accessible.Button
@@ -18,11 +17,7 @@ Item {
     activeFocusOnTab: true
     Keys.onReturnPressed: triggered()
     Keys.onSpacePressed: triggered()
-    Keys.onEscapePressed: {
-        pointer.cancelled = true
-        pointer.moving = false
-        dragEnded(kind, 0, 0, true)
-    }
+    Keys.onMenuPressed: if (dockSide.length) dockMenu.popup()
     Rectangle {
         anchors.fill: parent
         anchors.margins: 2
@@ -65,31 +60,18 @@ Item {
         id: pointer
         anchors.fill: parent
         hoverEnabled: true
-        preventStealing: true
-        cursorShape: moving ? Qt.ClosedHandCursor : Qt.PointingHandCursor
-        property point start
-        property bool moving: false
-        property bool cancelled: false
-        onPressed: function(mouse) {
-            start = mapToItem(null, mouse.x, mouse.y)
-            moving = false
-            cancelled = false
-            root.forceActiveFocus()
-        }
-        onPositionChanged: function(mouse) {
-            if (!pressed || cancelled || !root.draggable) return
-            const point = mapToItem(null, mouse.x, mouse.y)
-            if (Math.abs(point.x - start.x) + Math.abs(point.y - start.y) > 8) moving = true
-            if (moving) root.dragProgress(root.kind, point.x, point.y)
-        }
-        onReleased: function(mouse) {
-            if (cancelled) return
-            const point = mapToItem(null, mouse.x, mouse.y)
-            if (moving) root.dragEnded(root.kind, point.x, point.y, false)
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: Qt.PointingHandCursor
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) { if (root.dockSide.length) dockMenu.popup() }
             else root.triggered()
-            moving = false
         }
-        onCanceled: { moving = false; cancelled = true; root.dragEnded(root.kind, 0, 0, true) }
+    }
+    Menu {
+        id: dockMenu
+        objectName: "dockMenu-" + root.kind
+        MenuItem { objectName: "leftDockOption"; text: "Left Dock"; checkable: true; checked: root.dockSide === "left"; onTriggered: root.dockSideChosen("left") }
+        MenuItem { objectName: "rightDockOption"; text: "Right Dock"; checkable: true; checked: root.dockSide === "right"; onTriggered: root.dockSideChosen("right") }
     }
     ToolTip.visible: pointer.containsMouse && !pointer.pressed
     ToolTip.delay: 450

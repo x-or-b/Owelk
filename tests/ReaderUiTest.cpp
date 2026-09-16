@@ -7,7 +7,6 @@
 #include <QPdfDocument>
 #include <QPdfSelection>
 #include <QMouseEvent>
-#include <QKeyEvent>
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QPointingDevice>
@@ -17,21 +16,19 @@
 #include <QDir>
 #include <QFile>
 #include <QtQuickTest/quicktest.h>
+#include <QtTest/QTest>
 
 class ReaderSetup : public QObject
 {
     Q_OBJECT
 public:
     Q_INVOKABLE QString clipboardText() const { return QGuiApplication::clipboard()->text(); }
-    Q_INVOKABLE void keyClick(QQuickItem *item, int key) {
+    Q_INVOKABLE void keyClick(QQuickItem *item, int key, int modifiers = 0) {
         if (!item || !item->window()) return;
         item->window()->requestActivate();
         QCoreApplication::processEvents();
         item->forceActiveFocus();
-        QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier);
-        QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier);
-        QCoreApplication::sendEvent(item->window(), &press);
-        QCoreApplication::sendEvent(item->window(), &release);
+        QTest::keyClick(item->window(), Qt::Key(key), Qt::KeyboardModifiers(modifiers));
     }
     // Exercise input-device filtering inside the offscreen test window only.
     Q_INVOKABLE void pointerDrag(QQuickItem *item, QPointF start, QPointF end, bool trackpad) {

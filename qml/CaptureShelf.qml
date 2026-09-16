@@ -4,7 +4,22 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
+    objectName: "captureShelf"
     color: "#fafafa"
+    property string deletingId: ""
+    function requestDelete(id) { deletingId = id; deleteDialog.open() }
+    Dialog {
+        id: deleteDialog
+        objectName: "deleteCaptureDialog"
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        title: "Delete capture?"
+        width: 370
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        Label { width: 310; wrapMode: Text.Wrap; text: "This capture will be moved to local trash. The original PDF will be kept." }
+        onAccepted: { const id = root.deletingId; Qt.callLater(function() { researchStore.deleteCapture(id) }) }
+    }
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 12
@@ -36,6 +51,14 @@ Rectangle {
                 height: preview.height + 67
                 padding: 10
                 onClicked: researchStore.openCapture(modelData.id)
+                MouseArea { anchors.fill: parent; acceptedButtons: Qt.RightButton; onClicked: captureMenu.popup() }
+                Menu { id: captureMenu; MenuItem { text: "Delete Capture…"; onTriggered: root.requestDelete(card.modelData.id) } }
+                ToolButton {
+                    anchors.right: parent.right; anchors.bottom: parent.bottom
+                    width: 28; height: 28; text: "…"
+                    Accessible.name: "Capture actions"
+                    onClicked: captureMenu.popup()
+                }
                 background: Rectangle {
                     color: card.hovered ? "#eeeeee" : "white"
                     border.color: "#dddddd"

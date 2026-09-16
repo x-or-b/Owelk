@@ -8,7 +8,6 @@ Rectangle {
     property var panels: []
     property string activePanel: panels.length ? panels[0] : ""
     property url folder
-    signal closePanel(string panel)
     signal documentChosen(url source)
     signal folderChosen(url folder)
     color: "#f7f7f7"
@@ -33,7 +32,6 @@ Rectangle {
                 }
             }
             Item { Layout.fillWidth: true }
-            ToolButton { objectName: "closePanel"; text: "×"; onClicked: root.closePanel(root.activePanel); Accessible.name: "Close panel" }
         }
         Loader {
             Layout.fillWidth: true

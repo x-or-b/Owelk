@@ -13,7 +13,7 @@ target_include_directories(owelk_core PUBLIC src)
 qt_add_executable(owelk MACOSX_BUNDLE src/main.cpp)
 qt_add_qml_module(owelk
     URI Owelk VERSION 1.0
-    QML_FILES qml/Main.qml qml/ReaderPane.qml qml/PdfCanvas.qml qml/CaptureShelf.qml qml/CommandPalette.qml qml/FilePanel.qml qml/DockSidebar.qml qml/HomeView.qml qml/StatusIcon.qml
+    QML_FILES qml/Main.qml qml/ReaderPane.qml qml/PdfCanvas.qml qml/CaptureShelf.qml qml/CommandPalette.qml qml/FilePanel.qml qml/DockSidebar.qml qml/HomeView.qml qml/StatusIcon.qml qml/DocumentWorkspace.qml qml/DocumentGroup.qml qml/WorkspaceTree.js qml/RecentPaperDelegate.qml
 )
 target_link_libraries(owelk PRIVATE owelk_core Qt6::Quick Qt6::QuickControls2 Qt6::PdfQuick)
 set_target_properties(owelk PROPERTIES
