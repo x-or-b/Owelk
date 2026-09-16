@@ -1,0 +1,224 @@
+#include "ResearchStore.h"
+#include "SelectionGeometry.h"
+#include "PdfFixture.h"
+#include <QFile>
+#include <QImage>
+#include <QPdfDocument>
+#include <QPdfSelection>
+#include <QSignalSpy>
+#include <QTemporaryDir>
+#include <QtTest>
+
+class ResearchStoreTest : public QObject
+{
+    Q_OBJECT
+private slots:
+    void activePaneOwnsRecentPosition() {
+        QTemporaryDir directory;
+        ResearchStore store(directory.path());
+        QString error;
+        QVERIFY(store.initialize(&error));
+        const auto source = QUrl::fromLocalFile(directory.filePath("paper.pdf"));
+        QVariantMap state{{"left", QVariantMap{{"source", source.toString()}, {"position", QVariantMap{{"page", 2}}}}},
+            {"right", QVariantMap{{"source", source.toString()}, {"position", QVariantMap{{"page", 5}}}}},
+            {"split", true}, {"active", 0}};
+        QVERIFY(store.saveSession(state));
+        QCOMPARE(store.readingPosition(source)["page"].toInt(), 2);
+        state["active"] = 1;
+        QVERIFY(store.saveSession(state));
+        QCOMPARE(store.readingPosition(source)["page"].toInt(), 5);
+        QCOMPARE(store.continueReading()["position"].toMap()["page"].toInt(), 5);
+        QVERIFY(!store.saveWorkspace("missing", state));
+        QVERIFY(store.saveSession(state)); // A failed workspace write must not leave a transaction open.
+    }
+    void homeDataAndWorkspacesSurviveRestart() {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("Alpha Paper.pdf");
+        writeFixture(path);
+        const auto source = QUrl::fromLocalFile(path);
+        QString id;
+        {
+            ResearchStore store(directory.filePath("data"));
+            QString error;
+            QVERIFY(store.initialize(&error));
+            QVERIFY(store.rememberDocument(source));
+            id = store.createWorkspace("Alpha study");
+            QVERIFY(!id.isEmpty());
+            QVERIFY(store.createWorkspace("  ").isEmpty());
+            const QVariantMap position{{"page", 3}, {"y", .2}, {"zoom", 1.4}};
+            const QVariantMap state{{"left", QVariantMap{{"source", source.toString()}, {"position", position}}},
+                {"workspace", id}, {"active", 0}};
+            QVERIFY(store.saveSession(state));
+            QVERIFY(store.saveWorkspace(id, state));
+            QCOMPARE(store.continueReading().value("position").toMap().value("page").toInt(), 3);
+            QCOMPARE(store.readingPosition(source), position);
+            const auto results = store.searchKnowledge("ALPHA");
+            QCOMPARE(results.size(), 2);
+            QCOMPARE(results[0].toMap()["kind"].toString(), "paper");
+            QCOMPARE(results[1].toMap()["kind"].toString(), "workspace");
+            QVERIFY(store.searchKnowledge("' OR 1=1 --").isEmpty());
+            QVERIFY(store.searchKnowledge("").isEmpty());
+        }
+        ResearchStore reopened(directory.filePath("data"));
+        QString error;
+        QVERIFY(reopened.initialize(&error));
+        QCOMPARE(reopened.recentWorkspaces().size(), 1);
+        QCOMPARE(reopened.recentWorkspaces()[0].toMap()["papers"].toInt(), 1);
+        const auto workspace = reopened.loadWorkspace(id);
+        QCOMPARE(workspace["workspaceName"].toString(), "Alpha study");
+        QCOMPARE(workspace["left"].toMap()["position"].toMap()["page"].toInt(), 3);
+    }
+    void selectionUsesLineRectangles() {
+        SelectionGeometry geometry;
+        const auto glyph = [](qreal x, qreal y, qreal w = 5, qreal h = 10) { return QPolygonF(QRectF(x, y, w, h)); };
+        const auto joined = geometry.lineRectangles({glyph(10, 10), glyph(17, 11, 5, 9), glyph(28, 10)});
+        QCOMPARE(joined.size(), 1);
+        const auto rect = joined.first().toRectF();
+        QCOMPARE(rect.x(), 10);
+        QCOMPARE(rect.width(), 23);
+        QVERIFY(qAbs(rect.top() - 8.2) < .001);
+        QVERIFY(qAbs(rect.bottom() - 21.8) < .001);
+        const auto separate = geometry.lineRectangles({glyph(10, 10), glyph(17, 10), glyph(200, 10), glyph(10, 30)});
+        QCOMPARE(separate.size(), 3);
+        const auto closeLines = geometry.lineRectangles({glyph(10, 10), glyph(10, 21)});
+        QCOMPARE(closeLines.size(), 2);
+        QVERIFY(closeLines[0].toRectF().bottom() <= closeLines[1].toRectF().top());
+        QVERIFY(geometry.lineRectangles({}).isEmpty());
+        QVERIFY(geometry.lineRectangles({QPolygonF()}).isEmpty());
+    }
+    void selectionHeightDoesNotFollowSelectedGlyphs() {
+        SelectionGeometry geometry;
+        const QPolygonF small(QRectF(10, 13, 5, 6));
+        const QPolygonF capital(QRectF(17, 10, 5, 9));
+        const QPolygonF descender(QRectF(24, 13, 5, 9));
+        const auto lines = geometry.lineRectangles({small, capital, descender});
+        QCOMPARE(lines.size(), 1);
+        const auto a = geometry.stableRectangles({small}, lines).first().toRectF();
+        const auto ag = geometry.stableRectangles({small, capital, descender}, lines).first().toRectF();
+        QCOMPARE(a.top(), ag.top());
+        QCOMPARE(a.bottom(), ag.bottom());
+        QVERIFY(a.top() < 10);
+        QVERIFY(a.bottom() > 22);
+        QCOMPARE(a.width(), 5);
+    }
+    void sessionSurvivesRestart() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QVariantMap expected{{"left", QVariantMap{{"source", "file:///paper.pdf"},
+            {"position", QVariantMap{{"page", 4}, {"y", .38}, {"zoom", 1.2}}}}}, {"split", true}};
+        {
+            ResearchStore store(directory.path());
+            QString error;
+            QVERIFY2(store.initialize(&error), qPrintable(error));
+            QVERIFY(store.saveSession(expected));
+        }
+        ResearchStore reopened(directory.path());
+        QString error;
+        QVERIFY(reopened.initialize(&error));
+        QCOMPARE(reopened.session().value("left").toMap().value("position").toMap().value("y").toDouble(), .38);
+        QCOMPARE(reopened.session().value("left").toMap().value("position").toMap().value("page").toInt(), 4);
+    }
+
+    void captureKeepsPixelsAndVerifiesSource() {
+        QTemporaryDir directory;
+        const QString path = directory.filePath("paper with spaces.pdf");
+        writeFixture(path);
+        QPdfDocument pdf;
+        QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+        QCOMPARE(pdf.pageCount(), 8);
+        QVERIFY(pdf.getAllText(3).text().contains("occlusion"));
+
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        const QUrl source = QUrl::fromLocalFile(path);
+        QVERIFY(store.rememberDocument(source));
+        QVERIFY(store.rememberDocument(source));
+        QCOMPARE(store.recentDocuments().size(), 1);
+        QSignalSpy saved(&store, &ResearchStore::captureSaved);
+        QSignalSpy ready(&store, &ResearchStore::sourceReady);
+        QSignalSpy messages(&store, &ResearchStore::message);
+        store.captureRegion(source, 3, QRectF(.1, .5, .75, .25));
+        QVERIFY(store.busy());
+        QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 15000);
+        QVERIFY(!store.busy());
+        QCOMPARE(store.captures().size(), 1);
+        const auto capture = store.captures().first().toMap();
+        const auto found = store.searchKnowledge("paper with spaces");
+        QCOMPARE(found.size(), 2);
+        QCOMPARE(found[1].toMap()["kind"].toString(), "capture");
+        QCOMPARE(found[1].toMap()["id"].toString(), capture["id"].toString());
+        const QImage image(capture.value("image").toUrl().toLocalFile());
+        QVERIFY(!image.isNull());
+        QVERIFY(image.width() > 800);
+        QVERIFY(image.height() > 350);
+        store.openCapture(capture.value("id").toString());
+        QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
+        QCOMPARE(ready.first()[1].toInt(), 3);
+        QCOMPARE(ready.first()[2].toRectF(), QRectF(.1, .5, .75, .25));
+
+        pdf.close();
+        QFile changed(path);
+        QVERIFY(changed.open(QIODevice::Append));
+        changed.write("\n% changed after capture\n");
+        changed.close();
+        messages.clear();
+        store.openCapture(capture.value("id").toString());
+        QTRY_VERIFY_WITH_TIMEOUT(!messages.isEmpty(), 10000);
+        QCOMPARE(ready.size(), 1);
+        QVERIFY(messages.last()[0].toString().contains("changed"));
+        QVERIFY(QFileInfo::exists(capture.value("image").toUrl().toLocalFile()));
+
+        ResearchStore reopened(directory.filePath("data"));
+        QVERIFY(reopened.initialize(&error));
+        QCOMPARE(reopened.captures().size(), 1);
+    }
+
+    void invalidCaptureDoesNotCreateEvidence() {
+        QTemporaryDir directory;
+        ResearchStore store(directory.path());
+        QString error;
+        QVERIFY(store.initialize(&error));
+        QSignalSpy messages(&store, &ResearchStore::message);
+        store.captureRegion(QUrl("https://example.com/paper.pdf"), 0, QRectF(0, 0, 1, 1));
+        QCOMPARE(messages.size(), 1);
+        QVERIFY(!store.busy());
+        store.captureRegion(QUrl::fromLocalFile(directory.filePath("missing.pdf")), 0, QRectF(0, 0, 1, 1));
+        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+        QCOMPARE(store.captures().size(), 0);
+        QCOMPARE(messages.size(), 2);
+    }
+    void folderListingIsReadOnlyAndScoped() {
+        QTemporaryDir directory;
+        QVERIFY(QDir(directory.path()).mkdir("Papers"));
+        writeFixture(directory.filePath("sample.PDF"));
+        QFile other(directory.filePath("notes.txt"));
+        QVERIFY(other.open(QIODevice::WriteOnly));
+        other.write("preserved");
+        other.close();
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        QSignalSpy listed(&store, &ResearchStore::folderLoaded);
+        const int id = store.listFolder(QUrl::fromLocalFile(directory.path()));
+        QTRY_COMPARE_WITH_TIMEOUT(listed.size(), 1, 10000);
+        QCOMPARE(listed.first()[0].toInt(), id);
+        QVERIFY(listed.first()[3].toString().isEmpty());
+        const auto rows = listed.first()[2].toList();
+        bool foundPdf = false, foundFolder = false;
+        for (const auto &value : rows) {
+            const auto row = value.toMap();
+            QVERIFY(row["name"].toString() != "notes.txt");
+            if (row["name"].toString() == "sample.PDF") foundPdf = true;
+            if (row["name"].toString() == "Papers") foundFolder = true;
+        }
+        QVERIFY(foundPdf && foundFolder);
+        QVERIFY(other.open(QIODevice::ReadOnly));
+        QCOMPARE(other.readAll(), QByteArray("preserved"));
+        store.listFolder(QUrl("https://example.com"));
+        QTRY_COMPARE_WITH_TIMEOUT(listed.size(), 2, 10000);
+        QVERIFY(!listed.last()[3].toString().isEmpty());
+    }
+};
+QTEST_MAIN(ResearchStoreTest)
+#include "ResearchStoreTest.moc"
