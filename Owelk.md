@@ -945,23 +945,34 @@ AI Provider
 
 ├─ Ollama
 ├─ OpenAI API
-├─ Gemini API
-├─ Anthropic API
+├─ OpenAI 로그인 — ChatGPT 계정 / Codex App Server 연동 후보
+├─ Claude API — Anthropic API
+├─ Claude 로그인 — 공식 지원·이용 조건 확인 후 가능한 경우
 └─ Future Provider
 ```
 
 초기부터 특정 AI 회사에 Core Architecture를 종속시키지 않는다.
 
-초기에는 실제로 사용할 Provider 하나만 구현한다. 후보:
+초기 구현 후보:
 
 1. Ollama
 2. OpenAI API
+3. OpenAI 로그인 — ChatGPT 계정으로 인증하는 Codex App Server 연동
+4. Claude API — Anthropic API
+5. Claude 로그인 — 가능한 경우
 
-두 후보의 동시 지원은 초기 완료 조건이 아니다. 작은 공통 인터페이스만 두고, 두 번째 Provider는 실제 필요가 생기면 추가한다.
+후보 다섯 개의 동시 완성을 초기 완료 조건으로 삼지 않는다. 실제 사용할 연결 하나로 AI Reader의 흐름을 먼저 완성하고 나머지를 순차적으로 추가한다.
 
-ChatGPT 계정 기반 모델 호출은 현재 Core Requirement로 두지 않는다.
+모델 제공자와 인증·호출 방식을 구분한다. API Key로 직접 호출하는 연결과 계정 로그인 후 공식 에이전트 런타임을 사용하는 연결은 각각 별도 Adapter로 구현한다.
 
-향후 공식적인 integration 방식이 제공되면 별도 Provider로 추가할 수 있도록 구조만 준비한다.
+OpenAI 로그인은 Codex App Server의 공식 ChatGPT 인증 흐름을 우선 검토한다. ChatGPT 로그인 자격을 일반 OpenAI API Key처럼 사용하는 것으로 가정하지 않는다. 실제 사용 가능한 모델·입력 형식·사용량 한도는 해당 계정과 연동 방식에서 확인한다.
+
+Claude 로그인은 조건부 후보로 유지한다. 현재 Anthropic의 Agent SDK 문서는 사전 승인 없이 제삼자 앱에서 claude.ai 로그인 및 구독 한도를 제공하는 것을 허용하지 않는다고 명시한다. 개인 사용과 동료에게 제공할 사용 방식의 공식 지원·이용 조건을 확인한 뒤 구현 여부를 결정하고, 그전에는 Claude API를 사용 가능한 대안으로 둔다.
+
+공식 문서 확인 기준: 2026-09-16. 로그인 연동 구현 시 다시 확인한다.
+
+- [Codex App Server 인증](https://learn.chatgpt.com/docs/app-server#auth-endpoints)
+- [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk)
 
 ---
 
@@ -1433,7 +1444,14 @@ Figure captions
 추가:
 
 ```text
-Ollama 또는 OpenAI API — 초기에는 하나
+초기 연결 후보:
+Ollama
+OpenAI API
+OpenAI 로그인 — Codex App Server 연동
+Claude API
+Claude 로그인 — 가능한 경우
+실제 구현은 하나부터 순차 추가하며 로그인 조건은 23절을 따른다.
+
 Provider abstraction
 
 Explain
