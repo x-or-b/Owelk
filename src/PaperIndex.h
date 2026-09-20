@@ -26,7 +26,9 @@ public:
     QVariantList documents() const;
     QString progress() const { return m_progress; }
     bool paused() const { return m_paused; }
-    bool busy() const { return m_active || !m_queue.isEmpty(); }
+    bool busy() const { return m_active || !m_queue.isEmpty() || m_relocating > 0; }
+    QString knownHash(const QUrl &source) const;
+    void relocateSource(const QUrl &source, const QUrl &candidate);
     Q_INVOKABLE void setPaused(bool paused);
     Q_INVOKABLE void retry(const QUrl &source);
     Q_INVOKABLE int search(const QString &text);
@@ -40,11 +42,14 @@ signals:
     void message(const QString &text);
 private:
     void startNext();
+    QUrl resolvedSource(const QUrl &source) const;
     QString m_path, m_connection, m_progress;
     QSqlDatabase m_database;
     QThreadPool m_indexWorkers, m_searchWorkers;
     QQueue<QUrl> m_queue;
     QSet<QString> m_scheduled;
+    QHash<QString, QString> m_redirects;
+    int m_relocating = 0;
     QSet<QObject *> m_readers, m_interactingReaders;
     bool m_active = false, m_paused = false;
     int m_request = 0;

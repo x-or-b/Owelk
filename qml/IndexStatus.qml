@@ -55,6 +55,7 @@ ToolButton {
                             }
                         }
                         Button { text: "Retry"; visible: ["failed", "missing", "locked", "paused"].indexOf(modelData.state) >= 0; onClicked: root.indexer.retry(modelData.source) }
+                        Button { text: "Locate…"; onClicked: { const source = modelData.source; details.close(); researchStore.requestRelink(source) } }
                     }
                     ToolTip.visible: hovered
                     ToolTip.text: modelData.source.toString()

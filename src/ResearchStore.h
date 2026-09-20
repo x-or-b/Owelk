@@ -21,6 +21,7 @@ class ResearchStore final : public QObject
     Q_PROPERTY(QVariantList recentWorkspaces READ recentWorkspaces NOTIFY homeChanged)
     Q_PROPERTY(QVariantMap continueReading READ continueReading NOTIFY homeChanged)
     Q_PROPERTY(QObject *paperIndex READ paperIndex CONSTANT)
+    Q_PROPERTY(bool relinking READ relinking NOTIFY relinkingChanged)
 
 public:
     explicit ResearchStore(const QString &directory, QObject *parent = nullptr);
@@ -32,6 +33,10 @@ public:
     bool busy() const { return m_pending > 0; }
     QString dataDirectory() const { return m_directory; }
     QObject *paperIndex() const;
+    bool relinking() const { return m_relinking; }
+    Q_INVOKABLE QUrl resolvedSource(const QUrl &source) const;
+    Q_INVOKABLE void requestRelink(const QUrl &source);
+    Q_INVOKABLE void relinkSource(const QUrl &source, const QUrl &candidate);
 
     Q_INVOKABLE bool saveSession(const QVariantMap &state);
     Q_INVOKABLE bool rememberDocument(const QUrl &url);
@@ -59,9 +64,17 @@ signals:
     void sourceReady(const QUrl &source, int page, const QRectF &region);
     void folderLoaded(int requestId, const QUrl &folder, const QVariantList &entries, const QString &error);
     void homeChanged();
+    void relinkingChanged();
+    void relinkRequested(const QUrl &source);
+    void sourceRelinked(const QUrl &source, const QUrl &candidate);
+    void relinkFinished(bool success, const QString &detail);
 
 private:
     void reloadCaptures();
+    QVariantMap canonicalState(const QVariantMap &state) const;
+    bool applyRelink(const QUrl &source, const QUrl &candidate, const QString &hash, QString *error);
+    QHash<QString, QString> m_relinks;
+    bool m_relinking = false;
     QString m_directory;
     QString m_connection;
     QSqlDatabase m_database;

@@ -113,6 +113,25 @@ Flickable {
         if (!Tree.leaves(tree).some(function(g) { return g.tabs.length })) empty()
     }
     function closeActiveTab() { const g = Tree.find(tree, activeGroup); if (g && g.activeTab) closeTab(g.activeTab) }
+    function relinkSource(source, candidate) {
+        flush()
+        const oldUrl = source.toString(), newUrl = candidate.toString()
+        const list = Tree.leaves(tree)
+        for (let i = 0; i < list.length; ++i)
+            for (let j = 0; j < list[i].tabs.length; ++j)
+                if (list[i].tabs[j].source === oldUrl) list[i].tabs[j].source = newUrl
+        closedTabs = closedTabs.map(function(entry) {
+            const copy = Tree.clone(entry)
+            if (copy.tab.source === oldUrl) copy.tab.source = newUrl
+            return copy
+        })
+        // Invalidate only affected live readers, retaining all tab IDs and positions.
+        for (let i = 0; i < groups.count; ++i) {
+            const view = groups.itemAt(i)
+            if (view.reader.source.toString() === oldUrl) view.loadedTab = ""
+        }
+        sync(); changed()
+    }
     function openAtPage(source, page) {
         let tab = null
         const list = Tree.leaves(tree)

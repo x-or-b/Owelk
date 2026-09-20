@@ -12,7 +12,11 @@ ItemDelegate {
     ToolTip.delay: 450
     ToolTip.text: modelData.url.toString() + "\nRight-click to remove from Recent Papers"
     MouseArea { anchors.fill: parent; acceptedButtons: Qt.RightButton; onClicked: menu.popup() }
-    Menu { id: menu; objectName: "recentPaperMenu"; MenuItem { objectName: "removeRecentOption"; text: "Remove from Recent Papers…"; onTriggered: confirmation.open() } }
+    Menu {
+        id: menu; objectName: "recentPaperMenu"
+        MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(root.modelData.url) }
+        MenuItem { objectName: "removeRecentOption"; text: "Remove from Recent Papers…"; onTriggered: confirmation.open() }
+    }
     Dialog {
         id: confirmation
         objectName: "removeRecentDialog"

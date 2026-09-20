@@ -108,6 +108,7 @@ bool ResearchStore::initialize(QString *error)
         "CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, state TEXT NOT NULL, opened_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS workspace_documents (workspace_id TEXT NOT NULL, url TEXT NOT NULL, PRIMARY KEY(workspace_id,url))",
         "CREATE TABLE IF NOT EXISTS deleted_captures (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS source_relinks (old_url TEXT PRIMARY KEY,new_url TEXT NOT NULL,sha256 TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, "
         "sha256 TEXT NOT NULL, page INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, "
         "width REAL NOT NULL, height REAL NOT NULL, image TEXT NOT NULL, created_at TEXT NOT NULL)"
@@ -120,10 +121,16 @@ bool ResearchStore::initialize(QString *error)
         }
     }
     reloadCaptures();
+    QSqlQuery links(m_database);
+    links.exec("SELECT old_url,new_url FROM source_relinks");
+    while (links.next()) m_relinks.insert(links.value(0).toString(), links.value(1).toString());
     if (!m_index->initialize(error)) return false;
+    // Durable redirects also replay any search-cache update interrupted by process exit.
+    for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)
+        m_index->relocateSource(QUrl(it.key()), resolvedSource(QUrl(it.value())));
     QSqlQuery known(m_database);
     known.exec("SELECT url FROM recent_documents UNION SELECT url FROM reading_positions UNION SELECT url FROM workspace_documents");
-    while (known.next()) m_index->enqueue(QUrl(known.value(0).toString()));
+    while (known.next()) m_index->enqueue(resolvedSource(QUrl(known.value(0).toString())));
     return true;
 }
 
@@ -136,8 +143,9 @@ QVariantMap ResearchStore::session() const
     return json.object().toVariantMap();
 }
 
-bool ResearchStore::saveSession(const QVariantMap &state)
+bool ResearchStore::saveSession(const QVariantMap &input)
 {
+    const auto state = canonicalState(input);
     if (!m_database.transaction()) { emit message(tr("Cannot begin saving reading state.")); return false; }
     const QByteArray json = QJsonDocument(QJsonObject::fromVariantMap(state)).toJson(QJsonDocument::Compact);
     QSqlQuery query(m_database);
@@ -178,6 +186,7 @@ bool ResearchStore::rememberDocument(const QUrl &url)
     const QFileInfo info(url.toLocalFile());
     if (!url.isLocalFile() || !info.isFile() || !info.isReadable()) {
         emit message(tr("Cannot open this file. Check its location and permissions."));
+        if (url.isLocalFile()) emit relinkRequested(resolvedSource(url));
         return false;
     }
     QSqlQuery query(m_database);
@@ -297,8 +306,9 @@ QVariantMap ResearchStore::loadWorkspace(const QString &id)
     return state;
 }
 
-bool ResearchStore::saveWorkspace(const QString &id, const QVariantMap &state)
+bool ResearchStore::saveWorkspace(const QString &id, const QVariantMap &input)
 {
+    const auto state = canonicalState(input);
     if (id.isEmpty()) return true;
     if (!m_database.transaction()) { emit message(tr("Cannot begin saving workspace.")); return false; }
     QSqlQuery query(m_database);
@@ -356,6 +366,7 @@ QVariantList ResearchStore::searchKnowledge(const QString &queryText) const
 
 void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &requested)
 {
+    if (m_relinking) { emit message("Please wait until source verification finishes before capturing."); return; }
     if (!source.isLocalFile() || page < 0 || !std::isfinite(requested.x())
         || !std::isfinite(requested.y()) || !std::isfinite(requested.width())
         || !std::isfinite(requested.height())) {
@@ -459,11 +470,13 @@ void ResearchStore::openCapture(const QString &id)
         const auto hash = watcher->result();
         watcher->deleteLater();
         QSqlQuery deleted(m_database);
-        deleted.prepare("SELECT id FROM deleted_captures WHERE id=?"); deleted.addBindValue(id);
-        if (!deleted.exec() || deleted.next()) return;
-        if (hash.isEmpty())
+        deleted.prepare("SELECT source FROM captures WHERE id=? AND id NOT IN (SELECT id FROM deleted_captures)"); deleted.addBindValue(id);
+        if (!deleted.exec() || !deleted.next()) return;
+        if (QUrl(deleted.value(0).toString()) != url) { openCapture(id); return; }
+        if (hash.isEmpty()) {
             emit message(tr("Source file not found. The saved capture image is preserved."));
-        else if (hash != expectedHash)
+            emit relinkRequested(url);
+        } else if (hash != expectedHash)
             emit message(tr("The source PDF has changed. Its location cannot be verified; the saved capture is preserved."));
         else
             emit sourceReady(url, page, rect);

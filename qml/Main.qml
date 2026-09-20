@@ -77,7 +77,7 @@ ApplicationWindow {
         Qt.callLater(function() { (side === "left" ? leftDock : rightDock).activePanel = panel })
     }
     function showHome() { persist(); homeVisible = true; Qt.callLater(function() { homeView.focusSearch() }) }
-    function openDocument(source, position) { if (!restoreFailed) documents.openDocument(source, position) }
+    function openDocument(source, position) { if (!restoreFailed) documents.openDocument(researchStore.resolvedSource(source), position) }
     function openSearchResult(result) {
         if (result.kind === "paper") openDocument(result.source, result.position)
         else if (result.kind === "capture") researchStore.openCapture(result.id)
@@ -152,6 +152,9 @@ ApplicationWindow {
     Connections {
         target: researchStore
         function onMessage(text) { window.notify(text) }
+        function onRelinkRequested(source) { if (!window.restoreFailed && !researchStore.relinking && window.persist()) relinkDialog.begin(source) }
+        function onSourceRelinked(source, candidate) { documents.relinkSource(source, candidate) }
+        function onRelinkFinished(success, detail) { if (success) window.notify(detail) }
         function onCaptureSaved(id) { window.shelfVisible = true; window.movePanel("captures", window.capturesSide) }
         function onSourceReady(url, page, region) { if (!window.restoreFailed) { documents.reveal(url, page, region); window.homeVisible = false } }
     }
@@ -159,6 +162,7 @@ ApplicationWindow {
         target: researchStore.paperIndex
         function onResultReady(source, page) { if (!window.restoreFailed) documents.openAtPage(source, page) }
     }
+    RelinkDialog { id: relinkDialog; parent: Overlay.overlay }
     CommandPalette {
         id: commandPalette
         parent: Overlay.overlay

@@ -264,6 +264,12 @@ Rectangle {
                     text: "Open PDF"
                     onClicked: root.chooseFile()
                 }
+                Button {
+                    Layout.alignment: Qt.AlignHCenter
+                    visible: canvas.error.length > 0 && root.source.toString().length > 0
+                    text: "Locate Original PDF…"
+                    onClicked: researchStore.requestRelink(root.source)
+                }
             }
 
             DropArea {

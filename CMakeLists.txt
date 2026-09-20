@@ -6,14 +6,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Qt6 6.9 REQUIRED COMPONENTS Quick QuickControls2 Pdf PdfQuick Sql Concurrent)
 qt_standard_project_setup(REQUIRES 6.9)
 
-qt_add_library(owelk_core STATIC src/ResearchStore.cpp src/ResearchStore.h src/SelectionGeometry.cpp src/SelectionGeometry.h src/PaperIndex.cpp src/PaperIndex.h)
+qt_add_library(owelk_core STATIC src/ResearchStore.cpp src/ResearchStoreRelink.cpp src/ResearchStore.h src/SelectionGeometry.cpp src/SelectionGeometry.h src/PaperIndex.cpp src/PaperIndex.h)
 target_link_libraries(owelk_core PUBLIC Qt6::Core Qt6::Gui Qt6::Pdf Qt6::Sql Qt6::Concurrent)
 target_include_directories(owelk_core PUBLIC src)
 
 qt_add_executable(owelk MACOSX_BUNDLE src/main.cpp)
 qt_add_qml_module(owelk
     URI Owelk VERSION 1.0
-    QML_FILES qml/Main.qml qml/ReaderPane.qml qml/PdfCanvas.qml qml/CaptureShelf.qml qml/CommandPalette.qml qml/FilePanel.qml qml/DockSidebar.qml qml/HomeView.qml qml/StatusIcon.qml qml/DocumentWorkspace.qml qml/DocumentGroup.qml qml/WorkspaceTree.js qml/RecentPaperDelegate.qml qml/PaletteMatch.js qml/SearchPalette.qml qml/PdfNavigationPanel.qml qml/ResearchSearch.qml qml/SearchResultDelegate.qml qml/IndexStatus.qml
+    QML_FILES qml/Main.qml qml/ReaderPane.qml qml/PdfCanvas.qml qml/CaptureShelf.qml qml/CommandPalette.qml qml/FilePanel.qml qml/DockSidebar.qml qml/HomeView.qml qml/StatusIcon.qml qml/DocumentWorkspace.qml qml/DocumentGroup.qml qml/WorkspaceTree.js qml/RecentPaperDelegate.qml qml/PaletteMatch.js qml/SearchPalette.qml qml/PdfNavigationPanel.qml qml/ResearchSearch.qml qml/SearchResultDelegate.qml qml/IndexStatus.qml qml/RelinkDialog.qml
 )
 target_link_libraries(owelk PRIVATE owelk_core Qt6::Quick Qt6::QuickControls2 Qt6::PdfQuick)
 set_target_properties(owelk PROPERTIES
@@ -35,6 +35,10 @@ if(BUILD_TESTING)
     target_link_libraries(owelk_index_tests PRIVATE owelk_core Qt6::Test)
     add_test(NAME paper_index COMMAND owelk_index_tests)
     set_tests_properties(paper_index PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    qt_add_executable(owelk_relink_tests tests/RelinkTest.cpp)
+    target_link_libraries(owelk_relink_tests PRIVATE owelk_core Qt6::Test)
+    add_test(NAME source_relink COMMAND owelk_relink_tests)
+    set_tests_properties(source_relink PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(owelk_fixtures tests/fixtures.cpp)
     target_link_libraries(owelk_fixtures PRIVATE Qt6::Gui)
     qt_add_executable(owelk_ui_tests tests/ReaderUiTest.cpp)

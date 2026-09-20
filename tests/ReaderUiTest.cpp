@@ -15,6 +15,7 @@
 #include <QTemporaryDir>
 #include <QDir>
 #include <QFile>
+#include <QUuid>
 #include <QtQuickTest/quicktest.h>
 #include <QtTest/QTest>
 
@@ -22,6 +23,14 @@ class ReaderSetup : public QObject
 {
     Q_OBJECT
 public:
+    Q_INVOKABLE QVariantMap relinkFixture() {
+        const auto prefix = m_directory.filePath("relink-" + QUuid::createUuid().toString(QUuid::WithoutBraces));
+        const auto old = prefix + "-old.pdf", next = prefix + "-new.pdf", wrong = prefix + "-wrong.pdf";
+        QFile::copy(m_directory.filePath("fixture.pdf"),old);
+        QFile::copy(old,next);
+        QFile::copy(m_directory.filePath("outline.pdf"),wrong);
+        return {{"source",QUrl::fromLocalFile(old)}, {"candidate",QUrl::fromLocalFile(next)}, {"wrong",QUrl::fromLocalFile(wrong)}};
+    }
     Q_INVOKABLE void nativePinch(QQuickItem *item, int phase, qreal value, QPointF point) {
         if (!item || !item->window()) return;
         auto *window = item->window();

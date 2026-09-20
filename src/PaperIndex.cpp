@@ -202,8 +202,54 @@ QVariantList PaperIndex::documents() const
     }
     return rows;
 }
-void PaperIndex::enqueue(const QUrl &source)
+QUrl PaperIndex::resolvedSource(const QUrl &input) const
 {
+    QString url = input.toString();
+    for (int i = 0; i < m_redirects.size() && m_redirects.contains(url); ++i) url = m_redirects.value(url);
+    return QUrl(url);
+}
+QString PaperIndex::knownHash(const QUrl &source) const
+{
+    QSqlQuery query(m_database);
+    query.prepare("SELECT sha256 FROM documents WHERE url=?"); query.addBindValue(source.toString());
+    return query.exec() && query.next() ? query.value(0).toString() : QString();
+}
+void PaperIndex::relocateSource(const QUrl &source, const QUrl &candidate)
+{
+    if (source == candidate) return;
+    m_redirects.insert(source.toString(), candidate.toString());
+    ++m_relocating; m_cancel->store(true); emit changed();
+    auto *watcher = new QFutureWatcher<QString>(this);
+    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, candidate] {
+        const auto error = watcher->result(); watcher->deleteLater(); --m_relocating;
+        if (!error.isEmpty()) emit message("Source references were saved, but the search cache needs repair. Restart to retry: " + error);
+        emit changed(); emit contentsChanged(); enqueue(candidate); startNext();
+    });
+    watcher->setFuture(QtConcurrent::run(&m_indexWorkers, [path = m_path, source, candidate] {
+        Connection connection(path);
+        auto &db = connection.db;
+        if (!db.isOpen() || !db.transaction()) return db.lastError().text();
+        auto run = [&](const QString &sql, const QVariantList &args) {
+            QSqlQuery query(db); query.prepare(sql);
+            for (const auto &arg : args) query.addBindValue(arg);
+            return query.exec() ? QString() : query.lastError().text();
+        };
+        QSqlQuery old(db); old.prepare("SELECT id FROM documents WHERE url=?"); old.addBindValue(source.toString());
+        if (!old.exec()) { db.rollback(); return old.lastError().text(); }
+        if (!old.next()) { old.finish(); db.commit(); return QString(); }
+        const auto id = old.value(0).toString(); old.finish();
+        // Both copies may have been indexed. Keep the original ID; the target is only a rebuildable cache.
+        QString error = run("DELETE FROM pages WHERE document_id IN (SELECT id FROM documents WHERE url=?)", {candidate.toString()});
+        if (error.isEmpty()) error = run("DELETE FROM documents WHERE url=?", {candidate.toString()});
+        if (error.isEmpty()) error = run("UPDATE documents SET url=? WHERE id=?", {candidate.toString(),id});
+        if (!error.isEmpty()) { db.rollback(); return error; }
+        if (!db.commit()) { error = db.lastError().text(); db.rollback(); return error; }
+        return QString();
+    }));
+}
+void PaperIndex::enqueue(const QUrl &input)
+{
+    const auto source = resolvedSource(input);
     if (!source.isLocalFile() || m_scheduled.contains(source.toString())) return;
     m_queue.enqueue(source); m_scheduled.insert(source.toString());
     startNext(); emit changed();
@@ -232,8 +278,10 @@ void PaperIndex::setPaused(bool paused)
 }
 void PaperIndex::startNext()
 {
-    if (m_active || m_paused || m_queue.isEmpty()) return;
-    const auto source = m_queue.dequeue();
+    if (m_active || m_paused || m_relocating > 0 || m_queue.isEmpty()) return;
+    const auto queued = m_queue.dequeue();
+    const auto source = resolvedSource(queued);
+    m_scheduled.remove(queued.toString()); m_scheduled.insert(source.toString());
     m_active = true;
     m_cancel = std::make_shared<std::atomic_bool>(false);
     const auto cancel = m_cancel;

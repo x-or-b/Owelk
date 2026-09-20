@@ -52,7 +52,11 @@ Rectangle {
                 padding: 10
                 onClicked: researchStore.openCapture(modelData.id)
                 MouseArea { anchors.fill: parent; acceptedButtons: Qt.RightButton; onClicked: captureMenu.popup() }
-                Menu { id: captureMenu; MenuItem { text: "Delete Capture…"; onTriggered: root.requestDelete(card.modelData.id) } }
+                Menu {
+                    id: captureMenu
+                    MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(card.modelData.source) }
+                    MenuItem { text: "Delete Capture…"; onTriggered: root.requestDelete(card.modelData.id) }
+                }
                 ToolButton {
                     anchors.right: parent.right; anchors.bottom: parent.bottom
                     width: 28; height: 28; text: "…"
