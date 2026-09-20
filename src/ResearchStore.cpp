@@ -13,6 +13,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QPdfDocument>
+#include <QPdfSelection>
 #include <QSaveFile>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -68,6 +69,11 @@ struct CaptureResult {
     int page = 0;
     QRectF region;
 };
+struct TextCaptureResult {
+    CaptureResult anchor;
+    QString text, prefix, suffix;
+    int start = -1, end = -1;
+};
 }
 
 ResearchStore::ResearchStore(const QString &directory, QObject *parent)
@@ -111,7 +117,9 @@ bool ResearchStore::initialize(QString *error)
         "CREATE TABLE IF NOT EXISTS source_relinks (old_url TEXT PRIMARY KEY,new_url TEXT NOT NULL,sha256 TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, "
         "sha256 TEXT NOT NULL, page INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, "
-        "width REAL NOT NULL, height REAL NOT NULL, image TEXT NOT NULL, created_at TEXT NOT NULL)"
+        "width REAL NOT NULL, height REAL NOT NULL, image TEXT NOT NULL, created_at TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS text_captures (capture_id TEXT PRIMARY KEY, text TEXT NOT NULL, "
+        "start_index INTEGER NOT NULL, end_index INTEGER NOT NULL, prefix TEXT NOT NULL, suffix TEXT NOT NULL)"
     };
     for (const auto &sql : statements) {
         QSqlQuery query(m_database);
@@ -219,13 +227,17 @@ void ResearchStore::reloadCaptures()
 {
     m_captures.clear();
     QSqlQuery query(m_database);
-    query.exec("SELECT id,source,page,image,created_at FROM captures WHERE id NOT IN (SELECT id FROM deleted_captures) ORDER BY created_at DESC");
+    query.exec("SELECT c.id,c.source,c.page,c.image,c.created_at,t.text,t.capture_id "
+               "FROM captures c LEFT JOIN text_captures t ON t.capture_id=c.id "
+               "WHERE c.id NOT IN (SELECT id FROM deleted_captures) ORDER BY c.created_at DESC,c.id DESC");
     while (query.next()) {
         const auto url = QUrl(query.value(1).toString());
         m_captures.append(QVariantMap{
             {"id", query.value(0)}, {"source", url}, {"name", fileName(url)},
             {"page", query.value(2)},
-            {"image", QUrl::fromLocalFile(m_directory + "/captures/" + query.value(3).toString())},
+            {"kind", query.value(6).isNull() ? "region" : "text"},
+            {"text", query.value(5).toString()},
+            {"image", query.value(3).toString().isEmpty() ? QUrl() : QUrl::fromLocalFile(m_directory + "/captures/" + query.value(3).toString())},
             {"createdAt", query.value(4)}
         });
     }
@@ -349,8 +361,12 @@ QVariantList ResearchStore::searchKnowledge(const QString &queryText) const
     for (const auto &value : m_captures) {
         const auto capture = value.toMap();
         const auto title = capture.value("name").toString() + " · p. " + QString::number(capture.value("page").toInt() + 1);
-        if (!title.contains(needle, Qt::CaseInsensitive)) continue;
-        results.append(QVariantMap{{"kind", "capture"}, {"title", title}, {"id", capture.value("id")}});
+        const auto text = capture.value("text").toString();
+        const int match = text.indexOf(needle, 0, Qt::CaseInsensitive);
+        if (!title.contains(needle, Qt::CaseInsensitive) && match < 0) continue;
+        const int start = qMax(0, match - 60);
+        const auto snippet = (start ? QStringLiteral("…") : QStringLiteral("")) + text.mid(start, qMax(200, needle.size()));
+        results.append(QVariantMap{{"kind", "capture"}, {"title", title}, {"id", capture.value("id")}, {"snippet", snippet}});
         if (++count >= 20) break;
     }
     QSqlQuery workspaces(m_database);
@@ -454,6 +470,90 @@ void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &re
     }));
 }
 
+void ResearchStore::captureText(const QUrl &source, int page, const QPointF &from,
+                                const QPointF &to, const QString &expectedText)
+{
+    if (m_relinking) { emit message("Please wait until source verification finishes before capturing."); return; }
+    if (!source.isLocalFile() || page < 0 || expectedText.trimmed().isEmpty()
+        || expectedText.size() > 100000 || !std::isfinite(from.x()) || !std::isfinite(from.y())
+        || !std::isfinite(to.x()) || !std::isfinite(to.y())) {
+        emit message("Select text in a PDF before saving an excerpt."); return;
+    }
+    if (m_pending >= 4) { emit message("Saving captures. Please try again shortly."); return; }
+    ++m_pending;
+    emit busyChanged();
+    auto *watcher = new QFutureWatcher<TextCaptureResult>(this);
+    connect(watcher, &QFutureWatcher<TextCaptureResult>::finished, this, [this, watcher] {
+        const auto result = watcher->result();
+        const auto &anchor = result.anchor;
+        watcher->deleteLater();
+        --m_pending;
+        emit busyChanged();
+        if (!anchor.error.isEmpty()) { emit message(anchor.error); return; }
+        if (!m_database.transaction()) { emit message("Cannot save excerpt. Check storage and permissions."); return; }
+        QSqlQuery base(m_database);
+        base.prepare("INSERT INTO captures VALUES(?,?,?,?,?,?,?,?,?,?)");
+        base.addBindValue(anchor.id); base.addBindValue(anchor.source.toString());
+        base.addBindValue(anchor.hash); base.addBindValue(anchor.page);
+        base.addBindValue(anchor.region.x()); base.addBindValue(anchor.region.y());
+        base.addBindValue(anchor.region.width()); base.addBindValue(anchor.region.height());
+        base.addBindValue(QStringLiteral(""));
+        base.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+        QSqlQuery quote(m_database);
+        quote.prepare("INSERT INTO text_captures VALUES(?,?,?,?,?,?)");
+        quote.addBindValue(anchor.id); quote.addBindValue(result.text);
+        quote.addBindValue(result.start); quote.addBindValue(result.end);
+        quote.addBindValue(result.prefix); quote.addBindValue(result.suffix);
+        if (!base.exec() || !quote.exec() || !m_database.commit()) {
+            m_database.rollback();
+            emit message("Cannot save excerpt and source metadata. Check storage and permissions."); return;
+        }
+        reloadCaptures();
+        emit captureSaved(anchor.id);
+        emit message("Text excerpt and source location saved.");
+    });
+    watcher->setFuture(QtConcurrent::run(&m_workers, [source, page, from, to, expectedText] {
+        TextCaptureResult result;
+        auto &anchor = result.anchor;
+        anchor.source = source; anchor.page = page;
+        const auto path = source.toLocalFile();
+        anchor.hash = fingerprint(path);
+        QPdfDocument document;
+        if (anchor.hash.isEmpty() || document.load(path) != QPdfDocument::Error::None || page >= document.pageCount()) {
+            anchor.error = "Cannot read the source PDF for this excerpt."; return result;
+        }
+        const auto selection = document.getSelection(page, from, to);
+        const auto size = document.pagePointSize(page);
+        if (!selection.isValid() || selection.text() != expectedText || size.isEmpty()
+            || selection.boundingRectangle().isEmpty() || selection.startIndex() < 0
+            || selection.endIndex() < selection.startIndex()) {
+            anchor.error = "The selection could not be verified. Reopen the PDF and select the text again."; return result;
+        }
+        result.text = selection.text();
+        result.start = selection.startIndex(); result.end = selection.endIndex();
+        const auto all = document.getAllText(page).text();
+        // Context is a fallback hint, never permission to jump to an unverified PDF version.
+        result.prefix = QStringLiteral(""); result.suffix = QStringLiteral("");
+        // PDF character indices need not equal QString offsets for every encoding.
+        // Keep context only when that mapping is demonstrably exact.
+        if (result.start >= 0 && all.mid(result.start, result.text.size()) == result.text) {
+            result.prefix += all.mid(qMax(0, result.start - 80), qMin(80, result.start));
+            result.suffix += all.mid(result.start + result.text.size(), 80);
+        }
+        const auto rect = selection.boundingRectangle();
+        anchor.region = QRectF(rect.x() / size.width(), rect.y() / size.height(),
+                               rect.width() / size.width(), rect.height() / size.height()).intersected(QRectF(0, 0, 1, 1));
+        if (anchor.region.isEmpty()) {
+            anchor.error = "The selection has no usable source location. Select the text again."; return result;
+        }
+        if (fingerprint(path) != anchor.hash) {
+            anchor.error = "The source PDF changed during capture. Please reopen it."; return result;
+        }
+        anchor.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        return result;
+    }));
+}
+
 void ResearchStore::openCapture(const QString &id)
 {
     QSqlQuery query(m_database);
@@ -474,7 +574,7 @@ void ResearchStore::openCapture(const QString &id)
         if (!deleted.exec() || !deleted.next()) return;
         if (QUrl(deleted.value(0).toString()) != url) { openCapture(id); return; }
         if (hash.isEmpty()) {
-            emit message(tr("Source file not found. The saved capture image is preserved."));
+            emit message(tr("Source file not found. The saved capture is preserved."));
             emit relinkRequested(url);
         } else if (hash != expectedHash)
             emit message(tr("The source PDF has changed. Its location cannot be verified; the saved capture is preserved."));
@@ -503,18 +603,22 @@ bool ResearchStore::removeRecentDocument(const QUrl &url)
 bool ResearchStore::deleteCapture(const QString &id)
 {
     QSqlQuery query(m_database);
-    query.prepare("SELECT image FROM captures WHERE id=? AND id NOT IN (SELECT id FROM deleted_captures)");
+    query.prepare("SELECT image,EXISTS(SELECT 1 FROM text_captures WHERE capture_id=captures.id) "
+                  "FROM captures WHERE id=? AND id NOT IN (SELECT id FROM deleted_captures)");
     query.addBindValue(id);
     if (!query.exec() || !query.next()) return false;
     const QString image = query.value(0).toString();
+    const bool textCapture = query.value(1).toBool();
     // Only an app-generated single PNG file may be moved, never an arbitrary stored path.
-    if (QUuid(id).isNull() || image != id + ".png") { emit message(tr("Invalid capture image path.")); return false; }
+    if (QUuid(id).isNull() || (textCapture ? !image.isEmpty() : image != id + ".png")) {
+        emit message(tr("Invalid capture image path.")); return false;
+    }
     const QString original = m_directory + "/captures/" + image;
     const QString archived = m_directory + "/captures/trash/" + image;
     if (!QDir().mkpath(m_directory + "/captures/trash") || !m_database.transaction()) {
         emit message(tr("Cannot prepare local capture trash. Check storage and permissions.")); return false;
     }
-    const bool exists = QFileInfo::exists(original);
+    const bool exists = !textCapture && QFileInfo::exists(original);
     if (exists && !QFile::rename(original, archived)) { m_database.rollback(); emit message(tr("Cannot move capture to local trash.")); return false; }
     QSqlQuery mark(m_database);
     mark.prepare("INSERT INTO deleted_captures VALUES(?,?)"); mark.addBindValue(id);

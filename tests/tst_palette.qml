@@ -13,7 +13,7 @@ Item {
         name: "CommandPalette"
         when: windowShown
         function init() {
-            chosen.clear(); command.clear(); palette.hasDocument = true
+            chosen.clear(); command.clear(); palette.hasDocument = true; palette.hasSelection = false
             palette.open(); tryCompare(palette, "opened", true)
         }
         function cleanup() { palette.close(); search.close(); tryCompare(palette, "visible", false) }
@@ -41,6 +41,16 @@ Item {
             compare(palette.results.length, 1)
             compare(palette.results[0].enabled, false)
             keyClick(Qt.Key_Return); compare(command.count, 0); compare(palette.visible, true)
+        }
+        function test_excerptRequiresSelection() {
+            findChild(palette, "paletteQuery").text = "save selected"
+            compare(palette.results.length, 1)
+            compare(palette.results[0].enabled, false)
+            palette.hasSelection = true
+            compare(palette.results[0].enabled, true)
+            keyClick(Qt.Key_Return)
+            tryCompare(command, "count", 1)
+            compare(command.signalArguments[0][0], "/capture text")
         }
         function test_searchContainsNoCommands() {
             palette.close()

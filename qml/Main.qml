@@ -167,6 +167,7 @@ ApplicationWindow {
         id: commandPalette
         parent: Overlay.overlay
         hasDocument: !window.homeVisible && !!window.currentReader && window.currentReader.pdfReady
+        hasSelection: hasDocument && window.currentReader.selectedText.length > 0
         canReopenTab: documents.closedTabs.length > 0
         onCommandChosen: function(command) {
             switch (command) {
@@ -177,6 +178,7 @@ ApplicationWindow {
             case "/split down": documents.duplicateSplit("bottom"); break
             case "/split off": documents.joinAll(); break
             case "/capture": if (!window.homeVisible && window.currentReader) window.currentReader.toggleCapture(); break
+            case "/capture text": if (!window.homeVisible && window.currentReader) window.currentReader.captureSelection(); break
             case "/files": window.togglePanel("files"); break
             case "/captures": window.togglePanel("captures"); break
             case "/document": window.togglePanel("document"); break

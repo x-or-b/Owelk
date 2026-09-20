@@ -19,6 +19,7 @@ Item {
     property int currentPage: 0
     property string selectedText: ""
     property var activeSelection: null
+    property var selectedAnchor: null
     property var lastPosition: ({page: 0, y: 0, x: 0, zoom: 1})
     property var pendingPosition: null
     property bool restoring: false
@@ -45,6 +46,7 @@ Item {
         selectedText = ""
         if (activeSelection) activeSelection.clear()
         activeSelection = null
+        selectedAnchor = null
         highlight = null
         search.searchString = ""
         if (source.toString() === url.toString() && ready) {
@@ -182,6 +184,20 @@ Item {
         if (selectedText.length) researchStore.copyText(selectedText)
     }
 
+    function rememberSelection(selection) {
+        // Freeze PDF-point endpoints before zoom, resizing or opening a dock changes the scale.
+        selectedAnchor = selection.text.length ? {
+            page: selection.page, text: selection.text,
+            from: Qt.point(selection.from.x / selection.renderScale, selection.from.y / selection.renderScale),
+            to: Qt.point(selection.to.x / selection.renderScale, selection.to.y / selection.renderScale)
+        } : null
+    }
+
+    function captureSelection() {
+        if (!selectedAnchor || selectedAnchor.text !== selectedText || selecting) return
+        researchStore.captureText(source, selectedAnchor.page, selectedAnchor.from, selectedAnchor.to, selectedAnchor.text)
+    }
+
     onWidthChanged: {
         if (pinching) cancelPinch()
         if (ready && !restoring) {
@@ -278,6 +294,7 @@ Item {
 
         delegate: Item {
             id: pageHolder
+            property real selectionScale: root.pageScale
             required property int index
             readonly property size pointSize: pdfDocument.pagePointSize(index)
             property var lineMetrics: []
@@ -376,12 +393,15 @@ Item {
                     anchors.fill: parent
                     document: pdfDocument
                     page: pageHolder.index
-                    renderScale: root.pageScale
+                    renderScale: pageHolder.selectionScale
                     from: selectionDrag.centroid.pressPosition
                     to: selectionDrag.centroid.position
                     hold: !selectionDrag.active
                     onTextChanged: {
-                        if (root.activeSelection === selection) root.selectedText = text
+                        if (root.activeSelection === selection) {
+                            root.selectedText = text
+                            if (selectionDrag.active) root.rememberSelection(selection)
+                        }
                     }
                 }
 
@@ -393,6 +413,8 @@ Item {
                     onActiveChanged: {
                         root.selecting = active
                         if (active) {
+                            // Do not reinterpret held pixel endpoints at a new zoom/viewport scale.
+                            pageHolder.selectionScale = root.pageScale
                             if (!pageHolder.metricsReady) {
                                 pageText.selectAll()
                                 pageHolder.lineMetrics = selectionGeometry.lineRectangles(pageText.geometry)
@@ -402,9 +424,10 @@ Item {
                             if (root.activeSelection && root.activeSelection !== selection)
                                 root.activeSelection.clear()
                             root.activeSelection = selection
+                            root.selectedAnchor = null
                             root.selectedText = selection.text
                             selection.forceActiveFocus()
-                        }
+                        } else if (root.activeSelection === selection) root.rememberSelection(selection)
                     }
                 }
 
@@ -497,6 +520,7 @@ Item {
                 if (root.activeSelection === selection) {
                     root.activeSelection = null
                     root.selectedText = ""
+                    root.selectedAnchor = null
                 }
             }
         }

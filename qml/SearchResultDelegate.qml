@@ -7,7 +7,7 @@ ItemDelegate {
     id: root
     required property var modelData
     property string queryText: ""
-    height: modelData.kind === "text" ? 76 : 44
+    height: modelData.snippet ? 76 : 44
     contentItem: ColumnLayout {
         spacing: 3
         RowLayout {
@@ -17,7 +17,7 @@ ItemDelegate {
         }
         Label {
             Layout.fillWidth: true
-            visible: root.modelData.kind === "text"
+            visible: !!root.modelData.snippet
             text: Match.highlight(root.modelData.snippet || "", root.queryText)
             textFormat: Text.StyledText
             wrapMode: Text.Wrap

@@ -1,0 +1,219 @@
+#include "ResearchStore.h"
+#include "PdfFixture.h"
+#include <QPdfDocument>
+#include <QPdfSelection>
+#include <QSignalSpy>
+#include <QSqlQuery>
+#include <QTemporaryDir>
+#include <QtTest>
+#include <limits>
+
+class TextCaptureTest : public QObject
+{
+    Q_OBJECT
+private slots:
+    void legacyRegionSchemaIsPreserved() {
+        QTemporaryDir directory;
+        const auto connection = QStringLiteral("legacy-capture-check");
+        const auto id = QStringLiteral("91ffeb1a-df10-4a54-a6fc-8a8b2c629b13");
+        {
+            auto db = QSqlDatabase::addDatabase("QSQLITE", connection);
+            db.setDatabaseName(directory.filePath("owelk.sqlite3"));
+            QVERIFY(db.open());
+            QSqlQuery query(db);
+            QVERIFY(query.exec("CREATE TABLE captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, "
+                "sha256 TEXT NOT NULL,page INTEGER NOT NULL,x REAL NOT NULL,y REAL NOT NULL,"
+                "width REAL NOT NULL,height REAL NOT NULL,image TEXT NOT NULL,created_at TEXT NOT NULL)"));
+            query.prepare("INSERT INTO captures VALUES(?,'file:///preserved.pdf','hash',2,.1,.2,.3,.4,?,'2026-01-01')");
+            query.addBindValue(id); query.addBindValue(id + ".png");
+            QVERIFY(query.exec());
+        }
+        QSqlDatabase::removeDatabase(connection);
+        ResearchStore store(directory.path());
+        QString error;
+        QVERIFY(store.initialize(&error));
+        QCOMPARE(store.captures().size(), 1);
+        const auto capture = store.captures()[0].toMap();
+        QCOMPARE(capture["id"].toString(), id);
+        QCOMPARE(capture["kind"].toString(), "region");
+        QCOMPARE(capture["page"].toInt(), 2);
+        QVERIFY(capture["text"].toString().isEmpty());
+        QVERIFY(capture["image"].toUrl().toLocalFile().endsWith(id + ".png"));
+    }
+    void failedPayloadInsertRollsBackAnchor() {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("source.pdf");
+        writeFixture(path);
+        ResearchStore store(directory.path());
+        QString error;
+        QVERIFY(store.initialize(&error));
+        const auto connection = QStringLiteral("capture-failure-check");
+        {
+            auto db = QSqlDatabase::addDatabase("QSQLITE", connection);
+            db.setDatabaseName(directory.filePath("owelk.sqlite3"));
+            QVERIFY(db.open());
+            QSqlQuery query(db);
+            QVERIFY(query.exec("CREATE TRIGGER reject_text BEFORE INSERT ON text_captures BEGIN SELECT RAISE(ABORT,'test failure'); END"));
+            QPdfDocument pdf;
+            QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+            const auto bounds = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45).boundingRectangle();
+            const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y());
+            const auto text = pdf.getSelection(0, from, to).text();
+            QSignalSpy saved(&store, &ResearchStore::captureSaved);
+            QSignalSpy messages(&store, &ResearchStore::message);
+            store.captureText(QUrl::fromLocalFile(path), 0, from, to, text);
+            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+            QCOMPARE(saved.size(), 0);
+            QVERIFY(!messages.isEmpty());
+            QVERIFY(store.captures().isEmpty());
+            QVERIFY(query.exec("SELECT COUNT(*) FROM captures") && query.next());
+            QCOMPARE(query.value(0).toInt(), 0);
+            query.finish();
+            QVERIFY(query.exec("DROP TRIGGER reject_text"));
+            store.captureText(QUrl::fromLocalFile(path), 0, from, to, text);
+            QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000);
+        }
+        QSqlDatabase::removeDatabase(connection);
+    }
+    void saveAndReopen_data() {
+        QTest::addColumn<bool>("reverse");
+        QTest::addColumn<int>("lines");
+        QTest::newRow("single") << false << 1;
+        QTest::newRow("multiline") << false << 3;
+        QTest::newRow("reversed") << true << 3;
+    }
+    void saveAndReopen() {
+        QFETCH(bool, reverse);
+        QFETCH(int, lines);
+        QTemporaryDir directory;
+        const auto path = directory.filePath("evidence.pdf");
+        writeFixture(path);
+        QPdfDocument pdf;
+        QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+        const auto bounds = pdf.getSelectionAtIndex(2, pdf.getAllText(2).text().indexOf("Research finding"), 45).boundingRectangle();
+        QPointF from(bounds.left(), bounds.center().y());
+        QPointF to(bounds.right(), bounds.center().y() + (lines - 1) * 20);
+        if (reverse) std::swap(from, to);
+        const auto selection = pdf.getSelection(2, from, to);
+        const auto text = selection.text();
+        QVERIFY(text.contains("Research finding 3.1"));
+        if (lines > 1) QVERIFY(text.contains("Research finding 3.2"));
+        const QUrl source = QUrl::fromLocalFile(path);
+        QString id, error;
+        {
+            ResearchStore store(directory.filePath("data"));
+            QVERIFY2(store.initialize(&error), qPrintable(error));
+            QSignalSpy saved(&store, &ResearchStore::captureSaved);
+            store.captureText(source, 2, from, to, text);
+            QVERIFY(store.busy());
+            QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000);
+            QVERIFY(!store.busy());
+            QCOMPARE(store.captures().size(), 1);
+            const auto capture = store.captures()[0].toMap();
+            id = capture["id"].toString();
+            QCOMPARE(capture["kind"].toString(), "text");
+            QCOMPARE(capture["text"].toString(), text);
+            QVERIFY(capture["image"].toUrl().isEmpty());
+            QVERIFY(QDir(directory.filePath("data/captures")).entryList(QDir::Files).isEmpty());
+            const auto results = store.searchKnowledge("OCCLUSION");
+            QCOMPARE(results.size(), 1);
+            QCOMPARE(results[0].toMap()["id"].toString(), id);
+            QVERIFY(results[0].toMap()["snippet"].toString().contains("occlusion"));
+            QSignalSpy ready(&store, &ResearchStore::sourceReady);
+            store.openCapture(id);
+            QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
+            QCOMPARE(ready[0][0].toUrl(), source);
+            QCOMPARE(ready[0][1].toInt(), 2);
+            const auto rect = ready[0][2].toRectF();
+            const auto page = pdf.pagePointSize(2);
+            QVERIFY(qAbs(rect.x() * page.width() - selection.boundingRectangle().x()) < .001);
+            QVERIFY(qAbs(rect.height() * page.height() - selection.boundingRectangle().height()) < .001);
+            // Existing image captures coexist with the new payload table.
+            store.captureRegion(source, 0, QRectF(.1, .1, .2, .2));
+            QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 2, 10000);
+        }
+        ResearchStore reopened(directory.filePath("data"));
+        QVERIFY(reopened.initialize(&error));
+        QCOMPARE(reopened.captures().size(), 2);
+        QCOMPARE(reopened.searchKnowledge("occlusion").size(), 1);
+        // Relinking keeps the text payload and verifies the same source bytes.
+        pdf.close();
+        const auto moved = directory.filePath("moved.pdf");
+        QVERIFY(QFile::rename(path, moved));
+        QSignalSpy relinked(&reopened, &ResearchStore::relinkFinished);
+        reopened.relinkSource(source, QUrl::fromLocalFile(moved));
+        QTRY_COMPARE_WITH_TIMEOUT(relinked.size(), 1, 10000);
+        QVERIFY2(relinked[0][0].toBool(), qPrintable(relinked[0][1].toString()));
+        for (const auto &entry : reopened.captures()) {
+            const auto capture = entry.toMap();
+            QCOMPARE(capture["source"].toUrl(), QUrl::fromLocalFile(moved));
+            if (capture["id"].toString() == id) QCOMPARE(capture["text"].toString(), text);
+        }
+        QVERIFY(reopened.deleteCapture(id));
+        QVERIFY(!reopened.deleteCapture(id));
+        QCOMPARE(reopened.captures().size(), 1);
+        QVERIFY(reopened.searchKnowledge("occlusion").isEmpty());
+        QVERIFY(QFileInfo::exists(moved));
+        // Soft deletion must preserve the original quote in SQLite, without inventing a PNG.
+        const auto connection = QStringLiteral("text-capture-check");
+        {
+            auto db = QSqlDatabase::addDatabase("QSQLITE", connection);
+            db.setDatabaseName(directory.filePath("data/owelk.sqlite3"));
+            QVERIFY(db.open());
+            QSqlQuery query(db);
+            query.prepare("SELECT text,start_index,end_index FROM text_captures WHERE capture_id=?");
+            query.addBindValue(id);
+            QVERIFY(query.exec() && query.next());
+            QCOMPARE(query.value(0).toString(), text);
+            QCOMPARE(query.value(1).toInt(), selection.startIndex());
+            QCOMPARE(query.value(2).toInt(), selection.endIndex());
+        }
+        QSqlDatabase::removeDatabase(connection);
+    }
+    void rejectInvalidOrStaleSelections() {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("original.pdf");
+        writeFixture(path);
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        QSignalSpy saved(&store, &ResearchStore::captureSaved);
+        const auto source = QUrl::fromLocalFile(path);
+        store.captureText(source, 0, {}, {}, "");
+        store.captureText(source, -1, {}, {}, "quote");
+        store.captureText(QUrl("https://example.com/test.pdf"), 0, {}, {}, "quote");
+        store.captureText(source, 0, {std::numeric_limits<double>::quiet_NaN(), 0}, {}, "quote");
+        QVERIFY(!store.busy());
+        QPdfDocument pdf;
+        QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+        const auto bounds = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45).boundingRectangle();
+        const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y());
+        const auto text = pdf.getSelection(0, from, to).text();
+        store.captureText(source, 0, from, to, "stale UI text");
+        store.captureText(source, 1000, from, to, text);
+        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+        QCOMPARE(saved.size(), 0);
+        QVERIFY(store.captures().isEmpty());
+        store.captureText(source, 0, from, to, text);
+        QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000);
+        const auto id = saved[0][0].toString();
+        pdf.close();
+        QFile changed(path);
+        QVERIFY(changed.open(QIODevice::Append));
+        changed.write("\n% changed\n"); changed.close();
+        QSignalSpy messages(&store, &ResearchStore::message);
+        QSignalSpy ready(&store, &ResearchStore::sourceReady);
+        store.openCapture(id);
+        QTRY_VERIFY_WITH_TIMEOUT(!messages.isEmpty(), 10000);
+        QVERIFY(messages.last()[0].toString().contains("changed"));
+        QCOMPARE(ready.size(), 0);
+        QCOMPARE(store.captures()[0].toMap()["text"].toString(), text);
+        QVERIFY(QFile::rename(path, directory.filePath("missing.pdf")));
+        QSignalSpy missing(&store, &ResearchStore::relinkRequested);
+        store.openCapture(id);
+        QTRY_COMPARE_WITH_TIMEOUT(missing.size(), 1, 10000);
+        QCOMPARE(ready.size(), 0);
+    }
+};
+QTEST_MAIN(TextCaptureTest)
+#include "TextCaptureTest.moc"

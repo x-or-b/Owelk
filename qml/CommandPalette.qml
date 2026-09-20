@@ -14,6 +14,7 @@ Popup {
     focus: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     property bool hasDocument: false
+    property bool hasSelection: false
     property bool canReopenTab: false
     readonly property var commands: [
         {command: "/open paper", title: "File: Open PDF", enabled: true},
@@ -28,6 +29,7 @@ Popup {
         {command: "/split down", title: "Split: Duplicate Tab Below", enabled: hasDocument},
         {command: "/split off", title: "Split: Join All Groups", enabled: hasDocument},
         {command: "/capture", title: "Capture: Select a Region", enabled: hasDocument},
+        {command: "/capture text", title: "Capture: Save Selected Text", enabled: hasDocument && hasSelection},
         {command: "/fit width", title: "PDF: Fit Page Width", enabled: hasDocument}
     ]
     readonly property var results: commands.filter(function(c) { return Match.matches(c.title, query.text) })

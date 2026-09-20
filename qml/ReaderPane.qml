@@ -60,6 +60,7 @@ Rectangle {
     function fitWidth() { canvas.fitWidth() }
     function jumpToPage(page, y) { activated(); canvas.jump(page, y || 0, 0) }
     function copySelection() { canvas.copySelection() }
+    function captureSelection() { canvas.captureSelection() }
     function toggleCapture() { if (canvas.ready) canvas.captureMode = !canvas.captureMode }
     function reveal(url, page, region) {
         if (source.toString() === url.toString() && canvas.ready) canvas.showSource(page, region)
@@ -160,6 +161,15 @@ Rectangle {
                     checkable: true
                     checked: canvas.captureMode
                     onClicked: { root.activated(); canvas.captureMode = checked }
+                }
+                ToolButton {
+                    objectName: "saveExcerptButton"
+                    text: "Save excerpt"
+                    visible: canvas.selectedText.length > 0
+                    enabled: canvas.selectedAnchor !== null && !canvas.selecting && !researchStore.busy
+                    onClicked: { root.activated(); canvas.captureSelection() }
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Save selected text with its source location"
                 }
                 ToolButton {
                     text: "Copy"

@@ -13,6 +13,7 @@ Item {
         isActive: true
     }
     SignalSpy { id: captureSpy; target: researchStore; signalName: "captureSaved" }
+    SignalSpy { id: messageSpy; target: researchStore; signalName: "message" }
 
     TestCase {
         name: "PdfReader"
@@ -177,6 +178,48 @@ Item {
             verify(overlay.rectangles[0].width > bounds.width * .8)
             verify(overlay.rectangles[0].height > bounds.height)
             compare(list.contentY, previousY, "Selecting text must not scroll the page")
+        }
+        function test_saveExcerpt_data() {
+            return [{tag: "single_line", reverse: false, dy: 0, zoom: 1},
+                    {tag: "reversed_multiline_after_zoom", reverse: true, dy: 40, zoom: 1.2},
+                    {tag: "already_zoomed", reverse: false, dy: 40, zoom: 1, initialZoom: 1.4}]
+        }
+        function test_saveExcerpt(data) {
+            captureSpy.clear()
+            messageSpy.clear()
+            if (data.initialZoom) {
+                canvas.zoom(data.initialZoom)
+                tryCompare(canvas, "restoring", false)
+            }
+            const paper = findChild(canvas, "paperPage0")
+            const bounds = fixtureTextBounds
+            const from = paper.mapToItem(canvas, bounds.x * canvas.pageScale,
+                                         (bounds.y + bounds.height / 2) * canvas.pageScale)
+            const to = Qt.point(from.x + bounds.width * canvas.pageScale, from.y + data.dy * canvas.pageScale)
+            testInput.pointerDrag(canvas, data.reverse ? to : from, data.reverse ? from : to, false)
+            tryVerify(function() { return canvas.selectedText.indexOf("Research finding") >= 0 })
+            const text = canvas.selectedText
+            verify(canvas.selectedAnchor !== null)
+            if (data.zoom !== 1) {
+                canvas.zoom(data.zoom)
+                tryCompare(canvas, "restoring", false)
+            }
+            const button = findChild(reader, "saveExcerptButton")
+            verify(button.visible && button.enabled)
+            compare(canvas.selectedAnchor.text, canvas.selectedText)
+            compare(canvas.selecting, false)
+            mouseClick(button)
+            tryVerify(function() { return captureSpy.count > 0 || messageSpy.count > 0 }, 10000)
+            compare(captureSpy.count, 1, JSON.stringify(messageSpy.signalArguments))
+            const saved = researchStore.captures.filter(function(c) { return c.id === captureSpy.signalArguments[0][0] })[0]
+            compare(saved.kind, "text")
+            compare(saved.text, text)
+            compare(saved.page, 0)
+            verify(researchStore.searchKnowledge("Research finding").some(function(c) { return c.id === saved.id }))
+            verify(researchStore.deleteCapture(saved.id))
+            canvas.openFile(fixtureSource)
+            compare(canvas.selectedAnchor, null)
+            compare(button.visible, false)
         }
         function test_pointerDevices_data() {
             return [{tag: "mouse", trackpad: false}, {tag: "trackpad", trackpad: true}]

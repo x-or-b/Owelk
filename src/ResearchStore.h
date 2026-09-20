@@ -44,6 +44,8 @@ public:
     Q_INVOKABLE bool deleteCapture(const QString &id);
     Q_INVOKABLE QString fileName(const QUrl &url) const;
     Q_INVOKABLE void captureRegion(const QUrl &source, int page, const QRectF &normalizedRegion);
+    Q_INVOKABLE void captureText(const QUrl &source, int page, const QPointF &from,
+                                const QPointF &to, const QString &expectedText);
     Q_INVOKABLE void openCapture(const QString &id);
     Q_INVOKABLE void copyText(const QString &text);
     Q_INVOKABLE int listFolder(const QUrl &folder);
