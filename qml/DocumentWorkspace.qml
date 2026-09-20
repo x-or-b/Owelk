@@ -218,9 +218,25 @@ Flickable {
     function reveal(source, page, region) {
         let t = null
         const list = Tree.leaves(tree)
+        // Prefer the current copy when a PDF is open in more than one split.
+        const active = Tree.find(tree, activeGroup)
+        if (active) t = active.tabs.find(function(tab) { return tab.id === active.activeTab && tab.source === source.toString() })
         for (let i = 0; i < list.length && !t; ++i) t = list[i].tabs.find(function(t) { return t.source === source.toString() })
-        if (t) activateTab(t.id); else openDocument(source, {page: page, y: region.y, x: 0, zoom: 1})
-        Qt.callLater(function() { if (root.currentReader) root.currentReader.reveal(source, page, region) })
+        if (t) activateTab(t.id)
+        else {
+            if (!openDocument(source, {page: page, y: region.y, x: 0, zoom: 1})) return
+            const g = Tree.find(tree, activeGroup)
+            t = g.tabs.find(function(tab) { return tab.id === g.activeTab })
+        }
+        const tabId = t.id, sourceUrl = source.toString()
+        Qt.callLater(function() {
+            // Bind deferred work to its source/tab, not whichever reader is active later.
+            const g = Tree.owner(root.tree, tabId)
+            if (!g || g.activeTab !== tabId) return
+            const view = root.groupView(g.id)
+            if (!view || view.loadedTab !== tabId || view.reader.source.toString() !== sourceUrl) return
+            view.reader.reveal(source, page, region)
+        })
     }
     onContentWidthChanged: if (!syncing) Qt.callLater(sync)
     onContentHeightChanged: if (!syncing) Qt.callLater(sync)

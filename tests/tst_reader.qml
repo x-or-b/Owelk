@@ -179,6 +179,58 @@ Item {
             verify(overlay.rectangles[0].height > bounds.height)
             compare(list.contentY, previousY, "Selecting text must not scroll the page")
         }
+        function test_blankClickClearsSelection() {
+            const paper = findChild(canvas, "paperPage0")
+            const bounds = fixtureTextBounds
+            const from = paper.mapToItem(canvas, bounds.x * canvas.pageScale,
+                                         (bounds.y + bounds.height / 2) * canvas.pageScale)
+            testInput.pointerDrag(canvas, from, Qt.point(from.x + bounds.width * canvas.pageScale, from.y), false)
+            verify(canvas.selectedText.length > 0)
+            mouseClick(paper, paper.width - 20, 30)
+            compare(canvas.selectedText, "")
+            compare(canvas.selectedAnchor, null)
+            compare(findChild(canvas, "selectionOverlay0").rectangles.length, 0)
+        }
+        function test_revealCancelledWhenReaderReused() {
+            // A queued reveal must never survive reuse of this pane for another tab.
+            reader.restore({})
+            reader.reveal(fixtureSource, 5, Qt.rect(.1, .4, .3, .1))
+            reader.restore({source: outlineSource, position: {page: 0, zoom: 1}})
+            tryCompare(canvas, "ready", true)
+            tryCompare(canvas, "restoring", false)
+            wait(350)
+            compare(canvas.source.toString(), outlineSource.toString())
+            compare(canvas.currentPage, 0)
+            compare(canvas.highlight, null)
+            compare(reader.sourceToReveal, null)
+        }
+        function test_revealWaitsForExistingTabRestore() {
+            canvas.openFile(fixtureSource, {page: 0, zoom: 1.2})
+            reader.reveal(fixtureSource, 5, Qt.rect(.1, .4, .3, .1))
+            tryCompare(canvas, "currentPage", 5)
+            wait(350)
+            compare(canvas.currentPage, 5)
+            verify(Math.abs(canvas.position().y - .32) < .03)
+            compare(reader.sourceToReveal, null)
+        }
+        function test_revealClearsFindAndReachesZoomedRegion() {
+            canvas.zoom(3)
+            tryCompare(canvas, "restoring", false)
+            reader.find()
+            canvas.searchString = "occlusion"
+            tryVerify(function() { return canvas.matchCount > 0 })
+            const region = Qt.rect(.7, .4, .15, .1)
+            reader.reveal(fixtureSource, 4, region)
+            tryCompare(canvas, "currentPage", 4)
+            wait(350)
+            compare(canvas.currentPage, 4)
+            compare(canvas.searchString, "")
+            compare(reader.searchVisible, false)
+            const paper = findChild(canvas, "paperPage4")
+            const point = paper.mapToItem(canvas, region.x * paper.width, region.y * paper.height)
+            verify(point.x >= 0 && point.x < canvas.width)
+            verify(point.y >= 0 && point.y < canvas.height)
+        }
         function test_saveExcerpt_data() {
             return [{tag: "single_line", reverse: false, dy: 0, zoom: 1},
                     {tag: "reversed_multiline_after_zoom", reverse: true, dy: 40, zoom: 1.2},

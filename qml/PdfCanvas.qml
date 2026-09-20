@@ -176,12 +176,26 @@ Item {
 
     function showSource(page, rect) {
         highlight = {page: page, rect: rect}
-        jump(page, Math.max(0, rect.y - 0.08), 0)
+        const pageWidth = pdfDocument.pagePointSize(page).width * pageScale
+        const left = (pages.contentWidth - pageWidth) / 2 + rect.x * pageWidth
+        jump(page, Math.max(0, rect.y - 0.08), Math.max(0, left - 24) / pages.contentWidth)
         highlightTimer.restart()
     }
 
     function copySelection() {
         if (selectedText.length) researchStore.copyText(selectedText)
+    }
+
+    function clearSelection() {
+        if (activeSelection) activeSelection.clear()
+        activeSelection = null
+        selectedText = ""
+        selectedAnchor = null
+    }
+
+    TapHandler {
+        enabled: root.ready && !root.captureMode && !root.pinching
+        onTapped: { root.activated(); root.clearSelection() }
     }
 
     function rememberSelection(selection) {
@@ -429,11 +443,6 @@ Item {
                             selection.forceActiveFocus()
                         } else if (root.activeSelection === selection) root.rememberSelection(selection)
                     }
-                }
-
-                TapHandler {
-                    enabled: !root.captureMode
-                    onTapped: root.activated()
                 }
 
                 HoverHandler {

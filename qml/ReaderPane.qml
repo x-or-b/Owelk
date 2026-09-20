@@ -25,8 +25,10 @@ Rectangle {
     border.color: isActive ? "#888888" : "#d6d6d6"
 
     function chooseFile() { fileDialog.open() }
+    function cancelReveal() { revealTimer.stop(); sourceToReveal = null }
     function openFile(url, position) {
         if (!researchStore.rememberDocument(url)) return false
+        cancelReveal()
         documentAboutToOpen()
         hideSearch()
         canvas.openFile(url, position || researchStore.readingPosition(url))
@@ -36,6 +38,7 @@ Rectangle {
         return true
     }
     function restore(state) {
+        cancelReveal()
         hideSearch()
         if (state && state.source) canvas.openFile(state.source, state.position)
         else canvas.openFile("", {page: 0, y: 0, x: 0, zoom: 1})
@@ -63,12 +66,14 @@ Rectangle {
     function captureSelection() { canvas.captureSelection() }
     function toggleCapture() { if (canvas.ready) canvas.captureMode = !canvas.captureMode }
     function reveal(url, page, region) {
-        if (source.toString() === url.toString() && canvas.ready) canvas.showSource(page, region)
-        else {
-            sourceToReveal = {page: page, region: region}
-            openFile(url, {page: page, y: Math.max(0, region.y - .08), x: 0, zoom: 1})
-            revealTimer.restart()
+        cancelReveal()
+        if (source.toString() !== url.toString()) {
+            // Managed readers belong to a tab: never replace its PDF behind the controller's back.
+            if (managed || !openFile(url, {page: page, y: Math.max(0, region.y - .08), x: 0, zoom: 1})) return
         }
+        hideSearch()
+        sourceToReveal = {source: url.toString(), page: page, region: region}
+        revealTimer.restart()
     }
 
     Timer {
@@ -76,7 +81,8 @@ Rectangle {
         interval: 180
         repeat: true
         onTriggered: {
-            if (!root.sourceToReveal || canvas.error.length) { stop(); return }
+            if (!root.sourceToReveal || canvas.error.length
+                || root.sourceToReveal.source !== canvas.source.toString()) { root.cancelReveal(); return }
             if (canvas.ready && !canvas.restoring) {
                 canvas.showSource(root.sourceToReveal.page, root.sourceToReveal.region)
                 root.sourceToReveal = null

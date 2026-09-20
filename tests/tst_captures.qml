@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtTest
 import "../qml" as App
+import "../qml/WorkspaceTree.js" as Tree
 
 Item {
     width: 1440; height: 930
@@ -11,6 +12,40 @@ Item {
         name: "TextCaptures"
         when: windowShown
         function cleanupTestCase() { workspace.visible = false }
+        function test_revealStaysOnMatchingTab() {
+            workspace.documents.restore({}); workspace.homeVisible = true
+            const pair = testInput.relinkFixture() // Two paths containing identical sentences.
+            workspace.openDocument(pair.source, {page: 1, y: .1, zoom: 1})
+            const c = findChild(workspace.currentReader, "pdfCanvas0")
+            tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
+            const a = Tree.leaves(workspace.documents.tree)[0].activeTab
+            workspace.openDocument(pair.candidate, {page: 0, zoom: 1})
+            tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
+            const b = Tree.leaves(workspace.documents.tree)[0].activeTab
+            researchStore.sourceReady(pair.candidate, 4, Qt.rect(.1, .4, .3, .1))
+            tryCompare(c, "currentPage", 4)
+            wait(400)
+            compare(c.currentPage, 4)
+            compare(c.source.toString(), pair.candidate.toString())
+            workspace.documents.activateTab(a)
+            tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
+            wait(350)
+            compare(c.source.toString(), pair.source.toString())
+            compare(c.currentPage, 1)
+            compare(c.highlight, null)
+            // Activate a background source and then change tabs before deferred work runs.
+            workspace.documents.reveal(pair.candidate, 6, Qt.rect(.1, .4, .3, .1))
+            workspace.documents.activateTab(a)
+            tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
+            wait(350)
+            compare(Tree.leaves(workspace.documents.tree)[0].activeTab, a)
+            compare(c.source.toString(), pair.source.toString())
+            compare(c.currentPage, 1)
+            compare(c.highlight, null)
+            workspace.documents.activateTab(b)
+            tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
+            compare(c.source.toString(), pair.candidate.toString())
+        }
         function test_excerptWorkflow() {
             workspace.documents.restore({}); workspace.homeVisible = true
             workspace.openDocument(fixtureSource, {page: 0, zoom: 1})
