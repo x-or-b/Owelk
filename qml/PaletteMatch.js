@@ -13,8 +13,9 @@ function highlight(title, query) {
     })
     let result = "", active = false
     for (let i = 0; i < title.length; ++i) {
-        if (marked[i] !== active) { result += marked[i] ? '<span style="color:#426b9a;font-weight:600">' : '</span>'; active = marked[i] }
+        // StyledText supports <font>/<b>, not CSS span styles.
+        if (marked[i] !== active) { result += marked[i] ? '<font color="#426b9a"><b>' : '</b></font>'; active = marked[i] }
         result += escape(title[i])
     }
-    return result + (active ? '</span>' : '')
+    return result + (active ? '</b></font>' : '')
 }
