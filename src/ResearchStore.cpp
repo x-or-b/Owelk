@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "PaperIndex.h"
 
 #include <QClipboard>
 #include <QCryptographicHash>
@@ -70,10 +71,13 @@ struct CaptureResult {
 }
 
 ResearchStore::ResearchStore(const QString &directory, QObject *parent)
-    : QObject(parent), m_directory(directory), m_connection(QUuid::createUuid().toString())
+    : QObject(parent), m_directory(directory), m_connection(QUuid::createUuid().toString()), m_index(new PaperIndex(directory, this))
 {
     m_workers.setMaxThreadCount(1);
+    connect(m_index, &PaperIndex::message, this, &ResearchStore::message);
 }
+
+QObject *ResearchStore::paperIndex() const { return m_index; }
 
 ResearchStore::~ResearchStore()
 {
@@ -116,6 +120,10 @@ bool ResearchStore::initialize(QString *error)
         }
     }
     reloadCaptures();
+    if (!m_index->initialize(error)) return false;
+    QSqlQuery known(m_database);
+    known.exec("SELECT url FROM recent_documents UNION SELECT url FROM reading_positions UNION SELECT url FROM workspace_documents");
+    while (known.next()) m_index->enqueue(QUrl(known.value(0).toString()));
     return true;
 }
 
@@ -182,6 +190,7 @@ bool ResearchStore::rememberDocument(const QUrl &url)
     }
     emit recentDocumentsChanged();
     emit homeChanged();
+    m_index->enqueue(url);
     return true;
 }
 

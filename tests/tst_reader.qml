@@ -73,6 +73,52 @@ Item {
             compare(canvas.currentPage, 3)
             verify(Math.abs(canvas.position().y - saved.y) < .03)
         }
+        function test_continuousPinchAnchorsAndDefersRenders() {
+            canvas.jump(2, .2, 0)
+            tryCompare(canvas, "restoring", false)
+            const point = Qt.point(canvas.width / 2, 220)
+            const before = canvas.anchorAt(point)
+            const image = findChild(canvas, "pageImage" + before.page)
+            tryCompare(image, "status", Image.Ready, 10000)
+            const resolution = image.sourceSize.width
+            verify(canvas.beginPinch(point))
+            for (let i = 1; i <= 12; ++i) {
+                canvas.updatePinch(1 + i * .04, point)
+                compare(image.sourceSize.width, resolution, "Pinching must not enqueue a raster per gesture update")
+                compare(canvas.zoomFactor, 1 + i * .04)
+                const current = canvas.anchorAt(point)
+                compare(current.page, before.page)
+                verify(Math.abs(current.x - before.x) < 1)
+                verify(Math.abs(current.y - before.y) < 1)
+            }
+            canvas.endPinch()
+            verify(image.sourceSize.width > resolution)
+            compare(canvas.pinching, false)
+            compare(canvas.restoring, false)
+            const saved = canvas.position()
+            canvas.openFile(fixtureSource, saved)
+            tryCompare(canvas, "restoring", false)
+            compare(canvas.zoomFactor, 1.48)
+        }
+        function test_pinchBoundsAndCancel() {
+            const point = Qt.point(canvas.width / 2, 220)
+            verify(canvas.beginPinch(point))
+            canvas.updatePinch(100, point); compare(canvas.zoomFactor, 4)
+            canvas.updatePinch(.01, point); compare(canvas.zoomFactor, .5)
+            canvas.cancelPinch(); compare(canvas.zoomFactor, 1)
+            compare(canvas.pinching, false)
+        }
+        function test_nativeTrackpadGesture() {
+            const point = Qt.point(canvas.width / 2, 220)
+            testInput.nativePinch(canvas, 0, 0, point)
+            testInput.nativePinch(canvas, 1, .1, point)
+            testInput.nativePinch(canvas, 1, .1, point)
+            verify(canvas.pinching)
+            verify(canvas.zoomFactor > 1)
+            testInput.nativePinch(canvas, 2, 0, point)
+            compare(canvas.pinching, false)
+            compare(canvas.restoring, false)
+        }
         function test_modifierWheelZoom_data() {
             const rows = [{tag: "ctrl_or_command", modifiers: Qt.ControlModifier}]
             if (Qt.platform.os === "osx") rows.push({tag: "mac_physical_control", modifiers: Qt.MetaModifier})

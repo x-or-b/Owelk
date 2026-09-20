@@ -6,17 +6,17 @@ Rectangle {
     id: root
     objectName: "homeView"
     color: "#fafafa"
-    property var results: []
+    property alias results: searchModel.results
+    ResearchSearch { id: searchModel; query: searchInput.text; active: root.visible }
     readonly property var continuation: researchStore.continueReading
     signal openRequested()
     signal documentChosen(url source, var position)
     signal workspaceChosen(string id)
     signal workspaceCreated(string name)
     signal resultChosen(var result)
-    function search() { results = researchStore.searchKnowledge(query.text); searchResults.currentIndex = results.length ? 0 : -1 }
-    function focusSearch() { query.forceActiveFocus(); query.selectAll() }
-    Timer { id: searchDelay; interval: 150; onTriggered: root.search() }
-    Connections { target: researchStore; function onHomeChanged() { if (query.text.length) searchDelay.restart() } }
+    function search() { searchModel.refresh(); searchResults.currentIndex = results.length ? 0 : -1 }
+    onResultsChanged: searchResults.currentIndex = results.length ? 0 : -1
+    function focusSearch() { searchInput.forceActiveFocus(); searchInput.selectAll() }
     Flickable {
         anchors.fill: parent
         clip: true
@@ -35,43 +35,41 @@ Rectangle {
                 spacing: 8
                 Label { text: "Search your research"; font.pixelSize: 22; font.weight: Font.Medium; color: "#333333" }
                 TextField {
-                    id: query
+                    id: searchInput
                     objectName: "homeSearch"
                     Layout.fillWidth: true
                     implicitHeight: 40
-                    placeholderText: "Find papers, captures or workspaces"
+                    placeholderText: "Find PDF text, papers, captures or workspaces"
                     selectByMouse: true
-                    onTextChanged: searchDelay.restart()
                     onAccepted: {
-                        const chosenIndex = searchResults.currentIndex
-                        searchDelay.stop()
-                        root.search()
+                        let chosenIndex = searchResults.currentIndex
+                        if (searchModel.delay.running) { root.search(); chosenIndex = searchResults.currentIndex }
                         if (root.results.length) root.resultChosen(root.results[Math.max(0, Math.min(chosenIndex, root.results.length - 1))])
                     }
                     Keys.onDownPressed: searchResults.currentIndex = Math.min(root.results.length - 1, searchResults.currentIndex + 1)
                     Keys.onUpPressed: searchResults.currentIndex = Math.max(0, searchResults.currentIndex - 1)
                     Keys.onEscapePressed: clear()
                 }
-                Label { text: "Paper names · Capture sources · Workspace names"; font.pixelSize: 11; color: "#777777" }
+                Label { text: "PDF text · Paper names · Capture sources · Workspace names"; font.pixelSize: 11; color: "#777777" }
+                IndexStatus { Layout.fillWidth: true }
+                Label { Layout.fillWidth: true; visible: searchModel.error.length > 0; text: "PDF text search failed: " + searchModel.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 11; color: "#777777" }
                 ListView {
                     id: searchResults
                     objectName: "homeResults"
-                    visible: query.text.trim().length > 0
+                    visible: searchInput.text.trim().length > 0
                     Layout.fillWidth: true
-                    Layout.preferredHeight: visible ? Math.max(1, Math.min(count, 5)) * 44 : 0
+                    Layout.preferredHeight: visible ? Math.min(320, Math.max(44, contentHeight)) : 0
                     clip: true
                     model: root.results
                     ScrollBar.vertical: ScrollBar {}
-                    delegate: ItemDelegate {
+                    delegate: SearchResultDelegate {
                         required property int index
-                        required property var modelData
+                        queryText: searchInput.text
                         width: searchResults.width
-                        height: 44
                         highlighted: searchResults.currentIndex === index
-                        text: modelData.kind.toUpperCase() + "   " + modelData.title
                         onClicked: root.resultChosen(modelData)
                     }
-                    Label { anchors.centerIn: parent; visible: searchResults.count === 0; text: "No matching saved items"; color: "#777777" }
+                    Label { anchors.centerIn: parent; visible: searchResults.count === 0; text: searchModel.waiting ? "Searching PDF text…" : searchModel.error.length ? "Text search failed. Try again." : "No matching saved items"; color: "#777777" }
                 }
             }
             Rectangle { Layout.fillWidth: true; height: 1; color: "#dddddd" }

@@ -8,6 +8,9 @@ Rectangle {
     property var panels: []
     property string activePanel: panels.length ? panels[0] : ""
     property url folder
+    property var reader: null
+    property int navigationMode: 0
+    signal navigationModeChosen(int mode)
     signal documentChosen(url source)
     signal folderChosen(url folder)
     color: "#f7f7f7"
@@ -24,19 +27,19 @@ Rectangle {
                 model: root.panels
                 delegate: Rectangle {
                     required property string modelData
-                    Layout.preferredWidth: modelData === "files" ? 55 : 78
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: modelData === "files" ? 48 : 74
                     Layout.preferredHeight: 34
                     color: root.activePanel === modelData ? "#e9e9e9" : "transparent"
-                    Label { anchors.centerIn: parent; text: modelData === "files" ? "Files" : "Captures"; font.pixelSize: 12 }
+                    Label { anchors.centerIn: parent; text: modelData === "files" ? "Files" : modelData === "captures" ? "Captures" : "Document"; font.pixelSize: 12 }
                     TapHandler { onTapped: root.activePanel = modelData }
                 }
             }
-            Item { Layout.fillWidth: true }
         }
         Loader {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            sourceComponent: root.activePanel === "files" ? files : root.activePanel === "captures" ? captures : null
+            sourceComponent: root.activePanel === "files" ? files : root.activePanel === "captures" ? captures : root.activePanel === "document" ? navigation : null
         }
     }
     Component {
@@ -48,4 +51,12 @@ Rectangle {
         }
     }
     Component { id: captures; CaptureShelf {} }
+    Component {
+        id: navigation
+        PdfNavigationPanel {
+            reader: root.reader
+            mode: root.navigationMode
+            onModeChosen: function(mode) { root.navigationModeChosen(mode) }
+        }
+    }
 }

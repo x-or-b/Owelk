@@ -15,7 +15,9 @@ Flickable {
     property bool suspended: false
     property string draggedTab: ""
     property var dropTarget: null
+    property var closedTabs: []
     readonly property int groupCount: groupRows.count
+    readonly property bool hasTabs: { const r = revision; return Tree.leaves(tree).some(function(g) { return g.tabs.length > 0 }) }
     readonly property var currentReader: { const r = revision; const view = groupView(activeGroup); return view ? view.reader : null }
     property real layoutMinimumWidth: 320
     property real layoutMinimumHeight: 280
@@ -47,6 +49,7 @@ Flickable {
         const restored = Tree.restore(state || {}) // Validate before changing the live layout.
         syncing = true
         groupRows.clear()
+        closedTabs = []
         tree = restored.tree
         activeGroup = restored.activeGroup
         syncing = false
@@ -101,6 +104,7 @@ Flickable {
         if (!g) return
         prepare()
         const at = g.tabs.findIndex(function(t) { return t.id === id })
+        closedTabs = closedTabs.concat([{groupId: g.id, tab: Tree.clone(g.tabs[at])}]).slice(-20)
         g.tabs.splice(at, 1)
         if (g.activeTab === id) g.activeTab = g.tabs.length ? g.tabs[Math.min(at, g.tabs.length - 1)].id : ""
         tree = Tree.prune(tree) || Tree.group([])
@@ -109,6 +113,28 @@ Flickable {
         if (!Tree.leaves(tree).some(function(g) { return g.tabs.length })) empty()
     }
     function closeActiveTab() { const g = Tree.find(tree, activeGroup); if (g && g.activeTab) closeTab(g.activeTab) }
+    function openAtPage(source, page) {
+        let tab = null
+        const list = Tree.leaves(tree)
+        for (let i = 0; i < list.length && !tab; ++i) tab = list[i].tabs.find(function(t) { return t.source === source.toString() })
+        if (tab) activateTab(tab.id)
+        else if (!openDocument(source, {page: page, y: 0, x: 0, zoom: 1})) return
+        // Reload a reused tab: its cached PDF may predate the newly verified file on disk.
+        if (currentReader) {
+            const zoom = tab ? tab.position.zoom || 1 : 1
+            if (tab) currentReader.restore({})
+            currentReader.restore({source: source, position: {page: page, y: 0, x: 0, zoom: zoom}})
+        }
+        changed()
+    }
+    function reopenClosedTab() {
+        if (!closedTabs.length) return
+        const entry = closedTabs[closedTabs.length - 1]
+        const previousGroup = activeGroup
+        if (Tree.find(tree, entry.groupId)) activeGroup = entry.groupId
+        if (openDocument(entry.tab.source, entry.tab.position, true)) closedTabs = closedTabs.slice(0, -1)
+        else activeGroup = previousGroup
+    }
     function duplicateSplit(edge) {
         const g = Tree.find(tree, activeGroup)
         if (!g || !g.activeTab) return

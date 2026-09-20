@@ -6,7 +6,15 @@ import QtQuick.Shapes
 Item {
     id: root
     property url source
+    property alias document: pdfDocument
     property real zoomFactor: 1
+    property bool pinching: false
+    property bool selecting: false
+    readonly property bool interacting: pinching || selecting
+    onInteractingChanged: researchStore.paperIndex.setReaderInteracting(root, interacting)
+    property real pinchStartZoom: 1
+    property var pinchAnchor: null
+    readonly property real rasterScale: Math.max(0.1, (width - 40) / Math.max(1, firstPageWidth)) * (pinching ? pinchStartZoom : zoomFactor)
     property bool captureMode: false
     property int currentPage: 0
     property string selectedText: ""
@@ -28,10 +36,12 @@ Item {
     signal regionSelected(int page, rect normalizedRegion)
 
     function openFile(url, position) {
+        if (pinching) cancelPinch()
         pendingPosition = position || {page: 0, y: 0, x: 0, zoom: 1}
         lastPosition = pendingPosition
         restoring = true
         captureMode = false
+        selecting = false
         selectedText = ""
         if (activeSelection) activeSelection.clear()
         activeSelection = null
@@ -82,6 +92,7 @@ Item {
 
     function zoom(multiplier) {
         if (!ready) return
+        if (pinching) endPinch()
         const saved = position()
         restoring = true
         zoomFactor = Math.max(0.5, Math.min(4, zoomFactor * multiplier))
@@ -90,6 +101,62 @@ Item {
 
     function fitWidth() {
         zoom(1 / zoomFactor)
+    }
+
+    function anchorAt(point) {
+        const y = pages.contentY + point.y
+        let index = pages.indexAt(pages.contentWidth / 2, y)
+        if (index < 0) index = pages.indexAt(pages.contentWidth / 2, y + pages.spacing)
+        if (index < 0) index = currentPage
+        const item = pages.itemAtIndex(index)
+        if (!item) return null
+        const left = (pages.contentWidth - item.pointSize.width * pageScale) / 2
+        return {page: index, x: (pages.contentX + point.x - left) / pageScale, y: (y - item.y) / pageScale,
+            viewportX: point.x, viewportY: point.y}
+    }
+    function placeAnchor(anchor, point) {
+        pages.forceLayout()
+        pages.positionViewAtIndex(anchor.page, ListView.Beginning)
+        pages.forceLayout()
+        const item = pages.itemAtIndex(anchor.page)
+        if (!item) return
+        const left = (pages.contentWidth - item.pointSize.width * pageScale) / 2
+        pages.contentX = Math.max(0, Math.min(pages.contentWidth - pages.width, left + anchor.x * pageScale - point.x))
+        const low = pages.originY - pages.topMargin
+        const high = Math.max(low, pages.originY + pages.contentHeight - pages.height + pages.bottomMargin)
+        pages.contentY = Math.max(low, Math.min(high, item.y + anchor.y * pageScale - point.y))
+    }
+    function beginPinch(point) {
+        if (!ready || restoring || pinching) return false
+        pinchAnchor = anchorAt(point)
+        if (!pinchAnchor) return false
+        activated()
+        positionTimer.stop()
+        lastPosition = position()
+        pinchStartZoom = zoomFactor
+        pinching = true
+        restoring = true
+        return true
+    }
+    function updatePinch(scale, point) {
+        if (!pinching || !Number.isFinite(scale) || scale <= 0) return
+        zoomFactor = Math.max(.5, Math.min(4, pinchStartZoom * scale))
+        // Scale existing rasters while keeping selection, links and page geometry aligned.
+        // Rendering resolution stays frozen until the gesture ends.
+        placeAnchor(pinchAnchor, point)
+    }
+    function endPinch() {
+        if (!pinching) return
+        pinching = false
+        pinchAnchor = null
+        restoring = false
+        updatePosition()
+    }
+    function cancelPinch() {
+        if (!pinching) return
+        zoomFactor = pinchStartZoom
+        placeAnchor(pinchAnchor, Qt.point(pinchAnchor.viewportX, pinchAnchor.viewportY))
+        endPinch()
     }
 
     function zoomByWheel(event) {
@@ -116,12 +183,14 @@ Item {
     }
 
     onWidthChanged: {
+        if (pinching) cancelPinch()
         if (ready && !restoring) {
             pendingPosition = lastPosition
             restoring = true
             restoreTimer.restart()
         }
     }
+    onVisibleChanged: if (!visible && pinching) endPinch()
 
     Timer {
         id: restoreTimer
@@ -237,8 +306,9 @@ Item {
                     document: pdfDocument
                     currentFrame: pageHolder.index
                     asynchronous: true
+                    retainWhileLoading: true
                     cache: false
-                    sourceSize.width: Math.min(4096, Math.ceil(paper.width * Screen.devicePixelRatio))
+                    sourceSize.width: Math.min(4096, Math.ceil(pageHolder.pointSize.width * root.rasterScale * Screen.devicePixelRatio))
                     fillMode: Image.PreserveAspectFit
                 }
 
@@ -318,9 +388,10 @@ Item {
                 DragHandler {
                     id: selectionDrag
                     target: null
-                    enabled: !root.captureMode
+                    enabled: !root.captureMode && !root.pinching
                     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad | PointerDevice.Stylus
                     onActiveChanged: {
+                        root.selecting = active
                         if (active) {
                             if (!pageHolder.metricsReady) {
                                 pageText.selectAll()
@@ -348,7 +419,11 @@ Item {
                 }
 
                 Repeater {
-                    model: PdfLinkModel { document: pdfDocument; page: pageHolder.index }
+                    model: PdfLinkModel {
+                        document: pdfDocument
+                        // Delegates can outlive the old page count briefly when switching tabs.
+                        page: root.ready && pageHolder.index < root.pageCount ? pageHolder.index : -1
+                    }
                     delegate: PdfLinkDelegate {
                         x: rectangle.x * root.pageScale
                         y: rectangle.y * root.pageScale
@@ -429,13 +504,15 @@ Item {
 
     PinchHandler {
         id: pinch
-        property real finalScale: 1
         target: null
         enabled: root.ready
-        onActiveScaleChanged: if (active) finalScale = activeScale
+        acceptedDevices: PointerDevice.TouchPad | PointerDevice.TouchScreen
+        rotationAxis.enabled: false
+        onActiveScaleChanged: if (active) root.updatePinch(activeScale, centroid.position)
+        onTranslationChanged: if (active) root.updatePinch(activeScale, centroid.position)
         onActiveChanged: {
-            if (active) finalScale = 1
-            else root.zoom(finalScale)
+            if (active) root.beginPinch(centroid.position)
+            else root.endPinch()
         }
     }
 

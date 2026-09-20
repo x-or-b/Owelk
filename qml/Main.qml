@@ -32,6 +32,9 @@ ApplicationWindow {
     property bool filesVisible: true
     property string filesSide: "left"
     property string capturesSide: "right"
+    property bool documentVisible: false
+    property string documentSide: "left"
+    property int navigationMode: 0
     property url paperFolder
     property bool homeVisible: true
     property string activeWorkspace: ""
@@ -48,16 +51,21 @@ ApplicationWindow {
         const panels = []
         if (filesVisible && filesSide === side) panels.push("files")
         if (shelfVisible && capturesSide === side) panels.push("captures")
+        if (documentVisible && documentSide === side) panels.push("document")
         return panels
     }
+    function panelSide(panel) { return panel === "files" ? filesSide : panel === "captures" ? capturesSide : documentSide }
+    function panelShown(panel) { return panel === "files" ? filesVisible : panel === "captures" ? shelfVisible : documentVisible }
+    function panelName(panel) { return panel === "files" ? "Files" : panel === "captures" ? "Captures" : "Document outline and thumbnails" }
+    function setPanelShown(panel, shown) { if (panel === "files") filesVisible = shown; else if (panel === "captures") shelfVisible = shown; else documentVisible = shown }
     function togglePanel(panel) {
-        const side = panel === "files" ? filesSide : capturesSide
+        const side = panelSide(panel)
         const dock = side === "left" ? leftDock : rightDock
-        const shown = panel === "files" ? filesVisible : shelfVisible
+        const shown = panelShown(panel)
         if (shown && dock.activePanel === panel) {
-            if (panel === "files") filesVisible = false; else shelfVisible = false
+            setPanelShown(panel, false)
         } else {
-            if (panel === "files") filesVisible = true; else shelfVisible = true
+            setPanelShown(panel, true)
             movePanel(panel, side)
         }
     }
@@ -65,10 +73,17 @@ ApplicationWindow {
         if (side !== "left" && side !== "right") return
         if (panel === "files") filesSide = side
         if (panel === "captures") capturesSide = side
+        if (panel === "document") documentSide = side
         Qt.callLater(function() { (side === "left" ? leftDock : rightDock).activePanel = panel })
     }
     function showHome() { persist(); homeVisible = true; Qt.callLater(function() { homeView.focusSearch() }) }
     function openDocument(source, position) { if (!restoreFailed) documents.openDocument(source, position) }
+    function openSearchResult(result) {
+        if (result.kind === "paper") openDocument(result.source, result.position)
+        else if (result.kind === "capture") researchStore.openCapture(result.id)
+        else if (result.kind === "workspace") openWorkspace(result.id)
+        else if (result.kind === "text" && !restoreFailed) { notify("Checking PDF source…"); researchStore.paperIndex.openResult(result.documentId, Number(result.page), result.sha256) }
+    }
     function openWorkspace(id) {
         if (restoreFailed || !persist()) return
         const state = researchStore.loadWorkspace(id)
@@ -78,7 +93,7 @@ ApplicationWindow {
         catch (error) { initialized = true; notify(error.message); return }
         activeWorkspace = state.workspace; workspaceName = state.workspaceName || ""
         paperFolder = state.panels ? state.panels.folder || "" : ""
-        homeVisible = !documents.currentReader || !documents.currentReader.source.toString().length
+        homeVisible = !documents.hasTabs
         initialized = true; persist()
     }
     function persist() {
@@ -86,6 +101,7 @@ ApplicationWindow {
         const state = documents.snapshot()
         Object.assign(state, {shelf: shelfVisible, workspace: activeWorkspace, workspaceName: workspaceName,
             width: width, height: height, panels: {filesVisible: filesVisible, filesSide: filesSide, capturesSide: capturesSide,
+                documentVisible: documentVisible, documentSide: documentSide, navigationMode: navigationMode,
                 folder: paperFolder.toString(), leftActive: leftDock.activePanel, rightActive: rightDock.activePanel}})
         return researchStore.saveWorkspace(activeWorkspace, state) && researchStore.saveSession(state)
     }
@@ -102,6 +118,9 @@ ApplicationWindow {
         filesVisible = panels.filesVisible === undefined ? true : panels.filesVisible
         filesSide = panels.filesSide === "right" ? "right" : "left"
         capturesSide = panels.capturesSide === "left" ? "left" : "right"
+        documentVisible = !!panels.documentVisible
+        documentSide = panels.documentSide === "right" ? "right" : "left"
+        navigationMode = panels.navigationMode === 1 ? 1 : 0
         paperFolder = panels.folder || ""
         if (leftPanels.indexOf(panels.leftActive) >= 0) leftDock.activePanel = panels.leftActive
         if (rightPanels.indexOf(panels.rightActive) >= 0) rightDock.activePanel = panels.rightActive
@@ -123,6 +142,9 @@ ApplicationWindow {
     onFilesVisibleChanged: scheduleSave()
     onFilesSideChanged: scheduleSave()
     onCapturesSideChanged: scheduleSave()
+    onDocumentSideChanged: scheduleSave()
+    onDocumentVisibleChanged: scheduleSave()
+    onNavigationModeChanged: scheduleSave()
     onPaperFolderChanged: scheduleSave()
     Timer { id: saveTimer; interval: 500; onTriggered: window.persist() }
     Timer { id: notificationTimer; interval: 6500; onTriggered: if (!window.restoreFailed) window.notification = "" }
@@ -133,11 +155,15 @@ ApplicationWindow {
         function onCaptureSaved(id) { window.shelfVisible = true; window.movePanel("captures", window.capturesSide) }
         function onSourceReady(url, page, region) { if (!window.restoreFailed) { documents.reveal(url, page, region); window.homeVisible = false } }
     }
+    Connections {
+        target: researchStore.paperIndex
+        function onResultReady(source, page) { if (!window.restoreFailed) documents.openAtPage(source, page) }
+    }
     CommandPalette {
         id: commandPalette
         parent: Overlay.overlay
-        recentDocuments: researchStore.recentDocuments
-        onDocumentChosen: function(source) { window.openDocument(source) }
+        hasDocument: !window.homeVisible && !!window.currentReader && window.currentReader.pdfReady
+        canReopenTab: documents.closedTabs.length > 0
         onCommandChosen: function(command) {
             switch (command) {
             case "/home": window.showHome(); break
@@ -147,23 +173,34 @@ ApplicationWindow {
             case "/split down": documents.duplicateSplit("bottom"); break
             case "/split off": documents.joinAll(); break
             case "/capture": if (!window.homeVisible && window.currentReader) window.currentReader.toggleCapture(); break
-            case "/files": window.filesVisible = true; window.movePanel("files", window.filesSide); break
-            case "/captures": window.shelfVisible = true; window.movePanel("captures", window.capturesSide); break
+            case "/files": window.togglePanel("files"); break
+            case "/captures": window.togglePanel("captures"); break
+            case "/document": window.togglePanel("document"); break
+            case "/close tab": documents.closeActiveTab(); break
+            case "/reopen tab": documents.reopenClosedTab(); break
+            case "/fit width": if (window.currentReader) window.currentReader.fitWidth(); break
             }
         }
+    }
+    SearchPalette {
+        id: searchPalette
+        parent: Overlay.overlay
+        onResultChosen: function(result) { window.openSearchResult(result) }
     }
     menuBar: MenuBar {
         Menu {
             title: "File"
             Action { text: "Open PDF…"; shortcut: StandardKey.Open; onTriggered: window.chooseFile() }
             Action { objectName: "closeTabAction"; text: "Close Tab"; shortcut: "Ctrl+W"; enabled: !window.homeVisible && !window.restoreFailed; onTriggered: documents.closeActiveTab() }
+            Action { text: "Reopen Closed Tab"; shortcut: "Ctrl+Shift+T"; enabled: documents.closedTabs.length > 0 && !window.restoreFailed; onTriggered: documents.reopenClosedTab() }
             MenuSeparator {}
             Action { text: "Quit"; shortcut: StandardKey.Quit; onTriggered: window.close() }
         }
         Menu {
             title: "View"
             Action { text: "Home"; shortcut: "Ctrl+Shift+H"; onTriggered: window.showHome() }
-            Action { text: "Command palette"; shortcut: "Ctrl+K"; onTriggered: commandPalette.open() }
+            Action { text: "Search Research"; shortcut: "Ctrl+K"; onTriggered: { commandPalette.close(); searchPalette.open() } }
+            Action { text: "Command Palette"; shortcut: "Ctrl+Shift+P"; onTriggered: { searchPalette.close(); commandPalette.open() } }
             Action { text: "Find"; shortcut: StandardKey.Find; onTriggered: { if (window.homeVisible) homeView.focusSearch(); else if (window.currentReader) window.currentReader.find() } }
             Action { text: "Zoom in"; shortcut: StandardKey.ZoomIn; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1.2) }
             Action { text: "Zoom out"; shortcut: StandardKey.ZoomOut; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1 / 1.2) }
@@ -181,6 +218,9 @@ ApplicationWindow {
             id: leftDock
             objectName: "leftDock"
             side: "left"; panels: window.leftPanels; folder: window.paperFolder
+            reader: window.homeVisible ? null : window.currentReader
+            navigationMode: window.navigationMode
+            onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             visible: panels.length > 0
             Layout.preferredWidth: 224; Layout.fillHeight: true
             onFolderChosen: function(folder) { window.paperFolder = folder }
@@ -195,11 +235,7 @@ ApplicationWindow {
             onDocumentChosen: function(source, position) { window.openDocument(source, position) }
             onWorkspaceChosen: function(id) { window.openWorkspace(id) }
             onWorkspaceCreated: function(name) { if (!window.restoreFailed) { const id = researchStore.createWorkspace(name); if (id.length) window.openWorkspace(id) } }
-            onResultChosen: function(result) {
-                if (result.kind === "paper") window.openDocument(result.source, result.position)
-                else if (result.kind === "capture") researchStore.openCapture(result.id)
-                else if (result.kind === "workspace") window.openWorkspace(result.id)
-            }
+            onResultChosen: function(result) { window.openSearchResult(result) }
         }
         DocumentWorkspace {
             id: documents
@@ -216,6 +252,9 @@ ApplicationWindow {
             id: rightDock
             objectName: "rightDock"
             side: "right"; panels: window.rightPanels; folder: window.paperFolder
+            reader: window.homeVisible ? null : window.currentReader
+            navigationMode: window.navigationMode
+            onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             visible: panels.length > 0
             Layout.preferredWidth: 224; Layout.fillHeight: true
             onFolderChosen: function(folder) { window.paperFolder = folder }
@@ -233,13 +272,13 @@ ApplicationWindow {
             anchors.leftMargin: 4; anchors.rightMargin: 4
             spacing: 2
             Repeater {
-                model: ["files", "captures"].filter(function(p) { return (p === "files" ? window.filesSide : window.capturesSide) === "left" })
+                model: ["files", "captures", "document"].filter(function(p) { return window.panelSide(p) === "left" })
                 delegate: StatusIcon {
                     required property string modelData
                     objectName: "dockIcon-" + modelData
                     kind: modelData; dockSide: "left"
-                    description: (kind === "files" ? "Files" : "Captures") + " · Right-click to change dock"
-                    selected: kind === "files" ? window.filesVisible : window.shelfVisible
+                    description: window.panelName(kind) + " · Right-click to change dock"
+                    selected: window.panelShown(kind)
                     onTriggered: window.togglePanel(kind)
                     onDockSideChosen: function(side) { const panel = kind; Qt.callLater(function() { window.movePanel(panel, side) }) }
                 }
@@ -249,16 +288,16 @@ ApplicationWindow {
                 text: window.notification.length ? window.notification : researchStore.busy ? "Saving capture…" : window.workspaceName.length ? window.workspaceName : "Local workspace"
                 elide: Text.ElideRight; font.pixelSize: 11; color: "#666666"
             }
-            StatusIcon { kind: "search"; description: "Command palette · Ctrl/Cmd+K"; onTriggered: commandPalette.open() }
+            StatusIcon { kind: "search"; description: "Search · Ctrl/Cmd+K"; onTriggered: { commandPalette.close(); searchPalette.open() } }
             StatusIcon { kind: "split"; description: "Duplicate tab to right split"; visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }
             Repeater {
-                model: ["files", "captures"].filter(function(p) { return (p === "files" ? window.filesSide : window.capturesSide) === "right" })
+                model: ["files", "captures", "document"].filter(function(p) { return window.panelSide(p) === "right" })
                 delegate: StatusIcon {
                     required property string modelData
                     objectName: "dockIcon-" + modelData
                     kind: modelData; dockSide: "right"
-                    description: (kind === "files" ? "Files" : "Captures") + " · Right-click to change dock"
-                    selected: kind === "files" ? window.filesVisible : window.shelfVisible
+                    description: window.panelName(kind) + " · Right-click to change dock"
+                    selected: window.panelShown(kind)
                     onTriggered: window.togglePanel(kind)
                     onDockSideChosen: function(side) { const panel = kind; Qt.callLater(function() { window.movePanel(panel, side) }) }
                 }

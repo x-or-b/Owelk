@@ -3,6 +3,7 @@
 #include <QFont>
 #include <QPainter>
 #include <QPdfWriter>
+#include <QFile>
 
 inline void writeFixture(const QString &path, const QString &title = "A Small Research Reader", int pages = 8)
 {
@@ -39,3 +40,32 @@ inline void writeFixture(const QString &path, const QString &title = "A Small Re
     }
 }
 
+// Minimal, deterministic PDF with a nested outline; used only by automated tests.
+inline bool writeOutlineFixture(const QString &path)
+{
+    QList<QByteArray> objects;
+    objects << "<< /Type /Catalog /Pages 2 0 R /Outlines 9 0 R >>"
+            << "<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>";
+    for (int page = 0; page < 3; ++page) {
+        objects << QByteArray("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 12 0 R >> >> /Contents ") + QByteArray::number(4 + page * 2) + " 0 R >>";
+        const auto content = QByteArray("BT /F1 20 Tf 60 700 Td (Outline fixture page ") + QByteArray::number(page + 1) + ") Tj ET";
+        objects << QByteArray("<< /Length ") + QByteArray::number(content.size()) + " >>\nstream\n" + content + "\nendstream";
+    }
+    objects << "<< /Type /Outlines /First 10 0 R /Last 13 0 R /Count 3 >>"
+            << "<< /Title (Introduction) /Parent 9 0 R /Dest [3 0 R /XYZ 0 792 0] /First 11 0 R /Last 11 0 R /Count 1 /Next 13 0 R >>"
+            << "<< /Title (Method) /Parent 10 0 R /Dest [5 0 R /XYZ 0 500 0] >>"
+            << "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+            << "<< /Title (Results) /Parent 9 0 R /Prev 10 0 R /Dest [7 0 R /XYZ 0 792 0] >>";
+    QByteArray pdf("%PDF-1.4\n");
+    QList<qsizetype> offsets;
+    for (qsizetype i = 0; i < objects.size(); ++i) {
+        offsets << pdf.size();
+        pdf += QByteArray::number(i + 1) + " 0 obj\n" + objects[i] + "\nendobj\n";
+    }
+    const auto start = pdf.size();
+    pdf += "xref\n0 14\n0000000000 65535 f \n";
+    for (const auto offset : offsets) pdf += QByteArray::number(offset).rightJustified(10, '0') + " 00000 n \n";
+    pdf += "trailer\n<< /Size 14 /Root 1 0 R >>\nstartxref\n" + QByteArray::number(start) + "\n%%EOF\n";
+    QFile file(path);
+    return file.open(QIODevice::WriteOnly) && file.write(pdf) == pdf.size();
+}

@@ -9,6 +9,10 @@ Rectangle {
     property bool isActive: false
     property bool managed: false
     property alias source: canvas.source
+    property alias pdfDocument: canvas.document
+    readonly property bool pdfReady: canvas.ready
+    readonly property int currentPage: canvas.currentPage
+    readonly property int pageCount: canvas.pageCount
     property alias selectedText: canvas.selectedText
     property var sourceToReveal: null
     property bool searchVisible: false
@@ -53,6 +57,8 @@ Rectangle {
         canvas.forceActiveFocus()
     }
     function zoom(multiplier) { canvas.zoom(multiplier) }
+    function fitWidth() { canvas.fitWidth() }
+    function jumpToPage(page, y) { activated(); canvas.jump(page, y || 0, 0) }
     function copySelection() { canvas.copySelection() }
     function toggleCapture() { if (canvas.ready) canvas.captureMode = !canvas.captureMode }
     function reveal(url, page, region) {

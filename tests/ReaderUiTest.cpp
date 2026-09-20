@@ -22,6 +22,16 @@ class ReaderSetup : public QObject
 {
     Q_OBJECT
 public:
+    Q_INVOKABLE void nativePinch(QQuickItem *item, int phase, qreal value, QPointF point) {
+        if (!item || !item->window()) return;
+        auto *window = item->window();
+        const auto scene = item->mapToScene(point);
+        const auto type = phase == 0 ? Qt::BeginNativeGesture : phase == 2 ? Qt::EndNativeGesture : Qt::ZoomNativeGesture;
+        QNativeGestureEvent event(type, &m_trackpad, 2, scene, scene, window->mapToGlobal(scene), value, {}, 1);
+        event.setTimestamp(++m_timestamp);
+        QCoreApplication::sendEvent(window, &event);
+        QCoreApplication::processEvents();
+    }
     Q_INVOKABLE QString clipboardText() const { return QGuiApplication::clipboard()->text(); }
     Q_INVOKABLE void keyClick(QQuickItem *item, int key, int modifiers = 0) {
         if (!item || !item->window()) return;
@@ -51,6 +61,8 @@ public slots:
     void applicationAvailable() {
         QQuickStyle::setStyle("Basic");
         writeFixture(m_directory.filePath("fixture.pdf"));
+        writeFixture(m_directory.filePath("long.pdf"), "Long PDF benchmark", 120);
+        if (!writeOutlineFixture(m_directory.filePath("outline.pdf"))) qFatal("Cannot create outline fixture");
         QDir().mkpath(m_directory.filePath("library/Group"));
         QFile::copy(m_directory.filePath("fixture.pdf"), m_directory.filePath("library/root.pdf"));
         QFile::copy(m_directory.filePath("fixture.pdf"), m_directory.filePath("library/Group/inside.pdf"));
@@ -65,6 +77,8 @@ public slots:
         engine->rootContext()->setContextProperty("testInput", this);
         engine->rootContext()->setContextProperty("researchStore", m_store);
         engine->rootContext()->setContextProperty("fixtureSource", QUrl::fromLocalFile(m_directory.filePath("fixture.pdf")));
+        engine->rootContext()->setContextProperty("outlineSource", QUrl::fromLocalFile(m_directory.filePath("outline.pdf")));
+        engine->rootContext()->setContextProperty("longSource", QUrl::fromLocalFile(m_directory.filePath("long.pdf")));
         QPdfDocument pdf;
         pdf.load(m_directory.filePath("fixture.pdf"));
         const auto text = pdf.getAllText(0).text();

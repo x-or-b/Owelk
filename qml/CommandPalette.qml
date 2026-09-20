@@ -1,77 +1,51 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "PaletteMatch.js" as Match
 
 Popup {
     id: root
     objectName: "commandPalette"
-    width: Math.min(560, parent ? parent.width - 32 : 560)
+    width: Math.min(640, parent ? parent.width - 32 : 640)
     x: parent ? (parent.width - width) / 2 : 0
     y: parent ? Math.min(100, parent.height * .12) : 0
     padding: 12
     modal: true
     focus: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-    property var recentDocuments: []
+    property bool hasDocument: false
+    property bool canReopenTab: false
     readonly property var commands: [
-        {kind: "command", command: "/home", title: "Go to Home"},
-        {kind: "command", command: "/open paper", title: "Open PDF…"},
-        {kind: "command", command: "/find", title: "Find in current document"},
-        {kind: "command", command: "/files", title: "Show files", description: "Browse recent PDFs or open a paper folder"},
-        {kind: "command", command: "/split right", title: "Duplicate tab to right split"},
-        {kind: "command", command: "/split down", title: "Duplicate tab to bottom split"},
-        {kind: "command", command: "/split off", title: "Join all groups", description: "Keep all tabs in one group"},
-        {kind: "command", command: "/capture", title: "Toggle region capture", description: "Save a figure, table or equation with its source"},
-        {kind: "command", command: "/captures", title: "Show saved captures", description: "Select a saved capture to return to its source"}
+        {command: "/open paper", title: "File: Open PDF", enabled: true},
+        {command: "/close tab", title: "Tab: Close Active Tab", enabled: hasDocument},
+        {command: "/reopen tab", title: "Tab: Reopen Closed Tab", enabled: canReopenTab},
+        {command: "/home", title: "View: Go to Home", enabled: true},
+        {command: "/find", title: "Search: Find in Current PDF", enabled: hasDocument},
+        {command: "/files", title: "Panel: Toggle Files", enabled: true},
+        {command: "/captures", title: "Panel: Toggle Captures", enabled: true},
+        {command: "/document", title: "Panel: Toggle Document Outline and Thumbnails", enabled: true},
+        {command: "/split right", title: "Split: Duplicate Tab Right", enabled: hasDocument},
+        {command: "/split down", title: "Split: Duplicate Tab Below", enabled: hasDocument},
+        {command: "/split off", title: "Split: Join All Groups", enabled: hasDocument},
+        {command: "/capture", title: "Capture: Select a Region", enabled: hasDocument},
+        {command: "/fit width", title: "PDF: Fit Page Width", enabled: hasDocument}
     ]
-    readonly property var results: filtered(query.text, recentDocuments)
-    signal documentChosen(url source)
+    readonly property var results: commands.filter(function(c) { return Match.matches(c.title, query.text) })
     signal commandChosen(string command)
-
-    function filtered(text, documents) {
-        const input = text.replace(/^\s+/, "").toLowerCase().replace(/^\/caputres(?=\s|$)/, "/captures")
-        const openArgument = input.startsWith("/open paper ")
-        const needle = (openArgument ? input.slice(12) : input).trim()
-        const matches = []
-        if (!input.startsWith("/") || openArgument || input === "/open paper") {
-            for (let i = 0; i < documents.length; ++i) {
-                const doc = documents[i]
-                if (input === "/open paper" || !needle || doc.name.toLowerCase().includes(needle))
-                    matches.push({kind: "document", title: doc.name, source: doc.url})
-            }
-        }
-        if ((!input || input.startsWith("/")) && !openArgument) {
-            for (let i = 0; i < commands.length; ++i) {
-                if (!input || commands[i].command.includes(input)) matches.push(commands[i])
-            }
-        }
-        return matches
-    }
-
     function move(direction) {
         if (!results.length) return
-        resultsView.currentIndex = (resultsView.currentIndex + direction + results.length) % results.length
-        resultsView.positionViewAtIndex(resultsView.currentIndex, ListView.Contain)
+        list.currentIndex = (list.currentIndex + direction + results.length) % results.length
+        list.positionViewAtIndex(list.currentIndex, ListView.Contain)
     }
-
     function choose(index) {
-        if (index < 0 || index >= results.length) return
-        const result = results[index]
+        if (index < 0 || index >= results.length || !results[index].enabled) return
+        const command = results[index].command
         close()
-        // Run after the popup restores keyboard focus to the reader.
-        Qt.callLater(function() {
-            if (result.kind === "document") root.documentChosen(result.source)
-            else root.commandChosen(result.command)
-        })
+        Qt.callLater(function() { root.commandChosen(command) })
     }
-
-    onResultsChanged: if (resultsView) resultsView.currentIndex = results.length ? 0 : -1
-    onAboutToShow: {
-        query.clear()
-        resultsView.currentIndex = results.length ? 0 : -1
-    }
+    onResultsChanged: if (list) list.currentIndex = results.length ? 0 : -1
+    onAboutToShow: { query.clear(); list.currentIndex = results.length ? 0 : -1 }
     onOpened: query.forceActiveFocus()
-
     background: Rectangle { color: "#ffffff"; border.color: "#bcbcbc"; radius: 4 }
     contentItem: ColumnLayout {
         spacing: 8
@@ -79,58 +53,41 @@ Popup {
             id: query
             objectName: "paletteQuery"
             Layout.fillWidth: true
-            placeholderText: "Recent PDF name or /command"
+            placeholderText: "Search commands"
             selectByMouse: true
-            onAccepted: root.choose(resultsView.currentIndex)
+            onAccepted: root.choose(list.currentIndex)
             Keys.onDownPressed: root.move(1)
             Keys.onUpPressed: root.move(-1)
             Keys.onEscapePressed: root.close()
-            Keys.onTabPressed: {
-                const result = root.results[resultsView.currentIndex]
-                if (result && result.kind === "command") text = result.command + " "
-            }
         }
         ListView {
-            id: resultsView
+            id: list
             objectName: "paletteResults"
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(6, Math.max(1, count)) * 54
+            Layout.preferredHeight: Math.min(9, Math.max(1, count)) * 36
             model: root.results
             clip: true
-            boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar {}
             delegate: ItemDelegate {
                 required property int index
                 required property var modelData
-                width: resultsView.width
-                height: 54
-                highlighted: resultsView.currentIndex === index
+                width: list.width; height: 36
+                highlighted: list.currentIndex === index
+                enabled: modelData.enabled
                 onClicked: root.choose(index)
                 background: Rectangle { color: highlighted ? "#eeeeee" : "transparent" }
-                contentItem: Column {
-                    spacing: 3
-                    Label { width: parent.width; text: modelData.title; color: "#242424"; elide: Text.ElideMiddle }
-                    Label {
-                        width: parent.width
-                        text: modelData.kind === "document" ? modelData.source.toString()
-                              : modelData.command + (modelData.description ? " · " + modelData.description : "")
-                        color: "#737373"
-                        font.pixelSize: 11
-                        elide: Text.ElideMiddle
-                    }
+                contentItem: Label {
+                    objectName: "commandTitle-" + index
+                    text: Match.highlight(modelData.title, query.text)
+                    textFormat: Text.StyledText
+                    color: "#333333"
+                    opacity: modelData.enabled ? 1 : .45
+                    elide: Text.ElideRight
+                    verticalAlignment: Text.AlignVCenter
                 }
             }
-            Label {
-                visible: resultsView.count === 0
-                anchors.centerIn: parent
-                text: "No matching recent files or commands."
-                color: "#737373"
-            }
+            Label { visible: list.count === 0; anchors.centerIn: parent; text: "No matching commands"; color: "#777777" }
         }
-        Label {
-            text: "↑↓ Navigate · Enter Run · Tab Complete · Esc Close"
-            color: "#737373"
-            font.pixelSize: 11
-        }
+        Label { text: "↑↓ Navigate · Enter Run · Esc Close"; color: "#777777"; font.pixelSize: 11 }
     }
 }

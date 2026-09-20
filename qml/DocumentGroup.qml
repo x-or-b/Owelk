@@ -15,6 +15,7 @@ Rectangle {
     clip: true
     function refresh() {
         if (!pane || loadedTab === groupData.activeTab) return
+        if (!loadedTab.length && controller.suspended) return
         loadedTab = groupData.activeTab
         const t = groupData.tabs.find(function(t) { return t.id === loadedTab })
         pane.restore(t || {})
@@ -28,6 +29,7 @@ Rectangle {
         })
     }
     Component.onCompleted: refresh()
+    Connections { target: root.controller; function onSuspendedChanged() { if (!root.controller.suspended) root.refresh() } }
     ColumnLayout {
         anchors.fill: parent
         spacing: 0

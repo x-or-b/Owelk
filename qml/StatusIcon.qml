@@ -43,6 +43,9 @@ Item {
             } else if (root.kind === "captures") {
                 c.rect(3, 3, 12, 12); c.moveTo(4, 12); c.lineTo(8, 8); c.lineTo(11, 11); c.lineTo(14, 7)
                 c.moveTo(7, 6); c.arc(6, 6, 1, 0, Math.PI * 2)
+            } else if (root.kind === "document") {
+                c.rect(3, 2, 12, 14)
+                c.moveTo(6, 6); c.lineTo(12, 6); c.moveTo(6, 9); c.lineTo(12, 9); c.moveTo(6, 12); c.lineTo(10, 12)
             } else if (root.kind === "home") {
                 c.moveTo(1, 8); c.lineTo(9, 2); c.lineTo(17, 8)
                 c.moveTo(4, 6); c.lineTo(4, 16); c.lineTo(14, 16); c.lineTo(14, 6)

@@ -8,6 +8,8 @@
 #include <QVariantList>
 #include <QVariantMap>
 
+class PaperIndex;
+
 class ResearchStore final : public QObject
 {
     Q_OBJECT
@@ -18,6 +20,7 @@ class ResearchStore final : public QObject
     Q_PROPERTY(QString dataDirectory READ dataDirectory CONSTANT)
     Q_PROPERTY(QVariantList recentWorkspaces READ recentWorkspaces NOTIFY homeChanged)
     Q_PROPERTY(QVariantMap continueReading READ continueReading NOTIFY homeChanged)
+    Q_PROPERTY(QObject *paperIndex READ paperIndex CONSTANT)
 
 public:
     explicit ResearchStore(const QString &directory, QObject *parent = nullptr);
@@ -28,6 +31,7 @@ public:
     QVariantList recentDocuments() const;
     bool busy() const { return m_pending > 0; }
     QString dataDirectory() const { return m_directory; }
+    QObject *paperIndex() const;
 
     Q_INVOKABLE bool saveSession(const QVariantMap &state);
     Q_INVOKABLE bool rememberDocument(const QUrl &url);
@@ -65,4 +69,5 @@ private:
     QThreadPool m_workers;
     int m_pending = 0;
     int m_folderRequest = 0;
+    PaperIndex *m_index;
 };

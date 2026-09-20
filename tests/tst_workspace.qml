@@ -28,6 +28,7 @@ Item {
             workspace.documents.restore({})
             workspace.filesVisible = true; workspace.shelfVisible = true
             workspace.filesSide = "left"; workspace.capturesSide = "right"
+            workspace.documentVisible = false; workspace.documentSide = "left"; workspace.navigationMode = 0
             workspace.homeVisible = true
         }
         function test_noPanelCloseButton() {
@@ -66,6 +67,7 @@ Item {
             canvas()
             workspace.showHome()
             compare(researchStore.continueReading.position.page, 2)
+            waitForPolish(workspace)
             mouseClick(findChild(workspace, "continueReading"))
             compare(workspace.homeVisible, false)
             compare(canvas().currentPage, 2)
@@ -77,6 +79,7 @@ Item {
             const restored = createTemporaryObject(restoredWindow, null)
             verify(restored !== null)
             compare(restored.homeVisible, true)
+            compare(restored.currentReader.pdfReady, false, "Home startup should defer opening PDF engines")
             compare(Tree.leaves(restored.documents.tree)[0].tabs.length, 1)
         }
         function test_newWorkspaceStartsAtHome() {
@@ -212,6 +215,50 @@ Item {
             try { d.restore({version: 2, tree: {kind: "corrupt"}}) } catch (error) { failed = true }
             verify(failed)
             compare(JSON.stringify(d.snapshot()), before)
+        }
+        function test_reopenClosedTabKeepsPosition() {
+            workspace.openDocument(fixtureSource, {page: 4, y: .15, x: 0, zoom: 1.3})
+            canvas()
+            workspace.documents.closeActiveTab()
+            compare(workspace.homeVisible, true)
+            compare(workspace.documents.closedTabs.length, 1)
+            testInput.keyClick(findChild(workspace, "homeSearch"), Qt.Key_T, Qt.ControlModifier | Qt.ShiftModifier)
+            compare(workspace.homeVisible, false)
+            compare(canvas().currentPage, 4)
+            compare(canvas().zoomFactor, 1.3)
+            compare(workspace.documents.closedTabs.length, 0)
+        }
+        function test_separatePaletteShortcuts() {
+            workspace.openDocument(fixtureSource); canvas()
+            testInput.keyClick(workspace.currentReader, Qt.Key_K, Qt.ControlModifier)
+            const search = findChild(workspace, "searchPalette"), commands = findChild(workspace, "commandPalette")
+            tryCompare(search, "opened", true); compare(commands.visible, false)
+            search.close(); tryCompare(search, "visible", false)
+            testInput.keyClick(workspace.currentReader, Qt.Key_P, Qt.ControlModifier | Qt.ShiftModifier)
+            tryCompare(commands, "opened", true); compare(search.visible, false)
+            commands.close()
+        }
+        function test_navigationFollowsActiveGroupAndPersistsMode() {
+            workspace.openDocument(outlineSource); canvas()
+            workspace.togglePanel("document")
+            tryCompare(findChild(workspace, "leftDock"), "activePanel", "document")
+            let panel = findChild(workspace, "pdfNavigationPanel")
+            verify(panel !== null)
+            compare(panel.reader, workspace.currentReader)
+            workspace.navigationMode = 1
+            workspace.documents.duplicateSplit("right"); canvas()
+            workspace.documents.openDocument(fixtureSource); canvas()
+            compare(panel.reader.pageCount, 8)
+            workspace.movePanel("document", "right")
+            tryCompare(findChild(workspace, "rightDock"), "activePanel", "document")
+            workspace.persist()
+            compare(researchStore.session.panels.documentSide, "right")
+            compare(researchStore.session.panels.navigationMode, 1)
+            workspace.documents.joinAll()
+            while (workspace.documents.hasTabs) workspace.documents.closeActiveTab()
+            compare(workspace.homeVisible, true)
+            const emptyPanel = findChild(workspace, "pdfNavigationPanel")
+            compare(emptyPanel.ready, false)
         }
         function test_removeRecentRequiresConfirmation() {
             researchStore.rememberDocument(fixtureSource)
