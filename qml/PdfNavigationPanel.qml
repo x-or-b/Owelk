@@ -35,8 +35,20 @@ Item {
             objectName: "navigationMode"
             Layout.fillWidth: true
             currentIndex: root.mode
-            TabButton { text: "Outline"; onClicked: root.modeChosen(0) }
-            TabButton { text: "Thumbnails"; onClicked: root.modeChosen(1) }
+            TabButton {
+                id: outlineTab
+                objectName: "outlineTab"
+                text: "Outline"
+                background: Rectangle { color: outlineTab.checked ? "#d8d8d8" : "#f5f5f5"; border.color: "#cccccc" }
+                onClicked: root.modeChosen(0)
+            }
+            TabButton {
+                id: thumbnailsTab
+                objectName: "thumbnailsTab"
+                text: "Thumbnails"
+                background: Rectangle { color: thumbnailsTab.checked ? "#d8d8d8" : "#f5f5f5"; border.color: "#cccccc" }
+                onClicked: root.modeChosen(1)
+            }
         }
         TreeView {
             id: outline

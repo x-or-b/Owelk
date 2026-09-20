@@ -30,6 +30,15 @@ Item {
             tryCompare(canvas, "restoring", false)
             verify(canvas.position().y > .3)
         }
+        function test_selectedModeIsDarker() {
+            const outline = findChild(panel, "outlineTab"), thumbnails = findChild(panel, "thumbnailsTab")
+            compare(outline.background.color, "#d8d8d8")
+            compare(thumbnails.background.color, "#f5f5f5")
+            mouseClick(thumbnails)
+            compare(panel.mode, 1)
+            compare(thumbnails.background.color, "#d8d8d8")
+            compare(outline.background.color, "#f5f5f5")
+        }
         function test_thumbnailsReuseReaderAndJump() {
             panel.mode = 1
             const list = findChild(panel, "pdfThumbnails")
