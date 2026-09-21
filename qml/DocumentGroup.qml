@@ -38,6 +38,10 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            spacing: 0
         ListView {
             id: tabs
             objectName: "tabBar"
@@ -104,6 +108,18 @@ Rectangle {
                 ToolTip.text: modelData.kind === "home" ? "Home" : modelData.source
             }
             Label { visible: !tabs.count; anchors.centerIn: parent; text: "No open tabs"; color: "#777777" }
+        }
+        ToolButton {
+            id: newTabButton
+            objectName: "newTabButton"
+            Layout.preferredWidth: 32; Layout.preferredHeight: 32
+            text: "+"; font.pixelSize: 20
+            Accessible.name: "New Home tab"
+            ToolTip.visible: hovered; ToolTip.delay: 450
+            ToolTip.text: "New Home tab (" + (Qt.platform.os === "osx" ? "⌘T" : "Ctrl+T") + ")"
+            background: Rectangle { color: newTabButton.down ? "#cccccc" : newTabButton.hovered ? "#dddddd" : "#e9e9e9" }
+            onClicked: { root.controller.activateGroup(root.groupId); root.controller.newHomeTab() }
+        }
         }
         ReaderPane {
             id: pane

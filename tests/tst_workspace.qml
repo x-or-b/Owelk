@@ -189,6 +189,24 @@ Item {
             verify(!d.tree.tabs[1].kind)
             compare(workspace.currentReader.source.toString(), outlineSource.toString())
         }
+        function test_newTabButtonUsesClickedGroup() {
+            // A restored window is clamped to the offscreen 800px display; make both groups visible.
+            workspace.width = 1440
+            const d = workspace.documents
+            workspace.openDocument(fixtureSource); canvas()
+            const left = d.activeGroup
+            d.duplicateSplit("right"); canvas()
+            const right = d.activeGroup
+            waitForPolish(workspace)
+            wait(50)
+            const button = findChild(d.groupView(left), "newTabButton")
+            // Send the click to this ApplicationWindow, not another test's QtTest window.
+            testInput.pointerDrag(button, Qt.point(16, 16), Qt.point(16, 16), false)
+            tryCompare(d, "activeGroup", left)
+            compare(Tree.find(d.tree, left).tabs.length, 2)
+            compare(Tree.find(d.tree, left).tabs[1].kind, "home")
+            compare(Tree.find(d.tree, right).tabs.length, 1)
+        }
         function test_multipleSplitsRestoreAndPrune() {
             const d = workspace.documents
             d.openDocument(fixtureSource, {page: 3, y: 0, x: 0, zoom: 1})
