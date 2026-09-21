@@ -29,6 +29,7 @@ Item {
     property real spotlightGlow: 0
     property real targetScrollX: 0
     property real targetScrollY: 0
+    property int sourceScrollDuration: 800
     readonly property bool ready: pdfDocument.status === PdfDocument.Ready
     readonly property int pageCount: pdfDocument.pageCount
     readonly property string error: source.toString().length && pdfDocument.status === PdfDocument.Error ? pdfDocument.error : ""
@@ -204,6 +205,8 @@ Item {
         targetScrollX = rect.width * pageWidth <= pages.width && left >= oldX && left + rect.width * pageWidth <= oldX + pages.width
             ? oldX : Math.max(0, Math.min(left - 24, pages.contentWidth - pages.width))
         pages.contentX = oldX; pages.contentY = oldY
+        // Give long jumps more time without making nearby captures feel sluggish.
+        sourceScrollDuration = Math.round(Math.min(1500, 700 + Math.abs(targetScrollY - oldY) / Math.max(1, pages.height) * 90))
         sourceScroll.restart(); spotlight.restart()
     }
 
@@ -216,13 +219,13 @@ Item {
     }
     ParallelAnimation {
         id: sourceScroll
-        NumberAnimation { target: pages; property: "contentY"; to: root.targetScrollY; duration: 260; easing.type: Easing.OutCubic }
-        NumberAnimation { target: pages; property: "contentX"; to: root.targetScrollX; duration: 260; easing.type: Easing.OutCubic }
+        NumberAnimation { target: pages; property: "contentY"; to: root.targetScrollY; duration: root.sourceScrollDuration; easing.type: Easing.InOutSine }
+        NumberAnimation { target: pages; property: "contentX"; to: root.targetScrollX; duration: root.sourceScrollDuration; easing.type: Easing.InOutSine }
         onFinished: { root.restoring = false; root.updatePosition() }
     }
     SequentialAnimation {
         id: spotlight
-        PauseAnimation { duration: 190 }
+        PauseAnimation { duration: Math.max(0, root.sourceScrollDuration - 120) }
         ParallelAnimation {
             NumberAnimation { target: root; property: "spotlightOpacity"; to: 1; duration: 160 }
             NumberAnimation { target: root; property: "spotlightScale"; to: 1; duration: 230; easing.type: Easing.OutBack }
@@ -340,6 +343,7 @@ Item {
         onContentYChanged: if (!root.restoring) positionTimer.restart()
         onContentXChanged: if (!root.restoring) positionTimer.restart()
         onMovementEnded: root.updatePosition()
+        onMovementStarted: root.stopSourceMotion()
         ScrollBar.vertical: ScrollBar {
             objectName: "pdfVerticalScrollBar"
             parent: root; z: 50
@@ -357,8 +361,6 @@ Item {
             onPressedChanged: if (pressed) root.stopSourceMotion()
             contentItem: Rectangle { implicitWidth: 36; implicitHeight: 8; radius: 4; color: parent.pressed ? "#777777" : "#b5b5b5" }
         }
-        WheelHandler { target: null; onWheel: function(event) { root.stopSourceMotion(); event.accepted = false } }
-
         WheelHandler {
             target: null
             enabled: root.ready

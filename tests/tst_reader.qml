@@ -132,7 +132,11 @@ Item {
             mouseWheel(canvas, canvas.width / 2, canvas.height / 2, 0, -120, Qt.NoButton, data.modifiers)
             tryVerify(function() { return Math.abs(canvas.zoomFactor - 1) < .001 })
         }
-        function test_unmodifiedWheelScrolls() {
+        function test_unmodifiedWheelScrolls_data() {
+            return [{tag: "reading", capture: false}, {tag: "capture_mode", capture: true}]
+        }
+        function test_unmodifiedWheelScrolls(data) {
+            canvas.captureMode = data.capture
             canvas.jump(1, .25, 0)
             tryCompare(canvas, "restoring", false)
             const list = findChild(canvas, "pageList")
@@ -140,6 +144,10 @@ Item {
             mouseWheel(canvas, canvas.width / 2, canvas.height / 2, 0, -120, Qt.NoButton, Qt.NoModifier)
             tryVerify(function() { return Math.abs(list.contentY - y) > 1 })
             compare(canvas.zoomFactor, 1)
+            wait(200)
+            const down = list.contentY
+            mouseWheel(canvas, canvas.width / 2, canvas.height / 2, 0, 120, Qt.NoButton, Qt.NoModifier)
+            tryVerify(function() { return list.contentY < down - 1 })
         }
         function test_scrollBarDrag_data() {
             return [{tag: "left_edge", fraction: .1, capture: false}, {tag: "right_edge_capture_mode", fraction: .9, capture: true}]
@@ -161,6 +169,8 @@ Item {
             wait(100)
             const middle = findChild(canvas, "pageList").contentY
             verify(middle > start && middle < canvas.targetScrollY)
+            verify(canvas.sourceScrollDuration >= 700 && canvas.sourceScrollDuration <= 1500)
+            verify((middle - start) / (canvas.targetScrollY - start) < .15, "Navigation must ease in rather than jump at the start")
             tryCompare(canvas, "restoring", false)
             compare(canvas.currentPage, 3)
             tryVerify(function() { return canvas.spotlightOpacity > .95 })
@@ -168,6 +178,16 @@ Item {
             tryVerify(function() { return canvas.spotlightGlow === 0 })
             canvas.openFile(fixtureSource)
             compare(canvas.highlight, null)
+        }
+        function test_wheelInterruptsCaptureMotion() {
+            canvas.showSource(5, Qt.rect(.1, .4, .3, .1))
+            wait(150)
+            verify(canvas.restoring)
+            mouseWheel(canvas, canvas.width / 2, canvas.height / 2, 0, -120, Qt.NoButton, Qt.NoModifier)
+            tryCompare(canvas, "restoring", false, 500)
+            const list = findChild(canvas, "pageList")
+            wait(canvas.sourceScrollDuration)
+            verify(Math.abs(list.contentY - canvas.targetScrollY) > 100, "User scrolling must cancel navigation")
         }
         function test_findBarIsOptional() {
             const bar = findChild(reader, "searchBar")
