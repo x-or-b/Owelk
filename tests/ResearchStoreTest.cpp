@@ -13,6 +13,57 @@ class ResearchStoreTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void workspaceLinksPersistWithoutDeletingSources() {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("source.pdf"); writeFixture(path);
+        const auto source = QUrl::fromLocalFile(path);
+        QString workspaceId, captureId;
+        {
+            ResearchStore store(directory.filePath("data")); QString error;
+            QVERIFY(store.initialize(&error));
+            workspaceId = store.createWorkspace("Topic links");
+            const auto other = store.createWorkspace("Other topic");
+            QVariantMap state{{"workspace", workspaceId}, {"workspaceName", "Topic links"},
+                {"left", QVariantMap{{"source", source.toString()}, {"position", QVariantMap{{"page", 2}}}}}};
+            QVERIFY(store.saveWorkspace(workspaceId, state)); QVERIFY(store.saveSession(state));
+            QCOMPARE(store.workspaceDetails(workspaceId)["documents"].toList().size(), 1);
+            QVERIFY(store.setWorkspaceDocument(workspaceId, source, false));
+            QVERIFY(store.saveWorkspace(workspaceId, state)); // Open tab autosave must respect explicit unlink.
+            QVERIFY(store.workspaceDetails(workspaceId)["documents"].toList().isEmpty());
+            QVERIFY(store.setWorkspaceDocument(workspaceId, source, true));
+            QVERIFY(store.setWorkspaceDocument(workspaceId, source, true));
+            QCOMPARE(store.workspaceDetails(workspaceId)["documents"].toList().size(), 1);
+            store.captureRegion(source, 1, QRectF(.1, .1, .3, .2));
+            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+            captureId = store.captures()[0].toMap()["id"].toString();
+            QVERIFY(store.saveCaptureNote(captureId, "Keep this note"));
+            QVERIFY(store.setWorkspaceCapture(workspaceId, captureId, true));
+            QVERIFY(store.setWorkspaceCapture(other, captureId, true));
+            QVERIFY(store.setWorkspaceCapture(workspaceId, captureId, false));
+            QCOMPARE(store.workspaceDetails(other)["captures"].toList().size(), 1);
+            QCOMPARE(store.captures()[0].toMap()["note"].toString(), "Keep this note");
+            QVERIFY(store.setWorkspaceCapture(workspaceId, captureId, true));
+            QVERIFY(!store.setWorkspaceCapture(workspaceId, "missing", true));
+            QVERIFY(!store.renameWorkspace(workspaceId, " "));
+            QVERIFY(store.renameWorkspace(workspaceId, "Renamed topic"));
+        }
+        ResearchStore reopened(directory.filePath("data")); QString error;
+        QVERIFY(reopened.initialize(&error));
+        QCOMPARE(reopened.workspaceDetails(workspaceId)["name"].toString(), "Renamed topic");
+        QCOMPARE(reopened.workspaceDetails(workspaceId)["captures"].toList().size(), 1);
+        QCOMPARE(reopened.workspaceDetails(workspaceId)["documents"].toList().size(), 1);
+        const auto before = reopened.loadWorkspace(workspaceId);
+        QVERIFY(reopened.deleteWorkspace(workspaceId));
+        QVERIFY(reopened.workspaceDetails(workspaceId).isEmpty());
+        QVERIFY(reopened.loadWorkspace(workspaceId).isEmpty());
+        QVERIFY(!reopened.saveWorkspace(workspaceId, before));
+        QVERIFY(!reopened.renameWorkspace(workspaceId, "Do not resurrect"));
+        QVERIFY(reopened.session()["workspace"].toString().isEmpty());
+        QCOMPARE(reopened.session()["left"].toMap()["source"].toString(), source.toString());
+        QCOMPARE(reopened.captures()[0].toMap()["note"].toString(), "Keep this note");
+        QVERIFY(QFile::exists(path));
+        QVERIFY(reopened.searchKnowledge("Renamed topic").isEmpty());
+    }
     void removalPreservesOriginalAndCaptureTrash() {
         QTemporaryDir directory;
         const auto path = directory.filePath("keep.pdf");

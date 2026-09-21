@@ -145,6 +145,7 @@ Rectangle {
                 onDocumentChosen: function(source, position) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source, position) }
                 onResultChosen: function(result) { root.controller.activateGroup(root.groupId); root.controller.homeResultChosen(result) }
                 onWorkspaceChosen: function(id) { root.controller.homeWorkspaceChosen(id) }
+                onWorkspaceManageRequested: function(id) { root.controller.homeWorkspaceManageRequested(id) }
                 onWorkspaceCreated: function(name) { root.controller.homeWorkspaceCreated(name) }
                 TapHandler { onPressedChanged: if (pressed) root.controller.activateGroup(root.groupId) }
             }

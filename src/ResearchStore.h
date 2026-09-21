@@ -56,6 +56,11 @@ public:
     Q_INVOKABLE QString createWorkspace(const QString &name);
     Q_INVOKABLE QVariantMap loadWorkspace(const QString &id);
     Q_INVOKABLE bool saveWorkspace(const QString &id, const QVariantMap &state);
+    Q_INVOKABLE QVariantMap workspaceDetails(const QString &id) const;
+    Q_INVOKABLE bool setWorkspaceDocument(const QString &id, const QUrl &source, bool linked);
+    Q_INVOKABLE bool setWorkspaceCapture(const QString &id, const QString &captureId, bool linked);
+    Q_INVOKABLE bool renameWorkspace(const QString &id, const QString &name);
+    Q_INVOKABLE bool deleteWorkspace(const QString &id);
     QVariantList recentWorkspaces() const;
     QVariantMap continueReading() const;
 
@@ -68,6 +73,8 @@ signals:
     void sourceReady(const QUrl &source, int page, const QRectF &region);
     void folderLoaded(int requestId, const QUrl &folder, const QVariantList &entries, const QString &error);
     void homeChanged();
+    void workspaceRenamed(const QString &id, const QString &name);
+    void workspaceDeleted(const QString &id);
     void relinkingChanged();
     void relinkRequested(const QUrl &source);
     void sourceRelinked(const QUrl &source, const QUrl &candidate);

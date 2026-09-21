@@ -105,6 +105,11 @@ ApplicationWindow {
         homeVisible = !documents.hasTabs
         initialized = true; persist()
     }
+    function manageWorkspace(id) {
+        if (restoreFailed || captureNote.dirty) { notify("Save or discard note edits before managing a workspace."); return }
+        if (id !== activeWorkspace) openWorkspace(id)
+        if (activeWorkspace === id && persist()) workspaceManager.begin(id)
+    }
     function persist() {
         if (!initialized || restoreFailed) return false
         const state = documents.snapshot()
@@ -237,6 +242,21 @@ ApplicationWindow {
         }
     }
     CaptureNoteDialog { id: captureNote }
+    Connections {
+        target: researchStore
+        function onWorkspaceRenamed(id, name) { if (window.activeWorkspace === id) { window.workspaceName = name; window.persist() } }
+        function onWorkspaceDeleted(id) { if (window.activeWorkspace === id) { window.activeWorkspace = ""; window.workspaceName = ""; window.persist() } }
+    }
+    WorkspaceManager {
+        id: workspaceManager
+        currentSource: !window.homeVisible && window.currentReader ? window.currentReader.source : ""
+        onDocumentChosen: function(source) { window.openDocument(source) }
+        onNoteRequested: function(id) { captureNote.begin(id) }
+        onDeleteRequested: function(id) {
+            if (window.persist() && researchStore.deleteWorkspace(id)) close()
+            else error = "Could not delete workspace. Your data is kept."
+        }
+    }
     RowLayout {
         anchors.fill: parent
         spacing: 1
@@ -280,6 +300,7 @@ ApplicationWindow {
             onOpenRequested: window.chooseFile()
             onDocumentChosen: function(source, position) { window.openDocument(source, position) }
             onWorkspaceChosen: function(id) { window.openWorkspace(id) }
+            onWorkspaceManageRequested: function(id) { window.manageWorkspace(id) }
             onWorkspaceCreated: function(name) { if (!window.restoreFailed) { const id = researchStore.createWorkspace(name); if (id.length) window.openWorkspace(id) } }
             onResultChosen: function(result) { window.openSearchResult(result) }
         }
@@ -296,6 +317,7 @@ ApplicationWindow {
             onHomeOpenRequested: window.chooseFile()
             onHomeResultChosen: function(result) { window.openSearchResult(result) }
             onHomeWorkspaceChosen: function(id) { window.openWorkspace(id) }
+            onHomeWorkspaceManageRequested: function(id) { window.manageWorkspace(id) }
             onHomeWorkspaceCreated: function(name) { if (!window.restoreFailed) { const id = researchStore.createWorkspace(name); if (id.length) window.openWorkspace(id) } }
         }
         Rectangle {
@@ -359,6 +381,7 @@ ApplicationWindow {
                 elide: Text.ElideRight; font.pixelSize: 11; color: "#666666"
             }
             StatusIcon { kind: "search"; description: "Search · Ctrl/Cmd+K"; onTriggered: { commandPalette.close(); searchPalette.open() } }
+            ToolButton { objectName: "manageWorkspaceButton"; text: "Workspace…"; visible: window.activeWorkspace.length > 0; implicitHeight: 27; onClicked: window.manageWorkspace(window.activeWorkspace) }
             StatusIcon { kind: "split"; description: "Duplicate tab to right split"; visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }
             Repeater {
                 model: ["files", "captures", "document"].filter(function(p) { return window.panelSide(p) === "right" })

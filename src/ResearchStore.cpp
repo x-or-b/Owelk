@@ -113,6 +113,9 @@ bool ResearchStore::initialize(QString *error)
         "CREATE TABLE IF NOT EXISTS reading_positions (url TEXT PRIMARY KEY, position TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, state TEXT NOT NULL, opened_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS workspace_documents (workspace_id TEXT NOT NULL, url TEXT NOT NULL, PRIMARY KEY(workspace_id,url))",
+        "CREATE TABLE IF NOT EXISTS workspace_document_exclusions (workspace_id TEXT NOT NULL, url TEXT NOT NULL, PRIMARY KEY(workspace_id,url))",
+        "CREATE TABLE IF NOT EXISTS workspace_captures (workspace_id TEXT NOT NULL, capture_id TEXT NOT NULL, PRIMARY KEY(workspace_id,capture_id))",
+        "CREATE TABLE IF NOT EXISTS deleted_workspaces (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS deleted_captures (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS source_relinks (old_url TEXT PRIMARY KEY,new_url TEXT NOT NULL,sha256 TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, "
@@ -306,7 +309,7 @@ QVariantList ResearchStore::recentWorkspaces() const
     QVariantList results;
     QSqlQuery query(m_database);
     query.exec("SELECT w.id,w.name,(SELECT count(*) FROM workspace_documents d WHERE d.workspace_id=w.id) "
-               "FROM workspaces w ORDER BY w.opened_at DESC LIMIT 12");
+               "FROM workspaces w WHERE w.id NOT IN (SELECT id FROM deleted_workspaces) ORDER BY w.opened_at DESC LIMIT 12");
     while (query.next()) results.append(QVariantMap{{"id", query.value(0)}, {"name", query.value(1)}, {"papers", query.value(2)}});
     return results;
 }
@@ -330,7 +333,7 @@ QString ResearchStore::createWorkspace(const QString &name)
 QVariantMap ResearchStore::loadWorkspace(const QString &id)
 {
     QSqlQuery query(m_database);
-    query.prepare("SELECT name,state FROM workspaces WHERE id=?");
+    query.prepare("SELECT name,state FROM workspaces WHERE id=? AND id NOT IN (SELECT id FROM deleted_workspaces)");
     query.addBindValue(id);
     if (!query.exec() || !query.next()) { emit message(tr("Workspace not found.")); return {}; }
     auto state = QJsonDocument::fromJson(query.value(1).toByteArray()).object().toVariantMap();
@@ -351,7 +354,7 @@ bool ResearchStore::saveWorkspace(const QString &id, const QVariantMap &input)
     if (id.isEmpty()) return true;
     if (!m_database.transaction()) { emit message(tr("Cannot begin saving workspace.")); return false; }
     QSqlQuery query(m_database);
-    query.prepare("UPDATE workspaces SET state=? WHERE id=?");
+    query.prepare("UPDATE workspaces SET state=? WHERE id=? AND id NOT IN (SELECT id FROM deleted_workspaces)");
     query.addBindValue(QString::fromUtf8(QJsonDocument::fromVariant(state).toJson(QJsonDocument::Compact)));
     query.addBindValue(id);
     if (!query.exec() || query.numRowsAffected() != 1) { m_database.rollback(); emit message(tr("Cannot save this workspace.")); return false; }
@@ -359,7 +362,10 @@ bool ResearchStore::saveWorkspace(const QString &id, const QVariantMap &input)
         const auto source = value.toMap().value("source").toString();
         if (source.isEmpty()) continue;
         QSqlQuery link(m_database);
-        link.prepare("INSERT OR IGNORE INTO workspace_documents VALUES(?,?)");
+        link.prepare("INSERT OR IGNORE INTO workspace_documents SELECT ?,? WHERE NOT EXISTS "
+                     "(SELECT 1 FROM workspace_document_exclusions WHERE workspace_id=? AND url=?)");
+        link.addBindValue(id);
+        link.addBindValue(source);
         link.addBindValue(id);
         link.addBindValue(source);
         if (!link.exec()) { m_database.rollback(); emit message(link.lastError().text()); return false; }
@@ -428,7 +434,7 @@ QVariantList ResearchStore::searchKnowledge(const QString &queryText, const QUrl
         if (++count >= 20) break;
     }
     QSqlQuery workspaces(m_database);
-    workspaces.exec("SELECT id,name FROM workspaces ORDER BY opened_at DESC");
+    workspaces.exec("SELECT id,name FROM workspaces WHERE id NOT IN (SELECT id FROM deleted_workspaces) ORDER BY opened_at DESC");
     count = 0;
     while (workspaces.next() && count < 20) {
         if (target != "all" || !scope.isEmpty()) break;

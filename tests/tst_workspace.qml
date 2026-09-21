@@ -202,6 +202,44 @@ Item {
             tryCompare(button, "hovered", true)
             compare(button.background.color.toString(), "#d1d1d1")
         }
+        function test_workspaceManagerLinksRenameDelete() {
+            workspace.width = 1440
+            const id = researchStore.createWorkspace("Managed topic")
+            workspace.openWorkspace(id)
+            workspace.openDocument(fixtureSource); canvas()
+            workspace.manageWorkspace(id)
+            const manager = findChild(workspace, "workspaceManager")
+            tryCompare(manager, "opened", true)
+            compare(manager.details.documents.length, 1)
+            manager.linkDocument(fixtureSource, false)
+            workspace.persist()
+            compare(manager.details.documents.length, 0)
+            compare(workspace.documents.hasTabs, true)
+            manager.linkDocument(fixtureSource, true)
+            compare(manager.details.documents.length, 1)
+            findChild(manager, "workspaceNameEditor").text = "Updated topic"
+            mouseClick(findChild(manager, "renameWorkspaceButton"))
+            compare(workspace.workspaceName, "Updated topic")
+            researchStore.captureRegion(fixtureSource, 0, Qt.rect(.1, .1, .3, .2))
+            tryCompare(researchStore, "busy", false, 10000)
+            const capture = researchStore.captures[0]
+            manager.mode = 1
+            manager.linkCapture(capture.id, true)
+            compare(manager.details.captures.length, 1)
+            manager.linkCapture(capture.id, false)
+            compare(manager.details.captures.length, 0)
+            verify(researchStore.captures.some(function(c) { return c.id === capture.id }))
+            mouseClick(findChild(manager, "deleteWorkspaceButton"))
+            const confirmation = findChild(manager, "deleteWorkspaceDialog")
+            tryCompare(confirmation, "opened", true); confirmation.reject()
+            compare(workspace.activeWorkspace, id)
+            mouseClick(findChild(manager, "deleteWorkspaceButton"))
+            tryCompare(confirmation, "opened", true); confirmation.accept()
+            tryCompare(manager, "visible", false)
+            compare(workspace.activeWorkspace, "")
+            compare(workspace.documents.hasTabs, true)
+            compare(workspace.currentReader.pdfReady, true)
+        }
         function test_newTabButtonUsesClickedGroup() {
             // A restored window is clamped to the offscreen 800px display; make both groups visible.
             workspace.width = 1440

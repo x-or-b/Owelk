@@ -30,6 +30,7 @@ Flickable {
     signal homeOpenRequested()
     signal homeResultChosen(var result)
     signal homeWorkspaceChosen(string id)
+    signal homeWorkspaceManageRequested(string id)
     signal homeWorkspaceCreated(string name)
     ScrollBar.horizontal: ScrollBar {}
     ScrollBar.vertical: ScrollBar {}

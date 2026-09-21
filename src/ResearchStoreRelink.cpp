@@ -125,6 +125,8 @@ bool ResearchStore::applyRelink(const QUrl &source, const QUrl &candidate, const
         || !run("DELETE FROM reading_positions WHERE url=?", {oldUrl})
         || !run("INSERT OR IGNORE INTO workspace_documents(workspace_id,url) SELECT workspace_id,? FROM workspace_documents WHERE url=?", {newUrl,oldUrl})
         || !run("DELETE FROM workspace_documents WHERE url=?", {oldUrl})
+        || !run("INSERT OR IGNORE INTO workspace_document_exclusions(workspace_id,url) SELECT workspace_id,? FROM workspace_document_exclusions WHERE url=?", {newUrl,oldUrl})
+        || !run("DELETE FROM workspace_document_exclusions WHERE url=?", {oldUrl})
         || !run("UPDATE captures SET source=? WHERE source=? AND sha256=?", {newUrl,oldUrl,hash})) return abort();
     auto updateStates = [&](const QString &select, const QString &update) {
         QSqlQuery query(m_database);

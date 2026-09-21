@@ -13,6 +13,7 @@ Rectangle {
     signal openRequested()
     signal documentChosen(url source, var position)
     signal workspaceChosen(string id)
+    signal workspaceManageRequested(string id)
     signal workspaceCreated(string name)
     signal resultChosen(var result)
     function choose(result) { if (!searchModel.choose(result)) root.resultChosen(result) }
@@ -126,10 +127,18 @@ Rectangle {
                     Repeater {
                         model: researchStore.recentWorkspaces
                         delegate: ItemDelegate {
+                            id: workspaceItem
                             required property var modelData
                             Layout.fillWidth: true
                             implicitHeight: 44
                             text: modelData.name + "  ·  " + modelData.papers + " papers"
+                            rightPadding: 36
+                            ToolButton {
+                                anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                                width: 32; text: "…"; Accessible.name: "Manage workspace"
+                                onClicked: root.workspaceManageRequested(workspaceItem.modelData.id)
+                                ToolTip.visible: hovered; ToolTip.text: "Open workspace and manage links"
+                            }
                             onClicked: root.workspaceChosen(modelData.id)
                         }
                     }
