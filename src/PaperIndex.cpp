@@ -163,7 +163,7 @@ SearchResult findGroupedText(const QString &path, const QString &input, const QU
         if (!scoped && lastGroup.value("total").toInt() > 3) {
             auto more = lastGroup;
             more["kind"] = "moreInPaper";
-            more["title"] = QString("Show all %1 matching pages in this paper").arg(more["total"].toInt());
+            more["title"] = QString("Show all %1 matching pages in '%2'").arg(more["total"].toInt()).arg(lastGroup["title"].toString());
             result.rows.append(more);
         }
     };

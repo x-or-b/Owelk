@@ -18,7 +18,7 @@ ItemDelegate {
                 Layout.fillWidth: true
                 text: Match.highlight(root.modelData.title, root.queryText)
                 textFormat: Text.StyledText
-                color: "#333333"
+                color: ["paperGroup", "paper", "text"].indexOf(root.modelData.kind) >= 0 ? "#243e60" : "#333333"
                 font.bold: root.modelData.kind === "paperGroup"
                 elide: Text.ElideMiddle
             }

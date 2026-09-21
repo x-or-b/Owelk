@@ -46,6 +46,28 @@ Item {
             if (details) details.close()
             researchStore.paperIndex.setPaused(false)
         }
+        function test_filterHoverAndSelectionContrast() {
+            const palette = findChild(workspace, "searchPalette")
+            palette.open(); tryCompare(palette, "opened", true)
+            const filters = findChild(palette, "searchFiltersButton")
+            if (!filters.checked) mouseClick(filters)
+            const picker = findChild(palette, "searchTargetFilter")
+            compare(picker.contentItem.color.toString(), "#243b58")
+            for (let i = 0; i < 4; ++i) {
+                mouseClick(picker)
+                tryCompare(picker.popup, "opened", true)
+                tryVerify(function() { return picker.popup.contentItem.itemAtIndex(i) !== null })
+                const option = picker.popup.contentItem.itemAtIndex(i)
+                verify(option !== null)
+                mouseMove(option, 20, option.height / 2)
+                compare(option.contentItem.color.toString(), "#203650")
+                verify(option.background.color.toString() !== "#ffffff")
+                mouseClick(option)
+                tryCompare(picker, "currentIndex", i)
+                compare(picker.contentItem.color.toString(), "#243b58")
+                compare(palette.searchController.targetFilter, picker.values[i])
+            }
+        }
         function cleanupTestCase() { workspace.visible = false }
         function canvas() {
             tryVerify(function() { return workspace.currentReader !== null })

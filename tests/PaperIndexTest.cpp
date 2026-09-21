@@ -50,6 +50,11 @@ private slots:
         for (const auto &value : done[0][1].toList()) {
             const auto kind = value.toMap()["kind"].toString();
             groups += kind == "paperGroup"; hits += kind == "text"; more += kind == "moreInPaper";
+            if (kind == "moreInPaper") {
+                const auto row = value.toMap();
+                QCOMPARE(row["title"].toString(), QString("Show all %1 matching pages in '%2'")
+                    .arg(row["total"].toInt()).arg(row["source"].toUrl().fileName()));
+            }
         }
         QCOMPARE(groups, 2); QCOMPARE(hits, 6); QCOMPARE(more, 2);
         done.clear(); index.searchGrouped("occlu", a, 40);
