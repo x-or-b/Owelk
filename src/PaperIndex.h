@@ -32,6 +32,7 @@ public:
     Q_INVOKABLE void setPaused(bool paused);
     Q_INVOKABLE void retry(const QUrl &source);
     Q_INVOKABLE int search(const QString &text);
+    Q_INVOKABLE int searchGrouped(const QString &text, const QUrl &source, int offset);
     Q_INVOKABLE void openResult(const QString &documentId, int page, const QString &hash);
     Q_INVOKABLE void setReaderInteracting(QObject *reader, bool active);
 signals:

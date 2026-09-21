@@ -131,6 +131,65 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source,
     return {};
 }
 struct SearchResult { QVariantList rows; QString error; };
+SearchResult findGroupedText(const QString &path, const QString &input, const QUrl &scope, int offset)
+{
+    const auto match = matchQuery(input);
+    if (match.isEmpty()) return {};
+    Connection connection(path);
+    if (!connection.db.isOpen()) return {{}, connection.db.lastError().text()};
+    const bool scoped = !scope.isEmpty();
+    offset = qMax(0, offset);
+    QSqlQuery query(connection.db);
+    // Materialize FTS auxiliary values before window functions; limit by document, not global hits.
+    const QString sql = QStringLiteral(
+        "WITH matches AS MATERIALIZED (SELECT d.id,d.url,d.sha256,pages.page,"
+        "snippet(pages.pages,2,'','',' … ',32) AS excerpt,pages.rank AS score "
+        "FROM pages JOIN documents d ON d.id=pages.document_id WHERE pages.pages MATCH ? AND d.state='ready' %1),"
+        "ranked AS (SELECT *,row_number() OVER(PARTITION BY id ORDER BY score,page) AS hit,"
+        "count(*) OVER(PARTITION BY id) AS total,min(score) OVER(PARTITION BY id) AS best FROM matches),"
+        "grouped AS (SELECT *,dense_rank() OVER(ORDER BY best,id) AS paper_rank FROM ranked) "
+        "SELECT id,url,sha256,page,excerpt,total,paper_rank FROM grouped WHERE %2 ORDER BY paper_rank,hit")
+        .arg(scoped ? "AND d.url=?" : "", scoped ? "hit>? AND hit<=?" : "hit<=3 AND paper_rank>? AND paper_rank<=?");
+    if (!query.prepare(sql)) return {{}, query.lastError().text()};
+    query.addBindValue(match);
+    if (scoped) query.addBindValue(scope.toString());
+    query.addBindValue(offset); query.addBindValue(offset + (scoped ? 41 : 21));
+    if (!query.exec()) return {{}, query.lastError().text()};
+    SearchResult result;
+    QString lastId;
+    QVariantMap lastGroup;
+    int pages = 0;
+    const auto finishGroup = [&] {
+        if (!scoped && lastGroup.value("total").toInt() > 3) {
+            auto more = lastGroup;
+            more["kind"] = "moreInPaper";
+            more["title"] = QString("Show all %1 matching pages in this paper").arg(more["total"].toInt());
+            result.rows.append(more);
+        }
+    };
+    while (query.next()) {
+        if ((!scoped && query.value(6).toInt() > offset + 20) || (scoped && pages >= 40)) {
+            finishGroup();
+            result.rows.append(QVariantMap{{"kind", "nextResults"}, {"title", scoped ? "Next matching pages →" : "More papers →"},
+                {"offset", offset + (scoped ? 40 : 20)}});
+            return result;
+        }
+        const auto id = query.value(0).toString();
+        const auto source = QUrl(query.value(1).toString());
+        if (lastId != id) {
+            finishGroup(); lastId = id;
+            lastGroup = {{"kind", "paperGroup"}, {"title", QFileInfo(source.toLocalFile()).fileName()},
+                {"documentId", id}, {"source", source}, {"total", query.value(5)}};
+            result.rows.append(lastGroup);
+        }
+        result.rows.append(QVariantMap{{"kind", "text"}, {"documentId", id}, {"source", source},
+            {"sha256", query.value(2)}, {"page", query.value(3)}, {"snippet", query.value(4)},
+            {"title", QFileInfo(source.toLocalFile()).fileName()}});
+        ++pages;
+    }
+    finishGroup();
+    return result;
+}
 SearchResult findText(const QString &path, const QString &input)
 {
     const auto match = matchQuery(input);
@@ -315,6 +374,19 @@ int PaperIndex::search(const QString &text)
         emit searchFinished(request, result.rows, result.error);
     });
     watcher->setFuture(QtConcurrent::run(&m_searchWorkers, [path = m_path, text] { return findText(path, text); }));
+    return request;
+}
+int PaperIndex::searchGrouped(const QString &text, const QUrl &source, int offset)
+{
+    const int request = ++m_request;
+    auto *watcher = new QFutureWatcher<SearchResult>(this);
+    connect(watcher, &QFutureWatcher<SearchResult>::finished, this, [this, watcher, request] {
+        const auto result = watcher->result(); watcher->deleteLater();
+        emit searchFinished(request, result.rows, result.error);
+    });
+    watcher->setFuture(QtConcurrent::run(&m_searchWorkers, [path = m_path, text, source, offset] {
+        return findGroupedText(path, text, source, offset);
+    }));
     return request;
 }
 void PaperIndex::openResult(const QString &documentId, int page, const QString &hash)

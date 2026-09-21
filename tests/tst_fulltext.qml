@@ -16,6 +16,29 @@ Item {
             researchStore.rememberDocument(fixtureSource)
             tryCompare(researchStore.paperIndex, "busy", false, 10000)
             search.query = ""
+            findChild(workspace, "searchPalette").searchController.resetFilters()
+        }
+        function test_groupingFiltersAndMore() {
+            const pair = testInput.relinkFixture(true)
+            researchStore.rememberDocument(pair.source); researchStore.rememberDocument(pair.candidate)
+            tryCompare(researchStore.paperIndex, "busy", false, 10000)
+            const palette = findChild(workspace, "searchPalette")
+            palette.open(); tryCompare(palette, "opened", true)
+            const field = findChild(palette, "searchPaletteQuery")
+            field.text = "occlusion"
+            tryVerify(function() { return palette.results.some(function(r) { return r.kind === "moreInPaper" && researchStore.sameSource(r.source, pair.source) }) })
+            compare(palette.results.filter(function(r) { return r.kind === "text" && researchStore.sameSource(r.source, pair.source) }).length, 3)
+            palette.choose(palette.results.findIndex(function(r) { return r.kind === "moreInPaper" && researchStore.sameSource(r.source, pair.source) }))
+            tryVerify(function() { return palette.results.filter(function(r) { return r.kind === "text" }).length === 8 })
+            compare(palette.visible, true); compare(field.text, "occlusion")
+            verify(palette.results.every(function(r) { return researchStore.sameSource(r.source, pair.source) }))
+            palette.searchController.back()
+            tryVerify(function() { return palette.results.some(function(r) { return r.kind === "paperGroup" && researchStore.sameSource(r.source, pair.candidate) }) })
+            palette.searchController.sourceFilter = pair.source
+            palette.searchController.targetFilter = "filename"
+            field.text = "relink paper"
+            tryVerify(function() { return palette.results.length === 1 && palette.results[0].kind === "paper" })
+            verify(researchStore.sameSource(palette.results[0].source, pair.source))
         }
         function cleanup() {
             findChild(workspace, "searchPalette").close()
@@ -45,6 +68,7 @@ Item {
             workspace.openDocument(fixtureSource, {page: 0, zoom: 1.3}); canvas()
             const palette = findChild(workspace, "searchPalette")
             palette.open(); tryCompare(palette, "opened", true)
+            palette.searchController.sourceFilter = fixtureSource
             findChild(palette, "searchPaletteQuery").text = "occlusion"
             tryVerify(function() { return palette.results.some(function(r) { return r.kind === "text" && Number(r.page) === 3 }) })
             const at = palette.results.findIndex(function(r) { return r.source.toString() === fixtureSource.toString() && Number(r.page) === 3 })

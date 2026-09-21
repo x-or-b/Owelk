@@ -8,7 +8,7 @@ ItemDelegate {
     required property var modelData
     property string queryText: ""
     height: modelData.snippet ? 76 : 44
-    background: Rectangle { color: root.highlighted ? "#e9e9e9" : root.hovered ? "#f2f2f2" : "transparent" }
+    background: Rectangle { color: root.highlighted ? "#e9e9e9" : root.hovered ? "#f2f2f2" : root.modelData.kind === "paperGroup" ? "#f5f5f5" : "transparent" }
     contentItem: ColumnLayout {
         spacing: 3
         RowLayout {
@@ -19,9 +19,15 @@ ItemDelegate {
                 text: Match.highlight(root.modelData.title, root.queryText)
                 textFormat: Text.StyledText
                 color: "#333333"
+                font.bold: root.modelData.kind === "paperGroup"
                 elide: Text.ElideMiddle
             }
-            Label { text: root.modelData.kind === "text" ? "p. " + (Number(root.modelData.page) + 1) : root.modelData.kind; color: "#777777"; font.pixelSize: 11 }
+            Label {
+                text: root.modelData.kind === "paperGroup" ? root.modelData.total + " matching pages"
+                    : root.modelData.kind === "text" ? "p. " + (Number(root.modelData.page) + 1)
+                    : ["moreInPaper", "nextResults"].indexOf(root.modelData.kind) >= 0 ? "" : root.modelData.kind
+                color: "#777777"; font.pixelSize: 11
+            }
         }
         Label {
             objectName: "resultSnippet"

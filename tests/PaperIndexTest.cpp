@@ -33,6 +33,31 @@ class PaperIndexTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void groupedResultsAndPaperScope() {
+        QTemporaryDir directory;
+        const auto a = QUrl::fromLocalFile(directory.filePath("Paper A.pdf"));
+        const auto b = QUrl::fromLocalFile(directory.filePath("Paper B.pdf"));
+        textFixture(a.toLocalFile(), QStringList(45, "occlusion observation"));
+        textFixture(b.toLocalFile(), QStringList(5, "occlusion evidence"));
+        PaperIndex index(directory.path()); QString error;
+        QVERIFY(index.initialize(&error)); index.enqueue(a); index.enqueue(b);
+        QTRY_VERIFY_WITH_TIMEOUT(!index.busy(), 15000);
+        QSignalSpy done(&index, &PaperIndex::searchFinished);
+        index.searchGrouped("occlu", {}, 0);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+        QVERIFY2(done[0][2].toString().isEmpty(), qPrintable(done[0][2].toString()));
+        int groups = 0, hits = 0, more = 0;
+        for (const auto &value : done[0][1].toList()) {
+            const auto kind = value.toMap()["kind"].toString();
+            groups += kind == "paperGroup"; hits += kind == "text"; more += kind == "moreInPaper";
+        }
+        QCOMPARE(groups, 2); QCOMPARE(hits, 6); QCOMPARE(more, 2);
+        done.clear(); index.searchGrouped("occlu", a, 40);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+        QVERIFY(done[0][2].toString().isEmpty());
+        QCOMPARE(done[0][1].toList().size(), 6); // One heading + five remaining matching pages.
+        for (const auto &value : done[0][1].toList()) QCOMPARE(value.toMap()["source"].toUrl(), a);
+    }
     void textSearchPagesPrefixAndSafeSyntax() {
         QTemporaryDir dir;
         const auto a = QUrl::fromLocalFile(dir.filePath("a.pdf"));

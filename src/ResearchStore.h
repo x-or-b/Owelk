@@ -51,7 +51,7 @@ public:
     Q_INVOKABLE void copyText(const QString &text);
     Q_INVOKABLE int listFolder(const QUrl &folder);
     Q_INVOKABLE QVariantMap readingPosition(const QUrl &source) const;
-    Q_INVOKABLE QVariantList searchKnowledge(const QString &query) const;
+    Q_INVOKABLE QVariantList searchKnowledge(const QString &query, const QUrl &source = QUrl(), const QString &target = "all") const;
     Q_INVOKABLE QString createWorkspace(const QString &name);
     Q_INVOKABLE QVariantMap loadWorkspace(const QString &id);
     Q_INVOKABLE bool saveWorkspace(const QString &id, const QVariantMap &state);

@@ -13,21 +13,29 @@ Popup {
     focus: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     property alias results: search.results
+    property alias searchController: search
+    property url currentSource: ""
     ResearchSearch { id: search; query: searchInput.text; active: root.visible; showRecent: true }
     signal resultChosen(var result)
     function refresh() {
         search.refresh()
-        list.currentIndex = results.length ? 0 : -1
+        list.currentIndex = search.selectionIndex()
     }
-    onResultsChanged: list.currentIndex = results.length ? 0 : -1
+    onResultsChanged: {
+        list.currentIndex = search.selectionIndex()
+        if (list.currentIndex >= 0) list.positionViewAtIndex(list.currentIndex, ListView.Contain)
+    }
     function move(direction) {
         if (!results.length) return
         list.currentIndex = (list.currentIndex + direction + results.length) % results.length
+        if (results[list.currentIndex].kind === "paperGroup" && results.length > 1)
+            list.currentIndex = (list.currentIndex + direction + results.length) % results.length
         list.positionViewAtIndex(list.currentIndex, ListView.Contain)
     }
     function choose(index) {
         if (index < 0 || index >= results.length) return
         const result = results[index]
+        if (search.choose(result)) return
         close()
         Qt.callLater(function() { root.resultChosen(result) })
     }
@@ -51,6 +59,7 @@ Popup {
             Keys.onUpPressed: root.move(-1)
             Keys.onEscapePressed: root.close()
         }
+        SearchFilters { Layout.fillWidth: true; controller: search; currentSource: root.currentSource }
         ListView {
             id: list
             objectName: "searchPaletteResults"
@@ -68,7 +77,7 @@ Popup {
             }
             Label { visible: list.count === 0; anchors.centerIn: parent; text: search.waiting ? "Searching PDF text…" : search.error.length ? "Text search failed. Try again." : "No matching saved items"; color: "#777777" }
         }
-        Label { text: "PDF text: all words, prefix matching · Up to 40 page results"; color: "#777777"; font.pixelSize: 11 }
+        Label { text: search.sourceFilter.toString().length ? "Matching pages in this paper · 40 per page" : "PDF text grouped by paper · 3 previews each"; color: "#777777"; font.pixelSize: 11 }
         Label { Layout.fillWidth: true; visible: search.error.length > 0; text: "PDF text search failed: " + search.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 11; color: "#777777" }
         IndexStatus { Layout.fillWidth: true }
     }

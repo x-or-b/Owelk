@@ -342,7 +342,7 @@ bool ResearchStore::saveWorkspace(const QString &id, const QVariantMap &input)
     return true;
 }
 
-QVariantList ResearchStore::searchKnowledge(const QString &queryText) const
+QVariantList ResearchStore::searchKnowledge(const QString &queryText, const QUrl &scope, const QString &target) const
 {
     const auto needle = queryText.trimmed();
     if (needle.isEmpty()) return {};
@@ -350,29 +350,47 @@ QVariantList ResearchStore::searchKnowledge(const QString &queryText) const
     QSqlQuery papers(m_database);
     papers.exec("SELECT url FROM recent_documents ORDER BY opened_at DESC");
     int count = 0;
+    QSet<QUrl> matchedPapers;
     while (papers.next() && count < 20) {
+        if (target != "all" && target != "filename") break;
         const QUrl url(papers.value(0).toString());
+        if (!scope.isEmpty() && url != scope) continue;
         const QString title = fileName(url);
         if (!title.contains(needle, Qt::CaseInsensitive)) continue;
         results.append(QVariantMap{{"kind", "paper"}, {"title", title}, {"source", url}, {"position", readingPosition(url)}});
+        matchedPapers.insert(url);
         ++count;
+    }
+    if (target == "all" || target == "filename") {
+        for (const auto &entry : m_index->documents()) {
+            if (count >= 20) break;
+            const auto paper = entry.toMap();
+            const auto url = paper.value("source").toUrl();
+            if (matchedPapers.contains(url) || (!scope.isEmpty() && url != scope)
+                || !paper.value("title").toString().contains(needle, Qt::CaseInsensitive)) continue;
+            results.append(QVariantMap{{"kind", "paper"}, {"title", paper.value("title")}, {"source", url}, {"position", readingPosition(url)}});
+            ++count;
+        }
     }
     count = 0;
     for (const auto &value : m_captures) {
+        if (target != "all" && target != "captures") break;
         const auto capture = value.toMap();
+        if (!scope.isEmpty() && capture.value("source").toUrl() != scope) continue;
         const auto title = capture.value("name").toString() + " · p. " + QString::number(capture.value("page").toInt() + 1);
         const auto text = capture.value("text").toString();
         const int match = text.indexOf(needle, 0, Qt::CaseInsensitive);
         if (!title.contains(needle, Qt::CaseInsensitive) && match < 0) continue;
         const int start = qMax(0, match - 60);
         const auto snippet = (start ? QStringLiteral("…") : QStringLiteral("")) + text.mid(start, qMax(200, needle.size()));
-        results.append(QVariantMap{{"kind", "capture"}, {"title", title}, {"id", capture.value("id")}, {"snippet", snippet}});
+        results.append(QVariantMap{{"kind", "capture"}, {"title", title}, {"id", capture.value("id")}, {"source", capture.value("source")}, {"snippet", snippet}});
         if (++count >= 20) break;
     }
     QSqlQuery workspaces(m_database);
     workspaces.exec("SELECT id,name FROM workspaces ORDER BY opened_at DESC");
     count = 0;
     while (workspaces.next() && count < 20) {
+        if (target != "all" || !scope.isEmpty()) break;
         if (!workspaces.value(1).toString().contains(needle, Qt::CaseInsensitive)) continue;
         results.append(QVariantMap{{"kind", "workspace"}, {"title", workspaces.value(1)}, {"id", workspaces.value(0)}});
         ++count;

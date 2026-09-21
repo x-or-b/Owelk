@@ -197,6 +197,7 @@ ApplicationWindow {
         }
     }
     SearchPalette {
+        currentSource: !window.homeVisible && window.currentReader ? window.currentReader.source : ""
         id: searchPalette
         parent: Overlay.overlay
         onResultChosen: function(result) { window.openSearchResult(result) }
