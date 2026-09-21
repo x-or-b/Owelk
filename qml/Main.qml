@@ -34,6 +34,9 @@ ApplicationWindow {
     property string capturesSide: "right"
     property bool documentVisible: false
     property string documentSide: "left"
+    property real leftDockWidth: 224
+    property real rightDockWidth: 224
+    function dockWidth(value) { return Math.max(160, Math.min(value, 560, (width - 360) / 2)) }
     property int navigationMode: 0
     property url paperFolder
     property bool homeVisible: true
@@ -102,7 +105,8 @@ ApplicationWindow {
         Object.assign(state, {shelf: shelfVisible, workspace: activeWorkspace, workspaceName: workspaceName,
             width: width, height: height, panels: {filesVisible: filesVisible, filesSide: filesSide, capturesSide: capturesSide,
                 documentVisible: documentVisible, documentSide: documentSide, navigationMode: navigationMode,
-                folder: paperFolder.toString(), leftActive: leftDock.activePanel, rightActive: rightDock.activePanel}})
+                folder: paperFolder.toString(), leftActive: leftDock.activePanel, rightActive: rightDock.activePanel,
+                leftWidth: leftDockWidth, rightWidth: rightDockWidth}})
         return researchStore.saveWorkspace(activeWorkspace, state) && researchStore.saveSession(state)
     }
     function scheduleSave() { if (initialized && !restoreFailed) saveTimer.restart() }
@@ -115,6 +119,8 @@ ApplicationWindow {
         if (state.height) height = Math.max(minimumHeight, Math.min(Screen.height, state.height))
         shelfVisible = state.shelf === undefined ? true : state.shelf
         const panels = state.panels || {}
+        leftDockWidth = Number(panels.leftWidth) || 224
+        rightDockWidth = Number(panels.rightWidth) || 224
         filesVisible = panels.filesVisible === undefined ? true : panels.filesVisible
         filesSide = panels.filesSide === "right" ? "right" : "left"
         capturesSide = panels.capturesSide === "left" ? "left" : "right"
@@ -146,6 +152,8 @@ ApplicationWindow {
     onDocumentVisibleChanged: scheduleSave()
     onNavigationModeChanged: scheduleSave()
     onPaperFolderChanged: scheduleSave()
+    onLeftDockWidthChanged: scheduleSave()
+    onRightDockWidthChanged: scheduleSave()
     Timer { id: saveTimer; interval: 500; onTriggered: window.persist() }
     Timer { id: notificationTimer; interval: 6500; onTriggered: if (!window.restoreFailed) window.notification = "" }
     Native.FileDialog { id: fileDialog; title: "Open PDF"; nameFilters: ["PDF documents (*.pdf)"]; onAccepted: window.openDocument(selectedFile) }
@@ -228,10 +236,29 @@ ApplicationWindow {
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             visible: panels.length > 0
-            Layout.preferredWidth: 224; Layout.fillHeight: true
+            Layout.preferredWidth: window.dockWidth(window.leftDockWidth); Layout.fillHeight: true
+            Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
             onFolderChosen: function(folder) { window.paperFolder = folder }
             onDocumentChosen: function(source) { window.openDocument(source) }
             onActivePanelChanged: window.scheduleSave()
+        }
+        Rectangle {
+            visible: leftDock.visible
+            Layout.preferredWidth: 6; Layout.fillHeight: true
+            color: leftResize.containsMouse || leftResize.pressed ? "#bcbcbc" : "#eeeeee"
+            MouseArea {
+                id: leftResize
+                objectName: "leftDockResize"
+                anchors.fill: parent
+                hoverEnabled: true; cursorShape: Qt.SplitHCursor
+                preventStealing: true
+                property real origin
+                property real initialWidth
+                onPressed: function(mouse) { origin = mapToItem(window.contentItem, mouse.x, mouse.y).x; initialWidth = leftDock.width }
+                onPositionChanged: function(mouse) {
+                    if (pressed) window.leftDockWidth = window.dockWidth(initialWidth + mapToItem(window.contentItem, mouse.x, mouse.y).x - origin)
+                }
+            }
         }
         HomeView {
             id: homeView
@@ -254,6 +281,24 @@ ApplicationWindow {
             onEmpty: window.showHome()
             onOpened: window.homeVisible = false
         }
+        Rectangle {
+            visible: rightDock.visible
+            Layout.preferredWidth: 6; Layout.fillHeight: true
+            color: rightResize.containsMouse || rightResize.pressed ? "#bcbcbc" : "#eeeeee"
+            MouseArea {
+                id: rightResize
+                objectName: "rightDockResize"
+                anchors.fill: parent
+                hoverEnabled: true; cursorShape: Qt.SplitHCursor
+                preventStealing: true
+                property real origin
+                property real initialWidth
+                onPressed: function(mouse) { origin = mapToItem(window.contentItem, mouse.x, mouse.y).x; initialWidth = rightDock.width }
+                onPositionChanged: function(mouse) {
+                    if (pressed) window.rightDockWidth = window.dockWidth(initialWidth - mapToItem(window.contentItem, mouse.x, mouse.y).x + origin)
+                }
+            }
+        }
         DockSidebar {
             id: rightDock
             objectName: "rightDock"
@@ -262,7 +307,8 @@ ApplicationWindow {
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             visible: panels.length > 0
-            Layout.preferredWidth: 224; Layout.fillHeight: true
+            Layout.preferredWidth: window.dockWidth(window.rightDockWidth); Layout.fillHeight: true
+            Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
             onFolderChosen: function(folder) { window.paperFolder = folder }
             onDocumentChosen: function(source) { window.openDocument(source) }
             onActivePanelChanged: window.scheduleSave()

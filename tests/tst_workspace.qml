@@ -38,6 +38,21 @@ Item {
             workspace.togglePanel("captures")
             compare(workspace.shelfVisible, true)
         }
+        function test_resizeDocks() {
+            workspace.leftDockWidth = 224; workspace.rightDockWidth = 224
+            const left = findChild(workspace, "leftDockResize")
+            const right = findChild(workspace, "rightDockResize")
+            wait(50)
+            let start = left.mapToItem(workspace.contentItem, 3, 100)
+            testInput.pointerDrag(workspace.contentItem, start, Qt.point(start.x + 70, start.y), false)
+            fuzzyCompare(workspace.leftDockWidth, workspace.dockWidth(294), 2)
+            start = right.mapToItem(workspace.contentItem, 3, 100)
+            testInput.pointerDrag(workspace.contentItem, start, Qt.point(start.x - 60, start.y), false)
+            fuzzyCompare(workspace.rightDockWidth, workspace.dockWidth(284), 2)
+            workspace.persist()
+            compare(researchStore.session.panels.leftWidth, workspace.leftDockWidth)
+            compare(researchStore.session.panels.rightWidth, workspace.rightDockWidth)
+        }
         function test_contextMenuMovesPanel() {
             const icon = visualChild(findChild(workspace, "statusBar"), "dockIcon-captures")
             mouseClick(icon, 15, 14, Qt.RightButton)

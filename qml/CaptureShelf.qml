@@ -107,7 +107,13 @@ Rectangle {
                     MenuItem { objectName: "readExcerpt-" + card.modelData.id; text: "Read Excerpt…"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: root.viewText(card.modelData) }
                     MenuItem { text: "Copy Text"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: researchStore.copyText(card.modelData.text) }
                     MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(card.modelData.source) }
-                    MenuItem { text: "Delete Capture…"; onTriggered: root.requestDelete(card.modelData.id) }
+                    MenuItem {
+                        text: "Delete"
+                        palette.text: "#b42323"
+                        palette.windowText: "#b42323"
+                        palette.highlightedText: "#b42323"
+                        onTriggered: root.requestDelete(card.modelData.id)
+                    }
                 }
                 ToolButton {
                     id: captureActions
