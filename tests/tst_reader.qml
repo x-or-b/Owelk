@@ -141,6 +141,15 @@ Item {
             tryVerify(function() { return Math.abs(list.contentY - y) > 1 })
             compare(canvas.zoomFactor, 1)
         }
+        function test_scrollBarDrag() {
+            const bar = findChild(canvas, "pdfVerticalScrollBar")
+            verify(bar.interactive && bar.visible)
+            const before = findChild(canvas, "pageList").contentY
+            const thumb = bar.contentItem
+            const from = thumb.mapToItem(canvas, thumb.width / 2, thumb.height / 2)
+            testInput.pointerDrag(canvas, from, Qt.point(from.x, from.y + 140), false)
+            tryVerify(function() { return findChild(canvas, "pageList").contentY > before + 100 })
+        }
         function test_findBarIsOptional() {
             const bar = findChild(reader, "searchBar")
             const field = findChild(reader, "searchField")

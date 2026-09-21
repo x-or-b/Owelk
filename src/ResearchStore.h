@@ -43,6 +43,7 @@ public:
     Q_INVOKABLE bool removeRecentDocument(const QUrl &url);
     Q_INVOKABLE bool deleteCapture(const QString &id);
     Q_INVOKABLE QString fileName(const QUrl &url) const;
+    Q_INVOKABLE bool sameSource(const QUrl &first, const QUrl &second) const { return first == second; }
     Q_INVOKABLE void captureRegion(const QUrl &source, int page, const QRectF &normalizedRegion);
     Q_INVOKABLE void captureText(const QUrl &source, int page, const QPointF &from,
                                 const QPointF &to, const QString &expectedText);

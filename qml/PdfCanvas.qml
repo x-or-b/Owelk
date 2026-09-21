@@ -49,7 +49,7 @@ Item {
         selectedAnchor = null
         highlight = null
         search.searchString = ""
-        if (source.toString() === url.toString() && ready) {
+        if (researchStore.sameSource(source, url) && ready) {
             restoreTimer.restart()
         } else {
             source = url
@@ -287,8 +287,8 @@ Item {
         onContentYChanged: if (!root.restoring) positionTimer.restart()
         onContentXChanged: if (!root.restoring) positionTimer.restart()
         onMovementEnded: root.updatePosition()
-        ScrollBar.vertical: ScrollBar {}
-        ScrollBar.horizontal: ScrollBar {}
+        ScrollBar.vertical: ScrollBar { objectName: "pdfVerticalScrollBar"; policy: ScrollBar.AlwaysOn; interactive: true; minimumSize: .04 }
+        ScrollBar.horizontal: ScrollBar { objectName: "pdfHorizontalScrollBar"; policy: ScrollBar.AsNeeded; interactive: true; minimumSize: .04 }
 
         WheelHandler {
             target: null

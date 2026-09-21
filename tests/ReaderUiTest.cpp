@@ -23,8 +23,8 @@ class ReaderSetup : public QObject
 {
     Q_OBJECT
 public:
-    Q_INVOKABLE QVariantMap relinkFixture() {
-        const auto prefix = m_directory.filePath("relink-" + QUuid::createUuid().toString(QUuid::WithoutBraces));
+    Q_INVOKABLE QVariantMap relinkFixture(bool specialPath = false) {
+        const auto prefix = m_directory.filePath((specialPath ? "relink paper 한글-" : "relink-") + QUuid::createUuid().toString(QUuid::WithoutBraces));
         const auto old = prefix + "-old.pdf", next = prefix + "-new.pdf", wrong = prefix + "-wrong.pdf";
         QFile::copy(m_directory.filePath("fixture.pdf"),old);
         QFile::copy(old,next);

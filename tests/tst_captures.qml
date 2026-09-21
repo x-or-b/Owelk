@@ -14,7 +14,7 @@ Item {
         function cleanupTestCase() { workspace.visible = false }
         function test_revealStaysOnMatchingTab() {
             workspace.documents.restore({}); workspace.homeVisible = true
-            const pair = testInput.relinkFixture() // Two paths containing identical sentences.
+            const pair = testInput.relinkFixture(true) // Spaces/Unicode; two paths containing identical sentences.
             workspace.openDocument(pair.source, {page: 1, y: .1, zoom: 1})
             const c = findChild(workspace.currentReader, "pdfCanvas0")
             tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
@@ -26,11 +26,11 @@ Item {
             tryCompare(c, "currentPage", 4)
             wait(400)
             compare(c.currentPage, 4)
-            compare(c.source.toString(), pair.candidate.toString())
+            verify(researchStore.sameSource(c.source, pair.candidate))
             workspace.documents.activateTab(a)
             tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
             wait(350)
-            compare(c.source.toString(), pair.source.toString())
+            verify(researchStore.sameSource(c.source, pair.source))
             compare(c.currentPage, 1)
             compare(c.highlight, null)
             // Activate a background source and then change tabs before deferred work runs.
@@ -39,16 +39,17 @@ Item {
             tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
             wait(350)
             compare(Tree.leaves(workspace.documents.tree)[0].activeTab, a)
-            compare(c.source.toString(), pair.source.toString())
+            verify(researchStore.sameSource(c.source, pair.source))
             compare(c.currentPage, 1)
             compare(c.highlight, null)
             workspace.documents.activateTab(b)
             tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
-            compare(c.source.toString(), pair.candidate.toString())
+            verify(researchStore.sameSource(c.source, pair.candidate))
         }
         function test_excerptWorkflow() {
             workspace.documents.restore({}); workspace.homeVisible = true
-            workspace.openDocument(fixtureSource, {page: 0, zoom: 1})
+            const source = testInput.relinkFixture(true).candidate
+            workspace.openDocument(source, {page: 0, zoom: 1})
             tryVerify(function() { return workspace.currentReader !== null })
             const c = findChild(workspace.currentReader, "pdfCanvas0")
             tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
@@ -98,6 +99,9 @@ Item {
             c.jump(4, 0, 0); tryCompare(c, "restoring", false)
             mouseClick(card)
             tryCompare(c, "currentPage", 0)
+            tryCompare(c, "restoring", false)
+            verify(Math.abs(c.position().y - (c.highlight.rect.y - .08)) < .04)
+            verify(researchStore.sameSource(c.source, source))
             verify(c.highlight !== null)
             const search = findChild(workspace, "searchPalette")
             search.open(); tryCompare(search, "opened", true)

@@ -93,7 +93,7 @@ Flickable {
         if (!researchStore.rememberDocument(source)) return false
         prepare()
         const g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]
-        let t = !forceNew && g.tabs.find(function(t) { return t.source === source.toString() })
+        let t = !forceNew && g.tabs.find(function(t) { return researchStore.sameSource(t.source, source) })
         if (!t) { t = Tree.tab(source, position || researchStore.readingPosition(source)); g.tabs.push(t) }
         g.activeTab = t.id; activeGroup = g.id
         sync(); changed(); opened()
@@ -119,23 +119,23 @@ Flickable {
         const list = Tree.leaves(tree)
         for (let i = 0; i < list.length; ++i)
             for (let j = 0; j < list[i].tabs.length; ++j)
-                if (list[i].tabs[j].source === oldUrl) list[i].tabs[j].source = newUrl
+                if (researchStore.sameSource(list[i].tabs[j].source, oldUrl)) list[i].tabs[j].source = newUrl
         closedTabs = closedTabs.map(function(entry) {
             const copy = Tree.clone(entry)
-            if (copy.tab.source === oldUrl) copy.tab.source = newUrl
+            if (researchStore.sameSource(copy.tab.source, oldUrl)) copy.tab.source = newUrl
             return copy
         })
         // Invalidate only affected live readers, retaining all tab IDs and positions.
         for (let i = 0; i < groups.count; ++i) {
             const view = groups.itemAt(i)
-            if (view.reader.source.toString() === oldUrl) view.loadedTab = ""
+            if (researchStore.sameSource(view.reader.source, oldUrl)) view.loadedTab = ""
         }
         sync(); changed()
     }
     function openAtPage(source, page) {
         let tab = null
         const list = Tree.leaves(tree)
-        for (let i = 0; i < list.length && !tab; ++i) tab = list[i].tabs.find(function(t) { return t.source === source.toString() })
+        for (let i = 0; i < list.length && !tab; ++i) tab = list[i].tabs.find(function(t) { return researchStore.sameSource(t.source, source) })
         if (tab) activateTab(tab.id)
         else if (!openDocument(source, {page: page, y: 0, x: 0, zoom: 1})) return
         // Reload a reused tab: its cached PDF may predate the newly verified file on disk.
@@ -220,8 +220,8 @@ Flickable {
         const list = Tree.leaves(tree)
         // Prefer the current copy when a PDF is open in more than one split.
         const active = Tree.find(tree, activeGroup)
-        if (active) t = active.tabs.find(function(tab) { return tab.id === active.activeTab && tab.source === source.toString() })
-        for (let i = 0; i < list.length && !t; ++i) t = list[i].tabs.find(function(t) { return t.source === source.toString() })
+        if (active) t = active.tabs.find(function(tab) { return tab.id === active.activeTab && researchStore.sameSource(tab.source, source) })
+        for (let i = 0; i < list.length && !t; ++i) t = list[i].tabs.find(function(t) { return researchStore.sameSource(t.source, source) })
         if (t) activateTab(t.id)
         else {
             if (!openDocument(source, {page: page, y: region.y, x: 0, zoom: 1})) return
@@ -234,7 +234,7 @@ Flickable {
             const g = Tree.owner(root.tree, tabId)
             if (!g || g.activeTab !== tabId) return
             const view = root.groupView(g.id)
-            if (!view || view.loadedTab !== tabId || view.reader.source.toString() !== sourceUrl) return
+            if (!view || view.loadedTab !== tabId || !researchStore.sameSource(view.reader.source, sourceUrl)) return
             view.reader.reveal(source, page, region)
         })
     }
