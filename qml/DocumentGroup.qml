@@ -8,18 +8,23 @@ Rectangle {
     required property var controller
     property var groupData: ({tabs: [], activeTab: ""})
     property string loadedTab: ""
+    property string loadedSource: ""
+    readonly property bool isHome: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "home" })
     property alias reader: pane
     property string menuTab: ""
     objectName: "group-" + groupId
     color: "#eeeeee"
     clip: true
     function refresh() {
-        if (!pane || loadedTab === groupData.activeTab) return
+        if (!pane) return
+        const t = groupData.tabs.find(function(t) { return t.id === groupData.activeTab })
+        if (loadedTab === groupData.activeTab && loadedSource === (t ? t.source : "")) return
         if (!loadedTab.length && controller.suspended) return
         loadedTab = groupData.activeTab
-        const t = groupData.tabs.find(function(t) { return t.id === loadedTab })
-        pane.restore(t || {})
+        loadedSource = t ? t.source : ""
+        pane.restore(t && t.kind !== "home" ? t : {})
     }
+    function focusHome() { if (homeLoader.item) homeLoader.item.focusSearch() }
     function tabIndexAt(x) { return Math.max(0, Math.min(groupData.tabs.length, Math.floor((x + tabs.contentX + 80) / 160))) }
     onGroupDataChanged: {
         refresh()
@@ -50,7 +55,7 @@ Rectangle {
                 objectName: "tab-" + modelData.id
                 color: modelData.id === root.groupData.activeTab ? "#ffffff" : "#e9e9e9"
                 Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: root.controller.activeGroup === root.groupId && modelData.id === root.loadedTab ? "#777777" : "#d5d5d5" }
-                Label { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: close.left; anchors.verticalCenter: parent.verticalCenter; text: researchStore.fileName(modelData.source); elide: Text.ElideMiddle; font.pixelSize: 12 }
+                Label { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: close.left; anchors.verticalCenter: parent.verticalCenter; text: modelData.kind === "home" ? "Home" : researchStore.fileName(modelData.source); elide: Text.ElideMiddle; font.pixelSize: 12 }
                 MouseArea {
                     id: pointer
                     anchors.fill: parent
@@ -96,19 +101,33 @@ Rectangle {
                 }
                 ToolTip.visible: pointer.containsMouse && !pointer.pressed
                 ToolTip.delay: 450
-                ToolTip.text: modelData.source
+                ToolTip.text: modelData.kind === "home" ? "Home" : modelData.source
             }
             Label { visible: !tabs.count; anchors.centerIn: parent; text: "No open tabs"; color: "#777777" }
         }
         ReaderPane {
             id: pane
+            visible: !root.isHome
             Layout.fillWidth: true
             Layout.fillHeight: true
             managed: true
-            isActive: !root.controller.suspended && root.controller.activeGroup === root.groupId
+            isActive: !root.isHome && !root.controller.suspended && root.controller.activeGroup === root.groupId
             onActivated: root.controller.activateGroup(root.groupId)
             onFileChosen: function(source) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source) }
             onChanged: if (!root.controller.syncing) root.controller.changed()
+        }
+        Loader {
+            id: homeLoader
+            Layout.fillWidth: true; Layout.fillHeight: true
+            visible: root.isHome; active: root.isHome && !root.controller.suspended
+            sourceComponent: HomeView {
+                onOpenRequested: { root.controller.activateGroup(root.groupId); root.controller.homeOpenRequested() }
+                onDocumentChosen: function(source, position) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source, position) }
+                onResultChosen: function(result) { root.controller.activateGroup(root.groupId); root.controller.homeResultChosen(result) }
+                onWorkspaceChosen: function(id) { root.controller.homeWorkspaceChosen(id) }
+                onWorkspaceCreated: function(name) { root.controller.homeWorkspaceCreated(name) }
+                TapHandler { onPressedChanged: if (pressed) root.controller.activateGroup(root.groupId) }
+            }
         }
     }
     Menu {

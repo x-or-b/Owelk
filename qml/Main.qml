@@ -80,6 +80,11 @@ ApplicationWindow {
         Qt.callLater(function() { (side === "left" ? leftDock : rightDock).activePanel = panel })
     }
     function showHome() { persist(); homeVisible = true; Qt.callLater(function() { homeView.focusSearch() }) }
+    function findInView() {
+        if (homeVisible) homeView.focusSearch()
+        else if (currentReader) currentReader.find()
+        else { const view = documents.groupView(documents.activeGroup); if (view) view.focusHome() }
+    }
     function openDocument(source, position) { if (!restoreFailed) documents.openDocument(researchStore.resolvedSource(source), position) }
     function openSearchResult(result) {
         if (result.kind === "paper") openDocument(result.source, result.position)
@@ -177,11 +182,12 @@ ApplicationWindow {
         hasDocument: !window.homeVisible && !!window.currentReader && window.currentReader.pdfReady
         hasSelection: hasDocument && window.currentReader.selectedText.length > 0
         canReopenTab: documents.closedTabs.length > 0
+        canCloseTab: !window.homeVisible && documents.hasTabs
         onCommandChosen: function(command) {
             switch (command) {
             case "/home": window.showHome(); break
             case "/open paper": window.chooseFile(); break
-            case "/find": if (window.homeVisible) homeView.focusSearch(); else if (window.currentReader) window.currentReader.find(); break
+            case "/find": window.findInView(); break
             case "/split right": documents.duplicateSplit("right"); break
             case "/split down": documents.duplicateSplit("bottom"); break
             case "/split off": documents.joinAll(); break
@@ -191,6 +197,7 @@ ApplicationWindow {
             case "/captures": window.togglePanel("captures"); break
             case "/document": window.togglePanel("document"); break
             case "/close tab": documents.closeActiveTab(); break
+            case "/new tab": if (!window.restoreFailed) documents.newHomeTab(); break
             case "/reopen tab": documents.reopenClosedTab(); break
             case "/fit width": if (window.currentReader) window.currentReader.fitWidth(); break
             }
@@ -206,6 +213,7 @@ ApplicationWindow {
         Menu {
             title: "File"
             Action { text: "Open PDF…"; shortcut: StandardKey.Open; onTriggered: window.chooseFile() }
+            Action { objectName: "newTabAction"; text: "New Tab"; shortcut: "Ctrl+T"; enabled: !window.restoreFailed; onTriggered: documents.newHomeTab() }
             Action { objectName: "closeTabAction"; text: "Close Tab"; shortcut: "Ctrl+W"; enabled: !window.homeVisible && !window.restoreFailed; onTriggered: documents.closeActiveTab() }
             Action { text: "Reopen Closed Tab"; shortcut: "Ctrl+Shift+T"; enabled: documents.closedTabs.length > 0 && !window.restoreFailed; onTriggered: documents.reopenClosedTab() }
             MenuSeparator {}
@@ -216,7 +224,7 @@ ApplicationWindow {
             Action { text: "Home"; shortcut: "Ctrl+Shift+H"; onTriggered: window.showHome() }
             Action { text: "Search Research"; shortcut: "Ctrl+K"; onTriggered: { commandPalette.close(); searchPalette.open() } }
             Action { text: "Command Palette"; shortcut: "Ctrl+Shift+P"; onTriggered: { searchPalette.close(); commandPalette.open() } }
-            Action { text: "Find"; shortcut: StandardKey.Find; onTriggered: { if (window.homeVisible) homeView.focusSearch(); else if (window.currentReader) window.currentReader.find() } }
+            Action { text: "Find"; shortcut: StandardKey.Find; onTriggered: window.findInView() }
             Action { text: "Zoom in"; shortcut: StandardKey.ZoomIn; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1.2) }
             Action { text: "Zoom out"; shortcut: StandardKey.ZoomOut; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1 / 1.2) }
             Action { text: "Capture region"; shortcut: "Ctrl+Shift+C"; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.toggleCapture() }
@@ -281,6 +289,10 @@ ApplicationWindow {
             onChanged: window.scheduleSave()
             onEmpty: window.showHome()
             onOpened: window.homeVisible = false
+            onHomeOpenRequested: window.chooseFile()
+            onHomeResultChosen: function(result) { window.openSearchResult(result) }
+            onHomeWorkspaceChosen: function(id) { window.openWorkspace(id) }
+            onHomeWorkspaceCreated: function(name) { if (!window.restoreFailed) { const id = researchStore.createWorkspace(name); if (id.length) window.openWorkspace(id) } }
         }
         Rectangle {
             visible: rightDock.visible

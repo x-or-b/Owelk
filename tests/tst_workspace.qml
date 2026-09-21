@@ -157,6 +157,38 @@ Item {
             compare(d.groupCount, 1)
             compare(d.tree.tabs.length, 0)
         }
+        function test_newHomeTabShortcutAndRestore() {
+            const d = workspace.documents
+            workspace.openDocument(fixtureSource, {page: 3, y: .2, x: 0, zoom: 1})
+            canvas()
+            const pdfTab = d.tree.activeTab
+            testInput.keyClick(workspace.currentReader, Qt.Key_T, Qt.ControlModifier)
+            tryCompare(d.tree.tabs, "length", 2)
+            compare(workspace.homeVisible, false)
+            const homeTab = d.tree.activeTab
+            compare(d.tree.tabs[1].kind, "home")
+            const view = d.groupView(d.activeGroup)
+            tryVerify(function() { return findChild(view, "homeSearch") !== null })
+            compare(workspace.currentReader, null)
+            workspace.persist()
+            verify(Tree.validate(Tree.clone(researchStore.session.tree), {}, 0), JSON.stringify(researchStore.session.tree))
+            compare(researchStore.continueReading.position.page, 3)
+            d.restore(d.snapshot())
+            compare(d.tree.activeTab, homeTab)
+            testInput.keyClick(findChild(d.groupView(d.activeGroup), "homeSearch"), Qt.Key_W, Qt.ControlModifier)
+            tryCompare(d.tree, "activeTab", pdfTab)
+            compare(canvas().currentPage, 3)
+            d.reopenClosedTab()
+            compare(d.tree.tabs.length, 2)
+            compare(d.tree.tabs[1].kind, "home")
+            // Opening from Home replaces only that Home tab, preserving the existing PDF.
+            d.openDocument(outlineSource)
+            canvas()
+            compare(d.tree.tabs.length, 2)
+            compare(d.tree.tabs[0].id, pdfTab)
+            verify(!d.tree.tabs[1].kind)
+            compare(workspace.currentReader.source.toString(), outlineSource.toString())
+        }
         function test_multipleSplitsRestoreAndPrune() {
             const d = workspace.documents
             d.openDocument(fixtureSource, {page: 3, y: 0, x: 0, zoom: 1})

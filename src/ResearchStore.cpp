@@ -259,7 +259,12 @@ QVariantMap ResearchStore::continueReading() const
     const auto state = session();
     if (state.value("version").toInt() == 2) {
         auto tab = activeTab(state.value("tree").toMap(), state.value("activeGroup").toString());
-        if (tab.isEmpty()) { const auto all = readers(state); if (!all.isEmpty()) tab = all.first().toMap(); }
+        if (!QUrl(tab.value("source").toString()).isLocalFile()) {
+            const auto all = readers(state);
+            for (auto it = all.crbegin(); it != all.crend(); ++it) {
+                if (QUrl(it->toMap().value("source").toString()).isLocalFile()) { tab = it->toMap(); break; }
+            }
+        }
         const QUrl source(tab.value("source").toString());
         if (!source.isLocalFile()) return {};
         tab.insert("name", fileName(source));

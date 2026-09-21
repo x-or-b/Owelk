@@ -6,6 +6,7 @@ function id(prefix) { return prefix + "-" + Date.now().toString(36) + "-" + (++s
 function clone(value) { return JSON.parse(JSON.stringify(value)) }
 function group(tabs) { return {kind: "group", id: id("group"), tabs: tabs || [], activeTab: tabs && tabs.length ? tabs[0].id : ""} }
 function tab(source, position) { return {id: id("tab"), source: source.toString(), position: Object.assign({page: 0, y: 0, x: 0, zoom: 1}, clone(position || {}))} }
+function homeTab() { return {id: id("tab"), kind: "home", source: "", position: {page: 0, y: 0, x: 0, zoom: 1}} }
 function leaves(node) { return node.kind === "group" ? [node] : leaves(node.first).concat(leaves(node.second)) }
 function find(node, key) { if (node.id === key) return node; return node.kind === "split" ? find(node.first, key) || find(node.second, key) : null }
 function owner(node, tabId) { return leaves(node).find(function(g) { return g.tabs.some(function(t) { return t.id === tabId }) }) }
@@ -49,7 +50,8 @@ function validate(node, ids, depth) {
     if (node.kind !== "group" || !Array.isArray(node.tabs)) return false
     for (let i = 0; i < node.tabs.length; ++i) {
         const t = node.tabs[i]
-        if (!t || typeof t.id !== "string" || !t.id || ids[t.id] || typeof t.source !== "string" || !t.source.startsWith("file:")) return false
+        if (!t || typeof t.id !== "string" || !t.id || ids[t.id] || typeof t.source !== "string") return false
+        if (t.kind === "home" ? t.source !== "" : !t.source.startsWith("file:")) return false
         ids[t.id] = true
         if (!t.position || !Number.isFinite(t.position.page) || t.position.page < 0) return false
     }

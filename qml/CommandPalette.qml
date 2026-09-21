@@ -16,9 +16,11 @@ Popup {
     property bool hasDocument: false
     property bool hasSelection: false
     property bool canReopenTab: false
+    property bool canCloseTab: hasDocument
     readonly property var commands: [
         {command: "/open paper", title: "File: Open PDF", enabled: true},
-        {command: "/close tab", title: "Tab: Close Active Tab", enabled: hasDocument},
+        {command: "/new tab", title: "Tab: New Home Tab", enabled: true},
+        {command: "/close tab", title: "Tab: Close Active Tab", enabled: canCloseTab},
         {command: "/reopen tab", title: "Tab: Reopen Closed Tab", enabled: canReopenTab},
         {command: "/home", title: "View: Go to Home", enabled: true},
         {command: "/find", title: "Search: Find in Current PDF", enabled: hasDocument},

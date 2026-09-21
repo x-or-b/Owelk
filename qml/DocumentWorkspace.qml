@@ -18,7 +18,7 @@ Flickable {
     property var closedTabs: []
     readonly property int groupCount: groupRows.count
     readonly property bool hasTabs: { const r = revision; return Tree.leaves(tree).some(function(g) { return g.tabs.length > 0 }) }
-    readonly property var currentReader: { const r = revision; const view = groupView(activeGroup); return view ? view.reader : null }
+    readonly property var currentReader: { const r = revision; const view = groupView(activeGroup); return view && !view.isHome ? view.reader : null }
     property real layoutMinimumWidth: 320
     property real layoutMinimumHeight: 280
     contentWidth: Math.max(width, layoutMinimumWidth)
@@ -27,6 +27,10 @@ Flickable {
     signal beforeChange()
     signal empty()
     signal opened()
+    signal homeOpenRequested()
+    signal homeResultChosen(var result)
+    signal homeWorkspaceChosen(string id)
+    signal homeWorkspaceCreated(string name)
     ScrollBar.horizontal: ScrollBar {}
     ScrollBar.vertical: ScrollBar {}
     ListModel { id: groupRows }
@@ -38,7 +42,7 @@ Flickable {
     function flush() {
         for (let i = 0; i < groups.count; ++i) {
             const view = groups.itemAt(i)
-            if (!view || !view.loadedTab) continue
+            if (!view || !view.loadedTab || view.isHome) continue
             const g = Tree.owner(tree, view.loadedTab)
             if (g) g.tabs.find(function(t) { return t.id === view.loadedTab }).position = view.reader.state().position
         }
@@ -94,10 +98,23 @@ Flickable {
         prepare()
         const g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]
         let t = !forceNew && g.tabs.find(function(t) { return researchStore.sameSource(t.source, source) })
-        if (!t) { t = Tree.tab(source, position || researchStore.readingPosition(source)); g.tabs.push(t) }
+        if (!t) {
+            const home = !forceNew && g.tabs.find(function(t) { return t.id === g.activeTab && t.kind === "home" })
+            t = Tree.tab(source, position || researchStore.readingPosition(source))
+            if (home) { t.id = home.id; g.tabs[g.tabs.indexOf(home)] = t }
+            else g.tabs.push(t)
+        }
         g.activeTab = t.id; activeGroup = g.id
         sync(); changed(); opened()
         return true
+    }
+    function newHomeTab() {
+        prepare()
+        const g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]
+        const t = Tree.homeTab()
+        g.tabs.push(t); g.activeTab = t.id; activeGroup = g.id
+        sync(); changed(); opened()
+        Qt.callLater(function() { const view = root.groupView(g.id); if (view) view.focusHome() })
     }
     function closeTab(id) {
         const g = Tree.owner(tree, id)
@@ -151,7 +168,8 @@ Flickable {
         const entry = closedTabs[closedTabs.length - 1]
         const previousGroup = activeGroup
         if (Tree.find(tree, entry.groupId)) activeGroup = entry.groupId
-        if (openDocument(entry.tab.source, entry.tab.position, true)) closedTabs = closedTabs.slice(0, -1)
+        if (entry.tab.kind === "home") { newHomeTab(); closedTabs = closedTabs.slice(0, -1) }
+        else if (openDocument(entry.tab.source, entry.tab.position, true)) closedTabs = closedTabs.slice(0, -1)
         else activeGroup = previousGroup
     }
     function duplicateSplit(edge) {
@@ -159,7 +177,7 @@ Flickable {
         if (!g || !g.activeTab) return
         prepare()
         const original = g.tabs.find(function(t) { return t.id === g.activeTab })
-        const added = Tree.group([Tree.tab(original.source, original.position)])
+        const added = Tree.group([original.kind === "home" ? Tree.homeTab() : Tree.tab(original.source, original.position)])
         tree = Tree.split(tree, g.id, added, edge)
         activeGroup = added.id; sync(); changed(); opened()
     }
@@ -224,7 +242,7 @@ Flickable {
         for (let i = 0; i < list.length && !t; ++i) t = list[i].tabs.find(function(t) { return researchStore.sameSource(t.source, source) })
         if (t) activateTab(t.id)
         else {
-            if (!openDocument(source, {page: page, y: region.y, x: 0, zoom: 1})) return
+            if (!openDocument(source, {page: 0, y: 0, x: 0, zoom: 1})) return
             const g = Tree.find(tree, activeGroup)
             t = g.tabs.find(function(tab) { return tab.id === g.activeTab })
         }
