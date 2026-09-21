@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Pdf
 import QtQuick.Shapes
+import "UiTheme.js" as Theme
 
 Item {
     id: root
@@ -547,6 +548,7 @@ Item {
                 }
 
                 Rectangle {
+                    objectName: "captureSourceBorder" + pageHolder.index
                     visible: root.highlight !== null && root.highlight.page === pageHolder.index
                     opacity: root.spotlightOpacity
                     scale: root.spotlightScale
@@ -556,12 +558,13 @@ Item {
                     width: region.width * paper.width
                     height: region.height * paper.height
                     color: "transparent"
-                    border.color: Qt.rgba(.32 + root.spotlightGlow * .23, .32 + root.spotlightGlow * .23, .32 + root.spotlightGlow * .23, 1)
+                    radius: Theme.cornerRadius
+                    border.color: Theme.captureBorder
                     border.width: 2
                     Rectangle {
                         anchors.fill: parent; anchors.margins: -3
-                        color: "transparent"; radius: 3
-                        border.width: 4; border.color: "#999999"
+                        color: "transparent"; radius: Theme.cornerRadius + 3
+                        border.width: 4; border.color: Theme.captureBorder
                         opacity: root.spotlightGlow * .28
                     }
                 }
@@ -629,13 +632,13 @@ Item {
         }
     }
 
-    Dialog {
+    UiControls.Dialog {
         id: passwordDialog
         anchors.centerIn: parent
         modal: true
         title: "PDF password"
         standardButtons: Dialog.Ok | Dialog.Cancel
-        TextField {
+        UiControls.TextField {
             id: passwordField
             placeholderText: "Enter password"
             echoMode: TextInput.Password

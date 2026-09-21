@@ -1,3 +1,4 @@
+import "UiTheme.js" as Theme
 import QtQuick
 import QtQuick.Controls
 
@@ -21,7 +22,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         anchors.margins: 2
-        radius: 3
+        radius: Theme.cornerRadius
         color: root.selected ? "#dedede" : pointer.containsMouse ? "#e9e9e9" : "transparent"
         border.color: root.activeFocus ? "#999999" : "transparent"
     }
@@ -70,11 +71,11 @@ Item {
             else root.triggered()
         }
     }
-    Menu {
+    UiControls.Menu {
         id: dockMenu
         objectName: "dockMenu-" + root.kind
-        MenuItem { objectName: "leftDockOption"; text: "Left Dock"; checkable: true; checked: root.dockSide === "left"; onTriggered: root.dockSideChosen("left") }
-        MenuItem { objectName: "rightDockOption"; text: "Right Dock"; checkable: true; checked: root.dockSide === "right"; onTriggered: root.dockSideChosen("right") }
+        UiControls.MenuItem { objectName: "leftDockOption"; text: "Left Dock"; checkable: true; checked: root.dockSide === "left"; onTriggered: root.dockSideChosen("left") }
+        UiControls.MenuItem { objectName: "rightDockOption"; text: "Right Dock"; checkable: true; checked: root.dockSide === "right"; onTriggered: root.dockSideChosen("right") }
     }
     ToolTip.visible: pointer.containsMouse && !pointer.pressed
     ToolTip.delay: 450

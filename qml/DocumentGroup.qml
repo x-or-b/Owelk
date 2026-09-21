@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "UiTheme.js" as Theme
 
 Rectangle {
     id: root
@@ -14,6 +15,7 @@ Rectangle {
     property string menuTab: ""
     objectName: "group-" + groupId
     color: "#eeeeee"
+    radius: Theme.cornerRadius
     clip: true
     function refresh() {
         if (!pane) return
@@ -57,8 +59,9 @@ Rectangle {
                 width: 160
                 height: 32
                 objectName: "tab-" + modelData.id
+                radius: Theme.cornerRadius
                 color: modelData.id === root.groupData.activeTab ? "#ffffff" : "#e9e9e9"
-                Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: root.controller.activeGroup === root.groupId && modelData.id === root.loadedTab ? "#777777" : "#d5d5d5" }
+                Rectangle { anchors.bottom: parent.bottom; x: Theme.cornerRadius; width: parent.width - 2 * x; height: 1; color: root.controller.activeGroup === root.groupId && modelData.id === root.loadedTab ? "#777777" : "#d5d5d5" }
                 Label { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: close.left; anchors.verticalCenter: parent.verticalCenter; text: modelData.kind === "home" ? "Home" : researchStore.fileName(modelData.source); elide: Text.ElideMiddle; font.pixelSize: 12 }
                 MouseArea {
                     id: pointer
@@ -95,7 +98,7 @@ Rectangle {
                     onCanceled: { cancelled = true; moving = false; root.controller.finishDrag(true) }
                 }
                 Keys.onEscapePressed: { pointer.cancelled = true; pointer.moving = false; root.controller.finishDrag(true) }
-                ToolButton {
+                UiControls.ToolButton {
                     id: close
                     objectName: "closeTabButton-" + modelData.id
                     hoverEnabled: true
@@ -113,7 +116,7 @@ Rectangle {
             }
             Label { visible: !tabs.count; anchors.centerIn: parent; text: "No open tabs"; color: "#777777" }
         }
-        ToolButton {
+        UiControls.ToolButton {
             id: newTabButton
             objectName: "newTabButton"
             Layout.preferredWidth: 32; Layout.preferredHeight: 32
@@ -151,11 +154,11 @@ Rectangle {
             }
         }
     }
-    Menu {
+    UiControls.Menu {
         id: tabMenu
-        MenuItem { text: "Close Tab"; onTriggered: root.controller.closeTab(root.menuTab) }
-        MenuItem { text: "Duplicate to Right Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("right") } }
-        MenuItem { text: "Duplicate to Bottom Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("bottom") } }
+        UiControls.MenuItem { text: "Close Tab"; onTriggered: root.controller.closeTab(root.menuTab) }
+        UiControls.MenuItem { text: "Duplicate to Right Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("right") } }
+        UiControls.MenuItem { text: "Duplicate to Bottom Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("bottom") } }
     }
     Rectangle {
         readonly property var target: root.controller.dropTarget
@@ -166,6 +169,7 @@ Rectangle {
         width: edge === "left" || edge === "right" ? parent.width / 2 : parent.width
         height: edge === "top" || edge === "bottom" ? parent.height / 2 : target && target.index !== undefined ? 32 : parent.height
         color: "#33555555"
+        radius: Theme.cornerRadius
         border.color: "#777777"
         z: 10
         Label { anchors.centerIn: parent; text: parent.edge === "center" ? "Move tab here" : "Split " + parent.edge; color: "#333333" }

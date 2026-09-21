@@ -1,8 +1,9 @@
+import "UiTheme.js" as Theme
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-Dialog {
+UiControls.Dialog {
     id: root
     objectName: "captureNoteDialog"
     parent: Overlay.overlay
@@ -44,7 +45,7 @@ Dialog {
         ScrollView {
             visible: root.capture.kind === "text"
             Layout.fillWidth: true; Layout.preferredHeight: 110
-            TextArea {
+            UiControls.TextArea {
                 objectName: "noteSourceText"
                 text: root.capture.text || ""; textFormat: TextEdit.PlainText
                 readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap
@@ -61,13 +62,13 @@ Dialog {
         Label { text: "Your note"; font.bold: true; color: "#333333" }
         ScrollView {
             Layout.fillWidth: true; Layout.fillHeight: true
-            TextArea {
+            UiControls.TextArea {
                 id: editor
                 objectName: "captureNoteEditor"
                 placeholderText: "Your interpretation, questions, or comparison with another paper…"
                 textFormat: TextEdit.PlainText; selectByMouse: true; wrapMode: TextEdit.Wrap
                 color: "#333333"
-                background: Rectangle { color: "#ffffff"; border.color: editor.activeFocus ? "#8296ac" : "#b5b5b5"; radius: 3 }
+                background: Rectangle { color: "#ffffff"; border.color: editor.activeFocus ? "#8296ac" : "#b5b5b5"; radius: Theme.cornerRadius }
                 Keys.onEscapePressed: root.requestClose()
             }
         }
@@ -75,13 +76,13 @@ Dialog {
         Label { Layout.fillWidth: true; visible: root.error.length > 0; text: root.error; wrapMode: Text.Wrap; color: "#b42323" }
         RowLayout {
             Layout.fillWidth: true
-            Button {
+            UiControls.Button {
                 objectName: "deleteCaptureNote"
                 text: "Delete note"; visible: root.original.trim().length > 0
                 palette.buttonText: "#b42323"
                 onClicked: deleteDialog.open()
             }
-            Button {
+            UiControls.Button {
                 text: "View source"
                 onClicked: {
                     if (root.dirty && !root.saveNote()) return
@@ -90,11 +91,11 @@ Dialog {
                 ToolTip.visible: hovered; ToolTip.text: "Save any edits and view the original PDF"
             }
             Item { Layout.fillWidth: true }
-            Button { objectName: "cancelCaptureNote"; text: "Cancel"; onClicked: root.requestClose() }
-            Button { objectName: "saveCaptureNote"; text: "Save"; enabled: editor.text.length <= 10000; onClicked: if (root.saveNote()) root.close() }
+            UiControls.Button { objectName: "cancelCaptureNote"; text: "Cancel"; onClicked: root.requestClose() }
+            UiControls.Button { objectName: "saveCaptureNote"; text: "Save"; enabled: editor.text.length <= 10000; onClicked: if (root.saveNote()) root.close() }
         }
     }
-    Dialog {
+    UiControls.Dialog {
         id: discardDialog
         objectName: "discardNoteDialog"
         parent: Overlay.overlay; anchors.centerIn: parent
@@ -103,7 +104,7 @@ Dialog {
         Label { text: "The previously saved note will be kept." }
         onDiscarded: { editor.text = root.original; root.close(); close() }
     }
-    Dialog {
+    UiControls.Dialog {
         id: deleteDialog
         objectName: "deleteNoteDialog"
         parent: Overlay.overlay; anchors.centerIn: parent

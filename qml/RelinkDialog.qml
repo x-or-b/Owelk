@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs as Native
 
-Dialog {
+UiControls.Dialog {
     id: root
     objectName: "relinkDialog"
     property url source
@@ -22,9 +22,9 @@ Dialog {
         Label { Layout.fillWidth: true; text: "Previous: " + root.source.toString(); textFormat: Text.PlainText; wrapMode: Text.WrapAnywhere; font.pixelSize: 11; color: "#777777" }
         Label { Layout.fillWidth: true; text: root.candidate.toString().length ? "Selected: " + root.candidate.toString() : "No replacement selected"; textFormat: Text.PlainText; wrapMode: Text.WrapAnywhere; font.pixelSize: 11; color: "#555555" }
         RowLayout {
-            Button { objectName: "chooseRelinkFile"; text: "Choose PDF…"; enabled: !researchStore.relinking; onClicked: picker.open() }
+            UiControls.Button { objectName: "chooseRelinkFile"; text: "Choose PDF…"; enabled: !researchStore.relinking; onClicked: picker.open() }
             Item { Layout.fillWidth: true }
-            Button { objectName: "verifyRelink"; text: researchStore.relinking ? "Verifying…" : "Verify and Relink"; enabled: !researchStore.relinking && root.candidate.toString().length > 0; onClicked: { root.detail = ""; researchStore.relinkSource(root.source, root.candidate) } }
+            UiControls.Button { objectName: "verifyRelink"; text: researchStore.relinking ? "Verifying…" : "Verify and Relink"; enabled: !researchStore.relinking && root.candidate.toString().length > 0; onClicked: { root.detail = ""; researchStore.relinkSource(root.source, root.candidate) } }
         }
         Label { Layout.fillWidth: true; visible: root.detail.length > 0; text: root.detail; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: "#555555" }
         Label { Layout.fillWidth: true; text: "Different versions are not accepted. No original files will be moved, overwritten or deleted."; wrapMode: Text.Wrap; font.pixelSize: 11; color: "#777777" }

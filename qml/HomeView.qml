@@ -40,7 +40,7 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: 8
                 Label { text: "Search your research"; font.pixelSize: 22; font.weight: Font.Medium; color: "#333333" }
-                TextField {
+                UiControls.TextField {
                     id: searchInput
                     objectName: "homeSearch"
                     Layout.fillWidth: true
@@ -98,7 +98,7 @@ Rectangle {
                             font.pixelSize: 11
                         }
                     }
-                    Button {
+                    UiControls.Button {
                         objectName: "continueReading"
                         text: root.continuation.source ? "Continue →" : "Open PDF…"
                         onClicked: {
@@ -122,18 +122,18 @@ Rectangle {
                         Layout.fillWidth: true
                         Label { text: "Recent Workspaces"; font.pixelSize: 14; font.weight: Font.DemiBold }
                         Item { Layout.fillWidth: true }
-                        ToolButton { text: "+"; onClicked: workspaceDialog.open(); Accessible.name: "New workspace"; ToolTip.visible: hovered; ToolTip.text: "New workspace" }
+                        UiControls.ToolButton { text: "+"; onClicked: workspaceDialog.open(); Accessible.name: "New workspace"; ToolTip.visible: hovered; ToolTip.text: "New workspace" }
                     }
                     Repeater {
                         model: researchStore.recentWorkspaces
-                        delegate: ItemDelegate {
+                        delegate: UiControls.ItemDelegate {
                             id: workspaceItem
                             required property var modelData
                             Layout.fillWidth: true
                             implicitHeight: 44
                             text: modelData.name + "  ·  " + modelData.papers + " papers"
                             rightPadding: 36
-                            ToolButton {
+                            UiControls.ToolButton {
                                 anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
                                 width: 32; text: "…"; Accessible.name: "Manage workspace"
                                 onClicked: root.workspaceManageRequested(workspaceItem.modelData.id)
@@ -160,12 +160,12 @@ Rectangle {
                         }
                     }
                     Label { visible: researchStore.recentDocuments.length === 0; text: "No recent papers"; color: "#777777" }
-                    Button { text: "Open PDF…"; onClicked: root.openRequested() }
+                    UiControls.Button { text: "Open PDF…"; onClicked: root.openRequested() }
                 }
             }
         }
     }
-    Dialog {
+    UiControls.Dialog {
         id: workspaceDialog
         parent: Overlay.overlay
         anchors.centerIn: parent
@@ -173,7 +173,7 @@ Rectangle {
         modal: true
         standardButtons: Dialog.Ok | Dialog.Cancel
         onOpened: { workspaceName.clear(); workspaceName.forceActiveFocus() }
-        TextField { id: workspaceName; placeholderText: "Workspace name"; maximumLength: 120; onAccepted: workspaceDialog.accept() }
+        UiControls.TextField { id: workspaceName; placeholderText: "Workspace name"; maximumLength: 120; onAccepted: workspaceDialog.accept() }
         onAccepted: root.workspaceCreated(workspaceName.text)
     }
 }

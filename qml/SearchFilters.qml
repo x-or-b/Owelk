@@ -1,3 +1,4 @@
+import "UiTheme.js" as Theme
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -8,7 +9,7 @@ ColumnLayout {
     property url currentSource: ""
     property bool expanded: false
     readonly property var papers: researchStore.paperIndex.documents
-    component FilterButton: ToolButton {
+    component FilterButton: UiControls.ToolButton {
         id: button
         Layout.preferredHeight: 32
         implicitHeight: 32
@@ -18,12 +19,12 @@ ColumnLayout {
             horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
         }
         background: Rectangle {
-            radius: 3
+            radius: Theme.cornerRadius
             color: !button.enabled ? "#eeeeee" : button.checked || button.down ? "#d9dfe6" : button.hovered ? "#dedede" : "#e8e8e8"
             border.color: button.activeFocus || button.checked ? "#8296ac" : "#b5b5b5"
         }
     }
-    component FilterCombo: ComboBox {
+    component FilterCombo: UiControls.ComboBox {
         id: control
         implicitHeight: 32
         Layout.preferredHeight: 32
@@ -33,7 +34,7 @@ ColumnLayout {
         palette.highlight: "#d5deea"
         palette.highlightedText: "#182e49"
         background: Rectangle {
-            radius: 3
+            radius: Theme.cornerRadius
             color: control.down ? "#d9dfe6" : control.hovered ? "#dedede" : "#e8e8e8"
             border.color: control.activeFocus ? "#8296ac" : "#b5b5b5"
         }
@@ -46,7 +47,7 @@ ColumnLayout {
             x: control.width - width - 9; anchors.verticalCenter: parent.verticalCenter
             text: "▾"; color: "#333333"
         }
-        delegate: ItemDelegate {
+        delegate: UiControls.ItemDelegate {
             id: option
             required property int index
             objectName: control.objectName + "Option" + index
@@ -64,12 +65,15 @@ ColumnLayout {
             ToolTip.visible: hovered && control.textRole === "title" && index > 0
             ToolTip.text: control.textRole === "title" && index > 0 ? root.papers[index - 1].source.toString() : ""
         }
-        popup: Popup {
+        popup: UiControls.Popup {
+            id: filterPopup
+            parent: control
             y: control.height + 3; width: control.width; padding: 1
-            implicitHeight: Math.min(contentItem.implicitHeight + 2, 280)
-            background: Rectangle { color: "#fafafa"; border.color: "#b5b5b5"; radius: 3 }
+            implicitHeight: Math.min(filterOptions.contentHeight + 2, 280)
+            background: Rectangle { color: "#fafafa"; border.color: "#b5b5b5"; radius: Theme.cornerRadius }
             contentItem: ListView {
-                clip: true; implicitHeight: contentHeight
+                id: filterOptions
+                clip: true; implicitHeight: filterOptions.contentHeight
                 model: control.popup.visible ? control.delegateModel : null
                 currentIndex: control.highlightedIndex
                 ScrollBar.vertical: ScrollBar {}

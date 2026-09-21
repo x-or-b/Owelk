@@ -2,8 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "PaletteMatch.js" as Match
+import "UiTheme.js" as Theme
 
-ItemDelegate {
+UiControls.ItemDelegate {
     id: root
     required property var modelData
     property string queryText: ""
@@ -11,7 +12,7 @@ ItemDelegate {
     height: modelData.snippet ? 76 : 44
     background: Rectangle {
         color: root.heading ? (root.highlighted || root.hovered ? "#686868" : "#767676") : root.highlighted ? "#e9e9e9" : root.hovered ? "#f2f2f2" : "transparent"
-        Rectangle { visible: root.highlighted; width: 3; height: parent.height; color: "#829ab4" }
+        Rectangle { visible: root.highlighted; y: Theme.cornerRadius; width: 3; height: parent.height - 2 * y; radius: 1.5; color: "#829ab4" }
     }
     contentItem: ColumnLayout {
         spacing: 3

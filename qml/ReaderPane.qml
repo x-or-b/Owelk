@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import "UiTheme.js" as Theme
 
 Rectangle {
     id: root
@@ -23,6 +24,7 @@ Rectangle {
     signal fileChosen(url source)
     color: "#e8e8e8"
     border.color: isActive ? "#888888" : "#d6d6d6"
+    radius: Theme.cornerRadius
 
     function chooseFile() { fileDialog.open() }
     function cancelReveal() { revealTimer.stop(); sourceToReveal = null }
@@ -108,6 +110,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: visible ? 48 : 0
             color: "#ffffff"
+            radius: Theme.cornerRadius
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 12
@@ -126,7 +129,7 @@ Rectangle {
                     color: "#242424"
                     font.weight: Font.Medium
                 }
-                Button { text: "Open"; onClicked: root.chooseFile() }
+                UiControls.Button { text: "Open"; onClicked: root.chooseFile() }
             }
         }
 
@@ -135,12 +138,13 @@ Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: visible ? 43 : 0
             color: "#f5f5f5"
+            radius: Theme.cornerRadius
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 8
                 anchors.rightMargin: 8
                 spacing: 4
-                TextField {
+                UiControls.TextField {
                     id: pageField
                     Layout.preferredWidth: 42
                     horizontalAlignment: Text.AlignHCenter
@@ -154,21 +158,21 @@ Rectangle {
                 }
                 Label { text: "/ " + canvas.pageCount; color: "#666666" }
                 Item { Layout.fillWidth: true }
-                ToolButton { text: "−"; onClicked: { root.activated(); canvas.zoom(1 / 1.2) } }
-                ToolButton {
+                UiControls.ToolButton { text: "−"; onClicked: { root.activated(); canvas.zoom(1 / 1.2) } }
+                UiControls.ToolButton {
                     text: Math.round(canvas.zoomFactor * 100) + "%"
                     onClicked: { root.activated(); canvas.fitWidth() }
                     ToolTip.visible: hovered
                     ToolTip.text: "Click to fit width · Ctrl+wheel to zoom"
                 }
-                ToolButton { text: "+"; onClicked: { root.activated(); canvas.zoom(1.2) } }
-                Button {
+                UiControls.ToolButton { text: "+"; onClicked: { root.activated(); canvas.zoom(1.2) } }
+                UiControls.Button {
                     text: "Capture region"
                     checkable: true
                     checked: canvas.captureMode
                     onClicked: { root.activated(); canvas.captureMode = checked }
                 }
-                ToolButton {
+                UiControls.ToolButton {
                     objectName: "saveExcerptButton"
                     text: "Save excerpt"
                     visible: canvas.selectedText.length > 0
@@ -177,7 +181,7 @@ Rectangle {
                     ToolTip.visible: hovered
                     ToolTip.text: "Save selected text with its source location"
                 }
-                ToolButton {
+                UiControls.ToolButton {
                     text: "Copy"
                     enabled: canvas.selectedText.length > 0
                     onClicked: { root.activated(); canvas.copySelection() }
@@ -194,7 +198,7 @@ Rectangle {
             Layout.topMargin: visible ? 6 : 0
             Layout.bottomMargin: visible ? 6 : 0
             spacing: 4
-            TextField {
+            UiControls.TextField {
                 id: searchField
                 objectName: "searchField"
                 Layout.fillWidth: true
@@ -213,9 +217,9 @@ Rectangle {
                 text: canvas.searchString.length ? (canvas.matchCount ? (canvas.currentMatch + 1) + "/" + canvas.matchCount : "0") : ""
                 color: "#666666"
             }
-            ToolButton { text: "↑"; enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(-1) }
-            ToolButton { text: "↓"; enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(1) }
-            ToolButton {
+            UiControls.ToolButton { text: "↑"; enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(-1) }
+            UiControls.ToolButton { text: "↓"; enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(1) }
+            UiControls.ToolButton {
                 text: "×"
                 onClicked: root.hideSearch()
                 ToolTip.visible: hovered
@@ -275,12 +279,12 @@ Rectangle {
                     color: "#666666"
                     lineHeight: 1.4
                 }
-                Button {
+                UiControls.Button {
                     Layout.alignment: Qt.AlignHCenter
                     text: "Open PDF"
                     onClicked: root.chooseFile()
                 }
-                Button {
+                UiControls.Button {
                     Layout.alignment: Qt.AlignHCenter
                     visible: canvas.error.length > 0 && root.source.toString().length > 0
                     text: "Locate Original PDF…"

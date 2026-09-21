@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "UiTheme.js" as Theme
 
 Rectangle {
     id: root
@@ -16,6 +17,7 @@ Rectangle {
     signal noteRequested(string id)
     color: "#f7f7f7"
     border.color: "#dddddd"
+    radius: Theme.cornerRadius
     onPanelsChanged: if (panels.indexOf(activePanel) < 0) activePanel = panels.length ? panels[0] : ""
     ColumnLayout {
         anchors.fill: parent
@@ -32,6 +34,7 @@ Rectangle {
                     Layout.minimumWidth: modelData === "files" ? 48 : 74
                     Layout.preferredHeight: 34
                     color: root.activePanel === modelData ? "#e9e9e9" : "transparent"
+                    radius: Theme.cornerRadius
                     Label { anchors.centerIn: parent; text: modelData === "files" ? "Files" : modelData === "captures" ? "Captures" : "Document"; font.pixelSize: 12 }
                     TapHandler { onTapped: root.activePanel = modelData }
                 }

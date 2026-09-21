@@ -1,3 +1,4 @@
+import "UiTheme.js" as Theme
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -11,7 +12,7 @@ Rectangle {
     signal noteRequested(string id)
     function requestDelete(id) { deletingId = id; deleteDialog.open() }
     function viewText(capture) { viewingCapture = capture; textDialog.open() }
-    Dialog {
+    UiControls.Dialog {
         id: textDialog
         objectName: "excerptDialog"
         parent: Overlay.overlay
@@ -34,7 +35,7 @@ Rectangle {
             ScrollView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                TextArea {
+                UiControls.TextArea {
                     objectName: "excerptText"
                     text: root.viewingCapture.text || ""
                     textFormat: TextEdit.PlainText
@@ -45,15 +46,15 @@ Rectangle {
                 }
             }
             RowLayout {
-                Button { objectName: "copyExcerptButton"; text: "Copy text"; onClicked: researchStore.copyText(root.viewingCapture.text) }
-                Button {
+                UiControls.Button { objectName: "copyExcerptButton"; text: "Copy text"; onClicked: researchStore.copyText(root.viewingCapture.text) }
+                UiControls.Button {
                     text: "View source"
                     onClicked: { textDialog.close(); researchStore.openCapture(root.viewingCapture.id) }
                 }
             }
         }
     }
-    Dialog {
+    UiControls.Dialog {
         id: deleteDialog
         objectName: "deleteCaptureDialog"
         parent: Overlay.overlay
@@ -89,7 +90,7 @@ Rectangle {
             clip: true
             model: researchStore.captures
             ScrollBar.vertical: ScrollBar {}
-            delegate: ItemDelegate {
+            delegate: UiControls.ItemDelegate {
                 id: card
                 required property var modelData
                 objectName: "captureCard-" + modelData.id
@@ -102,14 +103,14 @@ Rectangle {
                     acceptedButtons: Qt.RightButton
                     onClicked: function(mouse) { captureMenu.popup(card, mouse.x, mouse.y) }
                 }
-                Menu {
+                UiControls.Menu {
                     id: captureMenu
                     objectName: "captureMenu-" + card.modelData.id
-                    MenuItem { objectName: "readExcerpt-" + card.modelData.id; text: "Read Excerpt…"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: root.viewText(card.modelData) }
-                    MenuItem { text: "Copy Text"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: researchStore.copyText(card.modelData.text) }
-                    MenuItem { text: card.modelData.note ? "Edit Note…" : "Add Note…"; onTriggered: root.noteRequested(card.modelData.id) }
-                    MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(card.modelData.source) }
-                    MenuItem {
+                    UiControls.MenuItem { objectName: "readExcerpt-" + card.modelData.id; text: "Read Excerpt…"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: root.viewText(card.modelData) }
+                    UiControls.MenuItem { text: "Copy Text"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: researchStore.copyText(card.modelData.text) }
+                    UiControls.MenuItem { text: card.modelData.note ? "Edit Note…" : "Add Note…"; onTriggered: root.noteRequested(card.modelData.id) }
+                    UiControls.MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(card.modelData.source) }
+                    UiControls.MenuItem {
                         text: "Delete"
                         palette.text: "#b42323"
                         palette.windowText: "#b42323"
@@ -117,7 +118,7 @@ Rectangle {
                         onTriggered: root.requestDelete(card.modelData.id)
                     }
                 }
-                ToolButton {
+                UiControls.ToolButton {
                     id: captureActions
                     objectName: "captureActions-" + card.modelData.id
                     anchors.right: parent.right; anchors.bottom: parent.bottom
@@ -128,7 +129,7 @@ Rectangle {
                 background: Rectangle {
                     color: card.hovered ? "#eeeeee" : "white"
                     border.color: "#dddddd"
-                    radius: 2
+                    radius: Theme.cornerRadius
                 }
                 contentItem: Column {
                     spacing: 7
@@ -171,7 +172,7 @@ Rectangle {
                         maximumLineCount: 3; elide: Text.ElideRight
                         font.pixelSize: 12; color: "#555555"
                     }
-                    ToolButton {
+                    UiControls.ToolButton {
                         objectName: "captureNoteButton-" + card.modelData.id
                         text: card.modelData.note ? "Edit note" : "Add note"
                         height: 28

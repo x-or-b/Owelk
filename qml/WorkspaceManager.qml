@@ -1,9 +1,10 @@
+import "UiTheme.js" as Theme
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs as Native
 
-Dialog {
+UiControls.Dialog {
     id: root
     objectName: "workspaceManager"
     parent: Overlay.overlay
@@ -40,16 +41,16 @@ Dialog {
         spacing: 10
         RowLayout {
             Layout.fillWidth: true
-            TextField { id: nameField; objectName: "workspaceNameEditor"; Layout.fillWidth: true; maximumLength: 120; selectByMouse: true }
-            Button {
+            UiControls.TextField { id: nameField; objectName: "workspaceNameEditor"; Layout.fillWidth: true; maximumLength: 120; selectByMouse: true }
+            UiControls.Button {
                 objectName: "renameWorkspaceButton"; text: "Rename"
                 enabled: nameField.text.trim().length > 0 && nameField.text.trim() !== root.details.name
                 onClicked: root.error = researchStore.renameWorkspace(root.workspaceId, nameField.text) ? "" : "Could not rename this workspace."
             }
         }
         RowLayout {
-            Button { text: "Documents (" + (root.details.documents || []).length + ")"; checkable: true; checked: root.mode === 0; onClicked: root.mode = 0 }
-            Button { text: "Captures (" + (root.details.captures || []).length + ")"; checkable: true; checked: root.mode === 1; onClicked: root.mode = 1 }
+            UiControls.Button { text: "Documents (" + (root.details.documents || []).length + ")"; checkable: true; checked: root.mode === 0; onClicked: root.mode = 0 }
+            UiControls.Button { text: "Captures (" + (root.details.captures || []).length + ")"; checkable: true; checked: root.mode === 1; onClicked: root.mode = 1 }
             Item { Layout.fillWidth: true }
         }
         Label {
@@ -59,18 +60,18 @@ Dialog {
         }
         RowLayout {
             visible: root.mode === 0
-            Button { objectName: "linkCurrentDocument"; text: "Link current PDF"; enabled: root.currentSource.toString().length > 0; onClicked: root.linkDocument(root.currentSource, true) }
-            Button { text: "Link PDF…"; onClicked: pdfPicker.open() }
+            UiControls.Button { objectName: "linkCurrentDocument"; text: "Link current PDF"; enabled: root.currentSource.toString().length > 0; onClicked: root.linkDocument(root.currentSource, true) }
+            UiControls.Button { text: "Link PDF…"; onClicked: pdfPicker.open() }
         }
         RowLayout {
             visible: root.mode === 1; Layout.fillWidth: true
-            ComboBox {
+            UiControls.ComboBox {
                 id: capturePicker; objectName: "workspaceCapturePicker"
                 Layout.fillWidth: true
                 textRole: "label"
                 model: root.availableCaptures.map(function(c) { return {id: c.id, label: c.name + " · p. " + (Number(c.page) + 1) + " · " + (c.text || c.note || "Region capture").slice(0, 90)} })
                 contentItem: Text { text: capturePicker.displayText; textFormat: Text.PlainText; color: "#333333"; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
-                delegate: ItemDelegate {
+                delegate: UiControls.ItemDelegate {
                     required property var modelData
                     required property int index
                     width: capturePicker.width; highlighted: capturePicker.highlightedIndex === index
@@ -78,7 +79,7 @@ Dialog {
                     contentItem: Text { text: modelData.label; textFormat: Text.PlainText; color: "#333333"; elide: Text.ElideMiddle; verticalAlignment: Text.AlignVCenter }
                 }
             }
-            Button { objectName: "linkCaptureButton"; text: "Link capture"; enabled: capturePicker.currentIndex >= 0 && root.availableCaptures.length > 0; onClicked: root.linkCapture(root.availableCaptures[capturePicker.currentIndex].id, true) }
+            UiControls.Button { objectName: "linkCaptureButton"; text: "Link capture"; enabled: capturePicker.currentIndex >= 0 && root.availableCaptures.length > 0; onClicked: root.linkCapture(root.availableCaptures[capturePicker.currentIndex].id, true) }
         }
         ListView {
             id: list; objectName: "workspaceLinksList"
@@ -89,7 +90,7 @@ Dialog {
             delegate: Rectangle {
                 required property var modelData
                 width: list.width; height: root.mode === 0 ? 62 : 94
-                color: "#f0f0f0"; border.color: "#dedede"; radius: 3
+                color: "#f0f0f0"; border.color: "#dedede"; radius: Theme.cornerRadius
                 RowLayout {
                     anchors.fill: parent; anchors.margins: 8
                     ColumnLayout {
@@ -102,21 +103,21 @@ Dialog {
                         }
                         Label { Layout.fillWidth: true; visible: root.mode === 1 && !!modelData.note; text: "Note · " + (modelData.note || ""); textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 11; color: "#555555" }
                     }
-                    ToolButton { text: "Open"; onClicked: { root.close(); if (root.mode === 0) root.documentChosen(modelData.source); else researchStore.openCapture(modelData.id) } }
-                    ToolButton { visible: root.mode === 1; text: "Note"; onClicked: { root.close(); root.noteRequested(modelData.id) } }
-                    ToolButton { objectName: "unlinkWorkspaceItem"; text: "Unlink"; onClicked: { if (root.mode === 0) root.linkDocument(modelData.source, false); else root.linkCapture(modelData.id, false) } }
+                    UiControls.ToolButton { text: "Open"; onClicked: { root.close(); if (root.mode === 0) root.documentChosen(modelData.source); else researchStore.openCapture(modelData.id) } }
+                    UiControls.ToolButton { visible: root.mode === 1; text: "Note"; onClicked: { root.close(); root.noteRequested(modelData.id) } }
+                    UiControls.ToolButton { objectName: "unlinkWorkspaceItem"; text: "Unlink"; onClicked: { if (root.mode === 0) root.linkDocument(modelData.source, false); else root.linkCapture(modelData.id, false) } }
                 }
             }
             Label { anchors.centerIn: parent; visible: list.count === 0; text: root.mode === 0 ? "No linked documents" : "No linked captures"; color: "#777777" }
         }
         Label { Layout.fillWidth: true; visible: root.error.length > 0; text: root.error; wrapMode: Text.Wrap; color: "#b42323" }
-        Button { objectName: "deleteWorkspaceButton"; text: "Delete workspace…"; palette.buttonText: "#b42323"; onClicked: deleteDialog.open() }
+        UiControls.Button { objectName: "deleteWorkspaceButton"; text: "Delete workspace…"; palette.buttonText: "#b42323"; onClicked: deleteDialog.open() }
     }
     Native.FileDialog {
         id: pdfPicker; title: "Link PDF to workspace"; nameFilters: ["PDF files (*.pdf)"]
         onAccepted: root.linkDocument(selectedFile, true)
     }
-    Dialog {
+    UiControls.Dialog {
         id: deleteDialog; objectName: "deleteWorkspaceDialog"
         parent: Overlay.overlay; anchors.centerIn: parent
         title: "Delete workspace?"; modal: true; standardButtons: Dialog.Ok | Dialog.Cancel

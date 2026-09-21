@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-ToolButton {
+UiControls.ToolButton {
     id: root
     objectName: "indexStatus"
     readonly property var indexer: researchStore.paperIndex
@@ -15,7 +15,7 @@ ToolButton {
     ToolTip.visible: hovered
     ToolTip.text: "Local text index · Status, pause and retry"
     contentItem: Label { text: root.text; color: "#777777"; font: root.font; elide: Text.ElideMiddle }
-    Dialog {
+    UiControls.Dialog {
         id: details
         objectName: "indexDetails"
         parent: Overlay.overlay
@@ -30,7 +30,7 @@ ToolButton {
             RowLayout {
                 Layout.fillWidth: true
                 Label { Layout.fillWidth: true; text: root.indexer.progress || (root.indexer.paused ? "Paused" : "Up to date"); elide: Text.ElideMiddle }
-                Button { objectName: "pauseIndex"; text: root.indexer.paused ? "Resume" : "Pause"; onClicked: root.indexer.setPaused(!root.indexer.paused) }
+                UiControls.Button { objectName: "pauseIndex"; text: root.indexer.paused ? "Resume" : "Pause"; onClicked: root.indexer.setPaused(!root.indexer.paused) }
             }
             ListView {
                 Layout.fillWidth: true
@@ -38,7 +38,7 @@ ToolButton {
                 model: details.visible ? root.records : []
                 clip: true
                 ScrollBar.vertical: ScrollBar {}
-                delegate: ItemDelegate {
+                delegate: UiControls.ItemDelegate {
                     required property var modelData
                     width: ListView.view.width
                     height: 76
@@ -54,8 +54,8 @@ ToolButton {
                                 textFormat: Text.PlainText; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; color: "#777777"; font.pixelSize: 11
                             }
                         }
-                        Button { text: "Retry"; visible: ["failed", "missing", "locked", "paused"].indexOf(modelData.state) >= 0; onClicked: root.indexer.retry(modelData.source) }
-                        Button { text: "Locate…"; onClicked: { const source = modelData.source; details.close(); researchStore.requestRelink(source) } }
+                        UiControls.Button { text: "Retry"; visible: ["failed", "missing", "locked", "paused"].indexOf(modelData.state) >= 0; onClicked: root.indexer.retry(modelData.source) }
+                        UiControls.Button { text: "Locate…"; onClicked: { const source = modelData.source; details.close(); researchStore.requestRelink(source) } }
                     }
                     ToolTip.visible: hovered
                     ToolTip.text: modelData.source.toString()

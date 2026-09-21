@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 
-ItemDelegate {
+UiControls.ItemDelegate {
     id: root
     required property var modelData
     objectName: "recentPaper-" + modelData.url.toString()
@@ -12,12 +12,12 @@ ItemDelegate {
     ToolTip.delay: 450
     ToolTip.text: modelData.url.toString() + "\nRight-click to remove from Recent Papers"
     MouseArea { anchors.fill: parent; acceptedButtons: Qt.RightButton; onClicked: menu.popup() }
-    Menu {
+    UiControls.Menu {
         id: menu; objectName: "recentPaperMenu"
-        MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(root.modelData.url) }
-        MenuItem { objectName: "removeRecentOption"; text: "Remove from Recent Papers…"; onTriggered: confirmation.open() }
+        UiControls.MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(root.modelData.url) }
+        UiControls.MenuItem { objectName: "removeRecentOption"; text: "Remove from Recent Papers…"; onTriggered: confirmation.open() }
     }
-    Dialog {
+    UiControls.Dialog {
         id: confirmation
         objectName: "removeRecentDialog"
         parent: Overlay.overlay

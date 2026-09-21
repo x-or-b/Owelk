@@ -62,6 +62,8 @@ Item {
                 tryVerify(function() { return picker.popup.contentItem.itemAtIndex(i) !== null })
                 const option = picker.popup.contentItem.itemAtIndex(i)
                 verify(option !== null)
+                waitForPolish(picker.popup.contentItem)
+                tryVerify(function() { return picker.popup.height >= option.height + 2 })
                 mouseMove(option, 20, option.height / 2)
                 compare(option.contentItem.color.toString(), "#333333")
                 verify(option.background.color.toString() !== "#ffffff")

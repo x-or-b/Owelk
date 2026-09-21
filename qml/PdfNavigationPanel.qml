@@ -1,3 +1,4 @@
+import "UiTheme.js" as Theme
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -35,14 +36,14 @@ Item {
             objectName: "navigationMode"
             Layout.fillWidth: true
             currentIndex: root.mode
-            TabButton {
+            UiControls.TabButton {
                 id: outlineTab
                 objectName: "outlineTab"
                 text: "Outline"
                 background: Rectangle { color: outlineTab.checked ? "#d8d8d8" : "#f5f5f5"; border.color: "#cccccc" }
                 onClicked: root.modeChosen(0)
             }
-            TabButton {
+            UiControls.TabButton {
                 id: thumbnailsTab
                 objectName: "thumbnailsTab"
                 text: "Thumbnails"
@@ -96,7 +97,7 @@ Item {
             reuseItems: true
             spacing: 10
             ScrollBar.vertical: ScrollBar {}
-            delegate: ItemDelegate {
+            delegate: UiControls.ItemDelegate {
                 id: thumb
                 required property int index
                 objectName: "thumbnail-" + index
@@ -104,7 +105,7 @@ Item {
                 height: preview.height + 30
                 padding: 6
                 onClicked: root.go(index, null)
-                background: Rectangle { color: "#f5f5f5"; border.color: root.reader && root.reader.currentPage === thumb.index ? "#777777" : "#dddddd"; radius: 2 }
+                background: Rectangle { color: "#f5f5f5"; border.color: root.reader && root.reader.currentPage === thumb.index ? "#777777" : "#dddddd"; radius: Theme.cornerRadius }
                 contentItem: Column {
                     spacing: 4
                     PdfPageImage {

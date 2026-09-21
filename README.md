@@ -15,6 +15,7 @@ open -n /Users/gyu/Documents/Owelk/build/owelk.app --args --data-dir /Users/gyu/
 ## 현재 기능
 
 - Home: 중앙 검색, Continue Reading, Recent Workspaces, Recent Papers
+- UI 모서리는 공통 5px이며, 캡처 원문 위치 테두리는 `#bcbcbc`입니다. [디자인 토큰](docs/DESIGN.md).
 - 열린 PDF의 백그라운드 본문 인덱싱, 문맥·페이지 검색 결과, 원본 지문 검증 후 이동
 - 옮겨진 원본 PDF 재연결: 동일 파일 검증 후 탭·읽기 위치·워크스페이스·캡처 참조 유지
 - 이름 있는 읽기 워크스페이스 생성·전환 및 탭·분할·읽기 상태 저장

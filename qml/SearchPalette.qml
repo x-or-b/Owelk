@@ -1,8 +1,9 @@
+import "UiTheme.js" as Theme
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-Popup {
+UiControls.Popup {
     id: root
     objectName: "searchPalette"
     width: Math.min(600, parent ? parent.width - 32 : 600)
@@ -41,10 +42,10 @@ Popup {
     }
     onAboutToShow: { searchInput.clear(); refresh() }
     onOpened: searchInput.forceActiveFocus()
-    background: Rectangle { color: "#ffffff"; border.color: "#bcbcbc"; radius: 4 }
+    background: Rectangle { color: "#ffffff"; border.color: "#bcbcbc"; radius: Theme.cornerRadius }
     contentItem: ColumnLayout {
         spacing: 8
-        TextField {
+        UiControls.TextField {
             id: searchInput
             objectName: "searchPaletteQuery"
             Layout.fillWidth: true

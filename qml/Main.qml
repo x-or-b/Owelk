@@ -217,7 +217,7 @@ ApplicationWindow {
         onResultChosen: function(result) { window.openSearchResult(result) }
     }
     menuBar: MenuBar {
-        Menu {
+        UiControls.Menu {
             title: "File"
             Action { text: "Open PDF…"; shortcut: StandardKey.Open; onTriggered: window.chooseFile() }
             Action { objectName: "newTabAction"; text: "New Tab"; shortcut: "Ctrl+T"; enabled: !window.restoreFailed; onTriggered: documents.newHomeTab() }
@@ -226,7 +226,7 @@ ApplicationWindow {
             MenuSeparator {}
             Action { text: "Quit"; shortcut: StandardKey.Quit; onTriggered: window.close() }
         }
-        Menu {
+        UiControls.Menu {
             title: "View"
             Action { text: "Home"; shortcut: "Ctrl+Shift+H"; onTriggered: window.showHome() }
             Action { text: "Search Research"; shortcut: "Ctrl+K"; onTriggered: { commandPalette.close(); searchPalette.open() } }
@@ -381,7 +381,7 @@ ApplicationWindow {
                 elide: Text.ElideRight; font.pixelSize: 11; color: "#666666"
             }
             StatusIcon { kind: "search"; description: "Search · Ctrl/Cmd+K"; onTriggered: { commandPalette.close(); searchPalette.open() } }
-            ToolButton { objectName: "manageWorkspaceButton"; text: "Workspace…"; visible: window.activeWorkspace.length > 0; implicitHeight: 27; onClicked: window.manageWorkspace(window.activeWorkspace) }
+            UiControls.ToolButton { objectName: "manageWorkspaceButton"; text: "Workspace…"; visible: window.activeWorkspace.length > 0; implicitHeight: 27; onClicked: window.manageWorkspace(window.activeWorkspace) }
             StatusIcon { kind: "split"; description: "Duplicate tab to right split"; visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }
             Repeater {
                 model: ["files", "captures", "document"].filter(function(p) { return window.panelSide(p) === "right" })

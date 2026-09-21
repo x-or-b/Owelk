@@ -77,9 +77,9 @@ Item {
         spacing: 6
         RowLayout {
             Layout.fillWidth: true
-            Button { text: "Open folder…"; onClicked: folderDialog.open() }
+            UiControls.Button { text: "Open folder…"; onClicked: folderDialog.open() }
             Item { Layout.fillWidth: true }
-            ToolButton { text: "↻"; enabled: root.folder.toString().length > 0; onClicked: root.refresh(); Accessible.name: "Refresh folder" }
+            UiControls.ToolButton { text: "↻"; enabled: root.folder.toString().length > 0; onClicked: root.refresh(); Accessible.name: "Refresh folder" }
         }
         Label {
             Layout.fillWidth: true
@@ -99,7 +99,7 @@ Item {
             model: rows
             clip: true
             ScrollBar.vertical: ScrollBar {}
-            delegate: ItemDelegate {
+            delegate: UiControls.ItemDelegate {
                 required property int index
                 required property string name
                 required property string url

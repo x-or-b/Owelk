@@ -1,9 +1,10 @@
+import "UiTheme.js" as Theme
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "PaletteMatch.js" as Match
 
-Popup {
+UiControls.Popup {
     id: root
     objectName: "commandPalette"
     width: Math.min(640, parent ? parent.width - 32 : 640)
@@ -50,10 +51,10 @@ Popup {
     onResultsChanged: if (list) list.currentIndex = results.length ? 0 : -1
     onAboutToShow: { query.clear(); list.currentIndex = results.length ? 0 : -1 }
     onOpened: query.forceActiveFocus()
-    background: Rectangle { color: "#ffffff"; border.color: "#bcbcbc"; radius: 4 }
+    background: Rectangle { color: "#ffffff"; border.color: "#bcbcbc"; radius: Theme.cornerRadius }
     contentItem: ColumnLayout {
         spacing: 8
-        TextField {
+        UiControls.TextField {
             id: query
             objectName: "paletteQuery"
             Layout.fillWidth: true
@@ -72,7 +73,7 @@ Popup {
             model: root.results
             clip: true
             ScrollBar.vertical: ScrollBar {}
-            delegate: ItemDelegate {
+            delegate: UiControls.ItemDelegate {
                 required property int index
                 required property var modelData
                 width: list.width; height: 36
