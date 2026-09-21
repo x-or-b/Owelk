@@ -13,6 +13,7 @@ Rectangle {
     signal navigationModeChosen(int mode)
     signal documentChosen(url source)
     signal folderChosen(url folder)
+    signal noteRequested(string id)
     color: "#f7f7f7"
     border.color: "#dddddd"
     onPanelsChanged: if (panels.indexOf(activePanel) < 0) activePanel = panels.length ? panels[0] : ""
@@ -50,7 +51,7 @@ Rectangle {
             onFolderChosen: function(folder) { root.folderChosen(folder) }
         }
     }
-    Component { id: captures; CaptureShelf {} }
+    Component { id: captures; CaptureShelf { onNoteRequested: function(id) { root.noteRequested(id) } } }
     Component {
         id: navigation
         PdfNavigationPanel {

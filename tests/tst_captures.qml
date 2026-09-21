@@ -12,6 +12,57 @@ Item {
         name: "TextCaptures"
         when: windowShown
         function cleanupTestCase() { workspace.visible = false }
+        function test_captureNoteWorkflow() {
+            researchStore.captureRegion(fixtureSource, 0, Qt.rect(.1, .1, .4, .2))
+            tryCompare(researchStore, "busy", false, 10000)
+            const capture = researchStore.captures[0]
+            const dialog = findChild(workspace, "captureNoteDialog")
+            const shelf = findChild(workspace, "captureShelf")
+            verify(shelf !== null)
+            shelf.noteRequested(capture.id)
+            tryCompare(dialog, "opened", true)
+            const editor = findChild(dialog, "captureNoteEditor")
+            editor.text = "unique localnote <b>literal</b>"
+            compare(editor.textFormat, TextEdit.PlainText)
+            mouseClick(findChild(dialog, "saveCaptureNote"))
+            tryCompare(dialog, "visible", false)
+            const result = researchStore.searchKnowledge("localnote")[0]
+            compare(result.kind, "note")
+            workspace.openSearchResult(result)
+            tryCompare(dialog, "opened", true)
+            compare(editor.text, "unique localnote <b>literal</b>")
+            editor.text = "Unsaved replacement"
+            workspace.close()
+            compare(workspace.visible, true)
+            compare(dialog.dirty, true)
+            mouseClick(findChild(dialog, "cancelCaptureNote"))
+            const discard = findChild(dialog, "discardNoteDialog")
+            tryCompare(discard, "opened", true)
+            discard.reject()
+            compare(editor.text, "Unsaved replacement")
+            compare(dialog.dirty, true)
+            // Moving the dock does not destroy the editor or its draft.
+            workspace.movePanel("captures", "left")
+            wait(30)
+            compare(editor.text, "Unsaved replacement")
+            mouseClick(findChild(dialog, "saveCaptureNote"))
+            tryCompare(dialog, "visible", false)
+            dialog.begin(capture.id); tryCompare(dialog, "opened", true)
+            mouseClick(findChild(dialog, "deleteCaptureNote"))
+            const deletion = findChild(dialog, "deleteNoteDialog")
+            tryCompare(deletion, "opened", true); deletion.accept()
+            tryCompare(dialog, "visible", false)
+            const savedCapture = researchStore.captures.find(function(c) { return c.id === capture.id })
+            compare(savedCapture.note, "")
+            compare(savedCapture.image.toString(), capture.image.toString())
+            dialog.begin(capture.id); tryCompare(dialog, "opened", true)
+            editor.text = "Draft to discard"
+            dialog.requestClose(); tryCompare(discard, "opened", true)
+            mouseClick(discard.standardButton(Dialog.Discard))
+            tryCompare(dialog, "visible", false)
+            compare(dialog.dirty, false)
+            workspace.movePanel("captures", "right")
+        }
         function test_revealStaysOnMatchingTab() {
             workspace.documents.restore({}); workspace.homeVisible = true
             const pair = testInput.relinkFixture(true) // Spaces/Unicode; two paths containing identical sentences.
@@ -47,6 +98,7 @@ Item {
             verify(researchStore.sameSource(c.source, pair.candidate))
         }
         function test_excerptWorkflow() {
+            saved.clear()
             workspace.documents.restore({}); workspace.homeVisible = true
             const source = testInput.relinkFixture(true).candidate
             workspace.openDocument(source, {page: 0, zoom: 1})

@@ -89,6 +89,7 @@ ApplicationWindow {
     function openSearchResult(result) {
         if (result.kind === "paper") openDocument(result.source, result.position)
         else if (result.kind === "capture") researchStore.openCapture(result.id)
+        else if (result.kind === "note") captureNote.begin(result.id)
         else if (result.kind === "workspace") openWorkspace(result.id)
         else if (result.kind === "text" && !restoreFailed) { notify("Checking PDF source…"); researchStore.paperIndex.openResult(result.documentId, Number(result.page), result.sha256) }
     }
@@ -144,7 +145,8 @@ ApplicationWindow {
         if (!restoreFailed) persist()
     }
     onClosing: function(close) {
-        if (researchStore.busy) { close.accepted = false; notify("Saving capture. Please close the window after saving finishes.") }
+        if (captureNote.dirty) { close.accepted = false; captureNote.open(); notify("Save or discard your note edits before closing the window.") }
+        else if (researchStore.busy) { close.accepted = false; notify("Saving capture. Please close the window after saving finishes.") }
         else if (initialized && !restoreFailed && !persist()) { close.accepted = false; notify("Cannot save the session. Check storage and try again.") }
     }
     onWidthChanged: scheduleSave()
@@ -234,6 +236,7 @@ ApplicationWindow {
             Action { text: "Join All Groups"; enabled: !window.homeVisible; onTriggered: documents.joinAll() }
         }
     }
+    CaptureNoteDialog { id: captureNote }
     RowLayout {
         anchors.fill: parent
         spacing: 1
@@ -249,6 +252,7 @@ ApplicationWindow {
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
             onFolderChosen: function(folder) { window.paperFolder = folder }
             onDocumentChosen: function(source) { window.openDocument(source) }
+            onNoteRequested: function(id) { captureNote.begin(id) }
             onActivePanelChanged: window.scheduleSave()
         }
         Rectangle {
@@ -324,6 +328,7 @@ ApplicationWindow {
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
             onFolderChosen: function(folder) { window.paperFolder = folder }
             onDocumentChosen: function(source) { window.openDocument(source) }
+            onNoteRequested: function(id) { captureNote.begin(id) }
             onActivePanelChanged: window.scheduleSave()
         }
     }

@@ -12,6 +12,48 @@ class TextCaptureTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void captureNotesPersistSearchAndKeepSource() {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("source.pdf");
+        writeFixture(path);
+        QString id, original;
+        {
+            ResearchStore store(directory.path()); QString error;
+            QVERIFY(store.initialize(&error));
+            QPdfDocument pdf; QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+            const auto bounds = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45).boundingRectangle();
+            const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y());
+            original = pdf.getSelection(0, from, to).text();
+            store.captureText(QUrl::fromLocalFile(path), 0, from, to, original);
+            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+            QCOMPARE(store.captures().size(), 1);
+            id = store.captures()[0].toMap()["id"].toString();
+            QVERIFY(store.saveCaptureNote(id, "My uniquecomparison <b>not HTML</b>\n한글 메모"));
+            QCOMPARE(store.captures()[0].toMap()["text"].toString(), original);
+            const auto results = store.searchKnowledge("uniquecomparison", QUrl::fromLocalFile(path), "captures");
+            QCOMPARE(results.size(), 1); QCOMPARE(results[0].toMap()["kind"].toString(), "note");
+            QVERIFY(store.searchKnowledge("uniquecomparison", QUrl::fromLocalFile("/another.pdf")).isEmpty());
+            QVERIFY(!store.saveCaptureNote(id, QString(10001, 'a')));
+            QVERIFY(!store.saveCaptureNote("missing", "No orphan note"));
+        }
+        ResearchStore reopened(directory.path()); QString error;
+        QVERIFY(reopened.initialize(&error));
+        QVERIFY(reopened.captures()[0].toMap()["note"].toString().contains("uniquecomparison"));
+        QVERIFY(reopened.saveCaptureNote(id, "Revised question"));
+        QVERIFY(reopened.searchKnowledge("uniquecomparison").isEmpty());
+        QVERIFY(reopened.saveCaptureNote(id, ""));
+        QVERIFY(reopened.captures()[0].toMap()["note"].toString().isEmpty());
+        QCOMPARE(reopened.captures()[0].toMap()["text"].toString(), original);
+        reopened.captureRegion(QUrl::fromLocalFile(path), 1, QRectF(.1, .2, .3, .2));
+        QTRY_VERIFY_WITH_TIMEOUT(!reopened.busy(), 10000);
+        QString regionId;
+        for (const auto &row : reopened.captures()) if (row.toMap()["kind"] == "region") regionId = row.toMap()["id"].toString();
+        QVERIFY(!regionId.isEmpty()); QVERIFY(reopened.saveCaptureNote(regionId, "Figure note"));
+        QVERIFY(reopened.deleteCapture(regionId));
+        QVERIFY(reopened.searchKnowledge("Figure note").isEmpty());
+        QVERIFY(!reopened.saveCaptureNote(regionId, "Cannot edit trashed capture"));
+        QVERIFY(QFile::exists(path));
+    }
     void legacyRegionSchemaIsPreserved() {
         QTemporaryDir directory;
         const auto connection = QStringLiteral("legacy-capture-check");

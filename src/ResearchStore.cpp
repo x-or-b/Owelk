@@ -119,7 +119,8 @@ bool ResearchStore::initialize(QString *error)
         "sha256 TEXT NOT NULL, page INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, "
         "width REAL NOT NULL, height REAL NOT NULL, image TEXT NOT NULL, created_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS text_captures (capture_id TEXT PRIMARY KEY, text TEXT NOT NULL, "
-        "start_index INTEGER NOT NULL, end_index INTEGER NOT NULL, prefix TEXT NOT NULL, suffix TEXT NOT NULL)"
+        "start_index INTEGER NOT NULL, end_index INTEGER NOT NULL, prefix TEXT NOT NULL, suffix TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS capture_notes (capture_id TEXT PRIMARY KEY, body TEXT NOT NULL, updated_at TEXT NOT NULL)"
     };
     for (const auto &sql : statements) {
         QSqlQuery query(m_database);
@@ -227,8 +228,9 @@ void ResearchStore::reloadCaptures()
 {
     m_captures.clear();
     QSqlQuery query(m_database);
-    query.exec("SELECT c.id,c.source,c.page,c.image,c.created_at,t.text,t.capture_id "
+    query.exec("SELECT c.id,c.source,c.page,c.image,c.created_at,t.text,t.capture_id,n.body,n.updated_at "
                "FROM captures c LEFT JOIN text_captures t ON t.capture_id=c.id "
+               "LEFT JOIN capture_notes n ON n.capture_id=c.id "
                "WHERE c.id NOT IN (SELECT id FROM deleted_captures) ORDER BY c.created_at DESC,c.id DESC");
     while (query.next()) {
         const auto url = QUrl(query.value(1).toString());
@@ -237,12 +239,32 @@ void ResearchStore::reloadCaptures()
             {"page", query.value(2)},
             {"kind", query.value(6).isNull() ? "region" : "text"},
             {"text", query.value(5).toString()},
+            {"note", query.value(7).toString()}, {"noteUpdatedAt", query.value(8).toString()},
             {"image", query.value(3).toString().isEmpty() ? QUrl() : QUrl::fromLocalFile(m_directory + "/captures/" + query.value(3).toString())},
             {"createdAt", query.value(4)}
         });
     }
     emit capturesChanged();
     emit homeChanged();
+}
+
+bool ResearchStore::saveCaptureNote(const QString &id, const QString &body)
+{
+    if (body.size() > 10000) { emit message("Notes can contain up to 10,000 characters."); return false; }
+    QSqlQuery query(m_database);
+    // One statement: never attach a note to a missing or trashed capture.
+    query.prepare("INSERT INTO capture_notes(capture_id,body,updated_at) "
+                  "SELECT id,?,? FROM captures WHERE id=? AND id NOT IN (SELECT id FROM deleted_captures) "
+                  "ON CONFLICT(capture_id) DO UPDATE SET body=excluded.body,updated_at=excluded.updated_at");
+    query.addBindValue(body.trimmed().isEmpty() ? QStringLiteral("") : body);
+    query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+    query.addBindValue(id);
+    if (!query.exec() || query.numRowsAffected() != 1) {
+        emit message("Cannot save note. Check storage and whether this capture still exists.");
+        return false;
+    }
+    reloadCaptures();
+    return true;
 }
 
 QVariantMap ResearchStore::readingPosition(const QUrl &source) const
@@ -376,6 +398,20 @@ QVariantList ResearchStore::searchKnowledge(const QString &queryText, const QUrl
             results.append(QVariantMap{{"kind", "paper"}, {"title", paper.value("title")}, {"source", url}, {"position", readingPosition(url)}});
             ++count;
         }
+    }
+    count = 0;
+    for (const auto &value : m_captures) {
+        if (target != "all" && target != "captures") break;
+        const auto capture = value.toMap();
+        if (!scope.isEmpty() && capture.value("source").toUrl() != scope) continue;
+        const auto note = capture.value("note").toString();
+        const int at = note.indexOf(needle, 0, Qt::CaseInsensitive);
+        if (at < 0) continue;
+        const int start = qMax(0, at - 60);
+        results.append(QVariantMap{{"kind", "note"}, {"id", capture.value("id")}, {"source", capture.value("source")},
+            {"title", "Note · " + capture.value("name").toString() + " · p. " + QString::number(capture.value("page").toInt() + 1)},
+            {"snippet", (start ? QStringLiteral("…") : QStringLiteral("")) + note.mid(start, qMax(200, needle.size()))}});
+        if (++count >= 20) break;
     }
     count = 0;
     for (const auto &value : m_captures) {

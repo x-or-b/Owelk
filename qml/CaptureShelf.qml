@@ -8,6 +8,7 @@ Rectangle {
     color: "#fafafa"
     property string deletingId: ""
     property var viewingCapture: ({})
+    signal noteRequested(string id)
     function requestDelete(id) { deletingId = id; deleteDialog.open() }
     function viewText(capture) { viewingCapture = capture; textDialog.open() }
     Dialog {
@@ -106,6 +107,7 @@ Rectangle {
                     objectName: "captureMenu-" + card.modelData.id
                     MenuItem { objectName: "readExcerpt-" + card.modelData.id; text: "Read Excerpt…"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: root.viewText(card.modelData) }
                     MenuItem { text: "Copy Text"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: researchStore.copyText(card.modelData.text) }
+                    MenuItem { text: card.modelData.note ? "Edit Note…" : "Add Note…"; onTriggered: root.noteRequested(card.modelData.id) }
                     MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(card.modelData.source) }
                     MenuItem {
                         text: "Delete"
@@ -161,6 +163,20 @@ Rectangle {
                         color: "#444444"
                     }
                     Label { text: "p. " + (card.modelData.page + 1) + "  ·  View source"; font.pixelSize: 11; color: "#555555" }
+                    Label {
+                        visible: !!card.modelData.note
+                        width: parent.width
+                        text: "Note · " + (card.modelData.note || "")
+                        textFormat: Text.PlainText; wrapMode: Text.Wrap
+                        maximumLineCount: 3; elide: Text.ElideRight
+                        font.pixelSize: 12; color: "#555555"
+                    }
+                    ToolButton {
+                        objectName: "captureNoteButton-" + card.modelData.id
+                        text: card.modelData.note ? "Edit note" : "Add note"
+                        height: 28
+                        onClicked: root.noteRequested(card.modelData.id)
+                    }
                 }
             }
             Label {
