@@ -10,11 +10,11 @@ Item {
     property real zoomFactor: 1
     property bool pinching: false
     property bool selecting: false
-    readonly property bool interacting: pinching || selecting
+    readonly property bool interacting: pinching || selecting || sourceScroll.running
     onInteractingChanged: researchStore.paperIndex.setReaderInteracting(root, interacting)
     property real pinchStartZoom: 1
     property var pinchAnchor: null
-    readonly property real rasterScale: Math.max(0.1, (width - 40) / Math.max(1, firstPageWidth)) * (pinching ? pinchStartZoom : zoomFactor)
+    readonly property real rasterScale: Math.max(0.1, (width - 56) / Math.max(1, firstPageWidth)) * (pinching ? pinchStartZoom : zoomFactor)
     property bool captureMode: false
     property int currentPage: 0
     property string selectedText: ""
@@ -24,10 +24,15 @@ Item {
     property var pendingPosition: null
     property bool restoring: false
     property var highlight: null
+    property real spotlightOpacity: 0
+    property real spotlightScale: .9
+    property real spotlightGlow: 0
+    property real targetScrollX: 0
+    property real targetScrollY: 0
     readonly property bool ready: pdfDocument.status === PdfDocument.Ready
     readonly property int pageCount: pdfDocument.pageCount
     readonly property string error: source.toString().length && pdfDocument.status === PdfDocument.Error ? pdfDocument.error : ""
-    readonly property real pageScale: Math.max(0.1, (width - 40) / Math.max(1, firstPageWidth)) * zoomFactor
+    readonly property real pageScale: Math.max(0.1, (width - 56) / Math.max(1, firstPageWidth)) * zoomFactor
     readonly property real firstPageWidth: ready ? pdfDocument.pagePointSize(0).width : 595
     property alias searchString: search.searchString
     property int matchCount: 0
@@ -37,6 +42,8 @@ Item {
     signal regionSelected(int page, rect normalizedRegion)
 
     function openFile(url, position) {
+        stopSourceMotion()
+        spotlight.stop()
         if (pinching) cancelPinch()
         pendingPosition = position || {page: 0, y: 0, x: 0, zoom: 1}
         lastPosition = pendingPosition
@@ -75,6 +82,7 @@ Item {
     }
 
     function jump(page, y, x) {
+        stopSourceMotion()
         if (!ready || pageCount < 1) return
         restoring = true
         const target = Math.max(0, Math.min(pageCount - 1, page))
@@ -129,6 +137,7 @@ Item {
         pages.contentY = Math.max(low, Math.min(high, item.y + anchor.y * pageScale - point.y))
     }
     function beginPinch(point) {
+        stopSourceMotion()
         if (!ready || restoring || pinching) return false
         pinchAnchor = anchorAt(point)
         if (!pinchAnchor) return false
@@ -175,11 +184,53 @@ Item {
     }
 
     function showSource(page, rect) {
+        stopSourceMotion()
+        spotlight.stop()
+        clearSelection()
+        pages.cancelFlick()
         highlight = {page: page, rect: rect}
+        spotlightOpacity = 0; spotlightScale = .9; spotlightGlow = 0
+        const oldX = pages.contentX, oldY = pages.contentY
+        restoring = true
+        pages.positionViewAtIndex(page, ListView.Beginning)
+        pages.forceLayout()
+        const item = pages.itemAtIndex(page)
+        const desiredY = item ? item.y + Math.max(0, rect.y - .08) * item.height : pages.contentY
+        targetScrollY = Math.max(pages.originY - pages.topMargin,
+                                Math.min(desiredY, pages.originY + pages.contentHeight - pages.height + pages.bottomMargin))
         const pageWidth = pdfDocument.pagePointSize(page).width * pageScale
         const left = (pages.contentWidth - pageWidth) / 2 + rect.x * pageWidth
-        jump(page, Math.max(0, rect.y - 0.08), Math.max(0, left - 24) / pages.contentWidth)
-        highlightTimer.restart()
+        // Keep the current horizontal position if the target is already visible; never trigger rebound.
+        targetScrollX = rect.width * pageWidth <= pages.width && left >= oldX && left + rect.width * pageWidth <= oldX + pages.width
+            ? oldX : Math.max(0, Math.min(left - 24, pages.contentWidth - pages.width))
+        pages.contentX = oldX; pages.contentY = oldY
+        sourceScroll.restart(); spotlight.restart()
+    }
+
+    function stopSourceMotion() {
+        if (sourceScroll.running) {
+            sourceScroll.stop()
+            restoring = false
+            updatePosition()
+        }
+    }
+    ParallelAnimation {
+        id: sourceScroll
+        NumberAnimation { target: pages; property: "contentY"; to: root.targetScrollY; duration: 260; easing.type: Easing.OutCubic }
+        NumberAnimation { target: pages; property: "contentX"; to: root.targetScrollX; duration: 260; easing.type: Easing.OutCubic }
+        onFinished: { root.restoring = false; root.updatePosition() }
+    }
+    SequentialAnimation {
+        id: spotlight
+        PauseAnimation { duration: 190 }
+        ParallelAnimation {
+            NumberAnimation { target: root; property: "spotlightOpacity"; to: 1; duration: 160 }
+            NumberAnimation { target: root; property: "spotlightScale"; to: 1; duration: 230; easing.type: Easing.OutBack }
+        }
+        NumberAnimation { target: root; property: "spotlightGlow"; to: 1; duration: 140; easing.type: Easing.OutQuad }
+        NumberAnimation { target: root; property: "spotlightGlow"; to: 0; duration: 160; easing.type: Easing.InOutQuad }
+        PauseAnimation { duration: 3200 }
+        NumberAnimation { target: root; property: "spotlightOpacity"; to: .4; duration: 600 }
     }
 
     function copySelection() {
@@ -213,6 +264,7 @@ Item {
     }
 
     onWidthChanged: {
+        stopSourceMotion()
         if (pinching) cancelPinch()
         if (ready && !restoring) {
             pendingPosition = lastPosition
@@ -234,7 +286,6 @@ Item {
         }
     }
     Timer { id: positionTimer; interval: 180; onTriggered: root.updatePosition() }
-    Timer { id: highlightTimer; interval: 4000; onTriggered: root.highlight = null }
 
     PdfDocument {
         id: pdfDocument
@@ -273,6 +324,8 @@ Item {
         id: pages
         objectName: "pageList"
         anchors.fill: parent
+        anchors.rightMargin: 16
+        anchors.bottomMargin: 14
         clip: true
         spacing: 16
         topMargin: 16
@@ -283,12 +336,28 @@ Item {
         acceptedButtons: Qt.NoButton
         flickableDirection: Flickable.AutoFlickDirection
         boundsBehavior: Flickable.StopAtBounds
-        cacheBuffer: height * 0.5
+        cacheBuffer: Math.max(0, height * 0.5)
         onContentYChanged: if (!root.restoring) positionTimer.restart()
         onContentXChanged: if (!root.restoring) positionTimer.restart()
         onMovementEnded: root.updatePosition()
-        ScrollBar.vertical: ScrollBar { objectName: "pdfVerticalScrollBar"; policy: ScrollBar.AlwaysOn; interactive: true; minimumSize: .04 }
-        ScrollBar.horizontal: ScrollBar { objectName: "pdfHorizontalScrollBar"; policy: ScrollBar.AsNeeded; interactive: true; minimumSize: .04 }
+        ScrollBar.vertical: ScrollBar {
+            objectName: "pdfVerticalScrollBar"
+            parent: root; z: 50
+            x: root.width - width; y: 0; width: 16; height: pages.height
+            policy: ScrollBar.AlwaysOn; interactive: true; minimumSize: .05; padding: 3
+            onPressedChanged: if (pressed) root.stopSourceMotion()
+            background: Rectangle { color: "#eeeeee" }
+            contentItem: Rectangle { implicitWidth: 10; implicitHeight: 36; radius: 5; color: parent.pressed ? "#777777" : parent.hovered ? "#999999" : "#b5b5b5" }
+        }
+        ScrollBar.horizontal: ScrollBar {
+            objectName: "pdfHorizontalScrollBar"
+            parent: root; z: 50
+            x: 0; y: root.height - height; width: pages.width; height: 14
+            policy: ScrollBar.AsNeeded; interactive: true; minimumSize: .05; padding: 3
+            onPressedChanged: if (pressed) root.stopSourceMotion()
+            contentItem: Rectangle { implicitWidth: 36; implicitHeight: 8; radius: 4; color: parent.pressed ? "#777777" : "#b5b5b5" }
+        }
+        WheelHandler { target: null; onWheel: function(event) { root.stopSourceMotion(); event.accepted = false } }
 
         WheelHandler {
             target: null
@@ -427,6 +496,7 @@ Item {
                     onActiveChanged: {
                         root.selecting = active
                         if (active) {
+                            root.stopSourceMotion()
                             // Do not reinterpret held pixel endpoints at a new zoom/viewport scale.
                             pageHolder.selectionScale = root.pageScale
                             if (!pageHolder.metricsReady) {
@@ -476,14 +546,22 @@ Item {
 
                 Rectangle {
                     visible: root.highlight !== null && root.highlight.page === pageHolder.index
+                    opacity: root.spotlightOpacity
+                    scale: root.spotlightScale
                     property rect region: visible ? root.highlight.rect : Qt.rect(0, 0, 0, 0)
                     x: region.x * paper.width
                     y: region.y * paper.height
                     width: region.width * paper.width
                     height: region.height * paper.height
-                    color: "#22555555"
-                    border.color: "#555555"
+                    color: "transparent"
+                    border.color: Qt.rgba(.32 + root.spotlightGlow * .23, .32 + root.spotlightGlow * .23, .32 + root.spotlightGlow * .23, 1)
                     border.width: 2
+                    Rectangle {
+                        anchors.fill: parent; anchors.margins: -3
+                        color: "transparent"; radius: 3
+                        border.width: 4; border.color: "#999999"
+                        opacity: root.spotlightGlow * .28
+                    }
                 }
 
                 MouseArea {

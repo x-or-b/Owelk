@@ -141,14 +141,33 @@ Item {
             tryVerify(function() { return Math.abs(list.contentY - y) > 1 })
             compare(canvas.zoomFactor, 1)
         }
-        function test_scrollBarDrag() {
+        function test_scrollBarDrag_data() {
+            return [{tag: "left_edge", fraction: .1, capture: false}, {tag: "right_edge_capture_mode", fraction: .9, capture: true}]
+        }
+        function test_scrollBarDrag(data) {
             const bar = findChild(canvas, "pdfVerticalScrollBar")
             verify(bar.interactive && bar.visible)
+            canvas.captureMode = data.capture
             const before = findChild(canvas, "pageList").contentY
             const thumb = bar.contentItem
-            const from = thumb.mapToItem(canvas, thumb.width / 2, thumb.height / 2)
+            const from = bar.mapToItem(canvas, bar.width * data.fraction, thumb.y + thumb.height / 2)
             testInput.pointerDrag(canvas, from, Qt.point(from.x, from.y + 140), false)
             tryVerify(function() { return findChild(canvas, "pageList").contentY > before + 100 })
+        }
+        function test_captureMotionAndSpotlight() {
+            const start = findChild(canvas, "pageList").contentY
+            canvas.showSource(3, Qt.rect(.1, .4, .3, .1))
+            compare(canvas.spotlightOpacity, 0)
+            wait(100)
+            const middle = findChild(canvas, "pageList").contentY
+            verify(middle > start && middle < canvas.targetScrollY)
+            tryCompare(canvas, "restoring", false)
+            compare(canvas.currentPage, 3)
+            tryVerify(function() { return canvas.spotlightOpacity > .95 })
+            tryVerify(function() { return canvas.spotlightGlow > .05 })
+            tryVerify(function() { return canvas.spotlightGlow === 0 })
+            canvas.openFile(fixtureSource)
+            compare(canvas.highlight, null)
         }
         function test_findBarIsOptional() {
             const bar = findChild(reader, "searchBar")
