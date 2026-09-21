@@ -12,7 +12,7 @@ UiControls.ItemDelegate {
     height: modelData.snippet ? 76 : 44
     background: Rectangle {
         color: root.heading ? (root.highlighted || root.hovered ? "#686868" : "#767676") : root.highlighted ? "#e9e9e9" : root.hovered ? "#f2f2f2" : "transparent"
-        Rectangle { visible: root.highlighted; y: Theme.cornerRadius; width: 3; height: parent.height - 2 * y; radius: 1.5; color: "#829ab4" }
+        Rectangle { visible: root.highlighted; y: Theme.cornerRadius; width: 3; height: parent.height - 2 * y; radius: 1.5; color: Theme.accentMuted }
     }
     contentItem: ColumnLayout {
         spacing: 3
@@ -21,9 +21,9 @@ UiControls.ItemDelegate {
             Label {
                 objectName: "resultTitle"
                 Layout.fillWidth: true
-                text: Match.highlight(root.modelData.title, root.queryText, root.heading ? "#c5dcf5" : "#426b9a")
+                text: Match.highlight(root.modelData.title, root.queryText, root.heading ? Theme.accentOnDark : Theme.accent)
                 textFormat: Text.StyledText
-                color: root.heading ? "#ffffff" : root.modelData.kind === "text" ? "#243e60" : "#333333"
+                color: root.heading ? "#ffffff" : root.modelData.kind === "text" ? Theme.accentText : "#333333"
                 font.bold: root.modelData.kind === "paperGroup"
                 elide: Text.ElideMiddle
             }

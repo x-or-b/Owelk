@@ -20,8 +20,8 @@ ColumnLayout {
         }
         background: Rectangle {
             radius: Theme.cornerRadius
-            color: !button.enabled ? "#eeeeee" : button.checked || button.down ? "#d9dfe6" : button.hovered ? "#dedede" : "#e8e8e8"
-            border.color: button.activeFocus || button.checked ? "#8296ac" : "#b5b5b5"
+            color: !button.enabled ? "#eeeeee" : button.checked || button.down ? Theme.accentSurface : button.hovered ? "#dedede" : "#e8e8e8"
+            border.color: button.activeFocus || button.checked ? Theme.accentMuted : "#b5b5b5"
         }
     }
     component FilterCombo: UiControls.ComboBox {
@@ -35,8 +35,8 @@ ColumnLayout {
         palette.highlightedText: "#182e49"
         background: Rectangle {
             radius: Theme.cornerRadius
-            color: control.down ? "#d9dfe6" : control.hovered ? "#dedede" : "#e8e8e8"
-            border.color: control.activeFocus ? "#8296ac" : "#b5b5b5"
+            color: control.down ? Theme.accentSurface : control.hovered ? "#dedede" : "#e8e8e8"
+            border.color: control.activeFocus ? Theme.accentMuted : "#b5b5b5"
         }
         contentItem: Text {
             text: control.displayText; textFormat: Text.PlainText
@@ -54,7 +54,7 @@ ColumnLayout {
             width: control.width
             highlighted: control.highlightedIndex === index
             background: Rectangle {
-                color: option.index === control.currentIndex ? "#d9dfe6" : option.hovered || option.highlighted ? "#e2e2e2" : "#fafafa"
+                color: option.index === control.currentIndex ? Theme.accentSurface : option.hovered || option.highlighted ? "#e2e2e2" : "#fafafa"
             }
             contentItem: Text {
                 text: control.textAt(option.index); textFormat: Text.PlainText

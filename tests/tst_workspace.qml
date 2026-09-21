@@ -196,11 +196,17 @@ Item {
             const button = findChild(view, "closeTabButton-" + id)
             verify(button !== null)
             compare(button.background.color, button.parent.color)
+            compare(button.width, 24)
+            compare(button.height, button.width)
+            compare(button.y, (button.parent.height - button.height) / 2)
             waitForPolish(workspace)
             wait(50)
             mouseMove(button, 12, 16)
             tryCompare(button, "hovered", true)
-            compare(button.background.color.toString(), "#d1d1d1")
+            compare(button.background.color, button.parent.color)
+            compare(button.background.border.color.toString(), "#426b9a")
+            mouseClick(button, 12, 12)
+            tryCompare(workspace.documents, "hasTabs", false)
         }
         function test_workspaceManagerLinksRenameDelete() {
             workspace.width = 1440

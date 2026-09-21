@@ -176,7 +176,7 @@ Item {
             tryVerify(function() { return canvas.spotlightOpacity > .95 })
             const border = findChild(canvas, "captureSourceBorder3")
             verify(border !== null)
-            compare(border.border.color.toString(), "#bcbcbc")
+            compare(border.border.color.toString(), "#426b9a")
             compare(border.radius, 5)
             tryVerify(function() { return canvas.spotlightGlow > .05 })
             tryVerify(function() { return canvas.spotlightGlow === 0 })

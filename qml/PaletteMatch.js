@@ -1,4 +1,5 @@
 .pragma library
+.import "UiTheme.js" as Theme
 function terms(query) { return query.trim().toLowerCase().split(/\s+/).filter(function(t) { return t.length }) }
 function matches(title, query) { const text = title.toLowerCase(); return terms(query).every(function(t) { return text.indexOf(t) >= 0 }) }
 function escape(text) { return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") }
@@ -14,7 +15,7 @@ function highlight(title, query, color) {
     let result = "", active = false
     for (let i = 0; i < title.length; ++i) {
         // StyledText supports <font>/<b>, not CSS span styles.
-        if (marked[i] !== active) { result += marked[i] ? '<font color="' + (color || "#426b9a") + '"><b>' : '</b></font>'; active = marked[i] }
+        if (marked[i] !== active) { result += marked[i] ? '<font color="' + (color || Theme.accent) + '"><b>' : '</b></font>'; active = marked[i] }
         result += escape(title[i])
     }
     return result + (active ? '</b></font>' : '')

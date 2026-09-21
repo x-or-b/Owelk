@@ -66,7 +66,7 @@ Rectangle {
                 MouseArea {
                     id: pointer
                     anchors.fill: parent
-                    anchors.rightMargin: 25
+                    anchors.rightMargin: close.width + close.anchors.rightMargin
                     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                     hoverEnabled: true
                     preventStealing: true
@@ -103,10 +103,16 @@ Rectangle {
                     objectName: "closeTabButton-" + modelData.id
                     hoverEnabled: true
                     anchors.right: parent.right
-                    width: 25; height: 32
+                    anchors.rightMargin: 4
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 24; height: 24
                     text: "×"
                     Accessible.name: "Close tab"
-                    background: Rectangle { color: close.down ? "#bcbcbc" : close.hovered ? "#d1d1d1" : tabItem.color }
+                    background: Rectangle {
+                        color: close.down ? Theme.accentSurface : tabItem.color
+                        border.width: 1
+                        border.color: close.hovered || close.visualFocus ? Theme.accent : "transparent"
+                    }
                     contentItem: Text { text: "×"; color: close.hovered ? "#171717" : "#666666"; font: close.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     onClicked: { const id = modelData.id; Qt.callLater(function() { root.controller.closeTab(id) }) }
                 }

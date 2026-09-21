@@ -68,7 +68,7 @@ UiControls.Dialog {
                 placeholderText: "Your interpretation, questions, or comparison with another paper…"
                 textFormat: TextEdit.PlainText; selectByMouse: true; wrapMode: TextEdit.Wrap
                 color: "#333333"
-                background: Rectangle { color: "#ffffff"; border.color: editor.activeFocus ? "#8296ac" : "#b5b5b5"; radius: Theme.cornerRadius }
+                background: Rectangle { color: "#ffffff"; border.color: editor.activeFocus ? Theme.accentMuted : "#b5b5b5"; radius: Theme.cornerRadius }
                 Keys.onEscapePressed: root.requestClose()
             }
         }
