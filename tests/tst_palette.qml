@@ -37,6 +37,15 @@ Item {
             compare((Match.highlight("command command", "comma").match(/<font/g) || []).length, 2)
             compare((Match.highlight("command", "com comma").match(/<font/g) || []).length, 1)
         }
+        function test_recentPaperAndSearchHeadingStyles() {
+            const result = createTemporaryObject(resultComponent, scene, {modelData: {kind: "paper", title: "Paper.pdf"}, queryText: ""})
+            compare(result.heading, false)
+            compare(findChild(result, "resultTitle").color.toString(), "#333333")
+            result.queryText = "Paper"
+            compare(result.heading, true)
+            compare(result.background.color.toString(), "#767676")
+            compare(findChild(result, "resultTitle").color.toString(), "#ffffff")
+        }
         function bluePixels(item) {
             waitForRendering(scene, 100)
             wait(100)

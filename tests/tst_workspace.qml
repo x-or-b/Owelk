@@ -189,6 +189,19 @@ Item {
             verify(!d.tree.tabs[1].kind)
             compare(workspace.currentReader.source.toString(), outlineSource.toString())
         }
+        function test_closeButtonBlendsWithTab() {
+            workspace.openDocument(fixtureSource); canvas()
+            const view = workspace.documents.groupView(workspace.documents.activeGroup)
+            const id = view.groupData.activeTab
+            const button = findChild(view, "closeTabButton-" + id)
+            verify(button !== null)
+            compare(button.background.color, button.parent.color)
+            waitForPolish(workspace)
+            wait(50)
+            mouseMove(button, 12, 16)
+            tryCompare(button, "hovered", true)
+            compare(button.background.color.toString(), "#d1d1d1")
+        }
         function test_newTabButtonUsesClickedGroup() {
             // A restored window is clamped to the offscreen 800px display; make both groups visible.
             workspace.width = 1440

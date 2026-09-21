@@ -97,10 +97,14 @@ Rectangle {
                 Keys.onEscapePressed: { pointer.cancelled = true; pointer.moving = false; root.controller.finishDrag(true) }
                 ToolButton {
                     id: close
+                    objectName: "closeTabButton-" + modelData.id
+                    hoverEnabled: true
                     anchors.right: parent.right
                     width: 25; height: 32
                     text: "×"
                     Accessible.name: "Close tab"
+                    background: Rectangle { color: close.down ? "#bcbcbc" : close.hovered ? "#d1d1d1" : tabItem.color }
+                    contentItem: Text { text: "×"; color: close.hovered ? "#171717" : "#666666"; font: close.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     onClicked: { const id = modelData.id; Qt.callLater(function() { root.controller.closeTab(id) }) }
                 }
                 ToolTip.visible: pointer.containsMouse && !pointer.pressed

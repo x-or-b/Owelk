@@ -7,10 +7,10 @@ ItemDelegate {
     id: root
     required property var modelData
     property string queryText: ""
-    readonly property bool heading: modelData.kind === "paperGroup" || modelData.kind === "paper"
+    readonly property bool heading: queryText.trim().length > 0 && (modelData.kind === "paperGroup" || modelData.kind === "paper")
     height: modelData.snippet ? 76 : 44
     background: Rectangle {
-        color: root.heading ? (root.highlighted || root.hovered ? "#3d3d3d" : "#505050") : root.highlighted ? "#e2e6eb" : root.hovered ? "#eeeeee" : "transparent"
+        color: root.heading ? (root.highlighted || root.hovered ? "#686868" : "#767676") : root.highlighted ? "#e9e9e9" : root.hovered ? "#f2f2f2" : "transparent"
         Rectangle { visible: root.highlighted; width: 3; height: parent.height; color: "#829ab4" }
     }
     contentItem: ColumnLayout {
