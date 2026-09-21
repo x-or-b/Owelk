@@ -8,27 +8,43 @@ ColumnLayout {
     property url currentSource: ""
     property bool expanded: false
     readonly property var papers: researchStore.paperIndex.documents
+    component FilterButton: ToolButton {
+        id: button
+        Layout.preferredHeight: 32
+        implicitHeight: 32
+        leftPadding: 10; rightPadding: 10
+        contentItem: Text {
+            text: button.text; color: button.enabled ? "#333333" : "#777777"; font: button.font
+            horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+        }
+        background: Rectangle {
+            radius: 3
+            color: !button.enabled ? "#eeeeee" : button.checked || button.down ? "#d9dfe6" : button.hovered ? "#dedede" : "#e8e8e8"
+            border.color: button.activeFocus || button.checked ? "#8296ac" : "#b5b5b5"
+        }
+    }
     component FilterCombo: ComboBox {
         id: control
         implicitHeight: 32
+        Layout.preferredHeight: 32
         leftPadding: 10; rightPadding: 26
-        palette.text: "#243b58"
-        palette.buttonText: "#243b58"
+        palette.text: "#333333"
+        palette.buttonText: "#333333"
         palette.highlight: "#d5deea"
         palette.highlightedText: "#182e49"
         background: Rectangle {
             radius: 3
-            color: control.down ? "#cbd5e1" : control.hovered ? "#dbe2eb" : "#e5e9ef"
-            border.color: control.activeFocus ? "#496684" : "#9caabb"
+            color: control.down ? "#d9dfe6" : control.hovered ? "#dedede" : "#e8e8e8"
+            border.color: control.activeFocus ? "#8296ac" : "#b5b5b5"
         }
         contentItem: Text {
             text: control.displayText; textFormat: Text.PlainText
-            font: control.font; color: "#243b58"
+            font: control.font; color: "#333333"
             verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
         }
         indicator: Text {
             x: control.width - width - 9; anchors.verticalCenter: parent.verticalCenter
-            text: "▾"; color: "#243b58"
+            text: "▾"; color: "#333333"
         }
         delegate: ItemDelegate {
             id: option
@@ -37,11 +53,11 @@ ColumnLayout {
             width: control.width
             highlighted: control.highlightedIndex === index
             background: Rectangle {
-                color: option.hovered || option.highlighted ? "#d5deea" : option.index === control.currentIndex ? "#e6ecf3" : "#fafbfd"
+                color: option.index === control.currentIndex ? "#d9dfe6" : option.hovered || option.highlighted ? "#e2e2e2" : "#fafafa"
             }
             contentItem: Text {
                 text: control.textAt(option.index); textFormat: Text.PlainText
-                color: "#203650"; font.family: control.font.family; font.pixelSize: control.font.pixelSize
+                color: "#333333"; font.family: control.font.family; font.pixelSize: control.font.pixelSize
                 font.bold: option.index === control.currentIndex
                 verticalAlignment: Text.AlignVCenter; elide: Text.ElideMiddle
             }
@@ -51,7 +67,7 @@ ColumnLayout {
         popup: Popup {
             y: control.height + 3; width: control.width; padding: 1
             implicitHeight: Math.min(contentItem.implicitHeight + 2, 280)
-            background: Rectangle { color: "#fafbfd"; border.color: "#9caabb"; radius: 3 }
+            background: Rectangle { color: "#fafafa"; border.color: "#b5b5b5"; radius: 3 }
             contentItem: ListView {
                 clip: true; implicitHeight: contentHeight
                 model: control.popup.visible ? control.delegateModel : null
@@ -62,16 +78,11 @@ ColumnLayout {
     }
     RowLayout {
         Layout.fillWidth: true
-        ToolButton { text: "← Back"; visible: root.controller.history.length > 0; onClicked: root.controller.back() }
-        ToolButton {
+        FilterButton { text: "← Back"; visible: root.controller.history.length > 0; onClicked: root.controller.back() }
+        FilterButton {
             id: filtersButton
             objectName: "searchFiltersButton"
             text: "Filters"; checkable: true; checked: root.expanded; onClicked: root.expanded = checked
-            contentItem: Text { text: filtersButton.text; color: "#243b58"; font: filtersButton.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-            background: Rectangle {
-                radius: 3; border.color: "#9caabb"
-                color: filtersButton.checked ? "#cbd5e1" : filtersButton.hovered ? "#dbe2eb" : "#e5e9ef"
-            }
         }
         Label {
             Layout.fillWidth: true
@@ -79,7 +90,7 @@ ColumnLayout {
                 + (root.controller.targetFilter === "all" ? "" : " · " + ({text: "PDF text", filename: "File names", captures: "Captures"})[root.controller.targetFilter])
             textFormat: Text.PlainText; elide: Text.ElideMiddle; color: "#666666"; font.pixelSize: 11
         }
-        ToolButton {
+        FilterButton {
             text: "Clear filters"
             visible: root.controller.sourceFilter.toString().length > 0 || root.controller.targetFilter !== "all"
             onClicked: root.controller.resetFilters()
@@ -112,7 +123,8 @@ ColumnLayout {
             ToolTip.visible: hovered && currentIndex > 0
             ToolTip.text: currentIndex > 0 ? root.papers[currentIndex - 1].source.toString() : ""
         }
-        ToolButton {
+        FilterButton {
+            objectName: "currentPdfFilter"
             text: "Current PDF"
             enabled: root.currentSource.toString().length > 0
             onClicked: root.controller.sourceFilter = root.currentSource

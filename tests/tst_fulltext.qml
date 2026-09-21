@@ -52,7 +52,10 @@ Item {
             const filters = findChild(palette, "searchFiltersButton")
             if (!filters.checked) mouseClick(filters)
             const picker = findChild(palette, "searchTargetFilter")
-            compare(picker.contentItem.color.toString(), "#243b58")
+            compare(picker.contentItem.color.toString(), "#333333")
+            tryCompare(picker, "height", 32)
+            compare(findChild(palette, "currentPdfFilter").height, picker.height)
+            compare(filters.height, picker.height)
             for (let i = 0; i < 4; ++i) {
                 mouseClick(picker)
                 tryCompare(picker.popup, "opened", true)
@@ -60,11 +63,11 @@ Item {
                 const option = picker.popup.contentItem.itemAtIndex(i)
                 verify(option !== null)
                 mouseMove(option, 20, option.height / 2)
-                compare(option.contentItem.color.toString(), "#203650")
+                compare(option.contentItem.color.toString(), "#333333")
                 verify(option.background.color.toString() !== "#ffffff")
                 mouseClick(option)
                 tryCompare(picker, "currentIndex", i)
-                compare(picker.contentItem.color.toString(), "#243b58")
+                compare(picker.contentItem.color.toString(), "#333333")
                 compare(palette.searchController.targetFilter, picker.values[i])
             }
         }

@@ -7,8 +7,12 @@ ItemDelegate {
     id: root
     required property var modelData
     property string queryText: ""
+    readonly property bool heading: modelData.kind === "paperGroup" || modelData.kind === "paper"
     height: modelData.snippet ? 76 : 44
-    background: Rectangle { color: root.highlighted ? "#e9e9e9" : root.hovered ? "#f2f2f2" : root.modelData.kind === "paperGroup" ? "#f5f5f5" : "transparent" }
+    background: Rectangle {
+        color: root.heading ? (root.highlighted || root.hovered ? "#3d3d3d" : "#505050") : root.highlighted ? "#e2e6eb" : root.hovered ? "#eeeeee" : "transparent"
+        Rectangle { visible: root.highlighted; width: 3; height: parent.height; color: "#829ab4" }
+    }
     contentItem: ColumnLayout {
         spacing: 3
         RowLayout {
@@ -16,9 +20,9 @@ ItemDelegate {
             Label {
                 objectName: "resultTitle"
                 Layout.fillWidth: true
-                text: Match.highlight(root.modelData.title, root.queryText)
+                text: Match.highlight(root.modelData.title, root.queryText, root.heading ? "#c5dcf5" : "#426b9a")
                 textFormat: Text.StyledText
-                color: ["paperGroup", "paper", "text"].indexOf(root.modelData.kind) >= 0 ? "#243e60" : "#333333"
+                color: root.heading ? "#ffffff" : root.modelData.kind === "text" ? "#243e60" : "#333333"
                 font.bold: root.modelData.kind === "paperGroup"
                 elide: Text.ElideMiddle
             }
@@ -26,7 +30,7 @@ ItemDelegate {
                 text: root.modelData.kind === "paperGroup" ? root.modelData.total + " matching pages"
                     : root.modelData.kind === "text" ? "p. " + (Number(root.modelData.page) + 1)
                     : ["moreInPaper", "nextResults"].indexOf(root.modelData.kind) >= 0 ? "" : root.modelData.kind
-                color: "#777777"; font.pixelSize: 11
+                color: root.heading ? "#e5e5e5" : "#777777"; font.pixelSize: 11
             }
         }
         Label {
