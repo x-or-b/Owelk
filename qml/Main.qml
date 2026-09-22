@@ -123,7 +123,7 @@ ApplicationWindow {
     }
     function scheduleSave() { if (initialized && !restoreFailed) saveTimer.restart() }
     function notify(text) { notification = text; notificationTimer.restart() }
-    function chooseFile() { if (!restoreFailed) fileDialog.open() }
+    function chooseFile() { if (!restoreFailed && !(currentReader && currentReader.annotationDirty)) fileDialog.open() }
 
     Component.onCompleted: {
         const state = researchStore.session
@@ -151,6 +151,8 @@ ApplicationWindow {
         if (!restoreFailed) persist()
     }
     onClosing: function(close) {
+        if (researchStore.printing) { close.accepted = false; notify("Finish or cancel printing before closing the window."); return }
+        if (window.currentReader && window.currentReader.annotationDirty) { close.accepted = false; notify("Save or discard annotation edits before closing the window."); return }
         if (captureNote.dirty) { close.accepted = false; captureNote.open(); notify("Save or discard your note edits before closing the window.") }
         else if (researchStore.busy) { close.accepted = false; notify("Saving capture. Please close the window after saving finishes.") }
         else if (initialized && !restoreFailed && !persist()) { close.accepted = false; notify("Cannot save the session. Check storage and try again.") }
@@ -192,6 +194,7 @@ ApplicationWindow {
         canReopenTab: documents.closedTabs.length > 0
         canCloseTab: !window.homeVisible && documents.hasTabs
         onCommandChosen: function(command) {
+            if (window.currentReader && window.currentReader.annotationDirty) { window.notify("Finish annotation editing first."); return }
             switch (command) {
             case "/home": window.showHome(); break
             case "/open paper": window.chooseFile(); break
@@ -222,8 +225,8 @@ ApplicationWindow {
         UiControls.Menu {
             title: "File"
             Action { text: "Open PDF…"; shortcut: StandardKey.Open; onTriggered: window.chooseFile() }
-            Action { objectName: "newTabAction"; text: "New Tab"; shortcut: "Ctrl+T"; enabled: !window.restoreFailed; onTriggered: documents.newHomeTab() }
-            Action { objectName: "closeTabAction"; text: "Close Tab"; shortcut: "Ctrl+W"; enabled: !window.homeVisible && !window.restoreFailed; onTriggered: documents.closeActiveTab() }
+            Action { objectName: "newTabAction"; text: "New Tab"; shortcut: "Ctrl+T"; enabled: !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.newHomeTab() }
+            Action { objectName: "closeTabAction"; text: "Close Tab"; shortcut: "Ctrl+W"; enabled: !window.homeVisible && !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.closeActiveTab() }
             Action { text: "Reopen Closed Tab"; shortcut: "Ctrl+Shift+T"; enabled: documents.closedTabs.length > 0 && !window.restoreFailed; onTriggered: documents.reopenClosedTab() }
             MenuSeparator {}
             Action { text: "Quit"; shortcut: StandardKey.Quit; onTriggered: window.close() }

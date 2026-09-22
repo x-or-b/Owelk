@@ -21,6 +21,20 @@ Item {
     property string selectedText: ""
     property var activeSelection: null
     property var selectedAnchor: null
+    property string tool: ""
+    property string markColor: "#426b9a"
+    property string documentFingerprint: ""
+    property var editingMark: null
+    signal contextRequested(point position, int page)
+    signal editRequested(var record, var selection)
+    signal annotationPlaced(int page, var rectangle, var points)
+    readonly property point selectionEnd: {
+        const cy = pages.contentY, cx = pages.contentX, scale = pageScale
+        if (!selectedAnchor) return Qt.point(-100, -100)
+        const page = pages.itemAtIndex(selectedAnchor.page)
+        if (!page) return Qt.point(-100, -100)
+        return page.mapToItem(root, (pages.contentWidth - page.pointSize.width * scale) / 2 + selectedAnchor.to.x * scale, selectedAnchor.to.y * scale)
+    }
     property var lastPosition: ({page: 0, y: 0, x: 0, zoom: 1})
     property var pendingPosition: null
     property bool restoring: false
@@ -35,13 +49,13 @@ Item {
         highlightRequest = ready ? researchStore.loadHighlights(source) : -1
     }
     onReadyChanged: refreshHighlights()
-    onSourceChanged: { savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null }
+    onSourceChanged: { savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null; documentFingerprint = ""; tool = "" }
     Connections {
         target: researchStore
         function onHighlightsChanged() { root.refreshHighlights() }
-        function onHighlightsLoaded(request, source, highlights, error) {
+        function onHighlightsLoaded(request, source, highlights, error, fingerprint) {
             if (request !== root.highlightRequest || !researchStore.sameSource(root.source, source)) return
-            root.savedHighlights = highlights; root.highlightError = error
+            root.savedHighlights = highlights; root.highlightError = error; root.documentFingerprint = fingerprint
         }
         function onHighlightSaved(id, source) {
             if (researchStore.sameSource(root.source, source) && root.pendingHighlightSelection !== null
@@ -52,12 +66,25 @@ Item {
     UiControls.Menu {
         id: highlightMenu
         objectName: "highlightMenu"
+        UiControls.MenuItem { text: "Edit / Comment…"; onTriggered: root.editRequested(root.editingMark, null) }
+        UiControls.MenuItem { text: "Change Color…"; onTriggered: markColors.open() }
         UiControls.MenuItem {
             objectName: "removeHighlightAction"
-            text: "Remove Highlight"
+            text: "Remove Annotation"
             palette.text: "#b42323"; palette.windowText: "#b42323"; palette.highlightedText: "#b42323"
             onTriggered: { const id = root.removingHighlight; Qt.callLater(function() { researchStore.removeHighlight(id) }) }
         }
+    }
+    AnnotationColors {
+        id: markColors
+        x: Math.max(0, Math.min(root.width - width, root.selectionEnd.x)); y: Math.max(0, Math.min(root.height - height, root.selectionEnd.y))
+        selectedColor: root.editingMark ? root.editingMark.color : root.markColor
+        onChosen: function(color) { if (root.editingMark) researchStore.updateHighlight(root.editingMark.id, color, root.editingMark.body || "") }
+    }
+    function selectPage(page) {
+        const item = pages.itemAtIndex(page)
+        if (!item) return
+        clearSelection(); item.selectWholePage()
     }
     property real spotlightOpacity: 0
     property real spotlightScale: .9
@@ -282,7 +309,7 @@ Item {
     }
 
     TapHandler {
-        enabled: root.ready && !root.captureMode && !root.pinching
+        enabled: root.ready && !root.captureMode && !root.pinching && (!root.tool.length || root.tool === "highlight")
         onTapped: { root.activated(); root.clearSelection() }
     }
 
@@ -302,7 +329,7 @@ Item {
     function highlightSelection() {
         if (!selectedAnchor || selectedAnchor.text !== selectedText || selecting || researchStore.busy) return
         pendingHighlightSelection = selectedAnchor
-        researchStore.highlightText(source, selectedAnchor.page, selectedAnchor.from, selectedAnchor.to, selectedAnchor.text)
+        researchStore.highlightText(source, selectedAnchor.page, selectedAnchor.from, selectedAnchor.to, selectedAnchor.text, markColor)
     }
 
     onWidthChanged: {
@@ -423,6 +450,10 @@ Item {
             readonly property size pointSize: pdfDocument.pagePointSize(index)
             property var lineMetrics: []
             property bool metricsReady: false
+            function selectWholePage() {
+                selection.selectAll(); root.activeSelection = selection; root.selectedText = selection.text
+                root.selectedAnchor = {page:index,text:selection.text,from:Qt.point(0,0),to:Qt.point(pointSize.width,pointSize.height)}
+            }
             PdfSelection {
                 id: pageText
                 visible: false
@@ -493,6 +524,11 @@ Item {
                     }
                 }
 
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.RightButton
+                    onClicked: function(mouse) { root.contextRequested(mapToItem(root, mouse.x, mouse.y), pageHolder.index) }
+                }
                 Repeater {
                     model: root.savedHighlights.filter(function(h) { return h.page === pageHolder.index })
                     delegate: Item {
@@ -501,20 +537,40 @@ Item {
                         anchors.fill: parent
                         Repeater {
                             model: persistentMark.modelData.rectangles
-                            delegate: Rectangle {
+                            delegate: Item {
                                 required property var modelData
+                                required property int index
                                 objectName: "savedHighlight-" + persistentMark.modelData.id
                                 x: modelData.x * paper.width; y: modelData.y * paper.height
                                 width: modelData.width * paper.width; height: modelData.height * paper.height
-                                color: Theme.accent; opacity: .25
+                                Rectangle { anchors.fill: parent; visible: persistentMark.modelData.kind === "highlight" || persistentMark.modelData.kind === "comment"; color: persistentMark.modelData.color || Theme.accent; opacity: persistentMark.modelData.kind === "comment" ? .12 : .28 }
+                                Text { anchors.fill: parent; visible: persistentMark.modelData.kind === "text"; text: persistentMark.modelData.body || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: persistentMark.modelData.color; font.pixelSize: 14 * root.pageScale; clip: true }
+                                Image { anchors.fill: parent; visible: persistentMark.modelData.kind === "image"; source: visible ? persistentMark.modelData.image : ""; fillMode: Image.Stretch; asynchronous: true }
+                                Canvas {
+                                    anchors.fill: parent; visible: persistentMark.modelData.kind === "draw"
+                                    onWidthChanged: requestPaint(); onHeightChanged: requestPaint()
+                                    onPaint: {
+                                        const c=getContext("2d"); c.reset(); c.strokeStyle=persistentMark.modelData.color; c.lineWidth=2*root.pageScale; c.lineJoin="round"; c.lineCap="round"; c.beginPath()
+                                        const points=persistentMark.modelData.drawing || [], r=modelData
+                                        for(let i=0;i<points.length;i++) { const x=(points[i].x-r.x)/r.width*width,y=(points[i].y-r.y)/r.height*height; if(i)c.lineTo(x,y);else c.moveTo(x,y) } c.stroke()
+                                    }
+                                }
                                 MouseArea {
                                     anchors.fill: parent
                                     acceptedButtons: Qt.RightButton
                                     enabled: !root.captureMode
                                     onClicked: function(mouse) {
                                         root.removingHighlight = persistentMark.modelData.id
+                                        root.editingMark = persistentMark.modelData
                                         highlightMenu.popup(parent, mouse.x, mouse.y)
                                     }
+                                }
+                                ReaderIconButton {
+                                    objectName: "commentMarker-" + persistentMark.modelData.id + "-" + index
+                                    visible: index === 0 && (!!persistentMark.modelData.body && persistentMark.modelData.kind !== "text")
+                                    kind: "comment"; description: persistentMark.modelData.body || ""
+                                    anchors.right: parent.right; y: -height / 2
+                                    onClicked: root.editRequested(persistentMark.modelData, null)
                                 }
                             }
                         }
@@ -560,7 +616,7 @@ Item {
                 DragHandler {
                     id: selectionDrag
                     target: null
-                    enabled: !root.captureMode && !root.pinching
+                    enabled: !root.captureMode && !root.pinching && (!root.tool.length || root.tool === "highlight")
                     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad | PointerDevice.Stylus
                     onActiveChanged: {
                         root.selecting = active
@@ -580,7 +636,10 @@ Item {
                             root.selectedAnchor = null
                             root.selectedText = selection.text
                             selection.forceActiveFocus()
-                        } else if (root.activeSelection === selection) root.rememberSelection(selection)
+                        } else if (root.activeSelection === selection) {
+                            root.rememberSelection(selection)
+                            if (root.tool === "highlight") Qt.callLater(function() { root.highlightSelection() })
+                        }
                     }
                 }
 
@@ -627,6 +686,37 @@ Item {
                     radius: Theme.cornerRadius
                     border.color: Theme.captureBorder
                     border.width: 2
+                }
+
+                MouseArea {
+                    id: annotationArea
+                    objectName: "annotationArea" + pageHolder.index
+                    anchors.fill: parent
+                    enabled: ["comment", "text", "image", "draw"].indexOf(root.tool) >= 0
+                    visible: enabled; cursorShape: Qt.CrossCursor; preventStealing: true
+                    property point start
+                    property point end
+                    property var points: []
+                    onPressed: function(mouse) { root.activated(); root.clearSelection(); start=Qt.point(mouse.x,mouse.y); end=start; points=[{x:start.x/width,y:start.y/height}]; liveStroke.requestPaint() }
+                    onPositionChanged: function(mouse) {
+                        if (!pressed) return
+                        end=Qt.point(Math.max(0,Math.min(width,mouse.x)),Math.max(0,Math.min(height,mouse.y)))
+                        if(root.tool==="draw" && points.length<5000) points=points.concat([{x:end.x/width,y:end.y/height}])
+                        liveStroke.requestPaint()
+                    }
+                    onReleased: {
+                        let x=Math.min(start.x,end.x)/width,y=Math.min(start.y,end.y)/height,w=Math.abs(end.x-start.x)/width,h=Math.abs(end.y-start.y)/height
+                        if(root.tool==="draw") {
+                            x=Math.min.apply(null,points.map(function(p){return p.x}));y=Math.min.apply(null,points.map(function(p){return p.y}))
+                            w=Math.max.apply(null,points.map(function(p){return p.x}))-x;h=Math.max.apply(null,points.map(function(p){return p.y}))-y
+                        }
+                        if(w<.005)w=root.tool==="comment"?.035:root.tool==="draw"?.005:.3
+                        if(h<.005)h=root.tool==="comment"?.025:root.tool==="draw"?.005:.12
+                        root.annotationPlaced(pageHolder.index,{x:x,y:y,width:Math.min(w,1-x),height:Math.min(h,1-y)},points)
+                        liveStroke.requestPaint()
+                    }
+                    Rectangle { visible: annotationArea.pressed && root.tool!=="draw"; x:Math.min(annotationArea.start.x,annotationArea.end.x);y:Math.min(annotationArea.start.y,annotationArea.end.y);width:Math.abs(annotationArea.end.x-annotationArea.start.x);height:Math.abs(annotationArea.end.y-annotationArea.start.y);color:"transparent";border.color:Theme.accent }
+                    Canvas { id:liveStroke;anchors.fill:parent;visible:annotationArea.pressed&&root.tool==="draw";onPaint:{const c=getContext("2d");c.reset();c.strokeStyle=root.markColor;c.lineWidth=2*root.pageScale;c.lineCap="round";c.beginPath();for(let i=0;i<annotationArea.points.length;i++){const p=annotationArea.points[i];if(i)c.lineTo(p.x*width,p.y*height);else c.moveTo(p.x*width,p.y*height)}c.stroke()} }
                 }
 
                 MouseArea {

@@ -138,6 +138,23 @@ bool ResearchStore::initialize(QString *error)
             return false;
         }
     }
+    // Additive migration: retain all existing highlight IDs and geometry.
+    QSet<QString> highlightColumns;
+    QSqlQuery columns(m_database);
+    if (!columns.exec("PRAGMA table_info(highlights)")) { *error = columns.lastError().text(); return false; }
+    while (columns.next()) highlightColumns.insert(columns.value(1).toString());
+    columns.finish();
+    const QList<QPair<QString, QString>> additions{{"color", "TEXT NOT NULL DEFAULT '#426b9a'"},
+        {"kind", "TEXT NOT NULL DEFAULT 'highlight'"}, {"body", "TEXT NOT NULL DEFAULT ''"},
+        {"image", "TEXT NOT NULL DEFAULT ''"}, {"drawing", "TEXT NOT NULL DEFAULT '[]'"}};
+    if (!m_database.transaction()) { *error = m_database.lastError().text(); return false; }
+    for (const auto &column : additions) if (!highlightColumns.contains(column.first)) {
+        QSqlQuery change(m_database);
+        if (!change.exec("ALTER TABLE highlights ADD COLUMN " + column.first + " " + column.second)) {
+            *error = change.lastError().text(); m_database.rollback(); return false;
+        }
+    }
+    if (!m_database.commit()) { *error = m_database.lastError().text(); m_database.rollback(); return false; }
     reloadCaptures();
     QSqlQuery links(m_database);
     links.exec("SELECT old_url,new_url FROM source_relinks");
@@ -454,12 +471,12 @@ QVariantList ResearchStore::searchKnowledge(const QString &queryText, const QUrl
     }
     if (target == "all") {
         QSqlQuery highlights(m_database);
-        highlights.prepare("SELECT id,source,page,text FROM highlights WHERE deleted_at IS NULL AND instr(lower(text),lower(?))>0 "
+        highlights.prepare("SELECT id,source,page,text,body,kind FROM highlights WHERE deleted_at IS NULL AND instr(lower(text || ' ' || body),lower(?))>0 "
                            "AND (?=1 OR source=?) ORDER BY created_at DESC LIMIT 20");
         highlights.addBindValue(needle); highlights.addBindValue(scope.isEmpty()); highlights.addBindValue(scope.toString());
         if (highlights.exec()) while (highlights.next()) {
             const QUrl source(highlights.value(1).toString());
-            const auto text = highlights.value(3).toString();
+            const auto text = highlights.value(3).toString() + " " + highlights.value(4).toString();
             const int start = qMax(0, text.indexOf(needle, 0, Qt::CaseInsensitive) - 60);
             results.append(QVariantMap{{"kind", "highlight"}, {"id", highlights.value(0)}, {"source", source},
                 {"title", fileName(source) + " · p. " + QString::number(highlights.value(2).toInt() + 1)},
@@ -575,49 +592,68 @@ void ResearchStore::captureText(const QUrl &source, int page, const QPointF &fro
 }
 
 void ResearchStore::highlightText(const QUrl &source, int page, const QPointF &from,
-                                 const QPointF &to, const QString &expectedText)
+                                 const QPointF &to, const QString &expectedText, const QString &color)
 {
-    saveTextSelection(source, page, from, to, expectedText, true);
+    saveTextSelection(source, page, from, to, expectedText, true, color);
+}
+
+void ResearchStore::commentText(const QUrl &source, int page, const QPointF &from,
+                               const QPointF &to, const QString &expectedText, const QString &body, const QString &color)
+{
+    if (body.trimmed().isEmpty() || body.size() > 10000) { emit message("Enter a comment (up to 10,000 characters)."); emit annotationFinished(false, ""); return; }
+    saveTextSelection(source, page, from, to, expectedText, true, color, "comment", body);
 }
 
 void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPointF &from,
-                                     const QPointF &to, const QString &expectedText, bool asHighlight)
+                                     const QPointF &to, const QString &expectedText, bool asHighlight,
+                                     const QString &color, const QString &kind, const QString &body)
 {
-    if (m_relinking) { emit message("Please wait until source verification finishes before capturing."); return; }
+    if (asHighlight && !QStringList{"#426b9a", "#e0b83f", "#54a878", "#d87797", "#9274c3"}.contains(color)) { emit message("Choose a supported highlight color."); emit annotationFinished(false, ""); return; }
+    if (m_relinking) { emit message("Please wait until source verification finishes before capturing."); if (asHighlight) emit annotationFinished(false, ""); return; }
     if (!source.isLocalFile() || page < 0 || expectedText.trimmed().isEmpty()
         || expectedText.size() > 100000 || !std::isfinite(from.x()) || !std::isfinite(from.y())
         || !std::isfinite(to.x()) || !std::isfinite(to.y())) {
-        emit message("Select text in a PDF before saving an excerpt."); return;
+        emit message("Select text in a PDF before saving an excerpt."); if (asHighlight) emit annotationFinished(false, ""); return;
     }
-    if (m_pending >= 4) { emit message("Saving captures. Please try again shortly."); return; }
+    if (m_pending >= 4) { emit message("Saving captures. Please try again shortly."); if (asHighlight) emit annotationFinished(false, ""); return; }
     ++m_pending;
     emit busyChanged();
     auto *watcher = new QFutureWatcher<TextCaptureResult>(this);
-    connect(watcher, &QFutureWatcher<TextCaptureResult>::finished, this, [this, watcher, asHighlight] {
+    connect(watcher, &QFutureWatcher<TextCaptureResult>::finished, this, [this, watcher, asHighlight, color, kind, body] {
         const auto result = watcher->result();
         const auto &anchor = result.anchor;
         watcher->deleteLater();
         --m_pending;
         emit busyChanged();
-        if (!anchor.error.isEmpty()) { emit message(anchor.error); return; }
+        if (!anchor.error.isEmpty()) { emit message(anchor.error); if (asHighlight) emit annotationFinished(false, ""); return; }
         if (asHighlight) {
             // Repeated clicks must not stack opaque copies of the same annotation.
             QSqlQuery existing(m_database);
-            existing.prepare("SELECT id FROM highlights WHERE source=? AND sha256=? AND page=? AND start_index=? AND end_index=? AND deleted_at IS NULL");
+            existing.prepare("SELECT id,body FROM highlights WHERE source=? AND sha256=? AND page=? AND start_index=? AND end_index=? AND kind=? AND deleted_at IS NULL");
             existing.addBindValue(anchor.source.toString()); existing.addBindValue(anchor.hash);
             existing.addBindValue(anchor.page); existing.addBindValue(result.start); existing.addBindValue(result.end);
-            if (!existing.exec()) { emit message("Cannot check existing highlights."); return; }
-            if (existing.next()) { emit highlightSaved(existing.value(0).toString(), anchor.source); return; }
+            existing.addBindValue(kind);
+            if (!existing.exec()) { emit message("Cannot check existing highlights."); emit annotationFinished(false, ""); return; }
+            if (kind == "highlight" && existing.next()) {
+                const auto id = existing.value(0).toString();
+                const auto preservedBody = body.isNull() ? existing.value(1).toString() : body;
+                existing.finish();
+                const bool success = updateHighlight(id, color, preservedBody);
+                if (success) { emit highlightSaved(id, anchor.source); emit annotationSaved(id); }
+                emit annotationFinished(success, id); return;
+            }
             QSqlQuery mark(m_database);
-            mark.prepare("INSERT INTO highlights VALUES(?,?,?,?,?,?,?,?,?,NULL)");
+            mark.prepare("INSERT INTO highlights(id,source,sha256,page,text,rectangles,start_index,end_index,created_at,color,kind,body) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)");
             mark.addBindValue(anchor.id); mark.addBindValue(anchor.source.toString()); mark.addBindValue(anchor.hash);
             mark.addBindValue(anchor.page); mark.addBindValue(result.text);
             mark.addBindValue(QString::fromUtf8(QJsonDocument::fromVariant(result.rectangles).toJson(QJsonDocument::Compact)));
             mark.addBindValue(result.start); mark.addBindValue(result.end);
             mark.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
-            if (!mark.exec()) { emit message("Cannot save highlight. Check storage and permissions."); return; }
+            mark.addBindValue(color); mark.addBindValue(kind); mark.addBindValue(body.isNull() ? QStringLiteral("") : body);
+            if (!mark.exec()) { emit message("Cannot save annotation. Check storage and permissions."); emit annotationFinished(false, ""); return; }
             emit highlightsChanged(); emit homeChanged(); emit highlightSaved(anchor.id, anchor.source);
-            emit message("Highlight saved. The original PDF was not modified.");
+            emit annotationSaved(anchor.id); emit annotationFinished(true, anchor.id);
+            emit message("Annotation saved. The original PDF was not modified.");
             return;
         }
         if (!m_database.transaction()) { emit message("Cannot save excerpt. Check storage and permissions."); return; }

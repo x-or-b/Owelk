@@ -48,7 +48,13 @@ Item {
             const button = findChild(reader, "highlightSelectionButton")
             tryCompare(button, "visible", true); waitForPolish(reader)
             mouseClick(button)
+            const colors = findChild(reader, "selectionColors")
+            tryCompare(colors, "opened", true)
+            waitForPolish(colors.contentItem)
+            verify(colors.colorButton(1) !== null)
+            mouseClick(colors.colorButton(1))
             tryVerify(function() { return canvas.savedHighlights.length === 1 }, 10000)
+            compare(canvas.savedHighlights[0].color, "#e0b83f")
             tryCompare(canvas, "selectedText", "")
             const id = canvas.savedHighlights[0].id
             let mark = findChild(canvas, "savedHighlight-" + id)
@@ -68,6 +74,57 @@ Item {
             tryCompare(menu, "opened", true)
             mouseClick(findChild(menu, "removeHighlightAction"))
             tryCompare(canvas, "savedHighlights", [], 10000)
+        }
+        function test_selectionToolbarCommentsAndPageAnnotations() {
+            const unique = testInput.relinkFixture(true).candidate
+            canvas.openFile(unique, {page:0,zoom:1})
+            tryCompare(canvas,"ready",true);tryCompare(canvas,"restoring",false)
+            tryVerify(function(){return canvas.documentFingerprint.length>0})
+            const paper=findChild(canvas,"paperPage0"),bounds=fixtureTextBounds
+            const from=paper.mapToItem(canvas,bounds.x*canvas.pageScale,(bounds.y+bounds.height/2)*canvas.pageScale)
+            testInput.pointerDrag(canvas,from,Qt.point(from.x+bounds.width*canvas.pageScale,from.y),false)
+            tryVerify(function(){return canvas.selectedText.length>0})
+            const toolbar=findChild(reader,"selectionToolbar")
+            tryCompare(toolbar,"visible",true)
+            verify(Math.abs(toolbar.y-canvas.selectionEnd.y)<60)
+            verify(toolbar.x>=0 && toolbar.x+toolbar.width<=canvas.width)
+            const quote=canvas.selectedText
+            mouseClick(paper,paper.width*.8,100,Qt.RightButton)
+            const context=findChild(reader,"selectionContextMenu")
+            tryCompare(context,"opened",true)
+            const copy=findChild(context,"selectionCopy")
+            verify(copy.enabled);mouseClick(copy)
+            compare(testInput.clipboardText(),quote)
+            tryCompare(context,"visible",false)
+            mouseClick(findChild(reader,"commentSelectionButton"))
+            const editor=findChild(reader,"annotationEditor")
+            tryCompare(editor,"opened",true)
+            findChild(editor,"annotationBody").text="Question about this result"
+            mouseClick(findChild(editor,"saveAnnotation"))
+            tryCompare(editor,"visible",false)
+            tryVerify(function(){return canvas.savedHighlights.length===1})
+            compare(canvas.savedHighlights[0].kind,"comment")
+            compare(canvas.savedHighlights[0].text,quote)
+            const id=canvas.savedHighlights[0].id
+            const marker=findChild(canvas,"commentMarker-"+id+"-0")
+            verify(marker!==null);mouseClick(marker)
+            tryCompare(editor,"opened",true)
+            compare(findChild(editor,"annotationBody").text,"Question about this result")
+            editor.close()
+            reader.setTool("text");waitForPolish(reader)
+            const area=findChild(canvas,"annotationArea0")
+            mouseClick(area,area.width*.2,area.height*.4)
+            tryCompare(editor,"opened",true)
+            findChild(editor,"annotationBody").text="Visible text box"
+            mouseClick(findChild(editor,"saveAnnotation"))
+            tryCompare(editor,"visible",false)
+            tryVerify(function(){return canvas.savedHighlights.some(function(m){return m.kind==="text"})})
+            reader.setTool("draw");waitForPolish(reader)
+            const start=area.mapToItem(canvas,area.width*.2,area.height*.5)
+            testInput.pointerDrag(canvas,start,Qt.point(start.x+60,start.y+30),false)
+            tryVerify(function(){return canvas.savedHighlights.some(function(m){return m.kind==="draw"})})
+            canvas.tool=""
+            for(const m of canvas.savedHighlights)verify(researchStore.removeHighlight(m.id))
         }
         function test_pageRendering() {
             const page = findChild(canvas, "pageImage0")

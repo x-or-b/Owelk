@@ -17,6 +17,26 @@ Rectangle {
     property alias selectedText: canvas.selectedText
     property var sourceToReveal: null
     property bool searchVisible: false
+    readonly property bool annotationDirty: annotationEditor.visible || annotationEditor.saving
+    property bool applyHighlightOnColor: false
+    function chooseHighlightColor(item, apply) {
+        applyHighlightOnColor = apply
+        const p = item.mapToItem(root, 0, item.height)
+        colors.x = Math.max(4, Math.min(root.width - colors.width - 4, p.x))
+        colors.y = Math.max(4, Math.min(root.height - colors.height - 4, p.y))
+        colors.open()
+    }
+    function setTool(tool) {
+        activated(); canvas.captureMode = false
+        if (tool === "comment" && canvas.selectedAnchor) { addComment(); return }
+        canvas.tool = canvas.tool === tool ? "" : tool
+        canvas.clearSelection()
+    }
+    function addComment() {
+        if (!canvas.selectedAnchor) return
+        activated(); annotationEditor.begin(canvas, {kind:"comment",page:canvas.selectedAnchor.page}, canvas.selectedAnchor)
+    }
+    function printDocument() { researchStore.printDocument(canvas.source, canvas.documentFingerprint, canvas.pageCount) }
     signal activated()
     signal changed()
     signal documentAboutToOpen()
@@ -100,6 +120,32 @@ Rectangle {
         nameFilters: ["PDF documents (*.pdf)"]
         onAccepted: { if (root.managed) root.fileChosen(selectedFile); else root.openFile(selectedFile) }
     }
+    AnnotationColors {
+        id: colors
+        objectName: "selectionColors"
+        parent: root
+        selectedColor: canvas.markColor
+        onChosen: function(color) {
+            canvas.markColor = color
+            if (root.applyHighlightOnColor) canvas.highlightSelection()
+            else { canvas.captureMode = false; canvas.tool = "highlight" }
+        }
+    }
+    AnnotationEditor { id: annotationEditor }
+    UiControls.Menu {
+        id: selectionMenu
+        objectName: "selectionContextMenu"
+        property int page: 0
+        UiControls.MenuItem { objectName:"selectionCopy"; text:"Copy"; enabled:!!canvas.selectedText; onTriggered:canvas.copySelection() }
+        UiControls.MenuItem { text:"Select All on Page"; onTriggered:canvas.selectPage(selectionMenu.page) }
+        MenuSeparator {}
+        UiControls.MenuItem { text:"Add Comment to Selection…"; enabled:!!canvas.selectedAnchor; onTriggered:root.addComment() }
+        UiControls.MenuItem { text:"Highlight Selection…"; enabled:!!canvas.selectedAnchor; onTriggered:root.chooseHighlightColor(pageField,true) }
+        UiControls.MenuItem { text:"Save Excerpt"; enabled:!!canvas.selectedAnchor; onTriggered:canvas.captureSelection() }
+        MenuSeparator {}
+        UiControls.MenuItem { text:"Capture a Region"; onTriggered:{canvas.tool="";canvas.captureMode=true} }
+        UiControls.MenuItem { text:"Print PDF…"; onTriggered:root.printDocument() }
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -137,17 +183,17 @@ Rectangle {
         Rectangle {
             visible: canvas.ready
             Layout.fillWidth: true
-            Layout.preferredHeight: visible ? 43 : 0
+            id: readerToolbar
+            objectName: "readerToolbar"
+            Layout.preferredHeight: visible ? 32 : 0
             color: "#f5f5f5"
             radius: Theme.cornerRadius
             RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 8
-                anchors.rightMargin: 8
-                spacing: 4
+                anchors.left: parent.left; anchors.leftMargin: 4; anchors.verticalCenter: parent.verticalCenter
+                spacing: 3
                 UiControls.TextField {
                     id: pageField
-                    Layout.preferredWidth: 42
+                    Layout.preferredWidth: 34; Layout.preferredHeight: 25
                     horizontalAlignment: Text.AlignHCenter
                     text: (canvas.currentPage + 1).toString()
                     onActiveFocusChanged: if (activeFocus) root.activated()
@@ -158,20 +204,42 @@ Rectangle {
                     }
                 }
                 Label { text: "/ " + canvas.pageCount; color: "#666666" }
-                Item { Layout.fillWidth: true }
-                UiControls.ToolButton { text: "−"; onClicked: { root.activated(); canvas.zoom(1 / 1.2) } }
+            }
+            Row {
+                anchors.centerIn: parent
+                ReaderIconButton { kind:"minus"; description:"Zoom out"; onClicked:{root.activated();canvas.zoom(1/1.2)} }
                 UiControls.ToolButton {
+                    height:26; width:48; hoverEnabled:true
                     text: Math.round(canvas.zoomFactor * 100) + "%"
                     onClicked: { root.activated(); canvas.fitWidth() }
                     ToolTip.visible: hovered
                     ToolTip.text: "Click to fit width · Ctrl+wheel to zoom"
                 }
-                UiControls.ToolButton { text: "+"; onClicked: { root.activated(); canvas.zoom(1.2) } }
-                UiControls.Button {
-                    text: "Capture region"
-                    checkable: true
-                    checked: canvas.captureMode
-                    onClicked: { root.activated(); canvas.captureMode = checked }
+                ReaderIconButton { kind:"plus"; description:"Zoom in"; onClicked:{root.activated();canvas.zoom(1.2)} }
+            }
+            Row {
+                anchors.right:parent.right;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter
+                visible: readerToolbar.width >= 510
+                ReaderIconButton { kind:"comment";description:"Add comment · Select text, or click a page";checked:canvas.tool==="comment";onClicked:root.setTool("comment") }
+                ReaderIconButton { kind:"highlight";description:"Highlight text · Choose a color, then drag over text";swatch:canvas.markColor;checked:canvas.tool==="highlight";onClicked:{if(canvas.tool==="highlight")canvas.tool="";else root.chooseHighlightColor(this,!!canvas.selectedAnchor)} }
+                ReaderIconButton { kind:"text";description:"Add text box · Click or drag on a page";checked:canvas.tool==="text";onClicked:root.setTool("text") }
+                ReaderIconButton { kind:"image";description:"Add image · Drag an area; right-click added images to edit";checked:canvas.tool==="image";onClicked:root.setTool("image") }
+                ReaderIconButton { kind:"draw";description:"Draw · Drag on a page; Esc to finish";swatch:canvas.markColor;checked:canvas.tool==="draw";onClicked:root.setTool("draw") }
+                ReaderIconButton { kind:"print";description:"Print PDF and annotations";onClicked:root.printDocument() }
+            }
+            ReaderIconButton {
+                anchors.right:parent.right;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter
+                visible:readerToolbar.width<510
+                description:"Annotation and print tools";onClicked:toolsMenu.popup(this,0,height)
+                UiControls.Menu {
+                    id:toolsMenu
+                    UiControls.MenuItem { text:"Add Comment";onTriggered:root.setTool("comment") }
+                    UiControls.MenuItem { text:"Highlight…";onTriggered:root.chooseHighlightColor(pageField,!!canvas.selectedAnchor) }
+                    UiControls.MenuItem { text:"Add Text Box";onTriggered:root.setTool("text") }
+                    UiControls.MenuItem { text:"Add Image";onTriggered:root.setTool("image") }
+                    UiControls.MenuItem { text:"Draw";onTriggered:root.setTool("draw") }
+                    UiControls.MenuItem { text:"Capture a Region";onTriggered:{canvas.tool="";canvas.captureMode=true} }
+                    UiControls.MenuItem { text:"Print PDF…";onTriggered:root.printDocument() }
                 }
             }
         }
@@ -223,11 +291,11 @@ Rectangle {
             textFormat: Text.PlainText; wrapMode: Text.Wrap; color: "#b42323"
         }
         Label {
-            visible: canvas.captureMode
+            visible: canvas.captureMode || canvas.tool.length > 0
             Layout.fillWidth: true
             Layout.leftMargin: 12
             Layout.bottomMargin: 6
-            text: "Drag a region to capture · Esc to cancel"
+            text: canvas.captureMode ? "Drag a region to capture · Esc to cancel" : canvas.tool === "highlight" ? "Drag over text to highlight · Esc to finish" : "Click or drag on a page to add " + canvas.tool + " · Esc to cancel"
             color: "#444444"
             font.pixelSize: 11
         }
@@ -240,6 +308,14 @@ Rectangle {
                 objectName: "pdfCanvas" + root.paneIndex
                 anchors.fill: parent
                 onActivated: root.activated()
+                onContextRequested: function(position,page) { root.activated(); selectionMenu.page=page; selectionMenu.popup(canvas,position.x,position.y) }
+                onEditRequested: function(record,selection) { root.activated(); annotationEditor.begin(canvas,record,selection) }
+                onAnnotationPlaced: function(page,rectangle,points) {
+                    const kind=canvas.tool
+                    const spec={kind:kind,page:page,rectangles:[rectangle],color:canvas.markColor,sha256:canvas.documentFingerprint,drawing:kind==="draw"?points:[]}
+                    if(kind==="draw")researchStore.saveAnnotation(canvas.source,page,spec)
+                    else {canvas.tool="";annotationEditor.begin(canvas,spec,null)}
+                }
                 onPositionChanged: root.changed()
                 onRegionSelected: function(page, rect) {
                     researchStore.captureRegion(source, page, rect)
@@ -253,33 +329,29 @@ Rectangle {
             }
 
             Rectangle {
+                objectName: "selectionToolbar"
                 z: 5
-                visible: canvas.selectedText.length > 0 && !canvas.selecting
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom; anchors.bottomMargin: 22
-                width: Math.min(parent.width - 32, selectionActions.implicitWidth + 16)
-                height: selectionActions.height + 8
+                visible: canvas.selectedText.length > 0 && !canvas.selecting && canvas.selectionEnd.y >= 0 && canvas.selectionEnd.y <= canvas.height && !annotationEditor.visible && !selectionMenu.visible
+                x: Math.max(4,Math.min(parent.width-width-20,canvas.selectionEnd.x+8))
+                y: Math.max(4,canvas.selectionEnd.y+height+12>parent.height?canvas.selectionEnd.y-height-8:canvas.selectionEnd.y+8)
+                width: 108; height: 34
                 color: "#fafafa"; border.color: "#bcbcbc"; radius: Theme.cornerRadius
-                Flow {
+                Row {
                     id: selectionActions
                     x: 8; y: 4; width: parent.width - 16; spacing: 4
-                    UiControls.ToolButton {
+                    ReaderIconButton {
                         objectName: "highlightSelectionButton"
-                        text: "Highlight"
+                        kind: "highlight"; description:"Highlight selection · Choose a color"; swatch:canvas.markColor
                         enabled: canvas.selectedAnchor !== null && !researchStore.busy
-                        onClicked: { root.activated(); canvas.highlightSelection() }
-                        ToolTip.visible: hovered
-                        ToolTip.text: "Keep a highlight in this PDF · Right-click a highlight to remove"
+                        onClicked: { root.activated(); root.chooseHighlightColor(this,true) }
                     }
-                    UiControls.ToolButton {
+                    ReaderIconButton { objectName:"commentSelectionButton";kind:"comment";description:"Add a comment attached to this selection";enabled:!!canvas.selectedAnchor&&!researchStore.busy;onClicked:root.addComment() }
+                    ReaderIconButton {
                         objectName: "saveExcerptButton"
-                        text: "Save excerpt"
+                        kind:"excerpt";description:"Save excerpt · Keep the selected text and its source in Captures"
                         enabled: canvas.selectedAnchor !== null && !researchStore.busy
                         onClicked: { root.activated(); canvas.captureSelection() }
-                        ToolTip.visible: hovered
-                        ToolTip.text: "Save selected text with its source location"
                     }
-                    UiControls.ToolButton { text: "Copy"; onClicked: { root.activated(); canvas.copySelection() } }
                 }
             }
 
@@ -343,7 +415,7 @@ Rectangle {
     }
     Shortcut {
         sequence: "Escape"
-        enabled: root.isActive && canvas.captureMode
-        onActivated: canvas.captureMode = false
+        enabled: root.isActive && (canvas.captureMode || canvas.tool.length > 0)
+        onActivated: {canvas.captureMode = false;canvas.tool=""}
     }
 }

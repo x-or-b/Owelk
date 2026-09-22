@@ -3,7 +3,7 @@
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
-#include <QGuiApplication>
+#include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
@@ -13,7 +13,7 @@
 
 int main(int argc, char *argv[])
 {
-    QGuiApplication app(argc, argv);
+    QApplication app(argc, argv);
     app.setOrganizationName("Owelk");
     app.setApplicationName("Owelk");
     app.setApplicationVersion("0.1.0");

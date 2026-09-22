@@ -1,5 +1,6 @@
 #include "ResearchStore.h"
 #include "PdfFixture.h"
+#include "PdfPrinting.h"
 #include <QPdfDocument>
 #include <QPdfSelection>
 #include <QSignalSpy>
@@ -12,6 +13,43 @@ class TextCaptureTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void annotationColorsCommentsImagesAndDrawing() {
+        QTemporaryDir dir;const auto path=dir.filePath("annotated.pdf");writeFixture(path);
+        ResearchStore store(dir.filePath("data"));QString error;QVERIFY(store.initialize(&error));
+        const auto source=QUrl::fromLocalFile(path);
+        QSignalSpy loaded(&store,&ResearchStore::highlightsLoaded),done(&store,&ResearchStore::annotationFinished);
+        store.loadHighlights(source);QTRY_COMPARE_WITH_TIMEOUT(loaded.size(),1,10000);
+        const auto hash=loaded.last()[4].toString();QVERIFY(!hash.isEmpty());
+        const QVariantList rects{QVariantMap{{"x",.1},{"y",.2},{"width",.3},{"height",.1}}};
+        QVariantMap mark{{"kind","text"},{"body","Visible annotation"},{"color","#d87797"},{"sha256",hash},{"rectangles",rects}};
+        store.saveAnnotation(source,0,mark);QTRY_COMPARE_WITH_TIMEOUT(done.size(),1,10000);QVERIFY(done.last()[0].toBool());
+        const auto textId=done.last()[1].toString();
+        mark["id"]=textId;mark["body"]="Edited annotation";
+        store.saveAnnotation(source,0,mark);QTRY_COMPARE_WITH_TIMEOUT(done.size(),2,10000);QVERIFY(done.last()[0].toBool());
+        QCOMPARE(store.searchKnowledge("Edited annotation").size(),1);
+        mark.remove("id");mark["kind"]="image";mark["body"]="";
+        QImage image(40,30,QImage::Format_RGB32);image.fill(Qt::red);QVERIFY(image.save(dir.filePath("image.png")));
+        mark["imageSource"]=QUrl::fromLocalFile(dir.filePath("image.png")).toString();
+        store.saveAnnotation(source,0,mark);QTRY_COMPARE_WITH_TIMEOUT(done.size(),3,10000);QVERIFY(done.last()[0].toBool());
+        mark["kind"]="draw";mark.remove("imageSource");mark["drawing"]=QVariantList{QVariantMap{{"x",.1},{"y",.2}},QVariantMap{{"x",.4},{"y",.3}}};
+        store.saveAnnotation(source,0,mark);QTRY_COMPARE_WITH_TIMEOUT(done.size(),4,10000);QVERIFY(done.last()[0].toBool());
+        QPdfDocument pdf;QCOMPARE(pdf.load(path),QPdfDocument::Error::None);
+        const auto bounds=pdf.getSelectionAtIndex(0,pdf.getAllText(0).text().indexOf("Research finding"),45).boundingRectangle();
+        const QPointF from(bounds.left(),bounds.center().y()),to(bounds.right(),bounds.center().y());
+        const auto quote=pdf.getSelection(0,from,to).text();
+        store.commentText(source,0,from,to,quote,"Comment on a sentence","#9274c3");QTRY_COMPARE_WITH_TIMEOUT(done.size(),5,10000);QVERIFY(done.last()[0].toBool());
+        store.loadHighlights(source);QTRY_COMPARE_WITH_TIMEOUT(loaded.size(),2,10000);
+        const auto rows=loaded.last()[2].toList();QCOMPARE(rows.size(),4);
+        bool copied=false,comment=false;
+        for(const auto &r:rows){const auto m=r.toMap();if(m["kind"]=="image"){QVERIFY(QFile::exists(m["image"].toUrl().toLocalFile()));copied=true;}if(m["kind"]=="comment"){QCOMPARE(m["text"].toString(),quote);QCOMPARE(m["color"].toString(),QString("#9274c3"));comment=true;}}
+        QVERIFY(copied&&comment);QCOMPARE(store.searchKnowledge("sentence").size(),1);
+        QImage printed(600,800,QImage::Format_RGB32);printed.fill(Qt::white);paintPdfAnnotations(printed,rows,1);
+        QVERIFY(printed.pixelColor(100,180)!=QColor(Qt::white));
+        QVERIFY(!store.updateHighlight(textId,"not-a-color",""));
+        mark["rectangles"]=QVariantList{QVariantMap{{"x",.9},{"y",.2},{"width",.3},{"height",.1}}};
+        store.saveAnnotation(source,0,mark);QTRY_COMPARE_WITH_TIMEOUT(done.size(),6,10000);QVERIFY(!done.last()[0].toBool());
+        ResearchStore reopened(dir.filePath("data"));QVERIFY(reopened.initialize(&error));QCOMPARE(reopened.searchKnowledge("Edited annotation").size(),1);
+    }
     void highlightsPersistVerifyRelinkAndRemove() {
         QTemporaryDir directory;
         const auto path = directory.filePath("marked.pdf"); writeFixture(path);

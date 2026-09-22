@@ -18,6 +18,7 @@ class ResearchStore final : public QObject
     Q_PROPERTY(QVariantList trashedCaptures READ trashedCaptures NOTIFY capturesChanged)
     Q_PROPERTY(QVariantList recentDocuments READ recentDocuments NOTIFY recentDocumentsChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
+    Q_PROPERTY(bool printing READ printing NOTIFY printingChanged)
     Q_PROPERTY(QString dataDirectory READ dataDirectory CONSTANT)
     Q_PROPERTY(QVariantList recentWorkspaces READ recentWorkspaces NOTIFY homeChanged)
     Q_PROPERTY(QVariantMap continueReading READ continueReading NOTIFY homeChanged)
@@ -33,6 +34,7 @@ public:
     QVariantList trashedCaptures() const { return m_trashedCaptures; }
     QVariantList recentDocuments() const;
     bool busy() const { return m_pending > 0; }
+    bool printing() const { return m_printing; }
     QString dataDirectory() const { return m_directory; }
     QObject *paperIndex() const;
     bool relinking() const { return m_relinking; }
@@ -52,7 +54,13 @@ public:
     Q_INVOKABLE void captureText(const QUrl &source, int page, const QPointF &from,
                                 const QPointF &to, const QString &expectedText);
     Q_INVOKABLE void highlightText(const QUrl &source, int page, const QPointF &from,
-                                  const QPointF &to, const QString &expectedText);
+                                  const QPointF &to, const QString &expectedText, const QString &color = "#426b9a");
+    Q_INVOKABLE void commentText(const QUrl &source, int page, const QPointF &from,
+                                const QPointF &to, const QString &expectedText, const QString &body,
+                                const QString &color = "#426b9a");
+    Q_INVOKABLE bool updateHighlight(const QString &id, const QString &color, const QString &body);
+    Q_INVOKABLE void saveAnnotation(const QUrl &source, int page, const QVariantMap &annotation);
+    Q_INVOKABLE void printDocument(const QUrl &source, const QString &fingerprint, int pages);
     Q_INVOKABLE int loadHighlights(const QUrl &source);
     Q_INVOKABLE bool removeHighlight(const QString &id);
     Q_INVOKABLE void openHighlight(const QString &id);
@@ -75,10 +83,13 @@ public:
 signals:
     void highlightsChanged();
     void highlightSaved(const QString &id, const QUrl &source);
-    void highlightsLoaded(int request, const QUrl &source, const QVariantList &highlights, const QString &error);
+    void highlightsLoaded(int request, const QUrl &source, const QVariantList &highlights, const QString &error, const QString &fingerprint);
+    void annotationSaved(const QString &id);
+    void annotationFinished(bool success, const QString &id);
     void capturesChanged();
     void recentDocumentsChanged();
     void busyChanged();
+    void printingChanged();
     void message(const QString &text);
     void captureSaved(const QString &id);
     void sourceReady(const QUrl &source, int page, const QRectF &region);
@@ -93,7 +104,8 @@ signals:
 
 private:
     void saveTextSelection(const QUrl &source, int page, const QPointF &from, const QPointF &to,
-                           const QString &expectedText, bool asHighlight);
+                           const QString &expectedText, bool asHighlight, const QString &color = "#426b9a",
+                           const QString &kind = "highlight", const QString &body = QString());
     void reloadCaptures();
     QVariantList readCaptures(bool trashed) const;
     QVariantMap canonicalState(const QVariantMap &state) const;
@@ -109,5 +121,6 @@ private:
     int m_pending = 0;
     int m_folderRequest = 0;
     int m_highlightRequest = 0;
+    bool m_printing = false;
     PaperIndex *m_index;
 };

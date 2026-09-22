@@ -26,7 +26,7 @@ open -n /Users/gyu/Documents/Owelk/build/owelk.app --args --data-dir /Users/gyu/
 - Ctrl+휠 확대·축소, macOS에서는 ⌘+휠도 지원. 수식키 없는 휠은 스크롤
 - 연속 핀치 확대·축소: 손가락 중심점을 유지하고 제스처 종료 후 선명한 페이지로 갱신
 - 활성 PDF의 내장 목차·페이지 썸네일을 전환하는 Document 패널
-- PDF 스크롤바 전용 여백·넓은 드래그 영역, 캡처 이동 시 부드러운 스크롤·테두리 등장·300ms 페이드아웃
+- PDF 스크롤바 전용 여백·넓은 드래그 영역, 캡처 이동 시 부드러운 스크롤·단일 테두리 등장·설정 시간 동안 페이드아웃
 - Captures의 Saved/Trash 전환·개별 복원: 이미지·원문 텍스트·노트·워크스페이스 연결 유지 ([사용법](docs/CAPTURE_TRASH.md))
 - 영역 캡처 저장 및 원문 위치로 돌아가기
 - 선택 문장을 텍스트 캡처로 저장, 전체 문장 읽기·복사·검색·원문 이동
@@ -142,7 +142,7 @@ Qt PDF는 Homebrew의 `qtwebengine`에 포함됩니다. 현재 앱은 PDF 모듈
 
 캡처 카드의 `Add note` / `Edit note`에서 원문과 별도로 메모를 작성하고 `Save`로 저장합니다. 노트도 Home/Cmd+K 검색에 포함되고, `Delete note`는 원문 캡처를 유지합니다. [노트 범위와 저장 방식](docs/CAPTURE_NOTES.md).
 
-문장 선택 후 떠 있는 도구의 Highlight로 줄별 하이라이트를 저장합니다. 재실행 후 유지되며 Cmd+K 검색과 우클릭 Remove Highlight를 지원합니다. 원본 PDF는 변경하지 않습니다. [하이라이트 사용법](docs/HIGHLIGHTS.md).
+문장 선택 끝점의 아이콘에서 5색 Highlight, Comment, Save Excerpt를 사용합니다. 우클릭으로 복사·페이지 전체 선택·주석 작업을 할 수 있습니다. 얇은 상단바 중앙은 배율, 우측은 코멘트·형광펜·텍스트 박스·이미지·그리기·인쇄입니다. 주석은 재실행 후 유지되며 Cmd+K 검색과 우클릭 편집/삭제를 지원합니다. 원본 PDF는 변경하지 않습니다. 인쇄는 Qt Widgets/PrintSupport의 네이티브 대화상자를 사용하며 주석을 포함한 래스터 출력입니다. [주석 사용법과 제한](docs/HIGHLIGHTS.md).
 
 현재 API 호출·로그인·외부 업로드는 없습니다. PDF의 웹 링크를 누르면 시스템 브라우저에서 열립니다. AI, 웹 탭, OCR, 독립 노트, 백업 UI는 아직 미구현입니다. 여러 페이지를 가로지르는 텍스트 선택과 암호 PDF의 영역 캡처도 아직 지원하지 않습니다.
 
