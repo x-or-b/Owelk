@@ -51,12 +51,14 @@ Item {
                 onClicked: root.modeChosen(1)
             }
         }
-        TreeView {
-            id: outline
-            objectName: "pdfOutline"
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: root.mode === 0 && root.ready
+        TreeView {
+            id: outline
+            objectName: "pdfOutline"
+            anchors.fill: parent
             model: bookmarks
             clip: true
             columnWidthProvider: function(column) { return width }
@@ -72,9 +74,11 @@ Item {
                 ToolTip.visible: hovered
                 ToolTip.text: title + " · Page " + (page + 1)
             }
+        }
             Label {
+                objectName: "emptyOutlineMessage"
                 anchors.centerIn: parent
-                width: parent.width - 16
+                width: Math.max(0, parent.width - 24)
                 visible: outline.rows === 0
                 text: "This PDF has no embedded outline.\nUse Thumbnails to navigate."
                 wrapMode: Text.Wrap

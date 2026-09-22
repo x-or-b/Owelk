@@ -34,6 +34,8 @@ Item {
             const outline = findChild(panel, "outlineTab"), thumbnails = findChild(panel, "thumbnailsTab")
             compare(outline.background.color, "#d8d8d8")
             compare(thumbnails.background.color, "#f5f5f5")
+            compare(outline.contentItem.color, "#242424")
+            compare(thumbnails.contentItem.color, "#242424")
             mouseClick(thumbnails)
             compare(panel.mode, 1)
             compare(thumbnails.background.color, "#d8d8d8")
@@ -62,6 +64,12 @@ Item {
             tryCompare(reader, "pageCount", 8)
             const tree = findChild(panel, "pdfOutline")
             tryCompare(tree, "rows", 0)
+            const empty = findChild(panel, "emptyOutlineMessage")
+            waitForPolish(panel)
+            verify(empty.visible && empty.width > 100 && empty.height > 20)
+            const center = empty.mapToItem(panel, empty.width / 2, empty.height / 2)
+            verify(Math.abs(center.x - panel.width / 2) < 2)
+            verify(center.y > panel.height / 3 && center.y < panel.height * .8)
             panel.mode = 1
             tryCompare(findChild(panel, "pdfThumbnails"), "count", 8)
             panel.reader = null
