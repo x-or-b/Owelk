@@ -386,7 +386,14 @@ ApplicationWindow {
                 elide: Text.ElideRight; font.pixelSize: 11; color: "#666666"
             }
             StatusIcon { kind: "search"; description: "Search · Ctrl/Cmd+K"; onTriggered: { commandPalette.close(); searchPalette.open() } }
-            UiControls.ToolButton { objectName: "manageWorkspaceButton"; text: "Workspace…"; visible: window.activeWorkspace.length > 0; implicitHeight: 27; onClicked: window.manageWorkspace(window.activeWorkspace) }
+            UiControls.ToolButton {
+                objectName: "manageWorkspaceButton"; text: "Workspace…"
+                visible: window.activeWorkspace.length > 0; implicitHeight: 27
+                hoverEnabled: true
+                ToolTip.visible: hovered; ToolTip.delay: 450
+                ToolTip.text: "Manage linked papers and captures in this reading workspace"
+                onClicked: window.manageWorkspace(window.activeWorkspace)
+            }
             StatusIcon { kind: "split"; description: "Duplicate tab to right split"; visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }
             Repeater {
                 model: ["files", "captures", "document"].filter(function(p) { return window.panelSide(p) === "right" })

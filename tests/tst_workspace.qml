@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtTest
 import "../qml" as App
 import "../qml/WorkspaceTree.js" as Tree
@@ -216,6 +217,10 @@ Item {
             workspace.manageWorkspace(id)
             const manager = findChild(workspace, "workspaceManager")
             tryCompare(manager, "opened", true)
+            const remove = findChild(manager, "deleteWorkspaceButton")
+            const close = findChild(manager, "closeWorkspaceButton")
+            waitForPolish(manager.contentItem)
+            fuzzyCompare(remove.mapToItem(manager.contentItem, 0, 0).y, close.mapToItem(manager.contentItem, 0, 0).y, 1)
             compare(manager.details.documents.length, 1)
             manager.linkDocument(fixtureSource, false)
             workspace.persist()
@@ -237,7 +242,14 @@ Item {
             verify(researchStore.captures.some(function(c) { return c.id === capture.id }))
             mouseClick(findChild(manager, "deleteWorkspaceButton"))
             const confirmation = findChild(manager, "deleteWorkspaceDialog")
-            tryCompare(confirmation, "opened", true); confirmation.reject()
+            tryCompare(confirmation, "opened", true)
+            waitForPolish(confirmation.contentItem)
+            verify(confirmation.contentItem.width <= confirmation.availableWidth)
+            verify(confirmation.contentItem.implicitHeight <= confirmation.contentItem.height + 1)
+            compare(confirmation.footer.alignment, Qt.AlignRight)
+            const cancel = confirmation.standardButton(Dialog.Cancel)
+            verify(cancel.mapToItem(confirmation.footer, cancel.width, 0).x > confirmation.footer.width / 2)
+            confirmation.reject()
             compare(workspace.activeWorkspace, id)
             mouseClick(findChild(manager, "deleteWorkspaceButton"))
             tryCompare(confirmation, "opened", true); confirmation.accept()

@@ -33,10 +33,11 @@ QtObject {
         footer: Controls.DialogButtonBox {
             id: buttons
             visible: count > 0
+            alignment: Qt.AlignRight
             RoundedSurface { surface: buttons.background }
             delegate: Controls.Button {
                 id: button
-                width: buttons.count === 1 ? buttons.availableWidth / 2 : implicitWidth
+                width: implicitWidth
                 RoundedSurface { surface: button.background }
             }
         }

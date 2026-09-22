@@ -13,7 +13,14 @@ UiControls.Dialog {
     height: Math.min(650, parent ? parent.height - 32 : 650)
     title: "Workspace links"
     modal: true
-    standardButtons: Dialog.Close
+    footer: RowLayout {
+        spacing: 8
+        Item { Layout.preferredWidth: 4 }
+        UiControls.Button { objectName: "deleteWorkspaceButton"; text: "Delete workspace…"; palette.buttonText: "#b42323"; onClicked: deleteDialog.open() }
+        Item { Layout.fillWidth: true }
+        UiControls.Button { objectName: "closeWorkspaceButton"; text: "Close"; onClicked: root.reject() }
+        Item { Layout.preferredWidth: 4 }
+    }
     property string workspaceId: ""
     property var details: ({})
     property url currentSource: ""
@@ -111,7 +118,6 @@ UiControls.Dialog {
             Label { anchors.centerIn: parent; visible: list.count === 0; text: root.mode === 0 ? "No linked documents" : "No linked captures"; color: "#777777" }
         }
         Label { Layout.fillWidth: true; visible: root.error.length > 0; text: root.error; wrapMode: Text.Wrap; color: "#b42323" }
-        UiControls.Button { objectName: "deleteWorkspaceButton"; text: "Delete workspace…"; palette.buttonText: "#b42323"; onClicked: deleteDialog.open() }
     }
     Native.FileDialog {
         id: pdfPicker; title: "Link PDF to workspace"; nameFilters: ["PDF files (*.pdf)"]
@@ -120,8 +126,15 @@ UiControls.Dialog {
     UiControls.Dialog {
         id: deleteDialog; objectName: "deleteWorkspaceDialog"
         parent: Overlay.overlay; anchors.centerIn: parent
+        width: Math.min(420, parent.width - 32)
+        implicitHeight: 220
         title: "Delete workspace?"; modal: true; standardButtons: Dialog.Ok | Dialog.Cancel
-        Label { width: 360; wrapMode: Text.Wrap; text: "This workspace will leave your lists. PDFs, captures, notes and open tabs are kept. The saved workspace layout is archived locally." }
+        contentItem: Label {
+            id: deleteDescription
+            objectName: "deleteWorkspaceDescription"
+            wrapMode: Text.Wrap
+            text: "This workspace will leave your lists. PDFs, captures, notes and open tabs are kept. The saved workspace layout is archived locally."
+        }
         onAccepted: root.deleteRequested(root.workspaceId)
     }
 }
