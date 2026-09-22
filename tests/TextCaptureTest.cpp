@@ -12,6 +12,61 @@ class TextCaptureTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void highlightsPersistVerifyRelinkAndRemove() {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("marked.pdf"); writeFixture(path);
+        const auto source = QUrl::fromLocalFile(path);
+        QFile original(path); QVERIFY(original.open(QIODevice::ReadOnly));
+        const auto bytes = original.readAll(); original.close();
+        QString id;
+        {
+            ResearchStore store(directory.filePath("data")); QString error; QVERIFY(store.initialize(&error));
+            QPdfDocument pdf; QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+            const auto bounds = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45).boundingRectangle();
+            const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y() + 20);
+            const auto selected = pdf.getSelection(0, from, to).text();
+            QSignalSpy saved(&store, &ResearchStore::highlightSaved), loaded(&store, &ResearchStore::highlightsLoaded);
+            store.highlightText(source, 0, from, to, selected);
+            QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000); id = saved[0][0].toString();
+            QVERIFY(store.captures().isEmpty());
+            store.loadHighlights(source); QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
+            const auto marks = loaded[0][2].toList(); QCOMPARE(marks.size(), 1);
+            QCOMPARE(marks[0].toMap()["text"].toString(), selected);
+            QVERIFY(marks[0].toMap()["rectangles"].toList().size() >= 2);
+            for (const auto &r : marks[0].toMap()["rectangles"].toList()) {
+                const auto rect = r.toMap(); QVERIFY(rect["x"].toDouble() >= 0); QVERIFY(rect["width"].toDouble() > 0);
+                QVERIFY(rect["x"].toDouble() + rect["width"].toDouble() <= 1.0001);
+            }
+            store.highlightText(source, 0, from, to, selected);
+            QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 2, 10000); QCOMPARE(saved[1][0].toString(), id);
+            const auto results = store.searchKnowledge("occlusion"); QCOMPARE(results.size(), 1);
+            QCOMPARE(results[0].toMap()["kind"].toString(), "highlight");
+            QVERIFY(original.open(QIODevice::ReadOnly)); QCOMPARE(original.readAll(), bytes); original.close();
+        }
+        {
+            ResearchStore store(directory.filePath("data")); QString error; QVERIFY(store.initialize(&error));
+            QSignalSpy loaded(&store, &ResearchStore::highlightsLoaded), ready(&store, &ResearchStore::sourceReady);
+            store.loadHighlights(source); QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
+            QCOMPARE(loaded.last()[2].toList().size(), 1);
+            // A different version at the same path must not receive old highlights.
+            QVERIFY(original.open(QIODevice::Append)); original.write("\n% modified\n"); original.close();
+            store.loadHighlights(source); QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 2, 10000);
+            QVERIFY(loaded.last()[2].toList().isEmpty()); QVERIFY(!loaded.last()[3].toString().isEmpty());
+            QVERIFY(original.open(QIODevice::WriteOnly)); original.write(bytes); original.close();
+            const auto moved = directory.filePath("moved.pdf"); QVERIFY(QFile::rename(path, moved));
+            QSignalSpy relinked(&store, &ResearchStore::relinkFinished);
+            store.relinkSource(source, QUrl::fromLocalFile(moved));
+            QTRY_COMPARE_WITH_TIMEOUT(relinked.size(), 1, 10000); QVERIFY(relinked[0][0].toBool());
+            store.openHighlight(id); QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
+            QCOMPARE(ready[0][0].toUrl(), QUrl::fromLocalFile(moved));
+            store.loadHighlights(QUrl::fromLocalFile(moved)); QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 3, 10000);
+            QCOMPARE(loaded.last()[2].toList()[0].toMap()["id"].toString(), id);
+            QVERIFY(store.removeHighlight(id)); QVERIFY(!store.removeHighlight(id));
+            QVERIFY(store.searchKnowledge("occlusion").isEmpty());
+        }
+        ResearchStore reopened(directory.filePath("data")); QString error; QVERIFY(reopened.initialize(&error));
+        QVERIFY(reopened.searchKnowledge("occlusion").isEmpty());
+    }
     void captureNotesPersistSearchAndKeepSource() {
         QTemporaryDir directory;
         const auto path = directory.filePath("source.pdf");

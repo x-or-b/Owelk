@@ -66,6 +66,7 @@ Rectangle {
     function jumpToPage(page, y) { activated(); canvas.jump(page, y || 0, 0) }
     function copySelection() { canvas.copySelection() }
     function captureSelection() { canvas.captureSelection() }
+    function highlightSelection() { canvas.highlightSelection() }
     function toggleCapture() { if (canvas.ready) canvas.captureMode = !canvas.captureMode }
     function reveal(url, page, region) {
         cancelReveal()
@@ -172,20 +173,6 @@ Rectangle {
                     checked: canvas.captureMode
                     onClicked: { root.activated(); canvas.captureMode = checked }
                 }
-                UiControls.ToolButton {
-                    objectName: "saveExcerptButton"
-                    text: "Save excerpt"
-                    visible: canvas.selectedText.length > 0
-                    enabled: canvas.selectedAnchor !== null && !canvas.selecting && !researchStore.busy
-                    onClicked: { root.activated(); canvas.captureSelection() }
-                    ToolTip.visible: hovered
-                    ToolTip.text: "Save selected text with its source location"
-                }
-                UiControls.ToolButton {
-                    text: "Copy"
-                    enabled: canvas.selectedText.length > 0
-                    onClicked: { root.activated(); canvas.copySelection() }
-                }
             }
         }
 
@@ -229,6 +216,13 @@ Rectangle {
         }
 
         Label {
+            visible: canvas.highlightError.length > 0
+            Layout.fillWidth: true
+            Layout.leftMargin: 12; Layout.rightMargin: 12
+            text: canvas.highlightError
+            textFormat: Text.PlainText; wrapMode: Text.Wrap; color: "#b42323"
+        }
+        Label {
             visible: canvas.captureMode
             Layout.fillWidth: true
             Layout.leftMargin: 12
@@ -255,6 +249,37 @@ Rectangle {
                     searchDelay.stop()
                     searchField.clear()
                     root.searchVisible = false
+                }
+            }
+
+            Rectangle {
+                z: 5
+                visible: canvas.selectedText.length > 0 && !canvas.selecting
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom; anchors.bottomMargin: 22
+                width: Math.min(parent.width - 32, selectionActions.implicitWidth + 16)
+                height: selectionActions.height + 8
+                color: "#fafafa"; border.color: "#bcbcbc"; radius: Theme.cornerRadius
+                Flow {
+                    id: selectionActions
+                    x: 8; y: 4; width: parent.width - 16; spacing: 4
+                    UiControls.ToolButton {
+                        objectName: "highlightSelectionButton"
+                        text: "Highlight"
+                        enabled: canvas.selectedAnchor !== null && !researchStore.busy
+                        onClicked: { root.activated(); canvas.highlightSelection() }
+                        ToolTip.visible: hovered
+                        ToolTip.text: "Keep a highlight in this PDF · Right-click a highlight to remove"
+                    }
+                    UiControls.ToolButton {
+                        objectName: "saveExcerptButton"
+                        text: "Save excerpt"
+                        enabled: canvas.selectedAnchor !== null && !researchStore.busy
+                        onClicked: { root.activated(); canvas.captureSelection() }
+                        ToolTip.visible: hovered
+                        ToolTip.text: "Save selected text with its source location"
+                    }
+                    UiControls.ToolButton { text: "Copy"; onClicked: { root.activated(); canvas.copySelection() } }
                 }
             }
 

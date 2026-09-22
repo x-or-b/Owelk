@@ -25,6 +25,40 @@ Item {
     property var pendingPosition: null
     property bool restoring: false
     property var highlight: null
+    property var savedHighlights: []
+    property int highlightRequest: -1
+    property string highlightError: ""
+    property string removingHighlight: ""
+    property var pendingHighlightSelection: null
+    function refreshHighlights() {
+        savedHighlights = []; highlightError = ""
+        highlightRequest = ready ? researchStore.loadHighlights(source) : -1
+    }
+    onReadyChanged: refreshHighlights()
+    onSourceChanged: { savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null }
+    Connections {
+        target: researchStore
+        function onHighlightsChanged() { root.refreshHighlights() }
+        function onHighlightsLoaded(request, source, highlights, error) {
+            if (request !== root.highlightRequest || !researchStore.sameSource(root.source, source)) return
+            root.savedHighlights = highlights; root.highlightError = error
+        }
+        function onHighlightSaved(id, source) {
+            if (researchStore.sameSource(root.source, source) && root.pendingHighlightSelection !== null
+                && root.pendingHighlightSelection === root.selectedAnchor) root.clearSelection()
+            root.pendingHighlightSelection = null
+        }
+    }
+    UiControls.Menu {
+        id: highlightMenu
+        objectName: "highlightMenu"
+        UiControls.MenuItem {
+            objectName: "removeHighlightAction"
+            text: "Remove Highlight"
+            palette.text: "#b42323"; palette.windowText: "#b42323"; palette.highlightedText: "#b42323"
+            onTriggered: { const id = root.removingHighlight; Qt.callLater(function() { researchStore.removeHighlight(id) }) }
+        }
+    }
     property real spotlightOpacity: 0
     property real spotlightScale: .9
     property real targetScrollX: 0
@@ -265,6 +299,11 @@ Item {
         if (!selectedAnchor || selectedAnchor.text !== selectedText || selecting) return
         researchStore.captureText(source, selectedAnchor.page, selectedAnchor.from, selectedAnchor.to, selectedAnchor.text)
     }
+    function highlightSelection() {
+        if (!selectedAnchor || selectedAnchor.text !== selectedText || selecting || researchStore.busy) return
+        pendingHighlightSelection = selectedAnchor
+        researchStore.highlightText(source, selectedAnchor.page, selectedAnchor.from, selectedAnchor.to, selectedAnchor.text)
+    }
 
     onWidthChanged: {
         stopSourceMotion()
@@ -451,6 +490,34 @@ Item {
                     Connections {
                         target: root
                         function onMatchCountChanged() { matches.refresh() }
+                    }
+                }
+
+                Repeater {
+                    model: root.savedHighlights.filter(function(h) { return h.page === pageHolder.index })
+                    delegate: Item {
+                        id: persistentMark
+                        required property var modelData
+                        anchors.fill: parent
+                        Repeater {
+                            model: persistentMark.modelData.rectangles
+                            delegate: Rectangle {
+                                required property var modelData
+                                objectName: "savedHighlight-" + persistentMark.modelData.id
+                                x: modelData.x * paper.width; y: modelData.y * paper.height
+                                width: modelData.width * paper.width; height: modelData.height * paper.height
+                                color: Theme.accent; opacity: .25
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.RightButton
+                                    enabled: !root.captureMode
+                                    onClicked: function(mouse) {
+                                        root.removingHighlight = persistentMark.modelData.id
+                                        highlightMenu.popup(parent, mouse.x, mouse.y)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

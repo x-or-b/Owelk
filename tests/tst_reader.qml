@@ -39,6 +39,36 @@ Item {
             compare(canvas.currentPage, 5)
             verify(Math.abs(canvas.position().y - .25) < .03)
         }
+        function test_persistentHighlightSelectionAndRemoval() {
+            const paper = findChild(canvas, "paperPage0")
+            const bounds = fixtureTextBounds
+            const from = paper.mapToItem(canvas, bounds.x * canvas.pageScale, (bounds.y + bounds.height / 2) * canvas.pageScale)
+            testInput.pointerDrag(canvas, from, Qt.point(from.x + bounds.width * canvas.pageScale, from.y + 20 * canvas.pageScale), false)
+            tryVerify(function() { return canvas.selectedText.indexOf("Research finding") >= 0 })
+            const button = findChild(reader, "highlightSelectionButton")
+            tryCompare(button, "visible", true); waitForPolish(reader)
+            mouseClick(button)
+            tryVerify(function() { return canvas.savedHighlights.length === 1 }, 10000)
+            tryCompare(canvas, "selectedText", "")
+            const id = canvas.savedHighlights[0].id
+            let mark = findChild(canvas, "savedHighlight-" + id)
+            verify(mark !== null)
+            const beforeWidth = mark.width
+            canvas.zoom(1.2); tryCompare(canvas, "restoring", false)
+            mark = findChild(canvas, "savedHighlight-" + id)
+            verify(Math.abs(mark.width / beforeWidth - 1.2) < .02)
+            canvas.openFile(""); canvas.openFile(fixtureSource, {page: 0, zoom: 1})
+            tryCompare(canvas, "ready", true); tryCompare(canvas, "restoring", false)
+            tryVerify(function() { return canvas.savedHighlights.length === 1 }, 10000)
+            mark = findChild(canvas, "savedHighlight-" + id)
+            verify(mark !== null)
+            waitForPolish(reader)
+            mouseClick(mark, mark.width / 2, mark.height / 2, Qt.RightButton)
+            const menu = findChild(canvas, "highlightMenu")
+            tryCompare(menu, "opened", true)
+            mouseClick(findChild(menu, "removeHighlightAction"))
+            tryCompare(canvas, "savedHighlights", [], 10000)
+        }
         function test_pageRendering() {
             const page = findChild(canvas, "pageImage0")
             verify(page !== null)

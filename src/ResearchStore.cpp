@@ -1,5 +1,6 @@
 #include "ResearchStore.h"
 #include "PaperIndex.h"
+#include "SelectionGeometry.h"
 
 #include <QClipboard>
 #include <QCryptographicHash>
@@ -73,6 +74,7 @@ struct TextCaptureResult {
     CaptureResult anchor;
     QString text, prefix, suffix;
     int start = -1, end = -1;
+    QVariantList rectangles;
 };
 }
 
@@ -123,7 +125,11 @@ bool ResearchStore::initialize(QString *error)
         "width REAL NOT NULL, height REAL NOT NULL, image TEXT NOT NULL, created_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS text_captures (capture_id TEXT PRIMARY KEY, text TEXT NOT NULL, "
         "start_index INTEGER NOT NULL, end_index INTEGER NOT NULL, prefix TEXT NOT NULL, suffix TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS capture_notes (capture_id TEXT PRIMARY KEY, body TEXT NOT NULL, updated_at TEXT NOT NULL)"
+        "CREATE TABLE IF NOT EXISTS capture_notes (capture_id TEXT PRIMARY KEY, body TEXT NOT NULL, updated_at TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS highlights (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
+        "page INTEGER NOT NULL,text TEXT NOT NULL,rectangles TEXT NOT NULL,start_index INTEGER NOT NULL, "
+        "end_index INTEGER NOT NULL,created_at TEXT NOT NULL,deleted_at TEXT)",
+        "CREATE INDEX IF NOT EXISTS highlights_source ON highlights(source)"
     };
     for (const auto &sql : statements) {
         QSqlQuery query(m_database);
@@ -446,6 +452,20 @@ QVariantList ResearchStore::searchKnowledge(const QString &queryText, const QUrl
         results.append(QVariantMap{{"kind", "capture"}, {"title", title}, {"id", capture.value("id")}, {"source", capture.value("source")}, {"snippet", snippet}});
         if (++count >= 20) break;
     }
+    if (target == "all") {
+        QSqlQuery highlights(m_database);
+        highlights.prepare("SELECT id,source,page,text FROM highlights WHERE deleted_at IS NULL AND instr(lower(text),lower(?))>0 "
+                           "AND (?=1 OR source=?) ORDER BY created_at DESC LIMIT 20");
+        highlights.addBindValue(needle); highlights.addBindValue(scope.isEmpty()); highlights.addBindValue(scope.toString());
+        if (highlights.exec()) while (highlights.next()) {
+            const QUrl source(highlights.value(1).toString());
+            const auto text = highlights.value(3).toString();
+            const int start = qMax(0, text.indexOf(needle, 0, Qt::CaseInsensitive) - 60);
+            results.append(QVariantMap{{"kind", "highlight"}, {"id", highlights.value(0)}, {"source", source},
+                {"title", fileName(source) + " · p. " + QString::number(highlights.value(2).toInt() + 1)},
+                {"snippet", text.mid(start, qMax(200, needle.size()))}});
+        }
+    }
     QSqlQuery workspaces(m_database);
     workspaces.exec("SELECT id,name FROM workspaces WHERE id NOT IN (SELECT id FROM deleted_workspaces) ORDER BY opened_at DESC");
     count = 0;
@@ -551,6 +571,18 @@ void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &re
 void ResearchStore::captureText(const QUrl &source, int page, const QPointF &from,
                                 const QPointF &to, const QString &expectedText)
 {
+    saveTextSelection(source, page, from, to, expectedText, false);
+}
+
+void ResearchStore::highlightText(const QUrl &source, int page, const QPointF &from,
+                                 const QPointF &to, const QString &expectedText)
+{
+    saveTextSelection(source, page, from, to, expectedText, true);
+}
+
+void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPointF &from,
+                                     const QPointF &to, const QString &expectedText, bool asHighlight)
+{
     if (m_relinking) { emit message("Please wait until source verification finishes before capturing."); return; }
     if (!source.isLocalFile() || page < 0 || expectedText.trimmed().isEmpty()
         || expectedText.size() > 100000 || !std::isfinite(from.x()) || !std::isfinite(from.y())
@@ -561,13 +593,33 @@ void ResearchStore::captureText(const QUrl &source, int page, const QPointF &fro
     ++m_pending;
     emit busyChanged();
     auto *watcher = new QFutureWatcher<TextCaptureResult>(this);
-    connect(watcher, &QFutureWatcher<TextCaptureResult>::finished, this, [this, watcher] {
+    connect(watcher, &QFutureWatcher<TextCaptureResult>::finished, this, [this, watcher, asHighlight] {
         const auto result = watcher->result();
         const auto &anchor = result.anchor;
         watcher->deleteLater();
         --m_pending;
         emit busyChanged();
         if (!anchor.error.isEmpty()) { emit message(anchor.error); return; }
+        if (asHighlight) {
+            // Repeated clicks must not stack opaque copies of the same annotation.
+            QSqlQuery existing(m_database);
+            existing.prepare("SELECT id FROM highlights WHERE source=? AND sha256=? AND page=? AND start_index=? AND end_index=? AND deleted_at IS NULL");
+            existing.addBindValue(anchor.source.toString()); existing.addBindValue(anchor.hash);
+            existing.addBindValue(anchor.page); existing.addBindValue(result.start); existing.addBindValue(result.end);
+            if (!existing.exec()) { emit message("Cannot check existing highlights."); return; }
+            if (existing.next()) { emit highlightSaved(existing.value(0).toString(), anchor.source); return; }
+            QSqlQuery mark(m_database);
+            mark.prepare("INSERT INTO highlights VALUES(?,?,?,?,?,?,?,?,?,NULL)");
+            mark.addBindValue(anchor.id); mark.addBindValue(anchor.source.toString()); mark.addBindValue(anchor.hash);
+            mark.addBindValue(anchor.page); mark.addBindValue(result.text);
+            mark.addBindValue(QString::fromUtf8(QJsonDocument::fromVariant(result.rectangles).toJson(QJsonDocument::Compact)));
+            mark.addBindValue(result.start); mark.addBindValue(result.end);
+            mark.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+            if (!mark.exec()) { emit message("Cannot save highlight. Check storage and permissions."); return; }
+            emit highlightsChanged(); emit homeChanged(); emit highlightSaved(anchor.id, anchor.source);
+            emit message("Highlight saved. The original PDF was not modified.");
+            return;
+        }
         if (!m_database.transaction()) { emit message("Cannot save excerpt. Check storage and permissions."); return; }
         QSqlQuery base(m_database);
         base.prepare("INSERT INTO captures VALUES(?,?,?,?,?,?,?,?,?,?)");
@@ -590,7 +642,7 @@ void ResearchStore::captureText(const QUrl &source, int page, const QPointF &fro
         emit captureSaved(anchor.id);
         emit message("Text excerpt and source location saved.");
     });
-    watcher->setFuture(QtConcurrent::run(&m_workers, [source, page, from, to, expectedText] {
+    watcher->setFuture(QtConcurrent::run(&m_workers, [source, page, from, to, expectedText, asHighlight] {
         TextCaptureResult result;
         auto &anchor = result.anchor;
         anchor.source = source; anchor.page = page;
@@ -609,6 +661,17 @@ void ResearchStore::captureText(const QUrl &source, int page, const QPointF &fro
         }
         result.text = selection.text();
         result.start = selection.startIndex(); result.end = selection.endIndex();
+        if (asHighlight) {
+            SelectionGeometry geometry;
+            const auto lines = geometry.lineRectangles(document.getAllText(page).bounds());
+            const auto rectangles = geometry.stableRectangles(selection.bounds(), lines);
+            for (const auto &value : rectangles) {
+                const auto r = value.toRectF().intersected(QRectF(QPointF(), size));
+                if (!r.isEmpty()) result.rectangles.append(QVariantMap{{"x", r.x() / size.width()},
+                    {"y", r.y() / size.height()}, {"width", r.width() / size.width()}, {"height", r.height() / size.height()}});
+            }
+            if (result.rectangles.isEmpty()) { anchor.error = "This selection has no highlight geometry."; return result; }
+        }
         const auto all = document.getAllText(page).text();
         // Context is a fallback hint, never permission to jump to an unverified PDF version.
         result.prefix = QStringLiteral(""); result.suffix = QStringLiteral("");

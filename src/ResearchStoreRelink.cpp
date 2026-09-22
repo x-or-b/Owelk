@@ -68,7 +68,8 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
     }
     QSet<QString> hashes;
     QSqlQuery captures(m_database);
-    captures.prepare("SELECT DISTINCT sha256 FROM captures WHERE source=?"); captures.addBindValue(source.toString());
+    captures.prepare("SELECT sha256 FROM captures WHERE source=? UNION SELECT sha256 FROM highlights WHERE source=?");
+    captures.addBindValue(source.toString()); captures.addBindValue(source.toString());
     if (!captures.exec()) { reject(captures.lastError().text()); return; }
     while (captures.next()) if (!captures.value(0).toString().isEmpty()) hashes.insert(captures.value(0).toString());
     const auto indexedHash = m_index->knownHash(source);
@@ -90,7 +91,7 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
             m_index->relocateSource(source, candidate);
             // Update live tabs before a pending UI save can reintroduce an old path.
             emit sourceRelinked(source, candidate);
-            reloadCaptures(); emit recentDocumentsChanged(); emit homeChanged();
+            reloadCaptures(); emit highlightsChanged(); emit recentDocumentsChanged(); emit homeChanged();
         }
         m_relinking = false; emit relinkingChanged();
         emit relinkFinished(success, success ? "PDF source reconnected. Reading positions and captures were preserved." : error);
@@ -127,7 +128,8 @@ bool ResearchStore::applyRelink(const QUrl &source, const QUrl &candidate, const
         || !run("DELETE FROM workspace_documents WHERE url=?", {oldUrl})
         || !run("INSERT OR IGNORE INTO workspace_document_exclusions(workspace_id,url) SELECT workspace_id,? FROM workspace_document_exclusions WHERE url=?", {newUrl,oldUrl})
         || !run("DELETE FROM workspace_document_exclusions WHERE url=?", {oldUrl})
-        || !run("UPDATE captures SET source=? WHERE source=? AND sha256=?", {newUrl,oldUrl,hash})) return abort();
+        || !run("UPDATE captures SET source=? WHERE source=? AND sha256=?", {newUrl,oldUrl,hash})
+        || !run("UPDATE highlights SET source=? WHERE source=? AND sha256=?", {newUrl,oldUrl,hash})) return abort();
     auto updateStates = [&](const QString &select, const QString &update) {
         QSqlQuery query(m_database);
         if (!query.exec(select)) { *error = query.lastError().text(); return false; }

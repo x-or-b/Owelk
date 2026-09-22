@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Qt6 6.9 REQUIRED COMPONENTS Quick QuickControls2 Pdf PdfQuick Sql Concurrent)
 qt_standard_project_setup(REQUIRES 6.9)
 
-qt_add_library(owelk_core STATIC src/ResearchStore.cpp src/ResearchStoreRelink.cpp src/ResearchStoreWorkspaces.cpp src/ResearchStore.h src/SelectionGeometry.cpp src/SelectionGeometry.h src/PaperIndex.cpp src/PaperIndex.h)
+qt_add_library(owelk_core STATIC src/ResearchStore.cpp src/ResearchStoreHighlights.cpp src/ResearchStoreRelink.cpp src/ResearchStoreWorkspaces.cpp src/ResearchStore.h src/SelectionGeometry.cpp src/SelectionGeometry.h src/PaperIndex.cpp src/PaperIndex.h)
 target_link_libraries(owelk_core PUBLIC Qt6::Core Qt6::Gui Qt6::Pdf Qt6::Sql Qt6::Concurrent)
 target_include_directories(owelk_core PUBLIC src)
 

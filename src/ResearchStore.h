@@ -51,6 +51,11 @@ public:
     Q_INVOKABLE void captureRegion(const QUrl &source, int page, const QRectF &normalizedRegion);
     Q_INVOKABLE void captureText(const QUrl &source, int page, const QPointF &from,
                                 const QPointF &to, const QString &expectedText);
+    Q_INVOKABLE void highlightText(const QUrl &source, int page, const QPointF &from,
+                                  const QPointF &to, const QString &expectedText);
+    Q_INVOKABLE int loadHighlights(const QUrl &source);
+    Q_INVOKABLE bool removeHighlight(const QString &id);
+    Q_INVOKABLE void openHighlight(const QString &id);
     Q_INVOKABLE void openCapture(const QString &id);
     Q_INVOKABLE void copyText(const QString &text);
     Q_INVOKABLE int listFolder(const QUrl &folder);
@@ -68,6 +73,9 @@ public:
     QVariantMap continueReading() const;
 
 signals:
+    void highlightsChanged();
+    void highlightSaved(const QString &id, const QUrl &source);
+    void highlightsLoaded(int request, const QUrl &source, const QVariantList &highlights, const QString &error);
     void capturesChanged();
     void recentDocumentsChanged();
     void busyChanged();
@@ -84,6 +92,8 @@ signals:
     void relinkFinished(bool success, const QString &detail);
 
 private:
+    void saveTextSelection(const QUrl &source, int page, const QPointF &from, const QPointF &to,
+                           const QString &expectedText, bool asHighlight);
     void reloadCaptures();
     QVariantList readCaptures(bool trashed) const;
     QVariantMap canonicalState(const QVariantMap &state) const;
@@ -98,5 +108,6 @@ private:
     QThreadPool m_workers;
     int m_pending = 0;
     int m_folderRequest = 0;
+    int m_highlightRequest = 0;
     PaperIndex *m_index;
 };

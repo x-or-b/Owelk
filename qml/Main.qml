@@ -89,6 +89,7 @@ ApplicationWindow {
     function openSearchResult(result) {
         if (result.kind === "paper") openDocument(result.source, result.position)
         else if (result.kind === "capture") researchStore.openCapture(result.id)
+        else if (result.kind === "highlight") researchStore.openHighlight(result.id)
         else if (result.kind === "note") captureNote.begin(result.id)
         else if (result.kind === "workspace") openWorkspace(result.id)
         else if (result.kind === "text" && !restoreFailed) { notify("Checking PDF source…"); researchStore.paperIndex.openResult(result.documentId, Number(result.page), result.sha256) }
@@ -200,6 +201,7 @@ ApplicationWindow {
             case "/split off": documents.joinAll(); break
             case "/capture": if (!window.homeVisible && window.currentReader) window.currentReader.toggleCapture(); break
             case "/capture text": if (!window.homeVisible && window.currentReader) window.currentReader.captureSelection(); break
+            case "/highlight": if (!window.homeVisible && window.currentReader) window.currentReader.highlightSelection(); break
             case "/files": window.togglePanel("files"); break
             case "/captures": window.togglePanel("captures"); break
             case "/document": window.togglePanel("document"); break
