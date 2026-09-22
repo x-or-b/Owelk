@@ -27,7 +27,6 @@ Item {
     property var highlight: null
     property real spotlightOpacity: 0
     property real spotlightScale: .9
-    property real spotlightGlow: 0
     property real targetScrollX: 0
     property real targetScrollY: 0
     property int sourceScrollDuration: 800
@@ -191,7 +190,7 @@ Item {
         clearSelection()
         pages.cancelFlick()
         highlight = {page: page, rect: rect}
-        spotlightOpacity = 0; spotlightScale = .9; spotlightGlow = 0
+        spotlightOpacity = 0; spotlightScale = .9
         const oldX = pages.contentX, oldY = pages.contentY
         restoring = true
         pages.positionViewAtIndex(page, ListView.Beginning)
@@ -230,12 +229,10 @@ Item {
         ParallelAnimation {
             NumberAnimation { target: root; property: "spotlightOpacity"; to: 1; duration: 160 }
             NumberAnimation { target: root; property: "spotlightScale"; to: 1; duration: 230; easing.type: Easing.OutBack }
-            NumberAnimation { target: root; property: "spotlightGlow"; to: 1; duration: 230; easing.type: Easing.OutQuad }
         }
         ParallelAnimation {
             objectName: "captureSpotlightFade"
             NumberAnimation { target: root; property: "spotlightOpacity"; to: 0; duration: Theme.captureFadeDuration; easing.type: Easing.InOutQuad }
-            NumberAnimation { target: root; property: "spotlightGlow"; to: 0; duration: Theme.captureFadeDuration; easing.type: Easing.InOutQuad }
         }
     }
 
@@ -563,12 +560,6 @@ Item {
                     radius: Theme.cornerRadius
                     border.color: Theme.captureBorder
                     border.width: 2
-                    Rectangle {
-                        anchors.fill: parent; anchors.margins: -3
-                        color: "transparent"; radius: Theme.cornerRadius + 3
-                        border.width: 4; border.color: Theme.captureBorder
-                        opacity: root.spotlightGlow * .28
-                    }
                 }
 
                 MouseArea {

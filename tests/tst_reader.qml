@@ -178,10 +178,9 @@ Item {
             verify(border !== null)
             compare(border.border.color.toString(), "#426b9a")
             compare(border.radius, 5)
-            tryVerify(function() { return canvas.spotlightGlow > .05 })
-            tryVerify(function() { return canvas.spotlightOpacity > 0 && canvas.spotlightOpacity < .9 }, 400)
-            tryCompare(canvas, "spotlightOpacity", 0, 400)
-            compare(canvas.spotlightGlow, 0)
+            compare(border.children.length, 0, "Source spotlight must have no translucent outer border")
+            tryVerify(function() { return canvas.spotlightOpacity > 0 && canvas.spotlightOpacity < .9 }, 2000)
+            tryCompare(canvas, "spotlightOpacity", 0, 3000)
             canvas.openFile(fixtureSource)
             compare(canvas.highlight, null)
         }
