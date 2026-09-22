@@ -6,6 +6,7 @@
 #include <QPdfDocument>
 #include <QPdfSelection>
 #include <QSignalSpy>
+#include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -13,6 +14,95 @@ class ResearchStoreTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void captureRestorePersistsNotesImagesAndLinks() {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("preserved.pdf"); writeFixture(path);
+        const auto source = QUrl::fromLocalFile(path);
+        QString id, workspace, other;
+        QImage pixels;
+        {
+            ResearchStore store(directory.filePath("data")); QString error;
+            QVERIFY(store.initialize(&error));
+            store.captureRegion(source, 2, QRectF(.1, .2, .4, .3));
+            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+            const auto capture = store.captures().first().toMap();
+            id = capture["id"].toString();
+            pixels.load(capture["image"].toUrl().toLocalFile()); QVERIFY(!pixels.isNull());
+            workspace = store.createWorkspace("Restore topic"); other = store.createWorkspace("Other topic");
+            QVERIFY(store.setWorkspaceCapture(workspace, id, true));
+            QVERIFY(store.setWorkspaceCapture(other, id, true));
+            QVERIFY(store.saveCaptureNote(id, "Restorable uniquequestion"));
+            QVERIFY(store.deleteCapture(id));
+            QCOMPARE(store.trashedCaptures().size(), 1);
+            QVERIFY(store.workspaceDetails(workspace)["captures"].toList().isEmpty());
+            QVERIFY(store.searchKnowledge("uniquequestion").isEmpty());
+        }
+        {
+            ResearchStore store(directory.filePath("data")); QString error;
+            QVERIFY(store.initialize(&error));
+            QCOMPARE(store.trashedCaptures().size(), 1);
+            const auto trash = store.trashedCaptures()[0].toMap();
+            QCOMPARE(trash["id"].toString(), id);
+            QVERIFY(!trash["deletedAt"].toString().isEmpty());
+            QCOMPARE(QImage(trash["image"].toUrl().toLocalFile()), pixels);
+            // Restoring evidence must not require or modify the original PDF.
+            QVERIFY(QFile::rename(path, path + ".moved"));
+            QVERIFY(store.restoreCapture(id));
+            QVERIFY(!store.restoreCapture(id));
+            QVERIFY(!store.restoreCapture("../../preserved.pdf"));
+            QVERIFY(store.trashedCaptures().isEmpty());
+            QCOMPARE(store.captures().size(), 1);
+            const auto restored = store.captures()[0].toMap();
+            QCOMPARE(restored["note"].toString(), "Restorable uniquequestion");
+            QCOMPARE(QImage(restored["image"].toUrl().toLocalFile()), pixels);
+            QVERIFY(!QFile::exists(trash["image"].toUrl().toLocalFile()));
+            QCOMPARE(store.workspaceDetails(workspace)["captures"].toList().size(), 1);
+            QCOMPARE(store.workspaceDetails(other)["captures"].toList().size(), 1);
+            QCOMPARE(store.searchKnowledge("uniquequestion").size(), 1);
+            QVERIFY(QFile::rename(path + ".moved", path));
+            QSignalSpy ready(&store, &ResearchStore::sourceReady);
+            store.openCapture(id); QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
+            QCOMPARE(ready[0][0].toUrl(), source); QCOMPARE(ready[0][1].toInt(), 2);
+            QCOMPARE(ready[0][2].toRectF(), QRectF(.1, .2, .4, .3));
+        }
+        ResearchStore reopened(directory.filePath("data")); QString error;
+        QVERIFY(reopened.initialize(&error));
+        QCOMPARE(reopened.captures().size(), 1); QVERIFY(reopened.trashedCaptures().isEmpty());
+        QVERIFY(reopened.deleteCapture(id)); QVERIFY(reopened.restoreCapture(id));
+    }
+    void captureRestoreFailureKeepsTrashAndNeverOverwrites() {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("paper.pdf"); writeFixture(path);
+        ResearchStore store(directory.filePath("data")); QString error;
+        QVERIFY(store.initialize(&error));
+        store.captureRegion(QUrl::fromLocalFile(path), 0, QRectF(.1, .1, .3, .2));
+        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+        const auto capture = store.captures().first().toMap();
+        const auto id = capture["id"].toString(), original = capture["image"].toUrl().toLocalFile();
+        QVERIFY(store.deleteCapture(id));
+        const auto archived = store.trashedCaptures()[0].toMap()["image"].toUrl().toLocalFile();
+        QVERIFY(QFile::rename(archived, archived + ".held"));
+        QVERIFY(!store.restoreCapture(id)); QVERIFY(store.captures().isEmpty());
+        QVERIFY(QFile::rename(archived + ".held", archived));
+        QFile collision(original); QVERIFY(collision.open(QIODevice::WriteOnly));
+        collision.write("Do not overwrite"); collision.close();
+        QVERIFY(!store.restoreCapture(id));
+        QVERIFY(collision.open(QIODevice::ReadOnly)); QCOMPARE(collision.readAll(), QByteArray("Do not overwrite")); collision.close();
+        QVERIFY(collision.remove());
+        const QString connection = "restore-failure-check";
+        {
+            auto db = QSqlDatabase::addDatabase("QSQLITE", connection);
+            db.setDatabaseName(directory.filePath("data/owelk.sqlite3")); QVERIFY(db.open());
+            QSqlQuery query(db);
+            QVERIFY(query.exec("CREATE TRIGGER reject_restore BEFORE DELETE ON deleted_captures BEGIN SELECT RAISE(ABORT,'test failure'); END"));
+            QVERIFY(!store.restoreCapture(id));
+            QVERIFY(store.captures().isEmpty()); QCOMPARE(store.trashedCaptures().size(), 1);
+            QVERIFY(QFile::exists(archived)); QVERIFY(!QFile::exists(original));
+            QVERIFY(query.exec("DROP TRIGGER reject_restore"));
+        }
+        QSqlDatabase::removeDatabase(connection);
+        QVERIFY(store.restoreCapture(id));
+    }
     void workspaceLinksPersistWithoutDeletingSources() {
         QTemporaryDir directory;
         const auto path = directory.filePath("source.pdf"); writeFixture(path);
@@ -87,7 +177,8 @@ private slots:
             QVERIFY(!store.deleteCapture(captureId));
             QVERIFY(!store.deleteCapture("../../keep.pdf"));
             QVERIFY(store.captures().isEmpty());
-            QVERIFY(store.searchKnowledge("keep").isEmpty());
+            // Removing a recent entry does not remove the PDF from the text index.
+            QVERIFY(store.searchKnowledge("keep", QUrl(), "captures").isEmpty());
             QVERIFY(!QFileInfo::exists(directory.filePath("data/captures/" + captureId + ".png")));
             QVERIFY(QFileInfo::exists(directory.filePath("data/captures/trash/" + captureId + ".png")));
             QCOMPARE(QFileInfo(path).size(), originalSize);

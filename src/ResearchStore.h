@@ -15,6 +15,7 @@ class ResearchStore final : public QObject
     Q_OBJECT
     Q_PROPERTY(QVariantMap session READ session NOTIFY homeChanged)
     Q_PROPERTY(QVariantList captures READ captures NOTIFY capturesChanged)
+    Q_PROPERTY(QVariantList trashedCaptures READ trashedCaptures NOTIFY capturesChanged)
     Q_PROPERTY(QVariantList recentDocuments READ recentDocuments NOTIFY recentDocumentsChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(QString dataDirectory READ dataDirectory CONSTANT)
@@ -29,6 +30,7 @@ public:
     bool initialize(QString *error);
     QVariantMap session() const;
     QVariantList captures() const { return m_captures; }
+    QVariantList trashedCaptures() const { return m_trashedCaptures; }
     QVariantList recentDocuments() const;
     bool busy() const { return m_pending > 0; }
     QString dataDirectory() const { return m_directory; }
@@ -42,6 +44,7 @@ public:
     Q_INVOKABLE bool rememberDocument(const QUrl &url);
     Q_INVOKABLE bool removeRecentDocument(const QUrl &url);
     Q_INVOKABLE bool deleteCapture(const QString &id);
+    Q_INVOKABLE bool restoreCapture(const QString &id);
     Q_INVOKABLE bool saveCaptureNote(const QString &id, const QString &body);
     Q_INVOKABLE QString fileName(const QUrl &url) const;
     Q_INVOKABLE bool sameSource(const QUrl &first, const QUrl &second) const { return first == second; }
@@ -82,6 +85,7 @@ signals:
 
 private:
     void reloadCaptures();
+    QVariantList readCaptures(bool trashed) const;
     QVariantMap canonicalState(const QVariantMap &state) const;
     bool applyRelink(const QUrl &source, const QUrl &candidate, const QString &hash, QString *error);
     QHash<QString, QString> m_relinks;
@@ -90,6 +94,7 @@ private:
     QString m_connection;
     QSqlDatabase m_database;
     QVariantList m_captures;
+    QVariantList m_trashedCaptures;
     QThreadPool m_workers;
     int m_pending = 0;
     int m_folderRequest = 0;

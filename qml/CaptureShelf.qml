@@ -9,6 +9,7 @@ Rectangle {
     color: "#fafafa"
     property string deletingId: ""
     property var viewingCapture: ({})
+    property bool showingTrash: false
     signal noteRequested(string id)
     function requestDelete(id) { deletingId = id; deleteDialog.open() }
     function viewText(capture) { viewingCapture = capture; textDialog.open() }
@@ -49,6 +50,7 @@ Rectangle {
                 UiControls.Button { objectName: "copyExcerptButton"; text: "Copy text"; onClicked: researchStore.copyText(root.viewingCapture.text) }
                 UiControls.Button {
                     text: "View source"
+                    enabled: !root.showingTrash
                     onClicked: { textDialog.close(); researchStore.openCapture(root.viewingCapture.id) }
                 }
             }
@@ -70,14 +72,32 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: 12
         spacing: 12
+        TabBar {
+            Layout.fillWidth: true
+            currentIndex: root.showingTrash ? 1 : 0
+            UiControls.TabButton {
+                id: savedTab
+                objectName: "savedCapturesTab"
+                text: "Saved"
+                background: Rectangle { color: savedTab.checked ? "#d8d8d8" : "#f5f5f5"; border.color: "#cccccc" }
+                onClicked: root.showingTrash = false
+            }
+            UiControls.TabButton {
+                id: trashTab
+                objectName: "captureTrashTab"
+                text: "Trash (" + researchStore.trashedCaptures.length + ")"
+                background: Rectangle { color: trashTab.checked ? "#d8d8d8" : "#f5f5f5"; border.color: "#cccccc" }
+                onClicked: root.showingTrash = true
+            }
+        }
         RowLayout {
             Layout.fillWidth: true
-            Label { text: researchStore.captures.length + " saved"; font.pixelSize: 12; color: "#666666" }
+            Label { text: root.showingTrash ? researchStore.trashedCaptures.length + " deleted" : researchStore.captures.length + " saved"; font.pixelSize: 12; color: "#666666" }
             Item { Layout.fillWidth: true }
         }
         Label {
             Layout.fillWidth: true
-            text: "Select a capture to return to its source."
+            text: root.showingTrash ? "Restore captures with their notes and workspace links." : "Select a capture to return to its source."
             wrapMode: Text.Wrap
             color: "#666666"
             font.pixelSize: 11
@@ -88,19 +108,20 @@ Rectangle {
             Layout.fillHeight: true
             spacing: 12
             clip: true
-            model: researchStore.captures
+            model: root.showingTrash ? researchStore.trashedCaptures : researchStore.captures
             ScrollBar.vertical: ScrollBar {}
             delegate: UiControls.ItemDelegate {
                 id: card
                 required property var modelData
-                objectName: "captureCard-" + modelData.id
+                objectName: (root.showingTrash ? "trashedCaptureCard-" : "captureCard-") + modelData.id
                 width: list.width
                 height: contentItem.implicitHeight + 20
                 padding: 10
-                onClicked: researchStore.openCapture(modelData.id)
+                onClicked: { if (!root.showingTrash) researchStore.openCapture(modelData.id) }
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.RightButton
+                    enabled: !root.showingTrash
                     onClicked: function(mouse) { captureMenu.popup(card, mouse.x, mouse.y) }
                 }
                 UiControls.Menu {
@@ -124,6 +145,7 @@ Rectangle {
                     anchors.right: parent.right; anchors.bottom: parent.bottom
                     width: 28; height: 28; text: "…"
                     Accessible.name: "Capture actions"
+                    visible: !root.showingTrash
                     onClicked: captureMenu.popup(captureActions, 0, captureActions.height)
                 }
                 background: Rectangle {
@@ -138,7 +160,7 @@ Rectangle {
                         visible: card.modelData.kind !== "text"
                         width: parent.width
                         height: Math.min(155, width / Math.max(.4, implicitWidth / Math.max(1, implicitHeight)))
-                        source: card.modelData.image
+                        source: card.modelData.imageAvailable ? card.modelData.image : ""
                         sourceSize.width: 520
                         asynchronous: true
                         fillMode: Image.PreserveAspectFit
@@ -163,7 +185,12 @@ Rectangle {
                         font.pixelSize: 11
                         color: "#444444"
                     }
-                    Label { text: "p. " + (card.modelData.page + 1) + "  ·  View source"; font.pixelSize: 11; color: "#555555" }
+                    Label { text: "p. " + (card.modelData.page + 1) + (root.showingTrash ? "  ·  Deleted " + Qt.formatDateTime(new Date(card.modelData.deletedAt), "yyyy-MM-dd hh:mm") : "  ·  View source"); font.pixelSize: 11; color: "#555555"; width: parent.width; wrapMode: Text.Wrap }
+                    Label {
+                        visible: root.showingTrash && card.modelData.kind !== "text" && !card.modelData.imageAvailable
+                        text: "Image unavailable. Kept in trash for recovery."
+                        width: parent.width; wrapMode: Text.Wrap; color: "#b42323"; font.pixelSize: 12
+                    }
                     Label {
                         visible: !!card.modelData.note
                         width: parent.width
@@ -174,9 +201,16 @@ Rectangle {
                     }
                     UiControls.ToolButton {
                         objectName: "captureNoteButton-" + card.modelData.id
+                        visible: !root.showingTrash
                         text: card.modelData.note ? "Edit note" : "Add note"
                         height: 28
                         onClicked: root.noteRequested(card.modelData.id)
+                    }
+                    UiControls.Button {
+                        objectName: "restoreCapture-" + card.modelData.id
+                        visible: root.showingTrash
+                        text: "Restore"
+                        onClicked: { const id = card.modelData.id; Qt.callLater(function() { researchStore.restoreCapture(id) }) }
                     }
                 }
             }
@@ -184,7 +218,7 @@ Rectangle {
                 anchors.centerIn: parent
                 width: parent.width - 16
                 visible: list.count === 0
-                text: "No saved captures.\nSelect text and Save excerpt,\nor use Capture region."
+                text: root.showingTrash ? "Trash is empty." : "No saved captures.\nSelect text and Save excerpt,\nor use Capture region."
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 lineHeight: 1.5

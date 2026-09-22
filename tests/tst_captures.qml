@@ -12,6 +12,31 @@ Item {
         name: "TextCaptures"
         when: windowShown
         function cleanupTestCase() { workspace.visible = false }
+        function test_captureTrashRestoreWorkflow() {
+            workspace.shelfVisible = true; workspace.movePanel("captures", "right")
+            researchStore.captureRegion(fixtureSource, 0, Qt.rect(.1, .1, .4, .2))
+            tryCompare(researchStore, "busy", false, 10000)
+            const id = researchStore.captures[0].id
+            verify(researchStore.saveCaptureNote(id, "Restored UI note"))
+            verify(researchStore.deleteCapture(id))
+            const shelf = findChild(workspace, "captureShelf")
+            tryCompare(shelf, "visible", true)
+            waitForPolish(shelf)
+            mouseClick(findChild(shelf, "captureTrashTab"))
+            tryCompare(shelf, "showingTrash", true)
+            tryVerify(function() { return findChild(shelf, "trashedCaptureCard-" + id) !== null })
+            const card = findChild(shelf, "trashedCaptureCard-" + id)
+            compare(findChild(card, "captureNoteButton-" + id).visible, false)
+            compare(findChild(card, "captureActions-" + id).visible, false)
+            waitForPolish(shelf)
+            mouseClick(findChild(card, "restoreCapture-" + id))
+            tryVerify(function() { return researchStore.captures.some(function(c) { return c.id === id }) })
+            verify(!researchStore.trashedCaptures.some(function(c) { return c.id === id }))
+            mouseClick(findChild(shelf, "savedCapturesTab"))
+            tryCompare(shelf, "showingTrash", false)
+            tryVerify(function() { return findChild(shelf, "captureCard-" + id) !== null })
+            compare(researchStore.captures.find(function(c) { return c.id === id }).note, "Restored UI note")
+        }
         function test_captureNoteWorkflow() {
             researchStore.captureRegion(fixtureSource, 0, Qt.rect(.1, .1, .4, .2))
             tryCompare(researchStore, "busy", false, 10000)

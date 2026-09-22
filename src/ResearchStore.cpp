@@ -227,26 +227,39 @@ QVariantList ResearchStore::recentDocuments() const
     return results;
 }
 
-void ResearchStore::reloadCaptures()
+QVariantList ResearchStore::readCaptures(bool trashed) const
 {
-    m_captures.clear();
+    QVariantList results;
     QSqlQuery query(m_database);
-    query.exec("SELECT c.id,c.source,c.page,c.image,c.created_at,t.text,t.capture_id,n.body,n.updated_at "
+    query.exec(QStringLiteral("SELECT c.id,c.source,c.page,c.image,c.created_at,t.text,t.capture_id,n.body,n.updated_at,d.deleted_at "
                "FROM captures c LEFT JOIN text_captures t ON t.capture_id=c.id "
                "LEFT JOIN capture_notes n ON n.capture_id=c.id "
-               "WHERE c.id NOT IN (SELECT id FROM deleted_captures) ORDER BY c.created_at DESC,c.id DESC");
+               "LEFT JOIN deleted_captures d ON d.id=c.id WHERE d.id IS %1 NULL "
+               "ORDER BY %2 DESC,c.id DESC").arg(trashed ? "NOT" : "", trashed ? "d.deleted_at" : "c.created_at"));
     while (query.next()) {
         const auto url = QUrl(query.value(1).toString());
-        m_captures.append(QVariantMap{
+        const auto image = query.value(3).toString();
+        // Never expose arbitrary stored paths to an image loader, including the trash preview.
+        const auto imagePath = !QUuid(query.value(0).toString()).isNull() && image == query.value(0).toString() + ".png"
+            ? m_directory + (trashed ? "/captures/trash/" : "/captures/") + image : QString();
+        results.append(QVariantMap{
             {"id", query.value(0)}, {"source", url}, {"name", fileName(url)},
             {"page", query.value(2)},
             {"kind", query.value(6).isNull() ? "region" : "text"},
             {"text", query.value(5).toString()},
             {"note", query.value(7).toString()}, {"noteUpdatedAt", query.value(8).toString()},
-            {"image", query.value(3).toString().isEmpty() ? QUrl() : QUrl::fromLocalFile(m_directory + "/captures/" + query.value(3).toString())},
-            {"createdAt", query.value(4)}
+            {"image", imagePath.isEmpty() ? QUrl() : QUrl::fromLocalFile(imagePath)},
+            {"imageAvailable", !imagePath.isEmpty() && QFileInfo(imagePath).isFile() && !QFileInfo(imagePath).isSymLink()},
+            {"createdAt", query.value(4)}, {"deletedAt", query.value(9)}
         });
     }
+    return results;
+}
+
+void ResearchStore::reloadCaptures()
+{
+    m_captures = readCaptures(false);
+    m_trashedCaptures = readCaptures(true);
     emit capturesChanged();
     emit homeChanged();
 }
@@ -695,6 +708,57 @@ bool ResearchStore::deleteCapture(const QString &id)
     }
     reloadCaptures();
     emit message(tr("Capture moved to local trash. The source PDF was kept."));
+    return true;
+}
+
+bool ResearchStore::restoreCapture(const QString &id)
+{
+    QSqlQuery query(m_database);
+    query.prepare("SELECT image,EXISTS(SELECT 1 FROM text_captures WHERE capture_id=captures.id) "
+                  "FROM captures WHERE id=? AND id IN (SELECT id FROM deleted_captures)");
+    query.addBindValue(id);
+    if (!query.exec() || !query.next()) {
+        emit message(tr("This capture is no longer in trash.")); return false;
+    }
+    const QString image = query.value(0).toString();
+    const bool textCapture = query.value(1).toBool();
+    query.finish();
+    if (QUuid(id).isNull() || (textCapture ? !image.isEmpty() : image != id + ".png")) {
+        emit message(tr("Invalid capture image path. Nothing was restored.")); return false;
+    }
+    const QString original = m_directory + "/captures/" + image;
+    const QString archived = m_directory + "/captures/trash/" + image;
+    if (!textCapture) {
+        const QFileInfo stored(archived), destination(original);
+        if (!stored.isFile() || !stored.isReadable() || stored.isSymLink()) {
+            emit message(tr("The capture image is missing or unreadable in local trash. The capture remains in trash.")); return false;
+        }
+        if (destination.exists() || destination.isSymLink()) {
+            emit message(tr("A file already exists at the restore location. Nothing was overwritten; the capture remains in trash.")); return false;
+        }
+    }
+    if (!m_database.transaction()) {
+        emit message(tr("Cannot start capture restore. Please try again.")); return false;
+    }
+    if (!textCapture && !QFile::rename(archived, original)) {
+        m_database.rollback();
+        emit message(tr("Cannot restore the capture image. Check storage and permissions.")); return false;
+    }
+    QSqlQuery unmark(m_database);
+    unmark.prepare("DELETE FROM deleted_captures WHERE id=?");
+    unmark.addBindValue(id);
+    if (!unmark.exec() || unmark.numRowsAffected() != 1 || !m_database.commit()) {
+        m_database.rollback();
+        if (!textCapture && !QFile::rename(original, archived)) {
+            emit message(tr("Restore failed and the image could not be returned to trash. It is preserved at %1. Please keep it for recovery.").arg(original));
+        } else {
+            emit message(tr("Cannot restore capture. It remains in local trash."));
+        }
+        return false;
+    }
+    // Only remove the deletion marker; original anchors, notes and workspace links stay intact.
+    reloadCaptures();
+    emit message(tr("Capture restored with its note and workspace links."));
     return true;
 }
 

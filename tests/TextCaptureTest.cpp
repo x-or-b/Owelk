@@ -191,11 +191,24 @@ private slots:
             QCOMPARE(capture["source"].toUrl(), QUrl::fromLocalFile(moved));
             if (capture["id"].toString() == id) QCOMPARE(capture["text"].toString(), text);
         }
+        QVERIFY(reopened.saveCaptureNote(id, "Preserved text note"));
         QVERIFY(reopened.deleteCapture(id));
         QVERIFY(!reopened.deleteCapture(id));
         QCOMPARE(reopened.captures().size(), 1);
         QVERIFY(reopened.searchKnowledge("occlusion").isEmpty());
         QVERIFY(QFileInfo::exists(moved));
+        QCOMPARE(reopened.trashedCaptures().size(), 1);
+        QCOMPARE(reopened.trashedCaptures()[0].toMap()["text"].toString(), text);
+        QVERIFY(reopened.restoreCapture(id));
+        QVERIFY(reopened.trashedCaptures().isEmpty());
+        QCOMPARE(reopened.searchKnowledge("occlusion").size(), 1);
+        for (const auto &entry : reopened.captures()) {
+            if (entry.toMap()["id"].toString() == id) {
+                QCOMPARE(entry.toMap()["text"].toString(), text);
+                QCOMPARE(entry.toMap()["note"].toString(), "Preserved text note");
+                QVERIFY(entry.toMap()["image"].toUrl().isEmpty());
+            }
+        }
         // Soft deletion must preserve the original quote in SQLite, without inventing a PNG.
         const auto connection = QStringLiteral("text-capture-check");
         {
