@@ -84,7 +84,10 @@ void nextPage(const std::shared_ptr<PrintJob> &job) {
 
 void ResearchStore::printDocument(const QUrl &source,const QString &hash,int pages)
 {
-    if(m_printing||!source.isLocalFile()||hash.isEmpty()||pages<1||!qobject_cast<QApplication *>(QCoreApplication::instance())) {emit message("Wait for PDF verification, then print from the desktop app.");return;}
+    if(m_printing) {emit message("A print dialog or job is already open. Finish or cancel it first.");return;}
+    if(!source.isLocalFile()||pages<1) {emit message("Open a local PDF before printing.");return;}
+    if(hash.isEmpty()) {emit message("PDF verification is not ready. Reopen the PDF and try again.");return;}
+    if(!qobject_cast<QApplication *>(QCoreApplication::instance())) {emit message("Printing needs the updated desktop app. Quit Owelk completely and reopen it.");return;}
     auto job=std::make_shared<PrintJob>();job->owner=this;job->pool=&m_workers;job->source=source;job->hash=hash;
     QSqlQuery query(m_database);
     query.prepare("SELECT page,rectangles,color,kind,body,image,drawing FROM highlights WHERE source=? AND sha256=? AND deleted_at IS NULL");query.addBindValue(source.toString());query.addBindValue(hash);

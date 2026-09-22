@@ -9,6 +9,10 @@ qt_standard_project_setup(REQUIRES 6.9)
 qt_add_library(owelk_core STATIC src/ResearchStore.cpp src/ResearchStoreHighlights.cpp src/ResearchStoreRelink.cpp src/ResearchStoreWorkspaces.cpp src/ResearchStore.h src/SelectionGeometry.cpp src/SelectionGeometry.h src/PaperIndex.cpp src/PaperIndex.h src/PdfPrinting.cpp src/PdfPrinting.h)
 target_link_libraries(owelk_core PUBLIC Qt6::Core Qt6::Gui Qt6::Pdf Qt6::Sql Qt6::Concurrent Qt6::PrintSupport Qt6::Widgets)
 target_include_directories(owelk_core PUBLIC src)
+target_sources(owelk_core PRIVATE src/AnnotationImage.cpp src/AnnotationImage.h)
+if(APPLE)
+    target_link_libraries(owelk_core PUBLIC "-framework ImageIO" "-framework CoreGraphics" "-framework CoreFoundation")
+endif()
 
 qt_add_executable(owelk MACOSX_BUNDLE src/main.cpp)
 qt_add_qml_module(owelk

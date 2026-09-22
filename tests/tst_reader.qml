@@ -39,6 +39,23 @@ Item {
             compare(canvas.currentPage, 5)
             verify(Math.abs(canvas.position().y - .25) < .03)
         }
+        function test_verificationAndTextHoverAfterSourceSwitch() {
+            const next = testInput.relinkFixture(true).candidate
+            canvas.openFile(next, {page:0,zoom:1})
+            tryCompare(canvas, "ready", true)
+            tryCompare(canvas, "restoring", false)
+            tryVerify(function() { return canvas.documentFingerprint.length === 64 })
+            const paper = findChild(canvas, "paperPage0"), bounds = fixtureTextBounds
+            const hover = findChild(canvas, "textHover0")
+            mouseMove(paper, (bounds.x + 8) * canvas.pageScale, (bounds.y + bounds.height / 2) * canvas.pageScale)
+            tryCompare(hover, "cursorShape", Qt.IBeamCursor)
+            tryVerify(function() { return testInput.cursorShape(paper) === Qt.IBeamCursor })
+            mouseMove(paper, paper.width - 8, 8)
+            tryCompare(hover, "cursorShape", Qt.ArrowCursor)
+            tryVerify(function() { return testInput.cursorShape(paper) === Qt.ArrowCursor })
+            canvas.openFile(fixtureSource, {page:0,zoom:1})
+            tryVerify(function() { return canvas.documentFingerprint.length === 64 })
+        }
         function test_persistentHighlightSelectionAndRemoval() {
             const paper = findChild(canvas, "paperPage0")
             const bounds = fixtureTextBounds
@@ -71,6 +88,17 @@ Item {
             waitForPolish(reader)
             mouseClick(mark, mark.width / 2, mark.height / 2, Qt.RightButton)
             const menu = findChild(canvas, "highlightMenu")
+            tryCompare(menu, "opened", true)
+            const expectedPosition = canvas.markMenuPosition
+            mouseClick(findChild(menu, "changeAnnotationColor"))
+            const palette = findChild(canvas, "markColors")
+            tryCompare(palette, "opened", true)
+            verify(Math.abs(palette.x - expectedPosition.x) < 180)
+            verify(Math.abs(palette.y - expectedPosition.y) < 60)
+            mouseClick(palette.colorButton(4))
+            tryVerify(function() { return canvas.savedHighlights.length > 0 && canvas.savedHighlights[0].color === "#9274c3" })
+            mark = findChild(canvas, "savedHighlight-" + id)
+            mouseClick(mark, mark.width / 2, mark.height / 2, Qt.RightButton)
             tryCompare(menu, "opened", true)
             mouseClick(findChild(menu, "removeHighlightAction"))
             tryCompare(canvas, "savedHighlights", [], 10000)
@@ -124,6 +152,12 @@ Item {
             testInput.pointerDrag(canvas,start,Qt.point(start.x+60,start.y+30),false)
             tryVerify(function(){return canvas.savedHighlights.some(function(m){return m.kind==="draw"})})
             canvas.tool=""
+            editor.begin(canvas, {kind:"image",page:0,imageSource:fixtureImage.toString(),rectangles:[{x:.2,y:.4,width:.3,height:.2}]}, null)
+            tryCompare(editor, "opened", true)
+            tryCompare(findChild(editor,"annotationImagePreview"), "status", Image.Ready, 10000)
+            mouseClick(findChild(editor,"saveAnnotation"))
+            tryCompare(editor,"visible",false)
+            tryVerify(function(){return canvas.savedHighlights.some(function(m){return m.kind==="image"})})
             for(const m of canvas.savedHighlights)verify(researchStore.removeHighlight(m.id))
         }
         function test_pageRendering() {

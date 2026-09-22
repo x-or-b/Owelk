@@ -128,10 +128,12 @@ UiControls.Dialog {
             }
         }
         Image {
+            objectName: "annotationImagePreview"
             visible: root.record.kind === "image"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            source: root.chosenImage || root.record.image || ""
+            source: root.chosenImage ? researchStore.annotationPreviewUrl(root.chosenImage) : root.record.image || ""
+            asynchronous: true
             fillMode: Image.PreserveAspectFit
             sourceSize.width: 500
         }
@@ -235,7 +237,7 @@ UiControls.Dialog {
     }
     FileDialog {
         id: imageDialog
-        nameFilters: ["Images (*.png *.jpg *.jpeg *.webp)"]
+        nameFilters: ["Images (*.png *.jpg *.jpeg *.webp *.heic *.heif *.HEIC *.HEIF)"]
         onAccepted: root.chosenImage = selectedFile.toString()
     }
     UiControls.Dialog {

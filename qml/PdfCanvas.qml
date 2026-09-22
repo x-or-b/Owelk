@@ -25,6 +25,7 @@ Item {
     property string markColor: "#426b9a"
     property string documentFingerprint: ""
     property var editingMark: null
+    property point markMenuPosition: Qt.point(0, 0)
     signal contextRequested(point position, int page)
     signal editRequested(var record, var selection)
     signal annotationPlaced(int page, var rectangle, var points)
@@ -49,7 +50,11 @@ Item {
         highlightRequest = ready ? researchStore.loadHighlights(source) : -1
     }
     onReadyChanged: refreshHighlights()
-    onSourceChanged: { savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null; documentFingerprint = ""; tool = "" }
+    onSourceChanged: {
+        savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null; documentFingerprint = ""; tool = ""
+        // PdfDocument may become Ready synchronously before this handler resets the request.
+        Qt.callLater(refreshHighlights)
+    }
     Connections {
         target: researchStore
         function onHighlightsChanged() { root.refreshHighlights() }
@@ -67,7 +72,7 @@ Item {
         id: highlightMenu
         objectName: "highlightMenu"
         UiControls.MenuItem { text: "Edit / Comment…"; onTriggered: root.editRequested(root.editingMark, null) }
-        UiControls.MenuItem { text: "Change Color…"; onTriggered: markColors.open() }
+        UiControls.MenuItem { objectName: "changeAnnotationColor"; text: "Change Color…"; onTriggered: markColors.open() }
         UiControls.MenuItem {
             objectName: "removeHighlightAction"
             text: "Remove Annotation"
@@ -77,7 +82,10 @@ Item {
     }
     AnnotationColors {
         id: markColors
-        x: Math.max(0, Math.min(root.width - width, root.selectionEnd.x)); y: Math.max(0, Math.min(root.height - height, root.selectionEnd.y))
+        objectName: "markColors"
+        parent: root
+        x: Math.max(4, Math.min(root.width - width - 4, root.markMenuPosition.x + 8))
+        y: Math.max(4, Math.min(root.height - height - 4, root.markMenuPosition.y + 8))
         selectedColor: root.editingMark ? root.editingMark.color : root.markColor
         onChosen: function(color) { if (root.editingMark) researchStore.updateHighlight(root.editingMark.id, color, root.editingMark.body || "") }
     }
@@ -450,6 +458,18 @@ Item {
             readonly property size pointSize: pdfDocument.pagePointSize(index)
             property var lineMetrics: []
             property bool metricsReady: false
+            function ensureMetrics() {
+                if (!metricsReady) {
+                    pageText.selectAll()
+                    lineMetrics = selectionGeometry.lineRectangles(pageText.geometry)
+                    metricsReady = true
+                }
+            }
+            function overText(x, y) {
+                return lineMetrics.some(function(r) {
+                    return x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height
+                })
+            }
             function selectWholePage() {
                 selection.selectAll(); root.activeSelection = selection; root.selectedText = selection.text
                 root.selectedAnchor = {page:index,text:selection.text,from:Qt.point(0,0),to:Qt.point(pointSize.width,pointSize.height)}
@@ -525,8 +545,15 @@ Item {
                 }
 
                 MouseArea {
+                    id: textHover
+                    objectName: "textHover" + pageHolder.index
                     anchors.fill: parent
+                    hoverEnabled: true
+                    onEntered: pageHolder.ensureMetrics()
                     acceptedButtons: Qt.RightButton
+                    cursorShape: !root.captureMode && (!root.tool.length || root.tool === "highlight")
+                        && containsMouse && pageHolder.overText(mouseX / root.pageScale, mouseY / root.pageScale)
+                        ? Qt.IBeamCursor : Qt.ArrowCursor
                     onClicked: function(mouse) { root.contextRequested(mapToItem(root, mouse.x, mouse.y), pageHolder.index) }
                 }
                 Repeater {
@@ -559,9 +586,11 @@ Item {
                                     anchors.fill: parent
                                     acceptedButtons: Qt.RightButton
                                     enabled: !root.captureMode
+                                    cursorShape: persistentMark.modelData.text ? Qt.IBeamCursor : Qt.ArrowCursor
                                     onClicked: function(mouse) {
                                         root.removingHighlight = persistentMark.modelData.id
                                         root.editingMark = persistentMark.modelData
+                                        root.markMenuPosition = mapToItem(root, mouse.x, mouse.y)
                                         highlightMenu.popup(parent, mouse.x, mouse.y)
                                     }
                                 }
@@ -624,11 +653,7 @@ Item {
                             root.stopSourceMotion()
                             // Do not reinterpret held pixel endpoints at a new zoom/viewport scale.
                             pageHolder.selectionScale = root.pageScale
-                            if (!pageHolder.metricsReady) {
-                                pageText.selectAll()
-                                pageHolder.lineMetrics = selectionGeometry.lineRectangles(pageText.geometry)
-                                pageHolder.metricsReady = true
-                            }
+                            pageHolder.ensureMetrics()
                             root.activated()
                             if (root.activeSelection && root.activeSelection !== selection)
                                 root.activeSelection.clear()
@@ -641,11 +666,6 @@ Item {
                             if (root.tool === "highlight") Qt.callLater(function() { root.highlightSelection() })
                         }
                     }
-                }
-
-                HoverHandler {
-                    enabled: !root.captureMode
-                    cursorShape: Qt.IBeamCursor
                 }
 
                 Repeater {

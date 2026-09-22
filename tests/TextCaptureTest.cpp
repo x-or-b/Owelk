@@ -1,6 +1,12 @@
 #include "ResearchStore.h"
 #include "PdfFixture.h"
 #include "PdfPrinting.h"
+#include "AnnotationImage.h"
+#include <QApplication>
+#include <QPrintDialog>
+#ifdef Q_OS_MACOS
+#include <ImageIO/ImageIO.h>
+#endif
 #include <QPdfDocument>
 #include <QPdfSelection>
 #include <QSignalSpy>
@@ -13,6 +19,50 @@ class TextCaptureTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void printDialogOpensWithoutPrinterAndCancels() {
+        QTemporaryDir dir;
+        const auto path = dir.filePath("print.pdf"); writeFixture(path);
+        ResearchStore store(dir.filePath("data")); QString error; QVERIFY(store.initialize(&error));
+        QSignalSpy loaded(&store, &ResearchStore::highlightsLoaded);
+        store.loadHighlights(QUrl::fromLocalFile(path));
+        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
+        store.printDocument(QUrl::fromLocalFile(path), loaded[0][4].toString(), 8);
+        QVERIFY(store.printing());
+        QPrintDialog *dialog = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (auto *candidate = qobject_cast<QPrintDialog *>(widget)) dialog = candidate;
+        QVERIFY(dialog);
+        dialog->reject();
+        QTRY_VERIFY(!store.printing());
+    }
+    void heicImportOrientationAndLimits() {
+#ifdef Q_OS_MACOS
+        QTemporaryDir dir;
+        const auto path = dir.filePath("sample 한글.HEIC");
+        const auto bytes = QFile::encodeName(path);
+        auto url = CFURLCreateFromFileSystemRepresentation(nullptr,
+            reinterpret_cast<const UInt8 *>(bytes.constData()), bytes.size(), false);
+        auto writer = CGImageDestinationCreateWithURL(url, CFSTR("public.heic"), 1, nullptr);
+        CFRelease(url);
+        QVERIFY(writer);
+        QImage fixture(100, 80, QImage::Format_RGB32); fixture.fill(Qt::red);
+        for (int y = 40; y < 80; ++y) for (int x = 0; x < 100; ++x) fixture.setPixelColor(x, y, Qt::blue);
+        auto image = fixture.toCGImage();
+        CGImageDestinationAddImage(writer, image, nullptr);
+        const bool written = CGImageDestinationFinalize(writer);
+        CGImageRelease(image); CFRelease(writer);
+        if (!written) QSKIP("HEIC fixture encoding is unavailable in this sandbox; run this test with system codec access.");
+        QString error;
+        const auto decoded = readAnnotationImage(QUrl::fromLocalFile(path), &error);
+        QVERIFY2(!decoded.isNull(), qPrintable(error));
+        QCOMPARE(decoded.size(), fixture.size());
+        QVERIFY(decoded.pixelColor(50, 10).red() > 180);
+        QVERIFY(decoded.pixelColor(50, 70).blue() > 180);
+        QVERIFY(readAnnotationImage(QUrl("https://example.invalid/image.heic"), &error).isNull());
+#else
+        QSKIP("Native HEIC import is tested on macOS; other platforms use installed Qt image codecs.");
+#endif
+    }
     void annotationColorsCommentsImagesAndDrawing() {
         QTemporaryDir dir;const auto path=dir.filePath("annotated.pdf");writeFixture(path);
         ResearchStore store(dir.filePath("data"));QString error;QVERIFY(store.initialize(&error));

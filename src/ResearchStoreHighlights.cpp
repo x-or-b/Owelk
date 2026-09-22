@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "AnnotationImage.h"
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QFile>
@@ -125,11 +126,8 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
         QPdfDocument pdf;
         if (pdf.load(source.toLocalFile()) != QPdfDocument::Error::None || page >= pdf.pageCount()) { result.error = "Cannot read this PDF page."; return result; }
         if (kind == "image" && !imageSource.isEmpty()) {
-            QImageReader image(imageSource.toLocalFile()); image.setAutoTransform(true);
-            const auto size = image.size();
-            if (!imageSource.isLocalFile() || !size.isValid() || qint64(size.width()) * size.height() > 25000000) { result.error = "Choose a local image up to 25 megapixels."; return result; }
-            if (qMax(size.width(), size.height()) > 2048) image.setScaledSize(size.scaled(2048, 2048, Qt::KeepAspectRatio));
-            const auto pixels = image.read();
+            const auto pixels = readAnnotationImage(imageSource, &result.error);
+            if (pixels.isNull()) return result;
             if (pixels.isNull() || !QDir().mkpath(assetDirectory)) { result.error = "Cannot read or store this image."; return result; }
             result.asset = QUuid::createUuid().toString(QUuid::WithoutBraces) + ".png";
             result.newPath = assetDirectory + "/" + result.asset;

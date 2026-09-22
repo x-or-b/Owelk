@@ -60,6 +60,9 @@ public:
                                 const QString &color = "#426b9a");
     Q_INVOKABLE bool updateHighlight(const QString &id, const QString &color, const QString &body);
     Q_INVOKABLE void saveAnnotation(const QUrl &source, int page, const QVariantMap &annotation);
+    Q_INVOKABLE QUrl annotationPreviewUrl(const QUrl &source) const {
+        return QUrl(QStringLiteral("image://annotation/") + QString::fromLatin1(source.toEncoded().toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals)));
+    }
     Q_INVOKABLE void printDocument(const QUrl &source, const QString &fingerprint, int pages);
     Q_INVOKABLE int loadHighlights(const QUrl &source);
     Q_INVOKABLE bool removeHighlight(const QString &id);

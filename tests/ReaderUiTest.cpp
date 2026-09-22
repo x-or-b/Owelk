@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "AnnotationImageProvider.h"
 #include "SelectionGeometry.h"
 #include "PdfFixture.h"
 #include <QQmlContext>
@@ -42,6 +43,9 @@ public:
         QCoreApplication::processEvents();
     }
     Q_INVOKABLE QString clipboardText() const { return QGuiApplication::clipboard()->text(); }
+    Q_INVOKABLE int cursorShape(QQuickItem *item) const {
+        return item && item->window() ? item->window()->cursor().shape() : -1;
+    }
     Q_INVOKABLE void keyClick(QQuickItem *item, int key, int modifiers = 0) {
         if (!item || !item->window()) return;
         item->window()->requestActivate();
@@ -70,6 +74,8 @@ public slots:
     void applicationAvailable() {
         QQuickStyle::setStyle("Basic");
         writeFixture(m_directory.filePath("fixture.pdf"));
+        QImage preview(80, 60, QImage::Format_RGB32); preview.fill(Qt::blue);
+        if (!preview.save(m_directory.filePath("preview 한글 %.png"))) qFatal("Cannot create image fixture");
         writeFixture(m_directory.filePath("long.pdf"), "Long PDF benchmark", 120);
         if (!writeOutlineFixture(m_directory.filePath("outline.pdf"))) qFatal("Cannot create outline fixture");
         QDir().mkpath(m_directory.filePath("library/Group"));
@@ -80,12 +86,14 @@ public slots:
         if (!m_store->initialize(&error)) qFatal("%s", qPrintable(error));
     }
     void qmlEngineAvailable(QQmlEngine *engine) {
+        engine->addImageProvider("annotation", new AnnotationImageProvider);
         engine->rootContext()->setContextProperty("initialFiles", QVariantList{});
         engine->rootContext()->setContextProperty("fixtureFolder", QUrl::fromLocalFile(m_directory.filePath("library")));
         engine->rootContext()->setContextProperty("selectionGeometry", &m_geometry);
         engine->rootContext()->setContextProperty("testInput", this);
         engine->rootContext()->setContextProperty("researchStore", m_store);
         engine->rootContext()->setContextProperty("fixtureSource", QUrl::fromLocalFile(m_directory.filePath("fixture.pdf")));
+        engine->rootContext()->setContextProperty("fixtureImage", QUrl::fromLocalFile(m_directory.filePath("preview 한글 %.png")));
         engine->rootContext()->setContextProperty("outlineSource", QUrl::fromLocalFile(m_directory.filePath("outline.pdf")));
         engine->rootContext()->setContextProperty("longSource", QUrl::fromLocalFile(m_directory.filePath("long.pdf")));
         QPdfDocument pdf;

@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "AnnotationImageProvider.h"
 #include "SelectionGeometry.h"
 #include <QCommandLineParser>
 #include <QDir>
@@ -42,6 +43,7 @@ int main(int argc, char *argv[])
 
     SelectionGeometry selectionGeometry;
     QQmlApplicationEngine engine;
+    engine.addImageProvider("annotation", new AnnotationImageProvider);
     engine.rootContext()->setContextProperty("selectionGeometry", &selectionGeometry);
     engine.rootContext()->setContextProperty("researchStore", &store);
     engine.rootContext()->setContextProperty("initialFiles", initialFiles);
