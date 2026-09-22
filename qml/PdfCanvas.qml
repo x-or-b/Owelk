@@ -230,11 +230,13 @@ Item {
         ParallelAnimation {
             NumberAnimation { target: root; property: "spotlightOpacity"; to: 1; duration: 160 }
             NumberAnimation { target: root; property: "spotlightScale"; to: 1; duration: 230; easing.type: Easing.OutBack }
+            NumberAnimation { target: root; property: "spotlightGlow"; to: 1; duration: 230; easing.type: Easing.OutQuad }
         }
-        NumberAnimation { target: root; property: "spotlightGlow"; to: 1; duration: 140; easing.type: Easing.OutQuad }
-        NumberAnimation { target: root; property: "spotlightGlow"; to: 0; duration: 160; easing.type: Easing.InOutQuad }
-        PauseAnimation { duration: 3200 }
-        NumberAnimation { target: root; property: "spotlightOpacity"; to: .4; duration: 600 }
+        ParallelAnimation {
+            objectName: "captureSpotlightFade"
+            NumberAnimation { target: root; property: "spotlightOpacity"; to: 0; duration: Theme.captureFadeDuration; easing.type: Easing.InOutQuad }
+            NumberAnimation { target: root; property: "spotlightGlow"; to: 0; duration: Theme.captureFadeDuration; easing.type: Easing.InOutQuad }
+        }
     }
 
     function copySelection() {

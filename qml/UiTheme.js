@@ -9,3 +9,5 @@ var accentSurface = "#d9dfe6"
 var accentOnDark = "#c5dcf5"
 var accentText = "#243e60"
 var captureBorder = accent
+// Milliseconds from peak emphasis to fully invisible; adjust this to tune capture navigation.
+var captureFadeDuration = 300

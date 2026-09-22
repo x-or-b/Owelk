@@ -46,6 +46,13 @@ Item {
             compare(result.background.color.toString(), "#767676")
             compare(findChild(result, "resultTitle").color.toString(), "#ffffff")
         }
+        function test_selectionHasNoAccentRail() {
+            const result = createTemporaryObject(resultComponent, scene, {
+                modelData: {kind: "paper", title: "Paper.pdf"}, queryText: "", highlighted: true
+            })
+            compare(result.background.color.toString(), "#e9e9e9")
+            compare(result.background.children.length, 0)
+        }
         function bluePixels(item) {
             waitForRendering(scene, 100)
             wait(100)
