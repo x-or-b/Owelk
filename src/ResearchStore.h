@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QRectF>
+#include <QStringList>
 #include <QSqlDatabase>
 #include <QThreadPool>
 #include <QUrl>
@@ -24,11 +25,15 @@ class ResearchStore final : public QObject
     Q_PROPERTY(QVariantMap continueReading READ continueReading NOTIFY homeChanged)
     Q_PROPERTY(QObject *paperIndex READ paperIndex CONSTANT)
     Q_PROPERTY(bool relinking READ relinking NOTIFY relinkingChanged)
+    Q_PROPERTY(QStringList annotationColors READ annotationColors CONSTANT)
 
 public:
     explicit ResearchStore(const QString &directory, QObject *parent = nullptr);
     ~ResearchStore() override;
     bool initialize(QString *error);
+    // The only accepted annotation inks; UiTheme.annotationInks must list the same values.
+    static QStringList annotationColors();
+    static QString defaultAnnotationColor() { return annotationColors().constFirst(); }
     QVariantMap session() const;
     QVariantList captures() const { return m_captures; }
     QVariantList trashedCaptures() const { return m_trashedCaptures; }
@@ -54,10 +59,10 @@ public:
     Q_INVOKABLE void captureText(const QUrl &source, int page, const QPointF &from,
                                 const QPointF &to, const QString &expectedText);
     Q_INVOKABLE void highlightText(const QUrl &source, int page, const QPointF &from,
-                                  const QPointF &to, const QString &expectedText, const QString &color = "#426b9a");
+                                  const QPointF &to, const QString &expectedText, const QString &color = defaultAnnotationColor());
     Q_INVOKABLE void commentText(const QUrl &source, int page, const QPointF &from,
                                 const QPointF &to, const QString &expectedText, const QString &body,
-                                const QString &color = "#426b9a");
+                                const QString &color = defaultAnnotationColor());
     Q_INVOKABLE bool updateHighlight(const QString &id, const QString &color, const QString &body);
     Q_INVOKABLE void saveAnnotation(const QUrl &source, int page, const QVariantMap &annotation);
     Q_INVOKABLE QUrl annotationPreviewUrl(const QUrl &source) const {
@@ -72,6 +77,8 @@ public:
     Q_INVOKABLE int listFolder(const QUrl &folder);
     Q_INVOKABLE QVariantMap readingPosition(const QUrl &source) const;
     Q_INVOKABLE QVariantList searchKnowledge(const QString &query, const QUrl &source = QUrl(), const QString &target = "all") const;
+    // Same results as searchKnowledge, computed off the UI thread; answered by knowledgeFound(request, rows).
+    Q_INVOKABLE int searchKnowledgeAsync(const QString &query, const QUrl &source = QUrl(), const QString &target = "all");
     Q_INVOKABLE QString createWorkspace(const QString &name);
     Q_INVOKABLE QVariantMap loadWorkspace(const QString &id);
     Q_INVOKABLE bool saveWorkspace(const QString &id, const QVariantMap &state);
@@ -95,6 +102,7 @@ signals:
     void printingChanged();
     void message(const QString &text);
     void captureSaved(const QString &id);
+    void knowledgeFound(int request, const QVariantList &results);
     void sourceReady(const QUrl &source, int page, const QRectF &region);
     void folderLoaded(int requestId, const QUrl &folder, const QVariantList &entries, const QString &error);
     void homeChanged();
@@ -107,7 +115,7 @@ signals:
 
 private:
     void saveTextSelection(const QUrl &source, int page, const QPointF &from, const QPointF &to,
-                           const QString &expectedText, bool asHighlight, const QString &color = "#426b9a",
+                           const QString &expectedText, bool asHighlight, const QString &color = defaultAnnotationColor(),
                            const QString &kind = "highlight", const QString &body = QString());
     void reloadCaptures();
     QVariantList readCaptures(bool trashed) const;
@@ -120,10 +128,14 @@ private:
     QSqlDatabase m_database;
     QVariantList m_captures;
     QVariantList m_trashedCaptures;
+    // Writes (captures, annotations, relink, print) stay ordered on one thread.
+    // Read-only source checks and folder listing use their own pool so a click never waits behind a save.
     QThreadPool m_workers;
+    QThreadPool m_verifiers;
     int m_pending = 0;
     int m_folderRequest = 0;
     int m_highlightRequest = 0;
+    int m_knowledgeRequest = 0;
     bool m_printing = false;
     PaperIndex *m_index;
 };

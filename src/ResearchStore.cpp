@@ -1,9 +1,10 @@
 #include "ResearchStore.h"
+#include "FileFingerprint.h"
+#include "SchemaMigration.h"
 #include "PaperIndex.h"
 #include "SelectionGeometry.h"
 
 #include <QClipboard>
-#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -55,14 +56,7 @@ QVariantList readers(const QVariantMap &state)
     }
     return result;
 }
-QString fingerprint(const QString &path)
-{
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) return {};
-    QCryptographicHash hash(QCryptographicHash::Sha256);
-    if (!hash.addData(&file)) return {};
-    return QString::fromLatin1(hash.result().toHex());
-}
+QString fingerprint(const QString &path) { return FileFingerprint::sha256(path); }
 
 struct CaptureResult {
     QString id, path, hash, error;
@@ -82,14 +76,21 @@ ResearchStore::ResearchStore(const QString &directory, QObject *parent)
     : QObject(parent), m_directory(directory), m_connection(QUuid::createUuid().toString()), m_index(new PaperIndex(directory, this))
 {
     m_workers.setMaxThreadCount(1);
+    m_verifiers.setMaxThreadCount(2);
     connect(m_index, &PaperIndex::message, this, &ResearchStore::message);
 }
 
 QObject *ResearchStore::paperIndex() const { return m_index; }
 
+QStringList ResearchStore::annotationColors()
+{
+    return {"#426b9a", "#e0b83f", "#54a878", "#d87797", "#9274c3"};
+}
+
 ResearchStore::~ResearchStore()
 {
     m_workers.waitForDone();
+    m_verifiers.waitForDone();
     m_database.close();
     m_database = QSqlDatabase();
     QSqlDatabase::removeDatabase(m_connection);
@@ -107,54 +108,63 @@ bool ResearchStore::initialize(QString *error)
         *error = m_database.lastError().text();
         return false;
     }
-    const QStringList statements = {
-        "PRAGMA journal_mode=WAL",
-        "PRAGMA busy_timeout=3000",
-        "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS recent_documents (url TEXT PRIMARY KEY, opened_at TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS reading_positions (url TEXT PRIMARY KEY, position TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, state TEXT NOT NULL, opened_at TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS workspace_documents (workspace_id TEXT NOT NULL, url TEXT NOT NULL, PRIMARY KEY(workspace_id,url))",
-        "CREATE TABLE IF NOT EXISTS workspace_document_exclusions (workspace_id TEXT NOT NULL, url TEXT NOT NULL, PRIMARY KEY(workspace_id,url))",
-        "CREATE TABLE IF NOT EXISTS workspace_captures (workspace_id TEXT NOT NULL, capture_id TEXT NOT NULL, PRIMARY KEY(workspace_id,capture_id))",
-        "CREATE TABLE IF NOT EXISTS deleted_workspaces (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS deleted_captures (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS source_relinks (old_url TEXT PRIMARY KEY,new_url TEXT NOT NULL,sha256 TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, "
-        "sha256 TEXT NOT NULL, page INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, "
-        "width REAL NOT NULL, height REAL NOT NULL, image TEXT NOT NULL, created_at TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS text_captures (capture_id TEXT PRIMARY KEY, text TEXT NOT NULL, "
-        "start_index INTEGER NOT NULL, end_index INTEGER NOT NULL, prefix TEXT NOT NULL, suffix TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS capture_notes (capture_id TEXT PRIMARY KEY, body TEXT NOT NULL, updated_at TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS highlights (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
-        "page INTEGER NOT NULL,text TEXT NOT NULL,rectangles TEXT NOT NULL,start_index INTEGER NOT NULL, "
-        "end_index INTEGER NOT NULL,created_at TEXT NOT NULL,deleted_at TEXT)",
-        "CREATE INDEX IF NOT EXISTS highlights_source ON highlights(source)"
-    };
-    for (const auto &sql : statements) {
+    for (const auto &pragma : {"PRAGMA journal_mode=WAL", "PRAGMA busy_timeout=3000"}) {
         QSqlQuery query(m_database);
-        if (!query.exec(sql)) {
-            *error = query.lastError().text();
-            return false;
-        }
+        if (!query.exec(pragma)) { *error = query.lastError().text(); return false; }
     }
-    // Additive migration: retain all existing highlight IDs and geometry.
-    QSet<QString> highlightColumns;
-    QSqlQuery columns(m_database);
-    if (!columns.exec("PRAGMA table_info(highlights)")) { *error = columns.lastError().text(); return false; }
-    while (columns.next()) highlightColumns.insert(columns.value(1).toString());
-    columns.finish();
-    const QList<QPair<QString, QString>> additions{{"color", "TEXT NOT NULL DEFAULT '#426b9a'"},
-        {"kind", "TEXT NOT NULL DEFAULT 'highlight'"}, {"body", "TEXT NOT NULL DEFAULT ''"},
-        {"image", "TEXT NOT NULL DEFAULT ''"}, {"drawing", "TEXT NOT NULL DEFAULT '[]'"}};
-    if (!m_database.transaction()) { *error = m_database.lastError().text(); return false; }
-    for (const auto &column : additions) if (!highlightColumns.contains(column.first)) {
-        QSqlQuery change(m_database);
-        if (!change.exec("ALTER TABLE highlights ADD COLUMN " + column.first + " " + column.second)) {
-            *error = change.lastError().text(); m_database.rollback(); return false;
-        }
-    }
-    if (!m_database.commit()) { *error = m_database.lastError().text(); m_database.rollback(); return false; }
+    // Append new steps; never edit a released step. Step 1 is the idempotent pre-versioning baseline.
+    const QList<SchemaStep> steps = {
+        {1, {
+            "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS recent_documents (url TEXT PRIMARY KEY, opened_at TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS reading_positions (url TEXT PRIMARY KEY, position TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, state TEXT NOT NULL, opened_at TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS workspace_documents (workspace_id TEXT NOT NULL, url TEXT NOT NULL, PRIMARY KEY(workspace_id,url))",
+            "CREATE TABLE IF NOT EXISTS workspace_document_exclusions (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "
+            "PRIMARY KEY(workspace_id,url))",
+            "CREATE TABLE IF NOT EXISTS workspace_captures (workspace_id TEXT NOT NULL, capture_id TEXT NOT NULL, "
+            "PRIMARY KEY(workspace_id,capture_id))",
+            "CREATE TABLE IF NOT EXISTS deleted_workspaces (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS deleted_captures (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS source_relinks (old_url TEXT PRIMARY KEY,new_url TEXT NOT NULL,sha256 TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, "
+            "sha256 TEXT NOT NULL, page INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, "
+            "width REAL NOT NULL, height REAL NOT NULL, image TEXT NOT NULL, created_at TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS text_captures (capture_id TEXT PRIMARY KEY, text TEXT NOT NULL, "
+            "start_index INTEGER NOT NULL, end_index INTEGER NOT NULL, prefix TEXT NOT NULL, suffix TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS capture_notes (capture_id TEXT PRIMARY KEY, body TEXT NOT NULL, updated_at TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS highlights (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
+            "page INTEGER NOT NULL,text TEXT NOT NULL,rectangles TEXT NOT NULL,start_index INTEGER NOT NULL, "
+            "end_index INTEGER NOT NULL,created_at TEXT NOT NULL,deleted_at TEXT)",
+            "CREATE INDEX IF NOT EXISTS highlights_source ON highlights(source)"
+        }, [](QSqlDatabase &db, QString *error) {
+            // Annotation columns were added before versioning; add only the ones an older file lacks.
+            QSet<QString> present;
+            QSqlQuery columns(db);
+            if (!columns.exec("PRAGMA table_info(highlights)")) { *error = columns.lastError().text(); return false; }
+            while (columns.next()) present.insert(columns.value(1).toString());
+            columns.finish();
+            const QList<QPair<QString, QString>> additions{
+                {"color", QStringLiteral("TEXT NOT NULL DEFAULT '%1'").arg(ResearchStore::defaultAnnotationColor())},
+                {"kind", "TEXT NOT NULL DEFAULT 'highlight'"}, {"body", "TEXT NOT NULL DEFAULT ''"},
+                {"image", "TEXT NOT NULL DEFAULT ''"}, {"drawing", "TEXT NOT NULL DEFAULT '[]'"}};
+            for (const auto &column : additions) {
+                if (present.contains(column.first)) continue;
+                QSqlQuery change(db);
+                if (!change.exec("ALTER TABLE highlights ADD COLUMN " + column.first + " " + column.second)) {
+                    *error = change.lastError().text();
+                    return false;
+                }
+            }
+            return true;
+        }},
+        {2, {
+            // Search and capture lists filter by these columns on every query.
+            "CREATE INDEX IF NOT EXISTS highlights_live ON highlights(deleted_at, created_at)",
+            "CREATE INDEX IF NOT EXISTS captures_source ON captures(source)"
+        }},
+    };
+    if (!migrateSchema(m_database, steps, error)) return false;
     reloadCaptures();
     QSqlQuery links(m_database);
     links.exec("SELECT old_url,new_url FROM source_relinks");
@@ -411,90 +421,6 @@ bool ResearchStore::saveWorkspace(const QString &id, const QVariantMap &input)
     return true;
 }
 
-QVariantList ResearchStore::searchKnowledge(const QString &queryText, const QUrl &scope, const QString &target) const
-{
-    const auto needle = queryText.trimmed();
-    if (needle.isEmpty()) return {};
-    QVariantList results;
-    QSqlQuery papers(m_database);
-    papers.exec("SELECT url FROM recent_documents ORDER BY opened_at DESC");
-    int count = 0;
-    QSet<QUrl> matchedPapers;
-    while (papers.next() && count < 20) {
-        if (target != "all" && target != "filename") break;
-        const QUrl url(papers.value(0).toString());
-        if (!scope.isEmpty() && url != scope) continue;
-        const QString title = fileName(url);
-        if (!title.contains(needle, Qt::CaseInsensitive)) continue;
-        results.append(QVariantMap{{"kind", "paper"}, {"title", title}, {"source", url}, {"position", readingPosition(url)}});
-        matchedPapers.insert(url);
-        ++count;
-    }
-    if (target == "all" || target == "filename") {
-        for (const auto &entry : m_index->documents()) {
-            if (count >= 20) break;
-            const auto paper = entry.toMap();
-            const auto url = paper.value("source").toUrl();
-            if (matchedPapers.contains(url) || (!scope.isEmpty() && url != scope)
-                || !paper.value("title").toString().contains(needle, Qt::CaseInsensitive)) continue;
-            results.append(QVariantMap{{"kind", "paper"}, {"title", paper.value("title")}, {"source", url}, {"position", readingPosition(url)}});
-            ++count;
-        }
-    }
-    count = 0;
-    for (const auto &value : m_captures) {
-        if (target != "all" && target != "captures") break;
-        const auto capture = value.toMap();
-        if (!scope.isEmpty() && capture.value("source").toUrl() != scope) continue;
-        const auto note = capture.value("note").toString();
-        const int at = note.indexOf(needle, 0, Qt::CaseInsensitive);
-        if (at < 0) continue;
-        const int start = qMax(0, at - 60);
-        results.append(QVariantMap{{"kind", "note"}, {"id", capture.value("id")}, {"source", capture.value("source")},
-            {"title", "Note · " + capture.value("name").toString() + " · p. " + QString::number(capture.value("page").toInt() + 1)},
-            {"snippet", (start ? QStringLiteral("…") : QStringLiteral("")) + note.mid(start, qMax(200, needle.size()))}});
-        if (++count >= 20) break;
-    }
-    count = 0;
-    for (const auto &value : m_captures) {
-        if (target != "all" && target != "captures") break;
-        const auto capture = value.toMap();
-        if (!scope.isEmpty() && capture.value("source").toUrl() != scope) continue;
-        const auto title = capture.value("name").toString() + " · p. " + QString::number(capture.value("page").toInt() + 1);
-        const auto text = capture.value("text").toString();
-        const int match = text.indexOf(needle, 0, Qt::CaseInsensitive);
-        if (!title.contains(needle, Qt::CaseInsensitive) && match < 0) continue;
-        const int start = qMax(0, match - 60);
-        const auto snippet = (start ? QStringLiteral("…") : QStringLiteral("")) + text.mid(start, qMax(200, needle.size()));
-        results.append(QVariantMap{{"kind", "capture"}, {"title", title}, {"id", capture.value("id")}, {"source", capture.value("source")}, {"snippet", snippet}});
-        if (++count >= 20) break;
-    }
-    if (target == "all") {
-        QSqlQuery highlights(m_database);
-        highlights.prepare("SELECT id,source,page,text,body,kind FROM highlights WHERE deleted_at IS NULL AND instr(lower(text || ' ' || body),lower(?))>0 "
-                           "AND (?=1 OR source=?) ORDER BY created_at DESC LIMIT 20");
-        highlights.addBindValue(needle); highlights.addBindValue(scope.isEmpty()); highlights.addBindValue(scope.toString());
-        if (highlights.exec()) while (highlights.next()) {
-            const QUrl source(highlights.value(1).toString());
-            const auto text = highlights.value(3).toString() + " " + highlights.value(4).toString();
-            const int start = qMax(0, text.indexOf(needle, 0, Qt::CaseInsensitive) - 60);
-            results.append(QVariantMap{{"kind", "highlight"}, {"id", highlights.value(0)}, {"source", source},
-                {"title", fileName(source) + " · p. " + QString::number(highlights.value(2).toInt() + 1)},
-                {"snippet", text.mid(start, qMax(200, needle.size()))}});
-        }
-    }
-    QSqlQuery workspaces(m_database);
-    workspaces.exec("SELECT id,name FROM workspaces WHERE id NOT IN (SELECT id FROM deleted_workspaces) ORDER BY opened_at DESC");
-    count = 0;
-    while (workspaces.next() && count < 20) {
-        if (target != "all" || !scope.isEmpty()) break;
-        if (!workspaces.value(1).toString().contains(needle, Qt::CaseInsensitive)) continue;
-        results.append(QVariantMap{{"kind", "workspace"}, {"title", workspaces.value(1)}, {"id", workspaces.value(0)}});
-        ++count;
-    }
-    return results;
-}
-
 void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &requested)
 {
     if (m_relinking) { emit message("Please wait until source verification finishes before capturing."); return; }
@@ -608,7 +534,7 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
                                      const QPointF &to, const QString &expectedText, bool asHighlight,
                                      const QString &color, const QString &kind, const QString &body)
 {
-    if (asHighlight && !QStringList{"#426b9a", "#e0b83f", "#54a878", "#d87797", "#9274c3"}.contains(color)) { emit message("Choose a supported highlight color."); emit annotationFinished(false, ""); return; }
+    if (asHighlight && !annotationColors().contains(color)) { emit message("Choose a supported highlight color."); emit annotationFinished(false, ""); return; }
     if (m_relinking) { emit message("Please wait until source verification finishes before capturing."); if (asHighlight) emit annotationFinished(false, ""); return; }
     if (!source.isLocalFile() || page < 0 || expectedText.trimmed().isEmpty()
         || expectedText.size() > 100000 || !std::isfinite(from.x()) || !std::isfinite(from.y())
@@ -758,7 +684,7 @@ void ResearchStore::openCapture(const QString &id)
         else
             emit sourceReady(url, page, rect);
     });
-    watcher->setFuture(QtConcurrent::run(&m_workers, [url] { return fingerprint(url.toLocalFile()); }));
+    watcher->setFuture(QtConcurrent::run(&m_verifiers, [url] { return fingerprint(url.toLocalFile()); }));
 }
 
 void ResearchStore::copyText(const QString &text)
@@ -871,7 +797,7 @@ int ResearchStore::listFolder(const QUrl &folder)
         watcher->deleteLater();
         emit folderLoaded(requestId, folder, result.entries, result.error);
     });
-    watcher->setFuture(QtConcurrent::run(&m_workers, [folder] {
+    watcher->setFuture(QtConcurrent::run(&m_verifiers, [folder] {
         Result result;
         const QFileInfo info(folder.toLocalFile());
         if (!folder.isLocalFile() || !info.isDir() || !info.isReadable()) {

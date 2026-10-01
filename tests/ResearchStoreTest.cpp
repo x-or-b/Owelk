@@ -1,6 +1,7 @@
 #include "ResearchStore.h"
 #include "SelectionGeometry.h"
 #include "PdfFixture.h"
+#include <QDir>
 #include <QFile>
 #include <QImage>
 #include <QPdfDocument>
@@ -14,6 +15,44 @@ class ResearchStoreTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void unversionedDataMigratesInPlaceAndNewerIsRefused() {
+        QTemporaryDir directory;
+        QVERIFY(QDir().mkpath(directory.filePath("data")));
+        const auto file = directory.filePath("data/owelk.sqlite3");
+        {
+            // A pre-versioning file: highlights without annotation columns, one existing row.
+            auto db = QSqlDatabase::addDatabase("QSQLITE", "legacy");
+            db.setDatabaseName(file); QVERIFY(db.open());
+            QSqlQuery query(db);
+            QVERIFY(query.exec("CREATE TABLE highlights (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
+                               "page INTEGER NOT NULL,text TEXT NOT NULL,rectangles TEXT NOT NULL,start_index INTEGER NOT NULL, "
+                               "end_index INTEGER NOT NULL,created_at TEXT NOT NULL,deleted_at TEXT)"));
+            QVERIFY(query.exec("INSERT INTO highlights VALUES('kept','file:///a.pdf','h',0,'old text','[]',0,8,'2026-01-01',NULL)"));
+            db.close();
+        }
+        QSqlDatabase::removeDatabase("legacy");
+        {
+            ResearchStore store(directory.filePath("data")); QString error;
+            QVERIFY2(store.initialize(&error), qPrintable(error));
+            QCOMPARE(store.searchKnowledge("old text").size(), 1);
+        }
+        {
+            auto db = QSqlDatabase::addDatabase("QSQLITE", "check");
+            db.setDatabaseName(file); QVERIFY(db.open());
+            QSqlQuery query(db);
+            QVERIFY(query.exec("SELECT color,kind FROM highlights WHERE id='kept'") && query.next());
+            QCOMPARE(query.value(0).toString(), ResearchStore::defaultAnnotationColor());
+            QCOMPARE(query.value(1).toString(), QString("highlight"));
+            QVERIFY(query.exec("PRAGMA user_version") && query.next());
+            QVERIFY(query.value(0).toInt() >= 2);
+            QVERIFY(query.exec("PRAGMA user_version=99"));
+            db.close();
+        }
+        QSqlDatabase::removeDatabase("check");
+        ResearchStore newer(directory.filePath("data")); QString error;
+        QVERIFY(!newer.initialize(&error));
+        QVERIFY(error.contains("newer Owelk"));
+    }
     void captureRestorePersistsNotesImagesAndLinks() {
         QTemporaryDir directory;
         const auto path = directory.filePath("preserved.pdf"); writeFixture(path);

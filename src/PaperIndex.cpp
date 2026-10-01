@@ -1,9 +1,10 @@
 #include "PaperIndex.h"
+#include "FileFingerprint.h"
+#include "SchemaMigration.h"
+#include "WorkerConnection.h"
 
-#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
-#include <QFile>
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QPdfDocument>
@@ -17,28 +18,10 @@
 
 namespace {
 constexpr int extractorVersion = 1;
-struct Connection {
-    QString name = QUuid::createUuid().toString();
-    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", name);
-    explicit Connection(const QString &path) {
-        db.setDatabaseName(path);
-        db.setConnectOptions("QSQLITE_BUSY_TIMEOUT=3000");
-        db.open();
-    }
-    ~Connection() { db.close(); db = {}; QSqlDatabase::removeDatabase(name); }
-};
+using Connection = WorkerConnection;
 QString hashFile(const QString &path, const std::shared_ptr<std::atomic_bool> &cancel)
 {
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) return {};
-    QCryptographicHash hash(QCryptographicHash::Sha256);
-    while (!file.atEnd()) {
-        if (cancel->load()) return {};
-        const auto chunk = file.read(1024 * 1024);
-        if (chunk.isEmpty() && file.error() != QFile::NoError) return {};
-        hash.addData(chunk);
-    }
-    return QString::fromLatin1(hash.result().toHex());
+    return FileFingerprint::sha256(path, cancel.get());
 }
 QString normalize(QString text)
 {
@@ -72,13 +55,21 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source,
     query.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
     query.addBindValue(source.toString());
     if (!query.exec()) return {query.lastError().text()};
-    query.prepare("SELECT id,sha256,version,state FROM documents WHERE url=?");
+    query.prepare("SELECT id,sha256,version,state,stamp FROM documents WHERE url=?");
     query.addBindValue(source.toString());
     if (!query.exec() || !query.next()) return {"Cannot read search document record."};
     const auto id = query.value(0).toString(), oldHash = query.value(1).toString();
     const int version = query.value(2).toInt();
     const auto state = query.value(3).toString();
+    const auto oldStamp = FileFingerprint::Stamp::fromString(query.value(4).toString());
     query.finish();
+    const bool current = version == extractorVersion && (state == "ready" || state == "empty") && !oldHash.isEmpty();
+    // Startup revalidation: an unchanged file stamp proves the indexed bytes are current without reading the PDF.
+    const auto startStamp = FileFingerprint::stamp(source.toLocalFile());
+    if (current && oldStamp.isValid() && oldStamp == startStamp) {
+        FileFingerprint::remember(source.toLocalFile(), startStamp, oldHash);
+        return {};
+    }
     auto fail = [&](const QString &state, const QString &error) -> IndexResult {
         db.rollback();
         QSqlQuery status(db);
@@ -91,7 +82,13 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source,
     const auto hash = hashFile(source.toLocalFile(), cancel);
     if (cancel->load()) return fail("paused", {});
     if (hash.isEmpty()) return fail("missing", "Cannot read the original PDF. Check its path and permissions.");
-    if (hash == oldHash && version == extractorVersion && (state == "ready" || state == "empty")) return {};
+    if (hash == oldHash && current) {
+        // Same bytes under a new stamp (e.g. copied back or touched): record the stamp so the next start is free.
+        query.prepare("UPDATE documents SET stamp=? WHERE id=?");
+        query.addBindValue(startStamp.toString()); query.addBindValue(id);
+        if (!query.exec()) return {query.lastError().text()};
+        return {};
+    }
     query.prepare("UPDATE documents SET state='indexing',error='' WHERE id=?");
     query.addBindValue(id);
     if (!query.exec()) return {query.lastError().text()};
@@ -122,10 +119,11 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source,
     const auto finalHash = hashFile(source.toLocalFile(), cancel);
     if (cancel->load()) return fail("paused", {});
     if (finalHash != hash) return fail("failed", "The PDF changed during indexing. Retry when the file is stable.");
-    query.prepare("UPDATE documents SET sha256=?,version=?,state=?,pages=?,text_pages=?,error='',indexed_at=? WHERE id=?");
+    query.prepare("UPDATE documents SET sha256=?,version=?,state=?,pages=?,text_pages=?,error='',indexed_at=?,stamp=? WHERE id=?");
     query.addBindValue(hash); query.addBindValue(extractorVersion); query.addBindValue(textPages ? "ready" : "empty");
     query.addBindValue(pdf.pageCount()); query.addBindValue(textPages);
-    query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)); query.addBindValue(id);
+    query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+    query.addBindValue(startStamp.toString()); query.addBindValue(id);
     if (!query.exec()) return fail("failed", query.lastError().text());
     if (!db.commit()) return fail("failed", db.lastError().text());
     return {};
@@ -135,7 +133,7 @@ SearchResult findGroupedText(const QString &path, const QString &input, const QU
 {
     const auto match = matchQuery(input);
     if (match.isEmpty()) return {};
-    Connection connection(path);
+    Connection connection(path, true);
     if (!connection.db.isOpen()) return {{}, connection.db.lastError().text()};
     const bool scoped = !scope.isEmpty();
     offset = qMax(0, offset);
@@ -194,7 +192,7 @@ SearchResult findText(const QString &path, const QString &input)
 {
     const auto match = matchQuery(input);
     if (match.isEmpty()) return {};
-    Connection connection(path);
+    Connection connection(path, true);
     if (!connection.db.isOpen()) return {{}, connection.db.lastError().text()};
     QSqlQuery query(connection.db);
     if (!query.prepare("SELECT d.id,d.url,d.sha256,pages.page,snippet(pages.pages,2,'','',' … ',32) "
@@ -232,21 +230,30 @@ bool PaperIndex::initialize(QString *error)
     m_database = QSqlDatabase::addDatabase("QSQLITE", m_connection);
     m_database.setDatabaseName(m_path);
     if (!m_database.open()) { *error = m_database.lastError().text(); return false; }
-    const QStringList statements = {
-        "PRAGMA journal_mode=WAL", "PRAGMA busy_timeout=3000",
-        "CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY,url TEXT UNIQUE NOT NULL,sha256 TEXT NOT NULL DEFAULT '',"
-        "version INTEGER NOT NULL DEFAULT 0,state TEXT NOT NULL,error TEXT NOT NULL DEFAULT '',pages INTEGER NOT NULL DEFAULT 0,"
-        "text_pages INTEGER NOT NULL DEFAULT 0,indexed_at TEXT)",
-        "CREATE VIRTUAL TABLE IF NOT EXISTS pages USING fts5(document_id UNINDEXED,page UNINDEXED,text,tokenize='unicode61 remove_diacritics 2')"
-    };
-    for (const auto &sql : statements) {
+    for (const auto &pragma : {"PRAGMA journal_mode=WAL", "PRAGMA busy_timeout=3000"}) {
         QSqlQuery query(m_database);
-        if (!query.exec(sql)) { *error = query.lastError().text(); return false; }
+        if (!query.exec(pragma)) { *error = query.lastError().text(); return false; }
     }
+    const QList<SchemaStep> steps = {
+        {1, {"CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY,url TEXT UNIQUE NOT NULL,sha256 TEXT NOT NULL DEFAULT '',"
+             "version INTEGER NOT NULL DEFAULT 0,state TEXT NOT NULL,error TEXT NOT NULL DEFAULT '',pages INTEGER NOT NULL DEFAULT 0,"
+             "text_pages INTEGER NOT NULL DEFAULT 0,indexed_at TEXT)",
+             "CREATE VIRTUAL TABLE IF NOT EXISTS pages USING fts5(document_id UNINDEXED,page UNINDEXED,text,"
+             "tokenize='unicode61 remove_diacritics 2')"}},
+        {2, {"ALTER TABLE documents ADD COLUMN stamp TEXT NOT NULL DEFAULT ''"}},
+    };
+    if (!migrateSchema(m_database, steps, error)) return false;
     // Revalidate persisted sources after every restart, including interrupted documents.
+    // Known hashes are seeded first so opening a PDF does not wait for its own revalidation.
     QSqlQuery query(m_database);
-    query.exec("SELECT url FROM documents");
-    while (query.next()) enqueue(QUrl(query.value(0).toString()));
+    query.exec("SELECT url,sha256,stamp FROM documents");
+    while (query.next()) {
+        const QUrl url(query.value(0).toString());
+        if (url.isLocalFile())
+            FileFingerprint::remember(url.toLocalFile(), FileFingerprint::Stamp::fromString(query.value(2).toString()),
+                                      query.value(1).toString());
+        enqueue(url);
+    }
     return true;
 }
 QVariantList PaperIndex::documents() const

@@ -1,4 +1,5 @@
 #include "PaperIndex.h"
+#include "FileFingerprint.h"
 #include "PdfFixture.h"
 #include <QFile>
 #include <QSignalSpy>
@@ -33,6 +34,69 @@ class PaperIndexTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void fingerprintCacheDetectsRewriteWithRestoredTime() {
+        QTemporaryDir dir;
+        const auto path = dir.filePath("same-size.pdf");
+        const auto write = [&](const QByteArray &bytes) {
+            QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); file.write(bytes);
+        };
+        write("first version");
+        const auto modified = QFileInfo(path).lastModified();
+        const int reads = FileFingerprint::hashReads();
+        const auto first = FileFingerprint::sha256(path);
+        QVERIFY(!first.isEmpty());
+        QCOMPARE(FileFingerprint::sha256(path), first);
+        QCOMPARE(FileFingerprint::hashReads(), reads + 1); // The second check is a stamp comparison only.
+        write("other version"); // Same size; then restore the old modification time.
+        QFile file(path); QVERIFY(file.open(QIODevice::ReadWrite));
+        QVERIFY(file.setFileTime(modified, QFileDevice::FileModificationTime)); file.close();
+        const auto second = FileFingerprint::sha256(path);
+        QVERIFY(!second.isEmpty()); QVERIFY(second != first);
+        QVERIFY(FileFingerprint::sha256(dir.filePath("missing.pdf")).isEmpty());
+    }
+    void restartSkipsUnchangedFilesButReindexesChanges() {
+        QTemporaryDir dir;
+        const auto a = QUrl::fromLocalFile(dir.filePath("a.pdf"));
+        textFixture(a.toLocalFile(), {"stableword evidence"});
+        QString error;
+        {
+            PaperIndex index(dir.path());
+            QVERIFY2(index.initialize(&error), qPrintable(error)); index.enqueue(a);
+            QTRY_VERIFY_WITH_TIMEOUT(!index.busy(), 10000);
+        }
+        FileFingerprint::clearCache();
+        const int reads = FileFingerprint::hashReads();
+        {
+            PaperIndex index(dir.path());
+            QVERIFY2(index.initialize(&error), qPrintable(error));
+            QTRY_VERIFY_WITH_TIMEOUT(!index.busy(), 10000);
+            QCOMPARE(FileFingerprint::hashReads(), reads); // No PDF was read to revalidate an unchanged file.
+            QCOMPARE(find(index, "stableword").size(), 1);
+            QCOMPARE(index.knownHash(a), FileFingerprint::sha256(a.toLocalFile()));
+            QCOMPARE(FileFingerprint::hashReads(), reads); // Startup seeded the verified hash.
+        }
+        textFixture(a.toLocalFile(), {"freshword evidence"});
+        FileFingerprint::clearCache();
+        PaperIndex index(dir.path());
+        QVERIFY2(index.initialize(&error), qPrintable(error));
+        QTRY_VERIFY_WITH_TIMEOUT(!index.busy(), 10000);
+        QCOMPARE(find(index, "freshword").size(), 1);
+        QVERIFY(find(index, "stableword").isEmpty());
+    }
+    void refusesNewerSchema() {
+        QTemporaryDir dir;
+        QString error;
+        { PaperIndex index(dir.path()); QVERIFY2(index.initialize(&error), qPrintable(error)); }
+        {
+            auto db = QSqlDatabase::addDatabase("QSQLITE", "newer");
+            db.setDatabaseName(dir.filePath("search.sqlite3")); QVERIFY(db.open());
+            QSqlQuery(db).exec("PRAGMA user_version=99"); db.close();
+        }
+        QSqlDatabase::removeDatabase("newer");
+        PaperIndex index(dir.path());
+        QVERIFY(!index.initialize(&error));
+        QVERIFY(error.contains("newer Owelk"));
+    }
     void groupedResultsAndPaperScope() {
         QTemporaryDir directory;
         const auto a = QUrl::fromLocalFile(directory.filePath("Paper A.pdf"));

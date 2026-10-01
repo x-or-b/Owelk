@@ -1,6 +1,6 @@
 #include "ResearchStore.h"
 #include "PaperIndex.h"
-#include <QCryptographicHash>
+#include "FileFingerprint.h"
 #include <QFile>
 #include <QFileInfo>
 #include <QFutureWatcher>
@@ -12,13 +12,7 @@
 #include <QtConcurrent>
 
 namespace {
-QString hashFile(const QString &path)
-{
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) return {};
-    QCryptographicHash hash(QCryptographicHash::Sha256);
-    return hash.addData(&file) ? QString::fromLatin1(hash.result().toHex()) : QString();
-}
+QString hashFile(const QString &path) { return FileFingerprint::sha256(path); }
 QVariant rewrite(const QVariant &value, const std::function<QString(const QString &)> &resolve)
 {
     if (value.metaType().id() == QMetaType::QVariantMap) {

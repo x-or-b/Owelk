@@ -8,7 +8,11 @@ QtObject {
     property var results: []
     property var names: []
     property int request: -1
-    property bool waiting: false
+    property int namesRequest: -1
+    property var textRows: []
+    property bool namesPending: false
+    property bool textPending: false
+    readonly property bool waiting: namesPending || textPending
     property string error: ""
     property url sourceFilter: ""
     property string targetFilter: "all"
@@ -48,19 +52,25 @@ QtObject {
         preferredIndex = Math.max(0, previous.index || 0)
         changing = false; refresh()
     }
-    function invalidate() { request = -1; waiting = false; results = []; error = "" }
+    function invalidate() {
+        request = -1; namesRequest = -1; namesPending = false; textPending = false
+        names = []; textRows = []; results = []; error = ""
+    }
+    // Saved items come first; publish only once they are known so the selection does not jump.
+    function publish() { if (!namesPending) results = names.concat(textRows) }
     function refresh() {
         delay.stop()
         invalidate()
         if (!active) return
         const needle = query.trim()
-        names = needle.length && offset === 0 ? researchStore.searchKnowledge(needle, sourceFilter, targetFilter)
-            : showRecent ? researchStore.recentDocuments.map(function(p) { return {kind: "paper", title: p.name, source: p.url, position: p.position} }) : []
-        if (needle.length && offset > 0) names = []
-        if (!needle.length && (sourceFilter.toString().length || targetFilter === "text" || targetFilter === "captures")) names = []
-        results = names
+        if (needle.length && offset === 0) {
+            namesPending = true; namesRequest = researchStore.searchKnowledgeAsync(needle, sourceFilter, targetFilter)
+        } else if (!needle.length && showRecent && !sourceFilter.toString().length && targetFilter !== "text" && targetFilter !== "captures") {
+            names = researchStore.recentDocuments.map(function(p) { return {kind: "paper", title: p.name, source: p.url, position: p.position} })
+        }
+        publish()
         if (needle.length && (targetFilter === "all" || targetFilter === "text")) {
-            waiting = true; request = researchStore.paperIndex.searchGrouped(needle, sourceFilter, offset)
+            textPending = true; request = researchStore.paperIndex.searchGrouped(needle, sourceFilter, offset)
         }
     }
     onQueryChanged: { offset = 0; history = []; preferredIndex = 0; invalidate(); if (active) delay.restart() }
@@ -69,14 +79,18 @@ QtObject {
     property Connections storeUpdates: Connections {
         target: researchStore
         function onHomeChanged() { if (root.active) root.delay.restart() }
+        function onKnowledgeFound(id, rows) {
+            if (!root.active || root.namesRequest !== id) return
+            root.names = rows; root.namesPending = false; root.publish()
+        }
     }
     property Connections indexUpdates: Connections {
         target: researchStore.paperIndex
         function onContentsChanged() { if (root.active && root.query.trim().length) root.delay.restart() }
         function onSearchFinished(id, rows, error) {
             if (!root.active || root.request !== id) return
-            root.waiting = false; root.error = error
-            root.results = root.names.concat(rows)
+            root.textPending = false; root.error = error
+            root.textRows = rows; root.publish()
         }
     }
 }

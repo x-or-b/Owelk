@@ -1,7 +1,7 @@
 #include "ResearchStore.h"
 #include "PdfPrinting.h"
 #include <QApplication>
-#include <QCryptographicHash>
+#include "FileFingerprint.h"
 #include <QFile>
 #include <QFileInfo>
 #include <QFutureWatcher>
@@ -68,15 +68,13 @@ void nextPage(const std::shared_ptr<PrintJob> &job) {
         job->progress->setValue(job->page-job->first+1);++job->page;nextPage(job);
     });
     watcher->setFuture(QtConcurrent::run(job->pool,[job]{
-        QFile file(job->source.toLocalFile());if(!file.open(QIODevice::ReadOnly))return QImage();
-        QCryptographicHash hash(QCryptographicHash::Sha256);if(!hash.addData(&file)||QString::fromLatin1(hash.result().toHex())!=job->hash)return QImage();
+        if(FileFingerprint::sha256(job->source.toLocalFile())!=job->hash)return QImage();
         QPdfDocument pdf;if(pdf.load(job->source.toLocalFile())!=QPdfDocument::Error::None||job->page>=pdf.pageCount())return QImage();
         const auto points=pdf.pagePointSize(job->page);const qreal scale=qMin(2.0,4096.0/qMax(points.width(),points.height()));
         auto image=pdf.render(job->page,QSize(qRound(points.width()*scale),qRound(points.height()*scale)));
         QVariantList marks;for(const auto &m:job->marks)if(m.toMap()["page"].toInt()==job->page)marks.append(m);
         if(!image.isNull())paintPdfAnnotations(image,marks,scale);
-        QFile after(job->source.toLocalFile());QCryptographicHash check(QCryptographicHash::Sha256);
-        if(!after.open(QIODevice::ReadOnly)||!check.addData(&after)||QString::fromLatin1(check.result().toHex())!=job->hash)return QImage();
+        if(FileFingerprint::sha256(job->source.toLocalFile())!=job->hash)return QImage();
         return image;
     }));
 }

@@ -1,6 +1,6 @@
 #include "ResearchStore.h"
 #include "AnnotationImage.h"
-#include <QCryptographicHash>
+#include "FileFingerprint.h"
 #include <QDateTime>
 #include <QFile>
 #include <QDir>
@@ -18,10 +18,7 @@
 namespace {
 QString fingerprint(const QUrl &source)
 {
-    QFile file(source.toLocalFile());
-    if (!source.isLocalFile() || !file.open(QIODevice::ReadOnly)) return {};
-    QCryptographicHash hash(QCryptographicHash::Sha256);
-    return hash.addData(&file) ? QString::fromLatin1(hash.result().toHex()) : QString();
+    return source.isLocalFile() ? FileFingerprint::sha256(source.toLocalFile()) : QString();
 }
 }
 
@@ -51,13 +48,13 @@ int ResearchStore::loadHighlights(const QUrl &source)
         emit highlightsLoaded(request, source, verified, !queried ? "Cannot load highlights."
             : mismatch ? "Some annotations are hidden because the original PDF is missing or changed." : QString(), hash);
     });
-    watcher->setFuture(QtConcurrent::run(&m_workers, [source] { return fingerprint(source); }));
+    watcher->setFuture(QtConcurrent::run(&m_verifiers, [source] { return fingerprint(source); }));
     return request;
 }
 
 bool ResearchStore::updateHighlight(const QString &id, const QString &color, const QString &body)
 {
-    if (body.size() > 10000 || !QStringList{"#426b9a", "#e0b83f", "#54a878", "#d87797", "#9274c3"}.contains(color)) return false;
+    if (body.size() > 10000 || !annotationColors().contains(color)) return false;
     QSqlQuery query(m_database);
     query.prepare("UPDATE highlights SET color=?,body=? WHERE id=? AND deleted_at IS NULL");
     query.addBindValue(color); query.addBindValue(body.isNull() ? QStringLiteral("") : body); query.addBindValue(id);
@@ -69,11 +66,11 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
 {
     auto fail = [this](const QString &error) { emit message(error); emit annotationFinished(false, ""); };
     const auto kind = input.value("kind").toString(), body = input.value("body").toString();
-    const auto color = input.value("color", "#426b9a").toString();
+    const auto color = input.value("color", defaultAnnotationColor()).toString();
     if (m_relinking || busy() || !source.isLocalFile() || page < 0) { fail("Wait for the current operation and choose a PDF page."); return; }
     if (!QStringList{"comment", "text", "image", "draw"}.contains(kind) || body.size() > 10000
         || ((kind == "comment" || kind == "text") && body.trimmed().isEmpty())
-        || !QStringList{"#426b9a", "#e0b83f", "#54a878", "#d87797", "#9274c3"}.contains(color)) { fail("Invalid annotation content or color."); return; }
+        || !annotationColors().contains(color)) { fail("Invalid annotation content or color."); return; }
     const auto rects = input.value("rectangles").toList();
     if (rects.size() != 1) { fail("Choose an annotation area on the page."); return; }
     const auto r = rects[0].toMap();
@@ -175,5 +172,5 @@ void ResearchStore::openHighlight(const QString &id)
         else if (hash != expected) emit message("The PDF changed. Highlight navigation was cancelled.");
         else emit sourceReady(source, page, bounds);
     });
-    watcher->setFuture(QtConcurrent::run(&m_workers, [source] { return fingerprint(source); }));
+    watcher->setFuture(QtConcurrent::run(&m_verifiers, [source] { return fingerprint(source); }));
 }
