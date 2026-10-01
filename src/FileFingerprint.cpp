@@ -14,15 +14,18 @@
 
 namespace FileFingerprint {
 namespace {
-struct Entry {
-    Stamp stamp;
-    QString hash;
-};
-QMutex mutex;
-QHash<QString, Entry> entries;
-std::atomic_int reads = 0;
+    struct Entry {
+        Stamp stamp;
+        QString hash;
+    };
+    QMutex mutex;
+    QHash<QString, Entry> entries;
+    std::atomic_int reads = 0;
 
-QString key(const QString &path) { return QFileInfo(path).absoluteFilePath(); }
+    QString key(const QString &path)
+    {
+        return QFileInfo(path).absoluteFilePath();
+    }
 }
 
 QString Stamp::toString() const
@@ -105,7 +108,10 @@ void remember(const QString &path, const Stamp &stamp, const QString &hash)
     entries.insert(key(path), {stamp, hash});
 }
 
-int hashReads() { return reads.load(); }
+int hashReads()
+{
+    return reads.load();
+}
 
 void clearCache()
 {

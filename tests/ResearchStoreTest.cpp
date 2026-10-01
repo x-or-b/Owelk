@@ -11,34 +11,39 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
-class ResearchStoreTest : public QObject
-{
+class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
-    void unversionedDataMigratesInPlaceAndNewerIsRefused() {
+    void unversionedDataMigratesInPlaceAndNewerIsRefused()
+    {
         QTemporaryDir directory;
         QVERIFY(QDir().mkpath(directory.filePath("data")));
         const auto file = directory.filePath("data/owelk.sqlite3");
         {
             // A pre-versioning file: highlights without annotation columns, one existing row.
             auto db = QSqlDatabase::addDatabase("QSQLITE", "legacy");
-            db.setDatabaseName(file); QVERIFY(db.open());
+            db.setDatabaseName(file);
+            QVERIFY(db.open());
             QSqlQuery query(db);
-            QVERIFY(query.exec("CREATE TABLE highlights (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
-                               "page INTEGER NOT NULL,text TEXT NOT NULL,rectangles TEXT NOT NULL,start_index INTEGER NOT NULL, "
-                               "end_index INTEGER NOT NULL,created_at TEXT NOT NULL,deleted_at TEXT)"));
-            QVERIFY(query.exec("INSERT INTO highlights VALUES('kept','file:///a.pdf','h',0,'old text','[]',0,8,'2026-01-01',NULL)"));
+            QVERIFY(query.exec(
+                "CREATE TABLE highlights (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
+                "page INTEGER NOT NULL,text TEXT NOT NULL,rectangles TEXT NOT NULL,start_index INTEGER NOT NULL, "
+                "end_index INTEGER NOT NULL,created_at TEXT NOT NULL,deleted_at TEXT)"));
+            QVERIFY(query.exec(
+                "INSERT INTO highlights VALUES('kept','file:///a.pdf','h',0,'old text','[]',0,8,'2026-01-01',NULL)"));
             db.close();
         }
         QSqlDatabase::removeDatabase("legacy");
         {
-            ResearchStore store(directory.filePath("data")); QString error;
+            ResearchStore store(directory.filePath("data"));
+            QString error;
             QVERIFY2(store.initialize(&error), qPrintable(error));
             QCOMPARE(store.searchKnowledge("old text").size(), 1);
         }
         {
             auto db = QSqlDatabase::addDatabase("QSQLITE", "check");
-            db.setDatabaseName(file); QVERIFY(db.open());
+            db.setDatabaseName(file);
+            QVERIFY(db.open());
             QSqlQuery query(db);
             QVERIFY(query.exec("SELECT color,kind FROM highlights WHERE id='kept'") && query.next());
             QCOMPARE(query.value(0).toString(), ResearchStore::defaultAnnotationColor());
@@ -49,25 +54,31 @@ private slots:
             db.close();
         }
         QSqlDatabase::removeDatabase("check");
-        ResearchStore newer(directory.filePath("data")); QString error;
+        ResearchStore newer(directory.filePath("data"));
+        QString error;
         QVERIFY(!newer.initialize(&error));
         QVERIFY(error.contains("newer Owelk"));
     }
-    void captureRestorePersistsNotesImagesAndLinks() {
+    void captureRestorePersistsNotesImagesAndLinks()
+    {
         QTemporaryDir directory;
-        const auto path = directory.filePath("preserved.pdf"); writeFixture(path);
+        const auto path = directory.filePath("preserved.pdf");
+        writeFixture(path);
         const auto source = QUrl::fromLocalFile(path);
         QString id, workspace, other;
         QImage pixels;
         {
-            ResearchStore store(directory.filePath("data")); QString error;
+            ResearchStore store(directory.filePath("data"));
+            QString error;
             QVERIFY(store.initialize(&error));
             store.captureRegion(source, 2, QRectF(.1, .2, .4, .3));
             QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
             const auto capture = store.captures().first().toMap();
             id = capture["id"].toString();
-            pixels.load(capture["image"].toUrl().toLocalFile()); QVERIFY(!pixels.isNull());
-            workspace = store.createWorkspace("Restore topic"); other = store.createWorkspace("Other topic");
+            pixels.load(capture["image"].toUrl().toLocalFile());
+            QVERIFY(!pixels.isNull());
+            workspace = store.createWorkspace("Restore topic");
+            other = store.createWorkspace("Other topic");
             QVERIFY(store.setWorkspaceCapture(workspace, id, true));
             QVERIFY(store.setWorkspaceCapture(other, id, true));
             QVERIFY(store.saveCaptureNote(id, "Restorable uniquequestion"));
@@ -77,7 +88,8 @@ private slots:
             QVERIFY(store.searchKnowledge("uniquequestion").isEmpty());
         }
         {
-            ResearchStore store(directory.filePath("data")); QString error;
+            ResearchStore store(directory.filePath("data"));
+            QString error;
             QVERIFY(store.initialize(&error));
             QCOMPARE(store.trashedCaptures().size(), 1);
             const auto trash = store.trashedCaptures()[0].toMap();
@@ -100,19 +112,27 @@ private slots:
             QCOMPARE(store.searchKnowledge("uniquequestion").size(), 1);
             QVERIFY(QFile::rename(path + ".moved", path));
             QSignalSpy ready(&store, &ResearchStore::sourceReady);
-            store.openCapture(id); QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
-            QCOMPARE(ready[0][0].toUrl(), source); QCOMPARE(ready[0][1].toInt(), 2);
+            store.openCapture(id);
+            QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
+            QCOMPARE(ready[0][0].toUrl(), source);
+            QCOMPARE(ready[0][1].toInt(), 2);
             QCOMPARE(ready[0][2].toRectF(), QRectF(.1, .2, .4, .3));
         }
-        ResearchStore reopened(directory.filePath("data")); QString error;
+        ResearchStore reopened(directory.filePath("data"));
+        QString error;
         QVERIFY(reopened.initialize(&error));
-        QCOMPARE(reopened.captures().size(), 1); QVERIFY(reopened.trashedCaptures().isEmpty());
-        QVERIFY(reopened.deleteCapture(id)); QVERIFY(reopened.restoreCapture(id));
+        QCOMPARE(reopened.captures().size(), 1);
+        QVERIFY(reopened.trashedCaptures().isEmpty());
+        QVERIFY(reopened.deleteCapture(id));
+        QVERIFY(reopened.restoreCapture(id));
     }
-    void captureRestoreFailureKeepsTrashAndNeverOverwrites() {
+    void captureRestoreFailureKeepsTrashAndNeverOverwrites()
+    {
         QTemporaryDir directory;
-        const auto path = directory.filePath("paper.pdf"); writeFixture(path);
-        ResearchStore store(directory.filePath("data")); QString error;
+        const auto path = directory.filePath("paper.pdf");
+        writeFixture(path);
+        ResearchStore store(directory.filePath("data"));
+        QString error;
         QVERIFY(store.initialize(&error));
         store.captureRegion(QUrl::fromLocalFile(path), 0, QRectF(.1, .1, .3, .2));
         QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
@@ -121,40 +141,53 @@ private slots:
         QVERIFY(store.deleteCapture(id));
         const auto archived = store.trashedCaptures()[0].toMap()["image"].toUrl().toLocalFile();
         QVERIFY(QFile::rename(archived, archived + ".held"));
-        QVERIFY(!store.restoreCapture(id)); QVERIFY(store.captures().isEmpty());
-        QVERIFY(QFile::rename(archived + ".held", archived));
-        QFile collision(original); QVERIFY(collision.open(QIODevice::WriteOnly));
-        collision.write("Do not overwrite"); collision.close();
         QVERIFY(!store.restoreCapture(id));
-        QVERIFY(collision.open(QIODevice::ReadOnly)); QCOMPARE(collision.readAll(), QByteArray("Do not overwrite")); collision.close();
+        QVERIFY(store.captures().isEmpty());
+        QVERIFY(QFile::rename(archived + ".held", archived));
+        QFile collision(original);
+        QVERIFY(collision.open(QIODevice::WriteOnly));
+        collision.write("Do not overwrite");
+        collision.close();
+        QVERIFY(!store.restoreCapture(id));
+        QVERIFY(collision.open(QIODevice::ReadOnly));
+        QCOMPARE(collision.readAll(), QByteArray("Do not overwrite"));
+        collision.close();
         QVERIFY(collision.remove());
         const QString connection = "restore-failure-check";
         {
             auto db = QSqlDatabase::addDatabase("QSQLITE", connection);
-            db.setDatabaseName(directory.filePath("data/owelk.sqlite3")); QVERIFY(db.open());
+            db.setDatabaseName(directory.filePath("data/owelk.sqlite3"));
+            QVERIFY(db.open());
             QSqlQuery query(db);
-            QVERIFY(query.exec("CREATE TRIGGER reject_restore BEFORE DELETE ON deleted_captures BEGIN SELECT RAISE(ABORT,'test failure'); END"));
+            QVERIFY(query.exec("CREATE TRIGGER reject_restore BEFORE DELETE ON deleted_captures BEGIN SELECT "
+                               "RAISE(ABORT,'test failure'); END"));
             QVERIFY(!store.restoreCapture(id));
-            QVERIFY(store.captures().isEmpty()); QCOMPARE(store.trashedCaptures().size(), 1);
-            QVERIFY(QFile::exists(archived)); QVERIFY(!QFile::exists(original));
+            QVERIFY(store.captures().isEmpty());
+            QCOMPARE(store.trashedCaptures().size(), 1);
+            QVERIFY(QFile::exists(archived));
+            QVERIFY(!QFile::exists(original));
             QVERIFY(query.exec("DROP TRIGGER reject_restore"));
         }
         QSqlDatabase::removeDatabase(connection);
         QVERIFY(store.restoreCapture(id));
     }
-    void workspaceLinksPersistWithoutDeletingSources() {
+    void workspaceLinksPersistWithoutDeletingSources()
+    {
         QTemporaryDir directory;
-        const auto path = directory.filePath("source.pdf"); writeFixture(path);
+        const auto path = directory.filePath("source.pdf");
+        writeFixture(path);
         const auto source = QUrl::fromLocalFile(path);
         QString workspaceId, captureId;
         {
-            ResearchStore store(directory.filePath("data")); QString error;
+            ResearchStore store(directory.filePath("data"));
+            QString error;
             QVERIFY(store.initialize(&error));
             workspaceId = store.createWorkspace("Topic links");
             const auto other = store.createWorkspace("Other topic");
             QVariantMap state{{"workspace", workspaceId}, {"workspaceName", "Topic links"},
                 {"left", QVariantMap{{"source", source.toString()}, {"position", QVariantMap{{"page", 2}}}}}};
-            QVERIFY(store.saveWorkspace(workspaceId, state)); QVERIFY(store.saveSession(state));
+            QVERIFY(store.saveWorkspace(workspaceId, state));
+            QVERIFY(store.saveSession(state));
             QCOMPARE(store.workspaceDetails(workspaceId)["documents"].toList().size(), 1);
             QVERIFY(store.setWorkspaceDocument(workspaceId, source, false));
             QVERIFY(store.saveWorkspace(workspaceId, state)); // Open tab autosave must respect explicit unlink.
@@ -176,7 +209,8 @@ private slots:
             QVERIFY(!store.renameWorkspace(workspaceId, " "));
             QVERIFY(store.renameWorkspace(workspaceId, "Renamed topic"));
         }
-        ResearchStore reopened(directory.filePath("data")); QString error;
+        ResearchStore reopened(directory.filePath("data"));
+        QString error;
         QVERIFY(reopened.initialize(&error));
         QCOMPARE(reopened.workspaceDetails(workspaceId)["name"].toString(), "Renamed topic");
         QCOMPARE(reopened.workspaceDetails(workspaceId)["captures"].toList().size(), 1);
@@ -193,7 +227,8 @@ private slots:
         QVERIFY(QFile::exists(path));
         QVERIFY(reopened.searchKnowledge("Renamed topic").isEmpty());
     }
-    void removalPreservesOriginalAndCaptureTrash() {
+    void removalPreservesOriginalAndCaptureTrash()
+    {
         QTemporaryDir directory;
         const auto path = directory.filePath("keep.pdf");
         writeFixture(path);
@@ -229,7 +264,8 @@ private slots:
         QVERIFY(reopened.recentDocuments().isEmpty());
         QVERIFY(QFileInfo::exists(path));
     }
-    void tabSessionsAndWorkspacesPersist() {
+    void tabSessionsAndWorkspacesPersist()
+    {
         QTemporaryDir directory;
         ResearchStore store(directory.path());
         QString error;
@@ -237,7 +273,8 @@ private slots:
         const auto source = QUrl::fromLocalFile(directory.filePath("paper.pdf"));
         const QVariantMap first{{"id", "t1"}, {"source", source.toString()}, {"position", QVariantMap{{"page", 2}}}};
         const QVariantMap second{{"id", "t2"}, {"source", source.toString()}, {"position", QVariantMap{{"page", 6}}}};
-        const QVariantMap group{{"kind", "group"}, {"id", "g1"}, {"activeTab", "t1"}, {"tabs", QVariantList{first, second}}};
+        const QVariantMap group{
+            {"kind", "group"}, {"id", "g1"}, {"activeTab", "t1"}, {"tabs", QVariantList{first, second}}};
         const QVariantMap state{{"version", 2}, {"tree", group}, {"activeGroup", "g1"}};
         QVERIFY(store.saveSession(state));
         QCOMPARE(store.readingPosition(source)["page"].toInt(), 2);
@@ -247,7 +284,8 @@ private slots:
         QCOMPARE(store.loadWorkspace(id)["tree"].toMap()["tabs"].toList().size(), 2);
         QCOMPARE(store.recentWorkspaces()[0].toMap()["papers"].toInt(), 1);
     }
-    void activePaneOwnsRecentPosition() {
+    void activePaneOwnsRecentPosition()
+    {
         QTemporaryDir directory;
         ResearchStore store(directory.path());
         QString error;
@@ -265,7 +303,8 @@ private slots:
         QVERIFY(!store.saveWorkspace("missing", state));
         QVERIFY(store.saveSession(state)); // A failed workspace write must not leave a transaction open.
     }
-    void homeDataAndWorkspacesSurviveRestart() {
+    void homeDataAndWorkspacesSurviveRestart()
+    {
         QTemporaryDir directory;
         const auto path = directory.filePath("Alpha Paper.pdf");
         writeFixture(path);
@@ -302,7 +341,8 @@ private slots:
         QCOMPARE(workspace["workspaceName"].toString(), "Alpha study");
         QCOMPARE(workspace["left"].toMap()["position"].toMap()["page"].toInt(), 3);
     }
-    void selectionUsesLineRectangles() {
+    void selectionUsesLineRectangles()
+    {
         SelectionGeometry geometry;
         const auto glyph = [](qreal x, qreal y, qreal w = 5, qreal h = 10) { return QPolygonF(QRectF(x, y, w, h)); };
         const auto joined = geometry.lineRectangles({glyph(10, 10), glyph(17, 11, 5, 9), glyph(28, 10)});
@@ -320,7 +360,8 @@ private slots:
         QVERIFY(geometry.lineRectangles({}).isEmpty());
         QVERIFY(geometry.lineRectangles({QPolygonF()}).isEmpty());
     }
-    void selectionHeightDoesNotFollowSelectedGlyphs() {
+    void selectionHeightDoesNotFollowSelectedGlyphs()
+    {
         SelectionGeometry geometry;
         const QPolygonF small(QRectF(10, 13, 5, 6));
         const QPolygonF capital(QRectF(17, 10, 5, 9));
@@ -335,11 +376,14 @@ private slots:
         QVERIFY(a.bottom() > 22);
         QCOMPARE(a.width(), 5);
     }
-    void sessionSurvivesRestart() {
+    void sessionSurvivesRestart()
+    {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        const QVariantMap expected{{"left", QVariantMap{{"source", "file:///paper.pdf"},
-            {"position", QVariantMap{{"page", 4}, {"y", .38}, {"zoom", 1.2}}}}}, {"split", true}};
+        const QVariantMap expected{{"left",
+                                       QVariantMap{{"source", "file:///paper.pdf"},
+                                           {"position", QVariantMap{{"page", 4}, {"y", .38}, {"zoom", 1.2}}}}},
+            {"split", true}};
         {
             ResearchStore store(directory.path());
             QString error;
@@ -353,7 +397,8 @@ private slots:
         QCOMPARE(reopened.session().value("left").toMap().value("position").toMap().value("page").toInt(), 4);
     }
 
-    void captureKeepsPixelsAndVerifiesSource() {
+    void captureKeepsPixelsAndVerifiesSource()
+    {
         QTemporaryDir directory;
         const QString path = directory.filePath("paper with spaces.pdf");
         writeFixture(path);
@@ -408,7 +453,8 @@ private slots:
         QCOMPARE(reopened.captures().size(), 1);
     }
 
-    void invalidCaptureDoesNotCreateEvidence() {
+    void invalidCaptureDoesNotCreateEvidence()
+    {
         QTemporaryDir directory;
         ResearchStore store(directory.path());
         QString error;
@@ -422,7 +468,8 @@ private slots:
         QCOMPARE(store.captures().size(), 0);
         QCOMPARE(messages.size(), 2);
     }
-    void folderListingIsReadOnlyAndScoped() {
+    void folderListingIsReadOnlyAndScoped()
+    {
         QTemporaryDir directory;
         QVERIFY(QDir(directory.path()).mkdir("Papers"));
         writeFixture(directory.filePath("sample.PDF"));

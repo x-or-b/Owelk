@@ -1,0 +1,20 @@
+# Matches the existing layout: function braces on their own line, 4-space indent.
+# One statement per line; short guard clauses may stay on one line.
+BasedOnStyle: WebKit
+ColumnLimit: 120
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+AllowShortLambdasOnASingleLine: All
+AllowShortBlocksOnASingleLine: Never
+AllowShortEnumsOnASingleLine: true
+BreakConstructorInitializers: BeforeColon
+Cpp11BracedListStyle: true
+FixNamespaceComments: false
+IncludeBlocks: Preserve
+SortIncludes: Never
+SpaceBeforeCpp11BracedList: false
+InsertBraces: false
+QualifierAlignment: Leave
+PointerAlignment: Right
+ReferenceAlignment: Right

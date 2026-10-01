@@ -2,11 +2,14 @@
 #include "AnnotationImage.h"
 #include <QQuickImageProvider>
 
-class AnnotationImageProvider final : public QQuickImageProvider
-{
+class AnnotationImageProvider final : public QQuickImageProvider {
 public:
-    AnnotationImageProvider() : QQuickImageProvider(QQuickImageProvider::Image, QQmlImageProviderBase::ForceAsynchronousImageLoading) {}
-    QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize) override {
+    AnnotationImageProvider()
+        : QQuickImageProvider(QQuickImageProvider::Image, QQmlImageProviderBase::ForceAsynchronousImageLoading)
+    {
+    }
+    QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize) override
+    {
         const auto source = QUrl::fromEncoded(QByteArray::fromBase64(id.toLatin1(), QByteArray::Base64UrlEncoding));
         QString error;
         auto image = readAnnotationImage(source, &error);

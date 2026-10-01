@@ -11,8 +11,7 @@
 #include <memory>
 
 // Rebuildable local search data. PDF parsing and search use separate worker-owned connections.
-class PaperIndex final : public QObject
-{
+class PaperIndex final : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantList documents READ documents NOTIFY changed)
     Q_PROPERTY(QString progress READ progress NOTIFY changed)
@@ -41,6 +40,7 @@ signals:
     void searchFinished(int request, const QVariantList &results, const QString &error);
     void resultReady(const QUrl &source, int page);
     void message(const QString &text);
+
 private:
     void startNext();
     QUrl resolvedSource(const QUrl &source) const;

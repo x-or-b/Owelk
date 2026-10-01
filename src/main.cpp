@@ -47,7 +47,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("selectionGeometry", &selectionGeometry);
     engine.rootContext()->setContextProperty("researchStore", &store);
     engine.rootContext()->setContextProperty("initialFiles", initialFiles);
-    QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
+    QObject::connect(
+        &engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
+        Qt::QueuedConnection);
     engine.loadFromModule("Owelk", "Main");
     if (parser.isSet("smoke-test")) QTimer::singleShot(3000, &app, &QCoreApplication::quit);
     return app.exec();

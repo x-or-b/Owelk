@@ -11,8 +11,7 @@
 
 class PaperIndex;
 
-class ResearchStore final : public QObject
-{
+class ResearchStore final : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantMap session READ session NOTIFY homeChanged)
     Q_PROPERTY(QVariantList captures READ captures NOTIFY capturesChanged)
@@ -56,17 +55,19 @@ public:
     Q_INVOKABLE QString fileName(const QUrl &url) const;
     Q_INVOKABLE bool sameSource(const QUrl &first, const QUrl &second) const { return first == second; }
     Q_INVOKABLE void captureRegion(const QUrl &source, int page, const QRectF &normalizedRegion);
-    Q_INVOKABLE void captureText(const QUrl &source, int page, const QPointF &from,
-                                const QPointF &to, const QString &expectedText);
-    Q_INVOKABLE void highlightText(const QUrl &source, int page, const QPointF &from,
-                                  const QPointF &to, const QString &expectedText, const QString &color = defaultAnnotationColor());
-    Q_INVOKABLE void commentText(const QUrl &source, int page, const QPointF &from,
-                                const QPointF &to, const QString &expectedText, const QString &body,
-                                const QString &color = defaultAnnotationColor());
+    Q_INVOKABLE void captureText(
+        const QUrl &source, int page, const QPointF &from, const QPointF &to, const QString &expectedText);
+    Q_INVOKABLE void highlightText(const QUrl &source, int page, const QPointF &from, const QPointF &to,
+        const QString &expectedText, const QString &color = defaultAnnotationColor());
+    Q_INVOKABLE void commentText(const QUrl &source, int page, const QPointF &from, const QPointF &to,
+        const QString &expectedText, const QString &body, const QString &color = defaultAnnotationColor());
     Q_INVOKABLE bool updateHighlight(const QString &id, const QString &color, const QString &body);
     Q_INVOKABLE void saveAnnotation(const QUrl &source, int page, const QVariantMap &annotation);
-    Q_INVOKABLE QUrl annotationPreviewUrl(const QUrl &source) const {
-        return QUrl(QStringLiteral("image://annotation/") + QString::fromLatin1(source.toEncoded().toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals)));
+    Q_INVOKABLE QUrl annotationPreviewUrl(const QUrl &source) const
+    {
+        return QUrl(QStringLiteral("image://annotation/")
+            + QString::fromLatin1(
+                source.toEncoded().toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals)));
     }
     Q_INVOKABLE void printDocument(const QUrl &source, const QString &fingerprint, int pages);
     Q_INVOKABLE int loadHighlights(const QUrl &source);
@@ -76,9 +77,11 @@ public:
     Q_INVOKABLE void copyText(const QString &text);
     Q_INVOKABLE int listFolder(const QUrl &folder);
     Q_INVOKABLE QVariantMap readingPosition(const QUrl &source) const;
-    Q_INVOKABLE QVariantList searchKnowledge(const QString &query, const QUrl &source = QUrl(), const QString &target = "all") const;
+    Q_INVOKABLE QVariantList searchKnowledge(
+        const QString &query, const QUrl &source = QUrl(), const QString &target = "all") const;
     // Same results as searchKnowledge, computed off the UI thread; answered by knowledgeFound(request, rows).
-    Q_INVOKABLE int searchKnowledgeAsync(const QString &query, const QUrl &source = QUrl(), const QString &target = "all");
+    Q_INVOKABLE int searchKnowledgeAsync(
+        const QString &query, const QUrl &source = QUrl(), const QString &target = "all");
     Q_INVOKABLE QString createWorkspace(const QString &name);
     Q_INVOKABLE QVariantMap loadWorkspace(const QString &id);
     Q_INVOKABLE bool saveWorkspace(const QString &id, const QVariantMap &state);
@@ -93,7 +96,8 @@ public:
 signals:
     void highlightsChanged();
     void highlightSaved(const QString &id, const QUrl &source);
-    void highlightsLoaded(int request, const QUrl &source, const QVariantList &highlights, const QString &error, const QString &fingerprint);
+    void highlightsLoaded(int request, const QUrl &source, const QVariantList &highlights, const QString &error,
+        const QString &fingerprint);
     void annotationSaved(const QString &id);
     void annotationFinished(bool success, const QString &id);
     void capturesChanged();
@@ -115,8 +119,8 @@ signals:
 
 private:
     void saveTextSelection(const QUrl &source, int page, const QPointF &from, const QPointF &to,
-                           const QString &expectedText, bool asHighlight, const QString &color = defaultAnnotationColor(),
-                           const QString &kind = "highlight", const QString &body = QString());
+        const QString &expectedText, bool asHighlight, const QString &color = defaultAnnotationColor(),
+        const QString &kind = "highlight", const QString &body = QString());
     void reloadCaptures();
     QVariantList readCaptures(bool trashed) const;
     QVariantMap canonicalState(const QVariantMap &state) const;

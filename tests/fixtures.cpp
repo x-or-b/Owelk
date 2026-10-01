@@ -13,4 +13,3 @@ int main(int argc, char **argv)
     writeFixture(directory.filePath("Paper B.pdf"), "Comparing the Evidence", 12);
     printf("%s\n", qPrintable(directory.absolutePath()));
 }
-

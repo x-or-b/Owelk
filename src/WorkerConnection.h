@@ -11,7 +11,8 @@ struct WorkerConnection {
     explicit WorkerConnection(const QString &path, bool readOnly = false)
     {
         db.setDatabaseName(path);
-        db.setConnectOptions(readOnly ? "QSQLITE_BUSY_TIMEOUT=3000;QSQLITE_OPEN_READONLY" : "QSQLITE_BUSY_TIMEOUT=3000");
+        db.setConnectOptions(
+            readOnly ? "QSQLITE_BUSY_TIMEOUT=3000;QSQLITE_OPEN_READONLY" : "QSQLITE_BUSY_TIMEOUT=3000");
         db.open();
     }
     ~WorkerConnection()

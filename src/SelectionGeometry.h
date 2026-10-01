@@ -3,8 +3,7 @@
 #include <QPolygonF>
 #include <QVariantList>
 
-class SelectionGeometry final : public QObject
-{
+class SelectionGeometry final : public QObject {
     Q_OBJECT
 public:
     using QObject::QObject;

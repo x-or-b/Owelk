@@ -15,9 +15,15 @@ QVariantList SelectionGeometry::stableRectangles(const QList<QPolygonF> &selecti
             if (line.right() <= rect.left() || line.left() >= rect.right()) continue;
             if (line.bottom() <= rect.top() || line.top() >= rect.bottom()) continue;
             const qreal delta = std::abs(line.center().y() - rect.center().y());
-            if (delta < distance) { best = line; distance = delta; }
+            if (delta < distance) {
+                best = line;
+                distance = delta;
+            }
         }
-        if (!best.isEmpty()) { rect.setTop(best.top()); rect.setBottom(best.bottom()); }
+        if (!best.isEmpty()) {
+            rect.setTop(best.top());
+            rect.setBottom(best.bottom());
+        }
         value = rect;
     }
     return selected;
@@ -29,20 +35,20 @@ QVariantList SelectionGeometry::lineRectangles(const QList<QPolygonF> &polygons)
     QList<QRectF> boxes;
     for (const auto &polygon : polygons) {
         const auto box = polygon.boundingRect();
-        if (!box.isEmpty() && std::isfinite(box.x() + box.y() + box.width() + box.height()))
-            boxes.append(box);
+        if (!box.isEmpty() && std::isfinite(box.x() + box.y() + box.width() + box.height())) boxes.append(box);
     }
-    std::sort(boxes.begin(), boxes.end(), [](const auto &a, const auto &b) {
-        return a.y() == b.y() ? a.x() < b.x() : a.y() < b.y();
-    });
-    struct Line { QRectF bounds; QList<QRectF> boxes; };
+    std::sort(boxes.begin(), boxes.end(),
+        [](const auto &a, const auto &b) { return a.y() == b.y() ? a.x() < b.x() : a.y() < b.y(); });
+    struct Line {
+        QRectF bounds;
+        QList<QRectF> boxes;
+    };
     QList<Line> lines;
     for (const auto &box : boxes) {
         Line *line = nullptr;
         for (auto it = lines.rbegin(); it != lines.rend(); ++it) {
             const auto &candidate = it->bounds;
-            const qreal overlap = std::min(candidate.bottom(), box.bottom())
-                                - std::max(candidate.top(), box.top());
+            const qreal overlap = std::min(candidate.bottom(), box.bottom()) - std::max(candidate.top(), box.top());
             if (overlap >= std::min(candidate.height(), box.height()) * .5) {
                 line = &*it;
                 break;
@@ -57,9 +63,7 @@ QVariantList SelectionGeometry::lineRectangles(const QList<QPolygonF> &polygons)
     }
     QVariantList result;
     for (auto &line : lines) {
-        std::sort(line.boxes.begin(), line.boxes.end(), [](const auto &a, const auto &b) {
-            return a.x() < b.x();
-        });
+        std::sort(line.boxes.begin(), line.boxes.end(), [](const auto &a, const auto &b) { return a.x() < b.x(); });
         QRectF run;
         for (const auto &box : line.boxes) {
             // Join glyph/word gaps, but don't bridge a distant second column.

@@ -18,14 +18,16 @@ QVariantMap ResearchStore::workspaceDetails(const QString &id) const
     QVariantList documents, captures;
     while (query.next()) {
         const QUrl source(query.value(0).toString());
-        documents.append(QVariantMap{{"source", source}, {"name", fileName(source)}, {"position", readingPosition(source)}});
+        documents.append(
+            QVariantMap{{"source", source}, {"name", fileName(source)}, {"position", readingPosition(source)}});
     }
     query.prepare("SELECT capture_id FROM workspace_captures WHERE workspace_id=?");
     query.addBindValue(id);
     if (!query.exec()) return {};
     QSet<QString> linked;
     while (query.next()) linked.insert(query.value(0).toString());
-    for (const auto &entry : m_captures) if (linked.contains(entry.toMap()["id"].toString())) captures.append(entry);
+    for (const auto &entry : m_captures)
+        if (linked.contains(entry.toMap()["id"].toString())) captures.append(entry);
     return {{"id", id}, {"name", name}, {"documents", documents}, {"captures", captures}};
 }
 
@@ -34,18 +36,25 @@ bool ResearchStore::setWorkspaceDocument(const QString &id, const QUrl &input, b
     const auto source = resolvedSource(input);
     if (!source.isLocalFile() || workspaceDetails(id).isEmpty() || !m_database.transaction()) return false;
     const auto run = [&](const QString &sql) {
-        QSqlQuery query(m_database); query.prepare(sql);
-        query.addBindValue(id); query.addBindValue(source.toString()); return query.exec();
+        QSqlQuery query(m_database);
+        query.prepare(sql);
+        query.addBindValue(id);
+        query.addBindValue(source.toString());
+        return query.exec();
     };
     // A tab can remain open after unlinking. Session autosaves must not recreate that link.
-    const bool ok = linked
-        ? run("DELETE FROM workspace_document_exclusions WHERE workspace_id=? AND url=?")
+    const bool ok = linked ? run("DELETE FROM workspace_document_exclusions WHERE workspace_id=? AND url=?")
             && run("INSERT OR IGNORE INTO workspace_documents VALUES(?,?)")
-        : run("INSERT OR IGNORE INTO workspace_document_exclusions VALUES(?,?)")
+                           : run("INSERT OR IGNORE INTO workspace_document_exclusions VALUES(?,?)")
             && run("DELETE FROM workspace_documents WHERE workspace_id=? AND url=?");
-    if (!ok || !m_database.commit()) { m_database.rollback(); emit message("Cannot update workspace document links."); return false; }
+    if (!ok || !m_database.commit()) {
+        m_database.rollback();
+        emit message("Cannot update workspace document links.");
+        return false;
+    }
     if (linked) m_index->enqueue(source);
-    emit homeChanged(); return true;
+    emit homeChanged();
+    return true;
 }
 
 bool ResearchStore::setWorkspaceCapture(const QString &id, const QString &captureId, bool linked)
@@ -53,25 +62,38 @@ bool ResearchStore::setWorkspaceCapture(const QString &id, const QString &captur
     if (workspaceDetails(id).isEmpty()) return false;
     if (linked) {
         bool exists = false;
-        for (const auto &entry : m_captures) if (entry.toMap()["id"] == captureId) { exists = true; break; }
+        for (const auto &entry : m_captures)
+            if (entry.toMap()["id"] == captureId) {
+                exists = true;
+                break;
+            }
         if (!exists) return false;
     }
     QSqlQuery query(m_database);
     query.prepare(linked ? "INSERT OR IGNORE INTO workspace_captures VALUES(?,?)"
                          : "DELETE FROM workspace_captures WHERE workspace_id=? AND capture_id=?");
-    query.addBindValue(id); query.addBindValue(captureId);
-    if (!query.exec()) { emit message("Cannot update workspace capture links."); return false; }
-    emit homeChanged(); return true;
+    query.addBindValue(id);
+    query.addBindValue(captureId);
+    if (!query.exec()) {
+        emit message("Cannot update workspace capture links.");
+        return false;
+    }
+    emit homeChanged();
+    return true;
 }
 
 bool ResearchStore::renameWorkspace(const QString &id, const QString &name)
 {
     const auto trimmed = name.trimmed();
-    if (trimmed.isEmpty() || trimmed.size() > 120) { emit message("Enter a workspace name (1–120 characters)."); return false; }
+    if (trimmed.isEmpty() || trimmed.size() > 120) {
+        emit message("Enter a workspace name (1–120 characters).");
+        return false;
+    }
     if (!m_database.transaction()) return false;
     QSqlQuery query(m_database);
     query.prepare("UPDATE workspaces SET name=? WHERE id=? AND id NOT IN (SELECT id FROM deleted_workspaces)");
-    query.addBindValue(trimmed); query.addBindValue(id);
+    query.addBindValue(trimmed);
+    query.addBindValue(id);
     bool ok = query.exec() && query.numRowsAffected() == 1;
     auto saved = session();
     if (saved.value("workspace").toString() == id) {
@@ -80,8 +102,14 @@ bool ResearchStore::renameWorkspace(const QString &id, const QString &name)
         query.addBindValue(QString::fromUtf8(QJsonDocument::fromVariant(saved).toJson(QJsonDocument::Compact)));
         ok = ok && query.exec();
     }
-    if (!ok || !m_database.commit()) { m_database.rollback(); emit message("Cannot rename workspace."); return false; }
-    emit workspaceRenamed(id, trimmed); emit homeChanged(); return true;
+    if (!ok || !m_database.commit()) {
+        m_database.rollback();
+        emit message("Cannot rename workspace.");
+        return false;
+    }
+    emit workspaceRenamed(id, trimmed);
+    emit homeChanged();
+    return true;
 }
 
 bool ResearchStore::deleteWorkspace(const QString &id)
@@ -89,16 +117,24 @@ bool ResearchStore::deleteWorkspace(const QString &id)
     if (workspaceDetails(id).isEmpty() || !m_database.transaction()) return false;
     QSqlQuery query(m_database);
     query.prepare("INSERT INTO deleted_workspaces VALUES(?,?)");
-    query.addBindValue(id); query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+    query.addBindValue(id);
+    query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
     bool ok = query.exec();
     auto saved = session();
     if (saved.value("workspace").toString() == id) {
-        saved["workspace"] = ""; saved["workspaceName"] = "";
+        saved["workspace"] = "";
+        saved["workspaceName"] = "";
         query.prepare("UPDATE settings SET value=? WHERE key='session'");
         query.addBindValue(QString::fromUtf8(QJsonDocument::fromVariant(saved).toJson(QJsonDocument::Compact)));
         ok = ok && query.exec();
     }
-    if (!ok || !m_database.commit()) { m_database.rollback(); emit message("Cannot remove workspace."); return false; }
+    if (!ok || !m_database.commit()) {
+        m_database.rollback();
+        emit message("Cannot remove workspace.");
+        return false;
+    }
     // Archive the layout and associations; never delete files, captures, notes or reading positions.
-    emit workspaceDeleted(id); emit homeChanged(); return true;
+    emit workspaceDeleted(id);
+    emit homeChanged();
+    return true;
 }

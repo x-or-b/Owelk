@@ -47,12 +47,17 @@ inline bool writeOutlineFixture(const QString &path)
     objects << "<< /Type /Catalog /Pages 2 0 R /Outlines 9 0 R >>"
             << "<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>";
     for (int page = 0; page < 3; ++page) {
-        objects << QByteArray("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 12 0 R >> >> /Contents ") + QByteArray::number(4 + page * 2) + " 0 R >>";
-        const auto content = QByteArray("BT /F1 20 Tf 60 700 Td (Outline fixture page ") + QByteArray::number(page + 1) + ") Tj ET";
-        objects << QByteArray("<< /Length ") + QByteArray::number(content.size()) + " >>\nstream\n" + content + "\nendstream";
+        objects << QByteArray("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 12 0 R "
+                              ">> >> /Contents ")
+                + QByteArray::number(4 + page * 2) + " 0 R >>";
+        const auto content
+            = QByteArray("BT /F1 20 Tf 60 700 Td (Outline fixture page ") + QByteArray::number(page + 1) + ") Tj ET";
+        objects << QByteArray("<< /Length ") + QByteArray::number(content.size()) + " >>\nstream\n" + content
+                + "\nendstream";
     }
     objects << "<< /Type /Outlines /First 10 0 R /Last 13 0 R /Count 3 >>"
-            << "<< /Title (Introduction) /Parent 9 0 R /Dest [3 0 R /XYZ 0 792 0] /First 11 0 R /Last 11 0 R /Count 1 /Next 13 0 R >>"
+            << "<< /Title (Introduction) /Parent 9 0 R /Dest [3 0 R /XYZ 0 792 0] /First 11 0 R /Last 11 0 R /Count 1 "
+               "/Next 13 0 R >>"
             << "<< /Title (Method) /Parent 10 0 R /Dest [5 0 R /XYZ 0 500 0] >>"
             << "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
             << "<< /Title (Results) /Parent 9 0 R /Prev 10 0 R /Dest [7 0 R /XYZ 0 792 0] >>";

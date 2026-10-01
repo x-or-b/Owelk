@@ -15,14 +15,17 @@
 #include <QtTest>
 #include <limits>
 
-class TextCaptureTest : public QObject
-{
+class TextCaptureTest : public QObject {
     Q_OBJECT
 private slots:
-    void printDialogOpensWithoutPrinterAndCancels() {
+    void printDialogOpensWithoutPrinterAndCancels()
+    {
         QTemporaryDir dir;
-        const auto path = dir.filePath("print.pdf"); writeFixture(path);
-        ResearchStore store(dir.filePath("data")); QString error; QVERIFY(store.initialize(&error));
+        const auto path = dir.filePath("print.pdf");
+        writeFixture(path);
+        ResearchStore store(dir.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
         QSignalSpy loaded(&store, &ResearchStore::highlightsLoaded);
         store.loadHighlights(QUrl::fromLocalFile(path));
         QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
@@ -35,23 +38,28 @@ private slots:
         dialog->reject();
         QTRY_VERIFY(!store.printing());
     }
-    void heicImportOrientationAndLimits() {
+    void heicImportOrientationAndLimits()
+    {
 #ifdef Q_OS_MACOS
         QTemporaryDir dir;
         const auto path = dir.filePath("sample 한글.HEIC");
         const auto bytes = QFile::encodeName(path);
-        auto url = CFURLCreateFromFileSystemRepresentation(nullptr,
-            reinterpret_cast<const UInt8 *>(bytes.constData()), bytes.size(), false);
+        auto url = CFURLCreateFromFileSystemRepresentation(
+            nullptr, reinterpret_cast<const UInt8 *>(bytes.constData()), bytes.size(), false);
         auto writer = CGImageDestinationCreateWithURL(url, CFSTR("public.heic"), 1, nullptr);
         CFRelease(url);
         QVERIFY(writer);
-        QImage fixture(100, 80, QImage::Format_RGB32); fixture.fill(Qt::red);
-        for (int y = 40; y < 80; ++y) for (int x = 0; x < 100; ++x) fixture.setPixelColor(x, y, Qt::blue);
+        QImage fixture(100, 80, QImage::Format_RGB32);
+        fixture.fill(Qt::red);
+        for (int y = 40; y < 80; ++y)
+            for (int x = 0; x < 100; ++x) fixture.setPixelColor(x, y, Qt::blue);
         auto image = fixture.toCGImage();
         CGImageDestinationAddImage(writer, image, nullptr);
         const bool written = CGImageDestinationFinalize(writer);
-        CGImageRelease(image); CFRelease(writer);
-        if (!written) QSKIP("HEIC fixture encoding is unavailable in this sandbox; run this test with system codec access.");
+        CGImageRelease(image);
+        CFRelease(writer);
+        if (!written)
+            QSKIP("HEIC fixture encoding is unavailable in this sandbox; run this test with system codec access.");
         QString error;
         const auto decoded = readAnnotationImage(QUrl::fromLocalFile(path), &error);
         QVERIFY2(!decoded.isNull(), qPrintable(error));
@@ -63,108 +71,192 @@ private slots:
         QSKIP("Native HEIC import is tested on macOS; other platforms use installed Qt image codecs.");
 #endif
     }
-    void annotationColorsCommentsImagesAndDrawing() {
-        QTemporaryDir dir;const auto path=dir.filePath("annotated.pdf");writeFixture(path);
-        ResearchStore store(dir.filePath("data"));QString error;QVERIFY(store.initialize(&error));
-        const auto source=QUrl::fromLocalFile(path);
-        QSignalSpy loaded(&store,&ResearchStore::highlightsLoaded),done(&store,&ResearchStore::annotationFinished);
-        store.loadHighlights(source);QTRY_COMPARE_WITH_TIMEOUT(loaded.size(),1,10000);
-        const auto hash=loaded.last()[4].toString();QVERIFY(!hash.isEmpty());
-        const QVariantList rects{QVariantMap{{"x",.1},{"y",.2},{"width",.3},{"height",.1}}};
-        QVariantMap mark{{"kind","text"},{"body","Visible annotation"},{"color","#d87797"},{"sha256",hash},{"rectangles",rects}};
-        store.saveAnnotation(source,0,mark);QTRY_COMPARE_WITH_TIMEOUT(done.size(),1,10000);QVERIFY(done.last()[0].toBool());
-        const auto textId=done.last()[1].toString();
-        mark["id"]=textId;mark["body"]="Edited annotation";
-        store.saveAnnotation(source,0,mark);QTRY_COMPARE_WITH_TIMEOUT(done.size(),2,10000);QVERIFY(done.last()[0].toBool());
-        QCOMPARE(store.searchKnowledge("Edited annotation").size(),1);
-        mark.remove("id");mark["kind"]="image";mark["body"]="";
-        QImage image(40,30,QImage::Format_RGB32);image.fill(Qt::red);QVERIFY(image.save(dir.filePath("image.png")));
-        mark["imageSource"]=QUrl::fromLocalFile(dir.filePath("image.png")).toString();
-        store.saveAnnotation(source,0,mark);QTRY_COMPARE_WITH_TIMEOUT(done.size(),3,10000);QVERIFY(done.last()[0].toBool());
-        mark["kind"]="draw";mark.remove("imageSource");mark["drawing"]=QVariantList{QVariantMap{{"x",.1},{"y",.2}},QVariantMap{{"x",.4},{"y",.3}}};
-        store.saveAnnotation(source,0,mark);QTRY_COMPARE_WITH_TIMEOUT(done.size(),4,10000);QVERIFY(done.last()[0].toBool());
-        QPdfDocument pdf;QCOMPARE(pdf.load(path),QPdfDocument::Error::None);
-        const auto bounds=pdf.getSelectionAtIndex(0,pdf.getAllText(0).text().indexOf("Research finding"),45).boundingRectangle();
-        const QPointF from(bounds.left(),bounds.center().y()),to(bounds.right(),bounds.center().y());
-        const auto quote=pdf.getSelection(0,from,to).text();
-        store.commentText(source,0,from,to,quote,"Comment on a sentence","#9274c3");QTRY_COMPARE_WITH_TIMEOUT(done.size(),5,10000);QVERIFY(done.last()[0].toBool());
-        store.loadHighlights(source);QTRY_COMPARE_WITH_TIMEOUT(loaded.size(),2,10000);
-        const auto rows=loaded.last()[2].toList();QCOMPARE(rows.size(),4);
-        bool copied=false,comment=false;
-        for(const auto &r:rows){const auto m=r.toMap();if(m["kind"]=="image"){QVERIFY(QFile::exists(m["image"].toUrl().toLocalFile()));copied=true;}if(m["kind"]=="comment"){QCOMPARE(m["text"].toString(),quote);QCOMPARE(m["color"].toString(),QString("#9274c3"));comment=true;}}
-        QVERIFY(copied&&comment);QCOMPARE(store.searchKnowledge("sentence").size(),1);
-        QImage printed(600,800,QImage::Format_RGB32);printed.fill(Qt::white);paintPdfAnnotations(printed,rows,1);
-        QVERIFY(printed.pixelColor(100,180)!=QColor(Qt::white));
-        QVERIFY(!store.updateHighlight(textId,"not-a-color",""));
-        mark["rectangles"]=QVariantList{QVariantMap{{"x",.9},{"y",.2},{"width",.3},{"height",.1}}};
-        store.saveAnnotation(source,0,mark);QTRY_COMPARE_WITH_TIMEOUT(done.size(),6,10000);QVERIFY(!done.last()[0].toBool());
-        ResearchStore reopened(dir.filePath("data"));QVERIFY(reopened.initialize(&error));QCOMPARE(reopened.searchKnowledge("Edited annotation").size(),1);
-    }
-    void highlightsPersistVerifyRelinkAndRemove() {
-        QTemporaryDir directory;
-        const auto path = directory.filePath("marked.pdf"); writeFixture(path);
+    void annotationColorsCommentsImagesAndDrawing()
+    {
+        QTemporaryDir dir;
+        const auto path = dir.filePath("annotated.pdf");
+        writeFixture(path);
+        ResearchStore store(dir.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
         const auto source = QUrl::fromLocalFile(path);
-        QFile original(path); QVERIFY(original.open(QIODevice::ReadOnly));
-        const auto bytes = original.readAll(); original.close();
+        QSignalSpy loaded(&store, &ResearchStore::highlightsLoaded), done(&store, &ResearchStore::annotationFinished);
+        store.loadHighlights(source);
+        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
+        const auto hash = loaded.last()[4].toString();
+        QVERIFY(!hash.isEmpty());
+        const QVariantList rects{QVariantMap{{"x", .1}, {"y", .2}, {"width", .3}, {"height", .1}}};
+        QVariantMap mark{{"kind", "text"}, {"body", "Visible annotation"}, {"color", "#d87797"}, {"sha256", hash},
+            {"rectangles", rects}};
+        store.saveAnnotation(source, 0, mark);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+        QVERIFY(done.last()[0].toBool());
+        const auto textId = done.last()[1].toString();
+        mark["id"] = textId;
+        mark["body"] = "Edited annotation";
+        store.saveAnnotation(source, 0, mark);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 2, 10000);
+        QVERIFY(done.last()[0].toBool());
+        QCOMPARE(store.searchKnowledge("Edited annotation").size(), 1);
+        mark.remove("id");
+        mark["kind"] = "image";
+        mark["body"] = "";
+        QImage image(40, 30, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QVERIFY(image.save(dir.filePath("image.png")));
+        mark["imageSource"] = QUrl::fromLocalFile(dir.filePath("image.png")).toString();
+        store.saveAnnotation(source, 0, mark);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 3, 10000);
+        QVERIFY(done.last()[0].toBool());
+        mark["kind"] = "draw";
+        mark.remove("imageSource");
+        mark["drawing"] = QVariantList{QVariantMap{{"x", .1}, {"y", .2}}, QVariantMap{{"x", .4}, {"y", .3}}};
+        store.saveAnnotation(source, 0, mark);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 4, 10000);
+        QVERIFY(done.last()[0].toBool());
+        QPdfDocument pdf;
+        QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+        const auto bounds
+            = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45).boundingRectangle();
+        const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y());
+        const auto quote = pdf.getSelection(0, from, to).text();
+        store.commentText(source, 0, from, to, quote, "Comment on a sentence", "#9274c3");
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 5, 10000);
+        QVERIFY(done.last()[0].toBool());
+        store.loadHighlights(source);
+        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 2, 10000);
+        const auto rows = loaded.last()[2].toList();
+        QCOMPARE(rows.size(), 4);
+        bool copied = false, comment = false;
+        for (const auto &r : rows) {
+            const auto m = r.toMap();
+            if (m["kind"] == "image") {
+                QVERIFY(QFile::exists(m["image"].toUrl().toLocalFile()));
+                copied = true;
+            }
+            if (m["kind"] == "comment") {
+                QCOMPARE(m["text"].toString(), quote);
+                QCOMPARE(m["color"].toString(), QString("#9274c3"));
+                comment = true;
+            }
+        }
+        QVERIFY(copied && comment);
+        QCOMPARE(store.searchKnowledge("sentence").size(), 1);
+        QImage printed(600, 800, QImage::Format_RGB32);
+        printed.fill(Qt::white);
+        paintPdfAnnotations(printed, rows, 1);
+        QVERIFY(printed.pixelColor(100, 180) != QColor(Qt::white));
+        QVERIFY(!store.updateHighlight(textId, "not-a-color", ""));
+        mark["rectangles"] = QVariantList{QVariantMap{{"x", .9}, {"y", .2}, {"width", .3}, {"height", .1}}};
+        store.saveAnnotation(source, 0, mark);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 6, 10000);
+        QVERIFY(!done.last()[0].toBool());
+        ResearchStore reopened(dir.filePath("data"));
+        QVERIFY(reopened.initialize(&error));
+        QCOMPARE(reopened.searchKnowledge("Edited annotation").size(), 1);
+    }
+    void highlightsPersistVerifyRelinkAndRemove()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("marked.pdf");
+        writeFixture(path);
+        const auto source = QUrl::fromLocalFile(path);
+        QFile original(path);
+        QVERIFY(original.open(QIODevice::ReadOnly));
+        const auto bytes = original.readAll();
+        original.close();
         QString id;
         {
-            ResearchStore store(directory.filePath("data")); QString error; QVERIFY(store.initialize(&error));
-            QPdfDocument pdf; QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
-            const auto bounds = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45).boundingRectangle();
+            ResearchStore store(directory.filePath("data"));
+            QString error;
+            QVERIFY(store.initialize(&error));
+            QPdfDocument pdf;
+            QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+            const auto bounds = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45)
+                                    .boundingRectangle();
             const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y() + 20);
             const auto selected = pdf.getSelection(0, from, to).text();
             QSignalSpy saved(&store, &ResearchStore::highlightSaved), loaded(&store, &ResearchStore::highlightsLoaded);
             store.highlightText(source, 0, from, to, selected);
-            QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000); id = saved[0][0].toString();
+            QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000);
+            id = saved[0][0].toString();
             QVERIFY(store.captures().isEmpty());
-            store.loadHighlights(source); QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
-            const auto marks = loaded[0][2].toList(); QCOMPARE(marks.size(), 1);
+            store.loadHighlights(source);
+            QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
+            const auto marks = loaded[0][2].toList();
+            QCOMPARE(marks.size(), 1);
             QCOMPARE(marks[0].toMap()["text"].toString(), selected);
             QVERIFY(marks[0].toMap()["rectangles"].toList().size() >= 2);
             for (const auto &r : marks[0].toMap()["rectangles"].toList()) {
-                const auto rect = r.toMap(); QVERIFY(rect["x"].toDouble() >= 0); QVERIFY(rect["width"].toDouble() > 0);
+                const auto rect = r.toMap();
+                QVERIFY(rect["x"].toDouble() >= 0);
+                QVERIFY(rect["width"].toDouble() > 0);
                 QVERIFY(rect["x"].toDouble() + rect["width"].toDouble() <= 1.0001);
             }
             store.highlightText(source, 0, from, to, selected);
-            QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 2, 10000); QCOMPARE(saved[1][0].toString(), id);
-            const auto results = store.searchKnowledge("occlusion"); QCOMPARE(results.size(), 1);
+            QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 2, 10000);
+            QCOMPARE(saved[1][0].toString(), id);
+            const auto results = store.searchKnowledge("occlusion");
+            QCOMPARE(results.size(), 1);
             QCOMPARE(results[0].toMap()["kind"].toString(), "highlight");
-            QVERIFY(original.open(QIODevice::ReadOnly)); QCOMPARE(original.readAll(), bytes); original.close();
+            QVERIFY(original.open(QIODevice::ReadOnly));
+            QCOMPARE(original.readAll(), bytes);
+            original.close();
         }
         {
-            ResearchStore store(directory.filePath("data")); QString error; QVERIFY(store.initialize(&error));
+            ResearchStore store(directory.filePath("data"));
+            QString error;
+            QVERIFY(store.initialize(&error));
             QSignalSpy loaded(&store, &ResearchStore::highlightsLoaded), ready(&store, &ResearchStore::sourceReady);
-            store.loadHighlights(source); QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
+            store.loadHighlights(source);
+            QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
             QCOMPARE(loaded.last()[2].toList().size(), 1);
             // A different version at the same path must not receive old highlights.
-            QVERIFY(original.open(QIODevice::Append)); original.write("\n% modified\n"); original.close();
-            store.loadHighlights(source); QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 2, 10000);
-            QVERIFY(loaded.last()[2].toList().isEmpty()); QVERIFY(!loaded.last()[3].toString().isEmpty());
-            QVERIFY(original.open(QIODevice::WriteOnly)); original.write(bytes); original.close();
-            const auto moved = directory.filePath("moved.pdf"); QVERIFY(QFile::rename(path, moved));
+            QVERIFY(original.open(QIODevice::Append));
+            original.write("\n% modified\n");
+            original.close();
+            store.loadHighlights(source);
+            QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 2, 10000);
+            QVERIFY(loaded.last()[2].toList().isEmpty());
+            QVERIFY(!loaded.last()[3].toString().isEmpty());
+            QVERIFY(original.open(QIODevice::WriteOnly));
+            original.write(bytes);
+            original.close();
+            const auto moved = directory.filePath("moved.pdf");
+            QVERIFY(QFile::rename(path, moved));
             QSignalSpy relinked(&store, &ResearchStore::relinkFinished);
             store.relinkSource(source, QUrl::fromLocalFile(moved));
-            QTRY_COMPARE_WITH_TIMEOUT(relinked.size(), 1, 10000); QVERIFY(relinked[0][0].toBool());
-            store.openHighlight(id); QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
+            QTRY_COMPARE_WITH_TIMEOUT(relinked.size(), 1, 10000);
+            QVERIFY(relinked[0][0].toBool());
+            store.openHighlight(id);
+            QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
             QCOMPARE(ready[0][0].toUrl(), QUrl::fromLocalFile(moved));
-            store.loadHighlights(QUrl::fromLocalFile(moved)); QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 3, 10000);
+            store.loadHighlights(QUrl::fromLocalFile(moved));
+            QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 3, 10000);
             QCOMPARE(loaded.last()[2].toList()[0].toMap()["id"].toString(), id);
-            QVERIFY(store.removeHighlight(id)); QVERIFY(!store.removeHighlight(id));
+            QVERIFY(store.removeHighlight(id));
+            QVERIFY(!store.removeHighlight(id));
             QVERIFY(store.searchKnowledge("occlusion").isEmpty());
         }
-        ResearchStore reopened(directory.filePath("data")); QString error; QVERIFY(reopened.initialize(&error));
+        ResearchStore reopened(directory.filePath("data"));
+        QString error;
+        QVERIFY(reopened.initialize(&error));
         QVERIFY(reopened.searchKnowledge("occlusion").isEmpty());
     }
-    void captureNotesPersistSearchAndKeepSource() {
+    void captureNotesPersistSearchAndKeepSource()
+    {
         QTemporaryDir directory;
         const auto path = directory.filePath("source.pdf");
         writeFixture(path);
         QString id, original;
         {
-            ResearchStore store(directory.path()); QString error;
+            ResearchStore store(directory.path());
+            QString error;
             QVERIFY(store.initialize(&error));
-            QPdfDocument pdf; QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
-            const auto bounds = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45).boundingRectangle();
+            QPdfDocument pdf;
+            QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+            const auto bounds = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45)
+                                    .boundingRectangle();
             const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y());
             original = pdf.getSelection(0, from, to).text();
             store.captureText(QUrl::fromLocalFile(path), 0, from, to, original);
@@ -174,12 +266,14 @@ private slots:
             QVERIFY(store.saveCaptureNote(id, "My uniquecomparison <b>not HTML</b>\n한글 메모"));
             QCOMPARE(store.captures()[0].toMap()["text"].toString(), original);
             const auto results = store.searchKnowledge("uniquecomparison", QUrl::fromLocalFile(path), "captures");
-            QCOMPARE(results.size(), 1); QCOMPARE(results[0].toMap()["kind"].toString(), "note");
+            QCOMPARE(results.size(), 1);
+            QCOMPARE(results[0].toMap()["kind"].toString(), "note");
             QVERIFY(store.searchKnowledge("uniquecomparison", QUrl::fromLocalFile("/another.pdf")).isEmpty());
             QVERIFY(!store.saveCaptureNote(id, QString(10001, 'a')));
             QVERIFY(!store.saveCaptureNote("missing", "No orphan note"));
         }
-        ResearchStore reopened(directory.path()); QString error;
+        ResearchStore reopened(directory.path());
+        QString error;
         QVERIFY(reopened.initialize(&error));
         QVERIFY(reopened.captures()[0].toMap()["note"].toString().contains("uniquecomparison"));
         QVERIFY(reopened.saveCaptureNote(id, "Revised question"));
@@ -190,14 +284,17 @@ private slots:
         reopened.captureRegion(QUrl::fromLocalFile(path), 1, QRectF(.1, .2, .3, .2));
         QTRY_VERIFY_WITH_TIMEOUT(!reopened.busy(), 10000);
         QString regionId;
-        for (const auto &row : reopened.captures()) if (row.toMap()["kind"] == "region") regionId = row.toMap()["id"].toString();
-        QVERIFY(!regionId.isEmpty()); QVERIFY(reopened.saveCaptureNote(regionId, "Figure note"));
+        for (const auto &row : reopened.captures())
+            if (row.toMap()["kind"] == "region") regionId = row.toMap()["id"].toString();
+        QVERIFY(!regionId.isEmpty());
+        QVERIFY(reopened.saveCaptureNote(regionId, "Figure note"));
         QVERIFY(reopened.deleteCapture(regionId));
         QVERIFY(reopened.searchKnowledge("Figure note").isEmpty());
         QVERIFY(!reopened.saveCaptureNote(regionId, "Cannot edit trashed capture"));
         QVERIFY(QFile::exists(path));
     }
-    void legacyRegionSchemaIsPreserved() {
+    void legacyRegionSchemaIsPreserved()
+    {
         QTemporaryDir directory;
         const auto connection = QStringLiteral("legacy-capture-check");
         const auto id = QStringLiteral("91ffeb1a-df10-4a54-a6fc-8a8b2c629b13");
@@ -206,11 +303,13 @@ private slots:
             db.setDatabaseName(directory.filePath("owelk.sqlite3"));
             QVERIFY(db.open());
             QSqlQuery query(db);
-            QVERIFY(query.exec("CREATE TABLE captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, "
-                "sha256 TEXT NOT NULL,page INTEGER NOT NULL,x REAL NOT NULL,y REAL NOT NULL,"
-                "width REAL NOT NULL,height REAL NOT NULL,image TEXT NOT NULL,created_at TEXT NOT NULL)"));
+            QVERIFY(
+                query.exec("CREATE TABLE captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, "
+                           "sha256 TEXT NOT NULL,page INTEGER NOT NULL,x REAL NOT NULL,y REAL NOT NULL,"
+                           "width REAL NOT NULL,height REAL NOT NULL,image TEXT NOT NULL,created_at TEXT NOT NULL)"));
             query.prepare("INSERT INTO captures VALUES(?,'file:///preserved.pdf','hash',2,.1,.2,.3,.4,?,'2026-01-01')");
-            query.addBindValue(id); query.addBindValue(id + ".png");
+            query.addBindValue(id);
+            query.addBindValue(id + ".png");
             QVERIFY(query.exec());
         }
         QSqlDatabase::removeDatabase(connection);
@@ -225,7 +324,8 @@ private slots:
         QVERIFY(capture["text"].toString().isEmpty());
         QVERIFY(capture["image"].toUrl().toLocalFile().endsWith(id + ".png"));
     }
-    void failedPayloadInsertRollsBackAnchor() {
+    void failedPayloadInsertRollsBackAnchor()
+    {
         QTemporaryDir directory;
         const auto path = directory.filePath("source.pdf");
         writeFixture(path);
@@ -238,10 +338,12 @@ private slots:
             db.setDatabaseName(directory.filePath("owelk.sqlite3"));
             QVERIFY(db.open());
             QSqlQuery query(db);
-            QVERIFY(query.exec("CREATE TRIGGER reject_text BEFORE INSERT ON text_captures BEGIN SELECT RAISE(ABORT,'test failure'); END"));
+            QVERIFY(query.exec("CREATE TRIGGER reject_text BEFORE INSERT ON text_captures BEGIN SELECT "
+                               "RAISE(ABORT,'test failure'); END"));
             QPdfDocument pdf;
             QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
-            const auto bounds = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45).boundingRectangle();
+            const auto bounds = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45)
+                                    .boundingRectangle();
             const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y());
             const auto text = pdf.getSelection(0, from, to).text();
             QSignalSpy saved(&store, &ResearchStore::captureSaved);
@@ -260,14 +362,16 @@ private slots:
         }
         QSqlDatabase::removeDatabase(connection);
     }
-    void saveAndReopen_data() {
+    void saveAndReopen_data()
+    {
         QTest::addColumn<bool>("reverse");
         QTest::addColumn<int>("lines");
         QTest::newRow("single") << false << 1;
         QTest::newRow("multiline") << false << 3;
         QTest::newRow("reversed") << true << 3;
     }
-    void saveAndReopen() {
+    void saveAndReopen()
+    {
         QFETCH(bool, reverse);
         QFETCH(int, lines);
         QTemporaryDir directory;
@@ -275,7 +379,8 @@ private slots:
         writeFixture(path);
         QPdfDocument pdf;
         QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
-        const auto bounds = pdf.getSelectionAtIndex(2, pdf.getAllText(2).text().indexOf("Research finding"), 45).boundingRectangle();
+        const auto bounds
+            = pdf.getSelectionAtIndex(2, pdf.getAllText(2).text().indexOf("Research finding"), 45).boundingRectangle();
         QPointF from(bounds.left(), bounds.center().y());
         QPointF to(bounds.right(), bounds.center().y() + (lines - 1) * 20);
         if (reverse) std::swap(from, to);
@@ -368,7 +473,8 @@ private slots:
         }
         QSqlDatabase::removeDatabase(connection);
     }
-    void rejectInvalidOrStaleSelections() {
+    void rejectInvalidOrStaleSelections()
+    {
         QTemporaryDir directory;
         const auto path = directory.filePath("original.pdf");
         writeFixture(path);
@@ -384,7 +490,8 @@ private slots:
         QVERIFY(!store.busy());
         QPdfDocument pdf;
         QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
-        const auto bounds = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45).boundingRectangle();
+        const auto bounds
+            = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45).boundingRectangle();
         const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y());
         const auto text = pdf.getSelection(0, from, to).text();
         store.captureText(source, 0, from, to, "stale UI text");
@@ -398,7 +505,8 @@ private slots:
         pdf.close();
         QFile changed(path);
         QVERIFY(changed.open(QIODevice::Append));
-        changed.write("\n% changed\n"); changed.close();
+        changed.write("\n% changed\n");
+        changed.close();
         QSignalSpy messages(&store, &ResearchStore::message);
         QSignalSpy ready(&store, &ResearchStore::sourceReady);
         store.openCapture(id);
