@@ -112,7 +112,34 @@ Item {
     signal activated()
     signal regionSelected(int page, rect normalizedRegion)
 
+    // Browser-style reading history within this PDF: places left by link, outline, page and source jumps.
+    property var backStack: []
+    property var forwardStack: []
+    readonly property bool canGoBack: backStack.length > 0
+    readonly property bool canGoForward: forwardStack.length > 0
+    function rememberPlace() {
+        if (!ready) return // position() reports the settled place while a jump is still restoring.
+        backStack = backStack.concat([position()]).slice(-50)
+        forwardStack = []
+    }
+    function goBack() {
+        if (!backStack.length) return false
+        const place = backStack[backStack.length - 1]
+        forwardStack = forwardStack.concat([position()])
+        backStack = backStack.slice(0, -1)
+        jump(place.page, place.y, place.x)
+        return true
+    }
+    function goForward() {
+        if (!forwardStack.length) return false
+        const place = forwardStack[forwardStack.length - 1]
+        backStack = backStack.concat([position()])
+        forwardStack = forwardStack.slice(0, -1)
+        jump(place.page, place.y, place.x)
+        return true
+    }
     function openFile(url, position) {
+        if (!researchStore.sameSource(source, url)) { backStack = []; forwardStack = [] }
         stopSourceMotion()
         spotlight.stop()
         if (pinching) cancelPinch()
@@ -255,6 +282,7 @@ Item {
     }
 
     function showSource(page, rect) {
+        rememberPlace()
         stopSourceMotion()
         spotlight.stop()
         clearSelection()
@@ -692,6 +720,7 @@ Item {
                         page: root.ready && pageHolder.index < root.pageCount ? pageHolder.index : -1
                     }
                     delegate: PdfLinkDelegate {
+                        objectName: "pdfLink-" + pageHolder.index + "-" + index
                         x: rectangle.x * root.pageScale
                         y: rectangle.y * root.pageScale
                         width: rectangle.width * root.pageScale
@@ -700,6 +729,7 @@ Item {
                         onTapped: function(link) {
                             root.activated()
                             if (link.page >= 0) {
+                                root.rememberPlace()
                                 const size = pdfDocument.pagePointSize(link.page)
                                 root.jump(link.page, link.location.y / size.height, 0)
                             } else if (/^https?:\/\//i.test(url.toString())) {
@@ -838,5 +868,11 @@ Item {
         }
         onAccepted: { pdfDocument.password = passwordField.text; passwordField.clear() }
         onRejected: passwordField.clear()
+    }
+    // Mouse side buttons follow the same history as Cmd+[ / Cmd+].
+    // A handler, not a MouseArea, so text and link cursors underneath are unaffected.
+    TapHandler {
+        acceptedButtons: Qt.BackButton | Qt.ForwardButton
+        onTapped: function(point, button) { if (button === Qt.BackButton) root.goBack(); else root.goForward() }
     }
 }

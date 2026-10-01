@@ -28,6 +28,39 @@ Item {
             tryCompare(canvas, "restoring", false, 10000)
             wait(150)
         }
+        function test_linkHistoryBackAndForward() {
+            canvas.openFile(linkSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            verify(!canvas.canGoBack)
+            const link = tryFindLink()
+            mouseClick(link, link.width / 2, link.height / 2)
+            tryCompare(canvas, "currentPage", 2)
+            verify(canvas.canGoBack)
+            const target = canvas.position().y
+            // Cmd+[ returns to the page with the citation; Cmd+] goes forward again.
+            testInput.keyClick(canvas, Qt.Key_BracketLeft, Qt.ControlModifier)
+            tryCompare(canvas, "currentPage", 0)
+            verify(canvas.canGoForward)
+            mouseClick(findChild(reader, "historyForward"))
+            tryCompare(canvas, "currentPage", 2)
+            verify(Math.abs(canvas.position().y - target) < .03)
+            mouseClick(findChild(reader, "historyBack"))
+            tryCompare(canvas, "currentPage", 0)
+            // A new jump clears forward history, as in a browser.
+            reader.jumpToPage(1, 0)
+            tryCompare(canvas, "currentPage", 1)
+            verify(!canvas.canGoForward)
+            verify(canvas.goBack()); tryCompare(canvas, "currentPage", 0)
+            // Opening another PDF starts a fresh history.
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+            verify(!canvas.canGoBack && !canvas.canGoForward)
+        }
+        function tryFindLink() {
+            let link = null
+            tryVerify(function() { link = findChild(canvas, "pdfLink-0-0"); return link !== null && link.width > 0 }, 5000)
+            return link
+        }
         function test_searchAndNavigation() {
             compare(canvas.pageCount, 8)
             canvas.searchString = "occlusion"

@@ -74,3 +74,35 @@ inline bool writeOutlineFixture(const QString &path)
     QFile file(path);
     return file.open(QIODevice::WriteOnly) && file.write(pdf) == pdf.size();
 }
+
+// Three pages; page 1 has an internal link (60,600)-(300,640) in PDF points that jumps to page 3 at y=400.
+inline bool writeLinkFixture(const QString &path)
+{
+    QList<QByteArray> objects;
+    objects << "<< /Type /Catalog /Pages 2 0 R >>"
+            << "<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>";
+    for (int page = 0; page < 3; ++page) {
+        objects << QByteArray("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R "
+                              ">> >> /Contents ")
+                + QByteArray::number(4 + page * 2) + " 0 R" + (page == 0 ? " /Annots [10 0 R]" : "") + " >>";
+        const auto content
+            = QByteArray("BT /F1 20 Tf 60 610 Td (") + (page == 0 ? "See reference [3]" : "Link page") + ") Tj ET";
+        objects << QByteArray("<< /Length ") + QByteArray::number(content.size()) + " >>\nstream\n" + content
+                + "\nendstream";
+    }
+    objects << "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+            << "<< /Type /Annot /Subtype /Link /Rect [60 600 300 640] /Border [0 0 0] /Dest [7 0 R /XYZ 0 400 0] >>";
+    QByteArray pdf("%PDF-1.4\n");
+    QList<qsizetype> offsets;
+    for (qsizetype i = 0; i < objects.size(); ++i) {
+        offsets << pdf.size();
+        pdf += QByteArray::number(i + 1) + " 0 obj\n" + objects[i] + "\nendobj\n";
+    }
+    const auto start = pdf.size();
+    pdf += "xref\n0 " + QByteArray::number(objects.size() + 1) + "\n0000000000 65535 f \n";
+    for (const auto offset : offsets) pdf += QByteArray::number(offset).rightJustified(10, '0') + " 00000 n \n";
+    pdf += "trailer\n<< /Size " + QByteArray::number(objects.size() + 1) + " /Root 1 0 R >>\nstartxref\n"
+        + QByteArray::number(start) + "\n%%EOF\n";
+    QFile file(path);
+    return file.open(QIODevice::WriteOnly) && file.write(pdf) == pdf.size();
+}

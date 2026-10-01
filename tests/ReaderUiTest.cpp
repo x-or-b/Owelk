@@ -88,6 +88,7 @@ public slots:
         if (!preview.save(m_directory.filePath("preview 한글 %.png"))) qFatal("Cannot create image fixture");
         writeFixture(m_directory.filePath("long.pdf"), "Long PDF benchmark", 120);
         if (!writeOutlineFixture(m_directory.filePath("outline.pdf"))) qFatal("Cannot create outline fixture");
+        if (!writeLinkFixture(m_directory.filePath("links.pdf"))) qFatal("Cannot create link fixture");
         QDir().mkpath(m_directory.filePath("library/Group"));
         QFile::copy(m_directory.filePath("fixture.pdf"), m_directory.filePath("library/root.pdf"));
         QFile::copy(m_directory.filePath("fixture.pdf"), m_directory.filePath("library/Group/inside.pdf"));
@@ -110,6 +111,7 @@ public slots:
             "fixtureImage", QUrl::fromLocalFile(m_directory.filePath("preview 한글 %.png")));
         engine->rootContext()->setContextProperty(
             "outlineSource", QUrl::fromLocalFile(m_directory.filePath("outline.pdf")));
+        engine->rootContext()->setContextProperty("linkSource", QUrl::fromLocalFile(m_directory.filePath("links.pdf")));
         engine->rootContext()->setContextProperty("longSource", QUrl::fromLocalFile(m_directory.filePath("long.pdf")));
         QPdfDocument pdf;
         pdf.load(m_directory.filePath("fixture.pdf"));

@@ -83,7 +83,9 @@ Rectangle {
     }
     function zoom(multiplier) { canvas.zoom(multiplier) }
     function fitWidth() { canvas.fitWidth() }
-    function jumpToPage(page, y) { activated(); canvas.jump(page, y || 0, 0) }
+    function jumpToPage(page, y) { activated(); canvas.rememberPlace(); canvas.jump(page, y || 0, 0) }
+    function goBack() { return canvas.goBack() }
+    function goForward() { return canvas.goForward() }
     function copySelection() { canvas.copySelection() }
     function captureSelection() { canvas.captureSelection() }
     function highlightSelection() { canvas.highlightSelection() }
@@ -194,6 +196,16 @@ Rectangle {
             RowLayout {
                 anchors.left: parent.left; anchors.leftMargin: 4; anchors.verticalCenter: parent.verticalCenter
                 spacing: 3
+                ReaderIconButton {
+                    objectName: "historyBack"; kind: "back"; implicitWidth: 24
+                    description: "Back to previous place · Cmd+["; enabled: canvas.canGoBack
+                    onClicked: { root.activated(); canvas.goBack() }
+                }
+                ReaderIconButton {
+                    objectName: "historyForward"; kind: "forward"; implicitWidth: 24
+                    description: "Forward · Cmd+]"; enabled: canvas.canGoForward
+                    onClicked: { root.activated(); canvas.goForward() }
+                }
                 UiControls.TextField {
                     id: pageField
                     Layout.preferredWidth: 34; Layout.preferredHeight: 25
@@ -202,6 +214,7 @@ Rectangle {
                     onActiveFocusChanged: if (activeFocus) root.activated()
                     validator: IntValidator { bottom: 1; top: Math.max(1, canvas.pageCount) }
                     onAccepted: {
+                        canvas.rememberPlace()
                         canvas.jump(Number(text) - 1, 0, 0)
                         focus = false
                     }
@@ -415,6 +428,18 @@ Rectangle {
         sequences: [StandardKey.Copy]
         enabled: root.isActive && canvas.selectedText.length > 0 && !searchField.activeFocus && !pageField.activeFocus
         onActivated: canvas.copySelection()
+    }
+    Shortcut {
+        objectName: "historyBackShortcut"
+        sequence: "Ctrl+["
+        enabled: root.isActive && canvas.canGoBack
+        onActivated: canvas.goBack()
+    }
+    Shortcut {
+        objectName: "historyForwardShortcut"
+        sequence: "Ctrl+]"
+        enabled: root.isActive && canvas.canGoForward
+        onActivated: canvas.goForward()
     }
     Shortcut {
         sequence: "Escape"
