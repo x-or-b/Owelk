@@ -341,7 +341,13 @@ Item {
         if (selectedText.length) researchStore.copyText(selectedText)
     }
 
+    function clearCrossSelection() {
+        crossPages.forEach(function(index) { const holder = pages.itemAtIndex(index); if (holder) holder.clearExtension() })
+        if (selectionOrigin) selectionOrigin.clearExtension()
+        crossPages = []; selectionOrigin = null
+    }
     function clearSelection() {
+        clearCrossSelection()
         if (activeSelection) activeSelection.clear()
         activeSelection = null
         selectedText = ""
@@ -353,7 +359,68 @@ Item {
         onTapped: { root.activated(); root.clearSelection() }
     }
 
+    // Selections across pages: the page where the drag started (origin) keeps its press point; pages up to
+    // the pointer are added in order. Each page keeps its own verified PDF selection.
+    property var crossPages: []
+    property var selectionOrigin: null
+    property point selectionPointer: Qt.point(0, 0)
+    property point selectionPress: Qt.point(0, 0)
+    function trackSelectionDrag(origin, pointer, press) {
+        selectionOrigin = origin; selectionPointer = pointer; selectionPress = press
+        const target = anchorAt(pointer)
+        const forward = target && target.page > origin.index
+        crossPages.forEach(function(index) { const holder = pages.itemAtIndex(index); if (holder) holder.clearExtension() })
+        if (!target || target.page === origin.index || Math.abs(target.page - origin.index) > 3) {
+            origin.clearExtension()
+            crossPages = []
+            return
+        }
+        const scale = pageScale
+        origin.extendSelection(press, forward ? origin.textEnd(scale) : origin.textStart(scale))
+        const list = []
+        for (let i = origin.index + (forward ? 1 : -1); forward ? i <= target.page : i >= target.page; i += forward ? 1 : -1) {
+            const holder = pages.itemAtIndex(i)
+            if (!holder) continue
+            const begin = holder.textStart(scale), end = holder.textEnd(scale)
+            const snapped = i === target.page ? holder.snapToText(Qt.point(target.x, target.y)) : Qt.point(0, 0)
+            const at = Qt.point(snapped.x * scale, snapped.y * scale)
+            if (i === target.page) holder.extendSelection(forward ? begin : at, forward ? at : end)
+            else holder.extendSelection(begin, end)
+            list.push(i)
+        }
+        crossPages = list
+        refreshCrossText()
+    }
+    function crossSegments() {
+        if (!selectionOrigin || !crossPages.length) return []
+        const indexes = crossPages.concat([selectionOrigin.index]).sort(function(a, b) { return a - b })
+        return indexes.map(function(index) {
+            const holder = index === selectionOrigin.index ? selectionOrigin : pages.itemAtIndex(index)
+            const selection = holder.pageSelection, scale = selection.renderScale
+            return {page: index, text: selection.text,
+                from: Qt.point(selection.from.x / scale, selection.from.y / scale), to: Qt.point(selection.to.x / scale, selection.to.y / scale)}
+        }).filter(function(segment) { return segment.text.length > 0 })
+    }
+    function refreshCrossText() { selectedText = crossSegments().map(function(s) { return s.text }).join("\n") }
+    // Scroll while a selection drag waits near the top or bottom edge.
+    Timer {
+        interval: 16; repeat: true
+        running: root.selecting && root.selectionOrigin !== null && (root.selectionPointer.y < 24 || root.selectionPointer.y > root.height - 24)
+        onTriggered: {
+            const step = root.selectionPointer.y < 24 ? -Math.ceil((24 - root.selectionPointer.y) / 2) : Math.ceil((root.selectionPointer.y - root.height + 24) / 2)
+            pages.contentY = Math.max(0, Math.min(pages.contentHeight - pages.height, pages.contentY + step))
+            root.trackSelectionDrag(root.selectionOrigin, root.selectionPointer, root.selectionPress)
+        }
+    }
     function rememberSelection(selection) {
+        if (crossPages.length) {
+            const segments = crossSegments()
+            if (!segments.length) { selectedAnchor = null; return }
+            const last = segments[segments.length - 1]
+            selectedText = segments.map(function(s) { return s.text }).join("\n")
+            selectedAnchor = {page: last.page, text: selectedText, from: segments[0].from, to: last.to, segments: segments}
+            return
+        }
         // Freeze PDF-point endpoints before zoom, resizing or opening a dock changes the scale.
         selectedAnchor = selection.text.length ? {
             page: selection.page, text: selection.text,
@@ -364,11 +431,18 @@ Item {
 
     function captureSelection() {
         if (!selectedAnchor || selectedAnchor.text !== selectedText || selecting) return
+        if (selectedAnchor.segments) { researchStore.captureTextSegments(source, selectedAnchor.segments); return }
         researchStore.captureText(source, selectedAnchor.page, selectedAnchor.from, selectedAnchor.to, selectedAnchor.text)
     }
     function highlightSelection() {
         if (!selectedAnchor || selectedAnchor.text !== selectedText || selecting || researchStore.busy) return
         pendingHighlightSelection = selectedAnchor
+        if (selectedAnchor.segments) {
+            // One highlight per page, each verified against its page.
+            const color = markColor
+            selectedAnchor.segments.forEach(function(s) { researchStore.highlightText(source, s.page, s.from, s.to, s.text, color) })
+            return
+        }
         researchStore.highlightText(source, selectedAnchor.page, selectedAnchor.from, selectedAnchor.to, selectedAnchor.text, markColor)
     }
 
@@ -501,6 +575,48 @@ Item {
                 return lineMetrics.some(function(r) {
                     return x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height
                 })
+            }
+            // Part of a selection that started on another page: from/to are set by the canvas, not this page's drag.
+            property bool extended: false
+            property point extFrom: Qt.point(0, 0)
+            property point extTo: Qt.point(0, 0)
+            readonly property alias pageSelection: selection
+            function extendSelection(from, to) {
+                // Release hold before moving the endpoints; a held selection ignores new points.
+                if (!extended) { selectionScale = root.pageScale; extended = true; selection.hold = false }
+                extFrom = from; extTo = to
+                selection.from = from; selection.to = to
+            }
+            // Selections are hit-tested to characters, so "page start/end" must be on text, not page corners.
+            function textStart(scale) {
+                ensureMetrics()
+                const line = lineMetrics.length ? lineMetrics[0] : null
+                return line ? Qt.point((line.x + .5) * scale, (line.y + line.height / 2) * scale) : Qt.point(0, 0)
+            }
+            function textEnd(scale) {
+                ensureMetrics()
+                const line = lineMetrics.length ? lineMetrics[lineMetrics.length - 1] : null
+                return line ? Qt.point((line.x + line.width - .5) * scale, (line.y + line.height / 2) * scale)
+                            : Qt.point(pointSize.width * scale, pointSize.height * scale)
+            }
+            // The nearest point on a text line (PDF points), so a drag ending in a margin still selects text.
+            function snapToText(point) {
+                ensureMetrics()
+                let best = null, distance = Infinity
+                lineMetrics.forEach(function(line) {
+                    const d = point.y < line.y ? line.y - point.y : point.y > line.y + line.height ? point.y - line.y - line.height : 0
+                    if (d < distance) { distance = d; best = line }
+                })
+                if (!best) return point
+                return Qt.point(Math.max(best.x + .5, Math.min(best.x + best.width - .5, point.x)), best.y + best.height / 2)
+            }
+            function clearExtension() {
+                if (!extended) return
+                extended = false
+                if (!selectionDrag.active) selection.clear()
+                selection.from = Qt.binding(function() { return selectionDrag.centroid.pressPosition })
+                selection.to = Qt.binding(function() { return selectionDrag.centroid.position })
+                selection.hold = Qt.binding(function() { return !selectionDrag.active })
             }
             function selectWholePage() {
                 selection.selectAll(); root.activeSelection = selection; root.selectedText = selection.text
@@ -683,7 +799,8 @@ Item {
                     to: selectionDrag.centroid.position
                     hold: !selectionDrag.active
                     onTextChanged: {
-                        if (root.activeSelection === selection) {
+                        if (root.crossPages.length) root.refreshCrossText()
+                        else if (root.activeSelection === selection) {
                             root.selectedText = text
                             if (selectionDrag.active) root.rememberSelection(selection)
                         }
@@ -695,9 +812,13 @@ Item {
                     target: null
                     enabled: !root.captureMode && !root.pinching && (!root.tool.length || root.tool === "highlight")
                     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad | PointerDevice.Stylus
+                    onCentroidChanged: {
+                        if (active) root.trackSelectionDrag(pageHolder, selection.mapToItem(root, centroid.position.x, centroid.position.y), centroid.pressPosition)
+                    }
                     onActiveChanged: {
                         root.selecting = active
                         if (active) {
+                            root.clearCrossSelection()
                             root.stopSourceMotion()
                             // Do not reinterpret held pixel endpoints at a new zoom/viewport scale.
                             pageHolder.selectionScale = root.pageScale

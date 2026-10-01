@@ -755,6 +755,114 @@ QString ResearchStore::figureCaption(QPdfDocument &document, int page, const QRe
     return parts.join(' ').left(600);
 }
 
+void ResearchStore::captureTextSegments(const QUrl &source, const QVariantList &segments)
+{
+    // One excerpt spanning pages: every page's part is verified against the PDF like a one-page excerpt.
+    if (segments.isEmpty() || segments.size() > 50) {
+        emit message("Select text in a PDF before saving an excerpt.");
+        return;
+    }
+    if (segments.size() == 1) {
+        const auto one = segments[0].toMap();
+        captureText(source, one["page"].toInt(), one["from"].toPointF(), one["to"].toPointF(), one["text"].toString());
+        return;
+    }
+    if (m_relinking || !source.isLocalFile() || m_pending >= 4) {
+        emit message("Saving captures. Please try again shortly.");
+        return;
+    }
+    ++m_pending;
+    emit busyChanged();
+    auto *watcher = new QFutureWatcher<TextCaptureResult>(this);
+    connect(watcher, &QFutureWatcher<TextCaptureResult>::finished, this, [this, watcher] {
+        const auto result = watcher->result();
+        const auto &anchor = result.anchor;
+        watcher->deleteLater();
+        --m_pending;
+        emit busyChanged();
+        if (!anchor.error.isEmpty()) {
+            emit message(anchor.error);
+            return;
+        }
+        const auto document = ensureDocument(anchor.source);
+        if (document.isEmpty() || !m_database.transaction()) {
+            emit message("Cannot save excerpt. Check storage and permissions.");
+            return;
+        }
+        QSqlQuery base(m_database);
+        base.prepare("INSERT INTO captures(id,document_id,sha256,page,x,y,width,height,image,created_at) "
+                     "VALUES(?,?,?,?,?,?,?,?,'',?)");
+        base.addBindValue(anchor.id);
+        base.addBindValue(document);
+        base.addBindValue(anchor.hash);
+        base.addBindValue(anchor.page);
+        base.addBindValue(anchor.region.x());
+        base.addBindValue(anchor.region.y());
+        base.addBindValue(anchor.region.width());
+        base.addBindValue(anchor.region.height());
+        base.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+        QSqlQuery quote(m_database);
+        quote.prepare("INSERT INTO text_captures VALUES(?,?,?,?,'','')");
+        quote.addBindValue(anchor.id);
+        quote.addBindValue(result.text);
+        quote.addBindValue(result.start);
+        quote.addBindValue(result.end);
+        if (!base.exec() || !quote.exec() || !m_database.commit()) {
+            m_database.rollback();
+            emit message("Cannot save excerpt and source location. Check storage and permissions.");
+            return;
+        }
+        reloadCaptures();
+        emit captureSaved(anchor.id);
+        emit message("Text excerpt across pages saved with its source location.");
+    });
+    watcher->setFuture(QtConcurrent::run(&m_workers, [source, segments] {
+        TextCaptureResult result;
+        auto &anchor = result.anchor;
+        anchor.source = source;
+        const auto path = source.toLocalFile();
+        anchor.hash = fingerprint(path);
+        QPdfDocument document;
+        if (anchor.hash.isEmpty() || document.load(path) != QPdfDocument::Error::None) {
+            anchor.error = "Cannot read the source PDF for this excerpt.";
+            return result;
+        }
+        QStringList parts;
+        for (qsizetype i = 0; i < segments.size(); ++i) {
+            const auto segment = segments[i].toMap();
+            const int page = segment["page"].toInt();
+            if (page < 0 || page >= document.pageCount()) {
+                anchor.error = "The selection could not be verified. Select the text again.";
+                return result;
+            }
+            const auto selection = document.getSelection(page, segment["from"].toPointF(), segment["to"].toPointF());
+            if (!selection.isValid() || selection.text() != segment["text"].toString()) {
+                anchor.error = "The selection could not be verified. Reopen the PDF and select the text again.";
+                return result;
+            }
+            parts << selection.text();
+            if (i == 0) {
+                // The excerpt is anchored where it starts.
+                const auto size = document.pagePointSize(page);
+                const auto rect = selection.boundingRectangle();
+                anchor.page = page;
+                anchor.region = QRectF(rect.x() / size.width(), rect.y() / size.height(), rect.width() / size.width(),
+                    rect.height() / size.height())
+                                    .intersected(QRectF(0, 0, 1, 1));
+                result.start = selection.startIndex();
+                result.end = selection.endIndex();
+            }
+        }
+        result.text = parts.join("\n");
+        if (anchor.region.isEmpty() || fingerprint(path) != anchor.hash) {
+            anchor.error = "The source PDF changed during capture. Please reopen it.";
+            return result;
+        }
+        anchor.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        return result;
+    }));
+}
+
 void ResearchStore::captureText(
     const QUrl &source, int page, const QPointF &from, const QPointF &to, const QString &expectedText)
 {

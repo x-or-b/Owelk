@@ -28,6 +28,41 @@ Item {
             tryCompare(canvas, "restoring", false, 10000)
             wait(150)
         }
+        function test_selectionAcrossPagesExcerptAndHighlights() {
+            canvas.zoom(0.6)
+            tryCompare(canvas, "restoring", false)
+            canvas.jump(0, .35, 0)
+            tryCompare(canvas, "restoring", false)
+            wait(200)
+            const first = findChild(canvas, "paperPage0"), second = findChild(canvas, "paperPage1")
+            tryVerify(function() { return first !== null && second !== null })
+            const scale = canvas.pageScale
+            // From the last finding line on page 1 into the first lines of page 2.
+            const start = first.mapToItem(canvas, 50 * scale, 385 * scale), end = second.mapToItem(canvas, 420 * scale, 212 * scale)
+            verify(end.y < canvas.height, "page 2 text must be on screen: " + end.y)
+            testInput.pointerDrag(canvas, start, end, false)
+            tryVerify(function() { return canvas.selectedAnchor && canvas.selectedAnchor.segments })
+            compare(canvas.selectedAnchor.segments.length, 2)
+            compare(canvas.selectedAnchor.segments[0].page, 0)
+            compare(canvas.selectedAnchor.segments[1].page, 1)
+            verify(canvas.selectedText.indexOf("1.11") >= 0, canvas.selectedText)
+            verify(canvas.selectedText.indexOf("2.1") >= 0, canvas.selectedText)
+            const before = researchStore.captures.length
+            canvas.captureSelection()
+            tryVerify(function() { return researchStore.captures.length === before + 1 }, 10000)
+            const excerpt = researchStore.captures[0]
+            compare(excerpt.kind, "text")
+            verify(excerpt.text.indexOf("1.11") >= 0 && excerpt.text.indexOf("2.1") >= 0, excerpt.text)
+            compare(excerpt.page, 0)
+            // Highlights are stored per page.
+            const marks = researchStore.searchKnowledge("Research finding 2.1").filter(function(r) { return r.kind === "highlight" }).length
+            canvas.highlightSelection()
+            tryVerify(function() { return canvas.savedHighlights.length >= 1 }, 10000)
+            tryVerify(function() { return researchStore.searchKnowledge("Section 2").length >= 0 && canvas.savedHighlights.some(function(h) { return h.page === 1 }) && canvas.savedHighlights.some(function(h) { return h.page === 0 }) }, 10000)
+            canvas.clearSelection()
+            verify(!canvas.crossPages.length)
+            canvas.zoom(1 / 0.6)
+        }
         function test_linkHistoryBackAndForward() {
             canvas.openFile(linkSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)

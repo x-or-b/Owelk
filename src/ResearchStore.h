@@ -119,6 +119,8 @@ public:
     Q_INVOKABLE void captureRegion(const QUrl &source, int page, const QRectF &normalizedRegion);
     // A region of a web page screenshot (normalised to the image); opening it reopens the page.
     Q_INVOKABLE void captureWebImage(const QUrl &page, const QString &title, const QImage &image, const QRectF &region);
+    // segments: [{page, from, to, text}] in PDF points, one per page of a selection spanning pages.
+    Q_INVOKABLE void captureTextSegments(const QUrl &source, const QVariantList &segments);
     Q_INVOKABLE void captureText(
         const QUrl &source, int page, const QPointF &from, const QPointF &to, const QString &expectedText);
     Q_INVOKABLE void highlightText(const QUrl &source, int page, const QPointF &from, const QPointF &to,
