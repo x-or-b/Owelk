@@ -73,9 +73,10 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
     }
     QSet<QString> hashes;
     QSqlQuery captures(m_database);
-    captures.prepare("SELECT sha256 FROM captures WHERE source=? UNION SELECT sha256 FROM highlights WHERE source=?");
-    captures.addBindValue(source.toString());
-    captures.addBindValue(source.toString());
+    captures.prepare(
+        "SELECT sha256 FROM captures WHERE document_id=? UNION SELECT sha256 FROM highlights WHERE document_id=?");
+    captures.addBindValue(findDocument(source));
+    captures.addBindValue(findDocument(source));
     if (!captures.exec()) {
         reject(captures.lastError().text());
         return;
@@ -111,6 +112,8 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
             m_index->relocateSource(source, candidate);
             // Update live tabs before a pending UI save can reintroduce an old path.
             emit sourceRelinked(source, candidate);
+            loadDocumentNames(); // Titles are cached by URL.
+            announceDocumentsChanged();
             reloadCaptures();
             emit highlightsChanged();
             emit recentDocumentsChanged();
@@ -160,26 +163,45 @@ bool ResearchStore::applyRelink(const QUrl &source, const QUrl &candidate, const
         m_database.rollback();
         return false;
     };
-    // Preserve original reading position; merge recent membership and workspace memberships.
-    if (!run("INSERT INTO recent_documents(url,opened_at) SELECT ?,opened_at FROM recent_documents WHERE url=? "
-             "ON CONFLICT(url) DO UPDATE SET opened_at=MAX(opened_at,excluded.opened_at)",
-            {newUrl, oldUrl})
-        || !run("DELETE FROM recent_documents WHERE url=?", {oldUrl})
-        || !run("INSERT OR REPLACE INTO reading_positions(url,position) SELECT ?,position FROM reading_positions WHERE "
-                "url=?",
-            {newUrl, oldUrl})
-        || !run("DELETE FROM reading_positions WHERE url=?", {oldUrl})
-        || !run("INSERT OR IGNORE INTO workspace_documents(workspace_id,url) SELECT workspace_id,? FROM "
-                "workspace_documents WHERE url=?",
-            {newUrl, oldUrl})
-        || !run("DELETE FROM workspace_documents WHERE url=?", {oldUrl})
-        || !run("INSERT OR IGNORE INTO workspace_document_exclusions(workspace_id,url) SELECT workspace_id,? FROM "
-                "workspace_document_exclusions WHERE url=?",
-            {newUrl, oldUrl})
-        || !run("DELETE FROM workspace_document_exclusions WHERE url=?", {oldUrl})
-        || !run("UPDATE captures SET source=? WHERE source=? AND sha256=?", {newUrl, oldUrl, hash})
-        || !run("UPDATE highlights SET source=? WHERE source=? AND sha256=?", {newUrl, oldUrl, hash}))
-        return abort();
+    const auto documentFor = [&](const QString &url) {
+        QSqlQuery query(m_database);
+        query.prepare("SELECT id FROM documents WHERE url=?");
+        query.addBindValue(url);
+        return query.exec() && query.next() ? query.value(0).toString() : QString();
+    };
+    // All saved data hangs off the document ID, so the move is one URL update. If the new path was
+    // already opened on its own, fold that duplicate entry into the original one.
+    const auto original = documentFor(oldUrl), duplicate = documentFor(newUrl);
+    if (!original.isEmpty() && !duplicate.isEmpty() && duplicate != original) {
+        // The original's reading position and details win; memberships and annotations are merged.
+        if (!run("INSERT INTO recent_documents(document_id,opened_at) SELECT ?,opened_at FROM recent_documents "
+                 "WHERE document_id=? ON CONFLICT(document_id) DO UPDATE SET "
+                 "opened_at=MAX(opened_at,excluded.opened_at)",
+                {original, duplicate})
+            || !run("INSERT OR IGNORE INTO reading_positions(document_id,position) SELECT ?,position "
+                    "FROM reading_positions WHERE document_id=?",
+                {original, duplicate})
+            || !run("INSERT OR IGNORE INTO workspace_documents(workspace_id,document_id) SELECT workspace_id,? "
+                    "FROM workspace_documents WHERE document_id=?",
+                {original, duplicate})
+            || !run(
+                "INSERT OR IGNORE INTO workspace_document_exclusions(workspace_id,document_id) SELECT workspace_id,? "
+                "FROM workspace_document_exclusions WHERE document_id=?",
+                {original, duplicate})
+            || !run(
+                "UPDATE documents SET (title,authors,year,doi,arxiv,metadata_origin,metadata_sha256)="
+                "(SELECT title,authors,year,doi,arxiv,metadata_origin,metadata_sha256 FROM documents WHERE id=?) "
+                "WHERE id=? AND metadata_origin<>'user' AND (SELECT metadata_origin FROM documents WHERE id=?)='user'",
+                {duplicate, original, duplicate})
+            || !run("UPDATE captures SET document_id=? WHERE document_id=?", {original, duplicate})
+            || !run("UPDATE highlights SET document_id=? WHERE document_id=?", {original, duplicate}))
+            return abort();
+        for (const auto *table :
+            {"recent_documents", "reading_positions", "workspace_documents", "workspace_document_exclusions"})
+            if (!run(QStringLiteral("DELETE FROM %1 WHERE document_id=?").arg(table), {duplicate})) return abort();
+        if (!run("DELETE FROM documents WHERE id=?", {duplicate})) return abort();
+    }
+    if (!original.isEmpty() && !run("UPDATE documents SET url=? WHERE id=?", {newUrl, original})) return abort();
     auto updateStates = [&](const QString &select, const QString &update) {
         QSqlQuery query(m_database);
         if (!query.exec(select)) {

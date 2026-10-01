@@ -1,7 +1,9 @@
 #pragma once
 
 #include <QObject>
+#include <QHash>
 #include <QRectF>
+#include <QSet>
 #include <QStringList>
 #include <QSqlDatabase>
 #include <QThreadPool>
@@ -25,6 +27,8 @@ class ResearchStore final : public QObject {
     Q_PROPERTY(QObject *paperIndex READ paperIndex CONSTANT)
     Q_PROPERTY(bool relinking READ relinking NOTIFY relinkingChanged)
     Q_PROPERTY(QStringList annotationColors READ annotationColors CONSTANT)
+    // Bumped when paper titles or details change; bind to it next to displayName() calls.
+    Q_PROPERTY(int documentsRevision READ documentsRevision NOTIFY documentsChanged)
 
 public:
     explicit ResearchStore(const QString &directory, QObject *parent = nullptr);
@@ -53,6 +57,13 @@ public:
     Q_INVOKABLE bool restoreCapture(const QString &id);
     Q_INVOKABLE bool saveCaptureNote(const QString &id, const QString &body);
     Q_INVOKABLE QString fileName(const QUrl &url) const;
+    // Paper title when known, otherwise the file name.
+    Q_INVOKABLE QString displayName(const QUrl &source) const;
+    Q_INVOKABLE QVariantMap documentDetails(const QUrl &source) const;
+    Q_INVOKABLE bool updateDocumentDetails(const QUrl &source, const QVariantMap &details);
+    // Forget edits and read the details from the PDF again.
+    Q_INVOKABLE void resetDocumentDetails(const QUrl &source);
+    int documentsRevision() const { return m_documentsRevision; }
     Q_INVOKABLE bool sameSource(const QUrl &first, const QUrl &second) const { return first == second; }
     Q_INVOKABLE void captureRegion(const QUrl &source, int page, const QRectF &normalizedRegion);
     Q_INVOKABLE void captureText(
@@ -95,6 +106,7 @@ public:
 
 signals:
     void highlightsChanged();
+    void documentsChanged();
     void highlightSaved(const QString &id, const QUrl &source);
     void highlightsLoaded(int request, const QUrl &source, const QVariantList &highlights, const QString &error,
         const QString &fingerprint);
@@ -122,6 +134,14 @@ private:
         const QString &expectedText, bool asHighlight, const QString &color = defaultAnnotationColor(),
         const QString &kind = "highlight", const QString &body = QString());
     void reloadCaptures();
+    // Saved data is keyed by document ID; QML keeps passing file URLs.
+    QString findDocument(const QUrl &source) const;
+    QString ensureDocument(const QUrl &source);
+    void loadDocumentNames();
+    void rememberTitle(const QUrl &url, const QString &title);
+    void refreshMetadata(const QString &id, const QUrl &url, bool force);
+    void announceDocumentsChanged();
+    static bool adoptDocumentIds(QSqlDatabase &db, QString *error);
     QVariantList readCaptures(bool trashed) const;
     QVariantMap canonicalState(const QVariantMap &state) const;
     bool applyRelink(const QUrl &source, const QUrl &candidate, const QString &hash, QString *error);
@@ -136,6 +156,11 @@ private:
     // Read-only source checks and folder listing use their own pool so a click never waits behind a save.
     QThreadPool m_workers;
     QThreadPool m_verifiers;
+    QThreadPool m_metadataWorkers;
+    QHash<QString, QString> m_titles;
+    QSet<QString> m_metadataPending;
+    int m_documentsRevision = 0;
+    bool m_documentsChangePending = false;
     int m_pending = 0;
     int m_folderRequest = 0;
     int m_highlightRequest = 0;

@@ -145,7 +145,10 @@ Rectangle {
         MenuSeparator {}
         UiControls.MenuItem { text:"Capture a Region"; onTriggered:{canvas.tool="";canvas.captureMode=true} }
         UiControls.MenuItem { text:"Print PDF…"; onTriggered:root.printDocument() }
+        MenuSeparator {}
+        UiControls.MenuItem { objectName:"paperDetailsOption"; text:"Paper Details…"; enabled:root.source.toString().length > 0; onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
     }
+    Loader { id: paperDetails; active: false; sourceComponent: PaperDetailsDialog {} }
 
     ColumnLayout {
         anchors.fill: parent
@@ -171,7 +174,7 @@ Rectangle {
                 }
                 Label {
                     Layout.fillWidth: true
-                    text: root.source.toString().length ? researchStore.fileName(root.source) : "No document"
+                    text: root.source.toString().length ? (researchStore.documentsRevision, researchStore.displayName(root.source)) : "No document"
                     elide: Text.ElideMiddle
                     color: Theme.text
                     font.weight: Font.Medium

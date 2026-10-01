@@ -90,8 +90,8 @@ ColumnLayout {
         }
         Label {
             Layout.fillWidth: true
-            text: (root.controller.sourceFilter.toString().length ? researchStore.fileName(root.controller.sourceFilter) : "All papers")
-                + (root.controller.targetFilter === "all" ? "" : " · " + ({text: "PDF text", filename: "File names", captures: "Captures"})[root.controller.targetFilter])
+            text: (root.controller.sourceFilter.toString().length ? (researchStore.documentsRevision, researchStore.displayName(root.controller.sourceFilter)) : "All papers")
+                + (root.controller.targetFilter === "all" ? "" : " · " + ({text: "PDF text", filename: "Paper details", captures: "Captures"})[root.controller.targetFilter])
             textFormat: Text.PlainText; elide: Text.ElideMiddle; color: Theme.textTertiary; font.pixelSize: 11
         }
         FilterButton {
@@ -106,7 +106,7 @@ ColumnLayout {
         FilterCombo {
             objectName: "searchTargetFilter"
             Layout.preferredWidth: 130
-            model: ["Everything", "PDF text", "File names", "Captures"]
+            model: ["Everything", "PDF text", "Paper details", "Captures"]
             readonly property var values: ["all", "text", "filename", "captures"]
             currentIndex: Math.max(0, values.indexOf(root.controller.targetFilter))
             onActivated: root.controller.targetFilter = values[currentIndex]

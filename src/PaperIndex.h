@@ -8,6 +8,7 @@
 #include <QQueue>
 #include <QSet>
 #include <atomic>
+#include <functional>
 #include <memory>
 
 // Rebuildable local search data. PDF parsing and search use separate worker-owned connections.
@@ -22,6 +23,9 @@ public:
     ~PaperIndex() override;
     bool initialize(QString *error);
     void enqueue(const QUrl &source);
+    // Called on the UI thread when a file is indexed; returns the library's ID for it so both
+    // databases name a paper the same way. Without one the index assigns its own IDs.
+    void setDocumentResolver(std::function<QString(const QUrl &)> resolver) { m_resolver = std::move(resolver); }
     QVariantList documents() const;
     QString progress() const { return m_progress; }
     bool paused() const { return m_paused; }
@@ -51,6 +55,7 @@ private:
     QSet<QString> m_scheduled;
     QHash<QString, QString> m_redirects;
     int m_relocating = 0;
+    std::function<QString(const QUrl &)> m_resolver;
     QSet<QObject *> m_readers, m_interactingReaders;
     bool m_active = false, m_paused = false;
     int m_request = 0;

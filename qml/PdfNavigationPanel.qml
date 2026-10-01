@@ -26,7 +26,7 @@ Item {
         spacing: 8
         Label {
             Layout.fillWidth: true
-            text: root.reader && root.reader.source.toString().length ? researchStore.fileName(root.reader.source) : "No active PDF"
+            text: root.reader && root.reader.source.toString().length ? (researchStore.documentsRevision, researchStore.displayName(root.reader.source)) : "No active PDF"
             textFormat: Text.PlainText
             elide: Text.ElideMiddle
             font.pixelSize: 12

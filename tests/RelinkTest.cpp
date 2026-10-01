@@ -154,8 +154,11 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 10000);
         QCOMPARE(store.recentDocuments().size(), 1);
         QCOMPARE(index->documents().size(), 1);
-        QCOMPARE(
-            sql(dir.filePath("data/owelk.sqlite3"), "SELECT source FROM captures").first().toString(), next.toString());
+        QCOMPARE(sql(dir.filePath("data/owelk.sqlite3"),
+                     "SELECT d.url FROM captures c JOIN documents d ON d.id=c.document_id")
+                     .first()
+                     .toString(),
+            next.toString());
         QCOMPARE(sql(dir.filePath("data/owelk.sqlite3"), "SELECT count(*) FROM deleted_captures").first().toInt(), 1);
         QVERIFY(store.captures().isEmpty());
         QVERIFY(QFileInfo::exists(old.toLocalFile()));

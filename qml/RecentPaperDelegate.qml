@@ -10,13 +10,16 @@ UiControls.ItemDelegate {
     onClicked: documentChosen(modelData.url, modelData.position)
     ToolTip.visible: hovered
     ToolTip.delay: 450
-    ToolTip.text: modelData.url.toString() + "\nRight-click to remove from Recent Papers"
+    ToolTip.text: (modelData.fileName && modelData.fileName !== modelData.name ? modelData.fileName + "\n" : "")
+        + modelData.url.toString() + "\nRight-click for details or to remove from Recent Papers"
     MouseArea { anchors.fill: parent; acceptedButtons: Qt.RightButton; onClicked: menu.popup() }
     UiControls.Menu {
         id: menu; objectName: "recentPaperMenu"
+        UiControls.MenuItem { objectName: "recentPaperDetails"; text: "Paper Details…"; onTriggered: { details.active = true; details.item.begin(root.modelData.url) } }
         UiControls.MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(root.modelData.url) }
         UiControls.MenuItem { objectName: "removeRecentOption"; text: "Remove from Recent Papers…"; onTriggered: confirmation.open() }
     }
+    Loader { id: details; active: false; sourceComponent: PaperDetailsDialog {} }
     UiControls.Dialog {
         id: confirmation
         objectName: "removeRecentDialog"

@@ -83,6 +83,8 @@ ResearchStore::ResearchStore(const QString &directory, QObject *parent)
 {
     m_workers.setMaxThreadCount(1);
     m_verifiers.setMaxThreadCount(2);
+    m_metadataWorkers.setMaxThreadCount(1);
+    m_metadataWorkers.setThreadPriority(QThread::LowPriority);
     connect(m_index, &PaperIndex::message, this, &ResearchStore::message);
 }
 
@@ -100,6 +102,7 @@ ResearchStore::~ResearchStore()
 {
     m_workers.waitForDone();
     m_verifiers.waitForDone();
+    m_metadataWorkers.waitForDone();
     m_database.close();
     m_database = QSqlDatabase();
     QSqlDatabase::removeDatabase(m_connection);
@@ -184,20 +187,29 @@ bool ResearchStore::initialize(QString *error)
             {// Search and capture lists filter by these columns on every query.
                 "CREATE INDEX IF NOT EXISTS highlights_live ON highlights(deleted_at, created_at)",
                 "CREATE INDEX IF NOT EXISTS captures_source ON captures(source)"}},
+        // Saved data moves from file URLs to document IDs; the file is backed up first.
+        {3, {}, [](QSqlDatabase &db, QString *error) { return adoptDocumentIds(db, error); }, true},
     };
-    if (!migrateSchema(m_database, steps, error)) return false;
+    if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
+    loadDocumentNames();
     reloadCaptures();
     QSqlQuery links(m_database);
     links.exec("SELECT old_url,new_url FROM source_relinks");
     while (links.next()) m_relinks.insert(links.value(0).toString(), links.value(1).toString());
+    // The search cache adopts the same document IDs, so a result names the same paper everywhere.
+    m_index->setDocumentResolver([this](const QUrl &url) { return ensureDocument(url); });
     if (!m_index->initialize(error)) return false;
     // Durable redirects also replay any search-cache update interrupted by process exit.
     for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)
         m_index->relocateSource(QUrl(it.key()), resolvedSource(QUrl(it.value())));
     QSqlQuery known(m_database);
-    known.exec("SELECT url FROM recent_documents UNION SELECT url FROM reading_positions UNION SELECT url FROM "
-               "workspace_documents");
-    while (known.next()) m_index->enqueue(resolvedSource(QUrl(known.value(0).toString())));
+    known.exec("SELECT id,url,metadata_origin FROM documents");
+    while (known.next()) {
+        const QUrl url(known.value(1).toString());
+        m_index->enqueue(url);
+        // Details are read once per file version; unread documents catch up in the background.
+        if (known.value(2).toString().isEmpty()) refreshMetadata(known.value(0).toString(), url, false);
+    }
     return true;
 }
 
@@ -230,9 +242,11 @@ bool ResearchStore::saveSession(const QVariantMap &input)
         const auto reader = value.toMap();
         const auto source = QUrl(reader.value("source").toString());
         if (!source.isLocalFile()) continue;
+        const auto document = ensureDocument(source);
+        if (document.isEmpty()) continue;
         QSqlQuery position(m_database);
-        position.prepare("INSERT OR REPLACE INTO reading_positions VALUES(?,?)");
-        position.addBindValue(source.toString());
+        position.prepare("INSERT OR REPLACE INTO reading_positions(document_id,position) VALUES(?,?)");
+        position.addBindValue(document);
         position.addBindValue(
             QString::fromUtf8(QJsonDocument::fromVariant(reader.value("position")).toJson(QJsonDocument::Compact)));
         if (!position.exec()) {
@@ -264,14 +278,16 @@ bool ResearchStore::rememberDocument(const QUrl &url)
         if (url.isLocalFile()) emit relinkRequested(resolvedSource(url));
         return false;
     }
+    const auto document = ensureDocument(url);
     QSqlQuery query(m_database);
-    query.prepare("INSERT OR REPLACE INTO recent_documents(url,opened_at) VALUES(?,?)");
-    query.addBindValue(url.toString());
+    query.prepare("INSERT OR REPLACE INTO recent_documents(document_id,opened_at) VALUES(?,?)");
+    query.addBindValue(document);
     query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
-    if (!query.exec()) {
-        emit message(query.lastError().text());
+    if (document.isEmpty() || !query.exec()) {
+        emit message(tr("Cannot record this document: %1").arg(query.lastError().text()));
         return false;
     }
+    refreshMetadata(document, resolvedSource(url), false);
     emit recentDocumentsChanged();
     emit homeChanged();
     m_index->enqueue(url);
@@ -282,10 +298,12 @@ QVariantList ResearchStore::recentDocuments() const
 {
     QVariantList results;
     QSqlQuery query(m_database);
-    query.exec("SELECT url FROM recent_documents ORDER BY opened_at DESC LIMIT 12");
+    query.exec("SELECT d.url FROM recent_documents r JOIN documents d ON d.id=r.document_id "
+               "ORDER BY r.opened_at DESC LIMIT 12");
     while (query.next()) {
         const auto url = QUrl(query.value(0).toString());
-        results.append(QVariantMap{{"url", url}, {"name", fileName(url)}, {"position", readingPosition(url)}});
+        results.append(QVariantMap{
+            {"url", url}, {"name", displayName(url)}, {"fileName", fileName(url)}, {"position", readingPosition(url)}});
     }
     return results;
 }
@@ -295,8 +313,9 @@ QVariantList ResearchStore::readCaptures(bool trashed) const
     QVariantList results;
     QSqlQuery query(m_database);
     query.exec(QStringLiteral(
-        "SELECT c.id,c.source,c.page,c.image,c.created_at,t.text,t.capture_id,n.body,n.updated_at,d.deleted_at "
-        "FROM captures c LEFT JOIN text_captures t ON t.capture_id=c.id "
+        "SELECT c.id,doc.url,c.page,c.image,c.created_at,t.text,t.capture_id,n.body,n.updated_at,d.deleted_at "
+        "FROM captures c LEFT JOIN documents doc ON doc.id=c.document_id "
+        "LEFT JOIN text_captures t ON t.capture_id=c.id "
         "LEFT JOIN capture_notes n ON n.capture_id=c.id "
         "LEFT JOIN deleted_captures d ON d.id=c.id WHERE d.id IS %1 NULL "
         "ORDER BY %2 DESC,c.id DESC")
@@ -309,7 +328,7 @@ QVariantList ResearchStore::readCaptures(bool trashed) const
             ? m_directory + (trashed ? "/captures/trash/" : "/captures/") + image
             : QString();
         results.append(
-            QVariantMap{{"id", query.value(0)}, {"source", url}, {"name", fileName(url)}, {"page", query.value(2)},
+            QVariantMap{{"id", query.value(0)}, {"source", url}, {"name", displayName(url)}, {"page", query.value(2)},
                 {"kind", query.value(6).isNull() ? "region" : "text"}, {"text", query.value(5).toString()},
                 {"note", query.value(7).toString()}, {"noteUpdatedAt", query.value(8).toString()},
                 {"image", imagePath.isEmpty() ? QUrl() : QUrl::fromLocalFile(imagePath)},
@@ -353,8 +372,8 @@ bool ResearchStore::saveCaptureNote(const QString &id, const QString &body)
 QVariantMap ResearchStore::readingPosition(const QUrl &source) const
 {
     QSqlQuery query(m_database);
-    query.prepare("SELECT position FROM reading_positions WHERE url=?");
-    query.addBindValue(source.toString());
+    query.prepare("SELECT r.position FROM reading_positions r JOIN documents d ON d.id=r.document_id WHERE d.url=?");
+    query.addBindValue(resolvedSource(source).toString());
     if (!query.exec() || !query.next()) return {};
     return QJsonDocument::fromJson(query.value(0).toByteArray()).object().toVariantMap();
 }
@@ -375,7 +394,7 @@ QVariantMap ResearchStore::continueReading() const
         }
         const QUrl source(tab.value("source").toString());
         if (!source.isLocalFile()) return {};
-        tab.insert("name", fileName(source));
+        tab.insert("name", displayName(source));
         return tab;
     }
     const QString preferred = state.value("active").toInt() == 1 && state.value("split").toBool() ? "right" : "left";
@@ -384,7 +403,7 @@ QVariantMap ResearchStore::continueReading() const
         reader = state.value(preferred == "left" ? "right" : "left").toMap();
     const QUrl source(reader.value("source").toString());
     if (!source.isLocalFile()) return {};
-    reader.insert("name", fileName(source));
+    reader.insert("name", displayName(source));
     return reader;
 }
 
@@ -461,11 +480,11 @@ bool ResearchStore::saveWorkspace(const QString &id, const QVariantMap &input)
         return false;
     }
     for (const auto &value : readers(state)) {
-        const auto source = value.toMap().value("source").toString();
+        const auto source = ensureDocument(QUrl(value.toMap().value("source").toString()));
         if (source.isEmpty()) continue;
         QSqlQuery link(m_database);
-        link.prepare("INSERT OR IGNORE INTO workspace_documents SELECT ?,? WHERE NOT EXISTS "
-                     "(SELECT 1 FROM workspace_document_exclusions WHERE workspace_id=? AND url=?)");
+        link.prepare("INSERT OR IGNORE INTO workspace_documents(workspace_id,document_id) SELECT ?,? WHERE NOT EXISTS "
+                     "(SELECT 1 FROM workspace_document_exclusions WHERE workspace_id=? AND document_id=?)");
         link.addBindValue(id);
         link.addBindValue(source);
         link.addBindValue(id);
@@ -518,10 +537,12 @@ void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &re
             emit message(result.error);
             return;
         }
+        const auto document = ensureDocument(result.source);
         QSqlQuery query(m_database);
-        query.prepare("INSERT INTO captures VALUES(?,?,?,?,?,?,?,?,?,?)");
+        query.prepare("INSERT INTO captures(id,document_id,sha256,page,x,y,width,height,image,created_at) "
+                      "VALUES(?,?,?,?,?,?,?,?,?,?)");
         query.addBindValue(result.id);
-        query.addBindValue(result.source.toString());
+        query.addBindValue(document);
         query.addBindValue(result.hash);
         query.addBindValue(result.page);
         query.addBindValue(result.region.x());
@@ -530,7 +551,7 @@ void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &re
         query.addBindValue(result.region.height());
         query.addBindValue(QFileInfo(result.path).fileName());
         query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
-        if (!query.exec()) {
+        if (document.isEmpty() || !query.exec()) {
             emit message(tr("Image saved, but source metadata could not be recorded: %1").arg(result.path));
             return;
         }
@@ -639,12 +660,18 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
                 if (asHighlight) emit annotationFinished(false, "");
                 return;
             }
+            const auto document = ensureDocument(anchor.source);
+            if (document.isEmpty()) {
+                emit message("Cannot record the source document. Check storage and permissions.");
+                if (asHighlight) emit annotationFinished(false, "");
+                return;
+            }
             if (asHighlight) {
                 // Repeated clicks must not stack opaque copies of the same annotation.
                 QSqlQuery existing(m_database);
-                existing.prepare("SELECT id,body FROM highlights WHERE source=? AND sha256=? AND page=? AND "
+                existing.prepare("SELECT id,body FROM highlights WHERE document_id=? AND sha256=? AND page=? AND "
                                  "start_index=? AND end_index=? AND kind=? AND deleted_at IS NULL");
-                existing.addBindValue(anchor.source.toString());
+                existing.addBindValue(document);
                 existing.addBindValue(anchor.hash);
                 existing.addBindValue(anchor.page);
                 existing.addBindValue(result.start);
@@ -669,10 +696,10 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
                 }
                 QSqlQuery mark(m_database);
                 mark.prepare("INSERT INTO "
-                             "highlights(id,source,sha256,page,text,rectangles,start_index,end_index,created_at,color,"
-                             "kind,body) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)");
+                             "highlights(id,document_id,sha256,page,text,rectangles,start_index,end_index,created_at,"
+                             "color,kind,body) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)");
                 mark.addBindValue(anchor.id);
-                mark.addBindValue(anchor.source.toString());
+                mark.addBindValue(document);
                 mark.addBindValue(anchor.hash);
                 mark.addBindValue(anchor.page);
                 mark.addBindValue(result.text);
@@ -702,9 +729,10 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
                 return;
             }
             QSqlQuery base(m_database);
-            base.prepare("INSERT INTO captures VALUES(?,?,?,?,?,?,?,?,?,?)");
+            base.prepare("INSERT INTO captures(id,document_id,sha256,page,x,y,width,height,image,created_at) "
+                         "VALUES(?,?,?,?,?,?,?,?,?,?)");
             base.addBindValue(anchor.id);
-            base.addBindValue(anchor.source.toString());
+            base.addBindValue(document);
             base.addBindValue(anchor.hash);
             base.addBindValue(anchor.page);
             base.addBindValue(anchor.region.x());
@@ -798,8 +826,9 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
 void ResearchStore::openCapture(const QString &id)
 {
     QSqlQuery query(m_database);
-    query.prepare("SELECT source,sha256,page,x,y,width,height FROM captures WHERE id=? AND id NOT IN (SELECT id FROM "
-                  "deleted_captures)");
+    query.prepare(
+        "SELECT d.url,c.sha256,c.page,c.x,c.y,c.width,c.height FROM captures c "
+        "JOIN documents d ON d.id=c.document_id WHERE c.id=? AND c.id NOT IN (SELECT id FROM deleted_captures)");
     query.addBindValue(id);
     if (!query.exec() || !query.next()) return;
     const auto url = QUrl(query.value(0).toString());
@@ -812,7 +841,8 @@ void ResearchStore::openCapture(const QString &id)
         const auto hash = watcher->result();
         watcher->deleteLater();
         QSqlQuery deleted(m_database);
-        deleted.prepare("SELECT source FROM captures WHERE id=? AND id NOT IN (SELECT id FROM deleted_captures)");
+        deleted.prepare("SELECT d.url FROM captures c JOIN documents d ON d.id=c.document_id "
+                        "WHERE c.id=? AND c.id NOT IN (SELECT id FROM deleted_captures)");
         deleted.addBindValue(id);
         if (!deleted.exec() || !deleted.next()) return;
         if (QUrl(deleted.value(0).toString()) != url) {
@@ -839,8 +869,8 @@ void ResearchStore::copyText(const QString &text)
 bool ResearchStore::removeRecentDocument(const QUrl &url)
 {
     QSqlQuery query(m_database);
-    query.prepare("DELETE FROM recent_documents WHERE url=?");
-    query.addBindValue(url.toString());
+    query.prepare("DELETE FROM recent_documents WHERE document_id=?");
+    query.addBindValue(findDocument(url));
     if (!query.exec()) {
         emit message(query.lastError().text());
         return false;

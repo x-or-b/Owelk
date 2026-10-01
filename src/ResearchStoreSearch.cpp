@@ -3,12 +3,14 @@
 #include "WorkerConnection.h"
 
 #include <QFileInfo>
+#include <QHash>
 #include <QFutureWatcher>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSet>
 #include <QSqlQuery>
 #include <QtConcurrent>
+#include <algorithm>
 
 namespace {
 QString fileName(const QUrl &url)
@@ -19,7 +21,7 @@ QString fileName(const QUrl &url)
 QVariantMap readingPosition(const QSqlDatabase &db, const QUrl &source)
 {
     QSqlQuery query(db);
-    query.prepare("SELECT position FROM reading_positions WHERE url=?");
+    query.prepare("SELECT r.position FROM reading_positions r JOIN documents d ON d.id=r.document_id WHERE d.url=?");
     query.addBindValue(source.toString());
     if (!query.exec() || !query.next()) return {};
     return QJsonDocument::fromJson(query.value(0).toByteArray()).object().toVariantMap();
@@ -43,23 +45,42 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
     const auto inScope = [&](const QUrl &url) { return scope.isEmpty() || url == scope; };
     QVariantList results;
 
+    QHash<QString, QString> titles;
+    {
+        QSqlQuery query(db);
+        query.exec("SELECT url,title FROM documents WHERE title<>''");
+        while (query.next()) titles.insert(query.value(0).toString(), query.value(1).toString());
+    }
+    const auto displayName = [&](const QUrl &url) { return titles.value(url.toString(), fileName(url)); };
+
     if (names) {
         int count = 0;
         QSet<QUrl> matchedPapers;
-        const auto addPaper = [&](const QUrl &url) {
-            const QString title = fileName(url);
-            if (count >= 20 || matchedPapers.contains(url) || !inScope(url)
-                || !title.contains(needle, Qt::CaseInsensitive))
-                return;
-            results.append(QVariantMap{
-                {"kind", "paper"}, {"title", title}, {"source", url}, {"position", readingPosition(db, url)}});
+        const auto contains = [&](const QString &text) { return text.contains(needle, Qt::CaseInsensitive); };
+        const auto addPaper = [&](const QUrl &url, const QStringList &details) {
+            const auto title = displayName(url);
+            if (count >= 20 || matchedPapers.contains(url) || !inScope(url)) return;
+            const bool named = contains(title) || contains(fileName(url));
+            if (!named && std::none_of(details.cbegin(), details.cend(), contains)) return;
+            QStringList shown;
+            for (const auto &detail : details)
+                if (!detail.isEmpty()) shown.append(detail);
+            QVariantMap row{{"kind", "paper"}, {"title", title}, {"source", url},
+                {"position", readingPosition(db, url)}, {"year", details.value(1)}};
+            // Show why it matched when the hit is in the authors, year or identifiers rather than the name.
+            if (!named) row.insert("snippet", shown.join(" · "));
+            results.append(row);
             matchedPapers.insert(url);
             ++count;
         };
         QSqlQuery papers(db);
-        papers.exec("SELECT url FROM recent_documents ORDER BY opened_at DESC");
-        while (papers.next() && count < 20) addPaper(QUrl(papers.value(0).toString()));
-        for (const auto &url : indexed) addPaper(url);
+        papers.exec("SELECT d.url,d.authors,d.year,d.doi,d.arxiv FROM documents d "
+                    "LEFT JOIN recent_documents r ON r.document_id=d.id ORDER BY r.opened_at IS NULL,r.opened_at DESC");
+        while (papers.next() && count < 20)
+            addPaper(QUrl(papers.value(0).toString()),
+                {papers.value(1).toString(), papers.value(2).toString(), papers.value(3).toString(),
+                    papers.value(4).toString().isEmpty() ? QString() : "arXiv:" + papers.value(4).toString()});
+        for (const auto &url : indexed) addPaper(url, {});
     }
 
     if (saved) {
@@ -79,7 +100,10 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
             if (excerpts.size() >= 20) continue;
             const auto text = capture.value("text").toString();
             const int textMatch = text.indexOf(needle, 0, Qt::CaseInsensitive);
-            if (textMatch < 0 && !title.contains(needle, Qt::CaseInsensitive)) continue;
+            // Captures match their paper's title or file name as well as their text.
+            if (textMatch < 0 && !title.contains(needle, Qt::CaseInsensitive)
+                && !fileName(capture.value("source").toUrl()).contains(needle, Qt::CaseInsensitive))
+                continue;
             excerpts.append(QVariantMap{{"kind", "capture"}, {"title", title}, {"id", capture.value("id")},
                 {"source", capture.value("source")}, {"snippet", snippet(text, textMatch, needle.size())}});
         }
@@ -89,9 +113,10 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
 
     if (target == "all") {
         QSqlQuery highlights(db);
-        highlights.prepare("SELECT id,source,page,text,body FROM highlights WHERE deleted_at IS NULL "
-                           "AND instr(lower(text || ' ' || body),lower(?))>0 AND (?=1 OR source=?) "
-                           "ORDER BY created_at DESC LIMIT 20");
+        highlights.prepare(
+            "SELECT h.id,d.url,h.page,h.text,h.body FROM highlights h JOIN documents d ON d.id=h.document_id "
+            "WHERE h.deleted_at IS NULL AND instr(lower(h.text || ' ' || h.body),lower(?))>0 "
+            "AND (?=1 OR d.url=?) ORDER BY h.created_at DESC LIMIT 20");
         highlights.addBindValue(needle);
         highlights.addBindValue(scope.isEmpty());
         highlights.addBindValue(scope.toString());
@@ -101,7 +126,7 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
                 const auto text = highlights.value(3).toString() + " " + highlights.value(4).toString();
                 const int start = qMax(0, text.indexOf(needle, 0, Qt::CaseInsensitive) - 60);
                 results.append(QVariantMap{{"kind", "highlight"}, {"id", highlights.value(0)}, {"source", source},
-                    {"title", fileName(source) + " · p. " + QString::number(highlights.value(2).toInt() + 1)},
+                    {"title", displayName(source) + " · p. " + QString::number(highlights.value(2).toInt() + 1)},
                     {"snippet", text.mid(start, qMax(200, needle.size()))}});
             }
         }

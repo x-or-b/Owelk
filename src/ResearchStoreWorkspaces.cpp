@@ -12,14 +12,15 @@ QVariantMap ResearchStore::workspaceDetails(const QString &id) const
     query.addBindValue(id);
     if (!query.exec() || !query.next()) return {};
     const auto name = query.value(0).toString();
-    query.prepare("SELECT url FROM workspace_documents WHERE workspace_id=? ORDER BY url");
+    query.prepare("SELECT d.url FROM workspace_documents w JOIN documents d ON d.id=w.document_id "
+                  "WHERE w.workspace_id=? ORDER BY d.url");
     query.addBindValue(id);
     if (!query.exec()) return {};
     QVariantList documents, captures;
     while (query.next()) {
         const QUrl source(query.value(0).toString());
         documents.append(
-            QVariantMap{{"source", source}, {"name", fileName(source)}, {"position", readingPosition(source)}});
+            QVariantMap{{"source", source}, {"name", displayName(source)}, {"position", readingPosition(source)}});
     }
     query.prepare("SELECT capture_id FROM workspace_captures WHERE workspace_id=?");
     query.addBindValue(id);
@@ -34,19 +35,22 @@ QVariantMap ResearchStore::workspaceDetails(const QString &id) const
 bool ResearchStore::setWorkspaceDocument(const QString &id, const QUrl &input, bool linked)
 {
     const auto source = resolvedSource(input);
-    if (!source.isLocalFile() || workspaceDetails(id).isEmpty() || !m_database.transaction()) return false;
+    if (!source.isLocalFile() || workspaceDetails(id).isEmpty()) return false;
+    const auto document = ensureDocument(source);
+    if (document.isEmpty() || !m_database.transaction()) return false;
     const auto run = [&](const QString &sql) {
         QSqlQuery query(m_database);
         query.prepare(sql);
         query.addBindValue(id);
-        query.addBindValue(source.toString());
+        query.addBindValue(document);
         return query.exec();
     };
     // A tab can remain open after unlinking. Session autosaves must not recreate that link.
-    const bool ok = linked ? run("DELETE FROM workspace_document_exclusions WHERE workspace_id=? AND url=?")
-            && run("INSERT OR IGNORE INTO workspace_documents VALUES(?,?)")
-                           : run("INSERT OR IGNORE INTO workspace_document_exclusions VALUES(?,?)")
-            && run("DELETE FROM workspace_documents WHERE workspace_id=? AND url=?");
+    const bool ok = linked
+        ? run("DELETE FROM workspace_document_exclusions WHERE workspace_id=? AND document_id=?")
+            && run("INSERT OR IGNORE INTO workspace_documents(workspace_id,document_id) VALUES(?,?)")
+        : run("INSERT OR IGNORE INTO workspace_document_exclusions(workspace_id,document_id) VALUES(?,?)")
+            && run("DELETE FROM workspace_documents WHERE workspace_id=? AND document_id=?");
     if (!ok || !m_database.commit()) {
         m_database.rollback();
         emit message("Cannot update workspace document links.");

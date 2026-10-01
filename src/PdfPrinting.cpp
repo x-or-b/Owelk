@@ -184,9 +184,10 @@ void ResearchStore::printDocument(const QUrl &source, const QString &hash, int p
     job->source = source;
     job->hash = hash;
     QSqlQuery query(m_database);
-    query.prepare("SELECT page,rectangles,color,kind,body,image,drawing FROM highlights WHERE source=? AND sha256=? "
-                  "AND deleted_at IS NULL");
-    query.addBindValue(source.toString());
+    query.prepare(
+        "SELECT page,rectangles,color,kind,body,image,drawing FROM highlights WHERE document_id=? AND sha256=? "
+        "AND deleted_at IS NULL");
+    query.addBindValue(findDocument(source));
     query.addBindValue(hash);
     if (!query.exec()) {
         emit message("Cannot read annotations for printing.");

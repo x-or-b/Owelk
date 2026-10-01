@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QDateTime>
+#include <QDir>
 #include <QList>
 #include <QSqlDatabase>
 #include <QSqlError>
@@ -13,11 +15,21 @@ struct SchemaStep {
     int version = 0;
     QStringList statements;
     std::function<bool(QSqlDatabase &, QString *)> apply = {};
+    // Copy the database before this step when it rewrites existing data.
+    bool backup = false;
 };
 
-inline bool migrateSchema(QSqlDatabase &db, const QList<SchemaStep> &steps, QString *error)
+// backupDirectory receives a consistent copy (VACUUM INTO) before any step marked backup runs on existing data.
+inline bool migrateSchema(
+    QSqlDatabase &db, const QList<SchemaStep> &steps, QString *error, const QString &backupDirectory = QString())
 {
     QSqlQuery query(db);
+    if (!query.exec("SELECT count(*) FROM sqlite_master WHERE type='table'") || !query.next()) {
+        *error = query.lastError().text();
+        return false;
+    }
+    const bool existingData = query.value(0).toInt() > 0;
+    query.finish();
     if (!query.exec("PRAGMA user_version") || !query.next()) {
         *error = query.lastError().text();
         return false;
@@ -32,6 +44,20 @@ inline bool migrateSchema(QSqlDatabase &db, const QList<SchemaStep> &steps, QStr
     }
     for (const auto &step : steps) {
         if (step.version <= current) continue;
+        if (step.backup && existingData && !backupDirectory.isEmpty()) {
+            const auto target = QStringLiteral("%1/before-schema-%2-%3.sqlite3")
+                                    .arg(backupDirectory)
+                                    .arg(step.version)
+                                    .arg(QDateTime::currentDateTimeUtc().toString("yyyyMMdd-HHmmss"));
+            QSqlQuery copy(db);
+            copy.prepare("VACUUM INTO ?");
+            copy.addBindValue(target);
+            if (!QDir().mkpath(backupDirectory) || !copy.exec()) {
+                // Without a backup the step does not run; the data stays at its current version.
+                *error = QStringLiteral("Cannot back up data before upgrading: %1").arg(copy.lastError().text());
+                return false;
+            }
+        }
         if (!db.transaction()) {
             *error = db.lastError().text();
             return false;

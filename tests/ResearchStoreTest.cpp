@@ -1,12 +1,14 @@
 #include "ResearchStore.h"
 #include "SelectionGeometry.h"
 #include "PdfFixture.h"
+#include "PaperMetadata.h"
 #include <QDir>
 #include <QFile>
 #include <QImage>
 #include <QPdfDocument>
 #include <QPdfSelection>
 #include <QSignalSpy>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -14,6 +16,96 @@
 class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void paperMetadataIsReadLocally()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("2305.01234v2.pdf");
+        writeFixture(path, "Declared Paper Title");
+        const auto metadata = extractPaperMetadata(path);
+        QCOMPARE(metadata.title, QString("Declared Paper Title"));
+        QCOMPARE(metadata.arxiv, QString("2305.01234"));
+        QCOMPARE(metadata.year, QString("2023"));
+        QVERIFY(!PaperMetadataText::usableTitle("Microsoft Word - draft.docx", "draft.pdf"));
+        QVERIFY(!PaperMetadataText::usableTitle("paper", "x.pdf"));
+        QVERIFY(PaperMetadataText::usableTitle("Paper Plane: Folding Models", "x.pdf"));
+        QCOMPARE(PaperMetadataText::findDoi("see doi:10.1145/3592433. Next"), QString("10.1145/3592433"));
+        QCOMPARE(PaperMetadataText::findArxiv("arXiv:2101.00001v3 [cs.CV]"), QString("2101.00001"));
+    }
+    void urlKeyedDataMovesToDocumentIdsWithBackup()
+    {
+        QTemporaryDir directory;
+        QVERIFY(QDir().mkpath(directory.filePath("data")));
+        const auto pdf = directory.filePath("Kept paper.pdf");
+        writeFixture(pdf, "Kept Paper Title");
+        const auto url = QUrl::fromLocalFile(pdf).toString();
+        {
+            ResearchStore fresh(directory.filePath("data"));
+            QString error;
+            QVERIFY2(fresh.initialize(&error), qPrintable(error));
+        }
+        {
+            // Rebuild the schema-2 shape (every table keyed by file URL) as the previous release wrote it.
+            auto db = QSqlDatabase::addDatabase("QSQLITE", "v2");
+            db.setDatabaseName(directory.filePath("data/owelk.sqlite3"));
+            QVERIFY(db.open());
+            QSqlQuery query(db);
+            for (const auto *sql : {"DROP TABLE documents", "DROP TABLE recent_documents",
+                     "DROP TABLE reading_positions", "DROP TABLE workspace_documents",
+                     "DROP TABLE workspace_document_exclusions", "DROP TABLE captures", "DROP TABLE highlights",
+                     "CREATE TABLE recent_documents (url TEXT PRIMARY KEY, opened_at TEXT NOT NULL)",
+                     "CREATE TABLE reading_positions (url TEXT PRIMARY KEY, position TEXT NOT NULL)",
+                     "CREATE TABLE workspace_documents (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "
+                     "PRIMARY KEY(workspace_id,url))",
+                     "CREATE TABLE workspace_document_exclusions (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "
+                     "PRIMARY KEY(workspace_id,url))",
+                     "CREATE TABLE captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
+                     "page INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT "
+                     "NULL, "
+                     "image TEXT NOT NULL, created_at TEXT NOT NULL)",
+                     "CREATE TABLE highlights (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
+                     "page INTEGER NOT NULL,text TEXT NOT NULL,rectangles TEXT NOT NULL,start_index INTEGER NOT NULL,"
+                     "end_index INTEGER NOT NULL,created_at TEXT NOT NULL,deleted_at TEXT,color TEXT NOT NULL DEFAULT "
+                     "'#426b9a',kind TEXT NOT NULL DEFAULT 'highlight',body TEXT NOT NULL DEFAULT '',image TEXT NOT "
+                     "NULL "
+                     "DEFAULT '',drawing TEXT NOT NULL DEFAULT '[]')",
+                     "PRAGMA user_version=2"})
+                QVERIFY2(query.exec(sql), qPrintable(query.lastError().text()));
+            for (const auto *sql : {"INSERT INTO recent_documents VALUES('%1','2026-09-01')",
+                     "INSERT INTO reading_positions VALUES('%1','{\"page\":5,\"y\":0.25}')",
+                     "INSERT INTO workspaces VALUES('w1','Topic','{}','2026-09-01')",
+                     "INSERT INTO workspace_documents VALUES('w1','%1')",
+                     "INSERT INTO workspace_document_exclusions VALUES('w2','%1')",
+                     "INSERT INTO captures VALUES('91ffeb1a-df10-4a54-a6fc-8a8b2c629b13','%1','h',2,.1,.2,.3,.4,'',"
+                     "'2026-09-01')",
+                     "INSERT INTO text_captures VALUES('91ffeb1a-df10-4a54-a6fc-8a8b2c629b13','kept excerpt "
+                     "words',0,5,'','')",
+                     "INSERT INTO highlights(id,source,sha256,page,text,rectangles,start_index,end_index,created_at) "
+                     "VALUES('h1','%1','h',1,'kept highlight words','[]',0,4,'2026-09-01')"})
+                QVERIFY2(query.exec(QString(sql).arg(url)), qPrintable(query.lastError().text()));
+            db.close();
+        }
+        QSqlDatabase::removeDatabase("v2");
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        const QUrl source(url);
+        QCOMPARE(store.recentDocuments().size(), 1);
+        QCOMPARE(store.readingPosition(source)["page"].toInt(), 5);
+        QCOMPARE(store.captures().size(), 1);
+        QCOMPARE(store.captures()[0].toMap()["source"].toUrl(), source);
+        QCOMPARE(store.searchKnowledge("kept excerpt").size(), 1);
+        QCOMPARE(store.searchKnowledge("kept highlight").size(), 1);
+        QCOMPARE(store.workspaceDetails("w1")["documents"].toList().size(), 1);
+        QCOMPARE(QDir(directory.filePath("data/backups")).entryList({"before-schema-3-*.sqlite3"}).size(), 1);
+        // Details are read from the PDF in the background and replace the file name for display.
+        QTRY_COMPARE_WITH_TIMEOUT(store.displayName(source), QString("Kept Paper Title"), 10000);
+        QCOMPARE(store.searchKnowledge("Kept Paper Title").first().toMap()["kind"].toString(), QString("paper"));
+        QVERIFY(store.updateDocumentDetails(
+            source, {{"title", "My Own Title"}, {"authors", "A. Author"}, {"year", "2024"}}));
+        QCOMPARE(store.displayName(source), QString("My Own Title"));
+        QCOMPARE(store.searchKnowledge("A. Author").size(), 1);
+        QVERIFY(!store.updateDocumentDetails(source, {{"year", "20x4"}}));
+    }
     void unversionedDataMigratesInPlaceAndNewerIsRefused()
     {
         QTemporaryDir directory;

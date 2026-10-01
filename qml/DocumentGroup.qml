@@ -62,7 +62,7 @@ Rectangle {
                 radius: Theme.cornerRadius
                 color: modelData.id === root.groupData.activeTab ? Theme.surface : Theme.surfaceSelected
                 Rectangle { anchors.bottom: parent.bottom; x: Theme.cornerRadius; width: parent.width - 2 * x; height: 1; color: root.controller.activeGroup === root.groupId && modelData.id === root.loadedTab ? Theme.tabUnderlineActive : Theme.tabUnderline }
-                Label { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: close.left; anchors.verticalCenter: parent.verticalCenter; text: modelData.kind === "home" ? "Home" : researchStore.fileName(modelData.source); elide: Text.ElideMiddle; font.pixelSize: 12 }
+                Label { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: close.left; anchors.verticalCenter: parent.verticalCenter; text: modelData.kind === "home" ? "Home" : (researchStore.documentsRevision, researchStore.displayName(modelData.source)); elide: Text.ElideRight; font.pixelSize: 12 }
                 MouseArea {
                     id: pointer
                     anchors.fill: parent

@@ -45,17 +45,42 @@ struct IndexResult {
     QString error;
     bool cancelled = false;
 };
-IndexResult indexFile(const QString &dbPath, const QUrl &source, const std::shared_ptr<std::atomic_bool> &cancel,
-    const std::shared_ptr<std::atomic_bool> &readerBusy, const std::function<void(int, int)> &progress)
+IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &wantedId,
+    const std::shared_ptr<std::atomic_bool> &cancel, const std::shared_ptr<std::atomic_bool> &readerBusy,
+    const std::function<void(int, int)> &progress)
 {
     Connection connection(dbPath);
     auto &db = connection.db;
     if (!db.isOpen()) return {db.lastError().text()};
     QSqlQuery query(db);
     query.prepare("INSERT OR IGNORE INTO documents(id,url,state) VALUES(?,?,'pending')");
-    query.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    query.addBindValue(wantedId.isEmpty() ? QUuid::createUuid().toString(QUuid::WithoutBraces) : wantedId);
     query.addBindValue(source.toString());
     if (!query.exec()) return {query.lastError().text()};
+    if (!wantedId.isEmpty()) {
+        // Adopt the library's document ID for an entry created before IDs were shared. The cache row
+        // and its pages move together; a stale row already holding that ID is only cache and is dropped.
+        const auto run = [&](const QString &sql, const QVariantList &args) {
+            QSqlQuery step(db);
+            step.prepare(sql);
+            for (const auto &arg : args) step.addBindValue(arg);
+            return step.exec();
+        };
+        if (!db.transaction()) return {db.lastError().text()};
+        const bool ok = run("DELETE FROM pages WHERE document_id=? AND ?<>(SELECT id FROM documents WHERE url=?)",
+                            {wantedId, wantedId, source.toString()})
+            && run("DELETE FROM documents WHERE id=? AND url<>?", {wantedId, source.toString()})
+            && run("UPDATE pages SET document_id=? WHERE document_id=(SELECT id FROM documents WHERE url=?)",
+                {wantedId, source.toString()})
+            && run("UPDATE documents SET id=? WHERE url=?", {wantedId, source.toString()});
+        if (!ok || !db.commit()) {
+            const auto error = db.lastError().text();
+            db.rollback();
+            return {"Cannot align the search cache with the library: " + error};
+        }
+        if (!query.exec())
+            return {query.lastError().text()}; // Recreate the row if a stale holder of the ID was dropped.
+    }
     query.prepare("SELECT id,sha256,version,state,stamp FROM documents WHERE url=?");
     query.addBindValue(source.toString());
     if (!query.exec() || !query.next()) return {"Cannot read search document record."};
@@ -145,6 +170,18 @@ struct SearchResult {
     QVariantList rows;
     QString error;
 };
+// Paper titles live in the library database next to the search cache; without it, file names are shown.
+QHash<QString, QString> libraryTitles(const QString &searchPath)
+{
+    QHash<QString, QString> titles;
+    const auto library = QFileInfo(searchPath).absolutePath() + "/owelk.sqlite3";
+    if (!QFileInfo::exists(library)) return titles;
+    Connection connection(library, true);
+    QSqlQuery query(connection.db);
+    if (connection.db.isOpen() && query.exec("SELECT url,title FROM documents WHERE title<>''"))
+        while (query.next()) titles.insert(query.value(0).toString(), query.value(1).toString());
+    return titles;
+}
 SearchResult findGroupedText(const QString &path, const QString &input, const QUrl &scope, int offset)
 {
     const auto match = matchQuery(input);
@@ -172,6 +209,7 @@ SearchResult findGroupedText(const QString &path, const QString &input, const QU
     query.addBindValue(offset + (scoped ? 41 : 21));
     if (!query.exec()) return {{}, query.lastError().text()};
     SearchResult result;
+    const auto titles = libraryTitles(path);
     QString lastId;
     QVariantMap lastGroup;
     int pages = 0;
@@ -198,13 +236,14 @@ SearchResult findGroupedText(const QString &path, const QString &input, const QU
         if (lastId != id) {
             finishGroup();
             lastId = id;
-            lastGroup = {{"kind", "paperGroup"}, {"title", QFileInfo(source.toLocalFile()).fileName()},
+            lastGroup = {{"kind", "paperGroup"},
+                {"title", titles.value(source.toString(), QFileInfo(source.toLocalFile()).fileName())},
                 {"documentId", id}, {"source", source}, {"total", query.value(5)}};
             result.rows.append(lastGroup);
         }
         result.rows.append(QVariantMap{{"kind", "text"}, {"documentId", id}, {"source", source},
             {"sha256", query.value(2)}, {"page", query.value(3)}, {"snippet", query.value(4)},
-            {"title", QFileInfo(source.toLocalFile()).fileName()}});
+            {"title", titles.value(source.toString(), QFileInfo(source.toLocalFile()).fileName())}});
         ++pages;
     }
     finishGroup();
@@ -224,11 +263,12 @@ SearchResult findText(const QString &path, const QString &input)
     query.addBindValue(match);
     if (!query.exec()) return {{}, query.lastError().text()};
     SearchResult result;
+    const auto titles = libraryTitles(path);
     while (query.next()) {
         const auto source = QUrl(query.value(1).toString());
         result.rows.append(QVariantMap{{"kind", "text"}, {"documentId", query.value(0)}, {"source", source},
             {"sha256", query.value(2)}, {"page", query.value(3)}, {"snippet", query.value(4)},
-            {"title", QFileInfo(source.toLocalFile()).fileName()}});
+            {"title", titles.value(source.toString(), QFileInfo(source.toLocalFile()).fileName())}});
     }
     return result;
 }
@@ -426,6 +466,7 @@ void PaperIndex::startNext()
     m_active = true;
     m_cancel = std::make_shared<std::atomic_bool>(false);
     const auto cancel = m_cancel;
+    const auto documentId = m_resolver ? m_resolver(source) : QString();
     m_progress = "Checking " + QFileInfo(source.toLocalFile()).fileName();
     emit changed();
     auto *watcher = new QFutureWatcher<IndexResult>(this);
@@ -443,9 +484,9 @@ void PaperIndex::startNext()
         emit contentsChanged();
         startNext();
     });
-    watcher->setFuture(
-        QtConcurrent::run(&m_indexWorkers, [this, path = m_path, source, cancel, readerBusy = m_readerBusy] {
-            return indexFile(path, source, cancel, readerBusy, [this, source](int page, int total) {
+    watcher->setFuture(QtConcurrent::run(
+        &m_indexWorkers, [this, path = m_path, source, documentId, cancel, readerBusy = m_readerBusy] {
+            return indexFile(path, source, documentId, cancel, readerBusy, [this, source](int page, int total) {
                 QMetaObject::invokeMethod(
                     this,
                     [this, source, page, total] {

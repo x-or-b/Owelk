@@ -27,9 +27,10 @@ int ResearchStore::loadHighlights(const QUrl &source)
     const int request = ++m_highlightRequest;
     QVariantList rows;
     QSqlQuery query(m_database);
-    query.prepare("SELECT id,page,text,rectangles,sha256,color,kind,body,image,drawing FROM highlights WHERE source=? "
-                  "AND deleted_at IS NULL ORDER BY created_at,id");
-    query.addBindValue(source.toString());
+    query.prepare(
+        "SELECT id,page,text,rectangles,sha256,color,kind,body,image,drawing FROM highlights WHERE document_id=? "
+        "AND deleted_at IS NULL ORDER BY created_at,id");
+    query.addBindValue(findDocument(source));
     const bool queried = query.exec();
     while (queried && query.next())
         rows.append(QVariantMap{{"id", query.value(0)}, {"page", query.value(1)}, {"text", query.value(2)},
@@ -123,14 +124,20 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
             return;
         }
     }
+    const auto document = ensureDocument(source);
+    if (document.isEmpty()) {
+        fail("Cannot record the source document. Check storage and permissions.");
+        return;
+    }
     QString id = input.value("id").toString(), expected = input.value("sha256").toString(), oldImage;
     const bool editing = !id.isEmpty();
     if (editing) {
         QSqlQuery old(m_database);
-        old.prepare("SELECT sha256,image FROM highlights WHERE id=? AND source=? AND kind=? AND start_index=-1 AND "
-                    "deleted_at IS NULL");
+        old.prepare(
+            "SELECT sha256,image FROM highlights WHERE id=? AND document_id=? AND kind=? AND start_index=-1 AND "
+            "deleted_at IS NULL");
         old.addBindValue(id);
-        old.addBindValue(source.toString());
+        old.addBindValue(document);
         old.addBindValue(kind);
         if (!old.exec() || !old.next()) {
             fail("This annotation cannot be edited here.");
@@ -167,19 +174,21 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
         }
         QSqlQuery save(m_database);
         if (editing)
-            save.prepare("UPDATE highlights SET rectangles=?,body=?,color=?,image=?,drawing=? WHERE id=? AND source=? "
-                         "AND deleted_at IS NULL");
+            save.prepare(
+                "UPDATE highlights SET rectangles=?,body=?,color=?,image=?,drawing=? WHERE id=? AND document_id=? "
+                "AND deleted_at IS NULL");
         else
-            save.prepare("INSERT INTO "
-                         "highlights(rectangles,body,color,image,drawing,id,source,sha256,page,kind,text,start_index,"
-                         "end_index,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,'',-1,-1,?)");
+            save.prepare(
+                "INSERT INTO "
+                "highlights(rectangles,body,color,image,drawing,id,document_id,sha256,page,kind,text,start_index,"
+                "end_index,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,'',-1,-1,?)");
         save.addBindValue(QString::fromUtf8(QJsonDocument::fromVariant(rects).toJson(QJsonDocument::Compact)));
         save.addBindValue(body.isNull() ? QStringLiteral("") : body);
         save.addBindValue(color);
         save.addBindValue(result.asset.isNull() ? QStringLiteral("") : result.asset);
         save.addBindValue(QString::fromUtf8(QJsonDocument::fromVariant(points).toJson(QJsonDocument::Compact)));
         save.addBindValue(id);
-        save.addBindValue(source.toString());
+        save.addBindValue(document);
         if (!editing) {
             save.addBindValue(expected);
             save.addBindValue(page);
@@ -247,7 +256,8 @@ bool ResearchStore::removeHighlight(const QString &id)
 void ResearchStore::openHighlight(const QString &id)
 {
     QSqlQuery query(m_database);
-    query.prepare("SELECT source,sha256,page,rectangles FROM highlights WHERE id=? AND deleted_at IS NULL");
+    query.prepare("SELECT d.url,h.sha256,h.page,h.rectangles FROM highlights h JOIN documents d ON d.id=h.document_id "
+                  "WHERE h.id=? AND h.deleted_at IS NULL");
     query.addBindValue(id);
     if (!query.exec() || !query.next()) return;
     const QUrl source(query.value(0).toString());
@@ -265,7 +275,8 @@ void ResearchStore::openHighlight(const QString &id)
         const auto hash = watcher->result();
         watcher->deleteLater();
         QSqlQuery current(m_database);
-        current.prepare("SELECT source FROM highlights WHERE id=? AND deleted_at IS NULL");
+        current.prepare("SELECT d.url FROM highlights h JOIN documents d ON d.id=h.document_id "
+                        "WHERE h.id=? AND h.deleted_at IS NULL");
         current.addBindValue(id);
         if (!current.exec() || !current.next()) return;
         if (QUrl(current.value(0).toString()) != source) {
