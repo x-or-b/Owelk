@@ -2,6 +2,7 @@
 #include "FileFingerprint.h"
 #include "SchemaMigration.h"
 #include "PaperIndex.h"
+#include "MetadataLookup.h"
 #include "SelectionGeometry.h"
 
 #include <QClipboard>
@@ -79,7 +80,7 @@ struct TextCaptureResult {
 
 ResearchStore::ResearchStore(const QString &directory, QObject *parent)
     : QObject(parent), m_directory(directory), m_connection(QUuid::createUuid().toString()),
-      m_index(new PaperIndex(directory, this))
+      m_index(new PaperIndex(directory, this)), m_lookup(new MetadataLookup(this))
 {
     m_workers.setMaxThreadCount(1);
     m_verifiers.setMaxThreadCount(2);

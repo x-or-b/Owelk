@@ -14,6 +14,27 @@ UiControls.Dialog {
     modal: true
     property url source: ""
     property var details: ({})
+    property int lookupRequest: -1
+    property string lookupStatus: ""
+    function lookUp() {
+        lookupStatus = "Looking up…"
+        lookupRequest = researchStore.metadataLookup.lookup({title: titleField.text, doi: doiField.text, arxiv: arxivField.text})
+    }
+    Connections {
+        target: researchStore.metadataLookup
+        function onLookupFinished(request, found, error) {
+            if (request !== root.lookupRequest) return
+            root.lookupRequest = -1
+            if (error.length) { root.lookupStatus = error; return }
+            // Fill the form only; nothing is stored until Save.
+            if (found.title) titleField.text = found.title
+            if (found.authors) authorsField.text = found.authors
+            if (found.year) yearField.text = found.year
+            if (found.doi) doiField.text = found.doi
+            if (found.arxiv) arxivField.text = found.arxiv
+            root.lookupStatus = "Filled from " + found.source + ". Review, then Save."
+        }
+    }
     function begin(url) {
         source = url
         details = researchStore.documentDetails(url)
@@ -24,6 +45,7 @@ UiControls.Dialog {
         arxivField.text = details.arxiv || ""
         stateBox.currentIndex = Math.max(0, ["unread", "reading", "read"].indexOf(details.readingState || "unread"))
         favoriteBox.checked = !!details.favorite
+        lookupStatus = ""; lookupRequest = -1
         open()
         titleField.forceActiveFocus()
     }
@@ -43,6 +65,14 @@ UiControls.Dialog {
             ToolTip.visible: hovered; ToolTip.delay: 450
             ToolTip.text: "Discard edits and read the details from the PDF again"
             onClicked: { researchStore.resetDocumentDetails(root.source); root.close() }
+        }
+        UiControls.Button {
+            objectName: "lookUpOnline"
+            text: "Look up online"
+            enabled: !researchStore.metadataLookup.busy
+            ToolTip.visible: hovered; ToolTip.delay: 450
+            ToolTip.text: "Sends the arXiv ID, DOI or title (not the PDF) to arXiv or Crossref"
+            onClicked: root.lookUp()
         }
         Item { Layout.fillWidth: true }
         UiControls.Button { text: "Cancel"; onClicked: root.close() }
@@ -80,6 +110,13 @@ UiControls.Dialog {
         RowLayout {
             UiControls.ComboBox { id: stateBox; objectName: "detailsReadingState"; model: ["Unread", "Reading", "Read"]; Layout.preferredWidth: 120 }
             CheckBox { id: favoriteBox; objectName: "detailsFavorite"; text: "Favorite" }
+        }
+        Item { width: 1; height: 1; visible: root.lookupStatus.length > 0 }
+        Label {
+            objectName: "lookupStatus"
+            visible: root.lookupStatus.length > 0
+            Layout.fillWidth: true; text: root.lookupStatus; wrapMode: Text.Wrap
+            font.pixelSize: 12; color: Theme.textTertiary
         }
     }
 }

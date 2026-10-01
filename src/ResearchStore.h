@@ -25,6 +25,8 @@ class ResearchStore final : public QObject {
     Q_PROPERTY(QVariantList recentWorkspaces READ recentWorkspaces NOTIFY homeChanged)
     Q_PROPERTY(QVariantMap continueReading READ continueReading NOTIFY homeChanged)
     Q_PROPERTY(QObject *paperIndex READ paperIndex CONSTANT)
+    // Online details lookup, used only from the Paper Details dialog's button.
+    Q_PROPERTY(QObject *metadataLookup READ metadataLookup CONSTANT)
     Q_PROPERTY(bool relinking READ relinking NOTIFY relinkingChanged)
     Q_PROPERTY(QStringList annotationColors READ annotationColors CONSTANT)
     // Bumped when paper titles or details change; bind to it next to displayName() calls.
@@ -45,6 +47,7 @@ public:
     bool printing() const { return m_printing; }
     QString dataDirectory() const { return m_directory; }
     QObject *paperIndex() const;
+    QObject *metadataLookup() const { return m_lookup; }
     bool relinking() const { return m_relinking; }
     Q_INVOKABLE QUrl resolvedSource(const QUrl &source) const;
     Q_INVOKABLE void requestRelink(const QUrl &source);
@@ -182,4 +185,5 @@ private:
     int m_knowledgeRequest = 0;
     bool m_printing = false;
     PaperIndex *m_index;
+    QObject *m_lookup;
 };

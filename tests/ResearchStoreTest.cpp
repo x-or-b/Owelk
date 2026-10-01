@@ -2,10 +2,15 @@
 #include "SelectionGeometry.h"
 #include "PdfFixture.h"
 #include "PaperMetadata.h"
+#include "MetadataLookup.h"
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QDir>
 #include <QFile>
 #include <QImage>
+#include <QPainter>
 #include <QPdfDocument>
+#include <QPdfWriter>
 #include <QPdfSelection>
 #include <QSignalSpy>
 #include <QSqlError>
@@ -88,6 +93,95 @@ private slots:
         QVERIFY(QFileInfo(store.captures()[0].toMap()["image"].toUrl().toLocalFile()).isFile());
         QVERIFY(QFileInfo::exists(path));
         QCOMPARE(store.emptyCaptureTrash(), 0);
+    }
+    void onlineLookupParsesArxivAndCrossref()
+    {
+        // A local stand-in for arXiv and Crossref: answers by path and records what was asked.
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        QStringList requests;
+        connect(&server, &QTcpServer::newConnection, &server, [&] {
+            auto *socket = server.nextPendingConnection();
+            connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
+                const auto head = QString::fromUtf8(socket->readAll()).section("\r\n", 0, 0);
+                requests.append(head);
+                QByteArray body;
+                if (head.contains("/arxiv"))
+                    body = "<?xml version='1.0'?><feed xmlns='http://www.w3.org/2005/Atom'><title>query</title><entry>"
+                           "<id>http://arxiv.org/abs/2305.01234v2</id><published>2023-05-02T00:00:00Z</published>"
+                           "<title>Online\n  Title</title><author><name>Ada Lovelace</name></author>"
+                           "<author><name>Alan Turing</name></author></entry></feed>";
+                else if (head.contains("query.bibliographic"))
+                    body
+                        = R"({"message":{"items":[{"title":["Found By Title"],"DOI":"10.1/xyz","issued":{"date-parts":[[2021]]}}]}})";
+                else
+                    body
+                        = R"({"message":{"title":["Crossref Work"],"DOI":"10.1145/3592433","author":[{"given":"Grace","family":"Hopper"}],"published-print":{"date-parts":[[2024,5]]}}})";
+                socket->write("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\nContent-Length: "
+                    + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+                socket->disconnectFromHost();
+            });
+        });
+        MetadataLookup lookup;
+        const auto base = QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort());
+        lookup.arxivBase = QUrl(base + "/arxiv");
+        lookup.crossrefBase = QUrl(base + "/works");
+        QSignalSpy done(&lookup, &MetadataLookup::lookupFinished);
+        lookup.lookup({{"arxiv", "2305.01234"}, {"doi", "10.1/ignored"}});
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 5000);
+        auto found = done[0][1].toMap();
+        QVERIFY2(done[0][2].toString().isEmpty(), qPrintable(done[0][2].toString()));
+        QCOMPARE(found["title"].toString(), QString("Online Title"));
+        QCOMPARE(found["authors"].toString(), QString("Ada Lovelace, Alan Turing"));
+        QCOMPARE(found["year"].toString(), QString("2023"));
+        QCOMPARE(found["source"].toString(), QString("arXiv"));
+        lookup.lookup({{"doi", "10.1145/3592433"}});
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 2, 5000);
+        found = done[1][1].toMap();
+        QCOMPARE(found["title"].toString(), QString("Crossref Work"));
+        QCOMPARE(found["authors"].toString(), QString("Grace Hopper"));
+        QCOMPARE(found["year"].toString(), QString("2024"));
+        QVERIFY(requests.last().contains("/works/10.1145/3592433"));
+        lookup.lookup({{"title", "Something Found By Title"}});
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 3, 5000);
+        QCOMPARE(done[2][1].toMap()["doi"].toString(), QString("10.1/xyz"));
+        lookup.lookup({{"title", "short"}}); // Too little to search: no request is made.
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 4, 5000);
+        QVERIFY(!done[3][2].toString().isEmpty());
+        QCOMPARE(requests.size(), 3);
+    }
+    void firstPageTitleAndAuthorsFromLayout()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("layout.pdf");
+        {
+            QPdfWriter writer(path);
+            writer.setResolution(72);
+            writer.setPageSize(QPageSize(QPageSize::A4));
+            QPainter painter(&writer);
+            const auto line = [&](qreal y, int size, const QString &text, qreal x = 60) {
+                painter.setFont(QFont("Helvetica", size));
+                painter.drawText(QPointF(x, y), text);
+            };
+            line(24, 7, "Proceedings of the 41st International Conference on Testing, 2026");
+            line(62, 24, "IEEE TRANSACTIONS ON ROBOTICS"); // Taller than the title, but a venue banner.
+            line(120, 20, "Occlusion-Aware Semantic Mapping");
+            line(146, 20, "with Open-Vocabulary Scene Graphs");
+            line(184, 11, "Alice Smith1*, Bob Jones2 and Carol Wu1");
+            line(200, 9, "1University of Testing, Korea   2Example Research Lab");
+            line(216, 9, "alice@example.edu");
+            line(250, 10, "Abstract");
+            for (int i = 0; i < 30; ++i) {
+                line(270 + i * 14, 10, "Body text of the left column number " + QString::number(i));
+                line(270 + i * 14, 10, "Right column body text " + QString::number(i), 320);
+            }
+        }
+        const auto metadata = extractPaperMetadata(path);
+        QCOMPARE(metadata.title, QString("Occlusion-Aware Semantic Mapping with Open-Vocabulary Scene Graphs"));
+        QCOMPARE(metadata.authors, QString("Alice Smith, Bob Jones, Carol Wu"));
+        QCOMPARE(PaperMetadataText::authorNames({"J. R. R. Tolkien, Ludwig van Beethoven", "Department of Music"}),
+            QStringList({"J. R. R. Tolkien", "Ludwig van Beethoven"}));
+        QVERIFY(PaperMetadataText::authorNames({"Deep learning for all of us"}).isEmpty());
     }
     void paperMetadataIsReadLocally()
     {

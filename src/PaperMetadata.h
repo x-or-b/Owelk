@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 #include <QVariantMap>
 
 // Bibliographic details read locally from a PDF: its document info first, then the first page.
@@ -25,4 +26,6 @@ namespace PaperMetadataText {
 bool usableTitle(const QString &title, const QString &fileName);
 QString findDoi(const QString &text);
 QString findArxiv(const QString &text);
+// Person names from the lines between a title and its abstract; affiliations and footnote marks are dropped.
+QStringList authorNames(const QStringList &lines);
 }
