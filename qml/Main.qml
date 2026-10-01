@@ -80,6 +80,30 @@ ApplicationWindow {
         if (panel === "document") documentSide = side
         Qt.callLater(function() { (side === "left" ? leftDock : rightDock).activePanel = panel })
     }
+    // Tab switching must not discard an annotation that is still being edited.
+    readonly property bool canSwitchTabs: documents.hasTabs && !restoreFailed && !(currentReader && currentReader.annotationDirty)
+    // Browser conventions alongside the menu shortcuts: Cmd+Shift+] / [, Control+Tab, Cmd+1…9 (9 = last tab).
+    Shortcut {
+        sequences: ["Ctrl+Shift+]", Qt.platform.os === "osx" ? "Meta+Tab" : "Ctrl+Tab"]
+        enabled: window.canSwitchTabs
+        onActivated: documents.cycleTab(1)
+        onActivatedAmbiguously: documents.cycleTab(1)
+    }
+    Shortcut {
+        sequences: ["Ctrl+Shift+[", Qt.platform.os === "osx" ? "Meta+Shift+Tab" : "Ctrl+Shift+Tab"]
+        enabled: window.canSwitchTabs
+        onActivated: documents.cycleTab(-1)
+        onActivatedAmbiguously: documents.cycleTab(-1)
+    }
+    Instantiator {
+        model: 9
+        delegate: Shortcut {
+            required property int index
+            sequence: "Ctrl+" + (index + 1)
+            enabled: window.canSwitchTabs
+            onActivated: documents.selectTabAt(index === 8 ? -1 : index)
+        }
+    }
     function showHome() { persist(); homeVisible = true; Qt.callLater(function() { homeView.focusSearch() }) }
     function findInView() {
         if (homeVisible) homeView.focusSearch()
@@ -229,6 +253,8 @@ ApplicationWindow {
             Action { objectName: "newTabAction"; text: "New Tab"; shortcut: "Ctrl+T"; enabled: !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.newHomeTab() }
             Action { objectName: "closeTabAction"; text: "Close Tab"; shortcut: "Ctrl+W"; enabled: !window.homeVisible && !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.closeActiveTab() }
             Action { text: "Reopen Closed Tab"; shortcut: "Ctrl+Shift+T"; enabled: documents.closedTabs.length > 0 && !window.restoreFailed; onTriggered: documents.reopenClosedTab() }
+            Action { objectName: "nextTabAction"; text: "Next Tab"; shortcut: "Ctrl+Alt+Right"; enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(1) }
+            Action { objectName: "previousTabAction"; text: "Previous Tab"; shortcut: "Ctrl+Alt+Left"; enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(-1) }
             MenuSeparator {}
             Action { text: "Quit"; shortcut: StandardKey.Quit; onTriggered: window.close() }
         }

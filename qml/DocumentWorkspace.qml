@@ -90,6 +90,44 @@ Flickable {
         syncing = false
     }
     function activateGroup(id) { if (Tree.find(tree, id)) { activeGroup = id; changed() } }
+    // Next/previous tab within the active group, wrapping at the ends.
+    function cycleTab(step) {
+        const g = Tree.find(tree, activeGroup)
+        if (!g || g.tabs.length < 2) return false
+        const at = Math.max(0, g.tabs.findIndex(function(t) { return t.id === g.activeTab }))
+        activateTab(g.tabs[(at + step + g.tabs.length) % g.tabs.length].id)
+        return true
+    }
+    // Tab by position in the active group; -1 selects the last tab (Cmd+9 convention).
+    function selectTabAt(index) {
+        const g = Tree.find(tree, activeGroup)
+        const t = g ? (index < 0 ? g.tabs[g.tabs.length - 1] : g.tabs[index]) : null
+        if (!t) return false
+        activateTab(t.id)
+        return true
+    }
+    // Scroll the outer workspace so the active group is visible. Only the workspace scroll moves;
+    // the PDF reading position inside the group is untouched.
+    function revealGroup(id) {
+        const view = groupView(id)
+        if (!view || draggedTab.length || syncing) return
+        const target = function(start, size, viewport, current, extent) {
+            let next = current
+            if (start < current) next = start
+            else if (start + size > current + viewport) next = Math.min(start, start + size - viewport)
+            return Math.max(0, Math.min(extent - viewport, next))
+        }
+        const x = target(view.x, view.width, width, contentX, contentWidth)
+        const y = target(view.y, view.height, height, contentY, contentHeight)
+        if (Math.abs(x - contentX) < 1 && Math.abs(y - contentY) < 1) return
+        revealX.to = x; revealY.to = y; reveal.restart()
+    }
+    onActiveGroupChanged: Qt.callLater(function() { root.revealGroup(root.activeGroup) })
+    ParallelAnimation {
+        id: reveal
+        NumberAnimation { id: revealX; target: root; property: "contentX"; duration: 180; easing.type: Easing.OutCubic }
+        NumberAnimation { id: revealY; target: root; property: "contentY"; duration: 180; easing.type: Easing.OutCubic }
+    }
     function activateTab(id) {
         const g = Tree.owner(tree, id)
         if (!g) return

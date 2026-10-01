@@ -298,6 +298,43 @@ Item {
             compare(d.groupCount, 1)
             compare(d.tree.tabs.length, 3)
         }
+        function test_tabCyclingAndNumberedTabs() {
+            const d = workspace.documents
+            d.openDocument(fixtureSource, {page: 1, y: 0, x: 0, zoom: 1}, true); canvas()
+            d.openDocument(fixtureSource, {page: 2, y: 0, x: 0, zoom: 1}, true); canvas()
+            d.openDocument(fixtureSource, {page: 3, y: 0, x: 0, zoom: 1}, true); canvas()
+            const tabs = d.tree.tabs.map(function(t) { return t.id })
+            compare(d.tree.activeTab, tabs[2])
+            verify(d.cycleTab(1)); compare(d.tree.activeTab, tabs[0]) // wraps forward
+            verify(d.cycleTab(-1)); compare(d.tree.activeTab, tabs[2]) // wraps backward
+            verify(d.selectTabAt(1)); compare(d.tree.activeTab, tabs[1])
+            verify(d.selectTabAt(-1)); compare(d.tree.activeTab, tabs[2])
+            verify(!d.selectTabAt(7))
+            compare(canvas().currentPage, 3) // Switching tabs keeps each tab's own reading position.
+            findChild(workspace, "previousTabAction").trigger()
+            compare(d.tree.activeTab, tabs[1])
+            compare(canvas().currentPage, 2)
+            findChild(workspace, "nextTabAction").trigger()
+            compare(d.tree.activeTab, tabs[2])
+        }
+        function test_activeGroupIsRevealed() {
+            const d = workspace.documents
+            workspace.width = 900
+            d.openDocument(fixtureSource, {page: 4, y: 0, x: 0, zoom: 1}, true); canvas()
+            for (let i = 0; i < 3; ++i) { d.duplicateSplit("right"); canvas() }
+            tryVerify(function() { return d.contentWidth > d.width + 10 }) // Splits overflow the viewport.
+            const groups = Tree.leaves(d.tree).map(function(g) { return g.id })
+            d.activateGroup(groups[0])
+            tryVerify(function() { const v = d.groupView(groups[0]); return v.x >= d.contentX - 1 })
+            d.activateGroup(groups[groups.length - 1])
+            // A group wider than the viewport is aligned to its left edge; otherwise it is shown whole.
+            tryVerify(function() {
+                const v = d.groupView(groups[groups.length - 1])
+                const expected = v.width > d.width ? v.x : v.x + v.width - d.width
+                return Math.abs(d.contentX - Math.min(expected, d.contentWidth - d.width)) < 2
+            }, 2000)
+            compare(canvas().currentPage, 4) // Only the workspace scroll moved, not the PDF position.
+        }
         function test_dragTabToSplitAndCancel() {
             const d = workspace.documents
             d.openDocument(fixtureSource, {page: 2, y: 0, x: 0, zoom: 1}, true); canvas()
