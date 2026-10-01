@@ -131,6 +131,16 @@ PDF의 문서 정보와 첫 페이지에서 제목·저자·연도·DOI·arXiv I
 
 논문을 열면 Unread → Reading으로 바뀝니다. 최근 논문 우클릭(또는 리더 우클릭 → Mark Paper as Read, Paper Details…)에서 Read/Unread와 즐겨찾기(★)를 지정합니다. 이미 라이브러리에 있는 파일과 바이트가 같은 PDF를 열면 상단에 "Same file as …" 안내가 뜹니다. `Open Existing`은 기존 파일로 탭을 바꾸고 최근 목록에서 사본을 뺍니다. `Keep Both`는 이 파일 버전에 대해 다시 묻지 않습니다. 파일은 이동·삭제하지 않습니다.
 
+## 라이브러리
+
+Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭을 엽니다. 모든 논문을 제목·저자·연도·태그·읽기 상태(●)·즐겨찾기(★)·중복 표시와 함께 보여 주고, 제목·저자·연도·DOI·파일명으로 거르거나 최근 열람/추가/제목/연도 순으로 정렬합니다.
+
+- 왼쪽에서 전체/즐겨찾기/Unread/Reading/Read, Collection, Tag로 거릅니다. 선택한 필터는 탭과 함께 저장됩니다.
+- Collection은 `+`로 만들고 우클릭으로 하위 Collection 추가·이름 변경·삭제합니다. 상위 Collection은 하위 Collection의 논문도 보여 줍니다. 논문을 Collection으로 끌어 놓거나 논문 우클릭 → Collections에서 추가합니다. 삭제는 묶음만 지우며 논문과 파일은 그대로입니다.
+- 논문 우클릭 → Tags…에 쉼표로 태그를 입력합니다(대소문자 무시, 쓰지 않는 태그는 자동 정리).
+- 논문 우클릭 → Exclude from Text Search는 그 논문의 본문을 검색 인덱스에서 지웁니다. 다시 포함하면 새로 색인합니다.
+- Cmd+K/Home 검색은 Collection·Tag 이름도 찾고, 누르면 그 Collection·Tag로 거른 라이브러리를 엽니다. Filters에서 Collection·Tag·읽기 상태·연도 범위·Workspace를 고르면 본문 검색과 저장 항목 검색이 그 논문들로 한정됩니다.
+
 ## 웹 탭
 
 - `⌘L`(File → Open Web Page…)은 웹 탭을 열고 주소창에 포커스를 둡니다. 웹 탭에서 누르면 그 탭의 주소창으로 갑니다. 주소가 아닌 글자는 검색어로 처리합니다(기본 Google Scholar, Settings에서 변경). `arxiv:2305.01234`처럼 입력하면 arXiv 페이지를 엽니다.
