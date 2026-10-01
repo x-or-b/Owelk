@@ -368,6 +368,30 @@ Item {
             tryVerify(function() { return researchStore.sameSource(Tree.find(d.tree, d.activeGroup).tabs.find(function(t) { return t.id === Tree.find(d.tree, d.activeGroup).activeTab }).source, fixtureSource) })
             verify(!researchStore.recentDocuments.some(function(p) { return researchStore.sameSource(p.url, copy) }))
         }
+        function test_dragNearEdgeScrollsWorkspace() {
+            const d = workspace.documents
+            workspace.width = 900
+            d.openDocument(fixtureSource, null, true); canvas()
+            d.openDocument(fixtureSource, {page: 2, y: 0, x: 0, zoom: 1}, true); canvas()
+            for (let i = 0; i < 3; ++i) { d.duplicateSplit("right"); canvas() }
+            tryVerify(function() { return d.contentWidth > d.width + 10 })
+            d.activateGroup(Tree.leaves(d.tree)[0].id)
+            tryCompare(d, "contentX", 0)
+            const tab = Tree.leaves(d.tree)[0].tabs[0].id
+            const edge = d.mapToItem(null, d.width - 6, d.height / 2)
+            d.dragTab(tab, edge.x, edge.y)
+            tryVerify(function() { return d.contentX > 100 }, 3000)
+            verify(d.contentX <= d.contentWidth - d.width)
+            d.finishDrag(true)
+            const stopped = d.contentX
+            wait(100)
+            compare(d.contentX, stopped)
+            // Away from the edges nothing scrolls.
+            const middle = d.mapToItem(null, d.width / 2, d.height / 2)
+            d.dragTab(tab, middle.x, middle.y); wait(100)
+            compare(d.contentX, stopped)
+            d.finishDrag(true)
+        }
         function test_activeGroupIsRevealed() {
             const d = workspace.documents
             workspace.width = 900

@@ -264,8 +264,31 @@ Flickable {
         tree = Tree.prune(tree) || Tree.group([])
         sync(); changed()
     }
+    // While a tab is dragged within this distance of the viewport edge, the workspace scrolls toward it.
+    readonly property real autoScrollMargin: 32
+    property var dragPointer: null
+    function edgeSpeed(position, size) {
+        if (position < autoScrollMargin) return -Math.ceil((autoScrollMargin - Math.max(0, position)) / 2)
+        if (position > size - autoScrollMargin) return Math.ceil((position - (size - autoScrollMargin)) / 2)
+        return 0
+    }
+    Timer {
+        id: dragScroll
+        interval: 16; repeat: true
+        running: root.draggedTab.length > 0 && root.dragPointer !== null
+        onTriggered: {
+            const local = root.mapFromItem(null, root.dragPointer.x, root.dragPointer.y)
+            const dx = root.contentWidth > root.width ? root.edgeSpeed(local.x, root.width) : 0
+            const dy = root.contentHeight > root.height ? root.edgeSpeed(local.y, root.height) : 0
+            if (!dx && !dy) return
+            root.contentX = Math.max(0, Math.min(root.contentWidth - root.width, root.contentX + dx))
+            root.contentY = Math.max(0, Math.min(root.contentHeight - root.height, root.contentY + dy))
+            // Content moved under a still pointer: refresh the drop target.
+            root.dragTab(root.draggedTab, root.dragPointer.x, root.dragPointer.y)
+        }
+    }
     function dragTab(id, x, y) {
-        draggedTab = id; dropTarget = null
+        draggedTab = id; dropTarget = null; dragPointer = Qt.point(x, y)
         const local = mapFromItem(null, x, y)
         if (local.x < 0 || local.y < 0 || local.x > width || local.y > height) return
         for (let i = 0; i < groups.count; ++i) {
@@ -285,7 +308,7 @@ Flickable {
     }
     function finishDrag(cancelled) {
         const id = draggedTab, target = dropTarget
-        draggedTab = ""; dropTarget = null
+        draggedTab = ""; dropTarget = null; dragPointer = null
         if (!cancelled && target) Qt.callLater(function() { root.moveTab(id, target.group, target.edge, target.index) })
     }
     function reveal(source, page, region) {
