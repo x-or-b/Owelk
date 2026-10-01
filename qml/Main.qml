@@ -227,6 +227,10 @@ ApplicationWindow {
             case "/split right": documents.duplicateSplit("right"); break
             case "/split down": documents.duplicateSplit("bottom"); break
             case "/split off": documents.joinAll(); break
+            case "/move right": documents.moveActiveTabToSplit("right"); break
+            case "/move down": documents.moveActiveTabToSplit("bottom"); break
+            case "/next split": documents.focusGroup(1); break
+            case "/previous split": documents.focusGroup(-1); break
             case "/capture": if (!window.homeVisible && window.currentReader) window.currentReader.toggleCapture(); break
             case "/capture text": if (!window.homeVisible && window.currentReader) window.currentReader.captureSelection(); break
             case "/highlight": if (!window.homeVisible && window.currentReader) window.currentReader.highlightSelection(); break
@@ -268,8 +272,12 @@ ApplicationWindow {
             Action { text: "Zoom out"; shortcut: StandardKey.ZoomOut; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1 / 1.2) }
             Action { text: "Capture region"; shortcut: "Ctrl+Shift+C"; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.toggleCapture() }
             MenuSeparator {}
-            Action { text: "Duplicate to Right Split"; enabled: !window.homeVisible; onTriggered: documents.duplicateSplit("right") }
-            Action { text: "Duplicate to Bottom Split"; enabled: !window.homeVisible; onTriggered: documents.duplicateSplit("bottom") }
+            Action { objectName: "splitRightAction"; text: "Duplicate to Right Split"; shortcut: "Ctrl+\\"; enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("right") }
+            Action { objectName: "splitDownAction"; text: "Duplicate to Bottom Split"; shortcut: "Ctrl+Alt+\\"; enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("bottom") }
+            Action { objectName: "moveRightAction"; text: "Move Tab to Right Split"; shortcut: "Ctrl+Shift+Alt+Right"; enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.moveActiveTabToSplit("right") }
+            Action { objectName: "moveDownAction"; text: "Move Tab to Bottom Split"; shortcut: "Ctrl+Shift+Alt+Down"; enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.moveActiveTabToSplit("bottom") }
+            Action { objectName: "nextSplitAction"; text: "Focus Next Split"; shortcut: "Ctrl+Alt+Down"; enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.focusGroup(1) }
+            Action { objectName: "previousSplitAction"; text: "Focus Previous Split"; shortcut: "Ctrl+Alt+Up"; enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.focusGroup(-1) }
             Action { text: "Join All Groups"; enabled: !window.homeVisible; onTriggered: documents.joinAll() }
         }
     }

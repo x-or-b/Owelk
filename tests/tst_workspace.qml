@@ -317,6 +317,37 @@ Item {
             findChild(workspace, "nextTabAction").trigger()
             compare(d.tree.activeTab, tabs[2])
         }
+        function test_splitShortcuts() {
+            const d = workspace.documents
+            workspace.homeVisible = false
+            d.openDocument(fixtureSource, {page: 2, y: 0, x: 0, zoom: 1}, true); canvas()
+            d.openDocument(fixtureSource, {page: 5, y: 0, x: 0, zoom: 1}, true); canvas()
+            const moved = d.tree.activeTab
+            // Cmd+Shift+Opt+Right moves the active tab into a new split on the right.
+            testInput.keyClick(workspace.contentItem, Qt.Key_Right, Qt.ControlModifier | Qt.ShiftModifier | Qt.AltModifier)
+            tryCompare(d, "groupCount", 2)
+            compare(Tree.find(d.tree, d.activeGroup).activeTab, moved)
+            compare(canvas().currentPage, 5)
+            const right = d.activeGroup
+            // Cmd+Opt+Up / Down move focus between splits.
+            testInput.keyClick(workspace.contentItem, Qt.Key_Up, Qt.ControlModifier | Qt.AltModifier)
+            verify(d.activeGroup !== right)
+            testInput.keyClick(workspace.contentItem, Qt.Key_Down, Qt.ControlModifier | Qt.AltModifier)
+            compare(d.activeGroup, right)
+            // Cmd+\ duplicates the active tab to the right; Cmd+Opt+\ below.
+            testInput.keyClick(workspace.contentItem, Qt.Key_Backslash, Qt.ControlModifier)
+            tryCompare(d, "groupCount", 3)
+            testInput.keyClick(workspace.contentItem, Qt.Key_Backslash, Qt.ControlModifier | Qt.AltModifier)
+            tryCompare(d, "groupCount", 4)
+            compare(canvas().currentPage, 5)
+            // A single-tab group cannot be moved out of itself.
+            verify(!d.moveActiveTabToSplit("right"))
+            // Cmd+Opt+Right cycles tabs as a key event too.
+            d.joinAll()
+            const before = d.tree.activeTab
+            testInput.keyClick(workspace.contentItem, Qt.Key_Right, Qt.ControlModifier | Qt.AltModifier)
+            verify(d.tree.activeTab !== before)
+        }
         function test_activeGroupIsRevealed() {
             const d = workspace.documents
             workspace.width = 900

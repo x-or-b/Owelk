@@ -221,6 +221,21 @@ Flickable {
         tree = Tree.split(tree, g.id, added, edge)
         activeGroup = added.id; sync(); changed(); opened()
     }
+    // Move the active tab into a new split beside its group (needs another tab to stay behind).
+    function moveActiveTabToSplit(edge) {
+        const g = Tree.find(tree, activeGroup)
+        if (!g || !g.activeTab || g.tabs.length < 2) return false
+        moveTab(g.activeTab, g.id, edge)
+        return true
+    }
+    // Cycle keyboard focus between splits in layout order.
+    function focusGroup(step) {
+        const list = Tree.leaves(tree)
+        if (list.length < 2) return false
+        const at = Math.max(0, list.findIndex(function(g) { return g.id === activeGroup }))
+        activateGroup(list[(at + step + list.length) % list.length].id)
+        return true
+    }
     function joinAll() {
         prepare()
         const list = Tree.leaves(tree), active = Tree.find(tree, activeGroup)
