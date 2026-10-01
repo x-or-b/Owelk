@@ -42,7 +42,7 @@ UiControls.Popup {
     }
     onAboutToShow: { searchInput.clear(); refresh() }
     onOpened: searchInput.forceActiveFocus()
-    background: Rectangle { color: "#ffffff"; border.color: "#bcbcbc"; radius: Theme.cornerRadius }
+    background: Rectangle { color: Theme.surface; border.color: Theme.borderPopup; radius: Theme.cornerRadius }
     contentItem: ColumnLayout {
         spacing: 8
         UiControls.TextField {
@@ -76,10 +76,10 @@ UiControls.Popup {
                 highlighted: list.currentIndex === index
                 onClicked: root.choose(index)
             }
-            Label { visible: list.count === 0; anchors.centerIn: parent; text: search.waiting ? "Searching PDF text…" : search.error.length ? "Text search failed. Try again." : "No matching saved items"; color: "#777777" }
+            Label { visible: list.count === 0; anchors.centerIn: parent; text: search.waiting ? "Searching PDF text…" : search.error.length ? "Text search failed. Try again." : "No matching saved items"; color: Theme.textMuted }
         }
-        Label { text: search.sourceFilter.toString().length ? "Matching pages in this paper · 40 per page" : "PDF text grouped by paper · 3 previews each"; color: "#777777"; font.pixelSize: 11 }
-        Label { Layout.fillWidth: true; visible: search.error.length > 0; text: "PDF text search failed: " + search.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 11; color: "#777777" }
+        Label { text: search.sourceFilter.toString().length ? "Matching pages in this paper · 40 per page" : "PDF text grouped by paper · 3 previews each"; color: Theme.textMuted; font.pixelSize: 11 }
+        Label { Layout.fillWidth: true; visible: search.error.length > 0; text: "PDF text search failed: " + search.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 11; color: Theme.textMuted }
         IndexStatus { Layout.fillWidth: true }
     }
 }

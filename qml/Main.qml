@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs as Native
+import "UiTheme.js" as Theme
 
 ApplicationWindow {
     id: window
@@ -10,24 +11,24 @@ ApplicationWindow {
     width: 1440; height: 930
     minimumWidth: 880; minimumHeight: 580
     title: ""
-    color: "#eeeeee"
+    color: Theme.surfaceChrome
     font.family: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "sans-serif"
     font.pixelSize: 13
-    palette.window: "#fafafa"
-    palette.windowText: "#242424"
-    palette.highlight: "#555555"
+    palette.window: Theme.surfacePanel
+    palette.windowText: Theme.text
+    palette.highlight: Theme.highlight
     palette.highlightedText: "white"
-    palette.button: "#eeeeee"
-    palette.buttonText: "#333333"
-    palette.text: "#242424"
-    palette.base: "#ffffff"
-    palette.alternateBase: "#f5f5f5"
-    palette.light: "#ffffff"
-    palette.midlight: "#eeeeee"
-    palette.mid: "#c5c5c5"
-    palette.dark: "#888888"
-    palette.shadow: "#555555"
-    palette.placeholderText: "#777777"
+    palette.button: Theme.surfaceChrome
+    palette.buttonText: Theme.textBody
+    palette.text: Theme.text
+    palette.base: Theme.surface
+    palette.alternateBase: Theme.surfaceAlt
+    palette.light: Theme.surface
+    palette.midlight: Theme.surfaceChrome
+    palette.mid: Theme.shadeMid
+    palette.dark: Theme.shadeDark
+    palette.shadow: Theme.shadow
+    palette.placeholderText: Theme.textMuted
     property bool shelfVisible: true
     property bool filesVisible: true
     property string filesSide: "left"
@@ -283,7 +284,7 @@ ApplicationWindow {
         Rectangle {
             visible: leftDock.visible
             Layout.preferredWidth: 6; Layout.fillHeight: true
-            color: leftResize.containsMouse || leftResize.pressed ? "#bcbcbc" : "#eeeeee"
+            color: leftResize.containsMouse || leftResize.pressed ? Theme.edgeHandleHover : Theme.edgeHandle
             MouseArea {
                 id: leftResize
                 objectName: "leftDockResize"
@@ -328,7 +329,7 @@ ApplicationWindow {
         Rectangle {
             visible: rightDock.visible
             Layout.preferredWidth: 6; Layout.fillHeight: true
-            color: rightResize.containsMouse || rightResize.pressed ? "#bcbcbc" : "#eeeeee"
+            color: rightResize.containsMouse || rightResize.pressed ? Theme.edgeHandleHover : Theme.edgeHandle
             MouseArea {
                 id: rightResize
                 objectName: "rightDockResize"
@@ -363,7 +364,7 @@ ApplicationWindow {
         id: statusBar
         objectName: "statusBar"
         height: 29
-        color: "#fafafa"
+        color: Theme.surfacePanel
         RowLayout {
             anchors.fill: parent
             anchors.leftMargin: 4; anchors.rightMargin: 4
@@ -383,7 +384,7 @@ ApplicationWindow {
             Label {
                 Layout.fillWidth: true
                 text: window.notification.length ? window.notification : researchStore.busy ? "Saving capture…" : window.workspaceName.length ? window.workspaceName : "Local workspace"
-                elide: Text.ElideRight; font.pixelSize: 11; color: "#666666"
+                elide: Text.ElideRight; font.pixelSize: 11; color: Theme.textTertiary
             }
             StatusIcon { kind: "search"; description: "Search · Ctrl/Cmd+K"; onTriggered: { commandPalette.close(); searchPalette.open() } }
             UiControls.ToolButton {

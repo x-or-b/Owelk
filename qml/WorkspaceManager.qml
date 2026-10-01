@@ -16,7 +16,7 @@ UiControls.Dialog {
     footer: RowLayout {
         spacing: 8
         Item { Layout.preferredWidth: 4 }
-        UiControls.Button { objectName: "deleteWorkspaceButton"; text: "Delete workspace…"; palette.buttonText: "#b42323"; onClicked: deleteDialog.open() }
+        UiControls.Button { objectName: "deleteWorkspaceButton"; text: "Delete workspace…"; palette.buttonText: Theme.danger; onClicked: deleteDialog.open() }
         Item { Layout.fillWidth: true }
         UiControls.Button { objectName: "closeWorkspaceButton"; text: "Close"; onClicked: root.reject() }
         Item { Layout.preferredWidth: 4 }
@@ -63,7 +63,7 @@ UiControls.Dialog {
         Label {
             Layout.fillWidth: true
             text: "Unlink only removes the association. PDFs, captures, notes and open tabs are kept."
-            wrapMode: Text.Wrap; color: "#666666"; font.pixelSize: 12
+            wrapMode: Text.Wrap; color: Theme.textTertiary; font.pixelSize: 12
         }
         RowLayout {
             visible: root.mode === 0
@@ -77,13 +77,13 @@ UiControls.Dialog {
                 Layout.fillWidth: true
                 textRole: "label"
                 model: root.availableCaptures.map(function(c) { return {id: c.id, label: c.name + " · p. " + (Number(c.page) + 1) + " · " + (c.text || c.note || "Region capture").slice(0, 90)} })
-                contentItem: Text { text: capturePicker.displayText; textFormat: Text.PlainText; color: "#333333"; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
+                contentItem: Text { text: capturePicker.displayText; textFormat: Text.PlainText; color: Theme.textBody; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
                 delegate: UiControls.ItemDelegate {
                     required property var modelData
                     required property int index
                     width: capturePicker.width; highlighted: capturePicker.highlightedIndex === index
-                    background: Rectangle { color: highlighted ? "#dedede" : "#fafafa" }
-                    contentItem: Text { text: modelData.label; textFormat: Text.PlainText; color: "#333333"; elide: Text.ElideMiddle; verticalAlignment: Text.AlignVCenter }
+                    background: Rectangle { color: highlighted ? Theme.controlHover : Theme.surfacePanel }
+                    contentItem: Text { text: modelData.label; textFormat: Text.PlainText; color: Theme.textBody; elide: Text.ElideMiddle; verticalAlignment: Text.AlignVCenter }
                 }
             }
             UiControls.Button { objectName: "linkCaptureButton"; text: "Link capture"; enabled: capturePicker.currentIndex >= 0 && root.availableCaptures.length > 0; onClicked: root.linkCapture(root.availableCaptures[capturePicker.currentIndex].id, true) }
@@ -97,27 +97,27 @@ UiControls.Dialog {
             delegate: Rectangle {
                 required property var modelData
                 width: list.width; height: root.mode === 0 ? 62 : 94
-                color: "#f0f0f0"; border.color: "#dedede"; radius: Theme.cornerRadius
+                color: Theme.surfaceMuted; border.color: Theme.controlHover; radius: Theme.cornerRadius
                 RowLayout {
                     anchors.fill: parent; anchors.margins: 8
                     ColumnLayout {
                         Layout.fillWidth: true
-                        Label { Layout.fillWidth: true; text: modelData.name; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: "#333333" }
+                        Label { Layout.fillWidth: true; text: modelData.name; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: Theme.textBody }
                         Label {
                             Layout.fillWidth: true
                             text: root.mode === 0 ? modelData.source.toString() : "p. " + (Number(modelData.page) + 1) + " · " + (modelData.text || "Region capture")
-                            textFormat: Text.PlainText; elide: Text.ElideRight; color: "#666666"; font.pixelSize: 11
+                            textFormat: Text.PlainText; elide: Text.ElideRight; color: Theme.textTertiary; font.pixelSize: 11
                         }
-                        Label { Layout.fillWidth: true; visible: root.mode === 1 && !!modelData.note; text: "Note · " + (modelData.note || ""); textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 11; color: "#555555" }
+                        Label { Layout.fillWidth: true; visible: root.mode === 1 && !!modelData.note; text: "Note · " + (modelData.note || ""); textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 11; color: Theme.textSecondary }
                     }
                     UiControls.ToolButton { text: "Open"; onClicked: { root.close(); if (root.mode === 0) root.documentChosen(modelData.source); else researchStore.openCapture(modelData.id) } }
                     UiControls.ToolButton { visible: root.mode === 1; text: "Note"; onClicked: { root.close(); root.noteRequested(modelData.id) } }
                     UiControls.ToolButton { objectName: "unlinkWorkspaceItem"; text: "Unlink"; onClicked: { if (root.mode === 0) root.linkDocument(modelData.source, false); else root.linkCapture(modelData.id, false) } }
                 }
             }
-            Label { anchors.centerIn: parent; visible: list.count === 0; text: root.mode === 0 ? "No linked documents" : "No linked captures"; color: "#777777" }
+            Label { anchors.centerIn: parent; visible: list.count === 0; text: root.mode === 0 ? "No linked documents" : "No linked captures"; color: Theme.textMuted }
         }
-        Label { Layout.fillWidth: true; visible: root.error.length > 0; text: root.error; wrapMode: Text.Wrap; color: "#b42323" }
+        Label { Layout.fillWidth: true; visible: root.error.length > 0; text: root.error; wrapMode: Text.Wrap; color: Theme.danger }
     }
     Native.FileDialog {
         id: pdfPicker; title: "Link PDF to workspace"; nameFilters: ["PDF files (*.pdf)"]

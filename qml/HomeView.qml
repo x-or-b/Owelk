@@ -1,11 +1,12 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "UiTheme.js" as Theme
 
 Rectangle {
     id: root
     objectName: "homeView"
-    color: "#fafafa"
+    color: Theme.surfacePanel
     property alias results: searchModel.results
     property alias searchController: searchModel
     ResearchSearch { id: searchModel; query: searchInput.text; active: root.visible }
@@ -39,7 +40,7 @@ Rectangle {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 8
-                Label { text: "Search your research"; font.pixelSize: 22; font.weight: Font.Medium; color: "#333333" }
+                Label { text: "Search your research"; font.pixelSize: 22; font.weight: Font.Medium; color: Theme.textBody }
                 UiControls.TextField {
                     id: searchInput
                     objectName: "homeSearch"
@@ -58,7 +59,7 @@ Rectangle {
                 }
                 SearchFilters { Layout.fillWidth: true; controller: searchModel }
                 IndexStatus { Layout.fillWidth: true }
-                Label { Layout.fillWidth: true; visible: searchModel.error.length > 0; text: "PDF text search failed: " + searchModel.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 11; color: "#777777" }
+                Label { Layout.fillWidth: true; visible: searchModel.error.length > 0; text: "PDF text search failed: " + searchModel.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 11; color: Theme.textMuted }
                 ListView {
                     id: searchResults
                     objectName: "homeResults"
@@ -75,10 +76,10 @@ Rectangle {
                         highlighted: searchResults.currentIndex === index
                         onClicked: root.choose(modelData)
                     }
-                    Label { anchors.centerIn: parent; visible: searchResults.count === 0; text: searchModel.waiting ? "Searching PDF text…" : searchModel.error.length ? "Text search failed. Try again." : "No matching saved items"; color: "#777777" }
+                    Label { anchors.centerIn: parent; visible: searchResults.count === 0; text: searchModel.waiting ? "Searching PDF text…" : searchModel.error.length ? "Text search failed. Try again." : "No matching saved items"; color: Theme.textMuted }
                 }
             }
-            Rectangle { Layout.fillWidth: true; height: 1; color: "#dddddd" }
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 8
@@ -94,7 +95,7 @@ Rectangle {
                         }
                         Label {
                             text: root.continuation.source ? "Page " + (((root.continuation.position || {}).page || 0) + 1) : "Open a PDF. Your reading position is saved automatically."
-                            color: "#777777"
+                            color: Theme.textMuted
                             font.pixelSize: 11
                         }
                     }
@@ -108,7 +109,7 @@ Rectangle {
                     }
                 }
             }
-            Rectangle { Layout.fillWidth: true; height: 1; color: "#dddddd" }
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
             RowLayout {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
@@ -142,8 +143,8 @@ Rectangle {
                             onClicked: root.workspaceChosen(modelData.id)
                         }
                     }
-                    Label { visible: researchStore.recentWorkspaces.length === 0; text: "No workspaces yet"; color: "#777777" }
-                    Label { Layout.fillWidth: true; text: "Keep papers, tabs and reading state together by topic."; wrapMode: Text.Wrap; font.pixelSize: 11; color: "#777777" }
+                    Label { visible: researchStore.recentWorkspaces.length === 0; text: "No workspaces yet"; color: Theme.textMuted }
+                    Label { Layout.fillWidth: true; text: "Keep papers, tabs and reading state together by topic."; wrapMode: Text.Wrap; font.pixelSize: 11; color: Theme.textMuted }
                 }
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -159,7 +160,7 @@ Rectangle {
                             onDocumentChosen: function(source, position) { root.documentChosen(source, position) }
                         }
                     }
-                    Label { visible: researchStore.recentDocuments.length === 0; text: "No recent papers"; color: "#777777" }
+                    Label { visible: researchStore.recentDocuments.length === 0; text: "No recent papers"; color: Theme.textMuted }
                     UiControls.Button { text: "Open PDF…"; onClicked: root.openRequested() }
                 }
             }

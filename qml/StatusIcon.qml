@@ -23,8 +23,8 @@ Item {
         anchors.fill: parent
         anchors.margins: 2
         radius: Theme.cornerRadius
-        color: root.selected ? "#dedede" : pointer.containsMouse ? "#e9e9e9" : "transparent"
-        border.color: root.activeFocus ? "#999999" : "transparent"
+        color: root.selected ? Theme.controlHover : pointer.containsMouse ? Theme.surfaceSelected : "transparent"
+        border.color: root.activeFocus ? Theme.focusRing : "transparent"
     }
     Canvas {
         id: icon
@@ -34,7 +34,7 @@ Item {
         onPaint: {
             const c = getContext("2d")
             c.reset()
-            c.strokeStyle = "#555555"
+            c.strokeStyle = Theme.icon
             c.lineWidth = 1.3
             c.lineJoin = "round"
             c.beginPath()

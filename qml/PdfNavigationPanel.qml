@@ -30,7 +30,7 @@ Item {
             textFormat: Text.PlainText
             elide: Text.ElideMiddle
             font.pixelSize: 12
-            color: "#555555"
+            color: Theme.textSecondary
         }
         TabBar {
             objectName: "navigationMode"
@@ -40,14 +40,14 @@ Item {
                 id: outlineTab
                 objectName: "outlineTab"
                 text: "Outline"
-                background: Rectangle { color: outlineTab.checked ? "#d8d8d8" : "#f5f5f5"; border.color: "#cccccc" }
+                background: Rectangle { color: outlineTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
                 onClicked: root.modeChosen(0)
             }
             UiControls.TabButton {
                 id: thumbnailsTab
                 objectName: "thumbnailsTab"
                 text: "Thumbnails"
-                background: Rectangle { color: thumbnailsTab.checked ? "#d8d8d8" : "#f5f5f5"; border.color: "#cccccc" }
+                background: Rectangle { color: thumbnailsTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
                 onClicked: root.modeChosen(1)
             }
         }
@@ -83,7 +83,7 @@ Item {
                 text: "This PDF has no embedded outline.\nUse Thumbnails to navigate."
                 wrapMode: Text.Wrap
                 horizontalAlignment: Text.AlignHCenter
-                color: "#777777"
+                color: Theme.textMuted
             }
         }
         ListView {
@@ -109,7 +109,7 @@ Item {
                 height: preview.height + 30
                 padding: 6
                 onClicked: root.go(index, null)
-                background: Rectangle { color: "#f5f5f5"; border.color: root.reader && root.reader.currentPage === thumb.index ? "#777777" : "#dddddd"; radius: Theme.cornerRadius }
+                background: Rectangle { color: Theme.surfaceAlt; border.color: root.reader && root.reader.currentPage === thumb.index ? Theme.borderSelected : Theme.border; radius: Theme.cornerRadius }
                 contentItem: Column {
                     spacing: 4
                     PdfPageImage {
@@ -125,7 +125,7 @@ Item {
                         sourceSize.width: Math.min(440, Math.ceil(width * Screen.devicePixelRatio))
                         fillMode: Image.PreserveAspectFit
                     }
-                    Label { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: thumb.index + 1; font.pixelSize: 11; color: "#666666" }
+                    Label { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: thumb.index + 1; font.pixelSize: 11; color: Theme.textTertiary }
                 }
             }
         }
@@ -137,7 +137,7 @@ Item {
             wrapMode: Text.Wrap
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
-            color: "#777777"
+            color: Theme.textMuted
         }
     }
 }

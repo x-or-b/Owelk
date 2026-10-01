@@ -4,7 +4,7 @@ import "UiTheme.js" as Theme
 
 UiControls.Popup {
     id: root
-    property string selectedColor: "#426b9a"
+    property string selectedColor: Theme.defaultInk
     signal chosen(string color)
     function colorButton(index) {
         return swatches.itemAt(index);
@@ -14,35 +14,14 @@ UiControls.Popup {
     padding: 7
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     background: Rectangle {
-        color: "#fafafa"
-        border.color: "#bcbcbc"
+        color: Theme.surfacePanel
+        border.color: Theme.borderPopup
     }
     Row {
         spacing: 4
         Repeater {
             id: swatches
-            model: [
-                {
-                    name: "Blue",
-                    value: "#426b9a"
-                },
-                {
-                    name: "Yellow",
-                    value: "#e0b83f"
-                },
-                {
-                    name: "Green",
-                    value: "#54a878"
-                },
-                {
-                    name: "Pink",
-                    value: "#d87797"
-                },
-                {
-                    name: "Purple",
-                    value: "#9274c3"
-                }
-            ]
+            model: Theme.annotationInks
             delegate: UiControls.ToolButton {
                 required property var modelData
                 objectName: "annotationColor-" + modelData.name

@@ -15,8 +15,8 @@ Rectangle {
     signal documentChosen(url source)
     signal folderChosen(url folder)
     signal noteRequested(string id)
-    color: "#f7f7f7"
-    border.color: "#dddddd"
+    color: Theme.surfaceSidebar
+    border.color: Theme.border
     radius: Theme.cornerRadius
     onPanelsChanged: if (panels.indexOf(activePanel) < 0) activePanel = panels.length ? panels[0] : ""
     ColumnLayout {
@@ -33,7 +33,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.minimumWidth: modelData === "files" ? 48 : 74
                     Layout.preferredHeight: 34
-                    color: root.activePanel === modelData ? "#e9e9e9" : "transparent"
+                    color: root.activePanel === modelData ? Theme.surfaceSelected : "transparent"
                     radius: Theme.cornerRadius
                     Label { anchors.centerIn: parent; text: modelData === "files" ? "Files" : modelData === "captures" ? "Captures" : "Document"; font.pixelSize: 12 }
                     TapHandler { onTapped: root.activePanel = modelData }

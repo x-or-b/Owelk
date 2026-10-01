@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import "UiTheme.js" as Theme
 
 Item {
     id: root
@@ -90,7 +91,7 @@ Item {
             ToolTip.text: root.folder.toString()
             HoverHandler { id: folderHover }
         }
-        Label { Layout.fillWidth: true; visible: root.status.length > 0; text: root.status; wrapMode: Text.Wrap; color: "#777777" }
+        Label { Layout.fillWidth: true; visible: root.status.length > 0; text: root.status; wrapMode: Text.Wrap; color: Theme.textMuted }
         ListView {
             objectName: "folderTree"
             Layout.fillWidth: true

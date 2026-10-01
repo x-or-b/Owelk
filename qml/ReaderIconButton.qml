@@ -15,7 +15,7 @@ UiControls.ToolButton {
     ToolTip.delay: 450
     ToolTip.text: description
     background: Rectangle {
-        color: root.checked ? Theme.accentSurface : root.hovered ? "#e5e5e5" : "transparent"
+        color: root.checked ? Theme.accentSurface : root.hovered ? Theme.iconHover : "transparent"
         border.color: root.visualFocus || root.checked ? Theme.accent : "transparent"
     }
     contentItem: Item {
@@ -28,7 +28,7 @@ UiControls.ToolButton {
             onPaint: {
                 const c = getContext("2d");
                 c.reset();
-                c.strokeStyle = "#333333";
+                c.strokeStyle = Theme.iconStrong;
                 c.lineWidth = 1.4;
                 c.lineJoin = "round";
                 c.lineCap = "round";

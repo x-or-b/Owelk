@@ -14,7 +14,7 @@ Rectangle {
     property alias reader: pane
     property string menuTab: ""
     objectName: "group-" + groupId
-    color: "#eeeeee"
+    color: Theme.surfaceChrome
     radius: Theme.cornerRadius
     clip: true
     function refresh() {
@@ -60,8 +60,8 @@ Rectangle {
                 height: 32
                 objectName: "tab-" + modelData.id
                 radius: Theme.cornerRadius
-                color: modelData.id === root.groupData.activeTab ? "#ffffff" : "#e9e9e9"
-                Rectangle { anchors.bottom: parent.bottom; x: Theme.cornerRadius; width: parent.width - 2 * x; height: 1; color: root.controller.activeGroup === root.groupId && modelData.id === root.loadedTab ? "#777777" : "#d5d5d5" }
+                color: modelData.id === root.groupData.activeTab ? Theme.surface : Theme.surfaceSelected
+                Rectangle { anchors.bottom: parent.bottom; x: Theme.cornerRadius; width: parent.width - 2 * x; height: 1; color: root.controller.activeGroup === root.groupId && modelData.id === root.loadedTab ? Theme.tabUnderlineActive : Theme.tabUnderline }
                 Label { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: close.left; anchors.verticalCenter: parent.verticalCenter; text: modelData.kind === "home" ? "Home" : researchStore.fileName(modelData.source); elide: Text.ElideMiddle; font.pixelSize: 12 }
                 MouseArea {
                     id: pointer
@@ -113,14 +113,14 @@ Rectangle {
                         border.width: 1
                         border.color: close.hovered || close.visualFocus ? Theme.accent : "transparent"
                     }
-                    contentItem: Text { text: "×"; color: close.hovered ? "#171717" : "#666666"; font: close.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    contentItem: Text { text: "×"; color: close.hovered ? Theme.textStrong : Theme.textTertiary; font: close.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     onClicked: { const id = modelData.id; Qt.callLater(function() { root.controller.closeTab(id) }) }
                 }
                 ToolTip.visible: pointer.containsMouse && !pointer.pressed
                 ToolTip.delay: 450
                 ToolTip.text: modelData.kind === "home" ? "Home" : modelData.source
             }
-            Label { visible: !tabs.count; anchors.centerIn: parent; text: "No open tabs"; color: "#777777" }
+            Label { visible: !tabs.count; anchors.centerIn: parent; text: "No open tabs"; color: Theme.textMuted }
         }
         UiControls.ToolButton {
             id: newTabButton
@@ -130,7 +130,7 @@ Rectangle {
             Accessible.name: "New Home tab"
             ToolTip.visible: hovered; ToolTip.delay: 450
             ToolTip.text: "New Home tab (" + (Qt.platform.os === "osx" ? "⌘T" : "Ctrl+T") + ")"
-            background: Rectangle { color: newTabButton.down ? "#cccccc" : newTabButton.hovered ? "#dddddd" : "#e9e9e9" }
+            background: Rectangle { color: newTabButton.down ? Theme.tabPressed : newTabButton.hovered ? Theme.tabHover : Theme.surfaceSelected }
             onClicked: { root.controller.activateGroup(root.groupId); root.controller.newHomeTab() }
         }
         }
@@ -176,8 +176,8 @@ Rectangle {
         height: edge === "top" || edge === "bottom" ? parent.height / 2 : target && target.index !== undefined ? 32 : parent.height
         color: "#33555555"
         radius: Theme.cornerRadius
-        border.color: "#777777"
+        border.color: Theme.borderSelected
         z: 10
-        Label { anchors.centerIn: parent; text: parent.edge === "center" ? "Move tab here" : "Split " + parent.edge; color: "#333333" }
+        Label { anchors.centerIn: parent; text: parent.edge === "center" ? "Move tab here" : "Split " + parent.edge; color: Theme.textBody }
     }
 }

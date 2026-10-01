@@ -39,9 +39,9 @@ UiControls.Dialog {
         Label {
             Layout.fillWidth: true
             text: (root.capture.name || "") + " · p. " + (Number(root.capture.page || 0) + 1)
-            textFormat: Text.PlainText; elide: Text.ElideMiddle; color: "#555555"
+            textFormat: Text.PlainText; elide: Text.ElideMiddle; color: Theme.textSecondary
         }
-        Label { text: "Source capture · read-only"; color: "#666666"; font.pixelSize: 11 }
+        Label { text: "Source capture · read-only"; color: Theme.textTertiary; font.pixelSize: 11 }
         ScrollView {
             visible: root.capture.kind === "text"
             Layout.fillWidth: true; Layout.preferredHeight: 110
@@ -49,8 +49,8 @@ UiControls.Dialog {
                 objectName: "noteSourceText"
                 text: root.capture.text || ""; textFormat: TextEdit.PlainText
                 readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap
-                color: "#444444"
-                background: Rectangle { color: "#eeeeee"; border.color: "#d2d2d2" }
+                color: Theme.textQuote
+                background: Rectangle { color: Theme.surfaceChrome; border.color: Theme.borderReadOnly }
             }
         }
         Image {
@@ -59,7 +59,7 @@ UiControls.Dialog {
             source: root.capture.image || ""; sourceSize.width: 600
             fillMode: Image.PreserveAspectFit; asynchronous: true
         }
-        Label { text: "Your note"; font.bold: true; color: "#333333" }
+        Label { text: "Your note"; font.bold: true; color: Theme.textBody }
         ScrollView {
             Layout.fillWidth: true; Layout.fillHeight: true
             UiControls.TextArea {
@@ -67,19 +67,19 @@ UiControls.Dialog {
                 objectName: "captureNoteEditor"
                 placeholderText: "Your interpretation, questions, or comparison with another paper…"
                 textFormat: TextEdit.PlainText; selectByMouse: true; wrapMode: TextEdit.Wrap
-                color: "#333333"
-                background: Rectangle { color: "#ffffff"; border.color: editor.activeFocus ? Theme.accentMuted : "#b5b5b5"; radius: Theme.cornerRadius }
+                color: Theme.textBody
+                background: Rectangle { color: Theme.surface; border.color: editor.activeFocus ? Theme.accentMuted : Theme.borderControl; radius: Theme.cornerRadius }
                 Keys.onEscapePressed: root.requestClose()
             }
         }
-        Label { text: (root.dirty ? "Unsaved · " : "") + editor.text.length + " / 10,000 characters"; color: editor.text.length > 10000 ? "#b42323" : "#777777"; font.pixelSize: 11 }
-        Label { Layout.fillWidth: true; visible: root.error.length > 0; text: root.error; wrapMode: Text.Wrap; color: "#b42323" }
+        Label { text: (root.dirty ? "Unsaved · " : "") + editor.text.length + " / 10,000 characters"; color: editor.text.length > 10000 ? Theme.danger : Theme.textMuted; font.pixelSize: 11 }
+        Label { Layout.fillWidth: true; visible: root.error.length > 0; text: root.error; wrapMode: Text.Wrap; color: Theme.danger }
         RowLayout {
             Layout.fillWidth: true
             UiControls.Button {
                 objectName: "deleteCaptureNote"
                 text: "Delete note"; visible: root.original.trim().length > 0
-                palette.buttonText: "#b42323"
+                palette.buttonText: Theme.danger
                 onClicked: deleteDialog.open()
             }
             UiControls.Button {

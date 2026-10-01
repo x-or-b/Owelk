@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic as Controls
+import "UiTheme.js" as Theme
 
 QtObject {
     // Keep Basic's sizing, palette, focus, hover and disabled behavior. Only shape changes.
@@ -9,7 +10,7 @@ QtObject {
         id: control
         contentItem: Text {
             text: control.text; font: control.font
-            color: control.enabled ? "#242424" : "#777777"
+            color: control.enabled ? Theme.text : Theme.textDisabled
             horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }

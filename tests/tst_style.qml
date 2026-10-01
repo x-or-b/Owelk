@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtTest
 import "../qml" as App
+import "../qml/UiTheme.js" as Theme
 
 Item {
     id: scene
@@ -29,6 +30,11 @@ Item {
             mouseClick(ok)
             compare(accepted.count, 1)
             tryCompare(dialog, "visible", false)
+        }
+        function test_annotationInksMatchStoreValidation() {
+            // UI swatches and C++ validation must accept exactly the same inks, in the same order.
+            compare(Theme.annotationInks.map(function(ink) { return ink.value }), researchStore.annotationColors)
+            compare(Theme.defaultInk, researchStore.annotationColors[0])
         }
     }
 }

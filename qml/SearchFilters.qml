@@ -15,13 +15,13 @@ ColumnLayout {
         implicitHeight: 32
         leftPadding: 10; rightPadding: 10
         contentItem: Text {
-            text: button.text; color: button.enabled ? "#333333" : "#777777"; font: button.font
+            text: button.text; color: button.enabled ? Theme.textBody : Theme.textDisabled; font: button.font
             horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
         }
         background: Rectangle {
             radius: Theme.cornerRadius
-            color: !button.enabled ? "#eeeeee" : button.checked || button.down ? Theme.accentSurface : button.hovered ? "#dedede" : "#e8e8e8"
-            border.color: button.activeFocus || button.checked ? Theme.accentMuted : "#b5b5b5"
+            color: !button.enabled ? Theme.controlDisabled : button.checked || button.down ? Theme.accentSurface : button.hovered ? Theme.controlHover : Theme.controlFill
+            border.color: button.activeFocus || button.checked ? Theme.accentMuted : Theme.borderControl
         }
     }
     component FilterCombo: UiControls.ComboBox {
@@ -29,23 +29,23 @@ ColumnLayout {
         implicitHeight: 32
         Layout.preferredHeight: 32
         leftPadding: 10; rightPadding: 26
-        palette.text: "#333333"
-        palette.buttonText: "#333333"
-        palette.highlight: "#d5deea"
-        palette.highlightedText: "#182e49"
+        palette.text: Theme.textBody
+        palette.buttonText: Theme.textBody
+        palette.highlight: Theme.selectionFill
+        palette.highlightedText: Theme.selectionText
         background: Rectangle {
             radius: Theme.cornerRadius
-            color: control.down ? Theme.accentSurface : control.hovered ? "#dedede" : "#e8e8e8"
-            border.color: control.activeFocus ? Theme.accentMuted : "#b5b5b5"
+            color: control.down ? Theme.accentSurface : control.hovered ? Theme.controlHover : Theme.controlFill
+            border.color: control.activeFocus ? Theme.accentMuted : Theme.borderControl
         }
         contentItem: Text {
             text: control.displayText; textFormat: Text.PlainText
-            font: control.font; color: "#333333"
+            font: control.font; color: Theme.textBody
             verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
         }
         indicator: Text {
             x: control.width - width - 9; anchors.verticalCenter: parent.verticalCenter
-            text: "▾"; color: "#333333"
+            text: "▾"; color: Theme.textBody
         }
         delegate: UiControls.ItemDelegate {
             id: option
@@ -54,11 +54,11 @@ ColumnLayout {
             width: control.width
             highlighted: control.highlightedIndex === index
             background: Rectangle {
-                color: option.index === control.currentIndex ? Theme.accentSurface : option.hovered || option.highlighted ? "#e2e2e2" : "#fafafa"
+                color: option.index === control.currentIndex ? Theme.accentSurface : option.hovered || option.highlighted ? Theme.menuHover : Theme.surfacePanel
             }
             contentItem: Text {
                 text: control.textAt(option.index); textFormat: Text.PlainText
-                color: "#333333"; font.family: control.font.family; font.pixelSize: control.font.pixelSize
+                color: Theme.textBody; font.family: control.font.family; font.pixelSize: control.font.pixelSize
                 font.bold: option.index === control.currentIndex
                 verticalAlignment: Text.AlignVCenter; elide: Text.ElideMiddle
             }
@@ -70,7 +70,7 @@ ColumnLayout {
             parent: control
             y: control.height + 3; width: control.width; padding: 1
             implicitHeight: Math.min(filterOptions.contentHeight + 2, 280)
-            background: Rectangle { color: "#fafafa"; border.color: "#b5b5b5"; radius: Theme.cornerRadius }
+            background: Rectangle { color: Theme.surfacePanel; border.color: Theme.borderControl; radius: Theme.cornerRadius }
             contentItem: ListView {
                 id: filterOptions
                 clip: true; implicitHeight: filterOptions.contentHeight
@@ -92,7 +92,7 @@ ColumnLayout {
             Layout.fillWidth: true
             text: (root.controller.sourceFilter.toString().length ? researchStore.fileName(root.controller.sourceFilter) : "All papers")
                 + (root.controller.targetFilter === "all" ? "" : " · " + ({text: "PDF text", filename: "File names", captures: "Captures"})[root.controller.targetFilter])
-            textFormat: Text.PlainText; elide: Text.ElideMiddle; color: "#666666"; font.pixelSize: 11
+            textFormat: Text.PlainText; elide: Text.ElideMiddle; color: Theme.textTertiary; font.pixelSize: 11
         }
         FilterButton {
             text: "Clear filters"

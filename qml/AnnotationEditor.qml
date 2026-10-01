@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import "UiTheme.js" as Theme
 
 UiControls.Dialog {
     id: root
@@ -13,10 +14,10 @@ UiControls.Dialog {
     property bool saving: false
     property string originalBody: ""
     property string chosenImage: ""
-    property string selectedColor: "#426b9a"
+    property string selectedColor: Theme.defaultInk
     readonly property bool dirty: visible && (body.text !== originalBody || chosenImage.length > 0
                                               || geometryDirty || selectedColor !== (record.color
-                                                                                     || "#426b9a"))
+                                                                                     || Theme.defaultInk))
     property bool geometryDirty: false
     parent: Overlay.overlay
     anchors.centerIn: parent
@@ -33,7 +34,7 @@ UiControls.Dialog {
         originalBody = data.body || "";
         body.text = originalBody;
         chosenImage = data.imageSource || "";
-        selectedColor = data.color || "#426b9a";
+        selectedColor = data.color || Theme.defaultInk;
         const r = data.rectangles && data.rectangles.length ? data.rectangles[0] : {
                                                                   x: 0,
                                                                   y: 0,
@@ -111,7 +112,7 @@ UiControls.Dialog {
             wrapMode: Text.Wrap
             maximumLineCount: 3
             elide: Text.ElideRight
-            color: "#666666"
+            color: Theme.textTertiary
         }
         ScrollView {
             Layout.fillWidth: true

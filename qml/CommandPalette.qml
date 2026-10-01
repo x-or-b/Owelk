@@ -52,7 +52,7 @@ UiControls.Popup {
     onResultsChanged: if (list) list.currentIndex = results.length ? 0 : -1
     onAboutToShow: { query.clear(); list.currentIndex = results.length ? 0 : -1 }
     onOpened: query.forceActiveFocus()
-    background: Rectangle { color: "#ffffff"; border.color: "#bcbcbc"; radius: Theme.cornerRadius }
+    background: Rectangle { color: Theme.surface; border.color: Theme.borderPopup; radius: Theme.cornerRadius }
     contentItem: ColumnLayout {
         spacing: 8
         UiControls.TextField {
@@ -81,19 +81,19 @@ UiControls.Popup {
                 highlighted: list.currentIndex === index
                 enabled: modelData.enabled
                 onClicked: root.choose(index)
-                background: Rectangle { color: highlighted ? "#eeeeee" : "transparent" }
+                background: Rectangle { color: highlighted ? Theme.surfaceChrome : "transparent" }
                 contentItem: Label {
                     objectName: "commandTitle-" + index
                     text: Match.highlight(modelData.title, query.text)
                     textFormat: Text.StyledText
-                    color: "#333333"
+                    color: Theme.textBody
                     opacity: modelData.enabled ? 1 : .45
                     elide: Text.ElideRight
                     verticalAlignment: Text.AlignVCenter
                 }
             }
-            Label { visible: list.count === 0; anchors.centerIn: parent; text: "No matching commands"; color: "#777777" }
+            Label { visible: list.count === 0; anchors.centerIn: parent; text: "No matching commands"; color: Theme.textMuted }
         }
-        Label { text: "↑↓ Navigate · Enter Run · Esc Close"; color: "#777777"; font.pixelSize: 11 }
+        Label { text: "↑↓ Navigate · Enter Run · Esc Close"; color: Theme.textMuted; font.pixelSize: 11 }
     }
 }

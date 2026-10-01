@@ -11,7 +11,7 @@ UiControls.ItemDelegate {
     readonly property bool heading: queryText.trim().length > 0 && (modelData.kind === "paperGroup" || modelData.kind === "paper")
     height: modelData.snippet ? 76 : 44
     background: Rectangle {
-        color: root.heading ? (root.highlighted || root.hovered ? "#686868" : "#767676") : root.highlighted ? "#e9e9e9" : root.hovered ? "#f2f2f2" : "transparent"
+        color: root.heading ? (root.highlighted || root.hovered ? Theme.searchHeadingHover : Theme.searchHeading) : root.highlighted ? Theme.surfaceSelected : root.hovered ? Theme.surfaceHover : "transparent"
     }
     contentItem: ColumnLayout {
         spacing: 3
@@ -22,7 +22,7 @@ UiControls.ItemDelegate {
                 Layout.fillWidth: true
                 text: Match.highlight(root.modelData.title, root.queryText, root.heading ? Theme.accentOnDark : Theme.accent)
                 textFormat: Text.StyledText
-                color: root.heading ? "#ffffff" : root.modelData.kind === "text" ? Theme.accentText : "#333333"
+                color: root.heading ? Theme.onDark : root.modelData.kind === "text" ? Theme.accentText : Theme.textBody
                 font.bold: root.modelData.kind === "paperGroup"
                 elide: Text.ElideMiddle
             }
@@ -30,7 +30,7 @@ UiControls.ItemDelegate {
                 text: root.modelData.kind === "paperGroup" ? root.modelData.total + " matching pages"
                     : root.modelData.kind === "text" ? "p. " + (Number(root.modelData.page) + 1)
                     : ["moreInPaper", "nextResults"].indexOf(root.modelData.kind) >= 0 ? "" : root.modelData.kind
-                color: root.heading ? "#e5e5e5" : "#777777"; font.pixelSize: 11
+                color: root.heading ? Theme.onDarkMuted : Theme.textMuted; font.pixelSize: 11
             }
         }
         Label {
@@ -42,7 +42,7 @@ UiControls.ItemDelegate {
             wrapMode: Text.Wrap
             maximumLineCount: 2
             elide: Text.ElideRight
-            color: "#666666"
+            color: Theme.textTertiary
             font.pixelSize: 12
         }
     }

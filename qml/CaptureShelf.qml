@@ -6,7 +6,7 @@ import QtQuick.Layouts
 Rectangle {
     id: root
     objectName: "captureShelf"
-    color: "#fafafa"
+    color: Theme.surfacePanel
     property string deletingId: ""
     property var viewingCapture: ({})
     property bool showingTrash: false
@@ -31,7 +31,7 @@ Rectangle {
                 text: (root.viewingCapture.name || "") + " · p. " + (Number(root.viewingCapture.page || 0) + 1)
                 textFormat: Text.PlainText
                 elide: Text.ElideMiddle
-                color: "#666666"
+                color: Theme.textTertiary
             }
             ScrollView {
                 Layout.fillWidth: true
@@ -43,7 +43,7 @@ Rectangle {
                     readOnly: true
                     selectByMouse: true
                     wrapMode: TextEdit.Wrap
-                    background: Rectangle { color: "#f5f5f5"; border.color: "#dddddd" }
+                    background: Rectangle { color: Theme.surfaceAlt; border.color: Theme.border }
                 }
             }
             RowLayout {
@@ -79,27 +79,27 @@ Rectangle {
                 id: savedTab
                 objectName: "savedCapturesTab"
                 text: "Saved"
-                background: Rectangle { color: savedTab.checked ? "#d8d8d8" : "#f5f5f5"; border.color: "#cccccc" }
+                background: Rectangle { color: savedTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
                 onClicked: root.showingTrash = false
             }
             UiControls.TabButton {
                 id: trashTab
                 objectName: "captureTrashTab"
                 text: "Trash (" + researchStore.trashedCaptures.length + ")"
-                background: Rectangle { color: trashTab.checked ? "#d8d8d8" : "#f5f5f5"; border.color: "#cccccc" }
+                background: Rectangle { color: trashTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
                 onClicked: root.showingTrash = true
             }
         }
         RowLayout {
             Layout.fillWidth: true
-            Label { text: root.showingTrash ? researchStore.trashedCaptures.length + " deleted" : researchStore.captures.length + " saved"; font.pixelSize: 12; color: "#666666" }
+            Label { text: root.showingTrash ? researchStore.trashedCaptures.length + " deleted" : researchStore.captures.length + " saved"; font.pixelSize: 12; color: Theme.textTertiary }
             Item { Layout.fillWidth: true }
         }
         Label {
             Layout.fillWidth: true
             text: root.showingTrash ? "Restore captures with their notes and workspace links." : "Select a capture to return to its source."
             wrapMode: Text.Wrap
-            color: "#666666"
+            color: Theme.textTertiary
             font.pixelSize: 11
         }
         ListView {
@@ -133,9 +133,9 @@ Rectangle {
                     UiControls.MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(card.modelData.source) }
                     UiControls.MenuItem {
                         text: "Delete"
-                        palette.text: "#b42323"
-                        palette.windowText: "#b42323"
-                        palette.highlightedText: "#b42323"
+                        palette.text: Theme.danger
+                        palette.windowText: Theme.danger
+                        palette.highlightedText: Theme.danger
                         onTriggered: root.requestDelete(card.modelData.id)
                     }
                 }
@@ -149,8 +149,8 @@ Rectangle {
                     onClicked: captureMenu.popup(captureActions, 0, captureActions.height)
                 }
                 background: Rectangle {
-                    color: card.hovered ? "#eeeeee" : "white"
-                    border.color: "#dddddd"
+                    color: card.hovered ? Theme.surfaceChrome : "white"
+                    border.color: Theme.border
                     radius: Theme.cornerRadius
                 }
                 contentItem: Column {
@@ -175,7 +175,7 @@ Rectangle {
                         maximumLineCount: 6
                         elide: Text.ElideRight
                         font.pixelSize: 13
-                        color: "#333333"
+                        color: Theme.textBody
                     }
                     Label {
                         width: parent.width
@@ -183,13 +183,13 @@ Rectangle {
                         textFormat: Text.PlainText
                         elide: Text.ElideMiddle
                         font.pixelSize: 11
-                        color: "#444444"
+                        color: Theme.textQuote
                     }
-                    Label { text: "p. " + (card.modelData.page + 1) + (root.showingTrash ? "  ·  Deleted " + Qt.formatDateTime(new Date(card.modelData.deletedAt), "yyyy-MM-dd hh:mm") : "  ·  View source"); font.pixelSize: 11; color: "#555555"; width: parent.width; wrapMode: Text.Wrap }
+                    Label { text: "p. " + (card.modelData.page + 1) + (root.showingTrash ? "  ·  Deleted " + Qt.formatDateTime(new Date(card.modelData.deletedAt), "yyyy-MM-dd hh:mm") : "  ·  View source"); font.pixelSize: 11; color: Theme.textSecondary; width: parent.width; wrapMode: Text.Wrap }
                     Label {
                         visible: root.showingTrash && card.modelData.kind !== "text" && !card.modelData.imageAvailable
                         text: "Image unavailable. Kept in trash for recovery."
-                        width: parent.width; wrapMode: Text.Wrap; color: "#b42323"; font.pixelSize: 12
+                        width: parent.width; wrapMode: Text.Wrap; color: Theme.danger; font.pixelSize: 12
                     }
                     Label {
                         visible: !!card.modelData.note
@@ -197,7 +197,7 @@ Rectangle {
                         text: "Note · " + (card.modelData.note || "")
                         textFormat: Text.PlainText; wrapMode: Text.Wrap
                         maximumLineCount: 3; elide: Text.ElideRight
-                        font.pixelSize: 12; color: "#555555"
+                        font.pixelSize: 12; color: Theme.textSecondary
                     }
                     UiControls.ToolButton {
                         objectName: "captureNoteButton-" + card.modelData.id
@@ -222,7 +222,7 @@ Rectangle {
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 lineHeight: 1.5
-                color: "#777777"
+                color: Theme.textMuted
             }
         }
     }

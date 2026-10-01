@@ -42,8 +42,8 @@ Rectangle {
     signal documentAboutToOpen()
     signal documentOpened()
     signal fileChosen(url source)
-    color: "#e8e8e8"
-    border.color: isActive ? "#888888" : "#d6d6d6"
+    color: Theme.readerBackground
+    border.color: isActive ? Theme.borderPaneActive : Theme.borderPane
     radius: Theme.cornerRadius
 
     function chooseFile() { fileDialog.open() }
@@ -156,7 +156,7 @@ Rectangle {
             visible: !root.managed
             Layout.fillWidth: true
             Layout.preferredHeight: visible ? 48 : 0
-            color: "#ffffff"
+            color: Theme.surface
             radius: Theme.cornerRadius
             RowLayout {
                 anchors.fill: parent
@@ -165,7 +165,7 @@ Rectangle {
                 spacing: 8
                 Label {
                     text: root.paneIndex === 0 ? "A" : "B"
-                    color: "#555555"
+                    color: Theme.textSecondary
                     font.bold: true
                     font.pixelSize: 12
                 }
@@ -173,7 +173,7 @@ Rectangle {
                     Layout.fillWidth: true
                     text: root.source.toString().length ? researchStore.fileName(root.source) : "No document"
                     elide: Text.ElideMiddle
-                    color: "#242424"
+                    color: Theme.text
                     font.weight: Font.Medium
                 }
                 UiControls.Button { text: "Open"; onClicked: root.chooseFile() }
@@ -186,7 +186,7 @@ Rectangle {
             id: readerToolbar
             objectName: "readerToolbar"
             Layout.preferredHeight: visible ? 32 : 0
-            color: "#f5f5f5"
+            color: Theme.surfaceAlt
             radius: Theme.cornerRadius
             RowLayout {
                 anchors.left: parent.left; anchors.leftMargin: 4; anchors.verticalCenter: parent.verticalCenter
@@ -203,7 +203,7 @@ Rectangle {
                         focus = false
                     }
                 }
-                Label { text: "/ " + canvas.pageCount; color: "#666666" }
+                Label { text: "/ " + canvas.pageCount; color: Theme.textTertiary }
             }
             Row {
                 anchors.centerIn: parent
@@ -270,7 +270,7 @@ Rectangle {
             }
             Label {
                 text: canvas.searchString.length ? (canvas.matchCount ? (canvas.currentMatch + 1) + "/" + canvas.matchCount : "0") : ""
-                color: "#666666"
+                color: Theme.textTertiary
             }
             UiControls.ToolButton { text: "↑"; enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(-1) }
             UiControls.ToolButton { text: "↓"; enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(1) }
@@ -288,7 +288,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.leftMargin: 12; Layout.rightMargin: 12
             text: canvas.highlightError
-            textFormat: Text.PlainText; wrapMode: Text.Wrap; color: "#b42323"
+            textFormat: Text.PlainText; wrapMode: Text.Wrap; color: Theme.danger
         }
         Label {
             visible: canvas.captureMode || canvas.tool.length > 0
@@ -296,7 +296,7 @@ Rectangle {
             Layout.leftMargin: 12
             Layout.bottomMargin: 6
             text: canvas.captureMode ? "Drag a region to capture · Esc to cancel" : canvas.tool === "highlight" ? "Drag over text to highlight · Esc to finish" : "Click or drag on a page to add " + canvas.tool + " · Esc to cancel"
-            color: "#444444"
+            color: Theme.textQuote
             font.pixelSize: 11
         }
 
@@ -335,7 +335,7 @@ Rectangle {
                 x: Math.max(4,Math.min(parent.width-width-20,canvas.selectionEnd.x+8))
                 y: Math.max(4,canvas.selectionEnd.y+height+12>parent.height?canvas.selectionEnd.y-height-8:canvas.selectionEnd.y+8)
                 width: 108; height: 34
-                color: "#fafafa"; border.color: "#bcbcbc"; radius: Theme.cornerRadius
+                color: Theme.surfacePanel; border.color: Theme.borderPopup; radius: Theme.cornerRadius
                 Row {
                     id: selectionActions
                     x: 8; y: 4; width: parent.width - 16; spacing: 4
@@ -366,14 +366,14 @@ Rectangle {
                     horizontalAlignment: Text.AlignHCenter
                     font.pixelSize: 16
                     font.weight: Font.Medium
-                    color: "#333333"
+                    color: Theme.textBody
                 }
                 Label {
                     Layout.fillWidth: true
                     text: canvas.error.length ? canvas.error : (root.paneIndex === 0 ? "Drop a PDF here or choose a file." : "Open another PDF to compare.\nYou can open the same document twice.")
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.Wrap
-                    color: "#666666"
+                    color: Theme.textTertiary
                     lineHeight: 1.4
                 }
                 UiControls.Button {
@@ -401,7 +401,7 @@ Rectangle {
                     anchors.fill: parent
                     visible: parent.containsDrag
                     color: "#22555555"
-                    border.color: "#555555"
+                    border.color: Theme.overlayBorder
                     border.width: 2
                 }
             }

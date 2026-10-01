@@ -22,7 +22,7 @@ Item {
     property var activeSelection: null
     property var selectedAnchor: null
     property string tool: ""
-    property string markColor: "#426b9a"
+    property string markColor: Theme.defaultInk
     property string documentFingerprint: ""
     property var editingMark: null
     property point markMenuPosition: Qt.point(0, 0)
@@ -76,7 +76,7 @@ Item {
         UiControls.MenuItem {
             objectName: "removeHighlightAction"
             text: "Remove Annotation"
-            palette.text: "#b42323"; palette.windowText: "#b42323"; palette.highlightedText: "#b42323"
+            palette.text: Theme.danger; palette.windowText: Theme.danger; palette.highlightedText: Theme.danger
             onTriggered: { const id = root.removingHighlight; Qt.callLater(function() { researchStore.removeHighlight(id) }) }
         }
     }
@@ -424,8 +424,8 @@ Item {
             x: root.width - width; y: 0; width: 16; height: pages.height
             policy: ScrollBar.AlwaysOn; interactive: true; minimumSize: .05; padding: 3
             onPressedChanged: if (pressed) root.stopSourceMotion()
-            background: Rectangle { color: "#eeeeee" }
-            contentItem: Rectangle { implicitWidth: 10; implicitHeight: 36; radius: 5; color: parent.pressed ? "#777777" : parent.hovered ? "#999999" : "#b5b5b5" }
+            background: Rectangle { color: Theme.scrollTrack }
+            contentItem: Rectangle { implicitWidth: 10; implicitHeight: 36; radius: 5; color: parent.pressed ? Theme.scrollHandlePressed : parent.hovered ? Theme.scrollHandleHover : Theme.scrollHandle }
         }
         ScrollBar.horizontal: ScrollBar {
             objectName: "pdfHorizontalScrollBar"
@@ -433,7 +433,7 @@ Item {
             x: 0; y: root.height - height; width: pages.width; height: 14
             policy: ScrollBar.AsNeeded; interactive: true; minimumSize: .05; padding: 3
             onPressedChanged: if (pressed) root.stopSourceMotion()
-            contentItem: Rectangle { implicitWidth: 36; implicitHeight: 8; radius: 4; color: parent.pressed ? "#777777" : "#b5b5b5" }
+            contentItem: Rectangle { implicitWidth: 36; implicitHeight: 8; radius: 4; color: parent.pressed ? Theme.scrollHandlePressed : Theme.scrollHandle }
         }
         WheelHandler {
             target: null
@@ -517,7 +517,7 @@ Item {
                     width: parent.width - 32
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.Wrap
-                    color: "#555555"
+                    color: Theme.textSecondary
                 }
 
                 Shape {
@@ -773,7 +773,7 @@ Item {
                         width: Math.abs(captureArea.end.x - captureArea.start.x)
                         height: Math.abs(captureArea.end.y - captureArea.start.y)
                         color: "#33555555"
-                        border.color: "#555555"
+                        border.color: Theme.overlayBorder
                         border.width: 2
                     }
                 }
