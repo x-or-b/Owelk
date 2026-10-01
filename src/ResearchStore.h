@@ -55,6 +55,9 @@ public:
     Q_INVOKABLE bool removeRecentDocument(const QUrl &url);
     Q_INVOKABLE bool deleteCapture(const QString &id);
     Q_INVOKABLE bool restoreCapture(const QString &id);
+    // Permanent removal from the local trash only; saved captures and original PDFs are never touched.
+    Q_INVOKABLE bool purgeCapture(const QString &id);
+    Q_INVOKABLE int emptyCaptureTrash();
     Q_INVOKABLE bool saveCaptureNote(const QString &id, const QString &body);
     Q_INVOKABLE QString fileName(const QUrl &url) const;
     // Paper title when known, otherwise the file name.
@@ -134,6 +137,7 @@ private:
         const QString &expectedText, bool asHighlight, const QString &color = defaultAnnotationColor(),
         const QString &kind = "highlight", const QString &body = QString());
     void reloadCaptures();
+    int purgeTrashedCaptures(const QStringList &ids);
     // Saved data is keyed by document ID; QML keeps passing file URLs.
     QString findDocument(const QUrl &source) const;
     QString ensureDocument(const QUrl &source);

@@ -983,6 +983,65 @@ bool ResearchStore::restoreCapture(const QString &id)
     return true;
 }
 
+bool ResearchStore::purgeCapture(const QString &id)
+{
+    return purgeTrashedCaptures({id}) == 1;
+}
+
+int ResearchStore::emptyCaptureTrash()
+{
+    QStringList ids;
+    for (const auto &entry : m_trashedCaptures) ids.append(entry.toMap().value("id").toString());
+    return ids.isEmpty() ? 0 : purgeTrashedCaptures(ids);
+}
+
+int ResearchStore::purgeTrashedCaptures(const QStringList &ids)
+{
+    // Rows go first in one transaction; image files are removed only after the commit, so a failure
+    // can at worst leave an unreferenced PNG behind, never a capture whose image is gone.
+    if (!m_database.transaction()) {
+        emit message(tr("Cannot start deleting from trash. Please try again."));
+        return 0;
+    }
+    QStringList images;
+    const auto fail = [this] {
+        m_database.rollback();
+        emit message(tr("Cannot delete from trash. Nothing was removed."));
+        return 0;
+    };
+    for (const auto &id : ids) {
+        QSqlQuery query(m_database);
+        query.prepare("SELECT c.image FROM captures c JOIN deleted_captures d ON d.id=c.id WHERE c.id=?");
+        query.addBindValue(id);
+        if (QUuid(id).isNull() || !query.exec() || !query.next()) return fail();
+        const auto image = query.value(0).toString();
+        query.finish();
+        // Only an app-generated PNG named after the capture may be deleted.
+        if (!image.isEmpty() && image != id + ".png") return fail();
+        if (!image.isEmpty()) images.append(m_directory + "/captures/trash/" + image);
+        for (const auto *sql : {"DELETE FROM workspace_captures WHERE capture_id=?",
+                 "DELETE FROM capture_notes WHERE capture_id=?", "DELETE FROM text_captures WHERE capture_id=?",
+                 "DELETE FROM captures WHERE id=?", "DELETE FROM deleted_captures WHERE id=?"}) {
+            QSqlQuery remove(m_database);
+            remove.prepare(sql);
+            remove.addBindValue(id);
+            if (!remove.exec()) return fail();
+        }
+    }
+    if (!m_database.commit()) return fail();
+    int leftover = 0;
+    for (const auto &path : images) {
+        const QFileInfo file(path);
+        if (file.exists() && (file.isSymLink() || !QFile::remove(path))) ++leftover;
+    }
+    reloadCaptures();
+    emit message(leftover
+            ? tr("Deleted permanently. %1 image file(s) could not be removed from local trash.").arg(leftover)
+            : ids.size() == 1 ? tr("Capture deleted permanently. The original PDF was kept.")
+                              : tr("Trash emptied. The original PDFs were kept."));
+    return ids.size();
+}
+
 int ResearchStore::listFolder(const QUrl &folder)
 {
     struct Result {

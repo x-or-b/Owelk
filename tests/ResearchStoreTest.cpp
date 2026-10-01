@@ -16,6 +16,45 @@
 class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void trashPurgeRemovesOnlyTrashedCaptures()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("purge.pdf");
+        writeFixture(path);
+        const auto source = QUrl::fromLocalFile(path);
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        for (int i = 0; i < 3; ++i) {
+            store.captureRegion(source, i, QRectF(.1, .1, .3, .2));
+            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+        }
+        QCOMPARE(store.captures().size(), 3);
+        const auto kept = store.captures()[0].toMap()["id"].toString();
+        const auto first = store.captures()[1].toMap()["id"].toString();
+        const auto second = store.captures()[2].toMap()["id"].toString();
+        const auto workspace = store.createWorkspace("Purge topic");
+        QVERIFY(store.setWorkspaceCapture(workspace, first, true));
+        QVERIFY(store.saveCaptureNote(first, "purged note words"));
+        QVERIFY(!store.purgeCapture(kept)); // A saved capture is never deleted permanently.
+        QVERIFY(store.deleteCapture(first));
+        QVERIFY(store.deleteCapture(second));
+        const auto trashImage = directory.filePath("data/captures/trash/" + first + ".png");
+        QVERIFY(QFileInfo::exists(trashImage));
+        QVERIFY(store.purgeCapture(first));
+        QVERIFY(!QFileInfo::exists(trashImage));
+        QCOMPARE(store.trashedCaptures().size(), 1);
+        QVERIFY(store.workspaceDetails(workspace)["captures"].toList().isEmpty());
+        QVERIFY(!store.restoreCapture(first));
+        QCOMPARE(store.emptyCaptureTrash(), 1);
+        QVERIFY(store.trashedCaptures().isEmpty());
+        QVERIFY(!QFileInfo::exists(directory.filePath("data/captures/trash/" + second + ".png")));
+        QCOMPARE(store.captures().size(), 1);
+        QCOMPARE(store.captures()[0].toMap()["id"].toString(), kept);
+        QVERIFY(QFileInfo(store.captures()[0].toMap()["image"].toUrl().toLocalFile()).isFile());
+        QVERIFY(QFileInfo::exists(path));
+        QCOMPARE(store.emptyCaptureTrash(), 0);
+    }
     void paperMetadataIsReadLocally()
     {
         QTemporaryDir directory;

@@ -37,6 +37,36 @@ Item {
             tryVerify(function() { return findChild(shelf, "captureCard-" + id) !== null })
             compare(researchStore.captures.find(function(c) { return c.id === id }).note, "Restored UI note")
         }
+        function test_trashDeleteAndEmpty() {
+            workspace.shelfVisible = true; workspace.movePanel("captures", "right")
+            for (let i = 0; i < 2; ++i) {
+                researchStore.captureRegion(fixtureSource, i, Qt.rect(.1, .1, .3, .2))
+                tryCompare(researchStore, "busy", false, 10000)
+            }
+            const ids = [researchStore.captures[0].id, researchStore.captures[1].id]
+            verify(researchStore.deleteCapture(ids[0])); verify(researchStore.deleteCapture(ids[1]))
+            const shelf = findChild(workspace, "captureShelf")
+            mouseClick(findChild(shelf, "captureTrashTab"))
+            tryCompare(shelf, "showingTrash", true)
+            tryVerify(function() { return findChild(shelf, "purgeCapture-" + ids[0]) !== null })
+            waitForPolish(shelf)
+            mouseClick(findChild(shelf, "purgeCapture-" + ids[0]))
+            const purge = findChild(workspace, "purgeCaptureDialog")
+            tryCompare(purge, "opened", true)
+            purge.accept()
+            tryVerify(function() { return !researchStore.trashedCaptures.some(function(c) { return c.id === ids[0] }) })
+            verify(researchStore.trashedCaptures.some(function(c) { return c.id === ids[1] }))
+            const empty = findChild(shelf, "emptyTrashButton")
+            verify(empty.visible && empty.enabled)
+            mouseClick(empty)
+            const confirm = findChild(workspace, "emptyTrashDialog")
+            tryCompare(confirm, "opened", true)
+            confirm.accept()
+            tryCompare(researchStore.trashedCaptures, "length", 0)
+            verify(!empty.enabled)
+            mouseClick(findChild(shelf, "savedCapturesTab"))
+            tryCompare(shelf, "showingTrash", false)
+        }
         function test_captureNoteWorkflow() {
             researchStore.captureRegion(fixtureSource, 0, Qt.rect(.1, .1, .4, .2))
             tryCompare(researchStore, "busy", false, 10000)

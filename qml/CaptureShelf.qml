@@ -68,6 +68,35 @@ Rectangle {
         Label { width: 310; wrapMode: Text.Wrap; text: "This capture will be moved to local trash. The original PDF will be kept." }
         onAccepted: { const id = root.deletingId; Qt.callLater(function() { researchStore.deleteCapture(id) }) }
     }
+    property string purgingId: ""
+    UiControls.Dialog {
+        id: purgeDialog
+        objectName: "purgeCaptureDialog"
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        title: "Delete permanently?"
+        width: 370
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        Label { width: 310; wrapMode: Text.Wrap; text: "This capture, its text and note cannot be recovered. The original PDF will be kept." }
+        onAccepted: { const id = root.purgingId; Qt.callLater(function() { researchStore.purgeCapture(id) }) }
+    }
+    UiControls.Dialog {
+        id: emptyDialog
+        objectName: "emptyTrashDialog"
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        title: "Empty trash?"
+        width: 370
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        Label {
+            width: 310; wrapMode: Text.Wrap
+            text: researchStore.trashedCaptures.length + (researchStore.trashedCaptures.length === 1 ? " capture" : " captures")
+                + " will be deleted permanently with their text and notes. The original PDFs will be kept."
+        }
+        onAccepted: Qt.callLater(function() { researchStore.emptyCaptureTrash() })
+    }
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 12
@@ -94,10 +123,18 @@ Rectangle {
             Layout.fillWidth: true
             Label { text: root.showingTrash ? researchStore.trashedCaptures.length + " deleted" : researchStore.captures.length + " saved"; font.pixelSize: 12; color: Theme.textTertiary }
             Item { Layout.fillWidth: true }
+            UiControls.Button {
+                objectName: "emptyTrashButton"
+                visible: root.showingTrash
+                enabled: researchStore.trashedCaptures.length > 0
+                text: "Empty Trash…"
+                palette.buttonText: Theme.danger
+                onClicked: emptyDialog.open()
+            }
         }
         Label {
             Layout.fillWidth: true
-            text: root.showingTrash ? "Restore captures with their notes and workspace links." : "Select a capture to return to its source."
+            text: root.showingTrash ? "Restore captures with their notes and workspace links, or delete them permanently." : "Select a capture to return to its source."
             wrapMode: Text.Wrap
             color: Theme.textTertiary
             font.pixelSize: 11
@@ -206,11 +243,20 @@ Rectangle {
                         height: 28
                         onClicked: root.noteRequested(card.modelData.id)
                     }
-                    UiControls.Button {
-                        objectName: "restoreCapture-" + card.modelData.id
+                    Row {
                         visible: root.showingTrash
-                        text: "Restore"
-                        onClicked: { const id = card.modelData.id; Qt.callLater(function() { researchStore.restoreCapture(id) }) }
+                        spacing: 8
+                        UiControls.Button {
+                            objectName: "restoreCapture-" + card.modelData.id
+                            text: "Restore"
+                            onClicked: { const id = card.modelData.id; Qt.callLater(function() { researchStore.restoreCapture(id) }) }
+                        }
+                        UiControls.Button {
+                            objectName: "purgeCapture-" + card.modelData.id
+                            text: "Delete…"
+                            palette.buttonText: Theme.danger
+                            onClicked: { root.purgingId = card.modelData.id; purgeDialog.open() }
+                        }
                     }
                 }
             }
