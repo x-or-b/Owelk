@@ -102,7 +102,9 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
                     QVariantMap{{"kind", "note"}, {"id", capture.value("id")}, {"source", capture.value("source")},
                         {"title", "Note · " + title}, {"snippet", snippet(note, noteMatch, needle.size())}});
             if (excerpts.size() >= 20) continue;
-            const auto text = capture.value("text").toString();
+            // Region captures are found by their figure or table caption.
+            const auto text = capture.value("text").toString().isEmpty() ? capture.value("caption").toString()
+                                                                         : capture.value("text").toString();
             const int textMatch = text.indexOf(needle, 0, Qt::CaseInsensitive);
             // Captures match their paper's title or file name as well as their text.
             if (textMatch < 0 && !title.contains(needle, Qt::CaseInsensitive)

@@ -12,6 +12,7 @@
 #include <QVariantMap>
 
 class PaperIndex;
+class QPdfDocument;
 
 class ResearchStore final : public QObject {
     Q_OBJECT
@@ -39,6 +40,8 @@ public:
     // The only accepted annotation inks; UiTheme.annotationInks must list the same values.
     static QStringList annotationColors();
     static QString defaultAnnotationColor() { return annotationColors().constFirst(); }
+    // "Figure 3: …" / "Table 2 …" next to a captured region (normalised page coordinates), or empty.
+    static QString figureCaption(QPdfDocument &document, int page, const QRectF &region);
     QVariantMap session() const;
     QVariantList captures() const { return m_captures; }
     QVariantList trashedCaptures() const { return m_trashedCaptures; }

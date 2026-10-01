@@ -22,6 +22,36 @@
 class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void regionCaptureKeepsFigureCaption()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("figure.pdf");
+        {
+            QPdfWriter writer(path);
+            writer.setResolution(72);
+            writer.setPageSize(QPageSize(QPageSize::A4));
+            QPainter painter(&writer);
+            painter.setFont(QFont("Helvetica", 10));
+            painter.drawText(QPointF(60, 80), "Body text above the figure.");
+            painter.drawRect(QRectF(100, 120, 300, 200)); // The figure.
+            painter.drawText(QPointF(100, 340), "Figure 2: Occlusion examples from the kitchen scene,");
+            painter.drawText(QPointF(100, 353), "shown before and after aggregation.");
+            painter.drawText(QPointF(60, 420), "Unrelated paragraph that is not part of the caption.");
+        }
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        const auto size = QPageSize(QPageSize::A4).sizePoints();
+        store.captureRegion(QUrl::fromLocalFile(path), 0,
+            QRectF(95. / size.width(), 115. / size.height(), 310. / size.width(), 210. / size.height()));
+        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+        QCOMPARE(store.captures().size(), 1);
+        const auto caption = store.captures()[0].toMap()["caption"].toString();
+        QVERIFY2(caption.startsWith("Figure 2: Occlusion examples"), qPrintable(caption));
+        QVERIFY2(caption.contains("after aggregation"), qPrintable(caption));
+        QVERIFY(!caption.contains("Unrelated"));
+        QCOMPARE(store.searchKnowledge("kitchen scene").value(0).toMap()["kind"].toString(), QString("capture"));
+    }
     void notesLinksBacklinksAndTrash()
     {
         QTemporaryDir directory;

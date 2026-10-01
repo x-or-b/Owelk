@@ -219,6 +219,15 @@ Rectangle {
                         fillMode: Image.PreserveAspectFit
                     }
                     Label {
+                        objectName: "captureCaption-" + card.modelData.id
+                        visible: card.modelData.kind !== "text" && !!card.modelData.caption
+                        width: parent.width
+                        text: card.modelData.caption || ""
+                        textFormat: Text.PlainText; wrapMode: Text.Wrap
+                        maximumLineCount: root.showingTrash ? 1 : 2; elide: Text.ElideRight
+                        font.pixelSize: 11; color: Theme.textSecondary
+                    }
+                    Label {
                         objectName: "excerptPreview"
                         visible: card.modelData.kind === "text"
                         width: parent.width

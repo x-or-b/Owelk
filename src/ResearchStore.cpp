@@ -67,7 +67,7 @@ QString fingerprint(const QString &path)
 }
 
 struct CaptureResult {
-    QString id, path, hash, error;
+    QString id, path, hash, error, caption;
     QUrl source;
     int page = 0;
     QRectF region;
@@ -353,7 +353,8 @@ QVariantList ResearchStore::readCaptures(bool trashed) const
     QVariantList results;
     QSqlQuery query(m_database);
     query.exec(QStringLiteral(
-        "SELECT c.id,doc.url,c.page,c.image,c.created_at,t.text,t.capture_id,n.body,n.updated_at,d.deleted_at "
+        "SELECT "
+        "c.id,doc.url,c.page,c.image,c.created_at,t.text,t.capture_id,n.body,n.updated_at,d.deleted_at,c.caption "
         "FROM captures c LEFT JOIN documents doc ON doc.id=c.document_id "
         "LEFT JOIN text_captures t ON t.capture_id=c.id "
         "LEFT JOIN capture_notes n ON n.capture_id=c.id "
@@ -374,7 +375,7 @@ QVariantList ResearchStore::readCaptures(bool trashed) const
                 {"image", imagePath.isEmpty() ? QUrl() : QUrl::fromLocalFile(imagePath)},
                 {"imageAvailable",
                     !imagePath.isEmpty() && QFileInfo(imagePath).isFile() && !QFileInfo(imagePath).isSymLink()},
-                {"createdAt", query.value(4)}, {"deletedAt", query.value(9)}});
+                {"createdAt", query.value(4)}, {"deletedAt", query.value(9)}, {"caption", query.value(10).toString()}});
     }
     return results;
 }
@@ -579,8 +580,8 @@ void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &re
         }
         const auto document = ensureDocument(result.source);
         QSqlQuery query(m_database);
-        query.prepare("INSERT INTO captures(id,document_id,sha256,page,x,y,width,height,image,created_at) "
-                      "VALUES(?,?,?,?,?,?,?,?,?,?)");
+        query.prepare("INSERT INTO captures(id,document_id,sha256,page,x,y,width,height,image,created_at,caption) "
+                      "VALUES(?,?,?,?,?,?,?,?,?,?,?)");
         query.addBindValue(result.id);
         query.addBindValue(document);
         query.addBindValue(result.hash);
@@ -591,6 +592,7 @@ void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &re
         query.addBindValue(result.region.height());
         query.addBindValue(QFileInfo(result.path).fileName());
         query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+        query.addBindValue(result.caption.isNull() ? QStringLiteral("") : result.caption);
         if (document.isEmpty() || !query.exec()) {
             emit message(tr("Image saved, but source metadata could not be recorded: %1").arg(result.path));
             return;
@@ -624,6 +626,7 @@ void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &re
             region.width() * pixels.width(), region.height() * pixels.height())
                                .toAlignedRect()
                                .intersected(rendered.rect());
+        result.caption = ResearchStore::figureCaption(document, page, region);
         const QFileInfo after(path);
         if (before.size() != after.size() || before.lastModified() != after.lastModified()) {
             result.error = tr("The source PDF changed during capture. Please reopen it.");
@@ -636,6 +639,47 @@ void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &re
             result.error = tr("Cannot save capture image. Check storage and permissions.");
         return result;
     }));
+}
+
+QString ResearchStore::figureCaption(QPdfDocument &document, int page, const QRectF &region)
+{
+    // A figure's caption usually sits just below it and a table's just above: take the nearest line within
+    // 12% of the page that starts with "Figure/Fig./Table N", plus up to two following lines of the caption.
+    const auto size = document.pagePointSize(page);
+    if (size.isEmpty()) return {};
+    SelectionGeometry geometry;
+    QList<QRectF> lines;
+    for (const auto &value : geometry.lineRectangles(document.getAllText(page).bounds())) lines << value.toRectF();
+    const QRectF area(region.x() * size.width(), region.y() * size.height(), region.width() * size.width(),
+        region.height() * size.height());
+    static const QRegularExpression label(
+        "^(fig(ure|\\.)?|table|tab\\.)\\s*[0-9IVX]+", QRegularExpression::CaseInsensitiveOption);
+    const auto textOf = [&](const QRectF &line) {
+        const qreal middle = line.center().y();
+        return document.getSelection(page, QPointF(line.left() + .5, middle), QPointF(line.right() - .5, middle))
+            .text()
+            .simplified();
+    };
+    qreal best = size.height() * .12;
+    qsizetype found = -1;
+    for (qsizetype i = 0; i < lines.size(); ++i) {
+        const auto &line = lines[i];
+        if (line.right() < area.left() - 20 || line.left() > area.right() + 20) continue;
+        const qreal below = line.top() - area.bottom(), above = area.top() - line.bottom();
+        const qreal distance = below >= -2 ? below : above >= -2 ? above : -1;
+        if (distance < 0 || distance > best) continue;
+        if (!textOf(line).contains(label)) continue;
+        best = distance;
+        found = i;
+    }
+    if (found < 0) return {};
+    QStringList parts{textOf(lines[found])};
+    for (qsizetype i = found + 1; i < lines.size() && parts.size() < 3; ++i) {
+        if (lines[i].top() - lines[i - 1].bottom() > lines[i - 1].height()) break;
+        if (lines[i].right() < area.left() - 20 || lines[i].left() > area.right() + 20) continue;
+        parts << textOf(lines[i]);
+    }
+    return parts.join(' ').left(600);
 }
 
 void ResearchStore::captureText(
