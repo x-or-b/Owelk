@@ -231,6 +231,27 @@ bool ResearchStore::initialize(QString *error)
             {"CREATE TABLE ai_responses (id TEXT PRIMARY KEY, provider TEXT NOT NULL, model TEXT NOT NULL, "
              "prompt TEXT NOT NULL, answer TEXT NOT NULL, context_json TEXT NOT NULL, created_at TEXT NOT NULL)"},
             {}, true},
+        // Conversations: each thread keeps its turns so follow-up questions carry the earlier ones.
+        {9,
+            {"CREATE TABLE ai_threads (id TEXT PRIMARY KEY, title TEXT NOT NULL, provider TEXT NOT NULL, model TEXT "
+             "NOT NULL, "
+             "source TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+                // content is exactly what was sent (with attached material); display is what the reader typed.
+                "CREATE TABLE ai_messages (id TEXT PRIMARY KEY, thread_id TEXT NOT NULL, role TEXT NOT NULL, content "
+                "TEXT NOT NULL, "
+                "display TEXT NOT NULL, context_json TEXT NOT NULL, model TEXT NOT NULL, created_at TEXT NOT NULL)",
+                "CREATE INDEX ai_messages_thread ON ai_messages(thread_id, created_at)",
+                // Saved answers become one-turn threads with the same ID, so existing links keep working.
+                "INSERT INTO ai_threads SELECT "
+                "id,prompt,provider,model,coalesce(json_extract(context_json,'$.source'),''),"
+                "created_at,created_at FROM ai_responses",
+                "INSERT INTO ai_messages SELECT id || "
+                "'-q',id,'user',coalesce(json_extract(context_json,'$.prompt'),prompt),"
+                "coalesce(nullif(json_extract(context_json,'$.question'),''),prompt),context_json,model,created_at "
+                "FROM ai_responses",
+                "INSERT INTO ai_messages SELECT id || '-a',id,'assistant',answer,'','{}',model,"
+                "strftime('%Y-%m-%dT%H:%M:%f',created_at,'+0.001 seconds') || 'Z' FROM ai_responses"},
+            {}, true},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     loadDocumentNames();

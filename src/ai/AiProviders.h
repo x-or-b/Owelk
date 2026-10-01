@@ -19,8 +19,15 @@ struct AiImage {
     QString path; // Local file for the Codex app server.
 };
 
+// An earlier turn of the same thread, sent as text.
+struct AiTurn {
+    QString role; // user | assistant
+    QString text;
+};
+
 struct AiRequest {
     QString system;
+    QList<AiTurn> history;
     QString text;
     QList<AiImage> images;
     QString model;

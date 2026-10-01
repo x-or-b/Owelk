@@ -14,7 +14,9 @@
 #include <QNetworkReply>
 #include <QPdfDocument>
 #include <QPdfSelection>
+#include <QRegularExpression>
 #include <QtConcurrent>
+#include <algorithm>
 
 namespace {
 struct ProviderInfo {
@@ -180,6 +182,21 @@ int AiService::ask(const QVariantMap &input)
     if (!info(id)) return fail("Choose an AI provider in Settings → AI.");
     if (!consented(id)) return fail("Review what is sent to this provider before the first request.");
     if ((id == "ollama") && model(id).isEmpty()) return fail("Choose an Ollama model in Settings → AI.");
+    if (spec.value("threadId").toString().isEmpty() || m_store->aiThread(spec.value("threadId").toString()).isEmpty()) {
+        static const QHash<QString, QString> labels{{"explain", "Explain"}, {"translate", "Translate"},
+            {"summarize", "Summarize"}, {"figure", "Explain figure"}};
+        const auto question = spec.value("question").toString().simplified();
+        auto title = labels.value(spec.value("action").toString());
+        const auto source = spec.value("source").toUrl();
+        if (title.isEmpty())
+            title = question.left(80);
+        else if (source.isValid() && !source.isEmpty())
+            title += " · " + m_store->displayName(source);
+        const auto thread
+            = m_store->createAiThread({{"title", title}, {"provider", id}, {"model", model(id)}, {"source", source}});
+        if (thread.isEmpty()) return fail("Cannot start an AI thread.");
+        spec.insert("threadId", thread);
+    }
     // Gather on the UI thread what the store knows; PDF text and images are read on a worker.
     const QUrl source = spec.value("source").toUrl();
     QVariantMap prepared;
@@ -263,10 +280,19 @@ int AiService::ask(const QVariantMap &input)
 
 void AiService::run(int request, const QString &id, const QVariantMap &spec, const QVariantMap &prepared)
 {
+    const auto threadId = spec.value("threadId").toString();
+    QList<AiTurn> history;
+    for (const auto &value : m_store->aiThread(threadId).value("messages").toList()) {
+        const auto message = value.toMap();
+        history.append({message.value("role").toString(), message.value("content").toString()});
+    }
     AiMaterials materials;
-    materials.title = prepared.value("title").toString();
-    materials.authors = prepared.value("authors").toString();
-    materials.year = prepared.value("year").toString();
+    // The paper's details introduce the first turn; later turns already carry them.
+    if (history.isEmpty()) {
+        materials.title = prepared.value("title").toString();
+        materials.authors = prepared.value("authors").toString();
+        materials.year = prepared.value("year").toString();
+    }
     materials.selection = spec.value("selection").toString();
     materials.pageText = prepared.value("pageText").toString();
     materials.paperText = prepared.value("paperText").toString();
@@ -287,6 +313,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     }
     AiRequest call;
     call.system = prompt.system;
+    call.history = history;
     call.text = prompt.text;
     call.model = model(id);
     for (const auto &value : images) {
@@ -301,10 +328,30 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     };
     connect(provider, &AiProvider::delta, this, [this, request](const QString &text) { emit delta(request, text); });
     connect(provider, &AiProvider::finished, this,
-        [this, request, id, prompt, spec, done](const QString &text, const QString &used) {
+        [this, request, id, prompt, spec, done, threadId, attached = materials](
+            const QString &text, const QString &used) {
             done();
+            // A turn is stored only when it completed, so a thread always alternates question and answer.
+            const auto usedModel = used.isEmpty() ? model(id) : used;
+            static const QHash<QString, QString> labels{{"explain", "Explain"}, {"translate", "Translate"},
+                {"summarize", "Summarize"}, {"figure", "Explain figure"}};
+            auto display = spec.value("question").toString().trimmed();
+            if (display.isEmpty()) display = labels.value(spec.value("action").toString(), "Ask");
+            QStringList attachments;
+            if (!attached.selection.isEmpty()) attachments << "selection";
+            if (!attached.pageText.isEmpty()) attachments << QStringLiteral("page %1").arg(attached.pageNumber);
+            if (!attached.paperText.isEmpty()) attachments << "paper";
+            if (attached.hasImage) attachments << "image";
+            m_store->appendAiMessage(threadId,
+                {{"role", "user"}, {"content", prompt.text}, {"display", display}, {"provider", id},
+                    {"model", usedModel},
+                    {"context",
+                        QVariantMap{{"attachments", attachments}, {"captureId", spec.value("captureId")},
+                            {"selection", attached.selection.left(400)}, {"page", spec.value("page")}}}});
+            m_store->appendAiMessage(
+                threadId, {{"role", "assistant"}, {"content", text}, {"model", usedModel}, {"provider", id}});
             emit finished(request, text,
-                {{"provider", id}, {"model", used.isEmpty() ? model(id) : used}, {"prompt", prompt.text},
+                {{"provider", id}, {"model", usedModel}, {"prompt", prompt.text}, {"threadId", threadId},
                     {"action", spec.value("action")}, {"question", spec.value("question")},
                     {"source", spec.value("source")}, {"page", spec.value("page")},
                     {"captureId", spec.value("captureId")}});
@@ -313,7 +360,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         done();
         emit failed(request, message);
     });
-    emit started(request, id, call.model, prompt.truncated);
+    emit started(request, threadId, id, call.model, prompt.truncated);
     provider->start(call);
 }
 
@@ -401,5 +448,64 @@ void AiService::listOllamaModels()
         if (models.isEmpty() && reply->error() != QNetworkReply::NoError)
             m_store->notify("Ollama is not running on this Mac (" + baseUrl("ollama").toString() + ").");
         emit ollamaModelsLoaded(models);
+    });
+}
+
+void AiService::listModels(const QString &provider)
+{
+    if (provider == "claude") {
+        // Anthropic's current models; the first is the default.
+        emit modelsLoaded(provider,
+            {QVariantMap{{"id", "claude-opus-5-5"}, {"name", "Claude Opus 5.5"}},
+                QVariantMap{{"id", "claude-sonnet-5-5"}, {"name", "Claude Sonnet 5.5"}},
+                QVariantMap{{"id", "claude-haiku-4-5"}, {"name", "Claude Haiku 4.5"}},
+                QVariantMap{{"id", "claude-fable-5-1"}, {"name", "Claude Fable 5.1"}}});
+        return;
+    }
+    if (provider == "codex") {
+        m_codex->call("model/list", {}, [this, provider](const QJsonValue &result, const QString &) {
+            QVariantList models;
+            for (const auto &value : result.toObject().value("data").toArray()) {
+                const auto entry = value.toObject();
+                if (entry.value("hidden").toBool()) continue;
+                models.append(QVariantMap{{"id", entry.value("model").toString(entry.value("id").toString())},
+                    {"name", entry.value("displayName").toString(entry.value("model").toString())},
+                    {"isDefault", entry.value("isDefault").toBool()}});
+            }
+            emit modelsLoaded(provider, models);
+        });
+        return;
+    }
+    if (provider != "openai" && provider != "ollama") return;
+    QNetworkRequest request(provider == "ollama" ? baseUrl(provider).resolved(QUrl("api/tags"))
+                                                 : baseUrl(provider).resolved(QUrl("v1/models")));
+    if (provider == "openai") {
+        const auto key = Keychain::read(keyAccount(provider), m_store->dataDirectory());
+        if (key.isEmpty()) {
+            emit modelsLoaded(provider, {});
+            return;
+        }
+        request.setRawHeader("Authorization", "Bearer " + key.toUtf8());
+    }
+    request.setTransferTimeout(10000);
+    auto *reply = m_network->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, provider] {
+        reply->deleteLater();
+        const auto json = QJsonDocument::fromJson(reply->readAll()).object();
+        QVariantList models;
+        // Chat models only; embeddings, audio, image and moderation models cannot answer here.
+        static const QRegularExpression other(
+            "embed|whisper|tts|audio|dall-e|image|moderation|realtime|transcribe|search");
+        for (const auto &value : json.value(provider == "ollama" ? "models" : "data").toArray()) {
+            const auto id = value.toObject().value(provider == "ollama" ? "name" : "id").toString();
+            if (id.isEmpty()
+                || (provider == "openai" && (id.contains(other) || !(id.startsWith("gpt") || id.startsWith('o')))))
+                continue;
+            models.append(QVariantMap{{"id", id}, {"name", id}});
+        }
+        std::sort(models.begin(), models.end(), [](const QVariant &a, const QVariant &b) {
+            return a.toMap().value("id").toString() > b.toMap().value("id").toString();
+        });
+        emit modelsLoaded(provider, models);
     });
 }

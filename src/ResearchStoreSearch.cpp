@@ -158,8 +158,12 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
     }
     if (target == "all" && scope.isEmpty() && !allowed) {
         QSqlQuery answers(db);
-        answers.prepare("SELECT id,prompt,answer FROM ai_responses WHERE instr(lower(prompt),lower(?))>0 OR "
-                        "instr(lower(answer),lower(?))>0 ORDER BY created_at DESC LIMIT 10");
+        // One result per thread: its title, or the latest message mentioning the words.
+        answers.prepare(
+            "SELECT t.id,t.title,(SELECT m.display || ' ' || m.content FROM ai_messages m WHERE m.thread_id=t.id "
+            "AND instr(lower(m.display || ' ' || m.content),lower(?))>0 ORDER BY m.created_at DESC LIMIT 1) AS hit "
+            "FROM ai_threads t WHERE instr(lower(t.title),lower(?))>0 OR hit IS NOT NULL ORDER BY t.updated_at DESC "
+            "LIMIT 10");
         answers.addBindValue(needle);
         answers.addBindValue(needle);
         if (answers.exec())

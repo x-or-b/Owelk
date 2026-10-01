@@ -28,6 +28,10 @@ for line in sys.stdin:
     elif method == "account/logout":
         signed_in = False
         send({"id": request_id, "result": {}})
+    elif method == "model/list":
+        send({"id": request_id, "result": {"data": [
+            {"id": "m1", "model": "gpt-test", "displayName": "GPT Test", "hidden": False, "isDefault": True},
+            {"id": "m2", "model": "gpt-hidden", "displayName": "Hidden", "hidden": True, "isDefault": False}]}})
     elif method == "thread/start":
         # Owelk must ask for a throwaway, read-only thread that never runs commands.
         ok = params.get("ephemeral") is True and params.get("sandbox") == "read-only" and params.get("approvalPolicy") == "never"

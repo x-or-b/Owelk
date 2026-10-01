@@ -392,7 +392,8 @@ private slots:
                 {"DROP TABLE documents", "DROP TABLE recent_documents", "DROP TABLE reading_positions",
                     "DROP TABLE workspace_documents", "DROP TABLE workspace_document_exclusions", "DROP TABLE captures",
                     "DROP TABLE highlights", "DROP TABLE collections", "DROP TABLE collection_documents",
-                    "DROP TABLE tags", "DROP TABLE document_tags", "DROP TABLE notes", "DROP TABLE ai_responses", "DROP TABLE links",
+                    "DROP TABLE tags", "DROP TABLE document_tags", "DROP TABLE notes", "DROP TABLE ai_responses",
+                    "DROP TABLE ai_messages", "DROP TABLE ai_threads", "DROP TABLE links",
                     "CREATE TABLE recent_documents (url TEXT PRIMARY KEY, opened_at TEXT NOT NULL)",
                     "CREATE TABLE reading_positions (url TEXT PRIMARY KEY, position TEXT NOT NULL)",
                     "CREATE TABLE workspace_documents (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "

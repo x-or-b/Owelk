@@ -244,6 +244,20 @@ private slots:
         auto outcome = run(new CodexProvider(&bridge, this), request);
         QCOMPARE(outcome.error, QString());
         QCOMPARE(outcome.text, QString("Codex answer"));
+        // Codex lists the account's models, without hidden ones.
+        QJsonValue models;
+        answered = false;
+        bridge.call("model/list", {}, [&](const QJsonValue &result, const QString &) {
+            models = result;
+            answered = true;
+        });
+        QTRY_VERIFY_WITH_TIMEOUT(answered, 5000);
+        QCOMPARE(models.toObject()["data"].toArray().size(), 2);
+        // Earlier turns travel inside the text for the stateless Codex threads.
+        request.history = {{"user", "first question"}, {"assistant", "first answer"}};
+        outcome = run(new CodexProvider(&bridge, this), request);
+        QCOMPARE(outcome.text, QString("Codex answer"));
+        request.history.clear();
         request.text = "no material";
         QVERIFY(!run(new CodexProvider(&bridge, this), request).error.isEmpty());
     }
@@ -304,6 +318,28 @@ private slots:
         QCOMPARE(
             store.backlinks("document", store.documentLinkId(QUrl::fromLocalFile(pdf)))[0].toMap()["kind"].toString(),
             QString("ai"));
+        // The answer was stored as a thread; a follow-up sends the earlier turn along and extends the thread.
+        const auto threadId = finished[0][2].toMap()["threadId"].toString();
+        QVERIFY(!threadId.isEmpty());
+        QCOMPARE(store.aiThread(threadId)["messages"].toList().size(), 2);
+        ai->ask({{"provider", "claude"}, {"threadId", threadId}, {"action", "ask"}, {"question", "And the method?"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 10000);
+        const auto followUp = server.seen.last().body["messages"].toArray();
+        QCOMPARE(followUp.size(), 3);
+        QCOMPARE(followUp[0].toObject()["role"].toString(), QString("user"));
+        QCOMPARE(followUp[1].toObject()["content"].toString(), QString("Page answer"));
+        QVERIFY(followUp[2].toObject()["content"].toArray().last().toObject()["text"].toString().endsWith(
+            "And the method?"));
+        const auto thread = store.aiThread(threadId)["messages"].toList();
+        QCOMPARE(thread.size(), 4);
+        QCOMPARE(thread[2].toMap()["display"].toString(), QString("And the method?"));
+        QCOMPARE(thread[0].toMap()["display"].toString(), QString("Summarize"));
+        QCOMPARE(store.searchKnowledge("the method").value(0).toMap()["id"].toString(), threadId);
+        QSignalSpy models(ai, &AiService::modelsLoaded);
+        ai->listModels("claude");
+        QCOMPARE(models[0][1].toList()[0].toMap()["id"].toString(), QString("claude-opus-5-5"));
+        QVERIFY(store.deleteAiThread(threadId));
+        QVERIFY(store.aiThread(threadId).isEmpty());
         QVERIFY(ai->clearApiKey("claude"));
         QVERIFY(!ai->hasApiKey("claude"));
     }

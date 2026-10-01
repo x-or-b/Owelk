@@ -115,6 +115,14 @@ public:
     Q_INVOKABLE QString markdownHtml(const QString &markdown, const QString &linkColor) const;
     // "[title](owelk://kind/id)" for inserting into a note.
     Q_INVOKABLE QString markdownLink(const QString &kind, const QString &id) const;
+    // AI conversations (ResearchStoreAi.cpp). A thread keeps its turns; message: role, content (sent),
+    // display (typed), context, model, provider.
+    Q_INVOKABLE QString createAiThread(const QVariantMap &thread);
+    Q_INVOKABLE bool appendAiMessage(const QString &threadId, const QVariantMap &message);
+    Q_INVOKABLE QVariantList aiThreads() const;
+    Q_INVOKABLE QVariantMap aiThread(const QString &id) const;
+    Q_INVOKABLE bool renameAiThread(const QString &id, const QString &title);
+    Q_INVOKABLE bool deleteAiThread(const QString &id);
     // Saved AI answers. response: provider, model, action, question, answer, prompt, source, page, captureId.
     Q_INVOKABLE QString saveAiResponse(const QVariantMap &response);
     Q_INVOKABLE QVariantMap aiResponse(const QString &id) const;
@@ -181,6 +189,7 @@ signals:
     void settingsChanged();
     void notesChanged();
     void linksChanged();
+    void aiThreadsChanged();
     // The opened file has the same bytes as another library entry that still exists.
     void duplicateFound(const QUrl &source, const QUrl &existing, const QString &existingTitle);
     void highlightSaved(const QString &id, const QUrl &source);

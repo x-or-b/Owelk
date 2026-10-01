@@ -37,7 +37,10 @@ public:
     Q_INVOKABLE void giveConsent(const QString &provider);
     // spec: provider, action (explain|translate|summarize|ask|figure), question, source, page (0-based),
     // scope (selection|page|paper|none), selection, captureId, noteIds. Returns a request id.
+    // threadId continues a conversation (earlier turns are sent along); empty starts a new thread.
     Q_INVOKABLE int ask(const QVariantMap &spec);
+    // Models the provider offers: Claude's current lineup, the OpenAI/Ollama/Codex lists from the service.
+    Q_INVOKABLE void listModels(const QString &provider);
     Q_INVOKABLE void cancel(int request);
     Q_INVOKABLE void testConnection(const QString &provider);
     // Codex app server: account status, ChatGPT sign-in (opens the browser) and sign-out.
@@ -49,13 +52,15 @@ public:
 signals:
     void providersChanged();
     void busyChanged();
-    void started(int request, const QString &provider, const QString &model, bool truncated);
+    void started(int request, const QString &threadId, const QString &provider, const QString &model, bool truncated);
     void delta(int request, const QString &text);
     void finished(int request, const QString &text, const QVariantMap &details);
     void failed(int request, const QString &error);
     void connectionTested(const QString &provider, bool ok, const QString &detail);
     void codexAccountChanged(const QVariantMap &account);
     void ollamaModelsLoaded(const QStringList &models);
+    // models: [{id, name}]
+    void modelsLoaded(const QString &provider, const QVariantList &models);
 
 private:
     QString keyAccount(const QString &provider) const;

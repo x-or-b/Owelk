@@ -136,17 +136,23 @@ void AnthropicProvider::start(const AiRequest &request)
                 QJsonObject{{"type", "base64"}, {"media_type", image.mediaType},
                     {"data", QString::fromLatin1(image.data.toBase64())}}}});
     content.append(QJsonObject{{"type", "text"}, {"text", request.text}});
+    QJsonArray messages;
+    // Earlier turns go back as plain text; thinking blocks are not replayed.
+    for (const auto &turn : request.history) messages.append(QJsonObject{{"role", turn.role}, {"content", turn.text}});
+    messages.append(QJsonObject{{"role", "user"}, {"content", content}});
     QJsonObject body{{"model", request.model}, {"max_tokens", request.maxTokens}, {"stream", true},
-        {"system", request.system}, {"messages", QJsonArray{QJsonObject{{"role", "user"}, {"content", content}}}},
-        // A safety decline is retried server-side on the model Anthropic recommends for that category.
-        {"fallbacks", "default"}};
+        {"system", request.system}, {"messages", messages}};
+    // A safety decline is retried server-side on the model Anthropic recommends for that category.
+    const bool fallbacks = request.model.startsWith("claude-opus-5") || request.model.startsWith("claude-sonnet-5-5")
+        || request.model.startsWith("claude-fable-5");
+    if (fallbacks) body.insert("fallbacks", "default");
     // Reading help is routine work: medium effort keeps answers quick (and is Claude Opus 5.5's default).
     if (request.model.startsWith("claude-opus-5") || request.model.startsWith("claude-sonnet-5")
         || request.model.startsWith("claude-fable"))
         body.insert("output_config", QJsonObject{{"effort", "medium"}});
-    post({{"x-api-key", m_key.toUtf8()}, {"anthropic-version", "2023-06-01"},
-             {"anthropic-beta", "server-side-fallback-2026-07-01"}},
-        body, true);
+    QHash<QByteArray, QByteArray> headers{{"x-api-key", m_key.toUtf8()}, {"anthropic-version", "2023-06-01"}};
+    if (fallbacks) headers.insert("anthropic-beta", "server-side-fallback-2026-07-01");
+    post(headers, body, true);
 }
 
 bool AnthropicProvider::handle(const QString &event, const QJsonObject &data)
@@ -203,7 +209,13 @@ void OpenAiProvider::start(const AiRequest &request)
             {"image_url", "data:" + image.mediaType + ";base64," + QString::fromLatin1(image.data.toBase64())}});
     const QJsonObject body{{"model", request.model}, {"instructions", request.system}, {"stream", true},
         {"max_output_tokens", request.maxTokens},
-        {"input", QJsonArray{QJsonObject{{"role", "user"}, {"content", content}}}}};
+        {"input", [&] {
+             QJsonArray input;
+             for (const auto &turn : request.history)
+                 input.append(QJsonObject{{"role", turn.role}, {"content", turn.text}});
+             input.append(QJsonObject{{"role", "user"}, {"content", content}});
+             return input;
+         }()}};
     post({{"Authorization", "Bearer " + m_key.toUtf8()}}, body, true);
 }
 
@@ -253,10 +265,10 @@ void OllamaProvider::start(const AiRequest &request)
     for (const auto &image : request.images) images.append(QString::fromLatin1(image.data.toBase64()));
     QJsonObject user{{"role", "user"}, {"content", request.text}};
     if (!images.isEmpty()) user.insert("images", images);
-    post({},
-        QJsonObject{{"model", request.model}, {"stream", true},
-            {"messages", QJsonArray{QJsonObject{{"role", "system"}, {"content", request.system}}, user}}},
-        false);
+    QJsonArray messages{QJsonObject{{"role", "system"}, {"content", request.system}}};
+    for (const auto &turn : request.history) messages.append(QJsonObject{{"role", turn.role}, {"content", turn.text}});
+    messages.append(user);
+    post({}, QJsonObject{{"model", request.model}, {"stream", true}, {"messages", messages}}, false);
 }
 
 bool OllamaProvider::handle(const QString &, const QJsonObject &data)
@@ -428,7 +440,15 @@ void CodexProvider::start(const AiRequest &request)
     QJsonObject thread{{"ephemeral", true}, {"sandbox", "read-only"}, {"approvalPolicy", "never"},
         {"developerInstructions", request.system}};
     if (!request.model.isEmpty()) thread.insert("model", request.model);
-    QJsonArray input{QJsonObject{{"type", "text"}, {"text", request.text}}};
+    // Each Owelk request is a fresh read-only thread, so earlier turns travel inside the text.
+    QString text = request.text;
+    if (!request.history.isEmpty()) {
+        QStringList lines{"Earlier in this conversation:"};
+        for (const auto &turn : request.history)
+            lines << (turn.role == "user" ? "Reader: " : "Assistant: ") + turn.text;
+        text = lines.join("\n\n") + "\n\nNew request:\n" + request.text;
+    }
+    QJsonArray input{QJsonObject{{"type", "text"}, {"text", text}}};
     for (const auto &image : request.images)
         if (!image.path.isEmpty()) input.append(QJsonObject{{"type", "localImage"}, {"path", image.path}});
     QPointer<CodexProvider> self(this);
