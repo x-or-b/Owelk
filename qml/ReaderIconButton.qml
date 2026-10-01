@@ -7,6 +7,8 @@ UiControls.ToolButton {
     property string kind: ""
     property string description: ""
     property color swatch: "transparent"
+    // Stroke color; Theme.danger for destructive actions.
+    property color tint: Theme.iconStrong
     implicitWidth: 28
     implicitHeight: 26
     hoverEnabled: true
@@ -28,7 +30,7 @@ UiControls.ToolButton {
             onPaint: {
                 const c = getContext("2d");
                 c.reset();
-                c.strokeStyle = Theme.iconStrong;
+                c.strokeStyle = root.tint;
                 c.lineWidth = 1.4;
                 c.lineJoin = "round";
                 c.lineCap = "round";
@@ -110,6 +112,75 @@ UiControls.ToolButton {
                     c.lineTo(16, 16);
                     c.lineTo(16, 12);
                     break;
+                case "restore":
+                    c.moveTo(4, 5);
+                    c.lineTo(4, 9);
+                    c.lineTo(8, 9);
+                    c.moveTo(4.6, 8.4);
+                    c.arc(10, 10, 6, Math.PI * 1.15, Math.PI * 0.85, false);
+                    break;
+                case "trash":
+                    c.moveTo(3, 5);
+                    c.lineTo(15, 5);
+                    c.moveTo(7, 5);
+                    c.lineTo(7, 3);
+                    c.lineTo(11, 3);
+                    c.lineTo(11, 5);
+                    c.moveTo(5, 5);
+                    c.lineTo(6, 16);
+                    c.lineTo(12, 16);
+                    c.lineTo(13, 5);
+                    c.moveTo(8, 8);
+                    c.lineTo(8, 13);
+                    c.moveTo(10, 8);
+                    c.lineTo(10, 13);
+                    break;
+                case "back":
+                    c.moveTo(11, 4);
+                    c.lineTo(6, 9);
+                    c.lineTo(11, 14);
+                    break;
+                case "forward":
+                    c.moveTo(7, 4);
+                    c.lineTo(12, 9);
+                    c.lineTo(7, 14);
+                    break;
+                case "reload":
+                    c.moveTo(14.5, 5.5);
+                    c.arc(9, 9, 5.5, -Math.PI * 0.2, Math.PI * 1.55, false);
+                    c.moveTo(14.5, 2.5);
+                    c.lineTo(14.5, 6);
+                    c.lineTo(11, 6);
+                    break;
+                case "star":
+                    for (let i = 0; i < 10; ++i) {
+                        const r = i % 2 ? 3 : 7, a = -Math.PI / 2 + i * Math.PI / 5;
+                        if (i) c.lineTo(9 + r * Math.cos(a), 9.5 + r * Math.sin(a));
+                        else c.moveTo(9 + r * Math.cos(a), 9.5 + r * Math.sin(a));
+                    }
+                    c.closePath();
+                    break;
+                case "link":
+                    c.moveTo(8, 10);
+                    c.lineTo(10, 8);
+                    c.moveTo(7, 7);
+                    c.lineTo(5, 9);
+                    c.arc(6.5, 11.5, 2.5, Math.PI * 1.25, Math.PI * 0.25, true);
+                    c.moveTo(11, 11);
+                    c.lineTo(13, 9);
+                    c.arc(11.5, 6.5, 2.5, Math.PI * 0.25, Math.PI * 1.25, true);
+                    break;
+                case "ai":
+                    c.moveTo(8, 2);
+                    c.quadraticCurveTo(8.5, 7.5, 14, 8);
+                    c.quadraticCurveTo(8.5, 8.5, 8, 14);
+                    c.quadraticCurveTo(7.5, 8.5, 2, 8);
+                    c.quadraticCurveTo(7.5, 7.5, 8, 2);
+                    c.moveTo(14, 12);
+                    c.lineTo(14, 16);
+                    c.moveTo(12, 14);
+                    c.lineTo(16, 14);
+                    break;
                 case "minus":
                     c.moveTo(4, 9);
                     c.lineTo(14, 9);
@@ -139,4 +210,5 @@ UiControls.ToolButton {
         }
     }
     onKindChanged: icon.requestPaint()
+    onTintChanged: icon.requestPaint()
 }

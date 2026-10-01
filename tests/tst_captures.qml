@@ -67,6 +67,31 @@ Item {
             mouseClick(findChild(shelf, "savedCapturesTab"))
             tryCompare(shelf, "showingTrash", false)
         }
+        function test_trashCardsFitNarrowPanel() {
+            workspace.shelfVisible = true; workspace.movePanel("captures", "right")
+            researchStore.captureRegion(fixtureSource, 0, Qt.rect(.1, .1, .4, .2))
+            tryCompare(researchStore, "busy", false, 10000)
+            const id = researchStore.captures[0].id
+            verify(researchStore.saveCaptureNote(id, "A long note that should only appear on hover, not on the compact trash card"))
+            verify(researchStore.deleteCapture(id))
+            const shelf = findChild(workspace, "captureShelf")
+            mouseClick(findChild(shelf, "captureTrashTab"))
+            tryCompare(shelf, "showingTrash", true)
+            for (const width of [320, 200, 160]) {
+                workspace.rightDockWidth = width
+                waitForPolish(shelf)
+                tryVerify(function() { return findChild(shelf, "trashedCaptureCard-" + id) !== null })
+                const card = findChild(shelf, "trashedCaptureCard-" + id)
+                const purge = findChild(card, "purgeCapture-" + id)
+                const right = purge.mapToItem(card, purge.width, 0).x
+                verify(right <= card.width + 0.5, "Delete button must stay inside the card at width " + width + " (" + right + " > " + card.width + ")")
+                verify(card.width <= shelf.width, "Card must not be wider than the panel")
+                verify(findChild(shelf, "emptyTrashButton").mapToItem(shelf, findChild(shelf, "emptyTrashButton").width, 0).x <= shelf.width + 0.5)
+            }
+            verify(researchStore.purgeCapture(id))
+            workspace.rightDockWidth = 224
+            mouseClick(findChild(shelf, "savedCapturesTab"))
+        }
         function test_captureNoteWorkflow() {
             researchStore.captureRegion(fixtureSource, 0, Qt.rect(.1, .1, .4, .2))
             tryCompare(researchStore, "busy", false, 10000)

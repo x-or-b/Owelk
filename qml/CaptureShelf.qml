@@ -121,20 +121,26 @@ Rectangle {
         }
         RowLayout {
             Layout.fillWidth: true
-            Label { text: root.showingTrash ? researchStore.trashedCaptures.length + " deleted" : researchStore.captures.length + " saved"; font.pixelSize: 12; color: Theme.textTertiary }
-            Item { Layout.fillWidth: true }
-            UiControls.Button {
+            Label {
+                Layout.fillWidth: true
+                text: root.showingTrash ? researchStore.trashedCaptures.length + " deleted" : researchStore.captures.length + " saved"
+                elide: Text.ElideRight; font.pixelSize: 12; color: Theme.textTertiary
+            }
+            UiControls.ToolButton {
                 objectName: "emptyTrashButton"
                 visible: root.showingTrash
                 enabled: researchStore.trashedCaptures.length > 0
-                text: "Empty Trash…"
+                text: "Empty"
                 palette.buttonText: Theme.danger
+                ToolTip.visible: hovered; ToolTip.delay: 450
+                ToolTip.text: "Delete everything in trash permanently"
                 onClicked: emptyDialog.open()
             }
         }
         Label {
             Layout.fillWidth: true
-            text: root.showingTrash ? "Restore captures with their notes and workspace links, or delete them permanently." : "Select a capture to return to its source."
+            visible: !root.showingTrash
+            text: "Select a capture to return to its source."
             wrapMode: Text.Wrap
             color: Theme.textTertiary
             font.pixelSize: 11
@@ -155,6 +161,14 @@ Rectangle {
                 height: contentItem.implicitHeight + 20
                 padding: 10
                 onClicked: { if (!root.showingTrash) researchStore.openCapture(modelData.id) }
+                // Trash cards stay compact; details appear on hover.
+                ToolTip.visible: root.showingTrash && hovered
+                ToolTip.delay: 450
+                ToolTip.text: [modelData.name + " · p. " + (modelData.page + 1),
+                    "Deleted " + Qt.formatDateTime(new Date(modelData.deletedAt), "yyyy-MM-dd hh:mm"),
+                    modelData.note ? "Note: " + modelData.note.slice(0, 160) : "",
+                    modelData.kind !== "text" && !modelData.imageAvailable ? "Image unavailable; kept for recovery." : ""
+                ].filter(function(line) { return line.length > 0 }).join("\n")
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.RightButton
@@ -196,7 +210,7 @@ Rectangle {
                         id: preview
                         visible: card.modelData.kind !== "text"
                         width: parent.width
-                        height: Math.min(155, width / Math.max(.4, implicitWidth / Math.max(1, implicitHeight)))
+                        height: Math.min(root.showingTrash ? 96 : 155, width / Math.max(.4, implicitWidth / Math.max(1, implicitHeight)))
                         source: card.modelData.imageAvailable ? card.modelData.image : ""
                         sourceSize.width: 520
                         asynchronous: true
@@ -209,12 +223,13 @@ Rectangle {
                         text: card.modelData.text || ""
                         textFormat: Text.PlainText
                         wrapMode: Text.Wrap
-                        maximumLineCount: 6
+                        maximumLineCount: root.showingTrash ? 3 : 6
                         elide: Text.ElideRight
                         font.pixelSize: 13
                         color: Theme.textBody
                     }
                     Label {
+                        visible: !root.showingTrash
                         width: parent.width
                         text: card.modelData.name
                         textFormat: Text.PlainText
@@ -222,14 +237,9 @@ Rectangle {
                         font.pixelSize: 11
                         color: Theme.textQuote
                     }
-                    Label { text: "p. " + (card.modelData.page + 1) + (root.showingTrash ? "  ·  Deleted " + Qt.formatDateTime(new Date(card.modelData.deletedAt), "yyyy-MM-dd hh:mm") : "  ·  View source"); font.pixelSize: 11; color: Theme.textSecondary; width: parent.width; wrapMode: Text.Wrap }
+                    Label { visible: !root.showingTrash; text: "p. " + (card.modelData.page + 1) + "  ·  View source"; font.pixelSize: 11; color: Theme.textSecondary; width: parent.width; wrapMode: Text.Wrap }
                     Label {
-                        visible: root.showingTrash && card.modelData.kind !== "text" && !card.modelData.imageAvailable
-                        text: "Image unavailable. Kept in trash for recovery."
-                        width: parent.width; wrapMode: Text.Wrap; color: Theme.danger; font.pixelSize: 12
-                    }
-                    Label {
-                        visible: !!card.modelData.note
+                        visible: !root.showingTrash && !!card.modelData.note
                         width: parent.width
                         text: "Note · " + (card.modelData.note || "")
                         textFormat: Text.PlainText; wrapMode: Text.Wrap
@@ -243,18 +253,25 @@ Rectangle {
                         height: 28
                         onClicked: root.noteRequested(card.modelData.id)
                     }
-                    Row {
+                    RowLayout {
+                        objectName: "trashCardFooter-" + card.modelData.id
                         visible: root.showingTrash
-                        spacing: 8
-                        UiControls.Button {
+                        width: parent.width
+                        spacing: 2
+                        Label {
+                            Layout.fillWidth: true
+                            text: card.modelData.name + " · p. " + (card.modelData.page + 1)
+                            textFormat: Text.PlainText; elide: Text.ElideRight
+                            font.pixelSize: 11; color: Theme.textTertiary
+                        }
+                        ReaderIconButton {
                             objectName: "restoreCapture-" + card.modelData.id
-                            text: "Restore"
+                            kind: "restore"; description: "Restore with note and workspace links"
                             onClicked: { const id = card.modelData.id; Qt.callLater(function() { researchStore.restoreCapture(id) }) }
                         }
-                        UiControls.Button {
+                        ReaderIconButton {
                             objectName: "purgeCapture-" + card.modelData.id
-                            text: "Delete…"
-                            palette.buttonText: Theme.danger
+                            kind: "trash"; tint: Theme.danger; description: "Delete permanently…"
                             onClicked: { root.purgingId = card.modelData.id; purgeDialog.open() }
                         }
                     }
