@@ -16,6 +16,40 @@
 class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void readingStateFavoriteAndDuplicates()
+    {
+        QTemporaryDir directory;
+        const auto original = directory.filePath("original.pdf"), copy = directory.filePath("copy.pdf");
+        writeFixture(original, "Duplicate Paper");
+        QVERIFY(QFile::copy(original, copy));
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QSignalSpy duplicates(&store, &ResearchStore::duplicateFound);
+        const auto first = QUrl::fromLocalFile(original), second = QUrl::fromLocalFile(copy);
+        QVERIFY(store.rememberDocument(first));
+        QCOMPARE(store.documentDetails(first)["readingState"].toString(), QString("reading"));
+        QVERIFY(store.setReadingState(first, "read"));
+        QVERIFY(store.rememberDocument(first)); // Reopening does not demote a finished paper.
+        QCOMPARE(store.documentDetails(first)["readingState"].toString(), QString("read"));
+        QVERIFY(!store.setReadingState(first, "skimmed"));
+        QVERIFY(store.setFavorite(first, true));
+        QTRY_VERIFY_WITH_TIMEOUT(store.recentDocuments().value(0).toMap()["favorite"].toBool(), 5000);
+        QTest::qWait(200);
+        QVERIFY(duplicates.isEmpty()); // The only copy is not its own duplicate.
+        QVERIFY(store.rememberDocument(second));
+        QTRY_COMPARE_WITH_TIMEOUT(duplicates.size(), 1, 10000);
+        QCOMPARE(duplicates[0][0].toUrl(), second);
+        QCOMPARE(duplicates[0][1].toUrl(), first);
+        QVERIFY(store.keepDuplicate(second));
+        QVERIFY(store.rememberDocument(second));
+        QTest::qWait(500);
+        QCOMPARE(duplicates.size(), 1); // "Keep both" stops asking for this file version.
+        QVERIFY(store.useExistingCopy(second, first));
+        QCOMPARE(store.recentDocuments().size(), 1);
+        QCOMPARE(store.recentDocuments()[0].toMap()["url"].toUrl(), first);
+        QVERIFY(QFileInfo::exists(copy)); // Files are never touched.
+    }
     void trashPurgeRemovesOnlyTrashedCaptures()
     {
         QTemporaryDir directory;

@@ -23,6 +23,14 @@
 class ReaderSetup : public QObject {
     Q_OBJECT
 public:
+    // A byte-identical copy of fixture.pdf under a new name, for duplicate detection.
+    Q_INVOKABLE QUrl copyFixture(const QString &name)
+    {
+        const auto path = m_directory.filePath(name);
+        QFile::remove(path);
+        QFile::copy(m_directory.filePath("fixture.pdf"), path);
+        return QUrl::fromLocalFile(path);
+    }
     Q_INVOKABLE QVariantMap relinkFixture(bool specialPath = false)
     {
         const auto prefix = m_directory.filePath(

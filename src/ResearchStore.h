@@ -66,6 +66,13 @@ public:
     Q_INVOKABLE bool updateDocumentDetails(const QUrl &source, const QVariantMap &details);
     // Forget edits and read the details from the PDF again.
     Q_INVOKABLE void resetDocumentDetails(const QUrl &source);
+    // unread | reading | read. Opening a paper moves it from unread to reading.
+    Q_INVOKABLE bool setReadingState(const QUrl &source, const QString &state);
+    Q_INVOKABLE bool setFavorite(const QUrl &source, bool favorite);
+    // Stop offering the existing copy for this exact file version.
+    Q_INVOKABLE bool keepDuplicate(const QUrl &source);
+    // Read the existing copy instead: the duplicate leaves Recent Papers, the existing copy is reopened.
+    Q_INVOKABLE bool useExistingCopy(const QUrl &duplicate, const QUrl &existing);
     int documentsRevision() const { return m_documentsRevision; }
     Q_INVOKABLE bool sameSource(const QUrl &first, const QUrl &second) const { return first == second; }
     Q_INVOKABLE void captureRegion(const QUrl &source, int page, const QRectF &normalizedRegion);
@@ -110,6 +117,8 @@ public:
 signals:
     void highlightsChanged();
     void documentsChanged();
+    // The opened file has the same bytes as another library entry that still exists.
+    void duplicateFound(const QUrl &source, const QUrl &existing, const QString &existingTitle);
     void highlightSaved(const QString &id, const QUrl &source);
     void highlightsLoaded(int request, const QUrl &source, const QVariantList &highlights, const QString &error,
         const QString &fingerprint);
@@ -143,7 +152,8 @@ private:
     QString ensureDocument(const QUrl &source);
     void loadDocumentNames();
     void rememberTitle(const QUrl &url, const QString &title);
-    void refreshMetadata(const QString &id, const QUrl &url, bool force);
+    void refreshMetadata(const QString &id, const QUrl &url, bool force, bool checkDuplicate = false);
+    void reportDuplicate(const QString &id, const QUrl &url, const QString &hash);
     void announceDocumentsChanged();
     static bool adoptDocumentIds(QSqlDatabase &db, QString *error);
     QVariantList readCaptures(bool trashed) const;
@@ -163,6 +173,7 @@ private:
     QThreadPool m_metadataWorkers;
     QHash<QString, QString> m_titles;
     QSet<QString> m_metadataPending;
+    QSet<QString> m_duplicateChecks;
     int m_documentsRevision = 0;
     bool m_documentsChangePending = false;
     int m_pending = 0;

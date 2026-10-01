@@ -6,7 +6,8 @@ UiControls.ItemDelegate {
     required property var modelData
     objectName: "recentPaper-" + modelData.url.toString()
     signal documentChosen(url source, var position)
-    text: modelData.name
+    text: (modelData.favorite ? "★ " : "") + modelData.name
+    opacity: modelData.readingState === "read" ? .65 : 1
     onClicked: documentChosen(modelData.url, modelData.position)
     ToolTip.visible: hovered
     ToolTip.delay: 450
@@ -16,6 +17,15 @@ UiControls.ItemDelegate {
     UiControls.Menu {
         id: menu; objectName: "recentPaperMenu"
         UiControls.MenuItem { objectName: "recentPaperDetails"; text: "Paper Details…"; onTriggered: { details.active = true; details.item.begin(root.modelData.url) } }
+        UiControls.MenuItem {
+            objectName: "recentPaperReadState"
+            text: root.modelData.readingState === "read" ? "Mark as Unread" : "Mark as Read"
+            onTriggered: researchStore.setReadingState(root.modelData.url, root.modelData.readingState === "read" ? "unread" : "read")
+        }
+        UiControls.MenuItem {
+            text: root.modelData.favorite ? "Remove from Favorites" : "Add to Favorites"
+            onTriggered: researchStore.setFavorite(root.modelData.url, !root.modelData.favorite)
+        }
         UiControls.MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(root.modelData.url) }
         UiControls.MenuItem { objectName: "removeRecentOption"; text: "Remove from Recent Papers…"; onTriggered: confirmation.open() }
     }

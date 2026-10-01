@@ -355,6 +355,19 @@ Item {
             testInput.keyClick(workspace.contentItem, Qt.Key_Right, Qt.ControlModifier | Qt.AltModifier)
             verify(d.tree.activeTab !== before)
         }
+        function test_duplicateCopyOffersExisting() {
+            const d = workspace.documents
+            d.openDocument(fixtureSource, null, true); canvas()
+            const copy = testInput.copyFixture("duplicate copy.pdf")
+            workspace.openDocument(copy)
+            const bar = findChild(workspace, "duplicateBar")
+            tryCompare(bar, "opened", true, 10000)
+            compare(bar.existing.toString(), fixtureSource.toString())
+            mouseClick(findChild(bar, "openExistingCopy"))
+            tryCompare(bar, "opened", false)
+            tryVerify(function() { return researchStore.sameSource(Tree.find(d.tree, d.activeGroup).tabs.find(function(t) { return t.id === Tree.find(d.tree, d.activeGroup).activeTab }).source, fixtureSource) })
+            verify(!researchStore.recentDocuments.some(function(p) { return researchStore.sameSource(p.url, copy) }))
+        }
         function test_activeGroupIsRevealed() {
             const d = workspace.documents
             workspace.width = 900

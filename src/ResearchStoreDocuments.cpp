@@ -3,6 +3,7 @@
 #include "PaperMetadata.h"
 
 #include <QDateTime>
+#include <QFileInfo>
 #include <QFutureWatcher>
 #include <QRegularExpression>
 #include <QSet>
@@ -176,12 +177,14 @@ QVariantMap ResearchStore::documentDetails(const QUrl &source) const
 {
     const auto url = resolvedSource(source);
     QSqlQuery query(m_database);
-    query.prepare("SELECT title,authors,year,doi,arxiv,metadata_origin FROM documents WHERE url=?");
+    query.prepare(
+        "SELECT title,authors,year,doi,arxiv,metadata_origin,reading_state,favorite FROM documents WHERE url=?");
     query.addBindValue(url.toString());
     QVariantMap details{{"source", url}, {"fileName", fileName(url)}};
     if (!query.exec() || !query.next()) return details;
     details.insert({{"title", query.value(0)}, {"authors", query.value(1)}, {"year", query.value(2)},
-        {"doi", query.value(3)}, {"arxiv", query.value(4)}, {"origin", query.value(5)}});
+        {"doi", query.value(3)}, {"arxiv", query.value(4)}, {"origin", query.value(5)},
+        {"readingState", query.value(6)}, {"favorite", query.value(7).toBool()}});
     return details;
 }
 
@@ -220,17 +223,21 @@ void ResearchStore::resetDocumentDetails(const QUrl &source)
     if (query.exec()) refreshMetadata(id, resolvedSource(source), true);
 }
 
-void ResearchStore::refreshMetadata(const QString &id, const QUrl &url, bool force)
+void ResearchStore::refreshMetadata(const QString &id, const QUrl &url, bool force, bool checkDuplicate)
 {
-    if (id.isEmpty() || !url.isLocalFile() || m_metadataPending.contains(id)) return;
+    if (id.isEmpty() || !url.isLocalFile()) return;
+    if (checkDuplicate) m_duplicateChecks.insert(id);
+    if (m_metadataPending.contains(id)) return;
     QSqlQuery query(m_database);
     query.prepare("SELECT metadata_origin,metadata_sha256 FROM documents WHERE id=?");
     query.addBindValue(id);
-    if (!query.exec() || !query.next() || query.value(0).toString() == "user") return;
+    if (!query.exec() || !query.next()) return;
+    const bool userDetails = query.value(0).toString() == "user";
     const auto known = query.value(0).toString() == "pdf" && !force ? query.value(1).toString() : QString();
     m_metadataPending.insert(id);
     struct Result {
         QString hash;
+        bool extracted = false;
         PaperMetadata metadata;
     };
     auto *watcher = new QFutureWatcher<Result>(this);
@@ -238,29 +245,105 @@ void ResearchStore::refreshMetadata(const QString &id, const QUrl &url, bool for
         const auto result = watcher->result();
         watcher->deleteLater();
         m_metadataPending.remove(id);
+        const bool duplicateCheck = m_duplicateChecks.remove(id);
         if (result.hash.isEmpty()) return;
-        const auto &m = result.metadata;
-        QSqlQuery update(m_database);
-        // The URL guard drops results for a document relinked while it was being read; user edits always win.
-        update.prepare("UPDATE documents SET title=?,authors=?,year=?,doi=?,arxiv=?,metadata_origin='pdf',"
-                       "metadata_sha256=? WHERE id=? AND url=? AND metadata_origin<>'user'");
-        for (const auto &field : {m.title, m.authors, m.year, m.doi, m.arxiv, result.hash})
-            update.addBindValue(text(field));
-        update.addBindValue(id);
-        update.addBindValue(url.toString());
-        if (update.exec() && update.numRowsAffected() == 1) {
-            rememberTitle(url, m.title);
-            announceDocumentsChanged();
+        // The file hash identifies duplicates; it is kept current even for user-edited details.
+        QSqlQuery hash(m_database);
+        hash.prepare("UPDATE documents SET sha256=? WHERE id=? AND url=?");
+        hash.addBindValue(result.hash);
+        hash.addBindValue(id);
+        hash.addBindValue(url.toString());
+        hash.exec();
+        if (result.extracted) {
+            const auto &m = result.metadata;
+            QSqlQuery update(m_database);
+            // The URL guard drops results for a document relinked while it was being read; user edits always win.
+            update.prepare("UPDATE documents SET title=?,authors=?,year=?,doi=?,arxiv=?,metadata_origin='pdf',"
+                           "metadata_sha256=? WHERE id=? AND url=? AND metadata_origin<>'user'");
+            for (const auto &field : {m.title, m.authors, m.year, m.doi, m.arxiv, result.hash})
+                update.addBindValue(text(field));
+            update.addBindValue(id);
+            update.addBindValue(url.toString());
+            if (update.exec() && update.numRowsAffected() == 1) {
+                rememberTitle(url, m.title);
+                announceDocumentsChanged();
+            }
         }
+        if (duplicateCheck) reportDuplicate(id, url, result.hash);
     });
-    watcher->setFuture(QtConcurrent::run(&m_metadataWorkers, [url, known] {
+    watcher->setFuture(QtConcurrent::run(&m_metadataWorkers, [url, known, userDetails] {
         Result result;
         result.hash = FileFingerprint::sha256(url.toLocalFile());
-        // Same bytes as last time: keep the stored details without reopening the PDF.
-        if (result.hash.isEmpty() || result.hash == known) return Result{};
+        // Same bytes as last time, or details the user owns: keep them without reopening the PDF.
+        if (result.hash.isEmpty() || userDetails || result.hash == known) return result;
         result.metadata = extractPaperMetadata(url.toLocalFile());
+        result.extracted = true;
         return result;
     }));
+}
+
+void ResearchStore::reportDuplicate(const QString &id, const QUrl &url, const QString &hash)
+{
+    QSqlQuery query(m_database);
+    query.prepare("SELECT d.url FROM documents d WHERE d.sha256=? AND d.id<>? AND "
+                  "(SELECT duplicate_ack FROM documents WHERE id=?)<>? ORDER BY d.added_at");
+    query.addBindValue(hash);
+    query.addBindValue(id);
+    query.addBindValue(id);
+    query.addBindValue(hash);
+    if (!query.exec()) return;
+    while (query.next()) {
+        const QUrl other(query.value(0).toString());
+        // Only an existing copy is a useful alternative; a moved original is handled by relinking.
+        if (other.isLocalFile() && QFileInfo(other.toLocalFile()).isFile()) {
+            emit duplicateFound(url, other, displayName(other));
+            return;
+        }
+    }
+}
+
+bool ResearchStore::keepDuplicate(const QUrl &source)
+{
+    // "Keep both": stop asking for this file version; a changed file is checked again.
+    QSqlQuery query(m_database);
+    query.prepare("UPDATE documents SET duplicate_ack=sha256 WHERE id=?");
+    query.addBindValue(findDocument(source));
+    return query.exec() && query.numRowsAffected() == 1;
+}
+
+bool ResearchStore::useExistingCopy(const QUrl &duplicate, const QUrl &existing)
+{
+    if (!rememberDocument(existing)) return false;
+    QSqlQuery query(m_database);
+    query.prepare("DELETE FROM recent_documents WHERE document_id=?");
+    query.addBindValue(findDocument(duplicate));
+    query.exec();
+    emit recentDocumentsChanged();
+    emit homeChanged();
+    return true;
+}
+
+bool ResearchStore::setReadingState(const QUrl &source, const QString &state)
+{
+    if (!QStringList{"unread", "reading", "read"}.contains(state)) return false;
+    QSqlQuery query(m_database);
+    query.prepare("UPDATE documents SET reading_state=? WHERE id=?");
+    query.addBindValue(state);
+    query.addBindValue(ensureDocument(source));
+    if (!query.exec() || query.numRowsAffected() != 1) return false;
+    announceDocumentsChanged();
+    return true;
+}
+
+bool ResearchStore::setFavorite(const QUrl &source, bool favorite)
+{
+    QSqlQuery query(m_database);
+    query.prepare("UPDATE documents SET favorite=? WHERE id=?");
+    query.addBindValue(favorite ? 1 : 0);
+    query.addBindValue(ensureDocument(source));
+    if (!query.exec() || query.numRowsAffected() != 1) return false;
+    announceDocumentsChanged();
+    return true;
 }
 
 void ResearchStore::announceDocumentsChanged()

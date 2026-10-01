@@ -148,6 +148,7 @@ Rectangle {
         UiControls.MenuItem { text:"Capture a Region"; onTriggered:{canvas.tool="";canvas.captureMode=true} }
         UiControls.MenuItem { text:"Print PDF…"; onTriggered:root.printDocument() }
         MenuSeparator {}
+        UiControls.MenuItem { text:"Mark Paper as Read"; enabled:root.source.toString().length > 0; onTriggered:researchStore.setReadingState(root.source, "read") }
         UiControls.MenuItem { objectName:"paperDetailsOption"; text:"Paper Details…"; enabled:root.source.toString().length > 0; onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
     }
     Loader { id: paperDetails; active: false; sourceComponent: PaperDetailsDialog {} }

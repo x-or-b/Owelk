@@ -200,6 +200,7 @@ ApplicationWindow {
     Connections {
         target: researchStore
         function onMessage(text) { window.notify(text) }
+        function onDuplicateFound(source, existing, title) { duplicateBar.show(source, existing, title) }
         function onRelinkRequested(source) { if (!window.restoreFailed && !researchStore.relinking && window.persist()) relinkDialog.begin(source) }
         function onSourceRelinked(source, candidate) { documents.relinkSource(source, candidate) }
         function onRelinkFinished(success, detail) { if (success) window.notify(detail) }
@@ -282,6 +283,49 @@ ApplicationWindow {
         }
     }
     CaptureNoteDialog { id: captureNote }
+    // Same bytes as another library entry: offer the existing copy without merging anything silently.
+    // A notice, not a dialog: it never takes keyboard focus from the reader.
+    Rectangle {
+        id: duplicateBar
+        objectName: "duplicateBar"
+        parent: window.contentItem
+        z: 50
+        property url source: ""
+        property url existing: ""
+        property string existingTitle: ""
+        readonly property bool opened: visible
+        function show(url, other, title) { source = url; existing = other; existingTitle = title; visible = true }
+        function close() { visible = false }
+        visible: false
+        x: (parent.width - width) / 2; y: 8
+        width: Math.min(560, parent.width - 32); height: 44
+        color: Theme.surfacePanel; border.color: Theme.borderPopup; radius: Theme.cornerRadius
+        RowLayout {
+            anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 6
+            spacing: 6
+            Label {
+                Layout.fillWidth: true
+                text: "Same file as \u201c" + duplicateBar.existingTitle + "\u201d"
+                elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text
+                ToolTip.visible: duplicateHover.hovered; ToolTip.delay: 450
+                ToolTip.text: duplicateBar.existing.toString().length ? decodeURIComponent(duplicateBar.existing.toString().replace("file://", "")) : ""
+                HoverHandler { id: duplicateHover }
+            }
+            UiControls.Button {
+                objectName: "openExistingCopy"; text: "Open Existing"; focusPolicy: Qt.NoFocus
+                onClicked: {
+                    if (researchStore.useExistingCopy(duplicateBar.source, duplicateBar.existing))
+                        documents.relinkSource(duplicateBar.source, duplicateBar.existing)
+                    duplicateBar.close()
+                }
+            }
+            UiControls.Button {
+                objectName: "keepBothCopies"; text: "Keep Both"; focusPolicy: Qt.NoFocus
+                onClicked: { researchStore.keepDuplicate(duplicateBar.source); duplicateBar.close() }
+            }
+            ReaderIconButton { kind: "close"; description: "Dismiss"; focusPolicy: Qt.NoFocus; onClicked: duplicateBar.close() }
+        }
+    }
     Connections {
         target: researchStore
         function onWorkspaceRenamed(id, name) { if (window.activeWorkspace === id) { window.workspaceName = name; window.persist() } }

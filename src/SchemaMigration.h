@@ -42,9 +42,12 @@ inline bool migrateSchema(
                      .arg(current);
         return false;
     }
+    bool backedUp = false;
     for (const auto &step : steps) {
         if (step.version <= current) continue;
-        if (step.backup && existingData && !backupDirectory.isEmpty()) {
+        // One copy per upgrade run, taken before the first step that rewrites data.
+        if (step.backup && existingData && !backupDirectory.isEmpty() && !backedUp) {
+            backedUp = true;
             const auto target = QStringLiteral("%1/before-schema-%2-%3.sqlite3")
                                     .arg(backupDirectory)
                                     .arg(step.version)

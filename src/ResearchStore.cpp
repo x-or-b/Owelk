@@ -189,6 +189,16 @@ bool ResearchStore::initialize(QString *error)
                 "CREATE INDEX IF NOT EXISTS captures_source ON captures(source)"}},
         // Saved data moves from file URLs to document IDs; the file is backed up first.
         {3, {}, [](QSqlDatabase &db, QString *error) { return adoptDocumentIds(db, error); }, true},
+        {4,
+            {"ALTER TABLE documents ADD COLUMN reading_state TEXT NOT NULL DEFAULT 'unread'",
+                "ALTER TABLE documents ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE documents ADD COLUMN sha256 TEXT NOT NULL DEFAULT ''",
+                "ALTER TABLE documents ADD COLUMN duplicate_ack TEXT NOT NULL DEFAULT ''",
+                // Papers opened before reading states existed are already being read.
+                "UPDATE documents SET reading_state='reading' WHERE id IN "
+                "(SELECT document_id FROM recent_documents UNION SELECT document_id FROM reading_positions)",
+                "UPDATE documents SET sha256=metadata_sha256", "CREATE INDEX documents_sha256 ON documents(sha256)"},
+            {}, true},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     loadDocumentNames();
@@ -287,7 +297,11 @@ bool ResearchStore::rememberDocument(const QUrl &url)
         emit message(tr("Cannot record this document: %1").arg(query.lastError().text()));
         return false;
     }
-    refreshMetadata(document, resolvedSource(url), false);
+    QSqlQuery reading(m_database);
+    reading.prepare("UPDATE documents SET reading_state='reading' WHERE id=? AND reading_state='unread'");
+    reading.addBindValue(document);
+    reading.exec();
+    refreshMetadata(document, resolvedSource(url), false, true);
     emit recentDocumentsChanged();
     emit homeChanged();
     m_index->enqueue(url);
@@ -298,12 +312,13 @@ QVariantList ResearchStore::recentDocuments() const
 {
     QVariantList results;
     QSqlQuery query(m_database);
-    query.exec("SELECT d.url FROM recent_documents r JOIN documents d ON d.id=r.document_id "
+    query.exec("SELECT d.url,d.reading_state,d.favorite FROM recent_documents r JOIN documents d ON d.id=r.document_id "
                "ORDER BY r.opened_at DESC LIMIT 12");
     while (query.next()) {
         const auto url = QUrl(query.value(0).toString());
-        results.append(QVariantMap{
-            {"url", url}, {"name", displayName(url)}, {"fileName", fileName(url)}, {"position", readingPosition(url)}});
+        results.append(QVariantMap{{"url", url}, {"name", displayName(url)}, {"fileName", fileName(url)},
+            {"position", readingPosition(url)}, {"readingState", query.value(1)},
+            {"favorite", query.value(2).toBool()}});
     }
     return results;
 }

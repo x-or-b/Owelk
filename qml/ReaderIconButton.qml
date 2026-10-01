@@ -181,6 +181,12 @@ UiControls.ToolButton {
                     c.moveTo(12, 14);
                     c.lineTo(16, 14);
                     break;
+                case "close":
+                    c.moveTo(5, 5);
+                    c.lineTo(13, 13);
+                    c.moveTo(13, 5);
+                    c.lineTo(5, 13);
+                    break;
                 case "minus":
                     c.moveTo(4, 9);
                     c.lineTo(14, 9);

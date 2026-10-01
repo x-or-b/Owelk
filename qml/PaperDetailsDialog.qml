@@ -22,10 +22,15 @@ UiControls.Dialog {
         yearField.text = details.year || ""
         doiField.text = details.doi || ""
         arxivField.text = details.arxiv || ""
+        stateBox.currentIndex = Math.max(0, ["unread", "reading", "read"].indexOf(details.readingState || "unread"))
+        favoriteBox.checked = !!details.favorite
         open()
         titleField.forceActiveFocus()
     }
     function save() {
+        const state = ["unread", "reading", "read"][stateBox.currentIndex]
+        if (state !== (details.readingState || "unread")) researchStore.setReadingState(source, state)
+        if (favoriteBox.checked !== !!details.favorite) researchStore.setFavorite(source, favoriteBox.checked)
         if (researchStore.updateDocumentDetails(source, {title: titleField.text, authors: authorsField.text,
                 year: yearField.text, doi: doiField.text, arxiv: arxivField.text})) close()
     }
@@ -71,5 +76,10 @@ UiControls.Dialog {
         UiControls.TextField { id: doiField; Layout.fillWidth: true; maximumLength: 200; onAccepted: root.save() }
         Label { text: "arXiv ID"; color: Theme.textBody }
         UiControls.TextField { id: arxivField; Layout.fillWidth: true; maximumLength: 40; onAccepted: root.save() }
+        Label { text: "Reading"; color: Theme.textBody }
+        RowLayout {
+            UiControls.ComboBox { id: stateBox; objectName: "detailsReadingState"; model: ["Unread", "Reading", "Read"]; Layout.preferredWidth: 120 }
+            CheckBox { id: favoriteBox; objectName: "detailsFavorite"; text: "Favorite" }
+        }
     }
 }
