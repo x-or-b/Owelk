@@ -202,6 +202,14 @@ bool ResearchStore::initialize(QString *error)
                 "(SELECT document_id FROM recent_documents UNION SELECT document_id FROM reading_positions)",
                 "UPDATE documents SET sha256=metadata_sha256", "CREATE INDEX documents_sha256 ON documents(sha256)"},
             {}, true},
+        {5,
+            {"CREATE TABLE collections (id TEXT PRIMARY KEY, name TEXT NOT NULL, parent_id TEXT, created_at TEXT NOT NULL)",
+                "CREATE TABLE collection_documents (collection_id TEXT NOT NULL, document_id TEXT NOT NULL, "
+                "PRIMARY KEY(collection_id,document_id))",
+                "CREATE TABLE tags (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE)",
+                "CREATE TABLE document_tags (document_id TEXT NOT NULL, tag_id TEXT NOT NULL, PRIMARY KEY(document_id,tag_id))",
+                "ALTER TABLE documents ADD COLUMN excluded_from_index INTEGER NOT NULL DEFAULT 0"},
+            {}, true},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     loadDocumentNames();
@@ -211,6 +219,7 @@ bool ResearchStore::initialize(QString *error)
     while (links.next()) m_relinks.insert(links.value(0).toString(), links.value(1).toString());
     // The search cache adopts the same document IDs, so a result names the same paper everywhere.
     m_index->setDocumentResolver([this](const QUrl &url) { return ensureDocument(url); });
+    m_index->setExclusionCheck([this](const QUrl &url) { return excludedFromIndex(url); });
     if (!m_index->initialize(error)) return false;
     // Durable redirects also replay any search-cache update interrupted by process exit.
     for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)

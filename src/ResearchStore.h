@@ -76,6 +76,20 @@ public:
     Q_INVOKABLE bool keepDuplicate(const QUrl &source);
     // Read the existing copy instead: the duplicate leaves Recent Papers, the existing copy is reopened.
     Q_INVOKABLE bool useExistingCopy(const QUrl &duplicate, const QUrl &existing);
+
+    // Library organisation (ResearchStoreLibrary.cpp). Filters: see libraryDocuments().
+    Q_INVOKABLE QVariantList libraryDocuments(const QVariantMap &filter = {}) const;
+    Q_INVOKABLE QStringList documentIdsInScope(const QVariantMap &filter) const;
+    Q_INVOKABLE QVariantList collections() const;
+    Q_INVOKABLE QString createCollection(const QString &name, const QString &parentId = QString());
+    Q_INVOKABLE bool renameCollection(const QString &id, const QString &name);
+    Q_INVOKABLE bool deleteCollection(const QString &id);
+    Q_INVOKABLE bool setDocumentCollection(const QUrl &source, const QString &collectionId, bool member);
+    Q_INVOKABLE QVariantList tags() const;
+    Q_INVOKABLE bool setDocumentTags(const QUrl &source, const QStringList &names);
+    Q_INVOKABLE QVariantMap documentOrganization(const QUrl &source) const;
+    Q_INVOKABLE bool setExcludedFromIndex(const QUrl &source, bool excluded);
+    Q_INVOKABLE bool excludedFromIndex(const QUrl &source) const;
     int documentsRevision() const { return m_documentsRevision; }
     Q_INVOKABLE bool sameSource(const QUrl &first, const QUrl &second) const { return first == second; }
     Q_INVOKABLE void captureRegion(const QUrl &source, int page, const QRectF &normalizedRegion);
@@ -109,11 +123,12 @@ public:
     // Where a web download should be saved: the chosen folder (default ~/Downloads) and a name that
     // never overwrites an existing file. Returns directory, fileName and url.
     Q_INVOKABLE QVariantMap downloadTarget(const QString &suggestedName) const;
-    Q_INVOKABLE QVariantList searchKnowledge(
-        const QString &query, const QUrl &source = QUrl(), const QString &target = "all") const;
+    // scopeUrls: optional list of paper URLs (library filters); null searches everything.
+    Q_INVOKABLE QVariantList searchKnowledge(const QString &query, const QUrl &source = QUrl(), const QString &target = "all",
+        const QVariant &scopeUrls = QVariant()) const;
     // Same results as searchKnowledge, computed off the UI thread; answered by knowledgeFound(request, rows).
-    Q_INVOKABLE int searchKnowledgeAsync(
-        const QString &query, const QUrl &source = QUrl(), const QString &target = "all");
+    Q_INVOKABLE int searchKnowledgeAsync(const QString &query, const QUrl &source = QUrl(), const QString &target = "all",
+        const QVariant &scopeUrls = QVariant());
     Q_INVOKABLE QString createWorkspace(const QString &name);
     Q_INVOKABLE QVariantMap loadWorkspace(const QString &id);
     Q_INVOKABLE bool saveWorkspace(const QString &id, const QVariantMap &state);

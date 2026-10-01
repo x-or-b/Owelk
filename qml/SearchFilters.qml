@@ -9,6 +9,10 @@ ColumnLayout {
     property url currentSource: ""
     property bool expanded: false
     readonly property var papers: researchStore.paperIndex.documents
+    readonly property var collections: (researchStore.documentsRevision, researchStore.collections())
+    readonly property var tagList: (researchStore.documentsRevision, researchStore.tags())
+    readonly property var workspaces: researchStore.recentWorkspaces
+    readonly property var library: root.controller.libraryFilter
     component FilterButton: UiControls.ToolButton {
         id: button
         Layout.preferredHeight: 32
@@ -92,11 +96,12 @@ ColumnLayout {
             Layout.fillWidth: true
             text: (root.controller.sourceFilter.toString().length ? (researchStore.documentsRevision, researchStore.displayName(root.controller.sourceFilter)) : "All papers")
                 + (root.controller.targetFilter === "all" ? "" : " · " + ({text: "PDF text", filename: "Paper details", captures: "Captures"})[root.controller.targetFilter])
+                + (root.controller.libraryScoped ? " · library filter" : "")
             textFormat: Text.PlainText; elide: Text.ElideMiddle; color: Theme.textTertiary; font.pixelSize: 11
         }
         FilterButton {
             text: "Clear filters"
-            visible: root.controller.sourceFilter.toString().length > 0 || root.controller.targetFilter !== "all"
+            visible: root.controller.sourceFilter.toString().length > 0 || root.controller.targetFilter !== "all" || root.controller.libraryScoped
             onClicked: root.controller.resetFilters()
         }
     }
@@ -132,6 +137,58 @@ ColumnLayout {
             text: "Current PDF"
             enabled: root.currentSource.toString().length > 0
             onClicked: root.controller.sourceFilter = root.currentSource
+        }
+    }
+    RowLayout {
+        visible: root.expanded
+        Layout.fillWidth: true
+        FilterCombo {
+            objectName: "searchCollectionFilter"
+            Layout.fillWidth: true
+            textRole: "name"
+            model: [{id: "", name: "Any collection"}].concat(root.collections.map(function(c) { return {id: c.id, name: "  ".repeat(c.depth) + c.name} }))
+            currentIndex: Math.max(0, model.findIndex(function(c) { return c.id === (root.library.collection || "") }))
+            onActivated: root.controller.setLibraryFilter("collection", model[currentIndex].id)
+        }
+        FilterCombo {
+            objectName: "searchTagFilter"
+            Layout.preferredWidth: 120
+            textRole: "name"
+            model: [{id: "", name: "Any tag"}].concat(root.tagList)
+            currentIndex: Math.max(0, model.findIndex(function(t) { return t.id === (root.library.tag || "") }))
+            onActivated: root.controller.setLibraryFilter("tag", model[currentIndex].id)
+        }
+        FilterCombo {
+            objectName: "searchStateFilter"
+            Layout.preferredWidth: 110
+            model: ["Any state", "Unread", "Reading", "Read"]
+            readonly property var values: ["", "unread", "reading", "read"]
+            currentIndex: Math.max(0, values.indexOf(root.library.state || ""))
+            onActivated: root.controller.setLibraryFilter("state", values[currentIndex])
+        }
+        UiControls.TextField {
+            objectName: "searchYearFrom"
+            Layout.preferredWidth: 58; Layout.preferredHeight: 32
+            placeholderText: "From"; maximumLength: 4
+            validator: RegularExpressionValidator { regularExpression: /\d{0,4}/ }
+            text: root.library.yearFrom ? String(root.library.yearFrom) : ""
+            onEditingFinished: root.controller.setLibraryFilter("yearFrom", text.length === 4 ? Number(text) : "")
+        }
+        UiControls.TextField {
+            objectName: "searchYearTo"
+            Layout.preferredWidth: 58; Layout.preferredHeight: 32
+            placeholderText: "To"; maximumLength: 4
+            validator: RegularExpressionValidator { regularExpression: /\d{0,4}/ }
+            text: root.library.yearTo ? String(root.library.yearTo) : ""
+            onEditingFinished: root.controller.setLibraryFilter("yearTo", text.length === 4 ? Number(text) : "")
+        }
+        FilterCombo {
+            objectName: "searchWorkspaceFilter"
+            Layout.preferredWidth: 140
+            textRole: "name"
+            model: [{id: "", name: "Any workspace"}].concat(root.workspaces)
+            currentIndex: Math.max(0, model.findIndex(function(w) { return w.id === (root.library.workspace || "") }))
+            onActivated: root.controller.setLibraryFilter("workspace", model[currentIndex].id)
         }
     }
 }

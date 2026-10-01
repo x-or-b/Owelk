@@ -45,7 +45,7 @@ Flickable {
     function flush() {
         for (let i = 0; i < groups.count; ++i) {
             const view = groups.itemAt(i)
-            if (!view || !view.loadedTab || view.isHome || view.isWeb) continue
+            if (!view || !view.loadedTab || view.isHome || view.isWeb || view.isLibrary) continue
             const g = Tree.owner(tree, view.loadedTab)
             if (g) g.tabs.find(function(t) { return t.id === view.loadedTab }).position = view.reader.state().position
         }
@@ -204,6 +204,28 @@ Flickable {
         sync(); changed(); opened()
         return true
     }
+    // One library tab per group: reuse it (or the Home tab in front) and apply the filter.
+    function openLibrary(filter) {
+        prepare()
+        const g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]
+        let t = g.tabs.find(function(tab) { return tab.kind === "library" })
+        if (t) t.filter = Tree.clone(filter || {})
+        else {
+            const home = g.tabs.find(function(tab) { return tab.id === g.activeTab && tab.kind === "home" })
+            t = Tree.libraryTab(filter)
+            if (home) { t.id = home.id; g.tabs[g.tabs.indexOf(home)] = t }
+            else g.tabs.push(t)
+        }
+        g.activeTab = t.id; activeGroup = g.id
+        sync(); changed(); opened()
+        return true
+    }
+    function setLibraryFilter(tabId, filter) {
+        const g = Tree.owner(tree, tabId)
+        const t = g ? g.tabs.find(function(tab) { return tab.id === tabId }) : null
+        if (!t || t.kind !== "library" || JSON.stringify(t.filter) === JSON.stringify(filter)) return
+        t.filter = Tree.clone(filter); changed()
+    }
     function newHomeTab() {
         prepare()
         const g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]
@@ -274,6 +296,7 @@ Flickable {
         prepare()
         const original = g.tabs.find(function(t) { return t.id === g.activeTab })
         const added = Tree.group([original.kind === "home" ? Tree.homeTab()
+            : original.kind === "library" ? Tree.libraryTab(original.filter)
             : original.kind === "web" ? Tree.webTab(original.source, original.title) : Tree.tab(original.source, original.position)])
         tree = Tree.split(tree, g.id, added, edge)
         activeGroup = added.id; sync(); changed(); opened()

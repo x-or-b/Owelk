@@ -16,12 +16,21 @@ QtObject {
     property string error: ""
     property url sourceFilter: ""
     property string targetFilter: "all"
+    // Library scope: collection, tag, state, workspace, yearFrom, yearTo (see researchStore.libraryDocuments).
+    property var libraryFilter: ({})
+    readonly property bool libraryScoped: Object.keys(libraryFilter).length > 0
+    function setLibraryFilter(key, value) {
+        const next = Object.assign({}, libraryFilter)
+        if (value === "" || value === undefined || value === null) delete next[key]
+        else next[key] = value
+        libraryFilter = next
+    }
     property int offset: 0
     property var history: []
     property bool changing: false
     property int preferredIndex: 0
     function resetFilters() {
-        changing = true; sourceFilter = ""; targetFilter = "all"; offset = 0; history = []; preferredIndex = 0; changing = false
+        changing = true; sourceFilter = ""; targetFilter = "all"; libraryFilter = ({}); offset = 0; history = []; preferredIndex = 0; changing = false
         refresh()
     }
     function filtersChanged() {
@@ -30,6 +39,7 @@ QtObject {
     }
     onSourceFilterChanged: filtersChanged()
     onTargetFilterChanged: filtersChanged()
+    onLibraryFilterChanged: filtersChanged()
     function choose(result) {
         if (["paperGroup", "moreInPaper", "nextResults"].indexOf(result.kind) < 0) return false
         if (result.kind === "paperGroup" && researchStore.sameSource(sourceFilter, result.source)) return true
@@ -63,14 +73,18 @@ QtObject {
         invalidate()
         if (!active) return
         const needle = query.trim()
+        // Library filters narrow both searches to the same set of papers.
+        const scope = libraryScoped ? researchStore.libraryDocuments(libraryFilter) : null
         if (needle.length && offset === 0) {
-            namesPending = true; namesRequest = researchStore.searchKnowledgeAsync(needle, sourceFilter, targetFilter)
+            namesPending = true
+            namesRequest = researchStore.searchKnowledgeAsync(needle, sourceFilter, targetFilter, scope ? scope.map(function(p) { return p.url }) : null)
         } else if (!needle.length && showRecent && !sourceFilter.toString().length && targetFilter !== "text" && targetFilter !== "captures") {
             names = researchStore.recentDocuments.map(function(p) { return {kind: "paper", title: p.name, source: p.url, position: p.position} })
         }
         publish()
         if (needle.length && (targetFilter === "all" || targetFilter === "text")) {
-            textPending = true; request = researchStore.paperIndex.searchGrouped(needle, sourceFilter, offset)
+            textPending = true
+            request = researchStore.paperIndex.searchGrouped(needle, sourceFilter, offset, scope ? scope.map(function(p) { return p.id }) : null)
         }
     }
     onQueryChanged: { offset = 0; history = []; preferredIndex = 0; invalidate(); if (active) delay.restart() }

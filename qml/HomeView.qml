@@ -12,6 +12,7 @@ Rectangle {
     ResearchSearch { id: searchModel; query: searchInput.text; active: root.visible }
     readonly property var continuation: researchStore.continueReading
     signal openRequested()
+    signal libraryRequested()
     signal documentChosen(url source, var position)
     signal workspaceChosen(string id)
     signal workspaceManageRequested(string id)
@@ -151,7 +152,16 @@ Rectangle {
                     Layout.preferredWidth: 1
                     Layout.alignment: Qt.AlignTop
                     spacing: 6
-                    Label { text: "Recent Papers"; font.pixelSize: 14; font.weight: Font.DemiBold; Layout.preferredHeight: 32 }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label { text: "Recent Papers"; font.pixelSize: 14; font.weight: Font.DemiBold; Layout.preferredHeight: 32; Layout.fillWidth: true }
+                        UiControls.ToolButton {
+                            objectName: "openLibraryButton"; text: "Library"
+                            ToolTip.visible: hovered; ToolTip.delay: 450
+                            ToolTip.text: "All papers, collections and tags (" + (Qt.platform.os === "osx" ? "⇧⌘L" : "Ctrl+Shift+L") + ")"
+                            onClicked: root.libraryRequested()
+                        }
+                    }
                     Repeater {
                         model: researchStore.recentDocuments
                         delegate: RecentPaperDelegate {

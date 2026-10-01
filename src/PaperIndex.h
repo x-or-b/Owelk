@@ -35,7 +35,11 @@ public:
     Q_INVOKABLE void setPaused(bool paused);
     Q_INVOKABLE void retry(const QUrl &source);
     Q_INVOKABLE int search(const QString &text);
-    Q_INVOKABLE int searchGrouped(const QString &text, const QUrl &source, int offset);
+    // scopeIds: optional list of document IDs (from library filters); null searches everything.
+    Q_INVOKABLE int searchGrouped(const QString &text, const QUrl &source, int offset, const QVariant &scopeIds = QVariant());
+    void remove(const QUrl &source);
+    // Excluded documents are never queued for indexing.
+    void setExclusionCheck(std::function<bool(const QUrl &)> excluded) { m_excluded = std::move(excluded); }
     Q_INVOKABLE void openResult(const QString &documentId, int page, const QString &hash);
     Q_INVOKABLE void setReaderInteracting(QObject *reader, bool active);
 signals:
@@ -56,6 +60,7 @@ private:
     QHash<QString, QString> m_redirects;
     int m_relocating = 0;
     std::function<QString(const QUrl &)> m_resolver;
+    std::function<bool(const QUrl &)> m_excluded;
     QSet<QObject *> m_readers, m_interactingReaders;
     bool m_active = false, m_paused = false;
     int m_request = 0;

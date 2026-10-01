@@ -4,6 +4,9 @@
 #include "WorkerConnection.h"
 
 #include <QDateTime>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <optional>
 #include <QDir>
 #include <QFileInfo>
 #include <QFutureWatcher>
@@ -182,8 +185,11 @@ QHash<QString, QString> libraryTitles(const QString &searchPath)
         while (query.next()) titles.insert(query.value(0).toString(), query.value(1).toString());
     return titles;
 }
-SearchResult findGroupedText(const QString &path, const QString &input, const QUrl &scope, int offset)
+// limit: when set, only these document IDs (library filters such as a collection or tag) are searched.
+SearchResult findGroupedText(const QString &path, const QString &input, const QUrl &scope, int offset,
+    const std::optional<QStringList> &limit)
 {
+    if (limit && limit->isEmpty()) return {};
     const auto match = matchQuery(input);
     if (match.isEmpty()) return {};
     Connection connection(path, true);
@@ -195,16 +201,18 @@ SearchResult findGroupedText(const QString &path, const QString &input, const QU
     const QString sql = QStringLiteral(
         "WITH matches AS MATERIALIZED (SELECT d.id,d.url,d.sha256,pages.page,"
         "snippet(pages.pages,2,'','',' … ',32) AS excerpt,pages.rank AS score "
-        "FROM pages JOIN documents d ON d.id=pages.document_id WHERE pages.pages MATCH ? AND d.state='ready' %1),"
+        "FROM pages JOIN documents d ON d.id=pages.document_id WHERE pages.pages MATCH ? AND d.state='ready' %1 %3),"
         "ranked AS (SELECT *,row_number() OVER(PARTITION BY id ORDER BY score,page) AS hit,"
         "count(*) OVER(PARTITION BY id) AS total,min(score) OVER(PARTITION BY id) AS best FROM matches),"
         "grouped AS (SELECT *,dense_rank() OVER(ORDER BY best,id) AS paper_rank FROM ranked) "
         "SELECT id,url,sha256,page,excerpt,total,paper_rank FROM grouped WHERE %2 ORDER BY paper_rank,hit")
                             .arg(scoped ? "AND d.url=?" : "",
-                                scoped ? "hit>? AND hit<=?" : "hit<=3 AND paper_rank>? AND paper_rank<=?");
+                                scoped ? "hit>? AND hit<=?" : "hit<=3 AND paper_rank>? AND paper_rank<=?",
+                                limit ? "AND d.id IN (SELECT value FROM json_each(?))" : "");
     if (!query.prepare(sql)) return {{}, query.lastError().text()};
     query.addBindValue(match);
     if (scoped) query.addBindValue(scope.toString());
+    if (limit) query.addBindValue(QString::fromUtf8(QJsonDocument(QJsonArray::fromStringList(*limit)).toJson(QJsonDocument::Compact)));
     query.addBindValue(offset);
     query.addBindValue(offset + (scoped ? 41 : 21));
     if (!query.exec()) return {{}, query.lastError().text()};
@@ -420,10 +428,37 @@ void PaperIndex::enqueue(const QUrl &input)
 {
     const auto source = resolvedSource(input);
     if (!source.isLocalFile() || m_scheduled.contains(source.toString())) return;
+    if (m_excluded && m_excluded(source)) return;
     m_queue.enqueue(source);
     m_scheduled.insert(source.toString());
     startNext();
     emit changed();
+}
+void PaperIndex::remove(const QUrl &input)
+{
+    // Drop a document's pages from the cache; the PDF and library record stay.
+    const auto source = resolvedSource(input);
+    m_queue.removeAll(source);
+    m_scheduled.remove(source.toString());
+    ++m_relocating;
+    auto *watcher = new QFutureWatcher<void>(this);
+    connect(watcher, &QFutureWatcher<void>::finished, this, [this, watcher] {
+        watcher->deleteLater();
+        --m_relocating;
+        emit changed();
+        emit contentsChanged();
+        startNext();
+    });
+    watcher->setFuture(QtConcurrent::run(&m_indexWorkers, [path = m_path, source] {
+        Connection connection(path);
+        QSqlQuery query(connection.db);
+        query.prepare("DELETE FROM pages WHERE document_id IN (SELECT id FROM documents WHERE url=?)");
+        query.addBindValue(source.toString());
+        query.exec();
+        query.prepare("DELETE FROM documents WHERE url=?");
+        query.addBindValue(source.toString());
+        query.exec();
+    }));
 }
 void PaperIndex::retry(const QUrl &source)
 {
@@ -512,8 +547,10 @@ int PaperIndex::search(const QString &text)
     watcher->setFuture(QtConcurrent::run(&m_searchWorkers, [path = m_path, text] { return findText(path, text); }));
     return request;
 }
-int PaperIndex::searchGrouped(const QString &text, const QUrl &source, int offset)
+int PaperIndex::searchGrouped(const QString &text, const QUrl &source, int offset, const QVariant &scopeIds)
 {
+    std::optional<QStringList> limit;
+    if (scopeIds.isValid() && !scopeIds.isNull()) limit = scopeIds.toStringList();
     const int request = ++m_request;
     auto *watcher = new QFutureWatcher<SearchResult>(this);
     connect(watcher, &QFutureWatcher<SearchResult>::finished, this, [this, watcher, request] {
@@ -522,7 +559,7 @@ int PaperIndex::searchGrouped(const QString &text, const QUrl &source, int offse
         emit searchFinished(request, result.rows, result.error);
     });
     watcher->setFuture(QtConcurrent::run(&m_searchWorkers,
-        [path = m_path, text, source, offset] { return findGroupedText(path, text, source, offset); }));
+        [path = m_path, text, source, offset, limit] { return findGroupedText(path, text, source, offset, limit); }));
     return request;
 }
 void PaperIndex::openResult(const QString &documentId, int page, const QString &hash)

@@ -126,6 +126,8 @@ ApplicationWindow {
         else if (result.kind === "highlight") researchStore.openHighlight(result.id)
         else if (result.kind === "note") captureNote.begin(result.id)
         else if (result.kind === "workspace") openWorkspace(result.id)
+        else if (result.kind === "collection" && !restoreFailed) documents.openLibrary({collection: result.id})
+        else if (result.kind === "tag" && !restoreFailed) documents.openLibrary({tag: result.id})
         else if (result.kind === "text" && !restoreFailed) { notify("Checking PDF source…"); researchStore.paperIndex.openResult(result.documentId, Number(result.page), result.sha256) }
     }
     function openWorkspace(id) {
@@ -238,6 +240,7 @@ ApplicationWindow {
             case "/split down": documents.duplicateSplit("bottom"); break
             case "/split off": documents.joinAll(); break
             case "/web": window.openWebAddress(); break
+            case "/library": documents.openLibrary({}); break
             case "/settings": settingsDialog.open(); break
             case "/move right": documents.moveActiveTabToSplit("right"); break
             case "/move down": documents.moveActiveTabToSplit("bottom"); break
@@ -279,6 +282,7 @@ ApplicationWindow {
         UiControls.Menu {
             title: "View"
             Action { text: "Home"; shortcut: "Ctrl+Shift+H"; onTriggered: window.showHome() }
+            Action { objectName: "libraryAction"; text: "Library"; shortcut: "Ctrl+Shift+L"; enabled: !window.restoreFailed; onTriggered: documents.openLibrary({}) }
             Action { text: "Search Research"; shortcut: "Ctrl+K"; onTriggered: { commandPalette.close(); searchPalette.open() } }
             Action { text: "Command Palette"; shortcut: "Ctrl+Shift+P"; onTriggered: { searchPalette.close(); commandPalette.open() } }
             Action { text: "Find"; shortcut: StandardKey.Find; onTriggered: window.findInView() }
@@ -401,6 +405,7 @@ ApplicationWindow {
             onWorkspaceManageRequested: function(id) { window.manageWorkspace(id) }
             onWorkspaceCreated: function(name) { if (!window.restoreFailed) { const id = researchStore.createWorkspace(name); if (id.length) window.openWorkspace(id) } }
             onResultChosen: function(result) { window.openSearchResult(result) }
+            onLibraryRequested: if (!window.restoreFailed) documents.openLibrary({})
         }
         DocumentWorkspace {
             id: documents

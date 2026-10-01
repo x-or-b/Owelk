@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "PaperIndex.h"
 #include "SelectionGeometry.h"
 #include "PdfFixture.h"
 #include "PaperMetadata.h"
@@ -21,6 +22,86 @@
 class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void libraryCollectionsTagsFiltersAndExclusion()
+    {
+        QTemporaryDir directory;
+        QList<QUrl> papers;
+        const QStringList titles{"Gaussian Splatting Study", "Occlusion Reasoning", "Semantic Mapping Survey"};
+        for (int i = 0; i < 3; ++i) {
+            const auto path = directory.filePath(QString("paper%1.pdf").arg(i));
+            writeFixture(path, titles[i]);
+            papers << QUrl::fromLocalFile(path);
+        }
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        for (const auto &paper : papers) QVERIFY(store.rememberDocument(paper));
+        QTRY_COMPARE_WITH_TIMEOUT(store.displayName(papers[2]), titles[2], 10000);
+        QCOMPARE(store.libraryDocuments().size(), 3);
+        // Collections nest; a parent shows its sub-collections' papers. Deleting keeps the papers.
+        const auto robotics = store.createCollection("Robotics"), slam = store.createCollection("SLAM", robotics);
+        QVERIFY(!robotics.isEmpty() && !slam.isEmpty());
+        QVERIFY(store.createCollection("Orphan", "missing-parent").isEmpty());
+        QVERIFY(store.setDocumentCollection(papers[0], slam, true));
+        QVERIFY(store.setDocumentCollection(papers[1], robotics, true));
+        QCOMPARE(store.libraryDocuments({{"collection", robotics}}).size(), 2);
+        QCOMPARE(store.libraryDocuments({{"collection", slam}}).size(), 1);
+        QCOMPARE(store.collections()[1].toMap()["depth"].toInt(), 1);
+        QVERIFY(store.renameCollection(slam, "Visual SLAM"));
+        // Tags: case-insensitive, unused ones vanish.
+        QVERIFY(store.setDocumentTags(papers[0], {"to read", "SLAM", "slam"}));
+        QVERIFY(store.setDocumentTags(papers[2], {"To Read"}));
+        QCOMPARE(store.tags().size(), 2);
+        const auto toRead = store.tags()[1].toMap();
+        QCOMPARE(toRead["name"].toString(), QString("to read"));
+        QCOMPARE(store.libraryDocuments({{"tag", toRead["id"]}}).size(), 2);
+        QVERIFY(store.setDocumentTags(papers[0], {}));
+        QCOMPARE(store.tags().size(), 1);
+        // State, favorite, text and year filters; sorting by title.
+        QVERIFY(store.setReadingState(papers[1], "read"));
+        QVERIFY(store.setFavorite(papers[2], true));
+        QCOMPARE(store.libraryDocuments({{"state", "read"}}).size(), 1);
+        QCOMPARE(store.libraryDocuments({{"favorite", true}}).size(), 1);
+        QCOMPARE(store.libraryDocuments({{"text", "occlusion"}}).size(), 1);
+        QVERIFY(store.updateDocumentDetails(papers[0], {{"title", titles[0]}, {"year", "2023"}}));
+        QCOMPARE(store.libraryDocuments({{"yearFrom", 2020}, {"yearTo", 2024}}).size(), 1);
+        QCOMPARE(store.libraryDocuments({{"sort", "title"}})[0].toMap()["name"].toString(), titles[0]);
+        // Search finds collections and tags, and library scope limits saved-item search.
+        QVERIFY(std::any_of(store.searchKnowledge("visual").cbegin(), store.searchKnowledge("visual").cend(),
+            [](const QVariant &r) { return r.toMap()["kind"] == "collection"; }));
+        const QVariantList scope{papers[1]};
+        QCOMPARE(store.searchKnowledge("study", {}, "filename", scope).size(), 0);
+        QCOMPARE(store.searchKnowledge("study", {}, "filename").size(), 1);
+        QVERIFY(store.deleteCollection(robotics));
+        QCOMPARE(store.collections().size(), 1); // The sub-collection moved up.
+        QCOMPARE(store.libraryDocuments({{"collection", slam}}).size(), 1);
+        // Excluding a paper removes its pages from text search; including it indexes it again.
+        auto *index = qobject_cast<PaperIndex *>(store.paperIndex());
+        QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 20000);
+        QSignalSpy found(index, &PaperIndex::searchFinished);
+        const auto search = [&] {
+            found.clear();
+            index->searchGrouped("occlusion", {}, 0);
+            return found.wait(5000) ? found[0][1].toList() : QVariantList();
+        };
+        QVERIFY(!search().isEmpty());
+        QVERIFY(store.setExcludedFromIndex(papers[0], true));
+        QVERIFY(store.setExcludedFromIndex(papers[1], true));
+        QVERIFY(store.setExcludedFromIndex(papers[2], true));
+        QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 10000);
+        QVERIFY(search().isEmpty());
+        QVERIFY(store.rememberDocument(papers[0])); // Opening an excluded paper does not re-index it.
+        QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 10000);
+        QVERIFY(search().isEmpty());
+        QVERIFY(store.setExcludedFromIndex(papers[0], false));
+        QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 20000);
+        QVERIFY(!search().isEmpty());
+        // A collection/tag scope restricts PDF text search to its papers.
+        found.clear();
+        index->searchGrouped("occlusion", {}, 0, QStringList{});
+        QVERIFY(found.wait(5000));
+        QVERIFY(found[0][1].toList().isEmpty());
+    }
     void readingStateFavoriteAndDuplicates()
     {
         QTemporaryDir directory;
