@@ -202,6 +202,7 @@ Rectangle {
             isActive: !root.isHome && !root.isWeb && !root.isLibrary && !root.isNote && !root.controller.suspended && root.controller.activeGroup === root.groupId
             onActivated: root.controller.activateGroup(root.groupId)
             onFileChosen: function(source) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source) }
+            onAiRequested: function(spec) { root.controller.aiRequested(spec) }
             onLinkRequested: function(url) { root.controller.activateGroup(root.groupId); root.controller.openWeb(url.toString(), true) }
             onChanged: if (!root.controller.syncing) root.controller.changed()
         }

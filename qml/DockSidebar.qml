@@ -16,6 +16,7 @@ Rectangle {
     signal folderChosen(url folder)
     signal noteRequested(string id)
     signal linkActivated(string link)
+    signal aiRequested(var spec)
     color: Theme.surfaceSidebar
     border.color: Theme.border
     radius: Theme.cornerRadius
@@ -55,7 +56,7 @@ Rectangle {
             onFolderChosen: function(folder) { root.folderChosen(folder) }
         }
     }
-    Component { id: captures; CaptureShelf { onNoteRequested: function(id) { root.noteRequested(id) } } }
+    Component { id: captures; CaptureShelf { onNoteRequested: function(id) { root.noteRequested(id) }; onAiRequested: function(spec) { root.aiRequested(spec) } } }
     Component {
         id: navigation
         PdfNavigationPanel {

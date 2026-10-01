@@ -78,6 +78,104 @@ UiControls.Dialog {
                     onActivated: function(index) { researchStore.setSetting("aiLanguage", root.languages[index].value) }
                 }
             }
+            GridLayout {
+                id: aiSettings
+                Layout.fillWidth: true
+                columns: 2; columnSpacing: 10; rowSpacing: 8
+                readonly property var ai: researchStore.ai
+                readonly property var current: ai.providers.find(function(p) { return p.id === ai.provider }) || ({})
+                property string testResult: ""
+                property var codexAccount: ({})
+                property var ollamaModels: []
+                Connections {
+                    target: aiSettings.ai
+                    function onConnectionTested(provider, ok, detail) { aiSettings.testResult = (ok ? "✓ " : "✗ ") + detail }
+                    function onCodexAccountChanged(account) { aiSettings.codexAccount = account }
+                    function onOllamaModelsLoaded(models) { aiSettings.ollamaModels = models }
+                }
+                onCurrentChanged: {
+                    testResult = ""
+                    if (current.id === "codex") ai.refreshCodexAccount()
+                    if (current.id === "ollama") ai.listOllamaModels()
+                }
+                Label { text: "Provider"; color: Theme.textBody }
+                UiControls.ComboBox {
+                    objectName: "aiSettingsProvider"
+                    Layout.fillWidth: true
+                    textRole: "name"
+                    model: aiSettings.ai.providers
+                    currentIndex: Math.max(0, aiSettings.ai.providers.findIndex(function(p) { return p.id === aiSettings.ai.provider }))
+                    onActivated: function(index) { aiSettings.ai.provider = aiSettings.ai.providers[index].id }
+                }
+                Label { visible: aiSettings.current.kind === "api"; text: "API key"; color: Theme.textBody }
+                RowLayout {
+                    visible: aiSettings.current.kind === "api"
+                    Layout.fillWidth: true
+                    UiControls.TextField {
+                        id: keyField; objectName: "aiKeyField"
+                        Layout.fillWidth: true
+                        echoMode: TextInput.Password
+                        placeholderText: aiSettings.current.configured ? "Stored in the Keychain" : "Paste your API key"
+                    }
+                    UiControls.Button {
+                        objectName: "aiSaveKey"; text: "Save"; enabled: keyField.text.trim().length > 0
+                        onClicked: { if (aiSettings.ai.setApiKey(aiSettings.current.id, keyField.text)) keyField.clear() }
+                    }
+                    UiControls.Button { text: "Remove"; enabled: !!aiSettings.current.configured; onClicked: aiSettings.ai.clearApiKey(aiSettings.current.id) }
+                }
+                Label { visible: aiSettings.current.id === "codex"; text: "Account"; color: Theme.textBody }
+                RowLayout {
+                    visible: aiSettings.current.id === "codex"
+                    Layout.fillWidth: true
+                    Label {
+                        Layout.fillWidth: true; elide: Text.ElideRight; color: Theme.textSecondary
+                        text: aiSettings.codexAccount.available === false ? "Codex CLI not found — install it to sign in"
+                            : aiSettings.codexAccount.signedIn ? "Signed in" + (aiSettings.codexAccount.email ? " as " + aiSettings.codexAccount.email : "")
+                            : "Not signed in"
+                    }
+                    UiControls.Button {
+                        objectName: "codexSignIn"
+                        text: aiSettings.codexAccount.signedIn ? "Sign Out" : "Sign in with ChatGPT"
+                        enabled: aiSettings.codexAccount.available !== false
+                        onClicked: aiSettings.codexAccount.signedIn ? aiSettings.ai.codexSignOut() : aiSettings.ai.codexSignIn()
+                    }
+                }
+                Label { visible: aiSettings.current.id === "ollama"; text: "Host"; color: Theme.textBody }
+                UiControls.TextField {
+                    visible: aiSettings.current.id === "ollama"
+                    Layout.fillWidth: true
+                    text: researchStore.setting("ai.baseUrl.ollama", "http://127.0.0.1:11434/")
+                    onEditingFinished: { researchStore.setSetting("ai.baseUrl.ollama", text.trim()); aiSettings.ai.listOllamaModels() }
+                }
+                Label { text: "Model"; color: Theme.textBody }
+                RowLayout {
+                    Layout.fillWidth: true
+                    UiControls.TextField {
+                        objectName: "aiModelField"
+                        Layout.fillWidth: true
+                        text: aiSettings.current.model || ""
+                        placeholderText: aiSettings.current.id === "codex" ? "Account default" : aiSettings.current.defaultModel || "Model name"
+                        onEditingFinished: aiSettings.ai.setModel(aiSettings.current.id, text)
+                    }
+                    UiControls.ComboBox {
+                        visible: aiSettings.current.id === "ollama" && aiSettings.ollamaModels.length > 0
+                        Layout.preferredWidth: 160
+                        model: aiSettings.ollamaModels
+                        onActivated: function(index) { aiSettings.ai.setModel("ollama", aiSettings.ollamaModels[index]) }
+                    }
+                }
+                Item { width: 1; height: 1 }
+                RowLayout {
+                    Layout.fillWidth: true
+                    UiControls.Button { objectName: "aiTestConnection"; text: "Test Connection"; onClicked: { aiSettings.testResult = "Testing…"; aiSettings.ai.testConnection(aiSettings.current.id) } }
+                    Label { objectName: "aiTestResult"; Layout.fillWidth: true; text: aiSettings.testResult; elide: Text.ElideRight; color: Theme.textSecondary; font.pixelSize: 12 }
+                }
+            }
+            Label {
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+                text: "Keys are stored in the macOS Keychain. Before the first request to a provider, Owelk shows what will be sent. "
+                      + "Claude is available with an API key; signing in with a Claude.ai account is not offered because Anthropic does not allow it for third-party apps."
+            }
         }
     }
 }

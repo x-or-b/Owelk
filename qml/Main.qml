@@ -130,6 +130,7 @@ ApplicationWindow {
         else if (result.kind === "note") captureNote.begin(result.id)
         else if (result.kind === "workspace") openWorkspace(result.id)
         else if (result.kind === "standalone-note" && !restoreFailed) documents.openNote(result.id)
+        else if (result.kind === "ai") aiComposer.showSaved(result.id)
         else if (result.kind === "collection" && !restoreFailed) documents.openLibrary({collection: result.id})
         else if (result.kind === "tag" && !restoreFailed) documents.openLibrary({tag: result.id})
         else if (result.kind === "text" && !restoreFailed) { notify("Checking PDF source…"); researchStore.paperIndex.openResult(result.documentId, Number(result.page), result.sha256) }
@@ -308,6 +309,7 @@ ApplicationWindow {
     }
     CaptureNoteDialog { id: captureNote }
     SettingsDialog { id: settingsDialog }
+    AiComposer { id: aiComposer }
     // Same bytes as another library entry: offer the existing copy without merging anything silently.
     // A notice, not a dialog: it never takes keyboard focus from the reader.
     Rectangle {
@@ -377,6 +379,7 @@ ApplicationWindow {
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
+            onAiRequested: function(spec) { aiComposer.begin(spec) }
             visible: panels.length > 0
             Layout.preferredWidth: window.dockWidth(window.leftDockWidth); Layout.fillHeight: true
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
@@ -424,6 +427,8 @@ ApplicationWindow {
             onBeforeChange: window.persist()
             onChanged: window.scheduleSave()
             onEmpty: window.showHome()
+            onAiRequested: function(spec) { aiComposer.begin(spec) }
+            onAiResponseRequested: function(id) { aiComposer.showSaved(id) }
             onOpened: window.homeVisible = false
             onHomeOpenRequested: window.chooseFile()
             onHomeResultChosen: function(result) { window.openSearchResult(result) }
@@ -457,6 +462,7 @@ ApplicationWindow {
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
+            onAiRequested: function(spec) { aiComposer.begin(spec) }
             visible: panels.length > 0
             Layout.preferredWidth: window.dockWidth(window.rightDockWidth); Layout.fillHeight: true
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth

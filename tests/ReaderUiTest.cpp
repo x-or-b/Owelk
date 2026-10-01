@@ -151,7 +151,14 @@ public slots:
                 connect(socket, &QTcpSocket::readyRead, socket, [this, socket] {
                     const auto head = QString::fromUtf8(socket->readAll()).section("\r\n", 0, 0);
                     QByteArray body, type = "text/html";
-                    if (head.contains("/paper.pdf")) {
+                    if (head.contains("POST /v1/messages")) {
+                        // A Claude-style stream for AI composer tests.
+                        type = "text/event-stream";
+                        for (const auto *piece : {"Mock ", "answer about **occlusion**."})
+                            body += QByteArray("event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":"
+                                               "{\"type\":\"text_delta\",\"text\":\"") + piece + "\"}}\n\n";
+                        body += "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+                    } else if (head.contains("/paper.pdf")) {
                         QFile pdf(m_directory.filePath("fixture.pdf"));
                         pdf.open(QIODevice::ReadOnly);
                         body = pdf.readAll();

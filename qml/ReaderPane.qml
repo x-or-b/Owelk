@@ -86,6 +86,15 @@ Rectangle {
     function jumpToPage(page, y) { activated(); canvas.rememberPlace(); canvas.jump(page, y || 0, 0) }
     // Web links in a PDF open in an app tab when the pane belongs to a workspace.
     signal linkRequested(url url)
+    // AI help about the selection, the current page or the whole paper; the composer is shared app-wide.
+    signal aiRequested(var spec)
+    function requestAi(action, scope) {
+        activated()
+        const anchor = canvas.selectedAnchor
+        aiRequested({action: action, scope: scope, source: source,
+                     page: scope === "selection" && anchor ? (anchor.segments ? anchor.segments[0].page : anchor.page) : canvas.currentPage,
+                     selection: scope === "selection" ? canvas.selectedText : ""})
+    }
     function goBack() { return canvas.goBack() }
     function goForward() { return canvas.goForward() }
     function copySelection() { canvas.copySelection() }
@@ -146,6 +155,10 @@ Rectangle {
         UiControls.MenuItem { text:"Add Comment to Selection…"; enabled:!!canvas.selectedAnchor; onTriggered:root.addComment() }
         UiControls.MenuItem { text:"Highlight Selection…"; enabled:!!canvas.selectedAnchor; onTriggered:root.chooseHighlightColor(pageField,true) }
         UiControls.MenuItem { text:"Save Excerpt"; enabled:!!canvas.selectedAnchor; onTriggered:canvas.captureSelection() }
+        MenuSeparator {}
+        UiControls.MenuItem { text:"Explain with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("explain", "selection") }
+        UiControls.MenuItem { text:"Translate with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("translate", "selection") }
+        UiControls.MenuItem { text:"Ask AI about This Page…"; onTriggered:root.requestAi("ask", "page") }
         MenuSeparator {}
         UiControls.MenuItem { text:"Capture a Region"; onTriggered:{canvas.tool="";canvas.captureMode=true} }
         UiControls.MenuItem { text:"Print PDF…"; onTriggered:root.printDocument() }
@@ -238,7 +251,19 @@ Rectangle {
             }
             Row {
                 anchors.right:parent.right;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter
-                visible: readerToolbar.width >= 510
+                visible: readerToolbar.width >= 540
+                ReaderIconButton {
+                    objectName: "aiToolbarButton"
+                    kind: "ai"; description: "AI · Ask about this page or paper"
+                    onClicked: pageAiMenu.popup(this, 0, height)
+                    UiControls.Menu {
+                        id: pageAiMenu
+                        UiControls.MenuItem { text: "Ask about This Page…"; onTriggered: root.requestAi("ask", "page") }
+                        UiControls.MenuItem { text: "Summarize This Page"; onTriggered: root.requestAi("summarize", "page") }
+                        UiControls.MenuItem { text: "Ask about This Paper…"; onTriggered: root.requestAi("ask", "paper") }
+                        UiControls.MenuItem { text: "Summarize This Paper"; onTriggered: root.requestAi("summarize", "paper") }
+                    }
+                }
                 ReaderIconButton { kind:"comment";description:"Add comment · Select text, or click a page";checked:canvas.tool==="comment";onClicked:root.setTool("comment") }
                 ReaderIconButton { kind:"highlight";description:"Highlight text · Choose a color, then drag over text";swatch:canvas.markColor;checked:canvas.tool==="highlight";onClicked:{if(canvas.tool==="highlight")canvas.tool="";else root.chooseHighlightColor(this,!!canvas.selectedAnchor)} }
                 ReaderIconButton { kind:"text";description:"Add text box · Click or drag on a page";checked:canvas.tool==="text";onClicked:root.setTool("text") }
@@ -248,7 +273,7 @@ Rectangle {
             }
             ReaderIconButton {
                 anchors.right:parent.right;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter
-                visible:readerToolbar.width<510
+                visible:readerToolbar.width<540
                 description:"Annotation and print tools";onClicked:toolsMenu.popup(this,0,height)
                 UiControls.Menu {
                     id:toolsMenu
@@ -259,6 +284,7 @@ Rectangle {
                     UiControls.MenuItem { text:"Draw";onTriggered:root.setTool("draw") }
                     UiControls.MenuItem { text:"Capture a Region";onTriggered:{canvas.tool="";canvas.captureMode=true} }
                     UiControls.MenuItem { text:"Print PDF…";onTriggered:root.printDocument() }
+                    UiControls.MenuItem { text:"Ask AI about This Page…";onTriggered:root.requestAi("ask", "page") }
                 }
             }
         }
@@ -354,7 +380,7 @@ Rectangle {
                 visible: canvas.selectedText.length > 0 && !canvas.selecting && canvas.selectionEnd.y >= 0 && canvas.selectionEnd.y <= canvas.height && !annotationEditor.visible && !selectionMenu.visible
                 x: Math.max(4,Math.min(parent.width-width-20,canvas.selectionEnd.x+8))
                 y: Math.max(4,canvas.selectionEnd.y+height+12>parent.height?canvas.selectionEnd.y-height-8:canvas.selectionEnd.y+8)
-                width: 108; height: 34
+                width: 140; height: 34
                 color: Theme.surfacePanel; border.color: Theme.borderPopup; radius: Theme.cornerRadius
                 Row {
                     id: selectionActions
@@ -371,6 +397,19 @@ Rectangle {
                         kind:"excerpt";description:"Save excerpt · Keep the selected text and its source in Captures"
                         enabled: canvas.selectedAnchor !== null && !researchStore.busy
                         onClicked: { root.activated(); canvas.captureSelection() }
+                    }
+                    ReaderIconButton {
+                        objectName: "aiSelectionButton"
+                        kind: "ai"; description: "AI · Explain, translate or ask about the selection"
+                        onClicked: selectionAiMenu.popup(this, 0, height)
+                        UiControls.Menu {
+                            id: selectionAiMenu
+                            objectName: "selectionAiMenu"
+                            UiControls.MenuItem { objectName: "aiExplainSelection"; text: "Explain"; onTriggered: root.requestAi("explain", "selection") }
+                            UiControls.MenuItem { objectName: "aiTranslateSelection"; text: "Translate"; onTriggered: root.requestAi("translate", "selection") }
+                            UiControls.MenuItem { text: "Summarize"; onTriggered: root.requestAi("summarize", "selection") }
+                            UiControls.MenuItem { text: "Ask…"; onTriggered: root.requestAi("ask", "selection") }
+                        }
                     }
                 }
             }

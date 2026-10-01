@@ -253,6 +253,7 @@ Flickable {
         return target.source ? openDocument(target.source, null, true) : false
     }
     signal aiResponseRequested(string id)
+    signal aiRequested(var spec)
     // One library tab per group: reuse it (or the Home tab in front) and apply the filter.
     function openLibrary(filter) {
         prepare()

@@ -10,6 +10,7 @@ Rectangle {
     property string deletingId: ""
     property var viewingCapture: ({})
     property bool showingTrash: false
+    signal aiRequested(var spec)
     signal noteRequested(string id)
     function requestDelete(id) { deletingId = id; deleteDialog.open() }
     function viewText(capture) { viewingCapture = capture; textDialog.open() }
@@ -182,6 +183,12 @@ Rectangle {
                     UiControls.MenuItem { objectName: "readExcerpt-" + card.modelData.id; text: "Read Excerpt…"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: root.viewText(card.modelData) }
                     UiControls.MenuItem { text: "Copy Text"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: researchStore.copyText(card.modelData.text) }
                     UiControls.MenuItem { text: card.modelData.note ? "Edit Note…" : "Add Note…"; onTriggered: root.noteRequested(card.modelData.id) }
+                    UiControls.MenuItem {
+                        objectName: "explainCapture-" + card.modelData.id
+                        text: "Explain with AI"
+                        onTriggered: root.aiRequested({action: card.modelData.kind === "text" ? "explain" : "figure", scope: "none",
+                                                       captureId: card.modelData.id, source: card.modelData.kind === "web" ? "" : card.modelData.source, page: card.modelData.page})
+                    }
                     UiControls.MenuItem { objectName: "linkCaptureToNote-" + card.modelData.id; text: "Link to Note…"; onTriggered: linkToNote.begin("capture", card.modelData.id) }
                     UiControls.MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(card.modelData.source) }
                     UiControls.MenuItem {
