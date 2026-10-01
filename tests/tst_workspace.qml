@@ -25,6 +25,9 @@ Item {
         }
         function cleanupTestCase() { workspace.visible = false }
         function init() {
+            // Sessions saved by other test files restore a different window size; geometry tests need the default.
+            workspace.width = 1440; workspace.height = 930
+            workspace.leftDockWidth = 224; workspace.rightDockWidth = 224
             workspace.activeWorkspace = ""; workspace.workspaceName = ""
             workspace.documents.restore({})
             workspace.filesVisible = true; workspace.shelfVisible = true
@@ -303,7 +306,8 @@ Item {
             const tab = visualChild(view, "tab-" + id)
             verify(tab !== null)
             const target = view.mapToItem(tab, view.width - 15, view.height / 2)
-            mouseDrag(tab, 20, 15, target.x - 20, target.y - 15, Qt.LeftButton, Qt.NoModifier, 40)
+            // QtTest's mouseDrag can reach another test's window in a full run; target this window explicitly.
+            testInput.pointerDrag(tab, Qt.point(20, 15), target, false)
             tryCompare(d, "groupCount", 2)
             compare(canvas().currentPage, 4)
             const before = JSON.stringify(d.snapshot().tree)
