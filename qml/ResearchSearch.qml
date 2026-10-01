@@ -20,6 +20,9 @@ QtObject {
     property var libraryFilter: ({})
     readonly property bool libraryScoped: Object.keys(libraryFilter).length > 0
     function setLibraryFilter(key, value) {
+        const empty = value === "" || value === undefined || value === null
+        // Unchanged values (e.g. a year field losing focus) must not restart the search.
+        if (empty ? !(key in libraryFilter) : libraryFilter[key] === value) return
         const next = Object.assign({}, libraryFilter)
         if (value === "" || value === undefined || value === null) delete next[key]
         else next[key] = value

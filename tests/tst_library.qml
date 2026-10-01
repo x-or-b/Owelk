@@ -36,7 +36,9 @@ Item {
             const second = testInput.copyFixture("library second.pdf")
             verify(researchStore.rememberDocument(second))
             verify(researchStore.setReadingState(second, "read"))
-            mouseClick(visualChild(findChild(workspace, "homeView"), "openLibraryButton"))
+            const home = findChild(workspace, "homeView")
+            waitForPolish(home); wait(50) // Home lists many papers in a full run; click once laid out.
+            mouseClick(visualChild(home, "openLibraryButton"))
             compare(activeTab().kind, "library")
             const view = library()
             tryVerify(function() { return view.rows.length >= 2 })

@@ -145,6 +145,7 @@ ColumnLayout {
         FilterCombo {
             objectName: "searchCollectionFilter"
             Layout.fillWidth: true
+            Layout.minimumWidth: 110
             textRole: "name"
             model: [{id: "", name: "Any collection"}].concat(root.collections.map(function(c) { return {id: c.id, name: "  ".repeat(c.depth) + c.name} }))
             currentIndex: Math.max(0, model.findIndex(function(c) { return c.id === (root.library.collection || "") }))

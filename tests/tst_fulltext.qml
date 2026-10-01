@@ -51,6 +51,8 @@ Item {
             palette.open(); tryCompare(palette, "opened", true)
             const filters = findChild(palette, "searchFiltersButton")
             if (!filters.checked) mouseClick(filters)
+            // Expanding adds two filter rows and the palette re-centres; click once the layout settles.
+            waitForPolish(palette.contentItem); wait(50)
             const picker = findChild(palette, "searchTargetFilter")
             compare(picker.contentItem.color.toString(), "#333333")
             tryCompare(picker, "height", 32)
