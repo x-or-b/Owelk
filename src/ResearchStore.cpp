@@ -3,6 +3,7 @@
 #include "SchemaMigration.h"
 #include "PaperIndex.h"
 #include "MetadataLookup.h"
+#include "AiService.h"
 #include "SelectionGeometry.h"
 
 #include <QClipboard>
@@ -82,7 +83,7 @@ struct TextCaptureResult {
 
 ResearchStore::ResearchStore(const QString &directory, QObject *parent)
     : QObject(parent), m_directory(directory), m_connection(QUuid::createUuid().toString()),
-      m_index(new PaperIndex(directory, this)), m_lookup(new MetadataLookup(this))
+      m_index(new PaperIndex(directory, this)), m_lookup(new MetadataLookup(this)), m_ai(new AiService(this, this))
 {
     m_workers.setMaxThreadCount(1);
     m_verifiers.setMaxThreadCount(2);
@@ -225,6 +226,11 @@ bool ResearchStore::initialize(QString *error)
             {}, true},
         // Web pages become documents only when something is saved from them (web captures).
         {7, {"ALTER TABLE documents ADD COLUMN kind TEXT NOT NULL DEFAULT 'pdf'"}, {}, true},
+        // Saved AI answers are knowledge objects: searchable, linkable, never sent anywhere again.
+        {8,
+            {"CREATE TABLE ai_responses (id TEXT PRIMARY KEY, provider TEXT NOT NULL, model TEXT NOT NULL, "
+             "prompt TEXT NOT NULL, answer TEXT NOT NULL, context_json TEXT NOT NULL, created_at TEXT NOT NULL)"},
+            {}, true},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     loadDocumentNames();

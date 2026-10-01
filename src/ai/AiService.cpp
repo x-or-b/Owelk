@@ -1,0 +1,405 @@
+#include "AiService.h"
+#include "AiContext.h"
+#include "AiProviders.h"
+#include "Keychain.h"
+#include "ResearchStore.h"
+
+#include <QDesktopServices>
+#include <QFile>
+#include <QFileInfo>
+#include <QFutureWatcher>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QPdfDocument>
+#include <QPdfSelection>
+#include <QtConcurrent>
+
+namespace {
+struct ProviderInfo {
+    const char *id, *name, *kind, *sends, *defaultModel, *defaultBase;
+};
+// Claude login is not offered: Anthropic does not allow third-party apps to provide claude.ai sign-in.
+const ProviderInfo providerTable[] = {
+    {"claude", "Claude API", "api", "Anthropic", "claude-opus-5-5", "https://api.anthropic.com/"},
+    {"openai", "OpenAI API", "api", "OpenAI", "gpt-5", "https://api.openai.com/"},
+    {"codex", "ChatGPT account (Codex)", "account", "OpenAI via your ChatGPT account", "", ""},
+    {"ollama", "Ollama (local)", "local", "this Mac only", "", "http://127.0.0.1:11434/"},
+};
+const ProviderInfo *info(const QString &id)
+{
+    for (const auto &entry : providerTable)
+        if (id == QLatin1String(entry.id)) return &entry;
+    return nullptr;
+}
+QString pdfText(QPdfDocument &pdf, int page)
+{
+    return pdf.getAllText(page).text().simplified();
+}
+}
+
+AiService::AiService(ResearchStore *store, QObject *parent)
+    : QObject(parent), m_store(store), m_network(new QNetworkAccessManager(this)), m_codex(new CodexBridge(this))
+{
+    connect(m_codex, &CodexBridge::notification, this, [this](const QString &method, const QJsonObject &params) {
+        if (method == "account/login/completed") {
+            if (!params.value("success").toBool())
+                m_store->notify("ChatGPT sign-in did not complete: " + params.value("error").toString("cancelled"));
+            refreshCodexAccount();
+        } else if (method == "account/updated")
+            refreshCodexAccount();
+    });
+}
+
+AiService::~AiService()
+{
+    for (const auto &provider : std::as_const(m_running))
+        if (provider) provider->disconnect(this);
+}
+
+QVariantList AiService::providers() const
+{
+    QVariantList rows;
+    for (const auto &entry : providerTable) {
+        const QString id = entry.id;
+        bool configured = true;
+        if (QString(entry.kind) == "api")
+            configured = hasApiKey(id);
+        else if (id == "codex")
+            configured = m_codexAccount.value("signedIn").toBool();
+        rows.append(QVariantMap{{"id", id}, {"name", entry.name}, {"kind", entry.kind}, {"sends", entry.sends},
+            {"configured", configured}, {"model", model(id)}, {"defaultModel", entry.defaultModel},
+            {"consented", consented(id)}});
+    }
+    return rows;
+}
+
+QString AiService::provider() const
+{
+    const auto id = m_store->setting("ai.provider", "claude");
+    return info(id) ? id : QStringLiteral("claude");
+}
+
+void AiService::setProvider(const QString &id)
+{
+    if (!info(id) || id == provider()) return;
+    m_store->setSetting("ai.provider", id);
+    emit providersChanged();
+}
+
+QString AiService::model(const QString &provider) const
+{
+    const auto *entry = info(provider);
+    return m_store->setting("ai.model." + provider, entry ? entry->defaultModel : "");
+}
+
+void AiService::setModel(const QString &provider, const QString &model)
+{
+    if (!info(provider)) return;
+    m_store->setSetting("ai.model." + provider, model.trimmed().left(120));
+    emit providersChanged();
+}
+
+QString AiService::keyAccount(const QString &provider) const
+{
+    return provider + "-api-key";
+}
+
+bool AiService::setApiKey(const QString &provider, const QString &key)
+{
+    const auto *entry = info(provider);
+    const auto trimmed = key.trimmed();
+    if (!entry || QString(entry->kind) != "api" || trimmed.size() < 8 || trimmed.size() > 400) return false;
+    const bool ok = Keychain::write(keyAccount(provider), trimmed, m_store->dataDirectory());
+    if (!ok) m_store->notify("Cannot store the API key in the Keychain.");
+    emit providersChanged();
+    return ok;
+}
+
+bool AiService::hasApiKey(const QString &provider) const
+{
+    return !Keychain::read(keyAccount(provider), m_store->dataDirectory()).isEmpty();
+}
+
+bool AiService::clearApiKey(const QString &provider)
+{
+    const bool ok = Keychain::remove(keyAccount(provider), m_store->dataDirectory());
+    emit providersChanged();
+    return ok;
+}
+
+bool AiService::consented(const QString &provider) const
+{
+    // Local Ollama keeps everything on this Mac.
+    return provider == "ollama" || m_store->setting("ai.consent." + provider) == "1";
+}
+
+void AiService::giveConsent(const QString &provider)
+{
+    if (!info(provider)) return;
+    m_store->setSetting("ai.consent." + provider, "1");
+    emit providersChanged();
+}
+
+QUrl AiService::baseUrl(const QString &provider) const
+{
+    // Tests (and a non-default Ollama host) override the address; everything else uses the official endpoint.
+    const auto *entry = info(provider);
+    auto value = m_store->setting("ai.baseUrl." + provider, entry ? entry->defaultBase : "");
+    if (!value.endsWith('/')) value += '/';
+    return QUrl(value);
+}
+
+AiProvider *AiService::createProvider(const QString &provider, QString *error)
+{
+    if (provider == "claude" || provider == "openai") {
+        const auto key = Keychain::read(keyAccount(provider), m_store->dataDirectory());
+        if (key.isEmpty()) {
+            *error = QStringLiteral("Add your %1 key in Settings → AI.").arg(info(provider)->name);
+            return nullptr;
+        }
+        if (provider == "claude") return new AnthropicProvider(m_network, baseUrl(provider), key, this);
+        return new OpenAiProvider(m_network, baseUrl(provider), key, this);
+    }
+    if (provider == "ollama") return new OllamaProvider(m_network, baseUrl(provider), this);
+    if (provider == "codex") return new CodexProvider(m_codex, this);
+    *error = "Choose an AI provider in Settings → AI.";
+    return nullptr;
+}
+
+int AiService::ask(const QVariantMap &input)
+{
+    const int request = ++m_nextRequest;
+    auto spec = input;
+    const auto id = spec.value("provider").toString().isEmpty() ? provider() : spec.value("provider").toString();
+    const auto fail = [this, request](const QString &error) {
+        QMetaObject::invokeMethod(this, [this, request, error] { emit failed(request, error); }, Qt::QueuedConnection);
+        return request;
+    };
+    if (!info(id)) return fail("Choose an AI provider in Settings → AI.");
+    if (!consented(id)) return fail("Review what is sent to this provider before the first request.");
+    if ((id == "ollama") && model(id).isEmpty()) return fail("Choose an Ollama model in Settings → AI.");
+    // Gather on the UI thread what the store knows; PDF text and images are read on a worker.
+    const QUrl source = spec.value("source").toUrl();
+    QVariantMap prepared;
+    if (source.isValid() && !source.isEmpty()) {
+        const auto details = m_store->documentDetails(source);
+        prepared.insert({{"title", m_store->displayName(source)}, {"authors", details.value("authors")},
+            {"year", details.value("year")}});
+    }
+    QStringList imagePaths;
+    const auto captureId = spec.value("captureId").toString();
+    for (const auto &value : m_store->captures()) {
+        const auto capture = value.toMap();
+        if (captureId.isEmpty() || capture.value("id").toString() != captureId) continue;
+        if (capture.value("kind").toString() == "text")
+            spec.insert("selection", capture.value("text"));
+        else if (capture.value("imageAvailable").toBool())
+            imagePaths << capture.value("image").toUrl().toLocalFile();
+        if (!capture.value("caption").toString().isEmpty()) spec.insert("selection", capture.value("caption"));
+        if (!source.isValid() || source.isEmpty()) {
+            spec.insert("source", capture.value("source"));
+            prepared.insert("title", capture.value("name"));
+        }
+    }
+    QStringList notes;
+    for (const auto &noteId : spec.value("noteIds").toStringList())
+        notes << m_store->note(noteId).value("body").toString();
+    prepared.insert("notes", notes);
+    m_running.insert(request, nullptr);
+    emit busyChanged();
+    struct Material {
+        QString pageText, paperText, error;
+        QList<QByteArray> images;
+    };
+    const auto pdfSource = spec.value("source").toUrl();
+    const auto scope = spec.value("scope").toString();
+    const int page = spec.value("page").toInt();
+    auto *watcher = new QFutureWatcher<Material>(this);
+    connect(
+        watcher, &QFutureWatcher<Material>::finished, this, [this, watcher, request, id, spec, prepared, imagePaths] {
+            const auto material = watcher->result();
+            watcher->deleteLater();
+            if (!m_running.contains(request)) return; // Cancelled while reading.
+            if (!material.error.isEmpty()) {
+                m_running.remove(request);
+                emit busyChanged();
+                emit failed(request, material.error);
+                return;
+            }
+            auto next = prepared;
+            next.insert("pageText", material.pageText);
+            next.insert("paperText", material.paperText);
+            QVariantList images;
+            for (qsizetype i = 0; i < material.images.size(); ++i)
+                images.append(QVariantMap{{"data", material.images[i]}, {"path", imagePaths.value(i)}});
+            next.insert("images", images);
+            run(request, id, spec, next);
+        });
+    watcher->setFuture(QtConcurrent::run([pdfSource, scope, page, imagePaths] {
+        Material material;
+        if (pdfSource.isLocalFile() && (scope == "page" || scope == "paper")) {
+            QPdfDocument pdf;
+            if (pdf.load(pdfSource.toLocalFile()) != QPdfDocument::Error::None) {
+                material.error = "Cannot read the PDF for this request.";
+                return material;
+            }
+            if (scope == "page" && page >= 0 && page < pdf.pageCount()) material.pageText = pdfText(pdf, page);
+            if (scope == "paper") {
+                // Leading pages carry the abstract, method and results; the budget trims the rest.
+                for (int i = 0; i < pdf.pageCount() && material.paperText.size() < 80000; ++i)
+                    material.paperText += QStringLiteral("[Page %1] ").arg(i + 1) + pdfText(pdf, i) + "\n";
+            }
+        }
+        for (const auto &path : imagePaths) {
+            QFile file(path);
+            if (file.open(QIODevice::ReadOnly) && file.size() < 8 * 1024 * 1024) material.images << file.readAll();
+        }
+        return material;
+    }));
+    return request;
+}
+
+void AiService::run(int request, const QString &id, const QVariantMap &spec, const QVariantMap &prepared)
+{
+    AiMaterials materials;
+    materials.title = prepared.value("title").toString();
+    materials.authors = prepared.value("authors").toString();
+    materials.year = prepared.value("year").toString();
+    materials.selection = spec.value("selection").toString();
+    materials.pageText = prepared.value("pageText").toString();
+    materials.paperText = prepared.value("paperText").toString();
+    materials.notes = prepared.value("notes").toStringList();
+    materials.pageNumber = spec.value("scope").toString() == "page" ? spec.value("page").toInt() + 1 : 0;
+    const auto images = prepared.value("images").toList();
+    materials.hasImage = !images.isEmpty();
+    const auto action = spec.value("action").toString();
+    const auto prompt = buildAiPrompt(action.isEmpty() ? QStringLiteral("ask") : action,
+        m_store->setting("aiLanguage", "ko"), spec.value("question").toString(), materials);
+    QString error;
+    auto *provider = createProvider(id, &error);
+    if (!provider) {
+        m_running.remove(request);
+        emit busyChanged();
+        emit failed(request, error);
+        return;
+    }
+    AiRequest call;
+    call.system = prompt.system;
+    call.text = prompt.text;
+    call.model = model(id);
+    for (const auto &value : images) {
+        const auto image = value.toMap();
+        call.images.append({image.value("data").toByteArray(), "image/png", image.value("path").toString()});
+    }
+    m_running.insert(request, provider);
+    const auto done = [this, request, provider] {
+        m_running.remove(request);
+        provider->deleteLater();
+        emit busyChanged();
+    };
+    connect(provider, &AiProvider::delta, this, [this, request](const QString &text) { emit delta(request, text); });
+    connect(provider, &AiProvider::finished, this,
+        [this, request, id, prompt, spec, done](const QString &text, const QString &used) {
+            done();
+            emit finished(request, text,
+                {{"provider", id}, {"model", used.isEmpty() ? model(id) : used}, {"prompt", prompt.text},
+                    {"action", spec.value("action")}, {"question", spec.value("question")},
+                    {"source", spec.value("source")}, {"page", spec.value("page")},
+                    {"captureId", spec.value("captureId")}});
+        });
+    connect(provider, &AiProvider::failed, this, [this, request, done](const QString &message) {
+        done();
+        emit failed(request, message);
+    });
+    emit started(request, id, call.model, prompt.truncated);
+    provider->start(call);
+}
+
+void AiService::cancel(int request)
+{
+    if (!m_running.contains(request)) return;
+    const auto provider = m_running.value(request);
+    if (provider)
+        provider->cancel();
+    else {
+        m_running.remove(request);
+        emit busyChanged();
+        emit failed(request, "Stopped.");
+    }
+}
+
+void AiService::testConnection(const QString &id)
+{
+    QString error;
+    if (!info(id)) return;
+    auto *provider = createProvider(id, &error);
+    if (!provider) {
+        emit connectionTested(id, false, error);
+        return;
+    }
+    connect(provider, &AiProvider::finished, this, [this, id, provider](const QString &text, const QString &used) {
+        provider->deleteLater();
+        emit connectionTested(
+            id, true, QStringLiteral("Connected (%1): %2").arg(used.isEmpty() ? model(id) : used, text.left(80)));
+    });
+    connect(provider, &AiProvider::failed, this, [this, id, provider](const QString &message) {
+        provider->deleteLater();
+        emit connectionTested(id, false, message);
+    });
+    AiRequest call;
+    call.system = "Reply with the single word: ok";
+    call.text = "Connection test.";
+    call.model = model(id);
+    call.maxTokens = 64;
+    provider->start(call);
+}
+
+void AiService::refreshCodexAccount()
+{
+    m_codex->call("account/read", {}, [this](const QJsonValue &result, const QString &error) {
+        const auto account = result.toObject().value("account").toObject();
+        m_codexAccount = {{"available", error.isEmpty() || !error.contains("Codex")}, {"error", error},
+            {"signedIn", account.value("type").toString() == "chatgpt" || account.value("type").toString() == "apiKey"},
+            {"email", account.value("email").toString()}, {"plan", account.value("planType").toString()}};
+        if (!error.isEmpty()) m_codexAccount.insert("available", false);
+        emit codexAccountChanged(m_codexAccount);
+        emit providersChanged();
+    });
+}
+
+void AiService::codexSignIn()
+{
+    m_codex->call("account/login/start", {{"type", "chatgpt"}}, [this](const QJsonValue &result, const QString &error) {
+        if (!error.isEmpty()) {
+            m_store->notify(error);
+            return;
+        }
+        // The browser completes OpenAI's own sign-in page; Owelk never sees the password.
+        const QUrl url(result.toObject().value("authUrl").toString());
+        if (url.scheme() == "https")
+            QDesktopServices::openUrl(url);
+        else
+            m_store->notify("Codex did not return a sign-in address.");
+    });
+}
+
+void AiService::codexSignOut()
+{
+    m_codex->call("account/logout", {}, [this](const QJsonValue &, const QString &) { refreshCodexAccount(); });
+}
+
+void AiService::listOllamaModels()
+{
+    auto *reply = m_network->get(QNetworkRequest(baseUrl("ollama").resolved(QUrl("api/tags"))));
+    connect(reply, &QNetworkReply::finished, this, [this, reply] {
+        reply->deleteLater();
+        QStringList models;
+        for (const auto &value : QJsonDocument::fromJson(reply->readAll()).object().value("models").toArray())
+            models << value.toObject().value("name").toString();
+        if (models.isEmpty() && reply->error() != QNetworkReply::NoError)
+            m_store->notify("Ollama is not running on this Mac (" + baseUrl("ollama").toString() + ").");
+        emit ollamaModelsLoaded(models);
+    });
+}

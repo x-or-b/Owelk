@@ -157,6 +157,20 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
             }
     }
     if (target == "all" && scope.isEmpty() && !allowed) {
+        QSqlQuery answers(db);
+        answers.prepare("SELECT id,prompt,answer FROM ai_responses WHERE instr(lower(prompt),lower(?))>0 OR "
+                        "instr(lower(answer),lower(?))>0 ORDER BY created_at DESC LIMIT 10");
+        answers.addBindValue(needle);
+        answers.addBindValue(needle);
+        if (answers.exec())
+            while (answers.next()) {
+                const auto answer = answers.value(2).toString();
+                results.append(QVariantMap{{"kind", "ai"}, {"id", answers.value(0)},
+                    {"title", "AI · " + answers.value(1).toString()},
+                    {"snippet", snippet(answer, answer.indexOf(needle, 0, Qt::CaseInsensitive), needle.size())}});
+            }
+    }
+    if (target == "all" && scope.isEmpty() && !allowed) {
         // Collections and tags open the library filtered to them.
         for (const auto &[kind, sql] : {std::pair{"collection", "SELECT id,name FROM collections"},
                  std::pair{"tag", "SELECT id,name FROM tags"}}) {

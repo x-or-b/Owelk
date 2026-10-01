@@ -29,6 +29,7 @@ class ResearchStore final : public QObject {
     Q_PROPERTY(QObject *paperIndex READ paperIndex CONSTANT)
     // Online details lookup, used only from the Paper Details dialog's button.
     Q_PROPERTY(QObject *metadataLookup READ metadataLookup CONSTANT)
+    Q_PROPERTY(QObject *ai READ ai CONSTANT)
     Q_PROPERTY(bool relinking READ relinking NOTIFY relinkingChanged)
     Q_PROPERTY(QStringList annotationColors READ annotationColors CONSTANT)
     // Bumped when paper titles or details change; bind to it next to displayName() calls.
@@ -52,6 +53,7 @@ public:
     QString dataDirectory() const { return m_directory; }
     QObject *paperIndex() const;
     QObject *metadataLookup() const { return m_lookup; }
+    QObject *ai() const { return m_ai; }
     bool relinking() const { return m_relinking; }
     Q_INVOKABLE QUrl resolvedSource(const QUrl &source) const;
     Q_INVOKABLE void requestRelink(const QUrl &source);
@@ -113,6 +115,9 @@ public:
     Q_INVOKABLE QString markdownHtml(const QString &markdown, const QString &linkColor) const;
     // "[title](owelk://kind/id)" for inserting into a note.
     Q_INVOKABLE QString markdownLink(const QString &kind, const QString &id) const;
+    // Saved AI answers. response: provider, model, action, question, answer, prompt, source, page, captureId.
+    Q_INVOKABLE QString saveAiResponse(const QVariantMap &response);
+    Q_INVOKABLE QVariantMap aiResponse(const QString &id) const;
     Q_INVOKABLE bool appendNoteLink(const QString &noteId, const QString &kind, const QString &id);
     int documentsRevision() const { return m_documentsRevision; }
     Q_INVOKABLE bool sameSource(const QUrl &first, const QUrl &second) const { return first == second; }
@@ -245,4 +250,5 @@ private:
     bool m_printing = false;
     PaperIndex *m_index;
     QObject *m_lookup;
+    QObject *m_ai;
 };

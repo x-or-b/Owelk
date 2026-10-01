@@ -2,6 +2,8 @@
 
 #include <QColor>
 #include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTextDocument>
 #include <QRegularExpression>
 #include <QSet>
@@ -313,4 +315,52 @@ QVariantList ResearchStore::linkCandidates(const QString &queryText) const
         if (rows.size() >= 20) break;
     }
     return rows;
+}
+
+QString ResearchStore::saveAiResponse(const QVariantMap &response)
+{
+    const auto answer = response.value("answer").toString();
+    if (answer.trimmed().isEmpty() || answer.size() > 400000) return {};
+    static const QHash<QString, QString> labels{{"explain", "Explain"}, {"translate", "Translate"},
+        {"summarize", "Summarize"}, {"figure", "Explain figure"}, {"ask", "Ask"}};
+    const auto question = response.value("question").toString().simplified();
+    const auto source = response.value("source").toUrl();
+    auto title = labels.value(response.value("action").toString(), "Ask");
+    if (!question.isEmpty())
+        title += ": " + question.left(120);
+    else if (source.isValid() && !source.isEmpty())
+        title += " · " + displayName(source);
+    const auto id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    QJsonObject context{{"prompt", response.value("prompt").toString()}, {"source", source.toString()},
+        {"page", response.value("page").toInt()}, {"captureId", response.value("captureId").toString()},
+        {"action", response.value("action").toString()}, {"question", question}};
+    QSqlQuery query(m_database);
+    query.prepare("INSERT INTO ai_responses VALUES(?,?,?,?,?,?,?)");
+    for (const QString &value : {id, response.value("provider").toString(), response.value("model").toString(), title,
+             answer, QString::fromUtf8(QJsonDocument(context).toJson(QJsonDocument::Compact)), now()})
+        query.addBindValue(text(value));
+    if (!query.exec()) {
+        emit message("Cannot save the AI answer.");
+        return {};
+    }
+    // The answer links back to what it was about.
+    const auto document = findDocument(source);
+    if (!document.isEmpty()) addLink("ai", id, "document", document);
+    if (!response.value("captureId").toString().isEmpty())
+        addLink("ai", id, "capture", response.value("captureId").toString());
+    emit notesChanged();
+    return id;
+}
+
+QVariantMap ResearchStore::aiResponse(const QString &id) const
+{
+    QSqlQuery query(m_database);
+    query.prepare("SELECT provider,model,prompt,answer,context_json,created_at FROM ai_responses WHERE id=?");
+    query.addBindValue(id);
+    if (!query.exec() || !query.next()) return {};
+    const auto context = QJsonDocument::fromJson(query.value(4).toByteArray()).object();
+    return {{"id", id}, {"provider", query.value(0)}, {"model", query.value(1)}, {"title", query.value(2)},
+        {"answer", query.value(3)}, {"source", QUrl(context.value("source").toString())},
+        {"page", context.value("page").toInt()}, {"action", context.value("action").toString()},
+        {"question", context.value("question").toString()}, {"createdAt", query.value(5)}};
 }
