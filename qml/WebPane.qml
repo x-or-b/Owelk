@@ -18,6 +18,15 @@ Rectangle {
     readonly property alias view: view
     signal activated()
     color: Theme.surface
+    property bool capturing: false
+    // Screenshot the visible page and keep the chosen part (normalised to the view).
+    function captureRegion(rect) {
+        const region = Qt.rect(rect.x / view.width, rect.y / view.height, rect.width / view.width, rect.height / view.height)
+        view.grabToImage(function(result) {
+            researchStore.captureWebImage(view.url, view.title, result.image, region)
+        })
+        capturing = false
+    }
     function open(url) {
         if (openedUrl === url.toString() && view.url.toString() === url.toString()) return
         openedUrl = url.toString()
@@ -83,6 +92,12 @@ Rectangle {
                     onAccepted: root.go(text)
                     Keys.onEscapePressed: { text = view.url.toString(); view.forceActiveFocus() }
                 }
+                ReaderIconButton {
+                    objectName: "webCapture"; kind: "capture"; implicitWidth: 24; checkable: true
+                    checked: root.capturing
+                    description: "Capture a region of this page"
+                    onClicked: root.capturing = !root.capturing
+                }
                 UiControls.Button {
                     objectName: "webOpenArxivPdf"
                     visible: Tree.arxivPdf(view.url).length > 0
@@ -121,6 +136,24 @@ Rectangle {
             onTitleChanged: if (root.tabId.length) root.controller.updateWebTab(root.tabId, url.toString(), title)
             onNewWindowRequested: function(request) { root.controller.openWeb(request.requestedUrl.toString(), true) }
             onActiveFocusChanged: if (activeFocus) root.activated()
+            MouseArea {
+                id: captureArea
+                objectName: "webCaptureArea"
+                anchors.fill: parent
+                visible: root.capturing
+                cursorShape: Qt.CrossCursor
+                property point start
+                property point end
+                onPressed: function(mouse) { start = Qt.point(mouse.x, mouse.y); end = start }
+                onPositionChanged: function(mouse) { end = Qt.point(Math.max(0, Math.min(width, mouse.x)), Math.max(0, Math.min(height, mouse.y))) }
+                onReleased: root.captureRegion(Qt.rect(Math.min(start.x, end.x), Math.min(start.y, end.y), Math.abs(end.x - start.x), Math.abs(end.y - start.y)))
+                Rectangle {
+                    visible: captureArea.pressed
+                    x: Math.min(captureArea.start.x, captureArea.end.x); y: Math.min(captureArea.start.y, captureArea.end.y)
+                    width: Math.abs(captureArea.end.x - captureArea.start.x); height: Math.abs(captureArea.end.y - captureArea.start.y)
+                    color: "transparent"; border.color: Theme.accent; border.width: 2
+                }
+            }
         }
     }
 }

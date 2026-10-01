@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QHash>
+#include <QImage>
 #include <QRectF>
 #include <QSet>
 #include <QStringList>
@@ -116,6 +117,8 @@ public:
     int documentsRevision() const { return m_documentsRevision; }
     Q_INVOKABLE bool sameSource(const QUrl &first, const QUrl &second) const { return first == second; }
     Q_INVOKABLE void captureRegion(const QUrl &source, int page, const QRectF &normalizedRegion);
+    // A region of a web page screenshot (normalised to the image); opening it reopens the page.
+    Q_INVOKABLE void captureWebImage(const QUrl &page, const QString &title, const QImage &image, const QRectF &region);
     Q_INVOKABLE void captureText(
         const QUrl &source, int page, const QPointF &from, const QPointF &to, const QString &expectedText);
     Q_INVOKABLE void highlightText(const QUrl &source, int page, const QPointF &from, const QPointF &to,
@@ -184,6 +187,7 @@ signals:
     void captureSaved(const QString &id);
     void knowledgeFound(int request, const QVariantList &results);
     void sourceReady(const QUrl &source, int page, const QRectF &region);
+    void webSourceRequested(const QUrl &page);
     void folderLoaded(int requestId, const QUrl &folder, const QVariantList &entries, const QString &error);
     void homeChanged();
     void workspaceRenamed(const QString &id, const QString &name);
@@ -202,6 +206,7 @@ private:
     // Saved data is keyed by document ID; QML keeps passing file URLs.
     QString findDocument(const QUrl &source) const;
     QString ensureDocument(const QUrl &source);
+    QString ensureWebDocument(const QUrl &page, const QString &title);
     void loadDocumentNames();
     void syncNoteLinks(const QString &noteId, const QString &body);
     void rememberTitle(const QUrl &url, const QString &title);

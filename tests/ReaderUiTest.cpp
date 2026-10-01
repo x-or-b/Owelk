@@ -168,6 +168,7 @@ public slots:
         }
         return QUrl(QStringLiteral("http://127.0.0.1:%1%2").arg(m_web.serverPort()).arg(path));
     }
+    Q_INVOKABLE QSize imageSize(const QUrl &file) { return QImage(file.toLocalFile()).size(); }
     Q_INVOKABLE QString temporaryFolder(const QString &name)
     {
         QDir().mkpath(m_directory.filePath(name));

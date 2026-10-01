@@ -216,6 +216,7 @@ ApplicationWindow {
         target: researchStore
         function onMessage(text) { window.notify(text) }
         function onDuplicateFound(source, existing, title) { duplicateBar.show(source, existing, title) }
+        function onWebSourceRequested(page) { if (!window.restoreFailed) documents.openWeb(page.toString(), true) }
         function onRelinkRequested(source) { if (!window.restoreFailed && !researchStore.relinking && window.persist()) relinkDialog.begin(source) }
         function onSourceRelinked(source, candidate) { documents.relinkSource(source, candidate) }
         function onRelinkFinished(success, detail) { if (success) window.notify(detail) }

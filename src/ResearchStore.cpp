@@ -223,6 +223,8 @@ bool ResearchStore::initialize(QString *error)
                 "ALTER TABLE captures ADD COLUMN caption TEXT NOT NULL DEFAULT ''",
                 "ALTER TABLE captures ADD COLUMN anchor_kind TEXT NOT NULL DEFAULT 'pdf'"},
             {}, true},
+        // Web pages become documents only when something is saved from them (web captures).
+        {7, {"ALTER TABLE documents ADD COLUMN kind TEXT NOT NULL DEFAULT 'pdf'"}, {}, true},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     loadDocumentNames();
@@ -354,7 +356,8 @@ QVariantList ResearchStore::readCaptures(bool trashed) const
     QSqlQuery query(m_database);
     query.exec(QStringLiteral(
         "SELECT "
-        "c.id,doc.url,c.page,c.image,c.created_at,t.text,t.capture_id,n.body,n.updated_at,d.deleted_at,c.caption "
+        "c.id,doc.url,c.page,c.image,c.created_at,t.text,t.capture_id,n.body,n.updated_at,d.deleted_at,c.caption,"
+        "c.anchor_kind "
         "FROM captures c LEFT JOIN documents doc ON doc.id=c.document_id "
         "LEFT JOIN text_captures t ON t.capture_id=c.id "
         "LEFT JOIN capture_notes n ON n.capture_id=c.id "
@@ -370,8 +373,12 @@ QVariantList ResearchStore::readCaptures(bool trashed) const
             : QString();
         results.append(
             QVariantMap{{"id", query.value(0)}, {"source", url}, {"name", displayName(url)}, {"page", query.value(2)},
-                {"kind", query.value(6).isNull() ? "region" : "text"}, {"text", query.value(5).toString()},
-                {"note", query.value(7).toString()}, {"noteUpdatedAt", query.value(8).toString()},
+                {"kind",
+                    query.value(11).toString() == "web" ? "web"
+                        : query.value(6).isNull()       ? "region"
+                                                        : "text"},
+                {"text", query.value(5).toString()}, {"note", query.value(7).toString()},
+                {"noteUpdatedAt", query.value(8).toString()},
                 {"image", imagePath.isEmpty() ? QUrl() : QUrl::fromLocalFile(imagePath)},
                 {"imageAvailable",
                     !imagePath.isEmpty() && QFileInfo(imagePath).isFile() && !QFileInfo(imagePath).isSymLink()},
@@ -636,6 +643,72 @@ void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &re
         result.path = directory + "/captures/" + result.id + ".png";
         QSaveFile file(result.path);
         if (!file.open(QIODevice::WriteOnly) || !rendered.copy(crop).save(&file, "PNG") || !file.commit())
+            result.error = tr("Cannot save capture image. Check storage and permissions.");
+        return result;
+    }));
+}
+
+void ResearchStore::captureWebImage(
+    const QUrl &page, const QString &title, const QImage &image, const QRectF &requested)
+{
+    if (page.scheme() != "http" && page.scheme() != "https") {
+        emit message(tr("Only web pages can be captured this way."));
+        return;
+    }
+    const QRectF region = requested.normalized().intersected(QRectF(0, 0, 1, 1));
+    if (image.isNull() || region.width() < .002 || region.height() < .002) {
+        emit message(tr("Select a larger region."));
+        return;
+    }
+    const auto document = ensureWebDocument(page, title);
+    if (document.isEmpty()) {
+        emit message(tr("Cannot record this web page."));
+        return;
+    }
+    ++m_pending;
+    emit busyChanged();
+    const QString directory = m_directory;
+    auto *watcher = new QFutureWatcher<CaptureResult>(this);
+    connect(watcher, &QFutureWatcher<CaptureResult>::finished, this, [this, watcher, document] {
+        const auto result = watcher->result();
+        watcher->deleteLater();
+        --m_pending;
+        emit busyChanged();
+        if (!result.error.isEmpty()) {
+            emit message(result.error);
+            return;
+        }
+        QSqlQuery query(m_database);
+        query.prepare("INSERT INTO captures(id,document_id,sha256,page,x,y,width,height,image,created_at,anchor_kind) "
+                      "VALUES(?,?,'',0,?,?,?,?,?,?,'web')");
+        query.addBindValue(result.id);
+        query.addBindValue(document);
+        query.addBindValue(result.region.x());
+        query.addBindValue(result.region.y());
+        query.addBindValue(result.region.width());
+        query.addBindValue(result.region.height());
+        query.addBindValue(QFileInfo(result.path).fileName());
+        query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+        if (!query.exec()) {
+            emit message(tr("Image saved, but the capture could not be recorded: %1").arg(result.path));
+            return;
+        }
+        reloadCaptures();
+        emit captureSaved(result.id);
+        emit message(tr("Web capture saved with its page address."));
+    });
+    watcher->setFuture(QtConcurrent::run(&m_workers, [image, region, directory] {
+        CaptureResult result;
+        result.region = region;
+        const QRect crop = QRectF(region.x() * image.width(), region.y() * image.height(),
+            region.width() * image.width(), region.height() * image.height())
+                               .toAlignedRect()
+                               .intersected(image.rect());
+        result.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        result.path = directory + "/captures/" + result.id + ".png";
+        QSaveFile file(result.path);
+        if (crop.isEmpty() || !file.open(QIODevice::WriteOnly) || !image.copy(crop).save(&file, "PNG")
+            || !file.commit())
             result.error = tr("Cannot save capture image. Check storage and permissions.");
         return result;
     }));
@@ -911,13 +984,18 @@ void ResearchStore::openCapture(const QString &id)
 {
     QSqlQuery query(m_database);
     query.prepare(
-        "SELECT d.url,c.sha256,c.page,c.x,c.y,c.width,c.height FROM captures c "
+        "SELECT d.url,c.sha256,c.page,c.x,c.y,c.width,c.height,c.anchor_kind FROM captures c "
         "JOIN documents d ON d.id=c.document_id WHERE c.id=? AND c.id NOT IN (SELECT id FROM deleted_captures)");
     query.addBindValue(id);
     if (!query.exec() || !query.next()) return;
     const auto url = QUrl(query.value(0).toString());
     const auto expectedHash = query.value(1).toString();
     const int page = query.value(2).toInt();
+    if (query.value(7).toString() == "web") {
+        // A web page has no fixed bytes to verify; reopen the page itself.
+        emit webSourceRequested(url);
+        return;
+    }
     const QRectF rect(
         query.value(3).toDouble(), query.value(4).toDouble(), query.value(5).toDouble(), query.value(6).toDouble());
     auto *watcher = new QFutureWatcher<QString>(this);

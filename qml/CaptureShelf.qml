@@ -248,7 +248,7 @@ Rectangle {
                         font.pixelSize: 11
                         color: Theme.textQuote
                     }
-                    Label { visible: !root.showingTrash; text: "p. " + (card.modelData.page + 1) + "  ·  View source"; font.pixelSize: 11; color: Theme.textSecondary; width: parent.width; wrapMode: Text.Wrap }
+                    Label { visible: !root.showingTrash; text: (card.modelData.kind === "web" ? "Web page" : "p. " + (card.modelData.page + 1)) + "  ·  View source"; font.pixelSize: 11; color: Theme.textSecondary; width: parent.width; wrapMode: Text.Wrap }
                     Label {
                         visible: !root.showingTrash && !!card.modelData.note
                         width: parent.width

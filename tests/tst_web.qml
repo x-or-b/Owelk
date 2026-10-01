@@ -61,6 +61,28 @@ Item {
             verify(!Tree.owner(d.tree, fetching))
             verify(researchStore.downloadTarget("paper.pdf").fileName !== "paper.pdf") // Never overwrites.
         }
+        function test_webCaptureKeepsPageAndReopensIt() {
+            const d = workspace.documents
+            const page = testInput.webFixture("/page.html?capture")
+            verify(d.openResource(page))
+            const pane = webPane()
+            tryCompare(activeTab(), "title", "Owelk Test Page", 15000)
+            wait(300)
+            const before = researchStore.captures.length
+            pane.captureRegion(Qt.rect(0, 0, 300, 120))
+            tryVerify(function() { return researchStore.captures.length === before + 1 }, 10000)
+            const capture = researchStore.captures[0]
+            compare(capture.kind, "web")
+            compare(capture.name, "Owelk Test Page")
+            verify(capture.imageAvailable)
+            const image = testInput.imageSize(capture.image)
+            verify(image.width > 50 && image.height > 20, JSON.stringify(image))
+            // Opening it brings back the page, not a PDF check.
+            d.openNote(researchStore.createNote("placeholder", ""), true)
+            researchStore.openCapture(capture.id)
+            tryVerify(function() { return activeTab().kind === "web" && activeTab().source.indexOf("capture") >= 0 }, 5000)
+            researchStore.deleteCapture(capture.id); researchStore.purgeCapture(capture.id)
+        }
         function test_shortcutOpensWebTabAndAddressNavigates() {
             const d = workspace.documents
             d.openDocument(fixtureSource, null, true)
