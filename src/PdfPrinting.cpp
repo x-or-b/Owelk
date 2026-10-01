@@ -54,17 +54,17 @@ void paintPdfAnnotations(QImage &page, const QVariantList &marks, qreal scale)
                 if (!asset.isNull()) p.drawImage(box, asset);
             }
             if (kind == "draw") {
-                QPainterPath path;
-                bool first = true;
+                // Same midpoint quadratic curve as qml/StrokePath.js, so print matches the screen.
+                QList<QPointF> points;
                 for (const auto &point : mark["drawing"].toList()) {
                     const auto xy = point.toMap();
-                    const QPointF pos(xy["x"].toDouble() * page.width(), xy["y"].toDouble() * page.height());
-                    if (first) {
-                        path.moveTo(pos);
-                        first = false;
-                    } else
-                        path.lineTo(pos);
+                    points.append({xy["x"].toDouble() * page.width(), xy["y"].toDouble() * page.height()});
                 }
+                QPainterPath path;
+                if (!points.isEmpty()) path.moveTo(points.first());
+                for (qsizetype i = 1; i + 1 < points.size(); ++i)
+                    path.quadTo(points[i], (points[i] + points[i + 1]) / 2);
+                if (points.size() > 1) path.lineTo(points.last());
                 p.setPen(QPen(color, 2 * scale, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
                 p.drawPath(path);
             }

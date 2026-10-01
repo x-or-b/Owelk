@@ -148,9 +148,26 @@ Item {
             tryCompare(editor,"visible",false)
             tryVerify(function(){return canvas.savedHighlights.some(function(m){return m.kind==="text"})})
             reader.setTool("draw");waitForPolish(reader)
-            const start=area.mapToItem(canvas,area.width*.2,area.height*.5)
+            const start=area.mapToItem(canvas,area.width*.6,area.height*.5)
             testInput.pointerDrag(canvas,start,Qt.point(start.x+60,start.y+30),false)
             tryVerify(function(){return canvas.savedHighlights.some(function(m){return m.kind==="draw"})})
+            const drawn=canvas.savedHighlights.filter(function(m){return m.kind==="draw"})[0]
+            const stroke=findChild(canvas,"savedStroke-"+drawn.id)
+            tryVerify(function(){return stroke!==null&&stroke.visible})
+            waitForRendering(stroke)
+            // Round caps sit outside the stored centre-line box and must still be painted.
+            const ink=grabImage(stroke); let outside=0
+            for(let y=0;y<ink.height;++y)for(let x=0;x<Math.floor(stroke.pad);++x)if(ink.alpha(x,y)>0)++outside
+            verify(outside>0,"Stroke caps must not be clipped at the stored box edge")
+            // Empty space inside the box is not part of the drawing; only the ink opens its menu.
+            const menu=findChild(canvas,"highlightMenu")
+            const empty={x:stroke.mapX({x:drawn.rectangles[0].x+drawn.rectangles[0].width}),y:stroke.mapY({y:drawn.rectangles[0].y})}
+            mouseClick(stroke,empty.x-2,empty.y+2,Qt.RightButton)
+            verify(!menu.visible)
+            const middle=stroke.points[Math.floor(stroke.points.length/2)]
+            mouseClick(stroke,stroke.mapX(middle),stroke.mapY(middle),Qt.RightButton)
+            tryCompare(menu,"visible",true)
+            menu.close()
             canvas.tool=""
             editor.begin(canvas, {kind:"image",page:0,imageSource:fixtureImage.toString(),rectangles:[{x:.2,y:.4,width:.3,height:.2}]}, null)
             tryCompare(editor, "opened", true)

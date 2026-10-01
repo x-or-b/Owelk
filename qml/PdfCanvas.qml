@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Pdf
 import QtQuick.Shapes
 import "UiTheme.js" as Theme
+import "StrokePath.js" as Stroke
 
 Item {
     id: root
@@ -574,19 +575,35 @@ Item {
                                 Text { anchors.fill: parent; visible: persistentMark.modelData.kind === "text"; text: persistentMark.modelData.body || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: persistentMark.modelData.color; font.pixelSize: 14 * root.pageScale; clip: true }
                                 Image { anchors.fill: parent; visible: persistentMark.modelData.kind === "image"; source: visible ? persistentMark.modelData.image : ""; fillMode: Image.Stretch; asynchronous: true }
                                 Canvas {
-                                    anchors.fill: parent; visible: persistentMark.modelData.kind === "draw"
+                                    id: savedStroke
+                                    objectName: "savedStroke-" + persistentMark.modelData.id
+                                    // The stored rectangle bounds the stroke centre line; pad it so round caps and
+                                    // line width are never cut at the box edge.
+                                    readonly property real pad: root.pageScale + 3
+                                    readonly property var points: persistentMark.modelData.drawing || []
+                                    function mapX(p) { return (p.x - parent.modelData.x) * paper.width + pad }
+                                    function mapY(p) { return (p.y - parent.modelData.y) * paper.height + pad }
+                                    x: -pad; y: -pad; width: parent.width + 2 * pad; height: parent.height + 2 * pad
+                                    visible: persistentMark.modelData.kind === "draw"
                                     onWidthChanged: requestPaint(); onHeightChanged: requestPaint()
                                     onPaint: {
-                                        const c=getContext("2d"); c.reset(); c.strokeStyle=persistentMark.modelData.color; c.lineWidth=2*root.pageScale; c.lineJoin="round"; c.lineCap="round"; c.beginPath()
-                                        const points=persistentMark.modelData.drawing || [], r=modelData
-                                        for(let i=0;i<points.length;i++) { const x=(points[i].x-r.x)/r.width*width,y=(points[i].y-r.y)/r.height*height; if(i)c.lineTo(x,y);else c.moveTo(x,y) } c.stroke()
+                                        const c = getContext("2d"); c.reset()
+                                        c.strokeStyle = persistentMark.modelData.color; c.lineWidth = 2 * root.pageScale
+                                        c.lineJoin = "round"; c.lineCap = "round"; c.beginPath()
+                                        Stroke.trace(c, points, mapX, mapY); c.stroke()
                                     }
                                 }
                                 MouseArea {
-                                    anchors.fill: parent
+                                    anchors.fill: persistentMark.modelData.kind === "draw" ? savedStroke : parent
                                     acceptedButtons: Qt.RightButton
                                     enabled: !root.captureMode
                                     cursorShape: persistentMark.modelData.text ? Qt.IBeamCursor : Qt.ArrowCursor
+                                    // Only the ink is a drawing's hit area; empty space inside its box keeps text actions.
+                                    onPressed: function(mouse) {
+                                        if (persistentMark.modelData.kind === "draw"
+                                            && Stroke.distance(savedStroke.points, mouse.x, mouse.y, savedStroke.mapX, savedStroke.mapY)
+                                               > Math.max(6, 2 * root.pageScale)) mouse.accepted = false
+                                    }
                                     onClicked: function(mouse) {
                                         root.removingHighlight = persistentMark.modelData.id
                                         root.editingMark = persistentMark.modelData
@@ -717,16 +734,21 @@ Item {
                     property point start
                     property point end
                     property var points: []
-                    onPressed: function(mouse) { root.activated(); root.clearSelection(); start=Qt.point(mouse.x,mouse.y); end=start; points=[{x:start.x/width,y:start.y/height}]; liveStroke.requestPaint() }
+                    property point lastSample
+                    onPressed: function(mouse) { root.activated(); root.clearSelection(); start=Qt.point(mouse.x,mouse.y); end=start; lastSample=start; points=[{x:start.x/width,y:start.y/height}]; liveStroke.requestPaint() }
                     onPositionChanged: function(mouse) {
                         if (!pressed) return
                         end=Qt.point(Math.max(0,Math.min(width,mouse.x)),Math.max(0,Math.min(height,mouse.y)))
-                        if(root.tool==="draw" && points.length<5000) points=points.concat([{x:end.x/width,y:end.y/height}])
+                        // Skip sub-pixel jitter; it only adds kinks to the smoothed curve.
+                        if(root.tool==="draw" && points.length<5000 && Math.hypot(end.x-lastSample.x,end.y-lastSample.y)>=1.5) {
+                            points.push({x:end.x/width,y:end.y/height}); lastSample=end
+                        }
                         liveStroke.requestPaint()
                     }
                     onReleased: {
                         let x=Math.min(start.x,end.x)/width,y=Math.min(start.y,end.y)/height,w=Math.abs(end.x-start.x)/width,h=Math.abs(end.y-start.y)/height
                         if(root.tool==="draw") {
+                            if((end.x!==lastSample.x||end.y!==lastSample.y) && points.length<5000) points.push({x:end.x/width,y:end.y/height})
                             x=Math.min.apply(null,points.map(function(p){return p.x}));y=Math.min.apply(null,points.map(function(p){return p.y}))
                             w=Math.max.apply(null,points.map(function(p){return p.x}))-x;h=Math.max.apply(null,points.map(function(p){return p.y}))-y
                         }
@@ -736,7 +758,7 @@ Item {
                         liveStroke.requestPaint()
                     }
                     Rectangle { visible: annotationArea.pressed && root.tool!=="draw"; x:Math.min(annotationArea.start.x,annotationArea.end.x);y:Math.min(annotationArea.start.y,annotationArea.end.y);width:Math.abs(annotationArea.end.x-annotationArea.start.x);height:Math.abs(annotationArea.end.y-annotationArea.start.y);color:"transparent";border.color:Theme.accent }
-                    Canvas { id:liveStroke;anchors.fill:parent;visible:annotationArea.pressed&&root.tool==="draw";onPaint:{const c=getContext("2d");c.reset();c.strokeStyle=root.markColor;c.lineWidth=2*root.pageScale;c.lineCap="round";c.beginPath();for(let i=0;i<annotationArea.points.length;i++){const p=annotationArea.points[i];if(i)c.lineTo(p.x*width,p.y*height);else c.moveTo(p.x*width,p.y*height)}c.stroke()} }
+                    Canvas { id:liveStroke;anchors.fill:parent;visible:annotationArea.pressed&&root.tool==="draw";onPaint:{const c=getContext("2d");c.reset();c.strokeStyle=root.markColor;c.lineWidth=2*root.pageScale;c.lineCap="round";c.lineJoin="round";c.beginPath();Stroke.trace(c,annotationArea.points,function(p){return p.x*width},function(p){return p.y*height});c.stroke()} }
                 }
 
                 MouseArea {
