@@ -105,6 +105,15 @@ ApplicationWindow {
         }
     }
     function showHome() { persist(); homeVisible = true; Qt.callLater(function() { homeView.focusSearch() }) }
+    // Cmd+L: the address bar of the current web tab, or a new web tab when a paper or Home is in front.
+    function openWebAddress() {
+        if (restoreFailed) return
+        const view = documents.groupView(documents.activeGroup)
+        if (!homeVisible && view && view.isWeb && view.webPane) { view.webPane.focusAddress(); return }
+        const start = researchStore.setting("startPage")
+        if (documents.openWeb(start.length ? start : "https://scholar.google.com/", true))
+            Qt.callLater(function() { const next = documents.groupView(documents.activeGroup); if (next) next.focusAddress() })
+    }
     function findInView() {
         if (homeVisible) homeView.focusSearch()
         else if (currentReader) currentReader.find()
@@ -228,6 +237,8 @@ ApplicationWindow {
             case "/split right": documents.duplicateSplit("right"); break
             case "/split down": documents.duplicateSplit("bottom"); break
             case "/split off": documents.joinAll(); break
+            case "/web": window.openWebAddress(); break
+            case "/settings": settingsDialog.open(); break
             case "/move right": documents.moveActiveTabToSplit("right"); break
             case "/move down": documents.moveActiveTabToSplit("bottom"); break
             case "/next split": documents.focusGroup(1); break
@@ -255,6 +266,8 @@ ApplicationWindow {
         UiControls.Menu {
             title: "File"
             Action { text: "Open PDF…"; shortcut: StandardKey.Open; onTriggered: window.chooseFile() }
+            Action { objectName: "openWebAction"; text: "Open Web Page…"; shortcut: "Ctrl+L"; enabled: !window.restoreFailed; onTriggered: window.openWebAddress() }
+            Action { objectName: "settingsAction"; text: "Settings…"; shortcut: StandardKey.Preferences; onTriggered: settingsDialog.open() }
             Action { objectName: "newTabAction"; text: "New Tab"; shortcut: "Ctrl+T"; enabled: !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.newHomeTab() }
             Action { objectName: "closeTabAction"; text: "Close Tab"; shortcut: "Ctrl+W"; enabled: !window.homeVisible && !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.closeActiveTab() }
             Action { text: "Reopen Closed Tab"; shortcut: "Ctrl+Shift+T"; enabled: documents.closedTabs.length > 0 && !window.restoreFailed; onTriggered: documents.reopenClosedTab() }
@@ -283,6 +296,7 @@ ApplicationWindow {
         }
     }
     CaptureNoteDialog { id: captureNote }
+    SettingsDialog { id: settingsDialog }
     // Same bytes as another library entry: offer the existing copy without merging anything silently.
     // A notice, not a dialog: it never takes keyboard focus from the reader.
     Rectangle {

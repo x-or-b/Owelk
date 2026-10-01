@@ -20,6 +20,8 @@
 #include <QSaveFile>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QRegularExpression>
+#include <QStandardPaths>
 #include <QUuid>
 #include <QtConcurrent>
 #include <cmath>
@@ -997,6 +999,42 @@ bool ResearchStore::restoreCapture(const QString &id)
     reloadCaptures();
     emit message(tr("Capture restored with its note and workspace links."));
     return true;
+}
+
+QString ResearchStore::setting(const QString &key, const QString &fallback) const
+{
+    if (key == "session") return fallback; // The session has its own API.
+    QSqlQuery query(m_database);
+    query.prepare("SELECT value FROM settings WHERE key=?");
+    query.addBindValue("pref." + key);
+    return query.exec() && query.next() ? query.value(0).toString() : fallback;
+}
+
+bool ResearchStore::setSetting(const QString &key, const QString &value)
+{
+    if (key.isEmpty() || key.size() > 64 || value.size() > 4096) return false;
+    QSqlQuery query(m_database);
+    query.prepare("INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)");
+    query.addBindValue("pref." + key);
+    query.addBindValue(value.isNull() ? QStringLiteral("") : value);
+    if (!query.exec()) return false;
+    emit settingsChanged();
+    return true;
+}
+
+QVariantMap ResearchStore::downloadTarget(const QString &suggestedName) const
+{
+    auto directory = setting("downloadFolder");
+    if (directory.isEmpty() || !QFileInfo(directory).isDir())
+        directory = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    // Keep only a plain file name; never let a server choose the folder.
+    auto name = QFileInfo(suggestedName).fileName().remove(QRegularExpression("[\\x00-\\x1f/\\\\:]")).trimmed();
+    if (name.isEmpty() || name.startsWith('.')) name = "download.pdf";
+    const QFileInfo base(name);
+    const auto stem = base.completeBaseName(), suffix = base.suffix().isEmpty() ? QString() : "." + base.suffix();
+    for (int n = 1; QFileInfo::exists(directory + "/" + name) && n < 1000; ++n)
+        name = QStringLiteral("%1 (%2)%3").arg(stem).arg(n).arg(suffix);
+    return {{"directory", directory}, {"fileName", name}, {"url", QUrl::fromLocalFile(directory + "/" + name)}};
 }
 
 bool ResearchStore::purgeCapture(const QString &id)

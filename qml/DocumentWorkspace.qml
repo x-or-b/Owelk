@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtWebEngine
 import "WorkspaceTree.js" as Tree
 import "UiTheme.js" as Theme
 
@@ -44,7 +45,7 @@ Flickable {
     function flush() {
         for (let i = 0; i < groups.count; ++i) {
             const view = groups.itemAt(i)
-            if (!view || !view.loadedTab || view.isHome) continue
+            if (!view || !view.loadedTab || view.isHome || view.isWeb) continue
             const g = Tree.owner(tree, view.loadedTab)
             if (g) g.tabs.find(function(t) { return t.id === view.loadedTab }).position = view.reader.state().position
         }
@@ -148,6 +149,61 @@ Flickable {
         sync(); changed(); opened()
         return true
     }
+    // All web tabs share one persistent profile in the data folder (cookies, logins, cache).
+    // Qt 6.11 suggests WebEngineProfilePrototype, but instance() hung page loads in offscreen tests;
+    // revisit when the plain profile type is actually deprecated.
+    readonly property WebEngineProfile webProfile: WebEngineProfile {
+        storageName: "owelk"
+        offTheRecord: false
+        persistentStoragePath: researchStore.dataDirectory + "/web"
+        cachePath: researchStore.dataDirectory + "/web/cache"
+        httpCacheType: WebEngineProfile.DiskHttpCache
+        persistentCookiesPolicy: WebEngineProfile.AllowPersistentCookies
+    }
+    signal webTabUpdated()
+    // Route an address to the right surface: local PDFs open in the reader, web addresses in a web tab
+    // (a PDF on the web downloads there and then opens in the reader).
+    function openResource(url, forceNew) {
+        const value = url.toString()
+        if (value.startsWith("file:")) return openDocument(url, null, forceNew)
+        if (Tree.isWebAddress(value)) return openWeb(value, forceNew)
+        return false
+    }
+    function openWeb(url, forceNew, title) {
+        if (!Tree.isWebAddress(url)) return false
+        prepare()
+        const g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]
+        const home = !forceNew && g.tabs.find(function(t) { return t.id === g.activeTab && t.kind === "home" })
+        const t = Tree.webTab(url, title)
+        if (home) { t.id = home.id; g.tabs[g.tabs.indexOf(home)] = t }
+        else g.tabs.push(t)
+        g.activeTab = t.id; activeGroup = g.id
+        sync(); changed(); opened()
+        return true
+    }
+    // The page inside a web tab navigated; keep its address and title for the tab label and session.
+    function updateWebTab(tabId, url, title) {
+        const g = Tree.owner(tree, tabId)
+        const t = g ? g.tabs.find(function(tab) { return tab.id === tabId }) : null
+        if (!t || t.kind !== "web" || !Tree.isWebAddress(url)) return
+        if (t.source === url.toString() && t.title === title) return
+        t.source = url.toString(); t.title = title || ""
+        sync(); changed(); webTabUpdated()
+    }
+    // A downloaded PDF replaces the web tab that only existed to fetch it, or opens next to it.
+    function openDownloaded(tabId, file, replace) {
+        if (!researchStore.rememberDocument(file)) return false
+        const g = Tree.owner(tree, tabId)
+        if (!g) return openDocument(file)
+        prepare()
+        const t = Tree.tab(file, researchStore.readingPosition(file))
+        const at = g.tabs.findIndex(function(tab) { return tab.id === tabId })
+        if (replace && at >= 0) g.tabs[at] = t
+        else g.tabs.splice(at + 1, 0, t)
+        g.activeTab = t.id; activeGroup = g.id
+        sync(); changed(); opened()
+        return true
+    }
     function newHomeTab() {
         prepare()
         const g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]
@@ -217,7 +273,8 @@ Flickable {
         if (!g || !g.activeTab) return
         prepare()
         const original = g.tabs.find(function(t) { return t.id === g.activeTab })
-        const added = Tree.group([original.kind === "home" ? Tree.homeTab() : Tree.tab(original.source, original.position)])
+        const added = Tree.group([original.kind === "home" ? Tree.homeTab()
+            : original.kind === "web" ? Tree.webTab(original.source, original.title) : Tree.tab(original.source, original.position)])
         tree = Tree.split(tree, g.id, added, edge)
         activeGroup = added.id; sync(); changed(); opened()
     }

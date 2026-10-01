@@ -10,10 +10,13 @@
 #include <QQuickStyle>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QtWebEngineQuick/qtwebenginequickglobal.h>
 #include <cstdio>
 
 int main(int argc, char *argv[])
 {
+    // Web tabs need WebEngine set up before the application object exists.
+    QtWebEngineQuick::initialize();
     QApplication app(argc, argv);
     app.setOrganizationName("Owelk");
     app.setApplicationName("Owelk");

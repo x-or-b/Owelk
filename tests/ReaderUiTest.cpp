@@ -18,6 +18,9 @@
 #include <QFile>
 #include <QUuid>
 #include <QtQuickTest/quicktest.h>
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <QtWebEngineQuick/qtwebenginequickglobal.h>
 #include <QtTest/QTest>
 
 class ReaderSetup : public QObject {
@@ -138,7 +141,40 @@ public slots:
         m_store = nullptr;
     }
 
+    // A local web server for web-tab tests: /page.html links to /paper.pdf (the fixture PDF).
+    Q_INVOKABLE QUrl webFixture(const QString &path)
+    {
+        if (!m_web.isListening()) {
+            m_web.listen(QHostAddress::LocalHost);
+            connect(&m_web, &QTcpServer::newConnection, this, [this] {
+                auto *socket = m_web.nextPendingConnection();
+                connect(socket, &QTcpSocket::readyRead, socket, [this, socket] {
+                    const auto head = QString::fromUtf8(socket->readAll()).section("\r\n", 0, 0);
+                    QByteArray body, type = "text/html";
+                    if (head.contains("/paper.pdf")) {
+                        QFile pdf(m_directory.filePath("fixture.pdf"));
+                        pdf.open(QIODevice::ReadOnly);
+                        body = pdf.readAll();
+                        type = "application/pdf";
+                    } else
+                        body = "<html><head><title>Owelk Test Page</title></head><body><h1>Paper page</h1>"
+                               "<a id='pdf' href='/paper.pdf'>PDF</a></body></html>";
+                    socket->write("HTTP/1.1 200 OK\r\nContent-Type: " + type + "\r\nConnection: close\r\nContent-Length: "
+                        + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+                    socket->disconnectFromHost();
+                });
+            });
+        }
+        return QUrl(QStringLiteral("http://127.0.0.1:%1%2").arg(m_web.serverPort()).arg(path));
+    }
+    Q_INVOKABLE QString temporaryFolder(const QString &name)
+    {
+        QDir().mkpath(m_directory.filePath(name));
+        return m_directory.filePath(name);
+    }
+
 private:
+    QTcpServer m_web;
     SelectionGeometry m_geometry;
     QPointingDevice m_trackpad{"Test trackpad", 42, QInputDevice::DeviceType::TouchPad,
         QPointingDevice::PointerType::Finger, QInputDevice::Capability::Position, 5, 3};
@@ -149,3 +185,7 @@ private:
 
 QUICK_TEST_MAIN_WITH_SETUP(reader_ui, ReaderSetup)
 #include "ReaderUiTest.moc"
+
+// QUICK_TEST_MAIN creates the application object; WebEngine must be initialised before that.
+static void initializeWebEngine() { QtWebEngineQuick::initialize(); }
+Q_CONSTRUCTOR_FUNCTION(initializeWebEngine)

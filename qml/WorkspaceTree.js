@@ -6,6 +6,23 @@ function id(prefix) { return prefix + "-" + Date.now().toString(36) + "-" + (++s
 function clone(value) { return JSON.parse(JSON.stringify(value)) }
 function group(tabs) { return {kind: "group", id: id("group"), tabs: tabs || [], activeTab: tabs && tabs.length ? tabs[0].id : ""} }
 function tab(source, position) { return {id: id("tab"), source: source.toString(), position: Object.assign({page: 0, y: 0, x: 0, zoom: 1}, clone(position || {}))} }
+// Web pages are tabs too; their source is the current http(s) address.
+function webTab(url, title) { return {id: id("tab"), kind: "web", source: url.toString(), title: title || "", position: {page: 0, y: 0, x: 0, zoom: 1}} }
+function isWebAddress(url) { return /^https?:\/\/[^\s]+$/i.test(url.toString()) }
+// A typed address becomes a URL; anything else is a search with the given template ("…?q=%s").
+function addressToUrl(text, searchTemplate) {
+    const value = text.trim()
+    if (!value.length) return ""
+    if (/^https?:\/\//i.test(value)) return value
+    if (!/\s/.test(value) && /^[^\/]+\.[a-z]{2,}(\/|:|$)/i.test(value)) return "https://" + value
+    if (/^arxiv:\s*\d{4}\.\d{4,5}/i.test(value)) return "https://arxiv.org/abs/" + value.replace(/^arxiv:\s*/i, "")
+    return searchTemplate.replace("%s", encodeURIComponent(value))
+}
+// arxiv.org/abs/<id> → its PDF address; empty for other pages.
+function arxivPdf(url) {
+    const match = /^https?:\/\/(www\.)?arxiv\.org\/abs\/([^?#]+)/i.exec(url.toString())
+    return match ? "https://arxiv.org/pdf/" + match[2] : ""
+}
 function homeTab() { return {id: id("tab"), kind: "home", source: "", position: {page: 0, y: 0, x: 0, zoom: 1}} }
 function leaves(node) { return node.kind === "group" ? [node] : leaves(node.first).concat(leaves(node.second)) }
 function find(node, key) { if (node.id === key) return node; return node.kind === "split" ? find(node.first, key) || find(node.second, key) : null }
@@ -51,7 +68,7 @@ function validate(node, ids, depth) {
     for (let i = 0; i < node.tabs.length; ++i) {
         const t = node.tabs[i]
         if (!t || typeof t.id !== "string" || !t.id || ids[t.id] || typeof t.source !== "string") return false
-        if (t.kind === "home" ? t.source !== "" : !t.source.startsWith("file:")) return false
+        if (t.kind === "home" ? t.source !== "" : t.kind === "web" ? !isWebAddress(t.source) : !t.source.startsWith("file:")) return false
         ids[t.id] = true
         if (!t.position || !Number.isFinite(t.position.page) || t.position.page < 0) return false
     }

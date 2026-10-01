@@ -28,6 +28,7 @@ Item {
     property var editingMark: null
     property point markMenuPosition: Qt.point(0, 0)
     signal contextRequested(point position, int page)
+    signal externalLinkRequested(url url)
     signal editRequested(var record, var selection)
     signal annotationPlaced(int page, var rectangle, var points)
     readonly property point selectionEnd: {
@@ -733,7 +734,7 @@ Item {
                                 const size = pdfDocument.pagePointSize(link.page)
                                 root.jump(link.page, link.location.y / size.height, 0)
                             } else if (/^https?:\/\//i.test(url.toString())) {
-                                Qt.openUrlExternally(url)
+                                root.externalLinkRequested(url)
                             }
                         }
                     }

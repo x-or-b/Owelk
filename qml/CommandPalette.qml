@@ -24,6 +24,8 @@ UiControls.Popup {
         {command: "/close tab", title: "Tab: Close Active Tab", enabled: canCloseTab},
         {command: "/reopen tab", title: "Tab: Reopen Closed Tab", enabled: canReopenTab},
         {command: "/home", title: "View: Go to Home", enabled: true},
+        {command: "/web", title: "Web: Open Address or Search", enabled: true},
+        {command: "/settings", title: "App: Settings", enabled: true},
         {command: "/find", title: "Search: Find in Current PDF", enabled: hasDocument},
         {command: "/files", title: "Panel: Toggle Files", enabled: true},
         {command: "/captures", title: "Panel: Toggle Captures", enabled: true},

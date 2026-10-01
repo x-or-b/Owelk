@@ -99,8 +99,16 @@ public:
     Q_INVOKABLE void openHighlight(const QString &id);
     Q_INVOKABLE void openCapture(const QString &id);
     Q_INVOKABLE void copyText(const QString &text);
+    // Show a status message from QML through the same channel as store messages.
+    Q_INVOKABLE void notify(const QString &text) { emit message(text); }
     Q_INVOKABLE int listFolder(const QUrl &folder);
     Q_INVOKABLE QVariantMap readingPosition(const QUrl &source) const;
+    // Plain preferences in the settings table (download folder, search engine, AI language, …).
+    Q_INVOKABLE QString setting(const QString &key, const QString &fallback = QString()) const;
+    Q_INVOKABLE bool setSetting(const QString &key, const QString &value);
+    // Where a web download should be saved: the chosen folder (default ~/Downloads) and a name that
+    // never overwrites an existing file. Returns directory, fileName and url.
+    Q_INVOKABLE QVariantMap downloadTarget(const QString &suggestedName) const;
     Q_INVOKABLE QVariantList searchKnowledge(
         const QString &query, const QUrl &source = QUrl(), const QString &target = "all") const;
     // Same results as searchKnowledge, computed off the UI thread; answered by knowledgeFound(request, rows).
@@ -120,6 +128,7 @@ public:
 signals:
     void highlightsChanged();
     void documentsChanged();
+    void settingsChanged();
     // The opened file has the same bytes as another library entry that still exists.
     void duplicateFound(const QUrl &source, const QUrl &existing, const QString &existingTitle);
     void highlightSaved(const QString &id, const QUrl &source);

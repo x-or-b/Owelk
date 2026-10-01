@@ -1,0 +1,84 @@
+import QtQuick
+import QtTest
+import "../qml" as App
+import "../qml/WorkspaceTree.js" as Tree
+
+Item {
+    width: 1440; height: 930
+    App.Main { id: workspace }
+    TestCase {
+        name: "WebTabs"
+        when: windowShown
+        function cleanupTestCase() { workspace.visible = false }
+        function init() {
+            workspace.width = 1440; workspace.height = 930
+            workspace.documents.restore({})
+            workspace.homeVisible = true
+            researchStore.setSetting("downloadFolder", testInput.temporaryFolder("web downloads"))
+        }
+        function activeTab() {
+            const d = workspace.documents, g = Tree.find(d.tree, d.activeGroup)
+            return g.tabs.find(function(t) { return t.id === g.activeTab })
+        }
+        function webPane() {
+            let pane = null
+            tryVerify(function() { const v = workspace.documents.groupView(workspace.documents.activeGroup); pane = v ? v.webPane : null; return pane !== null }, 5000)
+            return pane
+        }
+        function test_routerAndHelpers() {
+            verify(Tree.validate({kind: "group", id: "g", activeTab: "t", tabs: [Tree.webTab("https://arxiv.org/abs/1")].map(function(t) { t.id = "t"; return t })}, {}, 0))
+            verify(!Tree.validate({kind: "group", id: "g", activeTab: "t", tabs: [{id: "t", kind: "web", source: "javascript:alert(1)", position: {page: 0}}]}, {}, 0))
+            compare(Tree.addressToUrl("arxiv.org/abs/1706.03762", "S=%s"), "https://arxiv.org/abs/1706.03762")
+            compare(Tree.addressToUrl("occlusion mapping", "https://s/?q=%s"), "https://s/?q=occlusion%20mapping")
+            compare(Tree.arxivPdf("https://arxiv.org/abs/1706.03762v7"), "https://arxiv.org/pdf/1706.03762v7")
+            verify(!workspace.documents.openResource("ftp://example.com/x"))
+        }
+        function test_webTabTitleSessionAndPdfDownload() {
+            const d = workspace.documents
+            const page = testInput.webFixture("/page.html")
+            verify(d.openResource(page))
+            compare(activeTab().kind, "web")
+            const pane = webPane()
+            tryCompare(activeTab(), "title", "Owelk Test Page", 15000)
+            const tabLabel = findChild(d.groupView(d.activeGroup), "tab-" + activeTab().id)
+            verify(tabLabel !== null)
+            // The session keeps web tabs by address and survives validation.
+            const saved = d.snapshot()
+            verify(Tree.validate(saved.tree, {}, 0))
+            verify(JSON.stringify(saved.tree).indexOf("/page.html") >= 0)
+            // A PDF link inside the page downloads into the chosen folder and opens next to the page.
+            const webTabId = activeTab().id
+            pane.view.runJavaScript("document.getElementById('pdf').click()")
+            tryVerify(function() { return activeTab().kind !== "web" }, 15000)
+            const opened = activeTab()
+            verify(opened.source.indexOf("web%20downloads") >= 0 || opened.source.indexOf("web downloads") >= 0, opened.source)
+            verify(Tree.owner(d.tree, webTabId) !== undefined && Tree.owner(d.tree, webTabId) !== null) // The page stays open.
+            tryVerify(function() { const r = workspace.currentReader; return r && findChild(r, "pdfCanvas0").ready }, 10000)
+            // Opening a PDF address directly replaces the tab that only fetched it.
+            verify(d.openWeb(testInput.webFixture("/paper.pdf").toString(), true))
+            const fetching = activeTab().id
+            tryVerify(function() { return activeTab().kind !== "web" }, 15000)
+            verify(!Tree.owner(d.tree, fetching))
+            verify(researchStore.downloadTarget("paper.pdf").fileName !== "paper.pdf") // Never overwrites.
+        }
+        function test_shortcutOpensWebTabAndAddressNavigates() {
+            const d = workspace.documents
+            d.openDocument(fixtureSource, null, true)
+            workspace.homeVisible = false
+            researchStore.setSetting("startPage", testInput.webFixture("/page.html").toString())
+            findChild(workspace, "openWebAction").trigger()
+            compare(activeTab().kind, "web")
+            const pane = webPane()
+            const address = findChild(pane, "webAddress")
+            tryVerify(function() { return address.focus }) // activeFocus needs the window to be active, which offscreen tests are not.
+            tryCompare(activeTab(), "title", "Owelk Test Page", 15000) // Let the start page finish loading first.
+            address.text = testInput.webFixture("/page.html?second").toString()
+            address.accepted()
+            tryVerify(function() { return activeTab().source.indexOf("second") >= 0 }, 15000)
+            tryVerify(function() { return pane.view.canGoBack }, 15000)
+            mouseClick(findChild(pane, "webBack"))
+            tryVerify(function() { return activeTab().source.indexOf("second") < 0 }, 15000)
+            researchStore.setSetting("startPage", "")
+        }
+    }
+}

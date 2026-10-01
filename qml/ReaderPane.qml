@@ -84,6 +84,8 @@ Rectangle {
     function zoom(multiplier) { canvas.zoom(multiplier) }
     function fitWidth() { canvas.fitWidth() }
     function jumpToPage(page, y) { activated(); canvas.rememberPlace(); canvas.jump(page, y || 0, 0) }
+    // Web links in a PDF open in an app tab when the pane belongs to a workspace.
+    signal linkRequested(url url)
     function goBack() { return canvas.goBack() }
     function goForward() { return canvas.goForward() }
     function copySelection() { canvas.copySelection() }
@@ -325,6 +327,7 @@ Rectangle {
                 objectName: "pdfCanvas" + root.paneIndex
                 anchors.fill: parent
                 onActivated: root.activated()
+                onExternalLinkRequested: function(url) { if (root.managed) root.linkRequested(url); else Qt.openUrlExternally(url) }
                 onContextRequested: function(position,page) { root.activated(); selectionMenu.page=page; selectionMenu.popup(canvas,position.x,position.y) }
                 onEditRequested: function(record,selection) { root.activated(); annotationEditor.begin(canvas,record,selection) }
                 onAnnotationPlaced: function(page,rectangle,points) {

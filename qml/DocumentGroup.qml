@@ -11,6 +11,14 @@ Rectangle {
     property string loadedTab: ""
     property string loadedSource: ""
     readonly property bool isHome: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "home" })
+    readonly property bool isWeb: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "web" })
+    readonly property var webPane: webLoader.item
+    // Cmd+L on a new web tab: focus the address bar once the page has loaded its pane.
+    property bool focusAddressWhenReady: false
+    function focusAddress() {
+        if (webLoader.item) webLoader.item.focusAddress()
+        else focusAddressWhenReady = true
+    }
     property alias reader: pane
     property string menuTab: ""
     objectName: "group-" + groupId
@@ -22,8 +30,14 @@ Rectangle {
         const t = groupData.tabs.find(function(t) { return t.id === groupData.activeTab })
         if (loadedTab === groupData.activeTab && loadedSource === (t ? t.source : "")) return
         if (!loadedTab.length && controller.suspended) return
+        const switched = loadedTab !== groupData.activeTab
         loadedTab = groupData.activeTab
         loadedSource = t ? t.source : ""
+        if (t && t.kind === "web") {
+            // The page itself reports navigation; only a tab switch loads a new address.
+            if (switched) Qt.callLater(function() { if (webLoader.item) { webLoader.item.tabId = t.id; webLoader.item.open(t.source) } })
+            return
+        }
         pane.restore(t && t.kind !== "home" ? t : {})
     }
     function focusHome() { if (homeLoader.item) homeLoader.item.focusSearch() }
@@ -62,7 +76,7 @@ Rectangle {
                 radius: Theme.cornerRadius
                 color: modelData.id === root.groupData.activeTab ? Theme.surface : Theme.surfaceSelected
                 Rectangle { anchors.bottom: parent.bottom; x: Theme.cornerRadius; width: parent.width - 2 * x; height: 1; color: root.controller.activeGroup === root.groupId && modelData.id === root.loadedTab ? Theme.tabUnderlineActive : Theme.tabUnderline }
-                Label { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: close.left; anchors.verticalCenter: parent.verticalCenter; text: modelData.kind === "home" ? "Home" : (researchStore.documentsRevision, researchStore.displayName(modelData.source)); elide: Text.ElideRight; font.pixelSize: 12 }
+                Label { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: close.left; anchors.verticalCenter: parent.verticalCenter; text: modelData.kind === "home" ? "Home" : modelData.kind === "web" ? (modelData.title || modelData.source.replace(/^https?:\/\/(www\.)?/, "")) : (researchStore.documentsRevision, researchStore.displayName(modelData.source)); elide: Text.ElideRight; font.pixelSize: 12 }
                 MouseArea {
                     id: pointer
                     anchors.fill: parent
@@ -134,15 +148,31 @@ Rectangle {
             onClicked: { root.controller.activateGroup(root.groupId); root.controller.newHomeTab() }
         }
         }
+        Loader {
+            id: webLoader
+            Layout.fillWidth: true; Layout.fillHeight: true
+            visible: root.isWeb; active: root.isWeb && !root.controller.suspended
+            sourceComponent: WebPane {
+                controller: root.controller
+                isActive: root.isWeb && !root.controller.suspended && root.controller.activeGroup === root.groupId
+                onActivated: root.controller.activateGroup(root.groupId)
+            }
+            onLoaded: {
+                const t = root.groupData.tabs.find(function(tab) { return tab.id === root.groupData.activeTab })
+                if (t && t.kind === "web") { item.tabId = t.id; item.open(t.source) }
+                if (root.focusAddressWhenReady) { root.focusAddressWhenReady = false; item.focusAddress() }
+            }
+        }
         ReaderPane {
             id: pane
-            visible: !root.isHome
+            visible: !root.isHome && !root.isWeb
             Layout.fillWidth: true
             Layout.fillHeight: true
             managed: true
-            isActive: !root.isHome && !root.controller.suspended && root.controller.activeGroup === root.groupId
+            isActive: !root.isHome && !root.isWeb && !root.controller.suspended && root.controller.activeGroup === root.groupId
             onActivated: root.controller.activateGroup(root.groupId)
             onFileChosen: function(source) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source) }
+            onLinkRequested: function(url) { root.controller.activateGroup(root.groupId); root.controller.openWeb(url.toString(), true) }
             onChanged: if (!root.controller.syncing) root.controller.changed()
         }
         Loader {
