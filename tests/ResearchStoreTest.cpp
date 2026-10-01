@@ -52,6 +52,22 @@ private slots:
         QVERIFY(!caption.contains("Unrelated"));
         QCOMPARE(store.searchKnowledge("kitchen scene").value(0).toMap()["kind"].toString(), QString("capture"));
     }
+    void deletedWorkspaceCanBeRestored()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        const auto id = store.createWorkspace("Hidden topic");
+        QVERIFY(store.deleteWorkspace(id));
+        QVERIFY(store.recentWorkspaces().isEmpty());
+        QCOMPARE(store.deletedWorkspaces().size(), 1);
+        QVERIFY(store.restoreWorkspace(id));
+        QCOMPARE(store.recentWorkspaces().size(), 1);
+        QVERIFY(store.deletedWorkspaces().isEmpty());
+        QVERIFY(!store.restoreWorkspace(id));
+        QVERIFY(!store.loadWorkspace(id).isEmpty());
+    }
     void notesLinksBacklinksAndTrash()
     {
         QTemporaryDir directory;

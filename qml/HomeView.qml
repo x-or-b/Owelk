@@ -13,6 +13,34 @@ Rectangle {
     readonly property var continuation: researchStore.continueReading
     signal openRequested()
     signal libraryRequested()
+    readonly property var deletedWorkspaces: (researchStore.recentWorkspaces, researchStore.deletedWorkspaces())
+    UiControls.Dialog {
+        id: deletedDialog
+        objectName: "deletedWorkspacesDialog"
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: 420
+        modal: true
+        title: "Deleted workspaces"
+        standardButtons: Dialog.Close
+        ColumnLayout {
+            width: parent.width
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary; text: "Deleting a workspace only hides it. Restore brings back its papers, captures and layout." }
+            Repeater {
+                model: root.deletedWorkspaces
+                delegate: RowLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Label { Layout.fillWidth: true; text: modelData.name + "  ·  " + modelData.papers + " papers"; elide: Text.ElideRight; textFormat: Text.PlainText }
+                    UiControls.Button {
+                        objectName: "restoreWorkspace-" + modelData.id
+                        text: "Restore"
+                        onClicked: { researchStore.restoreWorkspace(modelData.id); if (root.deletedWorkspaces.length === 0) deletedDialog.close() }
+                    }
+                }
+            }
+        }
+    }
     signal documentChosen(url source, var position)
     signal workspaceChosen(string id)
     signal workspaceManageRequested(string id)
@@ -124,6 +152,14 @@ Rectangle {
                         Layout.fillWidth: true
                         Label { text: "Recent Workspaces"; font.pixelSize: 14; font.weight: Font.DemiBold }
                         Item { Layout.fillWidth: true }
+                        UiControls.ToolButton {
+                            objectName: "deletedWorkspacesButton"
+                            visible: root.deletedWorkspaces.length > 0
+                            text: "Deleted (" + root.deletedWorkspaces.length + ")"
+                            font.pixelSize: 12
+                            ToolTip.visible: hovered; ToolTip.delay: 450; ToolTip.text: "Restore a deleted workspace"
+                            onClicked: deletedDialog.open()
+                        }
                         UiControls.ToolButton { text: "+"; onClicked: workspaceDialog.open(); Accessible.name: "New workspace"; ToolTip.visible: hovered; ToolTip.text: "New workspace" }
                     }
                     Repeater {

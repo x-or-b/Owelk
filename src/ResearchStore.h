@@ -163,6 +163,8 @@ public:
     Q_INVOKABLE bool setWorkspaceCapture(const QString &id, const QString &captureId, bool linked);
     Q_INVOKABLE bool renameWorkspace(const QString &id, const QString &name);
     Q_INVOKABLE bool deleteWorkspace(const QString &id);
+    Q_INVOKABLE QVariantList deletedWorkspaces() const;
+    Q_INVOKABLE bool restoreWorkspace(const QString &id);
     QVariantList recentWorkspaces() const;
     QVariantMap continueReading() const;
 

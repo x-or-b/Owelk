@@ -142,3 +142,31 @@ bool ResearchStore::deleteWorkspace(const QString &id)
     emit homeChanged();
     return true;
 }
+
+QVariantList ResearchStore::deletedWorkspaces() const
+{
+    QVariantList rows;
+    QSqlQuery query(m_database);
+    query.exec("SELECT w.id,w.name,d.deleted_at,(SELECT count(*) FROM workspace_documents x WHERE x.workspace_id=w.id) "
+               "FROM workspaces w JOIN deleted_workspaces d ON d.id=w.id ORDER BY d.deleted_at DESC");
+    while (query.next())
+        rows.append(QVariantMap{{"id", query.value(0)}, {"name", query.value(1)}, {"deletedAt", query.value(2)},
+            {"papers", query.value(3)}});
+    return rows;
+}
+
+bool ResearchStore::restoreWorkspace(const QString &id)
+{
+    // Deletion only hid the workspace; its layout and links are still there.
+    QSqlQuery query(m_database);
+    query.prepare("DELETE FROM deleted_workspaces WHERE id=? AND EXISTS(SELECT 1 FROM workspaces WHERE id=?)");
+    query.addBindValue(id);
+    query.addBindValue(id);
+    if (!query.exec() || query.numRowsAffected() != 1) {
+        emit message("This workspace cannot be restored.");
+        return false;
+    }
+    emit homeChanged();
+    emit message("Workspace restored with its papers, captures and layout.");
+    return true;
+}
