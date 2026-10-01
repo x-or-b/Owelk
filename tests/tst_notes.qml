@@ -43,7 +43,8 @@ Item {
             // Saved shortly after editing stops; the tab label follows the title.
             tryVerify(function() { return researchStore.note(id).body.indexOf("owelk://document/") >= 0 }, 3000)
             tryCompare(activeTab(), "title", "Reading plan")
-            compare(researchStore.backlinks("document", paper).length, 1)
+            // Other test files may link the same fixture paper; this note must be among its backlinks.
+            verify(researchStore.backlinks("document", paper).some(function(b) { return b.kind === "note" && b.id === id }))
             // The same note never opens twice.
             const tabCount = Tree.leaves(workspace.documents.tree)[0].tabs.length
             verify(workspace.documents.openNote(id, true))
@@ -55,7 +56,7 @@ Item {
             workspace.navigationMode = 2
             workspace.togglePanel("document")
             tryCompare(findChild(workspace, "leftDock"), "activePanel", "document")
-            tryVerify(function() { const list = findChild(workspace, "backlinkList"); return list && list.count === 1 }, 5000)
+            tryVerify(function() { const list = findChild(workspace, "backlinkList"); return list && list.count >= 1 }, 5000)
             workspace.togglePanel("document")
             // Trash closes its tab; restore and purge from the library.
             verify(workspace.documents.openNote(id))

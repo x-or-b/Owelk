@@ -35,7 +35,12 @@ Rectangle {
                     UiControls.Button {
                         objectName: "restoreWorkspace-" + modelData.id
                         text: "Restore"
-                        onClicked: { researchStore.restoreWorkspace(modelData.id); if (root.deletedWorkspaces.length === 0) deletedDialog.close() }
+                        // Restoring removes this row; finish with the delegate before the list changes.
+                        onClicked: {
+                            const id = modelData.id
+                            if (root.deletedWorkspaces.length === 1) deletedDialog.close()
+                            Qt.callLater(function() { researchStore.restoreWorkspace(id) })
+                        }
                     }
                 }
             }
