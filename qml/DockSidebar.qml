@@ -10,6 +10,7 @@ Rectangle {
     property string activePanel: panels.length ? panels[0] : ""
     property url folder
     property var reader: null
+    property var aiController: null
     property int navigationMode: 0
     signal navigationModeChosen(int mode)
     signal documentChosen(url source)
@@ -33,11 +34,11 @@ Rectangle {
                 delegate: Rectangle {
                     required property string modelData
                     Layout.fillWidth: true
-                    Layout.minimumWidth: modelData === "files" ? 48 : 74
+                    Layout.minimumWidth: modelData === "files" || modelData === "ai" ? 40 : 74
                     Layout.preferredHeight: 34
                     color: root.activePanel === modelData ? Theme.surfaceSelected : "transparent"
                     radius: Theme.cornerRadius
-                    Label { anchors.centerIn: parent; text: modelData === "files" ? "Files" : modelData === "captures" ? "Captures" : "Document"; font.pixelSize: 12 }
+                    Label { anchors.centerIn: parent; text: modelData === "files" ? "Files" : modelData === "captures" ? "Captures" : modelData === "ai" ? "AI" : "Document"; font.pixelSize: 12 }
                     TapHandler { onTapped: root.activePanel = modelData }
                 }
             }
@@ -45,7 +46,7 @@ Rectangle {
         Loader {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            sourceComponent: root.activePanel === "files" ? files : root.activePanel === "captures" ? captures : root.activePanel === "document" ? navigation : null
+            sourceComponent: root.activePanel === "files" ? files : root.activePanel === "captures" ? captures : root.activePanel === "document" ? navigation : root.activePanel === "ai" ? aiPanel : null
         }
     }
     Component {
@@ -57,6 +58,7 @@ Rectangle {
         }
     }
     Component { id: captures; CaptureShelf { onNoteRequested: function(id) { root.noteRequested(id) }; onAiRequested: function(spec) { root.aiRequested(spec) } } }
+    Component { id: aiPanel; AiPanel { controller: root.aiController; onLinkActivated: function(link) { root.linkActivated(link) } } }
     Component {
         id: navigation
         PdfNavigationPanel {

@@ -38,6 +38,8 @@ ApplicationWindow {
     property string capturesSide: "right"
     property bool documentVisible: false
     property string documentSide: "left"
+    property bool aiVisible: false
+    property string aiSide: "right"
     property real leftDockWidth: 224
     property real rightDockWidth: 224
     function dockWidth(value) { return Math.max(160, Math.min(value, 560, (width - 360) / 2)) }
@@ -59,12 +61,23 @@ ApplicationWindow {
         if (filesVisible && filesSide === side) panels.push("files")
         if (shelfVisible && capturesSide === side) panels.push("captures")
         if (documentVisible && documentSide === side) panels.push("document")
+        if (aiVisible && aiSide === side) panels.push("ai")
         return panels
     }
-    function panelSide(panel) { return panel === "files" ? filesSide : panel === "captures" ? capturesSide : documentSide }
-    function panelShown(panel) { return panel === "files" ? filesVisible : panel === "captures" ? shelfVisible : documentVisible }
-    function panelName(panel) { return panel === "files" ? "Files" : panel === "captures" ? "Captures" : "Document outline and thumbnails" }
-    function setPanelShown(panel, shown) { if (panel === "files") filesVisible = shown; else if (panel === "captures") shelfVisible = shown; else documentVisible = shown }
+    readonly property var dockPanels: ["files", "captures", "document", "ai"]
+    function panelSide(panel) { return panel === "files" ? filesSide : panel === "captures" ? capturesSide : panel === "ai" ? aiSide : documentSide }
+    function panelShown(panel) { return panel === "files" ? filesVisible : panel === "captures" ? shelfVisible : panel === "ai" ? aiVisible : documentVisible }
+    function panelName(panel) { return panel === "files" ? "Files" : panel === "captures" ? "Captures" : panel === "ai" ? "AI threads" : "Document outline and thumbnails" }
+    function setPanelShown(panel, shown) {
+        if (panel === "files") filesVisible = shown
+        else if (panel === "captures") shelfVisible = shown
+        else if (panel === "ai") aiVisible = shown
+        else documentVisible = shown
+    }
+    // Reader and capture actions bring the AI panel forward and start a thread there.
+    function showAi() { setPanelShown("ai", true); movePanel("ai", aiSide) }
+    function askAi(spec) { showAi(); aiController.begin(spec) }
+    function openAiThread(id) { if (aiController.openThread(id)) showAi() }
     function togglePanel(panel) {
         const side = panelSide(panel)
         const dock = side === "left" ? leftDock : rightDock
@@ -81,6 +94,7 @@ ApplicationWindow {
         if (panel === "files") filesSide = side
         if (panel === "captures") capturesSide = side
         if (panel === "document") documentSide = side
+        if (panel === "ai") aiSide = side
         Qt.callLater(function() { (side === "left" ? leftDock : rightDock).activePanel = panel })
     }
     // Tab switching must not discard an annotation that is still being edited.
@@ -130,7 +144,7 @@ ApplicationWindow {
         else if (result.kind === "note") captureNote.begin(result.id)
         else if (result.kind === "workspace") openWorkspace(result.id)
         else if (result.kind === "standalone-note" && !restoreFailed) documents.openNote(result.id)
-        else if (result.kind === "ai") aiComposer.showSaved(result.id)
+        else if (result.kind === "ai") openAiThread(result.id)
         else if (result.kind === "collection" && !restoreFailed) documents.openLibrary({collection: result.id})
         else if (result.kind === "tag" && !restoreFailed) documents.openLibrary({tag: result.id})
         else if (result.kind === "text" && !restoreFailed) { notify("Checking PDF source…"); researchStore.paperIndex.openResult(result.documentId, Number(result.page), result.sha256) }
@@ -157,7 +171,7 @@ ApplicationWindow {
         const state = documents.snapshot()
         Object.assign(state, {shelf: shelfVisible, workspace: activeWorkspace, workspaceName: workspaceName,
             width: width, height: height, panels: {filesVisible: filesVisible, filesSide: filesSide, capturesSide: capturesSide,
-                documentVisible: documentVisible, documentSide: documentSide, navigationMode: navigationMode,
+                documentVisible: documentVisible, documentSide: documentSide, aiVisible: aiVisible, aiSide: aiSide, navigationMode: navigationMode,
                 folder: paperFolder.toString(), leftActive: leftDock.activePanel, rightActive: rightDock.activePanel,
                 leftWidth: leftDockWidth, rightWidth: rightDockWidth}})
         return researchStore.saveWorkspace(activeWorkspace, state) && researchStore.saveSession(state)
@@ -179,6 +193,8 @@ ApplicationWindow {
         capturesSide = panels.capturesSide === "left" ? "left" : "right"
         documentVisible = !!panels.documentVisible
         documentSide = panels.documentSide === "right" ? "right" : "left"
+        aiVisible = !!panels.aiVisible
+        aiSide = panels.aiSide === "left" ? "left" : "right"
         navigationMode = [0, 1, 2].indexOf(panels.navigationMode) >= 0 ? panels.navigationMode : 0
         paperFolder = panels.folder || ""
         if (leftPanels.indexOf(panels.leftActive) >= 0) leftDock.activePanel = panels.leftActive
@@ -309,7 +325,7 @@ ApplicationWindow {
     }
     CaptureNoteDialog { id: captureNote }
     SettingsDialog { id: settingsDialog }
-    AiComposer { id: aiComposer }
+    AiController { id: aiController; reader: window.homeVisible ? null : window.currentReader }
     // Same bytes as another library entry: offer the existing copy without merging anything silently.
     // A notice, not a dialog: it never takes keyboard focus from the reader.
     Rectangle {
@@ -376,10 +392,11 @@ ApplicationWindow {
             objectName: "leftDock"
             side: "left"; panels: window.leftPanels; folder: window.paperFolder
             reader: window.homeVisible ? null : window.currentReader
+            aiController: aiController
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
-            onAiRequested: function(spec) { aiComposer.begin(spec) }
+            onAiRequested: function(spec) { window.askAi(spec) }
             visible: panels.length > 0
             Layout.preferredWidth: window.dockWidth(window.leftDockWidth); Layout.fillHeight: true
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
@@ -427,8 +444,8 @@ ApplicationWindow {
             onBeforeChange: window.persist()
             onChanged: window.scheduleSave()
             onEmpty: window.showHome()
-            onAiRequested: function(spec) { aiComposer.begin(spec) }
-            onAiResponseRequested: function(id) { aiComposer.showSaved(id) }
+            onAiRequested: function(spec) { window.askAi(spec) }
+            onAiResponseRequested: function(id) { window.openAiThread(id) }
             onOpened: window.homeVisible = false
             onHomeOpenRequested: window.chooseFile()
             onHomeResultChosen: function(result) { window.openSearchResult(result) }
@@ -459,10 +476,11 @@ ApplicationWindow {
             objectName: "rightDock"
             side: "right"; panels: window.rightPanels; folder: window.paperFolder
             reader: window.homeVisible ? null : window.currentReader
+            aiController: aiController
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
-            onAiRequested: function(spec) { aiComposer.begin(spec) }
+            onAiRequested: function(spec) { window.askAi(spec) }
             visible: panels.length > 0
             Layout.preferredWidth: window.dockWidth(window.rightDockWidth); Layout.fillHeight: true
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
@@ -482,7 +500,7 @@ ApplicationWindow {
             anchors.leftMargin: 4; anchors.rightMargin: 4
             spacing: 2
             Repeater {
-                model: ["files", "captures", "document"].filter(function(p) { return window.panelSide(p) === "left" })
+                model: window.dockPanels.filter(function(p) { return window.panelSide(p) === "left" })
                 delegate: StatusIcon {
                     required property string modelData
                     objectName: "dockIcon-" + modelData
@@ -509,7 +527,7 @@ ApplicationWindow {
             }
             StatusIcon { kind: "split"; description: "Duplicate tab to right split"; visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }
             Repeater {
-                model: ["files", "captures", "document"].filter(function(p) { return window.panelSide(p) === "right" })
+                model: window.dockPanels.filter(function(p) { return window.panelSide(p) === "right" })
                 delegate: StatusIcon {
                     required property string modelData
                     objectName: "dockIcon-" + modelData

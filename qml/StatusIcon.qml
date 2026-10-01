@@ -51,6 +51,11 @@ Item {
                 c.moveTo(1, 8); c.lineTo(9, 2); c.lineTo(17, 8)
                 c.moveTo(4, 6); c.lineTo(4, 16); c.lineTo(14, 16); c.lineTo(14, 6)
                 c.moveTo(7, 16); c.lineTo(7, 10); c.lineTo(11, 10); c.lineTo(11, 16)
+            } else if (root.kind === "ai") {
+                // Four-point spark with a small companion, like the reader's AI button.
+                c.moveTo(8, 2); c.quadraticCurveTo(8.5, 7.5, 14, 8); c.quadraticCurveTo(8.5, 8.5, 8, 14)
+                c.quadraticCurveTo(7.5, 8.5, 2, 8); c.quadraticCurveTo(7.5, 7.5, 8, 2)
+                c.moveTo(14, 11); c.lineTo(14, 16); c.moveTo(11.5, 13.5); c.lineTo(16.5, 13.5)
             } else if (root.kind === "split") {
                 c.rect(2, 3, 14, 12); c.moveTo(9, 3); c.lineTo(9, 15)
             } else {
