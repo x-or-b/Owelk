@@ -12,6 +12,8 @@ Rectangle {
     property string loadedSource: ""
     readonly property bool isHome: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "home" })
     readonly property bool isWeb: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "web" })
+    readonly property bool isNote: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "note" })
+    function focusNoteTitle() { if (noteLoader.item) noteLoader.item.focusTitle() }
     readonly property bool isLibrary: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "library" })
     readonly property var activeTabData: groupData.tabs.find(function(t) { return t.id === groupData.activeTab }) || null
     readonly property var webPane: webLoader.item
@@ -36,6 +38,7 @@ Rectangle {
         loadedTab = groupData.activeTab
         loadedSource = t ? t.source : ""
         if (t && t.kind === "library") return
+        if (t && t.kind === "note") return
         if (t && t.kind === "web") {
             // The page itself reports navigation; only a tab switch loads a new address.
             if (switched) Qt.callLater(function() { if (webLoader.item) { webLoader.item.tabId = t.id; webLoader.item.open(t.source) } })
@@ -79,7 +82,7 @@ Rectangle {
                 radius: Theme.cornerRadius
                 color: modelData.id === root.groupData.activeTab ? Theme.surface : Theme.surfaceSelected
                 Rectangle { anchors.bottom: parent.bottom; x: Theme.cornerRadius; width: parent.width - 2 * x; height: 1; color: root.controller.activeGroup === root.groupId && modelData.id === root.loadedTab ? Theme.tabUnderlineActive : Theme.tabUnderline }
-                Label { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: close.left; anchors.verticalCenter: parent.verticalCenter; text: modelData.kind === "home" ? "Home" : modelData.kind === "library" ? "Library" : modelData.kind === "web" ? (modelData.title || modelData.source.replace(/^https?:\/\/(www\.)?/, "")) : (researchStore.documentsRevision, researchStore.displayName(modelData.source)); elide: Text.ElideRight; font.pixelSize: 12 }
+                Label { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: close.left; anchors.verticalCenter: parent.verticalCenter; text: modelData.kind === "home" ? "Home" : modelData.kind === "library" ? "Library" : modelData.kind === "note" ? (modelData.title || "Untitled note") : modelData.kind === "web" ? (modelData.title || modelData.source.replace(/^https?:\/\/(www\.)?/, "")) : (researchStore.documentsRevision, researchStore.displayName(modelData.source)); elide: Text.ElideRight; font.pixelSize: 12 }
                 MouseArea {
                     id: pointer
                     anchors.fill: parent
@@ -152,6 +155,17 @@ Rectangle {
         }
         }
         Loader {
+            id: noteLoader
+            Layout.fillWidth: true; Layout.fillHeight: true
+            visible: root.isNote; active: root.isNote && !root.controller.suspended
+            sourceComponent: NotePane {
+                controller: root.controller
+                noteId: root.activeTabData && root.activeTabData.kind === "note" ? root.activeTabData.noteId : ""
+                isActive: root.isNote && root.controller.activeGroup === root.groupId
+                onActivated: root.controller.activateGroup(root.groupId)
+            }
+        }
+        Loader {
             id: libraryLoader
             Layout.fillWidth: true; Layout.fillHeight: true
             visible: root.isLibrary; active: root.isLibrary && !root.controller.suspended
@@ -159,6 +173,8 @@ Rectangle {
                 filter: root.activeTabData && root.activeTabData.filter ? root.activeTabData.filter : ({})
                 onFilterEdited: function(filter) { if (root.activeTabData) root.controller.setLibraryFilter(root.activeTabData.id, filter) }
                 onDocumentChosen: function(source, position) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source, position, true) }
+                onNoteChosen: function(id) { root.controller.activateGroup(root.groupId); root.controller.openNote(id, true) }
+                onNewNoteRequested: { root.controller.activateGroup(root.groupId); root.controller.newNote() }
                 TapHandler { onPressedChanged: if (pressed) root.controller.activateGroup(root.groupId) }
             }
         }
@@ -179,11 +195,11 @@ Rectangle {
         }
         ReaderPane {
             id: pane
-            visible: !root.isHome && !root.isWeb && !root.isLibrary
+            visible: !root.isHome && !root.isWeb && !root.isLibrary && !root.isNote
             Layout.fillWidth: true
             Layout.fillHeight: true
             managed: true
-            isActive: !root.isHome && !root.isWeb && !root.isLibrary && !root.controller.suspended && root.controller.activeGroup === root.groupId
+            isActive: !root.isHome && !root.isWeb && !root.isLibrary && !root.isNote && !root.controller.suspended && root.controller.activeGroup === root.groupId
             onActivated: root.controller.activateGroup(root.groupId)
             onFileChosen: function(source) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source) }
             onLinkRequested: function(url) { root.controller.activateGroup(root.groupId); root.controller.openWeb(url.toString(), true) }

@@ -45,7 +45,7 @@ Flickable {
     function flush() {
         for (let i = 0; i < groups.count; ++i) {
             const view = groups.itemAt(i)
-            if (!view || !view.loadedTab || view.isHome || view.isWeb || view.isLibrary) continue
+            if (!view || !view.loadedTab || view.isHome || view.isWeb || view.isLibrary || view.isNote) continue
             const g = Tree.owner(tree, view.loadedTab)
             if (g) g.tabs.find(function(t) { return t.id === view.loadedTab }).position = view.reader.state().position
         }
@@ -204,6 +204,55 @@ Flickable {
         sync(); changed(); opened()
         return true
     }
+    // A note opens once: an existing tab anywhere is focused instead of a second editor.
+    function openNote(noteId, forceNew) {
+        const row = researchStore.note(noteId)
+        if (!row.id || row.deleted) return false
+        const list = Tree.leaves(tree)
+        for (let i = 0; i < list.length; ++i) {
+            const existing = list[i].tabs.find(function(t) { return t.kind === "note" && t.noteId === noteId })
+            if (existing) { activateTab(existing.id); return true }
+        }
+        prepare()
+        const g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]
+        const home = !forceNew && g.tabs.find(function(t) { return t.id === g.activeTab && t.kind === "home" })
+        const t = Tree.noteTab(noteId, row.title)
+        if (home) { t.id = home.id; g.tabs[g.tabs.indexOf(home)] = t }
+        else g.tabs.push(t)
+        g.activeTab = t.id; activeGroup = g.id
+        sync(); changed(); opened()
+        return true
+    }
+    function newNote(body) {
+        const id = researchStore.createNote("", body || "")
+        if (!id.length || !openNote(id, true)) return ""
+        Qt.callLater(function() { const view = root.groupView(root.activeGroup); if (view) view.focusNoteTitle() })
+        return id
+    }
+    function updateNoteTab(noteId, title) {
+        let touched = false
+        const list = Tree.leaves(tree)
+        for (let i = 0; i < list.length; ++i)
+            list[i].tabs.forEach(function(t) { if (t.kind === "note" && t.noteId === noteId && t.title !== title) { t.title = title; touched = true } })
+        if (touched) { sync(); changed() }
+    }
+    function closeNoteTabs(noteId) {
+        const ids = []
+        Tree.leaves(tree).forEach(function(g) { g.tabs.forEach(function(t) { if (t.kind === "note" && t.noteId === noteId) ids.push(t.id) }) })
+        ids.forEach(function(id) { root.closeTab(id) })
+    }
+    // owelk://<kind>/<id> links from notes and backlink lists.
+    function openLink(link) {
+        const match = /^owelk:\/\/(note|capture|highlight|document|ai)\/([A-Za-z0-9-]+)/.exec(link.toString())
+        if (!match) return Tree.isWebAddress(link.toString()) ? openWeb(link.toString(), true) : false
+        if (match[1] === "note") return openNote(match[2], true)
+        if (match[1] === "capture") { researchStore.openCapture(match[2]); return true }
+        if (match[1] === "highlight") { researchStore.openHighlight(match[2]); return true }
+        if (match[1] === "ai") { root.aiResponseRequested(match[2]); return true }
+        const target = researchStore.linkTarget("document", match[2])
+        return target.source ? openDocument(target.source, null, true) : false
+    }
+    signal aiResponseRequested(string id)
     // One library tab per group: reuse it (or the Home tab in front) and apply the filter.
     function openLibrary(filter) {
         prepare()
@@ -295,6 +344,7 @@ Flickable {
         if (!g || !g.activeTab) return
         prepare()
         const original = g.tabs.find(function(t) { return t.id === g.activeTab })
+        if (original.kind === "note") return // One editor per note avoids conflicting saves.
         const added = Tree.group([original.kind === "home" ? Tree.homeTab()
             : original.kind === "library" ? Tree.libraryTab(original.filter)
             : original.kind === "web" ? Tree.webTab(original.source, original.title) : Tree.tab(original.source, original.position)])

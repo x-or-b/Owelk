@@ -15,6 +15,10 @@ Rectangle {
     property var rows: []
     property var collectionRows: []
     property var tagRows: []
+    property var noteRows: []
+    readonly property bool showingNotes: !!(filter.notes || filter.notesTrash)
+    signal noteChosen(string id)
+    signal newNoteRequested()
     signal documentChosen(url source, var position)
     signal filterEdited(var filter)
     function refresh() {
@@ -24,6 +28,7 @@ Rectangle {
         rows = researchStore.libraryDocuments(f)
         collectionRows = researchStore.collections()
         tagRows = researchStore.tags()
+        noteRows = showingNotes ? researchStore.notes(!!filter.notesTrash) : []
     }
     function setFilter(next) { filter = next; filterEdited(next); refresh() }
     function selected(key, value) { return key === "all" ? Object.keys(filter).length === 0 : filter[key] === value }
@@ -35,6 +40,7 @@ Rectangle {
         target: researchStore
         function onDocumentsChanged() { root.refresh() }
         function onRecentDocumentsChanged() { root.refresh() }
+        function onNotesChanged() { if (root.showingNotes) root.refresh() }
     }
     PaperDetailsDialog { id: details }
     UiControls.Dialog {
@@ -127,7 +133,8 @@ Rectangle {
                 spacing: 1
                 model: [{key: "all", label: "All Papers"}, {key: "favorite", value: true, label: "Favorites"},
                         {key: "state", value: "unread", label: "Unread"}, {key: "state", value: "reading", label: "Reading"},
-                        {key: "state", value: "read", label: "Read"}, {header: "Collections", add: true}]
+                        {key: "state", value: "read", label: "Read"}, {header: "Notes"}, {key: "notes", value: true, label: "All Notes"},
+                        {key: "notesTrash", value: true, label: "Notes Trash"}, {header: "Collections", add: true}]
                     .concat(root.collectionRows.map(function(c) { return {key: "collection", value: c.id, label: c.name, depth: c.depth, count: c.count, row: c} }))
                     .concat(root.tagRows.length ? [{header: "Tags"}] : [])
                     .concat(root.tagRows.map(function(t) { return {key: "tag", value: t.id, label: "# " + t.name, count: t.count} }))
@@ -201,6 +208,45 @@ Rectangle {
             spacing: 8
             RowLayout {
                 Layout.fillWidth: true
+                visible: root.showingNotes
+                Label { Layout.fillWidth: true; text: root.filter.notesTrash ? "Notes trash" : "Notes"; font.pixelSize: 15; font.weight: Font.DemiBold; color: Theme.text }
+                UiControls.Button { objectName: "libraryNewNote"; visible: !root.filter.notesTrash; text: "New Note"; onClicked: root.newNoteRequested() }
+            }
+            ListView {
+                id: noteList
+                objectName: "libraryNotes"
+                visible: root.showingNotes
+                Layout.fillWidth: true; Layout.fillHeight: true
+                clip: true
+                model: root.noteRows
+                delegate: UiControls.ItemDelegate {
+                    id: noteItem
+                    required property var modelData
+                    objectName: "libraryNote-" + modelData.id
+                    width: noteList.width; height: 50
+                    onClicked: if (!root.filter.notesTrash) root.noteChosen(modelData.id)
+                    contentItem: RowLayout {
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 2
+                            Label { Layout.fillWidth: true; text: noteItem.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text; font.pixelSize: 13 }
+                            Label { Layout.fillWidth: true; text: noteItem.modelData.snippet || " "; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: 11; color: Theme.textTertiary }
+                        }
+                        ReaderIconButton {
+                            visible: !!root.filter.notesTrash; objectName: "restoreNote-" + noteItem.modelData.id
+                            kind: "restore"; description: "Restore note"; onClicked: researchStore.restoreNote(noteItem.modelData.id)
+                        }
+                        ReaderIconButton {
+                            visible: !!root.filter.notesTrash; objectName: "purgeNote-" + noteItem.modelData.id
+                            kind: "trash"; tint: Theme.danger; description: "Delete permanently"
+                            onClicked: researchStore.purgeNote(noteItem.modelData.id)
+                        }
+                    }
+                }
+                Label { anchors.centerIn: parent; visible: noteList.count === 0; text: root.filter.notesTrash ? "Trash is empty." : "No notes yet."; color: Theme.textMuted }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                visible: !root.showingNotes
                 UiControls.TextField {
                     objectName: "libraryQuery"
                     Layout.fillWidth: true
@@ -215,10 +261,11 @@ Rectangle {
                     onActivated: function(index) { root.sort = keys[index] }
                 }
             }
-            Label { objectName: "libraryCount"; text: root.rows.length + (root.rows.length === 1 ? " paper" : " papers"); font.pixelSize: 12; color: Theme.textTertiary }
+            Label { visible: !root.showingNotes; objectName: "libraryCount"; text: root.rows.length + (root.rows.length === 1 ? " paper" : " papers"); font.pixelSize: 12; color: Theme.textTertiary }
             ListView {
                 id: papers
                 objectName: "libraryList"
+                visible: !root.showingNotes
                 Layout.fillWidth: true; Layout.fillHeight: true
                 clip: true
                 model: root.rows

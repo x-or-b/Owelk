@@ -75,6 +75,7 @@ Item {
         objectName: "highlightMenu"
         UiControls.MenuItem { text: "Edit / Comment…"; onTriggered: root.editRequested(root.editingMark, null) }
         UiControls.MenuItem { objectName: "changeAnnotationColor"; text: "Change Color…"; onTriggered: markColors.open() }
+        UiControls.MenuItem { text: "Link to Note…"; onTriggered: linkToNote.begin("highlight", root.editingMark.id) }
         UiControls.MenuItem {
             objectName: "removeHighlightAction"
             text: "Remove Annotation"
@@ -82,6 +83,7 @@ Item {
             onTriggered: { const id = root.removingHighlight; Qt.callLater(function() { researchStore.removeHighlight(id) }) }
         }
     }
+    LinkToNoteDialog { id: linkToNote }
     AnnotationColors {
         id: markColors
         objectName: "markColors"

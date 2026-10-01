@@ -137,6 +137,23 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
         }
     }
 
+    if ((target == "all" || target == "captures") && scope.isEmpty() && !allowed) {
+        // Standalone notes belong to no paper, so a paper scope leaves them out.
+        QSqlQuery notes(db);
+        notes.prepare(
+            "SELECT id,title,body FROM notes WHERE deleted_at IS NULL AND "
+            "(instr(lower(title),lower(?))>0 OR instr(lower(body),lower(?))>0) ORDER BY updated_at DESC LIMIT 20");
+        notes.addBindValue(needle);
+        notes.addBindValue(needle);
+        if (notes.exec())
+            while (notes.next()) {
+                const auto body = notes.value(2).toString();
+                const auto title = notes.value(1).toString();
+                results.append(QVariantMap{{"kind", "standalone-note"}, {"id", notes.value(0)},
+                    {"title", "Note · " + (title.isEmpty() ? QStringLiteral("Untitled") : title)},
+                    {"snippet", snippet(body, body.indexOf(needle, 0, Qt::CaseInsensitive), needle.size())}});
+            }
+    }
     if (target == "all" && scope.isEmpty() && !allowed) {
         // Collections and tags open the library filtered to them.
         for (const auto &[kind, sql] : {std::pair{"collection", "SELECT id,name FROM collections"},
@@ -205,8 +222,8 @@ int ResearchStore::searchKnowledgeAsync(
         emit knowledgeFound(request, rows);
     });
     // The capture list is an implicitly shared snapshot; later reloads detach and never touch this copy.
-    watcher->setFuture(
-        QtConcurrent::run(&m_verifiers, [directory = m_directory, captures = m_captures, queryText, scope, target, allowed] {
+    watcher->setFuture(QtConcurrent::run(
+        &m_verifiers, [directory = m_directory, captures = m_captures, queryText, scope, target, allowed] {
             WorkerConnection store(directory + "/owelk.sqlite3", true);
             WorkerConnection search(directory + "/search.sqlite3", true);
             if (!store.db.isOpen()) return QVariantList();

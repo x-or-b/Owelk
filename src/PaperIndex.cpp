@@ -186,8 +186,8 @@ QHash<QString, QString> libraryTitles(const QString &searchPath)
     return titles;
 }
 // limit: when set, only these document IDs (library filters such as a collection or tag) are searched.
-SearchResult findGroupedText(const QString &path, const QString &input, const QUrl &scope, int offset,
-    const std::optional<QStringList> &limit)
+SearchResult findGroupedText(
+    const QString &path, const QString &input, const QUrl &scope, int offset, const std::optional<QStringList> &limit)
 {
     if (limit && limit->isEmpty()) return {};
     const auto match = matchQuery(input);
@@ -212,7 +212,9 @@ SearchResult findGroupedText(const QString &path, const QString &input, const QU
     if (!query.prepare(sql)) return {{}, query.lastError().text()};
     query.addBindValue(match);
     if (scoped) query.addBindValue(scope.toString());
-    if (limit) query.addBindValue(QString::fromUtf8(QJsonDocument(QJsonArray::fromStringList(*limit)).toJson(QJsonDocument::Compact)));
+    if (limit)
+        query.addBindValue(
+            QString::fromUtf8(QJsonDocument(QJsonArray::fromStringList(*limit)).toJson(QJsonDocument::Compact)));
     query.addBindValue(offset);
     query.addBindValue(offset + (scoped ? 41 : 21));
     if (!query.exec()) return {{}, query.lastError().text()};

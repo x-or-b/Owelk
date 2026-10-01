@@ -90,6 +90,26 @@ public:
     Q_INVOKABLE QVariantMap documentOrganization(const QUrl &source) const;
     Q_INVOKABLE bool setExcludedFromIndex(const QUrl &source, bool excluded);
     Q_INVOKABLE bool excludedFromIndex(const QUrl &source) const;
+
+    // Standalone Markdown notes and links between knowledge objects (ResearchStoreNotes.cpp).
+    // Link kinds: note, capture, highlight, document, ai. Note bodies link with owelk://<kind>/<id>.
+    Q_INVOKABLE QString createNote(const QString &title = QString(), const QString &body = QString());
+    Q_INVOKABLE QVariantMap note(const QString &id) const;
+    Q_INVOKABLE bool saveNote(const QString &id, const QString &title, const QString &body);
+    Q_INVOKABLE QVariantList notes(bool trashed = false) const;
+    Q_INVOKABLE bool deleteNote(const QString &id);
+    Q_INVOKABLE bool restoreNote(const QString &id);
+    Q_INVOKABLE bool purgeNote(const QString &id);
+    Q_INVOKABLE bool addLink(
+        const QString &fromKind, const QString &fromId, const QString &toKind, const QString &toId);
+    Q_INVOKABLE QVariantMap linkTarget(const QString &kind, const QString &id) const;
+    Q_INVOKABLE QVariantList backlinks(const QString &kind, const QString &id) const;
+    Q_INVOKABLE QVariantList linkCandidates(const QString &query) const;
+    Q_INVOKABLE QString documentLinkId(const QUrl &source);
+    Q_INVOKABLE QString markdownHtml(const QString &markdown, const QString &linkColor) const;
+    // "[title](owelk://kind/id)" for inserting into a note.
+    Q_INVOKABLE QString markdownLink(const QString &kind, const QString &id) const;
+    Q_INVOKABLE bool appendNoteLink(const QString &noteId, const QString &kind, const QString &id);
     int documentsRevision() const { return m_documentsRevision; }
     Q_INVOKABLE bool sameSource(const QUrl &first, const QUrl &second) const { return first == second; }
     Q_INVOKABLE void captureRegion(const QUrl &source, int page, const QRectF &normalizedRegion);
@@ -124,11 +144,11 @@ public:
     // never overwrites an existing file. Returns directory, fileName and url.
     Q_INVOKABLE QVariantMap downloadTarget(const QString &suggestedName) const;
     // scopeUrls: optional list of paper URLs (library filters); null searches everything.
-    Q_INVOKABLE QVariantList searchKnowledge(const QString &query, const QUrl &source = QUrl(), const QString &target = "all",
-        const QVariant &scopeUrls = QVariant()) const;
+    Q_INVOKABLE QVariantList searchKnowledge(const QString &query, const QUrl &source = QUrl(),
+        const QString &target = "all", const QVariant &scopeUrls = QVariant()) const;
     // Same results as searchKnowledge, computed off the UI thread; answered by knowledgeFound(request, rows).
-    Q_INVOKABLE int searchKnowledgeAsync(const QString &query, const QUrl &source = QUrl(), const QString &target = "all",
-        const QVariant &scopeUrls = QVariant());
+    Q_INVOKABLE int searchKnowledgeAsync(const QString &query, const QUrl &source = QUrl(),
+        const QString &target = "all", const QVariant &scopeUrls = QVariant());
     Q_INVOKABLE QString createWorkspace(const QString &name);
     Q_INVOKABLE QVariantMap loadWorkspace(const QString &id);
     Q_INVOKABLE bool saveWorkspace(const QString &id, const QVariantMap &state);
@@ -144,6 +164,8 @@ signals:
     void highlightsChanged();
     void documentsChanged();
     void settingsChanged();
+    void notesChanged();
+    void linksChanged();
     // The opened file has the same bytes as another library entry that still exists.
     void duplicateFound(const QUrl &source, const QUrl &existing, const QString &existingTitle);
     void highlightSaved(const QString &id, const QUrl &source);
@@ -178,6 +200,7 @@ private:
     QString findDocument(const QUrl &source) const;
     QString ensureDocument(const QUrl &source);
     void loadDocumentNames();
+    void syncNoteLinks(const QString &noteId, const QString &body);
     void rememberTitle(const QUrl &url, const QString &title);
     void refreshMetadata(const QString &id, const QUrl &url, bool force, bool checkDuplicate = false);
     void reportDuplicate(const QString &id, const QUrl &url, const QString &hash);

@@ -24,6 +24,8 @@ function arxivPdf(url) {
     return match ? "https://arxiv.org/pdf/" + match[2] : ""
 }
 // The library view is a tab without a source; its filter travels with the tab.
+// A standalone note; the note itself lives in the store, the tab only names it.
+function noteTab(noteId, title) { return {id: id("tab"), kind: "note", source: "", noteId: noteId, title: title || "", position: {page: 0, y: 0, x: 0, zoom: 1}} }
 function libraryTab(filter) { return {id: id("tab"), kind: "library", source: "", filter: clone(filter || {}), position: {page: 0, y: 0, x: 0, zoom: 1}} }
 function homeTab() { return {id: id("tab"), kind: "home", source: "", position: {page: 0, y: 0, x: 0, zoom: 1}} }
 function leaves(node) { return node.kind === "group" ? [node] : leaves(node.first).concat(leaves(node.second)) }
@@ -70,7 +72,8 @@ function validate(node, ids, depth) {
     for (let i = 0; i < node.tabs.length; ++i) {
         const t = node.tabs[i]
         if (!t || typeof t.id !== "string" || !t.id || ids[t.id] || typeof t.source !== "string") return false
-        if (t.kind === "home" || t.kind === "library" ? t.source !== ""
+        if (t.kind === "note" && (typeof t.noteId !== "string" || !t.noteId.length)) return false
+        if (t.kind === "home" || t.kind === "library" || t.kind === "note" ? t.source !== ""
             : t.kind === "web" ? !isWebAddress(t.source) : !t.source.startsWith("file:")) return false
         ids[t.id] = true
         if (!t.position || !Number.isFinite(t.position.page) || t.position.page < 0) return false

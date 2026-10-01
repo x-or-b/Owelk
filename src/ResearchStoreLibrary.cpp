@@ -8,8 +8,14 @@
 #include <QUuid>
 
 namespace {
-QString now() { return QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs); }
-QString newId() { return QUuid::createUuid().toString(QUuid::WithoutBraces); }
+QString now()
+{
+    return QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+}
+QString newId()
+{
+    return QUuid::createUuid().toString(QUuid::WithoutBraces);
+}
 }
 
 // Documents in scope of the library filters. Keys (all optional): text, state (unread|reading|read),
@@ -147,7 +153,8 @@ bool ResearchStore::deleteCollection(const QString &id)
         return query.exec();
     };
     QSqlQuery reparent(m_database);
-    reparent.prepare("UPDATE collections SET parent_id=(SELECT parent_id FROM collections WHERE id=?) WHERE parent_id=?");
+    reparent.prepare(
+        "UPDATE collections SET parent_id=(SELECT parent_id FROM collections WHERE id=?) WHERE parent_id=?");
     reparent.addBindValue(id);
     reparent.addBindValue(id);
     const bool ok = reparent.exec() && run("DELETE FROM collection_documents WHERE collection_id=?")
@@ -165,8 +172,9 @@ bool ResearchStore::setDocumentCollection(const QUrl &source, const QString &col
     const auto document = ensureDocument(source);
     if (document.isEmpty()) return false;
     QSqlQuery query(m_database);
-    query.prepare(member ? "INSERT OR IGNORE INTO collection_documents SELECT ?,? WHERE EXISTS(SELECT 1 FROM collections WHERE id=?)"
-                         : "DELETE FROM collection_documents WHERE collection_id=? AND document_id=?");
+    query.prepare(member
+            ? "INSERT OR IGNORE INTO collection_documents SELECT ?,? WHERE EXISTS(SELECT 1 FROM collections WHERE id=?)"
+            : "DELETE FROM collection_documents WHERE collection_id=? AND document_id=?");
     query.addBindValue(collectionId);
     query.addBindValue(document);
     if (member) query.addBindValue(collectionId);
@@ -181,7 +189,8 @@ QVariantList ResearchStore::tags() const
     QSqlQuery query(m_database);
     query.exec("SELECT t.id,t.name,count(dt.document_id) FROM tags t LEFT JOIN document_tags dt ON dt.tag_id=t.id "
                "GROUP BY t.id ORDER BY t.name COLLATE NOCASE");
-    while (query.next()) rows.append(QVariantMap{{"id", query.value(0)}, {"name", query.value(1)}, {"count", query.value(2)}});
+    while (query.next())
+        rows.append(QVariantMap{{"id", query.value(0)}, {"name", query.value(1)}, {"count", query.value(2)}});
     return rows;
 }
 
@@ -226,7 +235,8 @@ QVariantMap ResearchStore::documentOrganization(const QUrl &source) const
     const auto document = findDocument(source);
     QStringList tagNames, collectionIds;
     QSqlQuery query(m_database);
-    query.prepare("SELECT t.name FROM document_tags dt JOIN tags t ON t.id=dt.tag_id WHERE dt.document_id=? ORDER BY t.name");
+    query.prepare(
+        "SELECT t.name FROM document_tags dt JOIN tags t ON t.id=dt.tag_id WHERE dt.document_id=? ORDER BY t.name");
     query.addBindValue(document);
     if (query.exec())
         while (query.next()) tagNames << query.value(0).toString();
@@ -245,8 +255,10 @@ bool ResearchStore::setExcludedFromIndex(const QUrl &source, bool excluded)
     query.addBindValue(excluded ? 1 : 0);
     query.addBindValue(document);
     if (document.isEmpty() || !query.exec() || query.numRowsAffected() != 1) return false;
-    if (excluded) m_index->remove(resolvedSource(source));
-    else m_index->enqueue(resolvedSource(source));
+    if (excluded)
+        m_index->remove(resolvedSource(source));
+    else
+        m_index->enqueue(resolvedSource(source));
     emit message(excluded ? "Removed from the text index. Its pages no longer appear in PDF text search."
                           : "Added back to the text index.");
     announceDocumentsChanged();

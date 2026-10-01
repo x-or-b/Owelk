@@ -10,6 +10,18 @@ Item {
     property var reader: null
     property int mode: 0
     signal modeChosen(int mode)
+    signal linkActivated(string link)
+    // Notes that link to this paper or to its excerpts and annotations.
+    readonly property var backlinks: {
+        const revision = linkRevision
+        return root.reader && root.reader.source.toString().length ? researchStore.backlinks("document", researchStore.documentLinkId(root.reader.source)) : []
+    }
+    property int linkRevision: 0
+    Connections {
+        target: researchStore
+        function onLinksChanged() { root.linkRevision++ }
+        function onNotesChanged() { root.linkRevision++ }
+    }
     readonly property bool ready: !!reader && reader.pdfReady
     PdfDocument { id: emptyDocument }
     // A blank document also avoids passing null to an active Qt PDF image/model during tab removal.
@@ -49,6 +61,36 @@ Item {
                 text: "Thumbnails"
                 background: Rectangle { color: thumbnailsTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
                 onClicked: root.modeChosen(1)
+            }
+            UiControls.TabButton {
+                id: linksTab
+                objectName: "linksTab"
+                text: "Links" + (root.backlinks.length ? " (" + root.backlinks.length + ")" : "")
+                background: Rectangle { color: linksTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
+                onClicked: root.modeChosen(2)
+            }
+        }
+        ListView {
+            objectName: "backlinkList"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.mode === 2 && root.ready
+            clip: true
+            model: root.backlinks
+            delegate: UiControls.ItemDelegate {
+                required property var modelData
+                width: ListView.view.width
+                text: modelData.title
+                font.pixelSize: 12
+                ToolTip.visible: hovered; ToolTip.delay: 450
+                ToolTip.text: modelData.via === "document" ? "Links to this paper" : "Links to an " + (modelData.via === "capture" ? "excerpt" : "annotation") + " in this paper"
+                onClicked: root.linkActivated("owelk://" + modelData.kind + "/" + modelData.id)
+            }
+            Label {
+                anchors.centerIn: parent; width: parent.width - 16
+                visible: parent.count === 0
+                text: "No notes link to this paper yet. Use Link to Note… on an excerpt or annotation, or [[ in a note."
+                wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; color: Theme.textMuted
             }
         }
         Item {

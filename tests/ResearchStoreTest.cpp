@@ -22,6 +22,51 @@
 class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void notesLinksBacklinksAndTrash()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("linked.pdf");
+        writeFixture(path, "Linked Paper");
+        const auto source = QUrl::fromLocalFile(path);
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QVERIFY(store.rememberDocument(source));
+        store.captureRegion(source, 1, QRectF(.1, .1, .3, .2));
+        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+        const auto capture = store.captures()[0].toMap()["id"].toString();
+        const auto paper = store.documentLinkId(source);
+        // A note body links with owelk:// URLs; saving keeps the link table in sync.
+        const auto ideas = store.createNote("Ideas", "See " + store.markdownLink("document", paper));
+        QVERIFY(!ideas.isEmpty());
+        QVERIFY(store.markdownLink("document", paper).contains("Linked Paper"));
+        QCOMPARE(store.backlinks("document", paper).size(), 1);
+        const auto other = store.createNote("Other", "");
+        QVERIFY(store.appendNoteLink(other, "capture", capture));
+        QVERIFY(store.appendNoteLink(other, "capture", capture)); // Idempotent.
+        QCOMPARE(store.note(other)["body"].toString().count("owelk://capture/"), 1);
+        // A paper's backlinks include notes that link to its captures.
+        QCOMPARE(store.backlinks("document", paper).size(), 2);
+        QCOMPARE(store.backlinks("capture", capture)[0].toMap()["id"].toString(), other);
+        QVERIFY(store.saveNote(ideas, "Ideas", "no links now"));
+        QCOMPARE(store.backlinks("document", paper).size(), 1);
+        // Search, link candidates and trash.
+        QCOMPARE(store.searchKnowledge("no links now").value(0).toMap()["kind"].toString(), QString("standalone-note"));
+        QVERIFY(std::any_of(store.linkCandidates("Linked").cbegin(), store.linkCandidates("Linked").cend(),
+            [](const QVariant &r) { return r.toMap()["kind"] == "document"; }));
+        QVERIFY(!store.purgeNote(other)); // Only trashed notes can be purged.
+        QVERIFY(store.deleteNote(other));
+        QVERIFY(store.backlinks("document", paper).isEmpty()); // Trashed notes are not shown as backlinks.
+        QCOMPARE(store.notes(true).size(), 1);
+        QVERIFY(!store.saveNote(other, "x", "y"));
+        QVERIFY(store.restoreNote(other));
+        QCOMPARE(store.backlinks("document", paper).size(), 1);
+        QVERIFY(store.deleteNote(other));
+        QVERIFY(store.purgeNote(other));
+        QVERIFY(store.note(other).isEmpty());
+        QVERIFY(store.backlinks("capture", capture).isEmpty());
+        QVERIFY(!store.addLink("note", ideas, "note", ideas)); // No self links.
+    }
     void libraryCollectionsTagsFiltersAndExclusion()
     {
         QTemporaryDir directory;
@@ -297,26 +342,28 @@ private slots:
             db.setDatabaseName(directory.filePath("data/owelk.sqlite3"));
             QVERIFY(db.open());
             QSqlQuery query(db);
-            for (const auto *sql : {"DROP TABLE documents", "DROP TABLE recent_documents",
-                     "DROP TABLE reading_positions", "DROP TABLE workspace_documents",
-                     "DROP TABLE workspace_document_exclusions", "DROP TABLE captures", "DROP TABLE highlights",
-                     "CREATE TABLE recent_documents (url TEXT PRIMARY KEY, opened_at TEXT NOT NULL)",
-                     "CREATE TABLE reading_positions (url TEXT PRIMARY KEY, position TEXT NOT NULL)",
-                     "CREATE TABLE workspace_documents (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "
-                     "PRIMARY KEY(workspace_id,url))",
-                     "CREATE TABLE workspace_document_exclusions (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "
-                     "PRIMARY KEY(workspace_id,url))",
-                     "CREATE TABLE captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
-                     "page INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT "
-                     "NULL, "
-                     "image TEXT NOT NULL, created_at TEXT NOT NULL)",
-                     "CREATE TABLE highlights (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
-                     "page INTEGER NOT NULL,text TEXT NOT NULL,rectangles TEXT NOT NULL,start_index INTEGER NOT NULL,"
-                     "end_index INTEGER NOT NULL,created_at TEXT NOT NULL,deleted_at TEXT,color TEXT NOT NULL DEFAULT "
-                     "'#426b9a',kind TEXT NOT NULL DEFAULT 'highlight',body TEXT NOT NULL DEFAULT '',image TEXT NOT "
-                     "NULL "
-                     "DEFAULT '',drawing TEXT NOT NULL DEFAULT '[]')",
-                     "PRAGMA user_version=2"})
+            for (const auto *sql :
+                {"DROP TABLE documents", "DROP TABLE recent_documents", "DROP TABLE reading_positions",
+                    "DROP TABLE workspace_documents", "DROP TABLE workspace_document_exclusions", "DROP TABLE captures",
+                    "DROP TABLE highlights", "DROP TABLE collections", "DROP TABLE collection_documents",
+                    "DROP TABLE tags", "DROP TABLE document_tags", "DROP TABLE notes", "DROP TABLE links",
+                    "CREATE TABLE recent_documents (url TEXT PRIMARY KEY, opened_at TEXT NOT NULL)",
+                    "CREATE TABLE reading_positions (url TEXT PRIMARY KEY, position TEXT NOT NULL)",
+                    "CREATE TABLE workspace_documents (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "
+                    "PRIMARY KEY(workspace_id,url))",
+                    "CREATE TABLE workspace_document_exclusions (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "
+                    "PRIMARY KEY(workspace_id,url))",
+                    "CREATE TABLE captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
+                    "page INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT "
+                    "NULL, "
+                    "image TEXT NOT NULL, created_at TEXT NOT NULL)",
+                    "CREATE TABLE highlights (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
+                    "page INTEGER NOT NULL,text TEXT NOT NULL,rectangles TEXT NOT NULL,start_index INTEGER NOT NULL,"
+                    "end_index INTEGER NOT NULL,created_at TEXT NOT NULL,deleted_at TEXT,color TEXT NOT NULL DEFAULT "
+                    "'#426b9a',kind TEXT NOT NULL DEFAULT 'highlight',body TEXT NOT NULL DEFAULT '',image TEXT NOT "
+                    "NULL "
+                    "DEFAULT '',drawing TEXT NOT NULL DEFAULT '[]')",
+                    "PRAGMA user_version=2"})
                 QVERIFY2(query.exec(sql), qPrintable(query.lastError().text()));
             for (const auto *sql : {"INSERT INTO recent_documents VALUES('%1','2026-09-01')",
                      "INSERT INTO reading_positions VALUES('%1','{\"page\":5,\"y\":0.25}')",

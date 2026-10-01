@@ -159,8 +159,9 @@ public slots:
                     } else
                         body = "<html><head><title>Owelk Test Page</title></head><body><h1>Paper page</h1>"
                                "<a id='pdf' href='/paper.pdf'>PDF</a></body></html>";
-                    socket->write("HTTP/1.1 200 OK\r\nContent-Type: " + type + "\r\nConnection: close\r\nContent-Length: "
-                        + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+                    socket->write("HTTP/1.1 200 OK\r\nContent-Type: " + type
+                        + "\r\nConnection: close\r\nContent-Length: " + QByteArray::number(body.size()) + "\r\n\r\n"
+                        + body);
                     socket->disconnectFromHost();
                 });
             });
@@ -187,5 +188,8 @@ QUICK_TEST_MAIN_WITH_SETUP(reader_ui, ReaderSetup)
 #include "ReaderUiTest.moc"
 
 // QUICK_TEST_MAIN creates the application object; WebEngine must be initialised before that.
-static void initializeWebEngine() { QtWebEngineQuick::initialize(); }
+static void initializeWebEngine()
+{
+    QtWebEngineQuick::initialize();
+}
 Q_CONSTRUCTOR_FUNCTION(initializeWebEngine)

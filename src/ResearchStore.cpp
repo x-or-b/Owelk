@@ -203,12 +203,25 @@ bool ResearchStore::initialize(QString *error)
                 "UPDATE documents SET sha256=metadata_sha256", "CREATE INDEX documents_sha256 ON documents(sha256)"},
             {}, true},
         {5,
-            {"CREATE TABLE collections (id TEXT PRIMARY KEY, name TEXT NOT NULL, parent_id TEXT, created_at TEXT NOT NULL)",
+            {"CREATE TABLE collections (id TEXT PRIMARY KEY, name TEXT NOT NULL, parent_id TEXT, created_at TEXT NOT "
+             "NULL)",
                 "CREATE TABLE collection_documents (collection_id TEXT NOT NULL, document_id TEXT NOT NULL, "
                 "PRIMARY KEY(collection_id,document_id))",
                 "CREATE TABLE tags (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE)",
-                "CREATE TABLE document_tags (document_id TEXT NOT NULL, tag_id TEXT NOT NULL, PRIMARY KEY(document_id,tag_id))",
+                "CREATE TABLE document_tags (document_id TEXT NOT NULL, tag_id TEXT NOT NULL, PRIMARY "
+                "KEY(document_id,tag_id))",
                 "ALTER TABLE documents ADD COLUMN excluded_from_index INTEGER NOT NULL DEFAULT 0"},
+            {}, true},
+        {6,
+            {"CREATE TABLE notes (id TEXT PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT "
+             "NULL, "
+             "updated_at TEXT NOT NULL, deleted_at TEXT)",
+                // Directed links between knowledge objects: note, capture, highlight, document, ai.
+                "CREATE TABLE links (from_kind TEXT NOT NULL, from_id TEXT NOT NULL, to_kind TEXT NOT NULL, "
+                "to_id TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(from_kind,from_id,to_kind,to_id))",
+                "CREATE INDEX links_target ON links(to_kind,to_id)",
+                "ALTER TABLE captures ADD COLUMN caption TEXT NOT NULL DEFAULT ''",
+                "ALTER TABLE captures ADD COLUMN anchor_kind TEXT NOT NULL DEFAULT 'pdf'"},
             {}, true},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;

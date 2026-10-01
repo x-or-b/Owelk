@@ -15,6 +15,7 @@ Rectangle {
     signal documentChosen(url source)
     signal folderChosen(url folder)
     signal noteRequested(string id)
+    signal linkActivated(string link)
     color: Theme.surfaceSidebar
     border.color: Theme.border
     radius: Theme.cornerRadius
@@ -61,6 +62,7 @@ Rectangle {
             reader: root.reader
             mode: root.navigationMode
             onModeChosen: function(mode) { root.navigationModeChosen(mode) }
+            onLinkActivated: function(link) { root.linkActivated(link) }
         }
     }
 }

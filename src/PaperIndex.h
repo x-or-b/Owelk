@@ -36,7 +36,8 @@ public:
     Q_INVOKABLE void retry(const QUrl &source);
     Q_INVOKABLE int search(const QString &text);
     // scopeIds: optional list of document IDs (from library filters); null searches everything.
-    Q_INVOKABLE int searchGrouped(const QString &text, const QUrl &source, int offset, const QVariant &scopeIds = QVariant());
+    Q_INVOKABLE int searchGrouped(
+        const QString &text, const QUrl &source, int offset, const QVariant &scopeIds = QVariant());
     void remove(const QUrl &source);
     // Excluded documents are never queued for indexing.
     void setExclusionCheck(std::function<bool(const QUrl &)> excluded) { m_excluded = std::move(excluded); }

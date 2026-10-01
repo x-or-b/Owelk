@@ -25,6 +25,7 @@ UiControls.Popup {
         {command: "/reopen tab", title: "Tab: Reopen Closed Tab", enabled: canReopenTab},
         {command: "/home", title: "View: Go to Home", enabled: true},
         {command: "/web", title: "Web: Open Address or Search", enabled: true},
+        {command: "/new note", title: "Note: New Note", enabled: true},
         {command: "/library", title: "Library: All Papers, Collections and Tags", enabled: true},
         {command: "/settings", title: "App: Settings", enabled: true},
         {command: "/find", title: "Search: Find in Current PDF", enabled: hasDocument},

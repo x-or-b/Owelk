@@ -23,6 +23,9 @@ ApplicationWindow {
     palette.text: Theme.text
     palette.base: Theme.surface
     palette.alternateBase: Theme.surfaceAlt
+    // Rich and Markdown text links (notes, AI answers) use the accent, not default blue.
+    palette.link: Theme.accent
+    palette.linkVisited: Theme.accent
     palette.light: Theme.surface
     palette.midlight: Theme.surfaceChrome
     palette.mid: Theme.shadeMid
@@ -126,6 +129,7 @@ ApplicationWindow {
         else if (result.kind === "highlight") researchStore.openHighlight(result.id)
         else if (result.kind === "note") captureNote.begin(result.id)
         else if (result.kind === "workspace") openWorkspace(result.id)
+        else if (result.kind === "standalone-note" && !restoreFailed) documents.openNote(result.id)
         else if (result.kind === "collection" && !restoreFailed) documents.openLibrary({collection: result.id})
         else if (result.kind === "tag" && !restoreFailed) documents.openLibrary({tag: result.id})
         else if (result.kind === "text" && !restoreFailed) { notify("Checking PDF source…"); researchStore.paperIndex.openResult(result.documentId, Number(result.page), result.sha256) }
@@ -174,7 +178,7 @@ ApplicationWindow {
         capturesSide = panels.capturesSide === "left" ? "left" : "right"
         documentVisible = !!panels.documentVisible
         documentSide = panels.documentSide === "right" ? "right" : "left"
-        navigationMode = panels.navigationMode === 1 ? 1 : 0
+        navigationMode = [0, 1, 2].indexOf(panels.navigationMode) >= 0 ? panels.navigationMode : 0
         paperFolder = panels.folder || ""
         if (leftPanels.indexOf(panels.leftActive) >= 0) leftDock.activePanel = panels.leftActive
         if (rightPanels.indexOf(panels.rightActive) >= 0) rightDock.activePanel = panels.rightActive
@@ -241,6 +245,7 @@ ApplicationWindow {
             case "/split off": documents.joinAll(); break
             case "/web": window.openWebAddress(); break
             case "/library": documents.openLibrary({}); break
+            case "/new note": documents.newNote(); break
             case "/settings": settingsDialog.open(); break
             case "/move right": documents.moveActiveTabToSplit("right"); break
             case "/move down": documents.moveActiveTabToSplit("bottom"); break
@@ -269,6 +274,7 @@ ApplicationWindow {
         UiControls.Menu {
             title: "File"
             Action { text: "Open PDF…"; shortcut: StandardKey.Open; onTriggered: window.chooseFile() }
+            Action { objectName: "newNoteAction"; text: "New Note"; shortcut: "Ctrl+Shift+N"; enabled: !window.restoreFailed; onTriggered: documents.newNote() }
             Action { objectName: "openWebAction"; text: "Open Web Page…"; shortcut: "Ctrl+L"; enabled: !window.restoreFailed; onTriggered: window.openWebAddress() }
             Action { objectName: "settingsAction"; text: "Settings…"; shortcut: StandardKey.Preferences; onTriggered: settingsDialog.open() }
             Action { objectName: "newTabAction"; text: "New Tab"; shortcut: "Ctrl+T"; enabled: !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.newHomeTab() }
@@ -369,6 +375,7 @@ ApplicationWindow {
             reader: window.homeVisible ? null : window.currentReader
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
+            onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
             visible: panels.length > 0
             Layout.preferredWidth: window.dockWidth(window.leftDockWidth); Layout.fillHeight: true
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
@@ -448,6 +455,7 @@ ApplicationWindow {
             reader: window.homeVisible ? null : window.currentReader
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
+            onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
             visible: panels.length > 0
             Layout.preferredWidth: window.dockWidth(window.rightDockWidth); Layout.fillHeight: true
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
