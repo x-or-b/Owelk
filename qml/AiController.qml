@@ -109,6 +109,14 @@ Item {
         for (const p of ai.providers)
             if (p.configured || p.id === "ollama") ai.listModels(p.id)
     }
+    function chooseProvider(provider) {
+        ai.provider = provider
+        error = ""
+        const info = ai.providers.find(function(p) { return p.id === provider }) || ({})
+        if (!info.configured && provider !== "ollama")
+            error = provider === "codex" ? "Sign in with ChatGPT in Settings → AI." : "Add an API key in Settings → AI."
+        else ai.listModels(provider)
+    }
     function chooseModel(provider, model) {
         ai.provider = provider
         ai.setModel(provider, model)

@@ -393,6 +393,7 @@ ApplicationWindow {
             side: "left"; panels: window.leftPanels; folder: window.paperFolder
             reader: window.homeVisible ? null : window.currentReader
             aiController: aiController
+            onSettingsRequested: settingsDialog.open()
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
@@ -477,6 +478,7 @@ ApplicationWindow {
             side: "right"; panels: window.rightPanels; folder: window.paperFolder
             reader: window.homeVisible ? null : window.currentReader
             aiController: aiController
+            onSettingsRequested: settingsDialog.open()
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }

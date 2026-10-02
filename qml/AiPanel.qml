@@ -11,6 +11,7 @@ Item {
     readonly property var c: controller
     readonly property bool showingThreads: !c || !c.conversationOpen
     signal linkActivated(string link)
+    signal settingsRequested()
     function focusQuestion() { question.forceActiveFocus() }
     Connections { target: root.c; function onFocusRequested() { root.focusQuestion() } }
     Component.onCompleted: if (c && c.spec.action === "ask" && !c.streaming) question.forceActiveFocus()
@@ -19,7 +20,7 @@ Item {
         anchors.margins: 8
         spacing: 6
         RowLayout {
-            Layout.fillWidth: true
+            Layout.fillWidth: true; Layout.minimumWidth: 0
             spacing: 2
             ReaderIconButton {
                 objectName: "aiThreadsButton"
@@ -29,7 +30,7 @@ Item {
             }
             Label {
                 objectName: "aiThreadTitle"
-                Layout.fillWidth: true
+                Layout.fillWidth: true; Layout.minimumWidth: 0
                 text: root.showingThreads ? "Threads" : (root.c.thread.title || "New thread")
                 elide: Text.ElideRight; textFormat: Text.PlainText
                 font.pixelSize: 13; font.weight: Font.DemiBold; color: Theme.text
@@ -41,6 +42,7 @@ Item {
         ListView {
             id: threadList
             objectName: "aiThreadList"
+            Layout.minimumWidth: 0
             visible: root.showingThreads
             Layout.fillWidth: true; Layout.fillHeight: true
             clip: true
@@ -80,7 +82,7 @@ Item {
                 width: parent.width - 16
                 visible: threadList.count === 0
                 text: "Ask about a selection, page or figure, or start a new thread with +."
-                wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WrapAtWordBoundaryOrAnywhere; horizontalAlignment: Text.AlignHCenter
                 color: Theme.textTertiary; font.pixelSize: 12
             }
         }
@@ -88,6 +90,7 @@ Item {
         ListView {
             id: conversation
             objectName: "aiConversation"
+            Layout.minimumWidth: 0
             visible: !root.showingThreads
             Layout.fillWidth: true; Layout.fillHeight: true
             clip: true
@@ -108,7 +111,7 @@ Item {
                     Label {
                         id: userText
                         anchors.fill: parent; anchors.margins: 6
-                        text: message.modelData.display; wrapMode: Text.Wrap; textFormat: Text.PlainText
+                        text: message.modelData.display || ""; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; textFormat: Text.PlainText
                         color: Theme.text; font.pixelSize: 12
                     }
                 }
@@ -117,7 +120,7 @@ Item {
                     objectName: "aiMessage-" + message.index
                     Layout.fillWidth: true
                     text: visible ? researchStore.markdownHtml(message.modelData.content, Theme.accent) : ""
-                    textFormat: Text.RichText; wrapMode: Text.Wrap
+                    textFormat: Text.RichText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere
                     color: Theme.textBody; font.pixelSize: 13
                     onLinkActivated: function(link) { root.linkActivated(link) }
                 }
@@ -140,14 +143,14 @@ Item {
                     Layout.fillWidth: true; Layout.topMargin: 10
                     implicitHeight: pendingText.implicitHeight + 12
                     radius: Theme.cornerRadius; color: Theme.surfaceAlt
-                    Label { id: pendingText; anchors.fill: parent; anchors.margins: 6; text: root.c ? root.c.pendingQuestion : ""; wrapMode: Text.Wrap; textFormat: Text.PlainText; color: Theme.text; font.pixelSize: 12 }
+                    Label { id: pendingText; anchors.fill: parent; anchors.margins: 6; text: root.c ? root.c.pendingQuestion : ""; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; textFormat: Text.PlainText; color: Theme.text; font.pixelSize: 12 }
                 }
                 Text {
                     objectName: "aiAnswer"
                     visible: root.c && (root.c.streaming || root.c.answer.length > 0)
                     Layout.fillWidth: true
                     text: !root.c ? "" : root.c.answer.length ? researchStore.markdownHtml(root.c.answer, Theme.accent) : "<i>Thinking…</i>"
-                    textFormat: Text.RichText; wrapMode: Text.Wrap
+                    textFormat: Text.RichText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere
                     color: Theme.textBody; font.pixelSize: 13
                     onTextChanged: Qt.callLater(conversation.positionViewAtEnd)
                 }
@@ -155,14 +158,20 @@ Item {
                     objectName: "aiError"
                     visible: root.c && root.c.error.length > 0
                     Layout.fillWidth: true; Layout.topMargin: 6
-                    text: root.c ? root.c.error : ""; wrapMode: Text.Wrap; textFormat: Text.PlainText
+                    text: root.c ? root.c.error : ""; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; textFormat: Text.PlainText
                     color: Theme.danger; font.pixelSize: 12
+                }
+                UiControls.Button {
+                    objectName: "aiOpenSettings"
+                    visible: root.c && root.c.error.indexOf("Settings") >= 0
+                    text: "Open Settings…"; implicitHeight: 26
+                    onClicked: root.settingsRequested()
                 }
             }
         }
         // Attachments for the next turn; × removes one.
         Flow {
-            Layout.fillWidth: true
+            Layout.fillWidth: true; Layout.minimumWidth: 0
             spacing: 4
             visible: root.c && root.c.attachments.length > 0
             Repeater {
@@ -184,6 +193,7 @@ Item {
         UiControls.TextArea {
             id: question
             objectName: "aiQuestion"
+            Layout.minimumWidth: 0
             Layout.fillWidth: true
             Layout.preferredHeight: Math.min(140, Math.max(56, implicitHeight))
             placeholderText: root.c && root.c.threadId.length ? "Ask a follow-up…" : "Ask about the paper…"
@@ -197,13 +207,63 @@ Item {
                 }
             }
         }
+        // Provider row: one button per provider; a provider that is not set up says where to set it up.
         RowLayout {
-            Layout.fillWidth: true
+            Layout.fillWidth: true; Layout.minimumWidth: 0
+            spacing: 2
+            Repeater {
+                model: root.c ? root.c.ai.providers : []
+                delegate: UiControls.ToolButton {
+                    id: providerButton
+                    required property var modelData
+                    objectName: "aiProvider-" + modelData.id
+                    Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 1
+                    implicitHeight: 24
+                    checkable: true
+                    checked: root.c.ai.provider === modelData.id
+                    font.pixelSize: 11
+                    text: ({claude: "Claude", openai: "OpenAI", codex: "ChatGPT", ollama: "Ollama"})[modelData.id] || modelData.name
+                    contentItem: Label {
+                        text: providerButton.text; elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                        font: providerButton.font
+                        color: providerButton.checked ? Theme.accentText : providerButton.modelData.configured || providerButton.modelData.id === "ollama" ? Theme.textSecondary : Theme.textMuted
+                    }
+                    background: Rectangle {
+                        radius: Theme.cornerRadius
+                        color: providerButton.checked ? Theme.accentSurface : providerButton.hovered ? Theme.surfaceHover : "transparent"
+                        border.color: providerButton.checked ? Theme.accent : "transparent"
+                    }
+                    hoverEnabled: true
+                    ToolTip.visible: hovered; ToolTip.delay: 450
+                    ToolTip.text: modelData.name + (modelData.configured || modelData.id === "ollama" ? "" : " · Set up in Settings → AI")
+                    onClicked: { const id = modelData.id, controller = root.c; Qt.callLater(function() { controller.chooseProvider(id) }) }
+                }
+            }
+        }
+        // The current provider's model; opens the models that provider offers.
+        UiControls.ToolButton {
+            id: modelButton
+            objectName: "aiModelButton"
+            Layout.fillWidth: true; Layout.minimumWidth: 0
+            implicitHeight: 24
+            font.pixelSize: 11
+            text: (root.c ? root.c.ai.model(root.c.ai.provider) : "") + " ▾"
+            contentItem: Label { text: modelButton.text; elide: Text.ElideMiddle; font: modelButton.font; color: Theme.textSecondary; verticalAlignment: Text.AlignVCenter }
+            hoverEnabled: true
+            ToolTip.visible: hovered; ToolTip.delay: 450
+            ToolTip.text: "Model · " + (root.c && root.c.providerInfo.kind === "local" ? "Stays on this Mac" : "Sent to " + (root.c ? root.c.providerInfo.sends || "" : ""))
+            onClicked: { root.c.loadModels(); modelMenu.open() }
+        }
+        RowLayout {
+            Layout.fillWidth: true; Layout.minimumWidth: 0
             spacing: 4
             UiControls.ToolButton {
                 id: attachButton
                 objectName: "aiAttachButton"
                 text: "+ Context"; font.pixelSize: 11; implicitHeight: 24
+                // Shrinks (elided) before Send does in a narrow dock.
+                Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.maximumWidth: implicitWidth
+                contentItem: Label { text: attachButton.text; elide: Text.ElideRight; font: attachButton.font; color: attachButton.enabled ? Theme.textSecondary : Theme.textMuted; verticalAlignment: Text.AlignVCenter }
                 enabled: root.c && root.c.reader !== null
                 onClicked: attachMenu.popup(attachButton, 0, -attachMenu.implicitHeight)
                 UiControls.Menu {
@@ -213,22 +273,7 @@ Item {
                     UiControls.MenuItem { text: "Whole Paper"; onTriggered: root.c.attach("paper") }
                 }
             }
-            // Provider · model; opens the list of models each set-up provider offers.
-            UiControls.ToolButton {
-                id: modelButton
-                objectName: "aiModelButton"
-                Layout.fillWidth: true
-                Layout.maximumWidth: implicitWidth
-                implicitHeight: 24
-                font.pixelSize: 11
-                text: (root.c ? root.c.providerInfo.name || "" : "") + " · " + (root.c ? root.c.ai.model(root.c.ai.provider) : "") + " ▾"
-                contentItem: Label { text: modelButton.text; elide: Text.ElideRight; font: modelButton.font; color: Theme.textSecondary; verticalAlignment: Text.AlignVCenter }
-                hoverEnabled: true
-                ToolTip.visible: hovered; ToolTip.delay: 450
-                ToolTip.text: root.c && root.c.providerInfo.kind === "local" ? "Stays on this Mac" : "Sent to " + (root.c ? root.c.providerInfo.sends || "" : "")
-                onClicked: { root.c.loadModels(); modelMenu.open() }
-            }
-            Item { Layout.fillWidth: true }
+            Item { Layout.fillWidth: true; Layout.minimumWidth: 0 }
             UiControls.Button {
                 objectName: "aiSend"
                 text: root.c && root.c.streaming ? "Stop" : "Send"
@@ -258,7 +303,7 @@ Item {
                 width: parent.width
                 spacing: 1
                 Repeater {
-                    model: root.c ? root.c.ai.providers : []
+                    model: root.c ? root.c.ai.providers.filter(function(p) { return p.id === root.c.ai.provider }) : []
                     delegate: ColumnLayout {
                         id: providerSection
                         required property var modelData

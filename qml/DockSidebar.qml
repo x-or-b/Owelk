@@ -18,6 +18,7 @@ Rectangle {
     signal noteRequested(string id)
     signal linkActivated(string link)
     signal aiRequested(var spec)
+    signal settingsRequested()
     color: Theme.surfaceSidebar
     border.color: Theme.border
     radius: Theme.cornerRadius
@@ -58,7 +59,7 @@ Rectangle {
         }
     }
     Component { id: captures; CaptureShelf { onNoteRequested: function(id) { root.noteRequested(id) }; onAiRequested: function(spec) { root.aiRequested(spec) } } }
-    Component { id: aiPanel; AiPanel { controller: root.aiController; onLinkActivated: function(link) { root.linkActivated(link) } } }
+    Component { id: aiPanel; AiPanel { controller: root.aiController; onLinkActivated: function(link) { root.linkActivated(link) }; onSettingsRequested: root.settingsRequested() } }
     Component {
         id: navigation
         PdfNavigationPanel {

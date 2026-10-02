@@ -152,5 +152,50 @@ Item {
             compare(ai.messages.length, 2)
             compare(ai.thread.title, "What is the main claim?")
         }
+        // Visible items whose right edge passes the panel (in panel coordinates).
+        function overflowing(item, panel, list) {
+            if (!item.visible || item.opacity === 0) return list
+            if (item !== panel && item.width > 0) {
+                const right = item.mapToItem(panel, item.width, 0).x
+                if (right > panel.width + 1) list.push((item.objectName || item.toString()) + " right=" + Math.round(right))
+            }
+            if (item.clip && item !== panel) return list
+            const children = item.children || []
+            for (let i = 0; i < children.length; ++i) overflowing(children[i], panel, list)
+            return list
+        }
+        function test_6_narrowPanelWrapsEverything() {
+            const ai = findChild(workspace, "aiController")
+            const long = "긴 답변입니다. " + "https://example.com/" + "a".repeat(160) + " and `" + "b".repeat(120) + "`\n\n"
+                + "| col | col |\n| --- | --- |\n| " + "c".repeat(80) + " | d |\n\n```\n" + "e".repeat(150) + "\n```"
+            ai.thread = {id: ai.threadId, title: "Narrow", messages: [{role: "user", display: "q".repeat(200), content: "q"}, {role: "assistant", content: long}]}
+            workspace.rightDockWidth = 160
+            const p = panel()
+            tryVerify(function() { return Math.abs(p.width - findChild(workspace, "rightDock").width) < 4 })
+            waitForPolish(p)
+            wait(50)
+            const bad = overflowing(p, p, [])
+            compare(bad.join(", "), "")
+            const conversation = findChild(p, "aiConversation")
+            verify(conversation.contentWidth <= conversation.width + 1)
+            // Provider and model controls stay reachable at this width.
+            for (const id of ["claude", "openai", "codex", "ollama"]) {
+                const button = findChild(p, "aiProvider-" + id)
+                verify(button && button.visible && button.width > 20, id)
+            }
+            verify(findChild(p, "aiModelButton").width > 60)
+            mouseClick(findChild(p, "aiProvider-ollama"))
+            tryCompare(researchStore.ai, "provider", "ollama")
+            compare(findChild(p, "aiProvider-ollama").checked, true)
+            // A provider without a key says where to set it up.
+            verify(researchStore.ai.clearApiKey("claude"))
+            waitForPolish(p); wait(20)
+            mouseClick(findChild(p, "aiProvider-claude"))
+            tryCompare(researchStore.ai, "provider", "claude")
+            tryVerify(function() { return ai.error.indexOf("Settings") >= 0 })
+            verify(findChild(p, "aiOpenSettings").visible)
+            verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
+            workspace.rightDockWidth = 224
+        }
     }
 }
