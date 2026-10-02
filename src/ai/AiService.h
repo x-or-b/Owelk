@@ -49,6 +49,9 @@ public:
     Q_INVOKABLE void codexSignIn();
     Q_INVOKABLE void codexSignOut();
     Q_INVOKABLE void listOllamaModels();
+    // A pasted screenshot: saved under the data folder and returned as a file URL (empty if none).
+    Q_INVOKABLE bool clipboardHasImage() const;
+    Q_INVOKABLE QString saveClipboardImage();
     // ACP agents (Claude Agent, Codex Agent, Gemini CLI): installed from npm into the data folder.
     Q_INVOKABLE QVariantList agents() const;
     Q_INVOKABLE bool agentInstalled(const QString &id) const;
@@ -78,6 +81,7 @@ private:
     QUrl baseUrl(const QString &provider) const;
     AiProvider *createProvider(const QString &provider, QString *error);
     QString agentDirectory(const QString &id) const;
+    QString attachmentDirectory() const;
     QString agentExecutable(const QString &id) const;
     AcpBridge *agentBridge(const QString &id);
     void run(int request, const QString &provider, const QVariantMap &spec, const QVariantMap &prepared);

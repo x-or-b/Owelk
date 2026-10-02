@@ -42,7 +42,8 @@ for line in sys.stdin:
         send({"id": request_id, "result": {"turn": {"id": "u1", "status": "inProgress", "items": []}}})
         # A server request Owelk must decline without hanging.
         send({"id": 900, "method": "item/commandExecution/requestApproval", "params": {"threadId": thread}})
-        for piece in ["Codex ", "answer"]:
+        extra = " [%s, %s]" % (params["effort"], params["serviceTier"]) if "effort" in params else ""
+        for piece in ["Codex ", "answer" + extra]:
             send({"method": "item/agentMessage/delta", "params": {"threadId": thread, "turnId": "u1", "itemId": "i1", "delta": piece}})
         status = "completed" if thread == "t1" and "selection" in text else "failed"
         send({"method": "turn/completed", "params": {"threadId": thread, "turn": {"id": "u1", "status": status, "items": [],

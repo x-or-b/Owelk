@@ -29,6 +29,47 @@ Item {
     property bool conversationOpen: false
     signal focusRequested()
     readonly property var providerInfo: ai.providers.find(function(p) { return p.id === ai.provider }) || ({})
+    // The model choice for the next turn: provider and model are the service's; effort and fast
+    // mode are remembered per provider and offered only where the model supports them.
+    readonly property string model: (ai.providers, ai.model(ai.provider))
+    readonly property var modelInfo: (models[ai.provider] || []).find(function(m) { return m.id === root.model }) || ({})
+    readonly property string modelLabel: modelInfo.name || model || (ai.provider === "codex" || ai.provider.endsWith("-agent") ? "Default model" : "Choose a model")
+    readonly property var efforts: modelInfo.efforts || []
+    property string effort: ""
+    property bool fast: false
+    readonly property string effectiveEffort: efforts.indexOf(effort) >= 0 ? effort : (modelInfo.defaultEffort || (efforts.length ? efforts[0] : ""))
+    readonly property bool fastAvailable: !!modelInfo.fast
+    readonly property bool effectiveFast: fast && fastAvailable
+    // Images attached to the next question: [{url, name}].
+    property var images: []
+    readonly property string selectionProvider: ai.provider
+    onSelectionProviderChanged: loadSelection()
+    Component.onCompleted: { loadSelection(); loadModels() }
+    function loadSelection() {
+        effort = researchStore.setting("ai.effort." + ai.provider, "")
+        fast = researchStore.setting("ai.fast." + ai.provider, "") === "1"
+    }
+    function setEffort(value) { effort = value; researchStore.setSetting("ai.effort." + ai.provider, value) }
+    function setFast(on) { fast = on; researchStore.setSetting("ai.fast." + ai.provider, on ? "1" : "") }
+    function effortName(value) {
+        const names = {minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "Extra high", max: "Max", ultra: "Ultra"}
+        return names[value] || (value ? value.charAt(0).toUpperCase() + value.slice(1) : "")
+    }
+    function companyName(provider) {
+        return ({claude: "Anthropic", openai: "OpenAI", codex: "ChatGPT account", ollama: "Ollama (this Mac)",
+                 "claude-agent": "Claude Agent", "codex-agent": "Codex Agent", "gemini-agent": "Gemini CLI"})[provider] || provider
+    }
+    function attachImage(url) {
+        const value = url.toString()
+        if (!/\.(png|jpe?g|gif|webp|heic)$/i.test(value) || images.some(function(i) { return i.url === value })) return false
+        if (images.length >= 6) { error = "Up to 6 images per question."; return false }
+        images = images.concat([{url: value, name: decodeURIComponent(value.replace(/^.*\//, ""))}])
+        return true
+    }
+    function pasteImage() {
+        const file = ai.saveClipboardImage()
+        return file.length > 0 && attachImage(file)
+    }
     readonly property var actions: ({explain: "Explain", translate: "Translate", summarize: "Summarize", ask: "Ask", figure: "Explain figure"})
     // What goes into the request, shown as chips before anything is sent.
     readonly property var attachments: {
@@ -42,6 +83,7 @@ Item {
         if (s.scope === "page") list.push({kind: "page", label: "Page " + (Number(s.page) + 1) + " text"})
         if (s.scope === "paper") list.push({kind: "paperText", label: "Full paper text"})
         if (s.captureId) list.push({kind: "capture", label: s.action === "figure" ? "Figure image" : "Excerpt"})
+        images.forEach(function(image, index) { list.push({kind: "image", index: index, label: image.name, url: image.url}) })
         return list
     }
     function stop() { if (streaming) ai.cancel(request) }
@@ -71,6 +113,12 @@ Item {
         reset()
         threadId = id; thread = saved
         conversationOpen = true
+        // Continue with the model the thread used, when that provider is still set up.
+        const info = ai.providers.find(function(p) { return p.id === saved.provider }) || ({})
+        if (info.configured || saved.provider === "ollama") {
+            ai.provider = saved.provider
+            if (saved.model) ai.setModel(saved.provider, saved.model)
+        }
         spec = saved.source && saved.source.toString().length ? {source: saved.source, scope: "none"} : ({})
         return true
     }
@@ -82,7 +130,8 @@ Item {
         else if (kind === "selection" && reader.selectedText.length) { next.selection = reader.selectedText; next.scope = next.scope || "selection" }
         spec = next
     }
-    function detach(kind) {
+    function detach(kind, index) {
+        if (kind === "image") { images = images.filter(function(_, i) { return i !== index }); return }
         const next = Object.assign({}, spec)
         if (kind === "paper") return
         if (kind === "selection") next.selection = ""
@@ -101,8 +150,12 @@ Item {
         if (!ai.consented(provider)) { consent.question = question; consent.open(); return false }
         pendingQuestion = question.trim().length ? question.trim() : (actions[spec.action] || "Ask")
         answer = ""; streaming = true
-        request = ai.ask(Object.assign({}, spec, {provider: provider, question: question, threadId: threadId,
-            action: spec.action || "ask"}))
+        const choice = {provider: provider, model: model, question: question, threadId: threadId, action: spec.action || "ask",
+                        imageFiles: images.map(function(i) { return i.url })}
+        if (efforts.length) choice.effort = effectiveEffort
+        if (effectiveFast) choice.fast = true
+        request = ai.ask(Object.assign({}, spec, choice))
+        images = []
         return true
     }
     function loadModels() {
@@ -130,6 +183,7 @@ Item {
     }
     function showThreads() {
         reset()
+        images = []
         threadId = ""; thread = ({}); spec = ({})
         conversationOpen = false
     }

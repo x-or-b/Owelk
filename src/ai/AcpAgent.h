@@ -66,6 +66,10 @@ public:
     static QJsonObject option(const QJsonObject &session, const QString &category);
     // The agent's most restrictive mode among those it offers (empty when it has no modes).
     static QString safestMode(const QJsonObject &modes);
+    static QJsonObject fastOption(const QJsonObject &session);
+    static QString fastValue(const QJsonObject &fast, bool on);
+    // efforts, defaultEffort and fast for the model picker.
+    static QVariantMap capabilities(const QJsonObject &session);
 
 private:
     void configure(QList<QPair<QString, QString>> settings, const QString &required);

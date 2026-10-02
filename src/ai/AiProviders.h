@@ -31,6 +31,9 @@ struct AiRequest {
     QString text;
     QList<AiImage> images;
     QString model;
+    // Reasoning effort (provider's own level names, e.g. low…max) and the faster, pricier tier.
+    QString effort;
+    bool fast = false;
     int maxTokens = 16000;
 };
 
@@ -72,6 +75,10 @@ private:
     QByteArray m_buffer;
     bool m_sse = true;
 };
+
+// Which Claude models take output_config.effort, and which offer fast mode.
+bool anthropicEfforts(const QString &model);
+bool anthropicFast(const QString &model);
 
 class AnthropicProvider final : public HttpStreamProvider {
     Q_OBJECT
@@ -150,6 +157,7 @@ public:
 
 private:
     CodexBridge *m_bridge;
-    QString m_threadId, m_turnId, m_text, m_model;
+    QString m_threadId, m_turnId, m_text, m_model, m_effort;
+    bool m_fast = false;
     bool m_done = false;
 };

@@ -126,6 +126,16 @@ AnthropicProvider::AnthropicProvider(
 {
 }
 
+bool anthropicEfforts(const QString &model)
+{
+    return model.startsWith("claude-opus-5") || model.startsWith("claude-sonnet-5") || model.startsWith("claude-fable");
+}
+
+bool anthropicFast(const QString &model)
+{
+    return model.startsWith("claude-opus-5");
+}
+
 void AnthropicProvider::start(const AiRequest &request)
 {
     m_model = request.model;
@@ -146,12 +156,17 @@ void AnthropicProvider::start(const AiRequest &request)
     const bool fallbacks = request.model.startsWith("claude-opus-5") || request.model.startsWith("claude-sonnet-5-5")
         || request.model.startsWith("claude-fable-5");
     if (fallbacks) body.insert("fallbacks", "default");
-    // Reading help is routine work: medium effort keeps answers quick (and is Claude Opus 5.5's default).
-    if (request.model.startsWith("claude-opus-5") || request.model.startsWith("claude-sonnet-5")
-        || request.model.startsWith("claude-fable"))
-        body.insert("output_config", QJsonObject{{"effort", "medium"}});
+    // Reading help is routine work: medium effort unless the reader chose another level (Haiku has none).
+    if (anthropicEfforts(request.model))
+        body.insert("output_config", QJsonObject{{"effort", request.effort.isEmpty() ? "medium" : request.effort}});
+    // Fast mode: the same model at a higher output speed and premium price (Claude Opus 5 / 5.5 only).
+    const bool fast = request.fast && anthropicFast(request.model);
+    if (fast) body.insert("speed", "fast");
     QHash<QByteArray, QByteArray> headers{{"x-api-key", m_key.toUtf8()}, {"anthropic-version", "2023-06-01"}};
-    if (fallbacks) headers.insert("anthropic-beta", "server-side-fallback-2026-07-01");
+    QStringList betas;
+    if (fallbacks) betas << "server-side-fallback-2026-07-01";
+    if (fast) betas << "fast-mode-2026-02-01";
+    if (!betas.isEmpty()) headers.insert("anthropic-beta", betas.join(',').toUtf8());
     post(headers, body, true);
 }
 
@@ -207,7 +222,7 @@ void OpenAiProvider::start(const AiRequest &request)
     for (const auto &image : request.images)
         content.append(QJsonObject{{"type", "input_image"},
             {"image_url", "data:" + image.mediaType + ";base64," + QString::fromLatin1(image.data.toBase64())}});
-    const QJsonObject body{{"model", request.model}, {"instructions", request.system}, {"stream", true},
+    QJsonObject body{{"model", request.model}, {"instructions", request.system}, {"stream", true},
         {"max_output_tokens", request.maxTokens},
         {"input", [&] {
              QJsonArray input;
@@ -216,6 +231,9 @@ void OpenAiProvider::start(const AiRequest &request)
              input.append(QJsonObject{{"role", "user"}, {"content", content}});
              return input;
          }()}};
+    if (!request.effort.isEmpty()) body.insert("reasoning", QJsonObject{{"effort", request.effort}});
+    // OpenAI's faster processing tier.
+    if (request.fast) body.insert("service_tier", "priority");
     post({{"Authorization", "Bearer " + m_key.toUtf8()}}, body, true);
 }
 
@@ -437,6 +455,8 @@ CodexProvider::CodexProvider(CodexBridge *bridge, QObject *parent) : AiProvider(
 void CodexProvider::start(const AiRequest &request)
 {
     m_model = request.model;
+    m_effort = request.effort;
+    m_fast = request.fast;
     QJsonObject thread{{"ephemeral", true}, {"sandbox", "read-only"}, {"approvalPolicy", "never"},
         {"developerInstructions", request.system}};
     if (!request.model.isEmpty()) thread.insert("model", request.model);
@@ -461,16 +481,19 @@ void CodexProvider::start(const AiRequest &request)
         }
         self->m_threadId = result.toObject().value("thread").toObject().value("id").toString();
         self->m_model = result.toObject().value("model").toString(self->m_model);
-        self->m_bridge->call("turn/start", {{"threadId", self->m_threadId}, {"input", input}},
-            [self](const QJsonValue &turn, const QString &error) {
-                if (!self || self->m_done) return;
-                if (!error.isEmpty()) {
-                    self->m_done = true;
-                    emit self->failed(error);
-                    return;
-                }
-                self->m_turnId = turn.toObject().value("turn").toObject().value("id").toString();
-            });
+        QJsonObject turn{{"threadId", self->m_threadId}, {"input", input}};
+        if (!self->m_effort.isEmpty()) turn.insert("effort", self->m_effort);
+        // Codex names its fast tier "priority".
+        if (self->m_fast) turn.insert("serviceTier", "priority");
+        self->m_bridge->call("turn/start", turn, [self](const QJsonValue &turn, const QString &error) {
+            if (!self || self->m_done) return;
+            if (!error.isEmpty()) {
+                self->m_done = true;
+                emit self->failed(error);
+                return;
+            }
+            self->m_turnId = turn.toObject().value("turn").toObject().value("id").toString();
+        });
     });
 }
 

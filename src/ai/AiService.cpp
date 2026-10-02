@@ -5,7 +5,13 @@
 #include "Keychain.h"
 #include "ResearchStore.h"
 
+#include <QBuffer>
+#include <QClipboard>
+#include <QMimeData>
 #include <QDesktopServices>
+#include <QGuiApplication>
+#include <QImage>
+#include <QUuid>
 #include <QDir>
 #include <QProcess>
 #include <QStandardPaths>
@@ -255,6 +261,14 @@ int AiService::ask(const QVariantMap &input)
             prepared.insert("title", capture.value("name"));
         }
     }
+    // Images the reader attached (files, drops, pasted screenshots).
+    QStringList userImages;
+    for (const auto &value : spec.value("imageFiles").toList()) {
+        const auto path
+            = QUrl(value.toString()).isLocalFile() ? QUrl(value.toString()).toLocalFile() : value.toString();
+        if (QFileInfo(path).isFile() && userImages.size() < 6) userImages << path;
+    }
+    const auto attachments = attachmentDirectory();
     QStringList notes;
     for (const auto &noteId : spec.value("noteIds").toStringList())
         notes << m_store->note(noteId).value("body").toString();
@@ -264,32 +278,32 @@ int AiService::ask(const QVariantMap &input)
     struct Material {
         QString pageText, paperText, error;
         QList<QByteArray> images;
+        QStringList paths;
     };
     const auto pdfSource = spec.value("source").toUrl();
     const auto scope = spec.value("scope").toString();
     const int page = spec.value("page").toInt();
     auto *watcher = new QFutureWatcher<Material>(this);
-    connect(
-        watcher, &QFutureWatcher<Material>::finished, this, [this, watcher, request, id, spec, prepared, imagePaths] {
-            const auto material = watcher->result();
-            watcher->deleteLater();
-            if (!m_running.contains(request)) return; // Cancelled while reading.
-            if (!material.error.isEmpty()) {
-                m_running.remove(request);
-                emit busyChanged();
-                emit failed(request, material.error);
-                return;
-            }
-            auto next = prepared;
-            next.insert("pageText", material.pageText);
-            next.insert("paperText", material.paperText);
-            QVariantList images;
-            for (qsizetype i = 0; i < material.images.size(); ++i)
-                images.append(QVariantMap{{"data", material.images[i]}, {"path", imagePaths.value(i)}});
-            next.insert("images", images);
-            run(request, id, spec, next);
-        });
-    watcher->setFuture(QtConcurrent::run([pdfSource, scope, page, imagePaths] {
+    connect(watcher, &QFutureWatcher<Material>::finished, this, [this, watcher, request, id, spec, prepared] {
+        const auto material = watcher->result();
+        watcher->deleteLater();
+        if (!m_running.contains(request)) return; // Cancelled while reading.
+        if (!material.error.isEmpty()) {
+            m_running.remove(request);
+            emit busyChanged();
+            emit failed(request, material.error);
+            return;
+        }
+        auto next = prepared;
+        next.insert("pageText", material.pageText);
+        next.insert("paperText", material.paperText);
+        QVariantList images;
+        for (qsizetype i = 0; i < material.images.size(); ++i)
+            images.append(QVariantMap{{"data", material.images[i]}, {"path", material.paths.value(i)}});
+        next.insert("images", images);
+        run(request, id, spec, next);
+    });
+    watcher->setFuture(QtConcurrent::run([pdfSource, scope, page, imagePaths, userImages, attachments] {
         Material material;
         if (pdfSource.isLocalFile() && (scope == "page" || scope == "paper")) {
             QPdfDocument pdf;
@@ -306,7 +320,30 @@ int AiService::ask(const QVariantMap &input)
         }
         for (const auto &path : imagePaths) {
             QFile file(path);
-            if (file.open(QIODevice::ReadOnly) && file.size() < 8 * 1024 * 1024) material.images << file.readAll();
+            if (file.open(QIODevice::ReadOnly) && file.size() < 8 * 1024 * 1024) {
+                material.images << file.readAll();
+                material.paths << path;
+            }
+        }
+        // Any common format becomes a PNG at most 1568 px on its long side (what vision models use);
+        // the copy in the attachments folder is what file-based providers read.
+        for (const auto &path : userImages) {
+            QImage image(path);
+            if (image.isNull()) {
+                material.error = "Cannot read the image " + QFileInfo(path).fileName() + ".";
+                return material;
+            }
+            if (std::max(image.width(), image.height()) > 1568)
+                image = image.scaled(1568, 1568, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            QByteArray png;
+            QBuffer buffer(&png);
+            buffer.open(QIODevice::WriteOnly);
+            image.save(&buffer, "PNG");
+            const auto copy = attachments + "/" + QUuid::createUuid().toString(QUuid::WithoutBraces) + ".png";
+            QFile out(copy);
+            if (out.open(QIODevice::WriteOnly)) out.write(png);
+            material.images << png;
+            material.paths << copy;
         }
         return material;
     }));
@@ -350,7 +387,12 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     call.system = prompt.system;
     call.history = history;
     call.text = prompt.text;
-    call.model = model(id);
+    call.model = spec.value("model").toString().isEmpty() ? model(id) : spec.value("model").toString().left(120);
+    // Provider level names only (low, medium, xhigh, …); anything else is ignored.
+    static const QRegularExpression level("^[a-z_-]{1,16}$");
+    const auto effort = spec.value("effort").toString();
+    if (level.match(effort).hasMatch()) call.effort = effort;
+    call.fast = spec.value("fast").toBool();
     for (const auto &value : images) {
         const auto image = value.toMap();
         call.images.append({image.value("data").toByteArray(), "image/png", image.value("path").toString()});
@@ -489,12 +531,17 @@ void AiService::listOllamaModels()
 void AiService::listModels(const QString &provider)
 {
     if (provider == "claude") {
-        // Anthropic's current models; the first is the default.
+        // Anthropic's current models; the first is the default. Haiku has no effort levels, and only
+        // Opus offers fast mode.
+        const QStringList levels{"low", "medium", "high", "xhigh", "max"};
         emit modelsLoaded(provider,
-            {QVariantMap{{"id", "claude-opus-5-5"}, {"name", "Claude Opus 5.5"}},
-                QVariantMap{{"id", "claude-sonnet-5-5"}, {"name", "Claude Sonnet 5.5"}},
-                QVariantMap{{"id", "claude-haiku-4-5"}, {"name", "Claude Haiku 4.5"}},
-                QVariantMap{{"id", "claude-fable-5-1"}, {"name", "Claude Fable 5.1"}}});
+            {QVariantMap{{"id", "claude-opus-5-5"}, {"name", "Claude Opus 5.5"}, {"efforts", levels},
+                 {"defaultEffort", "medium"}, {"fast", true}},
+                QVariantMap{{"id", "claude-sonnet-5-5"}, {"name", "Claude Sonnet 5.5"}, {"efforts", levels},
+                    {"defaultEffort", "medium"}, {"fast", false}},
+                QVariantMap{{"id", "claude-haiku-4-5"}, {"name", "Claude Haiku 4.5"}, {"efforts", QStringList()}},
+                QVariantMap{{"id", "claude-fable-5-1"}, {"name", "Claude Fable 5.1"}, {"efforts", levels},
+                    {"defaultEffort", "medium"}, {"fast", false}}});
         return;
     }
     if (provider == "codex") {
@@ -503,9 +550,16 @@ void AiService::listModels(const QString &provider)
             for (const auto &value : result.toObject().value("data").toArray()) {
                 const auto entry = value.toObject();
                 if (entry.value("hidden").toBool()) continue;
+                QStringList efforts;
+                for (const auto &option : entry.value("supportedReasoningEfforts").toArray())
+                    efforts << option.toObject().value("reasoningEffort").toString();
+                bool fast = false;
+                for (const auto &tier : entry.value("serviceTiers").toArray())
+                    fast = fast || tier.toObject().value("id").toString() == "priority";
                 models.append(QVariantMap{{"id", entry.value("model").toString(entry.value("id").toString())},
                     {"name", entry.value("displayName").toString(entry.value("model").toString())},
-                    {"isDefault", entry.value("isDefault").toBool()}});
+                    {"isDefault", entry.value("isDefault").toBool()}, {"efforts", efforts},
+                    {"defaultEffort", entry.value("defaultReasoningEffort").toString()}, {"fast", fast}});
             }
             emit modelsLoaded(provider, models);
         });
@@ -520,7 +574,16 @@ void AiService::listModels(const QString &provider)
         agentBridge(provider)->call("session/new",
             {{"cwd", agentDirectory(provider) + "/work"}, {"mcpServers", QJsonArray()}},
             [this, provider](const QJsonValue &result, const QJsonObject &) {
-                emit modelsLoaded(provider, AcpProvider::modelChoices(AcpProvider::modelOption(result.toObject())));
+                // Effort and fast mode are session options, the same for every model the agent lists.
+                const auto session = result.toObject();
+                const auto capabilities = AcpProvider::capabilities(session);
+                QVariantList models;
+                for (auto value : AcpProvider::modelChoices(AcpProvider::modelOption(session))) {
+                    auto entry = value.toMap();
+                    entry.insert(capabilities);
+                    models.append(entry);
+                }
+                emit modelsLoaded(provider, models);
             });
         return;
     }
@@ -549,7 +612,12 @@ void AiService::listModels(const QString &provider)
             if (id.isEmpty()
                 || (provider == "openai" && (id.contains(other) || !(id.startsWith("gpt") || id.startsWith('o')))))
                 continue;
-            models.append(QVariantMap{{"id", id}, {"name", id}});
+            // OpenAI reasoning models take reasoning.effort; every model can use the priority tier.
+            const bool reasoning
+                = provider == "openai" && (id.startsWith("gpt-5") || id.startsWith("gpt-6") || id.startsWith('o'));
+            models.append(QVariantMap{{"id", id}, {"name", id},
+                {"efforts", reasoning ? QStringList{"low", "medium", "high"} : QStringList()},
+                {"defaultEffort", reasoning ? "medium" : ""}, {"fast", provider == "openai"}});
         }
         std::sort(models.begin(), models.end(), [](const QVariant &a, const QVariant &b) {
             return a.toMap().value("id").toString() > b.toMap().value("id").toString();
@@ -702,4 +770,28 @@ void AiService::authenticateAgent(const QString &id, const QString &methodId)
             refreshAgent(id);
             emit providersChanged();
         });
+}
+
+// --- Attached images ----------------------------------------------------------------------------
+
+QString AiService::attachmentDirectory() const
+{
+    const auto directory = m_store->dataDirectory() + "/ai-attachments";
+    QDir().mkpath(directory);
+    return directory;
+}
+
+bool AiService::clipboardHasImage() const
+{
+    const auto *data = QGuiApplication::clipboard()->mimeData();
+    return data && data->hasImage();
+}
+
+QString AiService::saveClipboardImage()
+{
+    if (!clipboardHasImage()) return {};
+    const auto image = QGuiApplication::clipboard()->image();
+    if (image.isNull()) return {};
+    const auto path = attachmentDirectory() + "/" + QUuid::createUuid().toString(QUuid::WithoutBraces) + ".png";
+    return image.save(path, "PNG") ? QUrl::fromLocalFile(path).toString() : QString();
 }

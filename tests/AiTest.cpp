@@ -5,6 +5,9 @@
 #include "PdfFixture.h"
 #include "ResearchStore.h"
 
+#include <QClipboard>
+#include <QGuiApplication>
+#include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -169,6 +172,25 @@ private slots:
         QCOMPARE(
             content[0].toObject()["source"].toObject()["data"].toString(), QString(QByteArray("png-bytes").toBase64()));
         QCOMPARE(content[1].toObject()["text"].toString(), QString("question"));
+        // The reader's effort and fast mode reach the request; fast mode is Opus-only.
+        request.effort = "xhigh";
+        request.fast = true;
+        run(new AnthropicProvider(&network, server.base(), "k", this), request);
+        QCOMPARE(server.seen.last().body["output_config"].toObject()["effort"].toString(), QString("xhigh"));
+        QCOMPARE(server.seen.last().body["speed"].toString(), QString("fast"));
+        QCOMPARE(server.seen.last().headers.value("anthropic-beta"),
+            QString("server-side-fallback-2026-07-01,fast-mode-2026-02-01"));
+        request.model = "claude-sonnet-5-5";
+        run(new AnthropicProvider(&network, server.base(), "k", this), request);
+        QVERIFY(!server.seen.last().body.contains("speed"));
+        QCOMPARE(server.seen.last().headers.value("anthropic-beta"), QString("server-side-fallback-2026-07-01"));
+        request.model = "claude-haiku-4-5";
+        run(new AnthropicProvider(&network, server.base(), "k", this), request);
+        QVERIFY(!server.seen.last().body.contains("output_config")); // Haiku 4.5 has no effort levels.
+        QVERIFY(!server.seen.last().headers.contains("anthropic-beta"));
+        request.model = "claude-opus-5-5";
+        request.effort.clear();
+        request.fast = false;
         // A refusal discards partial text.
         server.chunks = {
             MockServer::sse("content_block_delta",
@@ -253,6 +275,12 @@ private slots:
         });
         QTRY_VERIFY_WITH_TIMEOUT(answered, 5000);
         QCOMPARE(models.toObject()["data"].toArray().size(), 2);
+        // Effort and the fast tier go with the turn.
+        request.effort = "high";
+        request.fast = true;
+        QCOMPARE(run(new CodexProvider(&bridge, this), request).text, QString("Codex answer [high, priority]"));
+        request.effort.clear();
+        request.fast = false;
         // Earlier turns travel inside the text for the stateless Codex threads.
         request.history = {{"user", "first question"}, {"assistant", "first answer"}};
         outcome = run(new CodexProvider(&bridge, this), request);
@@ -341,6 +369,36 @@ private slots:
         for (const auto &row : aiOnly) QCOMPARE(row.toMap()["kind"].toString(), QString("ai"));
         for (const auto &row : store.searchKnowledge("Page", QUrl(), "captures"))
             QVERIFY(row.toMap()["kind"].toString() != "ai");
+        // An attached JPEG is sent as a PNG, scaled to the vision limit, and noted in the thread.
+        const auto photo = directory.filePath("photo.jpg");
+        QImage big(3000, 1500, QImage::Format_RGB32);
+        big.fill(Qt::darkCyan);
+        QVERIFY(big.save(photo, "JPG"));
+        ai->ask({{"provider", "claude"}, {"threadId", threadId}, {"action", "ask"}, {"question", "What is this?"},
+            {"imageFiles", QVariantList{QUrl::fromLocalFile(photo).toString()}}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 3, 10000);
+        const auto withImage = server.seen.last().body["messages"].toArray().last().toObject()["content"].toArray();
+        QCOMPARE(withImage[0].toObject()["type"].toString(), QString("image"));
+        const auto png
+            = QByteArray::fromBase64(withImage[0].toObject()["source"].toObject()["data"].toString().toLatin1());
+        QCOMPARE(QImage::fromData(png, "PNG").size(), QSize(1568, 784));
+        QVERIFY(store.aiThread(threadId)["messages"]
+                .toList()[4]
+                .toMap()["context"]
+                .toMap()["attachments"]
+                .toStringList()
+                .contains("image"));
+        QVERIFY(QFileInfo::exists(photo)); // The reader's file is left as it was.
+        // A pasted screenshot is saved under the data folder.
+        QImage shot(40, 30, QImage::Format_RGB32);
+        shot.fill(Qt::red);
+        QGuiApplication::clipboard()->setImage(shot);
+        QVERIFY(ai->clipboardHasImage());
+        const QUrl pasted(ai->saveClipboardImage());
+        QVERIFY(pasted.toLocalFile().startsWith(store.dataDirectory() + "/ai-attachments/"));
+        QCOMPARE(QImage(pasted.toLocalFile()).size(), QSize(40, 30));
+        QGuiApplication::clipboard()->setText("text only");
+        QVERIFY(ai->saveClipboardImage().isEmpty());
         QSignalSpy models(ai, &AiService::modelsLoaded);
         ai->listModels("claude");
         QCOMPARE(models[0][1].toList()[0].toMap()["id"].toString(), QString("claude-opus-5-5"));

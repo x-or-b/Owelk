@@ -100,22 +100,60 @@ Item {
             verify(workspace.documents.openLink("owelk://ai/" + thread))
             compare(ai.conversationOpen, true)
         }
-        function test_3_modelMenuListsProviderModels() {
-            const ai = findChild(workspace, "aiController")
-            const p = panel()
+        function pickModel(p, name) {
             const button = findChild(p, "aiModelButton")
             mouseClick(button)
             const menu = findChild(p, "aiModelMenu")
             tryCompare(menu, "opened", true)
-            tryVerify(function() { return findChild(menu.contentItem, "aiModel-claude-claude-sonnet-5-5") !== null })
-            const sonnet = findChild(menu.contentItem, "aiModel-claude-claude-sonnet-5-5")
-            sonnet.clicked()
-            tryCompare(researchStore.ai, "provider", "claude")
-            tryVerify(function() { return researchStore.ai.model("claude") === "claude-sonnet-5-5" })
-            compare(researchStore.ai.provider, "claude")
-            verify(button.text.indexOf("claude-sonnet-5-5") >= 0)
-            tryCompare(menu, "opened", false)
-            researchStore.ai.setModel("claude", "claude-opus-5-5")
+            tryVerify(function() { return findChild(menu.contentItem, name) !== null }, 5000)
+            const row = findChild(menu.contentItem, name)
+            waitForPolish(menu.contentItem); wait(30)
+            mouseClick(row)
+            tryCompare(menu, "visible", false)
+        }
+        function test_3_modelPickerOffersEffortAndFastWhereTheModelHasThem() {
+            const ai = findChild(workspace, "aiController")
+            const p = panel()
+            const effort = findChild(p, "aiEffortButton"), fast = findChild(p, "aiFastButton")
+            // Grouped by company, with a filter.
+            mouseClick(findChild(p, "aiModelButton"))
+            const menu = findChild(p, "aiModelMenu")
+            tryCompare(menu, "opened", true)
+            tryVerify(function() { return findChild(menu.contentItem, "aiModel-claude-claude-opus-5-5") !== null }, 5000)
+            findChild(menu.contentItem, "aiModelFilter").text = "sonnet"
+            tryVerify(function() { return findChild(menu.contentItem, "aiModel-claude-claude-opus-5-5") === null })
+            verify(findChild(menu.contentItem, "aiModel-claude-claude-sonnet-5-5") !== null)
+            menu.close(); tryCompare(menu, "opened", false)
+            pickModel(p, "aiModel-claude-claude-opus-5-5")
+            tryVerify(function() { return researchStore.ai.model("claude") === "claude-opus-5-5" })
+            tryCompare(findChild(p, "aiModelButton"), "text", "Claude Opus 5.5 ▾")
+            // Opus: effort levels and fast mode.
+            tryCompare(effort, "visible", true)
+            compare(effort.text, "Medium ▾")
+            compare(fast.visible, true)
+            mouseClick(effort)
+            const levels = findChild(p, "aiEffortMenu")
+            tryCompare(levels, "opened", true)
+            tryVerify(function() { return findChild(levels, "aiEffort-xhigh") !== null })
+            findChild(levels, "aiEffort-xhigh").triggered()
+            levels.close(); tryCompare(levels, "visible", false)
+            compare(ai.effectiveEffort, "xhigh")
+            compare(effort.text, "Extra high ▾")
+            compare(researchStore.setting("ai.effort.claude"), "xhigh")
+            mouseClick(fast)
+            compare(ai.effectiveFast, true)
+            // Sonnet: effort but no fast mode; Haiku: neither.
+            pickModel(p, "aiModel-claude-claude-sonnet-5-5")
+            tryCompare(fast, "visible", false)
+            compare(ai.effectiveFast, false)
+            compare(effort.visible, true)
+            pickModel(p, "aiModel-claude-claude-haiku-4-5")
+            tryCompare(effort, "visible", false)
+            pickModel(p, "aiModel-claude-claude-opus-5-5")
+            tryCompare(fast, "visible", true)
+            compare(ai.effectiveFast, true) // Remembered for the provider.
+            mouseClick(fast)
+            ai.setEffort("medium")
         }
         function test_4_rightClickMovesThePanelBetweenDocks() {
             const icon = visualChild(findChild(workspace, "statusBar"), "dockIcon-ai")
@@ -178,29 +216,35 @@ Item {
             compare(bad.join(", "), "")
             const conversation = findChild(p, "aiConversation")
             verify(conversation.contentWidth <= conversation.width + 1)
-            // Provider and model controls stay reachable at this width.
-            for (const id of ["claude", "openai", "codex", "ollama"]) {
-                const button = findChild(p, "aiProvider-" + id)
-                verify(button && button.visible && button.width > 20, id)
+            // The model, effort and send controls stay reachable at this width.
+            for (const name of ["aiAttachButton", "aiModelButton", "aiEffortButton", "aiSend"]) {
+                const control = findChild(p, name)
+                verify(control && control.visible && control.width > 20, name)
             }
-            verify(findChild(p, "aiModelButton").width > 60)
-            mouseClick(findChild(p, "aiProvider-ollama"))
-            tryCompare(researchStore.ai, "provider", "ollama")
-            compare(findChild(p, "aiProvider-ollama").checked, true)
-            // A provider without a key says where to set it up.
+            // A provider without a key is offered for set-up instead of its models.
             verify(researchStore.ai.clearApiKey("claude"))
-            waitForPolish(p); wait(20)
-            mouseClick(findChild(p, "aiProvider-claude"))
-            tryCompare(researchStore.ai, "provider", "claude")
-            tryVerify(function() { return ai.error.indexOf("Settings") >= 0 })
-            verify(findChild(p, "aiOpenSettings").visible)
+            mouseClick(findChild(p, "aiModelButton"))
+            const menu = findChild(p, "aiModelMenu")
+            tryCompare(menu, "opened", true)
+            const setup = findChild(menu.contentItem, "aiModelSetup")
+            tryCompare(setup, "visible", true)
+            verify(findChild(menu.contentItem, "aiModel-claude-claude-opus-5-5") === null || !findChild(menu.contentItem, "aiModel-claude-claude-opus-5-5").visible)
+            const opened = Qt.createQmlObject('import QtTest; SignalSpy { signalName: "opened" }', p)
+            opened.target = findChild(workspace, "settingsDialog")
+            setup.clicked()
+            tryCompare(opened, "count", 1)
+            findChild(workspace, "settingsDialog").close()
             verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
             workspace.rightDockWidth = 224
         }
         function test_7_agentsInstallFromSettingsAndJoinThePanel() {
             const p = panel()
-            // Not installed: agents stay out of the panel's provider row.
-            verify(!findChild(p, "aiProvider-codex-agent"))
+            // Not installed: agents stay out of the model picker.
+            mouseClick(findChild(p, "aiModelButton"))
+            const menu = findChild(p, "aiModelMenu")
+            tryCompare(menu, "opened", true)
+            verify(findChild(menu.contentItem, "aiModel-codex-agent-fast") === null)
+            menu.close(); tryCompare(menu, "opened", false)
             const settings = findChild(workspace, "settingsDialog")
             settings.open(); tryCompare(settings, "opened", true)
             researchStore.ai.provider = "codex-agent"
@@ -222,8 +266,11 @@ Item {
             visualChild(content, "agentAuth-browser").clicked()
             tryVerify(function() { return visualChild(content, "agentAuth-browser") === null }, 5000)
             settings.close()
-            tryVerify(function() { return findChild(p, "aiProvider-codex-agent") !== null })
             const ai = findChild(workspace, "aiController")
+            // Signed in: the agent's own models appear under its name.
+            pickModel(p, "aiModel-codex-agent-fast")
+            tryCompare(researchStore.ai, "provider", "codex-agent")
+            tryCompare(findChild(p, "aiEffortButton"), "visible", false)
             researchStore.ai.giveConsent("codex-agent")
             mouseClick(findChild(p, "aiNewThread"))
             verify(ai.send("Hello agent"))
@@ -232,6 +279,33 @@ Item {
             compare(ai.messages[ai.messages.length - 1].content, "Agent answer (declined, fast)")
             researchStore.ai.provider = "claude"
             testInput.setEnvironment("OWELK_ACP_COMMAND", "")
+        }
+        function test_8_imagesAttachToTheNextQuestion() {
+            const ai = findChild(workspace, "aiController")
+            const p = panel()
+            mouseClick(findChild(p, "aiNewThread"))
+            // A picture made here stands in for a screenshot on disk.
+            const folder = testInput.temporaryFolder("ai-images")
+            let saved = false
+            p.grabToImage(function(result) { saved = result.saveToFile(folder + "/figure.png") })
+            tryVerify(function() { return saved })
+            const url = "file://" + folder + "/figure.png"
+            verify(ai.attachImage(url))
+            verify(!ai.attachImage(url)) // Once only.
+            verify(!ai.attachImage("file:///tmp/notes.txt"))
+            const chip = findChild(p, "aiChip-image-0")
+            tryVerify(function() { return chip !== null && chip.visible })
+            verify(ai.attachments.some(function(a) { return a.kind === "image" && a.label === "figure.png" }))
+            verify(ai.send("Describe the figure"))
+            compare(ai.images.length, 0) // Sent with this question only.
+            tryCompare(ai, "streaming", false, 10000)
+            compare(ai.error, "")
+            const asked = ai.messages[ai.messages.length - 2]
+            verify(asked.context.attachments.indexOf("image") >= 0)
+            // × removes an image before sending.
+            verify(ai.attachImage(url))
+            ai.detach("image", 0)
+            compare(ai.images.length, 0)
         }
     }
 }

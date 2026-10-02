@@ -177,6 +177,35 @@ QJsonObject AcpProvider::modelOption(const QJsonObject &session)
     return option(session, "model");
 }
 
+QJsonObject AcpProvider::fastOption(const QJsonObject &session)
+{
+    for (const auto &value : session.value("configOptions").toArray()) {
+        const auto entry = value.toObject();
+        if (entry.value("category").toString() == "model_config" && entry.value("id").toString().contains("fast"))
+            return entry;
+    }
+    return {};
+}
+
+QString AcpProvider::fastValue(const QJsonObject &fast, bool on)
+{
+    // Two choices: "off" and the other one.
+    for (const auto &value : modelChoices(fast)) {
+        const auto id = value.toMap().value("id").toString();
+        if ((id == "off") != on) return id;
+    }
+    return {};
+}
+
+QVariantMap AcpProvider::capabilities(const QJsonObject &session)
+{
+    QStringList efforts;
+    for (const auto &value : modelChoices(option(session, "thought_level")))
+        efforts << value.toMap().value("id").toString();
+    return {{"efforts", efforts}, {"defaultEffort", option(session, "thought_level").value("currentValue").toString()},
+        {"fast", !fastOption(session).isEmpty()}};
+}
+
 QVariantList AcpProvider::modelChoices(const QJsonObject &option)
 {
     QVariantList models;
@@ -235,6 +264,17 @@ void AcpProvider::start(const AiRequest &request)
                 settings.append({modes.value("id").toString(), mode});
             if (!models.isEmpty() && self->m_model != models.value("currentValue").toString())
                 settings.append({models.value("id").toString(), self->m_model});
+            // Reasoning level and fast mode, when the agent offers them as session options.
+            const auto effort = option(session, "thought_level");
+            if (!self->m_request.effort.isEmpty() && !effort.isEmpty()
+                && self->m_request.effort != effort.value("currentValue").toString())
+                settings.append({effort.value("id").toString(), self->m_request.effort});
+            const auto fast = fastOption(session);
+            if (!fast.isEmpty()) {
+                const auto value = fastValue(fast, self->m_request.fast);
+                if (!value.isEmpty() && value != fast.value("currentValue").toString())
+                    settings.append({fast.value("id").toString(), value});
+            }
             self->configure(settings, !mode.isEmpty() ? modes.value("id").toString() : QString());
         });
 }

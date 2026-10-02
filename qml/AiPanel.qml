@@ -2,6 +2,7 @@ import "UiTheme.js" as Theme
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs as Native
 
 // Dock panel for the AI: saved threads, the open conversation, and the composer with the model menu.
 Item {
@@ -169,7 +170,7 @@ Item {
                 }
             }
         }
-        // Attachments for the next turn; × removes one.
+        // Attachments for the next turn; × removes one. Images show a thumbnail.
         Flow {
             Layout.fillWidth: true; Layout.minimumWidth: 0
             spacing: 4
@@ -177,15 +178,27 @@ Item {
             Repeater {
                 model: root.c ? root.c.attachments : []
                 delegate: Rectangle {
+                    id: chipBox
                     required property var modelData
-                    height: 22; width: Math.min(chip.implicitWidth + (modelData.kind === "paper" ? 12 : 30), root.width - 16)
+                    required property int index
+                    objectName: "aiChip-" + modelData.kind + (modelData.kind === "image" ? "-" + modelData.index : "")
+                    readonly property bool removable: modelData.kind !== "paper"
+                    readonly property real lead: modelData.kind === "image" ? 26 : 6
+                    height: 22; width: Math.min(chip.implicitWidth + lead + (removable ? 22 : 6), root.width - 16)
                     radius: Theme.cornerRadius; color: Theme.surfaceAlt; border.color: Theme.border
-                    Label { id: chip; x: 6; anchors.verticalCenter: parent.verticalCenter; width: parent.width - (modelData.kind === "paper" ? 12 : 28); text: modelData.label; elide: Text.ElideRight; maximumLineCount: 1; textFormat: Text.PlainText; font.pixelSize: 11; color: Theme.textSecondary }
+                    Image {
+                        visible: chipBox.modelData.kind === "image"
+                        x: 3; anchors.verticalCenter: parent.verticalCenter
+                        width: 18; height: 16; fillMode: Image.PreserveAspectCrop
+                        source: visible ? chipBox.modelData.url : ""
+                        sourceSize.width: 36; sourceSize.height: 32; asynchronous: true
+                    }
+                    Label { id: chip; x: chipBox.lead; anchors.verticalCenter: parent.verticalCenter; width: parent.width - chipBox.lead - (chipBox.removable ? 20 : 6); text: chipBox.modelData.label; elide: Text.ElideRight; maximumLineCount: 1; textFormat: Text.PlainText; font.pixelSize: 11; color: Theme.textSecondary }
                     Label {
-                        visible: modelData.kind !== "paper"
+                        visible: chipBox.removable
                         anchors.right: parent.right; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter
                         text: "×"; color: Theme.textTertiary; font.pixelSize: 12
-                        TapHandler { onTapped: root.c.detach(modelData.kind) }
+                        TapHandler { onTapped: { const kind = chipBox.modelData.kind, at = chipBox.modelData.index; Qt.callLater(function() { root.c.detach(kind, at) }) } }
                     }
                 }
             }
@@ -199,86 +212,106 @@ Item {
             placeholderText: root.c && root.c.threadId.length ? "Ask a follow-up…" : "Ask about the paper…"
             wrapMode: TextEdit.Wrap
             font.pixelSize: 12
-            // Return sends, Shift+Return adds a line.
+            // Return sends, Shift+Return adds a line; pasting an image attaches it.
             Keys.onPressed: function(event) {
                 if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
                     if (!root.c.streaming && root.c.send(text)) text = ""
                     event.accepted = true
+                } else if (event.matches(StandardKey.Paste) && root.c.pasteImage()) {
+                    event.accepted = true
                 }
             }
         }
-        // Provider row: one button per provider; a provider that is not set up says where to set it up.
-        GridLayout {
-            Layout.fillWidth: true; Layout.minimumWidth: 0
-            columnSpacing: 2; rowSpacing: 2
-            // Wraps onto more rows in a narrow dock; agents show once installed.
-            readonly property var shown: root.c ? root.c.ai.providers.filter(function(p) { return p.installed }) : []
-            columns: Math.max(2, Math.min(shown.length, Math.floor(width / 56)))
-            Repeater {
-                model: parent.shown
-                delegate: UiControls.ToolButton {
-                    id: providerButton
-                    required property var modelData
-                    objectName: "aiProvider-" + modelData.id
-                    Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 1
-                    implicitHeight: 24
-                    checkable: true
-                    checked: root.c.ai.provider === modelData.id
-                    font.pixelSize: 11
-                    text: ({claude: "Claude", openai: "OpenAI", codex: "ChatGPT", ollama: "Ollama", "claude-agent": "Claude Agent", "codex-agent": "Codex", "gemini-agent": "Gemini"})[modelData.id] || modelData.name
-                    contentItem: Label {
-                        text: providerButton.text; elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                        font: providerButton.font
-                        color: providerButton.checked ? Theme.accentText : providerButton.modelData.configured || providerButton.modelData.id === "ollama" ? Theme.textSecondary : Theme.textMuted
-                    }
-                    background: Rectangle {
-                        radius: Theme.cornerRadius
-                        color: providerButton.checked ? Theme.accentSurface : providerButton.hovered ? Theme.surfaceHover : "transparent"
-                        border.color: providerButton.checked ? Theme.accent : "transparent"
-                    }
-                    hoverEnabled: true
-                    ToolTip.visible: hovered; ToolTip.delay: 450
-                    ToolTip.text: modelData.name + (modelData.configured || modelData.id === "ollama" ? "" : " · Set up in Settings → AI")
-                    onClicked: { const id = modelData.id, controller = root.c; Qt.callLater(function() { controller.chooseProvider(id) }) }
-                }
-            }
-        }
-        // The current provider's model; opens the models that provider offers.
-        UiControls.ToolButton {
-            id: modelButton
-            objectName: "aiModelButton"
-            Layout.fillWidth: true; Layout.minimumWidth: 0
-            implicitHeight: 24
-            font.pixelSize: 11
-            text: (root.c ? root.c.ai.model(root.c.ai.provider) : "") + " ▾"
-            contentItem: Label { text: modelButton.text; elide: Text.ElideMiddle; font: modelButton.font; color: Theme.textSecondary; verticalAlignment: Text.AlignVCenter }
-            hoverEnabled: true
-            ToolTip.visible: hovered; ToolTip.delay: 450
-            ToolTip.text: "Model · " + (root.c && root.c.providerInfo.kind === "local" ? "Stays on this Mac" : "Sent to " + (root.c ? root.c.providerInfo.sends || "" : ""))
-            onClicked: { root.c.loadModels(); modelMenu.open() }
-        }
+        // Composer bar: context, model, reasoning effort and fast mode wrap on the left; Send stays right.
         RowLayout {
             Layout.fillWidth: true; Layout.minimumWidth: 0
             spacing: 4
-            UiControls.ToolButton {
+        Flow {
+            id: bar
+            Layout.fillWidth: true; Layout.minimumWidth: 0
+            Layout.alignment: Qt.AlignBottom
+            spacing: 4
+            component Chip: UiControls.ToolButton {
+                id: chipButton
+                implicitHeight: 24
+                font.pixelSize: 11
+                hoverEnabled: true
+                leftPadding: 7; rightPadding: 7
+                // Never wider than the panel; long model names elide.
+                width: Math.min(implicitWidth, bar.width)
+                contentItem: Label {
+                    text: chipButton.text; elide: Text.ElideRight; font: chipButton.font; verticalAlignment: Text.AlignVCenter
+                    color: chipButton.checked ? Theme.accentText : chipButton.enabled ? Theme.textSecondary : Theme.textMuted
+                }
+                background: Rectangle {
+                    radius: Theme.cornerRadius
+                    color: chipButton.checked ? Theme.accentSurface : chipButton.down || chipButton.hovered ? Theme.surfaceHover : "transparent"
+                    border.color: chipButton.checked ? Theme.accentMuted : Theme.border
+                }
+                ToolTip.visible: hovered && ToolTip.text.length > 0; ToolTip.delay: 450
+            }
+            Chip {
                 id: attachButton
                 objectName: "aiAttachButton"
-                text: "+ Context"; font.pixelSize: 11; implicitHeight: 24
-                // Shrinks (elided) before Send does in a narrow dock.
-                Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.maximumWidth: implicitWidth
-                contentItem: Label { text: attachButton.text; elide: Text.ElideRight; font: attachButton.font; color: attachButton.enabled ? Theme.textSecondary : Theme.textMuted; verticalAlignment: Text.AlignVCenter }
-                enabled: root.c && root.c.reader !== null
+                text: "+"
+                font.pixelSize: 13
+                ToolTip.text: "Add context: page, selection, paper or an image"
                 onClicked: attachMenu.popup(attachButton, 0, -attachMenu.implicitHeight)
                 UiControls.Menu {
                     id: attachMenu
-                    UiControls.MenuItem { objectName: "aiAttachPage"; text: "Current Page"; onTriggered: root.c.attach("page") }
+                    UiControls.MenuItem { objectName: "aiAttachPage"; text: "Current Page"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.attach("page") }
                     UiControls.MenuItem { text: "Selection"; enabled: root.c && root.c.reader && root.c.reader.selectedText.length > 0; onTriggered: root.c.attach("selection") }
-                    UiControls.MenuItem { text: "Whole Paper"; onTriggered: root.c.attach("paper") }
+                    UiControls.MenuItem { text: "Whole Paper"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.attach("paper") }
+                    MenuSeparator {}
+                    UiControls.MenuItem { objectName: "aiAttachImage"; text: "Image…"; onTriggered: imageDialog.open() }
+                    UiControls.MenuItem { objectName: "aiPasteImage"; text: "Paste Image"; enabled: attachMenu.opened && root.c.ai.clipboardHasImage(); onTriggered: root.c.pasteImage() }
                 }
             }
-            Item { Layout.fillWidth: true; Layout.minimumWidth: 0 }
+            Chip {
+                id: modelButton
+                objectName: "aiModelButton"
+                text: (root.c ? root.c.modelLabel : "") + " ▾"
+                ToolTip.text: root.c ? root.c.providerInfo.name + " · " + (root.c.providerInfo.kind === "local" ? "stays on this Mac" : "sent to " + (root.c.providerInfo.sends || "")) : ""
+                onClicked: { root.c.loadModels(); modelFilter.text = ""; modelMenu.open() }
+            }
+            Chip {
+                id: effortButton
+                objectName: "aiEffortButton"
+                visible: root.c && root.c.efforts.length > 0
+                text: root.c ? root.c.effortName(root.c.effectiveEffort) + " ▾" : ""
+                ToolTip.text: "Reasoning effort: higher thinks longer and costs more"
+                onClicked: effortMenu.popup(effortButton, 0, -effortMenu.implicitHeight)
+                UiControls.Menu {
+                    id: effortMenu
+                    objectName: "aiEffortMenu"
+                    Instantiator {
+                        model: root.c ? root.c.efforts : []
+                        delegate: UiControls.MenuItem {
+                            required property string modelData
+                            objectName: "aiEffort-" + modelData
+                            text: root.c.effortName(modelData)
+                            checkable: true; checked: root.c.effectiveEffort === modelData
+                            onTriggered: root.c.setEffort(modelData)
+                        }
+                        onObjectAdded: function(index, item) { effortMenu.insertItem(index, item) }
+                        onObjectRemoved: function(index, item) { effortMenu.removeItem(item) }
+                    }
+                }
+            }
+            Chip {
+                objectName: "aiFastButton"
+                visible: root.c && root.c.fastAvailable
+                text: "Fast"
+                checkable: true
+                checked: root.c && root.c.effectiveFast
+                ToolTip.text: "Fast mode: faster answers at a higher price"
+                onClicked: root.c.setFast(checked)
+            }
+        }
             UiControls.Button {
+                id: sendButton
                 objectName: "aiSend"
+                Layout.alignment: Qt.AlignBottom
                 text: root.c && root.c.streaming ? "Stop" : "Send"
                 highlighted: !(root.c && root.c.streaming)
                 implicitHeight: 26
@@ -289,56 +322,125 @@ Item {
             }
         }
     }
+    // Images dropped on the panel are attached to the next question.
+    DropArea {
+        anchors.fill: parent
+        keys: ["text/uri-list"]
+        onDropped: function(drop) {
+            for (const url of drop.urls) root.c.attachImage(url)
+            drop.accept()
+        }
+    }
+    Native.FileDialog {
+        id: imageDialog
+        title: "Attach images"
+        fileMode: Native.FileDialog.OpenFiles
+        nameFilters: ["Images (*.png *.jpg *.jpeg *.gif *.webp *.heic)"]
+        onAccepted: { for (const url of selectedFiles) root.c.attachImage(url) }
+    }
+    // Model picker: every set-up provider's models, grouped by company, with a filter.
     UiControls.Popup {
         id: modelMenu
         objectName: "aiModelMenu"
         parent: modelButton
         y: -height - 4
-        width: Math.max(220, Math.min(300, root.width))
-        height: Math.min(420, modelColumn.implicitHeight + 16)
+        width: Math.max(240, Math.min(320, root.width))
+        height: Math.min(440, pickerColumn.implicitHeight + 16)
         padding: 8
+        onOpened: modelFilter.forceActiveFocus()
         background: Rectangle { color: Theme.surfacePanel; border.color: Theme.borderPopup; radius: Theme.cornerRadius }
-        contentItem: Flickable {
-            clip: true
-            contentHeight: modelColumn.implicitHeight
-            ColumnLayout {
-                id: modelColumn
-                width: parent.width
-                spacing: 1
-                Repeater {
-                    model: root.c ? root.c.ai.providers.filter(function(p) { return p.id === root.c.ai.provider }) : []
-                    delegate: ColumnLayout {
-                        id: providerSection
-                        required property var modelData
-                        readonly property var list: root.c.models[modelData.id] || []
-                        readonly property bool usable: modelData.configured || modelData.id === "ollama"
-                        Layout.fillWidth: true
-                        spacing: 1
-                        Label { text: providerSection.modelData.name; font.pixelSize: 11; font.weight: Font.DemiBold; color: Theme.textTertiary; Layout.topMargin: 4 }
-                        Label {
-                            visible: !providerSection.usable || providerSection.list.length === 0
-                            text: providerSection.usable ? "Loading…" : "Set up in Settings → AI"
-                            font.pixelSize: 11; color: Theme.textMuted; Layout.leftMargin: 8
-                        }
-                        Repeater {
-                            model: providerSection.usable ? providerSection.list : []
-                            delegate: UiControls.ItemDelegate {
-                                required property var modelData
-                                readonly property bool current: root.c.ai.provider === providerSection.modelData.id && root.c.ai.model(providerSection.modelData.id) === modelData.id
-                                objectName: "aiModel-" + providerSection.modelData.id + "-" + modelData.id
+        contentItem: ColumnLayout {
+            id: pickerColumn
+            spacing: 4
+            UiControls.TextField {
+                id: modelFilter
+                objectName: "aiModelFilter"
+                Layout.fillWidth: true
+                implicitHeight: 28
+                font.pixelSize: 12
+                placeholderText: "Search models"
+                Keys.onEscapePressed: modelMenu.close()
+            }
+            Flickable {
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(360, modelColumn.implicitHeight)
+                clip: true
+                contentHeight: modelColumn.implicitHeight
+                ColumnLayout {
+                    id: modelColumn
+                    width: parent.width
+                    spacing: 1
+                    Repeater {
+                        model: root.c ? root.c.ai.providers.filter(function(p) { return p.installed && (p.configured || p.id === "ollama") }) : []
+                        delegate: ColumnLayout {
+                            id: providerSection
+                            required property var modelData
+                            readonly property string needle: modelFilter.text.trim().toLowerCase()
+                            readonly property var list: (root.c.models[modelData.id] || []).filter(function(m) {
+                                return !needle.length || (m.name + " " + m.id + " " + providerSection.modelData.name).toLowerCase().indexOf(needle) >= 0
+                            })
+                            visible: !needle.length || list.length > 0
+                            Layout.fillWidth: true
+                            spacing: 1
+                            Label { text: root.c.companyName(providerSection.modelData.id); font.pixelSize: 11; font.weight: Font.DemiBold; color: Theme.textTertiary; Layout.topMargin: 4; Layout.leftMargin: 4 }
+                            readonly property bool loaded: root.c.models[modelData.id] !== undefined
+                            Label {
+                                visible: !providerSection.loaded && !providerSection.needle.length
+                                text: "Loading…"
+                                font.pixelSize: 11; color: Theme.textMuted; Layout.leftMargin: 10
+                            }
+                            // A provider that lists no models (or is signed out) still runs its own default.
+                            UiControls.ItemDelegate {
+                                objectName: "aiModel-" + providerSection.modelData.id + "-default"
+                                visible: providerSection.loaded && (root.c.models[providerSection.modelData.id] || []).length === 0 && !providerSection.needle.length
                                 Layout.fillWidth: true
                                 implicitHeight: 26
-                                text: modelData.name
-                                font.pixelSize: 12
-                                highlighted: current
-                                // Choosing rebuilds this list (the provider list changes), so act after the handler returns.
+                                highlighted: root.c.ai.provider === providerSection.modelData.id && !root.c.model
+                                contentItem: Label { text: "Default model"; font.pixelSize: 12; color: Theme.text }
                                 onClicked: {
-                                    const provider = providerSection.modelData.id, model = modelData.id, controller = root.c
+                                    const provider = providerSection.modelData.id, controller = root.c
                                     modelMenu.close()
-                                    Qt.callLater(function() { controller.chooseModel(provider, model) })
+                                    Qt.callLater(function() { controller.chooseModel(provider, "") })
+                                }
+                            }
+                            Repeater {
+                                model: providerSection.list
+                                delegate: UiControls.ItemDelegate {
+                                    id: modelRow
+                                    required property var modelData
+                                    readonly property bool current: root.c.ai.provider === providerSection.modelData.id && root.c.model === modelData.id
+                                    objectName: "aiModel-" + providerSection.modelData.id + "-" + modelData.id
+                                    Layout.fillWidth: true
+                                    implicitHeight: 26
+                                    highlighted: current
+                                    contentItem: RowLayout {
+                                        spacing: 6
+                                        Label { Layout.fillWidth: true; text: modelRow.modelData.name; elide: Text.ElideRight; font.pixelSize: 12; color: modelRow.current ? Theme.accentText : Theme.text }
+                                        Label { visible: !!modelRow.modelData.fast; text: "Fast"; font.pixelSize: 10; color: Theme.textMuted }
+                                        Label { visible: modelRow.current; text: "✓"; font.pixelSize: 12; color: Theme.accent }
+                                    }
+                                    // Choosing rebuilds this list (the provider list changes), so act after the handler returns.
+                                    onClicked: {
+                                        const provider = providerSection.modelData.id, model = modelData.id, controller = root.c
+                                        modelMenu.close()
+                                        Qt.callLater(function() { controller.chooseModel(provider, model) })
+                                    }
                                 }
                             }
                         }
+                    }
+                    // Providers that are not set up yet, in one line.
+                    UiControls.ItemDelegate {
+                        objectName: "aiModelSetup"
+                        readonly property var missing: root.c ? root.c.ai.providers.filter(function(p) { return p.installed && !p.configured && p.id !== "ollama" }) : []
+                        visible: missing.length > 0 && !modelFilter.text.length
+                        Layout.fillWidth: true; Layout.topMargin: 4
+                        implicitHeight: 26
+                        contentItem: Label {
+                            text: "Set up " + parent.missing.map(function(p) { return root.c.companyName(p.id) }).join(", ") + "…"
+                            elide: Text.ElideRight; font.pixelSize: 11; color: Theme.textTertiary
+                        }
+                        onClicked: { modelMenu.close(); root.settingsRequested() }
                     }
                 }
             }
