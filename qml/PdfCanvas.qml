@@ -603,8 +603,11 @@ Item {
             function snapToText(point) {
                 ensureMetrics()
                 let best = null, distance = Infinity
+                // Vertical and horizontal distance, so a drag past a column's edge stays in that column.
                 lineMetrics.forEach(function(line) {
-                    const d = point.y < line.y ? line.y - point.y : point.y > line.y + line.height ? point.y - line.y - line.height : 0
+                    const dy = point.y < line.y ? line.y - point.y : point.y > line.y + line.height ? point.y - line.y - line.height : 0
+                    const dx = point.x < line.x ? line.x - point.x : point.x > line.x + line.width ? point.x - line.x - line.width : 0
+                    const d = dy + dx * .5
                     if (d < distance) { distance = d; best = line }
                 })
                 if (!best) return point

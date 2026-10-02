@@ -810,6 +810,23 @@ private slots:
         QVERIFY(a.bottom() > 22);
         QCOMPARE(a.width(), 5);
     }
+    void marginStampDoesNotMergeLines()
+    {
+        // arXiv prints its identifier rotated in the left margin: one glyph box spanning most of the page.
+        SelectionGeometry geometry;
+        QList<QPolygonF> page{QPolygonF(QRectF(11, 213, 7, 519))};
+        for (int row = 0; row < 20; ++row)
+            for (qreal x : {54.0, 320.0}) page.append(QPolygonF(QRectF(x, 220 + row * 10, 240, 8)));
+        const auto lines = geometry.lineRectangles(page);
+        QCOMPARE(lines.size(), 41);
+        int tall = 0;
+        for (const auto &line : lines) tall += line.toRectF().height() > 20;
+        QCOMPARE(tall, 1);
+        // A selection inside one column keeps its own line height.
+        const auto selected = geometry.stableRectangles({QPolygonF(QRectF(166, 220, 45, 8))}, lines);
+        QCOMPARE(selected.size(), 1);
+        QVERIFY(selected.first().toRectF().height() < 12);
+    }
     void sessionSurvivesRestart()
     {
         QTemporaryDir directory;

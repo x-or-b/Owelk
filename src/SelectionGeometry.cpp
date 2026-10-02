@@ -14,6 +14,8 @@ QVariantList SelectionGeometry::stableRectangles(const QList<QPolygonF> &selecti
             const auto line = lineValue.toRectF();
             if (line.right() <= rect.left() || line.left() >= rect.right()) continue;
             if (line.bottom() <= rect.top() || line.top() >= rect.bottom()) continue;
+            // Only borrow a line's height when it is the same text line, not a tall neighbour.
+            if (line.height() > rect.height() * 2.5) continue;
             const qreal delta = std::abs(line.center().y() - rect.center().y());
             if (delta < distance) {
                 best = line;
@@ -43,17 +45,28 @@ QVariantList SelectionGeometry::lineRectangles(const QList<QPolygonF> &polygons)
         QRectF bounds;
         QList<QRectF> boxes;
     };
+    QList<qreal> heights;
+    for (const auto &box : boxes) heights.append(box.height());
+    std::nth_element(heights.begin(), heights.begin() + heights.size() / 2, heights.end());
+    const qreal typical = heights.isEmpty() ? 0 : heights[heights.size() / 2];
+    // A rotated margin stamp (e.g. arXiv's) or a tall glyph spans many lines; it must stay on its own
+    // rather than merge every line beside it into one page-tall "line".
+    const auto oversized = [typical](const QRectF &box) {
+        return typical > 0 && box.height() > typical * 2.5 && box.height() > box.width() * 1.5;
+    };
     QList<Line> lines;
     for (const auto &box : boxes) {
         Line *line = nullptr;
-        for (auto it = lines.rbegin(); it != lines.rend(); ++it) {
-            const auto &candidate = it->bounds;
-            const qreal overlap = std::min(candidate.bottom(), box.bottom()) - std::max(candidate.top(), box.top());
-            if (overlap >= std::min(candidate.height(), box.height()) * .5) {
-                line = &*it;
-                break;
+        if (!oversized(box))
+            for (auto it = lines.rbegin(); it != lines.rend(); ++it) {
+                const auto &candidate = it->bounds;
+                if (candidate.height() > box.height() * 2.5 && oversized(candidate)) continue;
+                const qreal overlap = std::min(candidate.bottom(), box.bottom()) - std::max(candidate.top(), box.top());
+                if (overlap >= std::min(candidate.height(), box.height()) * .5) {
+                    line = &*it;
+                    break;
+                }
             }
-        }
         if (!line) {
             lines.append({box, {}});
             line = &lines.last();
