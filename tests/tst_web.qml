@@ -97,6 +97,48 @@ Item {
             compare(Tree.leaves(d.tree)[0].tabs.length, before + 1) // The web tab stays.
             again.browserPdf = false
         }
+        function test_downloadBarFillsWithTheFileSize() {
+            const d = workspace.documents
+            verify(d.openResource(testInput.webFixture("/page.html")))
+            const pane = webPane()
+            tryCompare(activeTab(), "title", "Owelk Test Page", 15000)
+            downloads.clear(); downloads.target = pane
+            pane.view.url = testInput.webFixture("/slow.pdf")
+            tryCompare(downloads, "count", 1, 15000)
+            const bar = findChild(pane, "webDownloadBar"), track = findChild(pane, "webDownloadProgress")
+            const label = findChild(pane, "webDownloadLabel")
+            tryCompare(bar, "visible", true)
+            // The size is known: a filling bar and the file size, no percentages or running bytes.
+            tryCompare(track, "visible", true, 5000)
+            tryVerify(function() { return track.progress > 0 && track.progress < 1 }, 5000)
+            verify(/· 9\d\d KB$/.test(label.text), label.text)
+            verify(label.text.indexOf("%") < 0 && label.text.indexOf(" of ") < 0)
+            const first = track.progress
+            tryVerify(function() { return track.progress > first }, 5000)
+            tryVerify(function() { return activeTab().kind !== "web" }, 15000)
+        }
+        function test_pageWithAFramedPdfOffersBothWays() {
+            const d = workspace.documents
+            verify(d.openResource(testInput.webFixture("/embed.html")))
+            const pane = webPane()
+            tryCompare(activeTab(), "title", "getPDF", 15000)
+            const notice = findChild(pane, "webPdfNotice")
+            tryCompare(notice, "visible", true, 10000)
+            verify(pane.embeddedPdf.indexOf("/paper.pdf") > 0)
+            compare(findChild(pane, "webShowPdfHere").visible, true)
+            // Show Here keeps PDFs in the tab (the page reloads with the viewer on).
+            findChild(pane, "webShowPdfHere").clicked()
+            compare(pane.browserPdf, true)
+            tryVerify(function() { return !pane.view.loading && pane.embeddedPdf.length > 0 }, 15000)
+            compare(findChild(pane, "webShowPdfHere").visible, false)
+            // Open in Reader fetches the framed PDF through the tab and opens it beside the page.
+            const webTab = activeTab().id
+            downloads.clear(); downloads.target = pane
+            findChild(pane, "webOpenInReader").clicked()
+            tryCompare(downloads, "count", 1, 15000)
+            tryVerify(function() { return activeTab().kind !== "web" }, 15000)
+            verify(Tree.owner(d.tree, webTab) !== null && Tree.owner(d.tree, webTab) !== undefined)
+        }
         function test_homeTabSearchesTheWeb() {
             const d = workspace.documents
             // Cmd+T opens Home in a tab; its web field opens a web tab in place of that Home tab.

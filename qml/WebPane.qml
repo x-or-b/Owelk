@@ -21,6 +21,20 @@ Rectangle {
     // One-off: download the PDF shown in this tab and open it in the reader.
     property bool fetchPdf: false
     readonly property bool showsPdf: /\.pdf([?#]|$)/i.test(view.url.toString()) || Tree.arxivPdf(view.url).length === 0 && /arxiv\.org\/pdf\//i.test(view.url.toString())
+    // A PDF shown inside the page (e.g. IEEE's getPDF.jsp frames it); found after each load.
+    property string embeddedPdf: ""
+    readonly property string pdfAddress: showsPdf ? view.url.toString() : embeddedPdf
+    function detectEmbeddedPdf() {
+        view.runJavaScript("(function(){var e=document.querySelector('embed[type=\"application/pdf\"],object[type=\"application/pdf\"],iframe[src*=\"pdf\" i],embed[src*=\"pdf\" i],object[data*=\"pdf\" i],frame[src*=\"pdf\" i]');return e?(e.src||e.data||''):'';})()",
+            function(result) { root.embeddedPdf = typeof result === "string" && /^https?:/i.test(result) ? result : "" })
+    }
+    // Send the shown PDF to the reader: downloaded through this tab's session, opened beside it.
+    function openPdfInReader() {
+        if (!pdfAddress.length) return
+        fetchPdf = true
+        if (showsPdf) view.reload()
+        else view.url = embeddedPdf
+    }
     // The download in progress for this tab (WebEngineDownloadRequest), shown under the toolbar.
     property var download: null
     property bool downloadOpening: false
@@ -118,15 +132,6 @@ Rectangle {
                     onClicked: root.capturing = !root.capturing
                 }
                 UiControls.Button {
-                    objectName: "webOpenInReader"
-                    visible: root.showsPdf && view.settings.pdfViewerEnabled
-                    text: "Open in Reader"
-                    Layout.preferredHeight: 25
-                    ToolTip.visible: hovered; ToolTip.delay: 450
-                    ToolTip.text: "Download this PDF and read it in Owelk (highlights, captures and notes work there)"
-                    onClicked: { root.fetchPdf = true; view.reload() }
-                }
-                UiControls.Button {
                     objectName: "webOpenArxivPdf"
                     visible: Tree.arxivPdf(view.url).length > 0
                     text: "Open PDF"
@@ -158,7 +163,41 @@ Rectangle {
                 color: Theme.accent
             }
         }
-        // Download progress: name, bytes, a bar (sliding while the size is unknown) and Cancel.
+        // A page that shows a PDF: choose where to read it.
+        Rectangle {
+            objectName: "webPdfNotice"
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            visible: root.pdfAddress.length > 0 && root.download === null && !root.downloadOpening
+            color: Theme.surfacePanel
+            RowLayout {
+                anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 4
+                spacing: 6
+                Label {
+                    Layout.fillWidth: true; Layout.minimumWidth: 0
+                    elide: Text.ElideRight; font.pixelSize: 12; color: Theme.textBody
+                    text: root.browserPdf ? "Reading the PDF in this tab. Highlights, captures and notes work in the reader."
+                                          : "This page shows a PDF."
+                }
+                UiControls.Button {
+                    objectName: "webOpenInReader"
+                    text: "Open in Reader"; highlighted: true
+                    implicitHeight: 26
+                    onClicked: root.openPdfInReader()
+                }
+                UiControls.Button {
+                    objectName: "webShowPdfHere"
+                    visible: !root.browserPdf
+                    text: "Show Here"
+                    implicitHeight: 26
+                    ToolTip.visible: hovered; ToolTip.delay: 450
+                    ToolTip.text: "Read PDFs in this web tab (More → Show PDFs in This Tab)"
+                    onClicked: root.browserPdf = true
+                }
+            }
+        }
+        // Download progress: name, file size and a bar that fills with the bytes received. A server that
+        // does not send the size gets no bar (only the size so far): a sliding bar would say nothing.
         Rectangle {
             id: downloadBar
             objectName: "webDownloadBar"
@@ -172,32 +211,31 @@ Rectangle {
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 4
                 spacing: 8
-                BusyIndicator { running: downloadBar.visible; implicitWidth: 16; implicitHeight: 16 }
+                BusyIndicator { visible: !fill.known; running: visible && downloadBar.visible; implicitWidth: 16; implicitHeight: 16 }
                 Label {
                     objectName: "webDownloadLabel"
                     Layout.fillWidth: true; Layout.minimumWidth: 0
                     elide: Text.ElideMiddle; font.pixelSize: 12; color: Theme.textBody; textFormat: Text.PlainText
                     text: root.downloadOpening ? "Opening in the reader…"
                         : root.download ? "Downloading " + root.download.downloadFileName
-                          + (downloadBar.received > 0 ? " · " + downloadBar.size(downloadBar.received) + (downloadBar.total > 0 ? " of " + downloadBar.size(downloadBar.total) : "") : "")
+                          + (downloadBar.total > 0 ? " · " + downloadBar.size(downloadBar.total)
+                             : downloadBar.received > 0 ? " · " + downloadBar.size(downloadBar.received) : "")
                         : ""
                 }
                 Rectangle {
                     id: track
-                    Layout.preferredWidth: Math.min(160, downloadBar.width / 4); Layout.preferredHeight: 4
+                    objectName: "webDownloadProgress"
+                    visible: fill.known
+                    readonly property real progress: fill.known ? Math.min(1, downloadBar.received / downloadBar.total) : 0
+                    Layout.preferredWidth: Math.min(220, downloadBar.width / 3); Layout.preferredHeight: 5
                     radius: 2; color: Theme.border
                     clip: true
                     Rectangle {
                         id: fill
                         height: parent.height; radius: 2; color: Theme.accent
                         readonly property bool known: downloadBar.total > 0
-                        onKnownChanged: if (known) x = 0
-                        width: known ? parent.width * Math.min(1, downloadBar.received / downloadBar.total) : parent.width / 3
-                        SequentialAnimation on x {
-                            running: downloadBar.visible && !fill.known
-                            loops: Animation.Infinite
-                            NumberAnimation { from: -track.width / 3; to: track.width; duration: 1100; easing.type: Easing.InOutQuad }
-                        }
+                        width: parent.width * track.progress
+                        Behavior on width { NumberAnimation { duration: 150 } }
                     }
                 }
                 UiControls.ToolButton {
@@ -222,6 +260,10 @@ Rectangle {
             onTitleChanged: if (root.tabId.length) root.controller.updateWebTab(root.tabId, url.toString(), title)
             onNewWindowRequested: function(request) { root.controller.openWeb(request.requestedUrl.toString(), true) }
             onActiveFocusChanged: if (activeFocus) root.activated()
+            onLoadingChanged: function(request) {
+                if (request.status === WebEngineView.LoadStartedStatus) root.embeddedPdf = ""
+                else if (request.status === WebEngineView.LoadSucceededStatus) root.detectEmbeddedPdf()
+            }
             MouseArea {
                 id: captureArea
                 objectName: "webCaptureArea"

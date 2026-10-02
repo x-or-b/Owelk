@@ -17,9 +17,15 @@
 #include <QDir>
 #include <QFile>
 #include <QUuid>
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <QTimer>
+#include <memory>
 #include <QtQuickTest/quicktest.h>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QTimer>
+#include <memory>
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
 #include <QtTest/QTest>
 
@@ -160,6 +166,31 @@ public slots:
                                         "{\"type\":\"text_delta\",\"text\":\"")
                                 + piece + "\"}}\n\n";
                         body += "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+                    } else if (head.contains("/slow.pdf")) {
+                        // A large PDF sent in pieces with its size up front, for download progress.
+                        QFile pdf(m_directory.filePath("fixture.pdf"));
+                        pdf.open(QIODevice::ReadOnly);
+                        const auto data = pdf.readAll() + QByteArray(900 * 1024, ' ');
+                        socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/pdf\r\nConnection: close\r\n"
+                                      "Content-Length: "
+                            + QByteArray::number(data.size()) + "\r\n\r\n");
+                        auto *timer = new QTimer(socket);
+                        auto sent = std::make_shared<qsizetype>(0);
+                        connect(timer, &QTimer::timeout, socket, [socket, timer, data, sent] {
+                            const auto piece = data.mid(*sent, data.size() / 12 + 1);
+                            socket->write(piece);
+                            *sent += piece.size();
+                            if (*sent >= data.size()) {
+                                timer->stop();
+                                socket->disconnectFromHost();
+                            }
+                        });
+                        timer->start(120);
+                        return;
+                    } else if (head.contains("/embed.html")) {
+                        // Like IEEE's getPDF.jsp: an HTML page showing the PDF in a frame.
+                        body = "<html><head><title>getPDF</title></head><body>"
+                               "<iframe id='frame' src='/paper.pdf' width='600' height='400'></iframe></body></html>";
                     } else if (head.contains("/paper.pdf")) {
                         QFile pdf(m_directory.filePath("fixture.pdf"));
                         pdf.open(QIODevice::ReadOnly);
