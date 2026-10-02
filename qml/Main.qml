@@ -91,11 +91,16 @@ ApplicationWindow {
     }
     function movePanel(panel, side) {
         if (side !== "left" && side !== "right") return
+        const stays = panelSide(panel) === side
         if (panel === "files") filesSide = side
         if (panel === "captures") capturesSide = side
         if (panel === "document") documentSide = side
         if (panel === "ai") aiSide = side
-        Qt.callLater(function() { (side === "left" ? leftDock : rightDock).activePanel = panel })
+        // At once when the panel is already in that dock (so a quick second click hides it); after a
+        // move, once the docks' panel lists have caught up.
+        const dock = side === "left" ? leftDock : rightDock
+        if (stays && dock.panels.indexOf(panel) >= 0) dock.activePanel = panel
+        Qt.callLater(function() { dock.activePanel = panel })
     }
     // Tab switching must not discard an annotation that is still being edited.
     readonly property bool canSwitchTabs: documents.hasTabs && !restoreFailed && !(currentReader && currentReader.annotationDirty)

@@ -9,7 +9,12 @@ Item {
     TestCase {
         name: "AiPanel"
         when: windowShown
-        function cleanupTestCase() { researchStore.ai.clearApiKey("claude"); workspace.visible = false }
+        function cleanupTestCase() {
+            researchStore.ai.clearApiKey("claude")
+            // The data folder is shared with later test files: leave the panels as they were.
+            workspace.aiVisible = false; workspace.persist()
+            workspace.visible = false
+        }
         function initTestCase() {
             researchStore.setSetting("ai.baseUrl.claude", testInput.webFixture("/").toString())
             researchStore.setSetting("ai.consent.claude", "")
