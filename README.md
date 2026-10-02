@@ -165,7 +165,8 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 
 - Settings → AI에서 제공자를 고릅니다: **Claude API**(기본 모델 `claude-opus-5-5`), **OpenAI API**, **ChatGPT 계정(Codex)**, **Ollama(이 Mac에서만 실행)**. API 키는 macOS Keychain에 저장합니다. ChatGPT 계정은 설치된 Codex CLI의 공식 로그인(브라우저)을 사용합니다. Claude.ai 계정 로그인은 Anthropic이 제삼자 앱에 허용하지 않아 제공하지 않습니다.
 - **ACP 에이전트**(Zed 방식): Settings → AI에서 `Claude Agent (ACP)`, `Codex Agent (ACP)`, `Gemini CLI (ACP)`를 고르고 `Install…`하면 공식 어댑터(`@agentclientprotocol/claude-agent-acp`, `@agentclientprotocol/codex-acp`, `@google/gemini-cli`)를 npm으로 Owelk 데이터 폴더의 `agents/`에 설치합니다(Node.js 필요). 설치한 에이전트는 AI 패널의 제공자 버튼에 나타납니다.
-  - Codex·Gemini는 에이전트 자체 로그인(브라우저)을 사용합니다. Claude Agent는 `--hide-claude-auth` 모드로 실행하고 Claude API 키로만 동작합니다(claude.ai 구독 로그인은 사용하지 않음).
+  - Codex·Gemini는 에이전트 자체 로그인(브라우저)을 사용합니다.
+  - Claude Agent는 `--hide-claude-auth` 모드로 실행하고 **Claude API 키로만** 동작합니다. Settings → AI → Claude Agent에서 키를 넣거나 `Get a Key…`(console.anthropic.com)로 발급합니다. API 사용료는 Claude Pro/Max 구독과 별도입니다. Claude.ai 구독 로그인은 Anthropic이 승인 없이 제삼자 앱에 허용하지 않아 쓸 수 없습니다.
   - Owelk는 에이전트를 읽기 전용으로 씁니다. 가장 제한된 모드(Read-only, 없으면 Manual)로 바꾼 뒤에만 질문을 보내고, 파일·터미널을 제공하지 않으며, 에이전트의 모든 실행 권한 요청을 거절합니다. 작업 폴더는 빈 폴더입니다.
 - 문장 선택 → ✦ 아이콘(또는 우클릭)에서 Explain / Translate / Summarize / Ask…, PDF 상단바 ✦에서 이 페이지·이 논문에 대해 묻기·요약, 캡처 카드 메뉴에서 Explain with AI(그림은 이미지로 보냄)를 사용합니다. 답변 언어는 기본 한국어이며 Settings에서 바꿉니다.
 - 처음 쓰는 제공자는 보낼 내용(논문 제목, 선택 문장, 페이지/논문 본문, 캡처 이미지)을 보여 주고 동의를 받습니다. PDF 파일 자체나 다른 라이브러리 자료는 보내지 않습니다. 긴 본문은 잘라서 보내고 그 사실을 표시합니다.

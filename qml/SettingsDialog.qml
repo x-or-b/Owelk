@@ -115,21 +115,31 @@ UiControls.Dialog {
                     currentIndex: Math.max(0, aiSettings.ai.providers.findIndex(function(p) { return p.id === aiSettings.ai.provider }))
                     onActivated: function(index) { aiSettings.ai.provider = aiSettings.ai.providers[index].id }
                 }
-                Label { visible: aiSettings.current.kind === "api"; text: "API key"; color: Theme.textBody }
+                // Claude Agent runs on the Claude API key, so it is entered right here too.
+                readonly property string keyProvider: current.id === "claude-agent" ? "claude" : current.id
+                readonly property bool needsKey: current.kind === "api" || current.id === "claude-agent"
+                readonly property bool keyStored: (ai.providers, ai.hasApiKey(keyProvider))
+                Label { visible: aiSettings.needsKey; text: aiSettings.current.id === "claude-agent" ? "Claude API key" : "API key"; color: Theme.textBody }
                 RowLayout {
-                    visible: aiSettings.current.kind === "api"
+                    visible: aiSettings.needsKey
                     Layout.fillWidth: true
                     UiControls.TextField {
                         id: keyField; objectName: "aiKeyField"
                         Layout.fillWidth: true
                         echoMode: TextInput.Password
-                        placeholderText: aiSettings.current.configured ? "Stored in the Keychain" : "Paste your API key"
+                        placeholderText: aiSettings.keyStored ? "Stored in the Keychain" : "Paste your API key"
                     }
                     UiControls.Button {
                         objectName: "aiSaveKey"; text: "Save"; enabled: keyField.text.trim().length > 0
-                        onClicked: { if (aiSettings.ai.setApiKey(aiSettings.current.id, keyField.text)) keyField.clear() }
+                        onClicked: { if (aiSettings.ai.setApiKey(aiSettings.keyProvider, keyField.text)) keyField.clear() }
                     }
-                    UiControls.Button { text: "Remove"; enabled: !!aiSettings.current.configured; onClicked: aiSettings.ai.clearApiKey(aiSettings.current.id) }
+                    UiControls.Button { text: "Remove"; enabled: aiSettings.keyStored; onClicked: aiSettings.ai.clearApiKey(aiSettings.keyProvider) }
+                    UiControls.Button {
+                        objectName: "aiGetKey"
+                        visible: !aiSettings.keyStored && (aiSettings.keyProvider === "claude" || aiSettings.keyProvider === "openai")
+                        text: "Get a Key…"
+                        onClicked: Qt.openUrlExternally(aiSettings.keyProvider === "claude" ? "https://console.anthropic.com/settings/keys" : "https://platform.openai.com/api-keys")
+                    }
                 }
                 Label { visible: aiSettings.current.id === "codex"; text: "Account"; color: Theme.textBody }
                 RowLayout {
@@ -210,7 +220,8 @@ UiControls.Dialog {
                     Layout.columnSpan: 2; Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
                     text: (aiSettings.agentMessage.length ? aiSettings.agentMessage + "\n" : "")
                         + (aiSettings.current.id === "claude-agent"
-                           ? "Claude Agent runs on your Claude API key (set it under Claude API). Claude.ai subscription sign-in is not used."
+                           ? (aiSettings.keyStored ? "Uses the Claude API key above (billed by Anthropic per request). " : "Needs a Claude API key from console.anthropic.com (billed per request, separate from a Claude Pro/Max plan). ")
+                             + "Signing in with a Claude.ai subscription is not available in Owelk: Anthropic does not allow third-party apps to offer it without approval."
                            : "The agent signs in on its own page; Owelk never sees the password.")
                         + " Owelk runs agents read-only and declines every file, command and network request they make."
                 }

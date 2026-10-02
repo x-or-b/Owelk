@@ -167,7 +167,11 @@ AcpProvider::AcpProvider(AcpBridge *bridge, QString agentName, QObject *parent)
 QString AcpProvider::errorText(const QString &agentName, const QJsonObject &error)
 {
     // -32000 is ACP's "authentication required".
-    if (error.value("code").toInt() == -32000) return agentName + ": sign in first in Settings → AI.";
+    if (error.value("code").toInt() == -32000)
+        return agentName == "Claude Agent"
+            ? QStringLiteral(
+                  "Claude Agent did not accept the Claude API key. Check it in Settings → AI → Claude Agent.")
+            : agentName + ": sign in first in Settings → AI.";
     const auto message = error.value("message").toString();
     return agentName + ": " + (message.isEmpty() ? QStringLiteral("The agent could not answer.") : message);
 }

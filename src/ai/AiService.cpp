@@ -202,7 +202,7 @@ AiProvider *AiService::createProvider(const QString &provider, QString *error)
             return nullptr;
         }
         if (provider == "claude-agent" && !hasApiKey("claude")) {
-            *error = "Claude Agent uses your Claude API key. Add it in Settings → AI.";
+            *error = "Claude Agent needs a Claude API key. Add it in Settings → AI → Claude Agent.";
             return nullptr;
         }
         return new AcpProvider(agentBridge(provider), agent->name, this);

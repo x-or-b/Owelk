@@ -165,7 +165,7 @@ Item {
     // Where a provider that cannot answer yet is set up.
     function setupHint(provider) {
         if (provider === "codex") return "Sign in with ChatGPT in Settings → AI."
-        if (provider === "claude-agent") return "Claude Agent uses your Claude API key. Add it in Settings → AI."
+        if (provider === "claude-agent") return "Claude Agent needs a Claude API key (console.anthropic.com). Add it in Settings → AI → Claude Agent. A Claude.ai subscription cannot be used here."
         if (provider.endsWith("-agent")) return "Install the agent in Settings → AI."
         return "Add an API key in Settings → AI."
     }
