@@ -255,7 +255,7 @@ Item {
                 objectName: "aiAttachButton"
                 text: "+"
                 font.pixelSize: 13
-                ToolTip.text: "Add context: page, selection, paper or an image"
+                ToolTip.text: "Add context: page, selection, paper, a captured region or an image"
                 onClicked: attachMenu.popup(attachButton, 0, -attachMenu.implicitHeight)
                 UiControls.Menu {
                     id: attachMenu
@@ -263,6 +263,7 @@ Item {
                     UiControls.MenuItem { text: "Selection"; enabled: root.c && root.c.reader && root.c.reader.selectedText.length > 0; onTriggered: root.c.attach("selection") }
                     UiControls.MenuItem { text: "Whole Paper"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.attach("paper") }
                     MenuSeparator {}
+                    UiControls.MenuItem { objectName: "aiAttachCapture"; text: "Capture a Region"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.captureRegion() }
                     UiControls.MenuItem { objectName: "aiAttachImage"; text: "Image…"; onTriggered: imageDialog.open() }
                     UiControls.MenuItem { objectName: "aiPasteImage"; text: "Paste Image"; enabled: attachMenu.opened && root.c.ai.clipboardHasImage(); onTriggered: root.c.pasteImage() }
                 }

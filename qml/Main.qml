@@ -242,7 +242,11 @@ ApplicationWindow {
         function onRelinkRequested(source) { if (!window.restoreFailed && !researchStore.relinking && window.persist()) relinkDialog.begin(source) }
         function onSourceRelinked(source, candidate) { documents.relinkSource(source, candidate) }
         function onRelinkFinished(success, detail) { if (success) window.notify(detail) }
-        function onCaptureSaved(id) { window.shelfVisible = true; window.movePanel("captures", window.capturesSide) }
+        function onCaptureSaved(id) {
+            // A capture asked for by the AI panel joins the question; others open the shelf.
+            if (aiController.takeCapture(id)) { window.showAi(); return }
+            window.shelfVisible = true; window.movePanel("captures", window.capturesSide)
+        }
         function onSourceReady(url, page, region) { if (!window.restoreFailed) { documents.reveal(url, page, region); window.homeVisible = false } }
     }
     Connections {

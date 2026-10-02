@@ -42,6 +42,33 @@ Item {
     readonly property bool effectiveFast: fast && fastAvailable
     // Images attached to the next question: [{url, name}].
     property var images: []
+    // A region capture started from the AI panel goes into the next question instead of only the shelf.
+    property bool captureWanted: false
+    readonly property bool readerCapturing: !!reader && !!reader.capturing
+    // Esc ends capture mode without a capture; the save itself is asynchronous, so wait a moment.
+    onReaderCapturingChanged: if (!readerCapturing && captureWanted) captureGrace.restart()
+    Timer { id: captureGrace; interval: 4000; onTriggered: root.captureWanted = false }
+    function captureRegion() {
+        if (!reader || !reader.pdfReady) { error = "Open a PDF to capture a region."; return false }
+        error = ""
+        captureWanted = true
+        captureGrace.stop()
+        reader.startCapture()
+        return true
+    }
+    // Called for every saved capture; takes the one the panel asked for.
+    function takeCapture(id) {
+        if (!captureWanted) return false
+        captureWanted = false
+        captureGrace.stop()
+        const capture = researchStore.captures.find(function(c) { return c.id === id })
+        if (!capture || !capture.imageAvailable) return false
+        if (!conversationOpen) newThread()
+        if (capture.source && !spec.source) spec = Object.assign({}, spec, {source: capture.source, scope: spec.scope || "none"})
+        images = images.concat([{url: capture.image.toString(), name: "Capture · p. " + (Number(capture.page) + 1)}])
+        focusRequested()
+        return true
+    }
     readonly property string selectionProvider: ai.provider
     onSelectionProviderChanged: loadSelection()
     Component.onCompleted: { loadSelection(); loadModels() }

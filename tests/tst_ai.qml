@@ -312,5 +312,37 @@ Item {
             ai.detach("image", 0)
             compare(ai.images.length, 0)
         }
+        function test_9_capturedRegionJoinsTheQuestion() {
+            const ai = findChild(workspace, "aiController")
+            const c = canvas()
+            const p = panel()
+            mouseClick(findChild(p, "aiNewThread"))
+            verify(ai.captureRegion())
+            compare(c.captureMode, true)
+            const paper = findChild(c, "paperPage0")
+            const start = paper.mapToItem(c, paper.width * .12, paper.height * .2)
+            mouseDrag(c, start.x, start.y, paper.width * .5, paper.height * .12, Qt.LeftButton, Qt.NoModifier, 40)
+            tryVerify(function() { return ai.images.length === 1 }, 15000)
+            verify(ai.images[0].name.indexOf("Capture · p. 1") === 0)
+            compare(ai.captureWanted, false)
+            // The AI panel stays in front instead of switching to the shelf.
+            tryCompare(findChild(workspace, "rightDock"), "activePanel", "ai")
+            verify(ai.send("What does this region show?"))
+            tryCompare(ai, "streaming", false, 10000)
+            compare(ai.error, "")
+            verify(ai.messages[ai.messages.length - 2].context.attachments.indexOf("image") >= 0)
+            // A capture made the usual way still goes to the shelf only.
+            compare(c.captureMode, false)
+            researchStore.captureRegion(fixtureSource, 0, Qt.rect(.1, .5, .3, .1))
+            wait(500)
+            compare(ai.images.length, 0)
+            // The reader toolbar has a capture button again.
+            const button = findChild(workspace.currentReader, "readerCaptureButton")
+            verify(button)
+            button.clicked()
+            compare(c.captureMode, true)
+            button.clicked()
+            compare(c.captureMode, false)
+        }
     }
 }

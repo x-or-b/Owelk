@@ -100,7 +100,9 @@ Rectangle {
     function copySelection() { canvas.copySelection() }
     function captureSelection() { canvas.captureSelection() }
     function highlightSelection() { canvas.highlightSelection() }
-    function toggleCapture() { if (canvas.ready) canvas.captureMode = !canvas.captureMode }
+    function toggleCapture() { if (canvas.ready) { canvas.tool = ""; canvas.captureMode = !canvas.captureMode } }
+    function startCapture() { if (canvas.ready) { activated(); canvas.tool = ""; canvas.captureMode = true } }
+    readonly property bool capturing: canvas.captureMode
     function reveal(url, page, region) {
         cancelReveal()
         if (!researchStore.sameSource(source, url)) {
@@ -264,6 +266,7 @@ Rectangle {
                         UiControls.MenuItem { text: "Summarize This Paper"; onTriggered: root.requestAi("summarize", "paper") }
                     }
                 }
+                ReaderIconButton { objectName:"readerCaptureButton";kind:"capture";description:"Capture a region · Ctrl+Shift+C";checked:canvas.captureMode;onClicked:root.toggleCapture() }
                 ReaderIconButton { kind:"comment";description:"Add comment · Select text, or click a page";checked:canvas.tool==="comment";onClicked:root.setTool("comment") }
                 ReaderIconButton { kind:"highlight";description:"Highlight text · Choose a color, then drag over text";swatch:canvas.markColor;checked:canvas.tool==="highlight";onClicked:{if(canvas.tool==="highlight")canvas.tool="";else root.chooseHighlightColor(this,!!canvas.selectedAnchor)} }
                 ReaderIconButton { kind:"text";description:"Add text box · Click or drag on a page";checked:canvas.tool==="text";onClicked:root.setTool("text") }
