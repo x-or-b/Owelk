@@ -16,6 +16,15 @@ Rectangle {
     // The address this tab was opened with; a PDF fetched from it replaces the tab instead of opening beside it.
     property string openedUrl: ""
     readonly property alias view: view
+    // PDFs from the web open in the reader (downloaded first) unless this tab shows them in place.
+    property bool browserPdf: researchStore.setting("webPdfMode", "reader") === "browser"
+    // One-off: download the PDF shown in this tab and open it in the reader.
+    property bool fetchPdf: false
+    readonly property bool showsPdf: /\.pdf([?#]|$)/i.test(view.url.toString()) || Tree.arxivPdf(view.url).length === 0 && /arxiv\.org\/pdf\//i.test(view.url.toString())
+    // The download in progress for this tab (WebEngineDownloadRequest), shown under the toolbar.
+    property var download: null
+    property bool downloadOpening: false
+    signal downloadStarted(string fileName)
     signal activated()
     color: Theme.surface
     property bool capturing: false
@@ -52,14 +61,24 @@ Rectangle {
             download.downloadDirectory = target.directory
             download.downloadFileName = target.fileName
             const replace = !view.canGoBack && download.url.toString() === root.openedUrl
+            const fetched = root.fetchPdf
+            root.fetchPdf = false
             download.isFinishedChanged.connect(function() {
+                if (root.download === download) root.download = null
                 if (download.state === WebEngineDownloadRequest.DownloadCompleted) {
-                    if (pdf) root.controller.openDownloaded(root.tabId, target.url, replace)
-                    else researchStore.notify("Saved " + target.fileName + " to " + target.directory)
+                    // A PDF shown in this tab opens beside it; the tab stays on the page.
+                    if (pdf) {
+                        root.downloadOpening = true
+                        Qt.callLater(function() { root.downloadOpening = false; root.controller.openDownloaded(root.tabId, target.url, replace && !fetched) })
+                    } else researchStore.notify("Saved " + target.fileName + " to " + target.directory)
                 } else if (download.state === WebEngineDownloadRequest.DownloadInterrupted) {
                     researchStore.notify("Download failed: " + download.interruptReasonString)
+                } else if (download.state === WebEngineDownloadRequest.DownloadCancelled) {
+                    researchStore.notify("Download cancelled.")
                 }
             })
+            root.download = download
+            root.downloadStarted(target.fileName)
             download.accept()
         }
     }
@@ -99,6 +118,15 @@ Rectangle {
                     onClicked: root.capturing = !root.capturing
                 }
                 UiControls.Button {
+                    objectName: "webOpenInReader"
+                    visible: root.showsPdf && view.settings.pdfViewerEnabled
+                    text: "Open in Reader"
+                    Layout.preferredHeight: 25
+                    ToolTip.visible: hovered; ToolTip.delay: 450
+                    ToolTip.text: "Download this PDF and read it in Owelk (highlights, captures and notes work there)"
+                    onClicked: { root.fetchPdf = true; view.reload() }
+                }
+                UiControls.Button {
                     objectName: "webOpenArxivPdf"
                     visible: Tree.arxivPdf(view.url).length > 0
                     text: "Open PDF"
@@ -112,6 +140,12 @@ Rectangle {
                     onClicked: webMenu.popup(this, 0, height)
                     UiControls.Menu {
                         id: webMenu
+                        UiControls.MenuItem {
+                            objectName: "webBrowserPdf"
+                            text: "Show PDFs in This Tab"
+                            checkable: true; checked: root.browserPdf
+                            onTriggered: root.browserPdf = checked
+                        }
                         UiControls.MenuItem { text: "Open in Browser"; onTriggered: Qt.openUrlExternally(view.url) }
                         UiControls.MenuItem { text: "Copy Address"; onTriggered: researchStore.copyText(view.url.toString()) }
                     }
@@ -124,14 +158,66 @@ Rectangle {
                 color: Theme.accent
             }
         }
+        // Download progress: name, bytes, a bar (sliding while the size is unknown) and Cancel.
+        Rectangle {
+            id: downloadBar
+            objectName: "webDownloadBar"
+            Layout.fillWidth: true
+            Layout.preferredHeight: 30
+            visible: root.download !== null || root.downloadOpening
+            color: Theme.surfacePanel
+            readonly property real received: root.download ? root.download.receivedBytes : 0
+            readonly property real total: root.download ? root.download.totalBytes : 0
+            function size(bytes) { return bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(bytes / 1024)) + " KB" }
+            RowLayout {
+                anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 4
+                spacing: 8
+                BusyIndicator { running: downloadBar.visible; implicitWidth: 16; implicitHeight: 16 }
+                Label {
+                    objectName: "webDownloadLabel"
+                    Layout.fillWidth: true; Layout.minimumWidth: 0
+                    elide: Text.ElideMiddle; font.pixelSize: 12; color: Theme.textBody; textFormat: Text.PlainText
+                    text: root.downloadOpening ? "Opening in the reader…"
+                        : root.download ? "Downloading " + root.download.downloadFileName
+                          + (downloadBar.received > 0 ? " · " + downloadBar.size(downloadBar.received) + (downloadBar.total > 0 ? " of " + downloadBar.size(downloadBar.total) : "") : "")
+                        : ""
+                }
+                Rectangle {
+                    id: track
+                    Layout.preferredWidth: Math.min(160, downloadBar.width / 4); Layout.preferredHeight: 4
+                    radius: 2; color: Theme.border
+                    clip: true
+                    Rectangle {
+                        id: fill
+                        height: parent.height; radius: 2; color: Theme.accent
+                        readonly property bool known: downloadBar.total > 0
+                        onKnownChanged: if (known) x = 0
+                        width: known ? parent.width * Math.min(1, downloadBar.received / downloadBar.total) : parent.width / 3
+                        SequentialAnimation on x {
+                            running: downloadBar.visible && !fill.known
+                            loops: Animation.Infinite
+                            NumberAnimation { from: -track.width / 3; to: track.width; duration: 1100; easing.type: Easing.InOutQuad }
+                        }
+                    }
+                }
+                UiControls.ToolButton {
+                    objectName: "webDownloadCancel"
+                    visible: root.download !== null
+                    text: "Cancel"; implicitHeight: 24; font.pixelSize: 11
+                    onClicked: root.download.cancel()
+                }
+            }
+        }
         WebEngineView {
             id: view
             objectName: "webView"
             Layout.fillWidth: true
             Layout.fillHeight: true
             profile: root.controller.webProfile
-            // PDFs go to the reader rather than Chromium's viewer.
-            settings.pdfViewerEnabled: false
+            // PDFs go to the reader rather than Chromium's viewer, unless this tab shows them in place.
+            settings.pdfViewerEnabled: root.browserPdf && !root.fetchPdf
+            // Chromium's PDF viewer is a built-in plugin.
+            settings.pluginsEnabled: root.browserPdf
             onUrlChanged: if (root.tabId.length) root.controller.updateWebTab(root.tabId, url.toString(), title)
             onTitleChanged: if (root.tabId.length) root.controller.updateWebTab(root.tabId, url.toString(), title)
             onNewWindowRequested: function(request) { root.controller.openWeb(request.requestedUrl.toString(), true) }

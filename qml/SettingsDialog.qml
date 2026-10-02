@@ -26,6 +26,7 @@ UiControls.Dialog {
         const folder = researchStore.setting("downloadFolder")
         folderField.text = folder.length ? folder : researchStore.downloadTarget("x").directory
         engineBox.currentIndex = Math.max(0, engines.findIndex(function(e) { return e.template === researchStore.setting("searchEngine", engines[0].template) }))
+        pdfModeBox.currentIndex = researchStore.setting("webPdfMode", "reader") === "browser" ? 1 : 0
         languageBox.currentIndex = Math.max(0, languages.findIndex(function(l) { return l.value === researchStore.setting("aiLanguage", "ko") }))
     }
     onAboutToShow: refresh()
@@ -54,6 +55,13 @@ UiControls.Dialog {
                     UiControls.TextField { id: folderField; objectName: "downloadFolderField"; Layout.fillWidth: true; readOnly: true }
                     UiControls.Button { text: "Choose…"; onClicked: folderDialog.open() }
                 }
+                Label { text: "PDF links"; color: Theme.textBody }
+                UiControls.ComboBox {
+                    id: pdfModeBox; objectName: "webPdfModeBox"
+                    Layout.fillWidth: true
+                    model: ["Download and open in the reader", "Show in the web tab"]
+                    onActivated: function(index) { researchStore.setSetting("webPdfMode", index === 1 ? "browser" : "reader") }
+                }
                 Label { text: "Search with"; color: Theme.textBody }
                 UiControls.ComboBox {
                     id: engineBox; objectName: "searchEngineBox"
@@ -64,7 +72,7 @@ UiControls.Dialog {
             }
             Label {
                 Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
-                text: "PDFs opened from web pages are saved here and open in the reader. Existing files are never overwritten."
+                text: "PDFs downloaded from web pages are saved here. Existing files are never overwritten. In the web tab, PDFs can also be read in place (More → Show PDFs in This Tab) and sent to the reader with Open in Reader; highlights, captures and notes work in the reader."
             }
             Label { text: "AI"; font.bold: true; color: Theme.text }
             GridLayout {

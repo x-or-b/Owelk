@@ -6,6 +6,8 @@ import "../qml/WorkspaceTree.js" as Tree
 Item {
     width: 1440; height: 930
     App.Main { id: workspace }
+    SignalSpy { id: downloads; signalName: "downloadStarted" }
+    SignalSpy { id: fetches; signalName: "downloadStarted" }
     TestCase {
         name: "WebTabs"
         when: windowShown
@@ -60,6 +62,40 @@ Item {
             tryVerify(function() { return activeTab().kind !== "web" }, 15000)
             verify(!Tree.owner(d.tree, fetching))
             verify(researchStore.downloadTarget("paper.pdf").fileName !== "paper.pdf") // Never overwrites.
+        }
+        function test_downloadShowsProgressAndPdfsCanStayInTheTab() {
+            const d = workspace.documents
+            verify(d.openResource(testInput.webFixture("/page.html")))
+            const pane = webPane()
+            tryCompare(activeTab(), "title", "Owelk Test Page", 15000)
+            // A download announces itself and shows its bar until the reader opens.
+            downloads.clear(); downloads.target = pane
+            pane.view.runJavaScript("document.getElementById('pdf').click()")
+            tryCompare(downloads, "count", 1, 15000)
+            verify(downloads.signalArguments[0][0].indexOf(".pdf") > 0)
+            tryVerify(function() { return activeTab().kind !== "web" }, 15000)
+            // Shown in the tab instead: no download until Open in Reader.
+            d.activateTab(Tree.leaves(d.tree)[0].tabs.find(function(t) { return t.kind === "web" }).id)
+            const again = webPane()
+            const fetched = fetches
+            fetched.clear(); fetched.target = again
+            tryVerify(function() { return again.view.url.toString().indexOf("page.html") > 0 && !again.view.loading }, 15000)
+            again.browserPdf = true // Changing the viewer setting reloads the page.
+            wait(300)
+            tryVerify(function() { return !again.view.loading }, 15000)
+            again.view.url = testInput.webFixture("/paper.pdf")
+            tryVerify(function() { return again.showsPdf && !again.view.loading }, 15000)
+            wait(500)
+            compare(fetched.count, 0)
+            compare(activeTab().kind, "web")
+            const button = findChild(again, "webOpenInReader")
+            tryCompare(button, "visible", true)
+            const before = Tree.leaves(d.tree)[0].tabs.length
+            button.clicked()
+            tryCompare(fetched, "count", 1, 15000)
+            tryVerify(function() { return activeTab().kind !== "web" }, 15000)
+            compare(Tree.leaves(d.tree)[0].tabs.length, before + 1) // The web tab stays.
+            again.browserPdf = false
         }
         function test_webCaptureKeepsPageAndReopensIt() {
             const d = workspace.documents
