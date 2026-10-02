@@ -49,7 +49,7 @@ UiControls.Popup {
             id: searchInput
             objectName: "searchPaletteQuery"
             Layout.fillWidth: true
-            placeholderText: "Search PDF text, papers, captures and workspaces"
+            placeholderText: "Search PDF text, papers, captures, AI  ·  narrow with tag: state: year:"
             selectByMouse: true
             onAccepted: {
                 let at = list.currentIndex

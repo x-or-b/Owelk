@@ -16,24 +16,43 @@ QtObject {
     property string error: ""
     property url sourceFilter: ""
     property string targetFilter: "all"
-    // Library scope: collection, tag, state, workspace, yearFrom, yearTo (see researchStore.libraryDocuments).
-    property var libraryFilter: ({})
+    // Library conditions typed into the query: tag:, collection:, state:, year:2020 or year:2018-2022,
+    // workspace:. Names match case-insensitively; quotes allow spaces (tag:"deep learning").
+    readonly property var parsed: parseQuery(query)
+    readonly property var libraryFilter: parsed.filter
+    readonly property var tokenLabels: parsed.labels
     readonly property bool libraryScoped: Object.keys(libraryFilter).length > 0
-    function setLibraryFilter(key, value) {
-        const empty = value === "" || value === undefined || value === null
-        // Unchanged values (e.g. a year field losing focus) must not restart the search.
-        if (empty ? !(key in libraryFilter) : libraryFilter[key] === value) return
-        const next = Object.assign({}, libraryFilter)
-        if (value === "" || value === undefined || value === null) delete next[key]
-        else next[key] = value
-        libraryFilter = next
+    function parseQuery(text) {
+        const filter = {}, labels = []
+        const pattern = /(^|\s)(tag|collection|state|year|workspace):("([^"]*)"|\S+)/gi
+        const lookup = function(list, name) {
+            const hit = list.find(function(item) { return item.name.toLowerCase() === name.toLowerCase() })
+            return hit ? hit.id : "\u0000missing" // No match narrows to nothing rather than ignoring the condition.
+        }
+        const needle = text.replace(pattern, function(all, lead, key, raw, quoted) {
+            const value = quoted !== undefined ? quoted : raw
+            key = key.toLowerCase()
+            if (!value.length) return lead
+            if (key === "tag") filter.tag = lookup(researchStore.tags(), value)
+            else if (key === "collection") filter.collection = lookup(researchStore.collections(), value)
+            else if (key === "workspace") filter.workspace = lookup(researchStore.recentWorkspaces, value)
+            else if (key === "state") filter.state = ["unread", "reading", "read"].indexOf(value.toLowerCase()) >= 0 ? value.toLowerCase() : "\u0000missing"
+            else if (key === "year") {
+                const range = value.match(/^(\d{4})(?:-(\d{4}))?$/)
+                if (!range) return lead + all.trim()
+                filter.yearFrom = Number(range[1]); filter.yearTo = Number(range[2] || range[1])
+            }
+            labels.push(key + ": " + value)
+            return lead
+        }).replace(/\s+/g, " ").trim()
+        return {needle: needle, filter: filter, labels: labels}
     }
     property int offset: 0
     property var history: []
     property bool changing: false
     property int preferredIndex: 0
     function resetFilters() {
-        changing = true; sourceFilter = ""; targetFilter = "all"; libraryFilter = ({}); offset = 0; history = []; preferredIndex = 0; changing = false
+        changing = true; sourceFilter = ""; targetFilter = "all"; offset = 0; history = []; preferredIndex = 0; changing = false
         refresh()
     }
     function filtersChanged() {
@@ -42,7 +61,6 @@ QtObject {
     }
     onSourceFilterChanged: filtersChanged()
     onTargetFilterChanged: filtersChanged()
-    onLibraryFilterChanged: filtersChanged()
     function choose(result) {
         if (["paperGroup", "moreInPaper", "nextResults"].indexOf(result.kind) < 0) return false
         if (result.kind === "paperGroup" && researchStore.sameSource(sourceFilter, result.source)) return true
@@ -75,12 +93,15 @@ QtObject {
         delay.stop()
         invalidate()
         if (!active) return
-        const needle = query.trim()
+        const needle = parsed.needle
         // Library filters narrow both searches to the same set of papers.
         const scope = libraryScoped ? researchStore.libraryDocuments(libraryFilter) : null
         if (needle.length && offset === 0) {
             namesPending = true
             namesRequest = researchStore.searchKnowledgeAsync(needle, sourceFilter, targetFilter, scope ? scope.map(function(p) { return p.url }) : null)
+        } else if (!needle.length && scope && targetFilter !== "text" && targetFilter !== "captures" && targetFilter !== "ai") {
+            // Only library conditions (e.g. "tag:slam"): list the papers they match.
+            names = scope.slice(0, 40).map(function(p) { return {kind: "paper", title: p.name, source: p.url, position: p.position, authors: p.authors, year: p.year} })
         } else if (!needle.length && showRecent && !sourceFilter.toString().length && targetFilter !== "text" && targetFilter !== "captures") {
             names = researchStore.recentDocuments.map(function(p) { return {kind: "paper", title: p.name, source: p.url, position: p.position, authors: p.authors, year: p.year} })
         }

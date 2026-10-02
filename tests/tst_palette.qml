@@ -143,18 +143,21 @@ Item {
             for (let i = 0; i < children.length; ++i) overflowing(children[i], box, list)
             return list
         }
-        function test_expandedFiltersStayInsideThePalette() {
+        function visualChild(item, name) {
+            if (item.objectName === name) return item
+            const children = item.children || []
+            for (let i = 0; i < children.length; ++i) { const found = visualChild(children[i], name); if (found) return found }
+            return null
+        }
+        function test_filtersStayInsideThePalette() {
             palette.close(); tryCompare(palette, "visible", false)
+            search.currentSource = "file:///tmp/paper.pdf"
             search.open(); tryCompare(search, "opened", true)
-            const button = findChild(search, "searchFiltersButton")
-            waitForPolish(search.contentItem)
-            mouseClick(button)
-            tryVerify(function() { return findChild(search, "searchYearFrom").visible })
             waitForPolish(search.contentItem); wait(30)
             compare(overflowing(search.contentItem, search.contentItem, []).join(", "), "")
-            const target = findChild(search, "searchTargetFilter")
-            compare(target.values.indexOf("ai"), 4)
-            mouseClick(button)
+            verify(findChild(search, "currentPdfFilter").visible)
+            verify(visualChild(search.contentItem, "searchTarget-ai").visible)
+            search.currentSource = ""
         }
     }
 }

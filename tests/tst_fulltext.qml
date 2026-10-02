@@ -46,34 +46,51 @@ Item {
             if (details) details.close()
             researchStore.paperIndex.setPaused(false)
         }
-        function test_filterHoverAndSelectionContrast() {
+        function visualChild(item, name) {
+            if (item.objectName === name) return item
+            const children = item.children || []
+            for (let i = 0; i < children.length; ++i) { const found = visualChild(children[i], name); if (found) return found }
+            return null
+        }
+        function test_scopeChipsAndTypedLibraryConditions() {
             const palette = findChild(workspace, "searchPalette")
             palette.open(); tryCompare(palette, "opened", true)
-            const filters = findChild(palette, "searchFiltersButton")
-            if (!filters.checked) mouseClick(filters)
-            // Expanding adds two filter rows and the palette re-centres; click once the layout settles.
-            waitForPolish(palette.contentItem); wait(50)
-            const picker = findChild(palette, "searchTargetFilter")
-            compare(picker.contentItem.color.toString(), "#333333")
-            tryCompare(picker, "height", 32)
-            compare(findChild(palette, "currentPdfFilter").height, picker.height)
-            compare(filters.height, picker.height)
-            for (let i = 0; i < 4; ++i) {
-                mouseClick(picker)
-                tryCompare(picker.popup, "opened", true)
-                tryVerify(function() { return picker.popup.contentItem.itemAtIndex(i) !== null })
-                const option = picker.popup.contentItem.itemAtIndex(i)
-                verify(option !== null)
-                waitForPolish(picker.popup.contentItem)
-                tryVerify(function() { return picker.popup.height >= option.height + 2 })
-                mouseMove(option, 20, option.height / 2)
-                compare(option.contentItem.color.toString(), "#333333")
-                verify(option.background.color.toString() !== "#ffffff")
-                mouseClick(option)
-                tryCompare(picker, "currentIndex", i)
-                compare(picker.contentItem.color.toString(), "#333333")
-                compare(palette.searchController.targetFilter, picker.values[i])
+            waitForPolish(palette.contentItem); wait(30)
+            // One row of scopes instead of menus; the chosen one is marked.
+            for (const value of ["text", "filename", "captures", "ai", "all"]) {
+                const chip = visualChild(palette.contentItem, "searchTarget-" + value)
+                verify(chip, value)
+                mouseClick(chip)
+                compare(palette.searchController.targetFilter, value)
+                compare(chip.checked, true)
+                compare(chip.contentItem.color.toString(), "#333333")
             }
+            verify(findChild(palette, "searchTargetFilter") === null)
+            verify(findChild(palette, "searchYearFrom") === null)
+            // Library conditions are typed: tag:, state:, year: narrow the same search.
+            verify(researchStore.setDocumentTags(fixtureSource, ["Occlusion Study"]))
+            const tag = researchStore.tags().find(function(t) { return t.name === "Occlusion Study" }).id
+            const field = findChild(palette, "searchPaletteQuery")
+            field.text = "tag:\"occlusion study\" year:2024"
+            const controller = palette.searchController
+            compare(controller.libraryFilter.tag, tag)
+            compare(controller.libraryFilter.yearFrom, 2024)
+            compare(controller.parsed.needle, "")
+            compare(findChild(palette, "searchFilterSummary").text, "tag: occlusion study  ·  year: 2024")
+            field.text = "tag:\"occlusion study\""
+            // Only conditions: the matching papers are listed.
+            tryVerify(function() { return palette.results.length === 1 && palette.results[0].kind === "paper" })
+            field.text = "occlusion tag:\"occlusion study\""
+            tryVerify(function() { return palette.results.some(function(r) { return r.kind === "text" }) }, 10000)
+            field.text = "occlusion tag:nosuchtag"
+            tryVerify(function() { return !controller.waiting })
+            wait(300)
+            compare(palette.results.filter(function(r) { return r.kind === "text" || r.kind === "paper" }).length, 0)
+            field.text = "state:read occlusion"
+            compare(controller.libraryFilter.state, "read")
+            compare(controller.parsed.needle, "occlusion")
+            field.text = ""
+            researchStore.setDocumentTags(fixtureSource, [])
         }
         function cleanupTestCase() { workspace.visible = false }
         function canvas() {

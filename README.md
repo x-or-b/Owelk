@@ -117,7 +117,8 @@ open -n /Users/gyu/Documents/Owelk/build/owelk.app --args --data-dir /Users/gyu/
 - PDF를 열면 백그라운드에서 페이지별 텍스트를 추출합니다. 기존 최근 문서·읽기 위치·워크스페이스의 문서도 첫 실행에 등록합니다. 원본이나 외부 서비스는 수정하지 않습니다.
 - 본문은 단어 접두어 검색이며 입력한 단어가 모두 같은 페이지에 있어야 합니다. 예: `counter evidence`. 논문당 관련도 상위 3페이지를 먼저 표시하고, 한 번에 20개 논문씩 제공합니다. `More papers`로 다음 묶음을 볼 수 있습니다.
 - 논문 제목 행 / `Show all 12 matching pages in '파일명.pdf'`를 누르면 그 논문만 40페이지 단위로 검색합니다. `Back`으로 돌아가며 검색어를 유지합니다. 개수는 단어 출현 횟수가 아니라 일치 페이지 수입니다.
-- `Filters`에서 PDF text / Paper details / Captures / AI(Thread만)와 특정 논문을 선택합니다. 논문 결과는 Library처럼 제목과 `저자 · 연도` 두 줄로 보입니다. 리더에서 연 Cmd+K에는 `Current PDF`도 있습니다. `Clear filters`로 해제합니다. Paper details는 제목·저자·연도·DOI·arXiv ID·파일명을 검색합니다. 문장 정확 일치·의미 검색은 아직 없습니다.
+- 검색창 아래 한 줄에서 범위를 고릅니다: `All · PDF text · Papers · Captures · AI`, 리더에서 연 Cmd+K는 `This PDF`. 논문 결과는 Library처럼 제목과 `저자 · 연도` 두 줄로 보입니다.
+- 라이브러리 조건은 검색어에 적습니다: `tag:slam`, `tag:"deep learning"`, `collection:radar`, `state:unread|reading|read`, `year:2024`, `year:2020-2024`, `workspace:이름`. 조건만 적으면 해당 논문 목록을 보여 줍니다. Paper details(Papers)는 제목·저자·연도·DOI·arXiv ID·파일명을 검색합니다.
 - 검색창 아래 `Text index`를 누르면 진행 상태, Pause/Resume, 실패 문서 Retry를 볼 수 있습니다. 스캔·암호 PDF는 이유를 표시하며 OCR·암호 본문 인덱싱은 아직 없습니다.
 - 결과를 열 때 원본 SHA-256을 확인합니다. 변경·유실되었으면 이동을 차단하고 인덱스를 갱신합니다. 기존 탭을 재사용하며 정확한 페이지로 이동하지만 문장 좌표 강조는 아직 없습니다.
 - `Remove from Recent Papers`는 최근 목록에서만 제거합니다. 이미 인덱싱한 본문은 검색에 남습니다. 검색 대상에서 제외하는 기능은 후속 단계입니다.
@@ -147,7 +148,7 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 - Collection은 `+`로 만들고 우클릭으로 하위 Collection 추가·이름 변경·삭제합니다. 상위 Collection은 하위 Collection의 논문도 보여 줍니다. 논문을 Collection으로 끌어 놓거나 논문 우클릭 → Collections에서 추가합니다. 삭제는 묶음만 지우며 논문과 파일은 그대로입니다.
 - 논문 우클릭 → Tags…에 쉼표로 태그를 입력합니다(대소문자 무시, 쓰지 않는 태그는 자동 정리).
 - 논문 우클릭 → Exclude from Text Search는 그 논문의 본문을 검색 인덱스에서 지웁니다. 다시 포함하면 새로 색인합니다.
-- Cmd+K/Home 검색은 Collection·Tag 이름도 찾고, 누르면 그 Collection·Tag로 거른 라이브러리를 엽니다. Filters에서 Collection·Tag·읽기 상태·연도 범위·Workspace를 고르면 본문 검색과 저장 항목 검색이 그 논문들로 한정됩니다.
+- Cmd+K/Home 검색은 Collection·Tag 이름도 찾고, 누르면 그 Collection·Tag로 거른 라이브러리를 엽니다. 검색어에 `tag:` `collection:` `state:` `year:` `workspace:`를 적으면 본문 검색과 저장 항목 검색이 그 논문들로 한정됩니다.
 
 ## 웹 탭
 
