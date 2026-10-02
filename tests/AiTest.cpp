@@ -349,6 +349,96 @@ private slots:
         QVERIFY(ai->clearApiKey("claude"));
         QVERIFY(!ai->hasApiKey("claude"));
     }
+    void acpAgentsAnswerReadOnly()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        qputenv("OWELK_ACP_COMMAND", QByteArray(QUICK_TEST_SOURCE_DIR) + "/fake_acp.py");
+        const auto provider = [&](const QString &id) {
+            for (const auto &row : ai->providers())
+                if (row.toMap()["id"] == id) return row.toMap();
+            return QVariantMap();
+        };
+        QVERIFY(provider("codex-agent")["configured"].toBool());
+        // Claude Agent only runs on the Claude API key.
+        QVERIFY(!provider("claude-agent")["configured"].toBool());
+        QSignalSpy finished(ai, &AiService::finished), failed(ai, &AiService::failed);
+        ai->giveConsent("claude-agent");
+        ai->ask({{"provider", "claude-agent"}, {"action", "ask"}, {"question", "Hi"}});
+        QTRY_COMPARE_WITH_TIMEOUT(failed.size(), 1, 5000);
+        QVERIFY(failed[0][1].toString().contains("Claude API key"));
+
+        // Signed out: the status lists the agent's own sign-in (terminal sign-in is left out).
+        QSignalSpy status(ai, &AiService::agentStatus);
+        ai->refreshAgent("codex-agent");
+        QTRY_COMPARE_WITH_TIMEOUT(status.size(), 1, 5000);
+        auto current = status[0][1].toMap();
+        QCOMPARE(current["ready"].toBool(), false);
+        QVERIFY(current["error"].toString().contains("sign in"));
+        QCOMPARE(current["authMethods"].toList().size(), 1);
+        QCOMPARE(current["authMethods"].toList()[0].toMap()["id"].toString(), QString("browser"));
+        ai->authenticateAgent("codex-agent", "browser");
+        QTRY_COMPARE_WITH_TIMEOUT(status.size(), 2, 5000);
+        QCOMPARE(status[1][1].toMap()["ready"].toBool(), true);
+
+        // Tool permissions are declined; the answer streams and the thread keeps the turn.
+        ai->giveConsent("codex-agent");
+        ai->ask({{"provider", "codex-agent"}, {"action", "ask"}, {"question", "What is new?"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 5000);
+        QCOMPARE(finished[0][1].toString(), QString("Agent answer (declined, fast)"));
+        const auto threadId = finished[0][2].toMap()["threadId"].toString();
+        QCOMPARE(store.aiThread(threadId)["messages"].toList().size(), 2);
+
+        // Models come from the agent's session option, and the chosen one is applied.
+        QSignalSpy models(ai, &AiService::modelsLoaded);
+        ai->listModels("codex-agent");
+        QTRY_COMPARE_WITH_TIMEOUT(models.size(), 1, 5000);
+        const auto list = models[0][1].toList();
+        QCOMPARE(list.size(), 2);
+        QCOMPARE(list[1].toMap()["id"].toString(), QString("deep"));
+        ai->setModel("codex-agent", "deep");
+        ai->ask({{"provider", "codex-agent"}, {"threadId", threadId}, {"action", "ask"}, {"question", "More?"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 5000);
+        QCOMPARE(finished[1][1].toString(), QString("Agent answer (declined, deep, history)"));
+        QCOMPARE(store.aiThread(threadId)["messages"].toList().size(), 4);
+        qunsetenv("OWELK_ACP_COMMAND");
+    }
+    void agentsInstallIntoTheDataFolder()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        // A stand-in npm that records its arguments and creates the package's command.
+        const auto npm = directory.filePath("npm");
+        QFile script(npm);
+        QVERIFY(script.open(QIODevice::WriteOnly));
+        script.write(QByteArray("#!/bin/sh\necho \"$@\" > \"") + directory.filePath("npm-args").toUtf8()
+            + "\"\nprefix=$3\nmkdir -p \"$prefix/node_modules/.bin\"\nprintf '#!/bin/sh\\n' > "
+              "\"$prefix/node_modules/.bin/codex-acp\"\nchmod +x \"$prefix/node_modules/.bin/codex-acp\"\n");
+        script.close();
+        script.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+        qputenv("OWELK_NPM", npm.toUtf8());
+        QVERIFY(!ai->agentInstalled("codex-agent"));
+        QSignalSpy installed(ai, &AiService::agentInstallFinished);
+        QVERIFY(ai->installAgent("codex-agent"));
+        QTRY_COMPARE_WITH_TIMEOUT(installed.size(), 1, 10000);
+        QVERIFY2(installed[0][1].toBool(), qPrintable(installed[0][2].toString()));
+        QVERIFY(ai->agentInstalled("codex-agent"));
+        QFile args(directory.filePath("npm-args"));
+        QVERIFY(args.open(QIODevice::ReadOnly));
+        const auto line = QString::fromUtf8(args.readAll());
+        QVERIFY(line.startsWith("install --prefix " + directory.filePath("data") + "/agents/codex-agent"));
+        QVERIFY(line.contains("@agentclientprotocol/codex-acp@latest"));
+        QVERIFY(ai->removeAgent("codex-agent"));
+        QVERIFY(!ai->agentInstalled("codex-agent"));
+        QVERIFY(!QFileInfo::exists(directory.filePath("data") + "/agents/codex-agent"));
+        qunsetenv("OWELK_NPM");
+    }
 };
 
 QTEST_MAIN(AiTest)

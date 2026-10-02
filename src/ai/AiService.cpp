@@ -1,10 +1,14 @@
 #include "AiService.h"
+#include "AcpAgent.h"
 #include "AiContext.h"
 #include "AiProviders.h"
 #include "Keychain.h"
 #include "ResearchStore.h"
 
 #include <QDesktopServices>
+#include <QDir>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QFile>
 #include <QFileInfo>
 #include <QFutureWatcher>
@@ -28,7 +32,23 @@ const ProviderInfo providerTable[] = {
     {"openai", "OpenAI API", "api", "OpenAI", "gpt-5", "https://api.openai.com/"},
     {"codex", "ChatGPT account (Codex)", "account", "OpenAI via your ChatGPT account", "", ""},
     {"ollama", "Ollama (local)", "local", "this Mac only", "", "http://127.0.0.1:11434/"},
+    {"claude-agent", "Claude Agent (ACP)", "agent", "Anthropic via Claude Agent", "", ""},
+    {"codex-agent", "Codex Agent (ACP)", "agent", "OpenAI via Codex Agent", "", ""},
+    {"gemini-agent", "Gemini CLI (ACP)", "agent", "Google via Gemini CLI", "", ""},
 };
+// Finder-started apps do not see the shell PATH; look where Homebrew and the Node installer put tools.
+QString findTool(const QString &name)
+{
+    auto found = QStandardPaths::findExecutable(name);
+    for (const auto &directory : {QStringLiteral("/opt/homebrew/bin"), QStringLiteral("/usr/local/bin")})
+        if (found.isEmpty() && QFileInfo(directory + "/" + name).isExecutable()) found = directory + "/" + name;
+    return found;
+}
+QString npmExecutable()
+{
+    const auto override = qEnvironmentVariable("OWELK_NPM");
+    return override.isEmpty() ? findTool("npm") : override;
+}
 const ProviderInfo *info(const QString &id)
 {
     for (const auto &entry : providerTable)
@@ -56,6 +76,7 @@ AiService::AiService(ResearchStore *store, QObject *parent)
 
 AiService::~AiService()
 {
+    if (m_installing) m_installing->disconnect(this);
     for (const auto &provider : std::as_const(m_running))
         if (provider) provider->disconnect(this);
 }
@@ -70,9 +91,12 @@ QVariantList AiService::providers() const
             configured = hasApiKey(id);
         else if (id == "codex")
             configured = m_codexAccount.value("signedIn").toBool();
+        const bool agent = QString(entry.kind) == "agent";
+        // Claude Agent runs on the Claude API key; the other agents sign in on their own.
+        if (agent) configured = agentInstalled(id) && (id != "claude-agent" || hasApiKey("claude"));
         rows.append(QVariantMap{{"id", id}, {"name", entry.name}, {"kind", entry.kind}, {"sends", entry.sends},
             {"configured", configured}, {"model", model(id)}, {"defaultModel", entry.defaultModel},
-            {"consented", consented(id)}});
+            {"consented", consented(id)}, {"installed", !agent || agentInstalled(id)}});
     }
     return rows;
 }
@@ -166,6 +190,17 @@ AiProvider *AiService::createProvider(const QString &provider, QString *error)
     }
     if (provider == "ollama") return new OllamaProvider(m_network, baseUrl(provider), this);
     if (provider == "codex") return new CodexProvider(m_codex, this);
+    if (const auto *agent = acpAgent(provider)) {
+        if (!agentInstalled(provider)) {
+            *error = QStringLiteral("Install %1 in Settings → AI.").arg(agent->name);
+            return nullptr;
+        }
+        if (provider == "claude-agent" && !hasApiKey("claude")) {
+            *error = "Claude Agent uses your Claude API key. Add it in Settings → AI.";
+            return nullptr;
+        }
+        return new AcpProvider(agentBridge(provider), agent->name, this);
+    }
     *error = "Choose an AI provider in Settings → AI.";
     return nullptr;
 }
@@ -476,6 +511,19 @@ void AiService::listModels(const QString &provider)
         });
         return;
     }
+    if (acpAgent(provider)) {
+        if (!agentInstalled(provider) || (provider == "claude-agent" && !hasApiKey("claude"))) {
+            emit modelsLoaded(provider, {});
+            return;
+        }
+        // Agents report their models as a session option; a throwaway session reads them.
+        agentBridge(provider)->call("session/new",
+            {{"cwd", agentDirectory(provider) + "/work"}, {"mcpServers", QJsonArray()}},
+            [this, provider](const QJsonValue &result, const QJsonObject &) {
+                emit modelsLoaded(provider, AcpProvider::modelChoices(AcpProvider::modelOption(result.toObject())));
+            });
+        return;
+    }
     if (provider != "openai" && provider != "ollama") return;
     QNetworkRequest request(provider == "ollama" ? baseUrl(provider).resolved(QUrl("api/tags"))
                                                  : baseUrl(provider).resolved(QUrl("v1/models")));
@@ -508,4 +556,150 @@ void AiService::listModels(const QString &provider)
         });
         emit modelsLoaded(provider, models);
     });
+}
+
+// --- ACP agents -------------------------------------------------------------------------------
+
+QString AiService::agentDirectory(const QString &id) const
+{
+    return m_store->dataDirectory() + "/agents/" + id;
+}
+
+QString AiService::agentExecutable(const QString &id) const
+{
+    // Tests run a stand-in agent.
+    const auto override = qEnvironmentVariable("OWELK_ACP_COMMAND");
+    if (!override.isEmpty()) return override;
+    const auto *agent = acpAgent(id);
+    return agent ? agentDirectory(id) + "/node_modules/.bin/" + agent->bin : QString();
+}
+
+bool AiService::agentInstalled(const QString &id) const
+{
+    return acpAgent(id) && QFileInfo(agentExecutable(id)).isExecutable();
+}
+
+QVariantList AiService::agents() const
+{
+    QVariantList rows;
+    for (const auto &agent : acpAgents())
+        rows.append(QVariantMap{{"id", agent.id}, {"name", agent.name}, {"package", agent.package},
+            {"installed", agentInstalled(agent.id)},
+            {"installing", m_installing && m_installing->objectName() == agent.id},
+            {"npm", !npmExecutable().isEmpty()}});
+    return rows;
+}
+
+AcpBridge *AiService::agentBridge(const QString &id)
+{
+    const auto key = id == "claude-agent" ? Keychain::read(keyAccount("claude"), m_store->dataDirectory()) : QString();
+    // A changed key needs a new process, since the agent reads it at start.
+    if (auto *bridge = m_agents.value(id); bridge && m_agentKeys.value(id) == key) return bridge;
+    delete m_agents.take(id);
+    const auto *agent = acpAgent(id);
+    auto environment = QProcessEnvironment::systemEnvironment();
+    const auto node = findTool("node");
+    if (!node.isEmpty())
+        environment.insert("PATH", QFileInfo(node).absolutePath() + ":" + environment.value("PATH", "/usr/bin:/bin"));
+    if (id == "claude-agent") {
+        // Only the API key pays: no claude.ai subscription token, and a private config folder so the
+        // agent never picks up a Claude Code login from ~/.claude.
+        for (const auto *name : {"CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_AUTH_TOKEN"}) environment.remove(name);
+        environment.insert("ANTHROPIC_API_KEY", key);
+        environment.insert("CLAUDE_CONFIG_DIR", agentDirectory(id) + "/config");
+        QDir().mkpath(agentDirectory(id) + "/config");
+    }
+    // An empty working folder: the agent has no project files to look at.
+    QDir().mkpath(agentDirectory(id) + "/work");
+    auto *bridge = new AcpBridge(
+        agentExecutable(id), agent ? agent->args : QStringList(), environment, agentDirectory(id) + "/work", this);
+    m_agents.insert(id, bridge);
+    m_agentKeys.insert(id, key);
+    return bridge;
+}
+
+bool AiService::installAgent(const QString &id)
+{
+    const auto *agent = acpAgent(id);
+    const auto npm = npmExecutable();
+    if (!agent || m_installing) return false;
+    if (npm.isEmpty()) {
+        emit agentInstallFinished(id, false,
+            "Node.js is needed to install agents. Install it from nodejs.org or with Homebrew (brew install node).");
+        return false;
+    }
+    delete m_agents.take(id);
+    QDir().mkpath(agentDirectory(id));
+    auto *process = new QProcess(this);
+    process->setObjectName(id);
+    auto environment = QProcessEnvironment::systemEnvironment();
+    environment.insert("PATH", QFileInfo(npm).absolutePath() + ":" + environment.value("PATH", "/usr/bin:/bin"));
+    process->setProcessEnvironment(environment);
+    process->setProcessChannelMode(QProcess::MergedChannels);
+    m_installing = process;
+    connect(process, &QProcess::finished, this, [this, process, id](int code, QProcess::ExitStatus status) {
+        process->deleteLater();
+        m_installing = nullptr;
+        const bool ok = status == QProcess::NormalExit && code == 0 && agentInstalled(id);
+        const auto output = QString::fromUtf8(process->readAll()).trimmed().right(400);
+        emit agentInstallFinished(id, ok, ok ? QStringLiteral("Installed.") : "Install failed: " + output);
+        emit providersChanged();
+    });
+    connect(process, &QProcess::errorOccurred, this, [this, process, id](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart) return;
+        process->deleteLater();
+        m_installing = nullptr;
+        emit agentInstallFinished(id, false, "Cannot run npm.");
+    });
+    process->start(npm,
+        {"install", "--prefix", agentDirectory(id), "--no-audit", "--no-fund", QString(agent->package) + "@latest"});
+    emit providersChanged();
+    return true;
+}
+
+bool AiService::removeAgent(const QString &id)
+{
+    if (!acpAgent(id) || (m_installing && m_installing->objectName() == id)) return false;
+    delete m_agents.take(id);
+    // Only Owelk's own install folder is removed; the agent's sign-in stays with the agent.
+    const bool ok = QDir(agentDirectory(id)).removeRecursively();
+    if (provider() == id) setProvider("claude");
+    emit providersChanged();
+    return ok;
+}
+
+void AiService::refreshAgent(const QString &id)
+{
+    if (!agentInstalled(id)) {
+        emit agentStatus(id, {{"installed", false}});
+        return;
+    }
+    // The initialize answer lists how the agent can sign in.
+    agentBridge(id)->call("session/new", {{"cwd", agentDirectory(id) + "/work"}, {"mcpServers", QJsonArray()}},
+        [this, id](const QJsonValue &, const QJsonObject &error) {
+            QVariantList methods;
+            for (const auto &value : m_agents.value(id)->agentInfo().value("authMethods").toArray()) {
+                const auto method = value.toObject();
+                // Terminal sign-in needs a terminal Owelk does not provide.
+                if (method.value("type").toString() == "terminal") continue;
+                methods.append(
+                    QVariantMap{{"id", method.value("id").toString()}, {"name", method.value("name").toString()},
+                        {"description", method.value("description").toString()}});
+            }
+            emit agentStatus(id,
+                {{"installed", true}, {"ready", error.isEmpty()}, {"authMethods", methods},
+                    {"error", error.isEmpty() ? QString() : AcpProvider::errorText(acpAgent(id)->name, error)}});
+        });
+}
+
+void AiService::authenticateAgent(const QString &id, const QString &methodId)
+{
+    if (!agentInstalled(id) || methodId.isEmpty() || id == "claude-agent") return;
+    // The agent runs its own sign-in (usually a browser page); Owelk never sees the credentials.
+    agentBridge(id)->call(
+        "authenticate", {{"methodId", methodId}}, [this, id](const QJsonValue &, const QJsonObject &error) {
+            if (!error.isEmpty()) m_store->notify(AcpProvider::errorText(acpAgent(id)->name, error));
+            refreshAgent(id);
+            emit providersChanged();
+        });
 }
