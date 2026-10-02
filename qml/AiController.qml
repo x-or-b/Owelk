@@ -94,7 +94,7 @@ Item {
         error = ""
         const provider = ai.provider
         if (!providerInfo.configured && provider !== "ollama") {
-            error = provider === "codex" ? "Sign in with ChatGPT in Settings → AI." : "Add an API key in Settings → AI."
+            error = setupHint(provider)
             return false
         }
         if (!spec.action && !question.trim().length) return false
@@ -109,12 +109,19 @@ Item {
         for (const p of ai.providers)
             if (p.configured || p.id === "ollama") ai.listModels(p.id)
     }
+    // Where a provider that cannot answer yet is set up.
+    function setupHint(provider) {
+        if (provider === "codex") return "Sign in with ChatGPT in Settings → AI."
+        if (provider === "claude-agent") return "Claude Agent uses your Claude API key. Add it in Settings → AI."
+        if (provider.endsWith("-agent")) return "Install the agent in Settings → AI."
+        return "Add an API key in Settings → AI."
+    }
     function chooseProvider(provider) {
         ai.provider = provider
         error = ""
         const info = ai.providers.find(function(p) { return p.id === provider }) || ({})
         if (!info.configured && provider !== "ollama")
-            error = provider === "codex" ? "Sign in with ChatGPT in Settings → AI." : "Add an API key in Settings → AI."
+            error = setupHint(provider)
         else ai.listModels(provider)
     }
     function chooseModel(provider, model) {

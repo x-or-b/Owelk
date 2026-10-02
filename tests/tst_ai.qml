@@ -197,5 +197,41 @@ Item {
             verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
             workspace.rightDockWidth = 224
         }
+        function test_7_agentsInstallFromSettingsAndJoinThePanel() {
+            const p = panel()
+            // Not installed: agents stay out of the panel's provider row.
+            verify(!findChild(p, "aiProvider-codex-agent"))
+            const settings = findChild(workspace, "settingsDialog")
+            settings.open(); tryCompare(settings, "opened", true)
+            researchStore.ai.provider = "codex-agent"
+            const install = findChild(settings, "agentInstall")
+            tryCompare(install, "visible", true)
+            compare(install.text, "Install…")
+            install.clicked()
+            const confirm = findChild(workspace, "agentInstallConfirm")
+            tryCompare(confirm, "opened", true)
+            confirm.reject()
+            tryCompare(confirm, "opened", false)
+            // Installed (a stand-in agent): it signs in on its own and joins the panel.
+            testInput.setEnvironment("OWELK_ACP_COMMAND", testInput.sourcePath("fake_acp.py"))
+            researchStore.ai.provider = "claude"
+            researchStore.ai.provider = "codex-agent"
+            tryCompare(install, "text", "Update")
+            const content = settings.contentItem
+            tryVerify(function() { return visualChild(content, "agentAuth-browser") !== null }, 5000)
+            visualChild(content, "agentAuth-browser").clicked()
+            tryVerify(function() { return visualChild(content, "agentAuth-browser") === null }, 5000)
+            settings.close()
+            tryVerify(function() { return findChild(p, "aiProvider-codex-agent") !== null })
+            const ai = findChild(workspace, "aiController")
+            researchStore.ai.giveConsent("codex-agent")
+            mouseClick(findChild(p, "aiNewThread"))
+            verify(ai.send("Hello agent"))
+            tryCompare(ai, "streaming", false, 10000)
+            compare(ai.error, "")
+            compare(ai.messages[ai.messages.length - 1].content, "Agent answer (declined, fast)")
+            researchStore.ai.provider = "claude"
+            testInput.setEnvironment("OWELK_ACP_COMMAND", "")
+        }
     }
 }

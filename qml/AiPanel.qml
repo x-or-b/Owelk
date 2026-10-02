@@ -208,11 +208,14 @@ Item {
             }
         }
         // Provider row: one button per provider; a provider that is not set up says where to set it up.
-        RowLayout {
+        GridLayout {
             Layout.fillWidth: true; Layout.minimumWidth: 0
-            spacing: 2
+            columnSpacing: 2; rowSpacing: 2
+            // Wraps onto more rows in a narrow dock; agents show once installed.
+            readonly property var shown: root.c ? root.c.ai.providers.filter(function(p) { return p.installed }) : []
+            columns: Math.max(2, Math.min(shown.length, Math.floor(width / 56)))
             Repeater {
-                model: root.c ? root.c.ai.providers : []
+                model: parent.shown
                 delegate: UiControls.ToolButton {
                     id: providerButton
                     required property var modelData
@@ -222,7 +225,7 @@ Item {
                     checkable: true
                     checked: root.c.ai.provider === modelData.id
                     font.pixelSize: 11
-                    text: ({claude: "Claude", openai: "OpenAI", codex: "ChatGPT", ollama: "Ollama"})[modelData.id] || modelData.name
+                    text: ({claude: "Claude", openai: "OpenAI", codex: "ChatGPT", ollama: "Ollama", "claude-agent": "Claude Agent", "codex-agent": "Codex", "gemini-agent": "Gemini"})[modelData.id] || modelData.name
                     contentItem: Label {
                         text: providerButton.text; elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
                         font: providerButton.font

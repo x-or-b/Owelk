@@ -11,7 +11,7 @@
 | 11. 정리 | 워크스페이스, 라이브러리(중첩 Collection·Tag·즐겨찾기·Unread/Reading/Read·중복 표시·본문 검색 제외) | 이름 있는 Tab Group, AI 탭 정리 |
 | 12–16. 검색·커맨드 | FTS5 본문, 논문 정보·캡처(그림 캡션 포함)·주석·노트·AI 답변·Collection·Tag 검색, 라이브러리 범위 필터, 명령 팔레트 | 의미 검색(v0.5) |
 | 17–21. 캡처·연결 | 영역(캡션)·텍스트(여러 페이지)·웹 페이지 캡처, 휴지통 복원·영구 삭제, 5색 주석·코멘트, 노트 `[[` 링크·역링크, Link to Note | 객체(Figure 자동) 캡처, 주석 PDF 내보내기 |
-| 22–27. 노트·AI | 독립 Markdown 노트(자동 저장·휴지통), AI 제공자 4종(Claude API, OpenAI API, ChatGPT 계정/Codex, Ollama), Explain/Translate/Summarize/Ask·그림 설명, 동의·Keychain, AI 독 패널(좌우 이동)·Thread 저장과 이어 묻기·모델 선택, 노트화 | AI 탭 정리·스마트 정리(v0.5+), 여러 논문 비교(v0.6) |
+| 22–27. 노트·AI | 독립 Markdown 노트(자동 저장·휴지통), AI 제공자 4종(Claude API, OpenAI API, ChatGPT 계정/Codex, Ollama)과 ACP 에이전트 3종(Claude Agent·Codex·Gemini CLI, 설정에서 설치, 읽기 전용), Explain/Translate/Summarize/Ask·그림 설명, 동의·Keychain, AI 독 패널(좌우 이동)·Thread 저장과 이어 묻기·모델 선택, 노트화 | AI 탭 정리·스마트 정리(v0.5+), 여러 논문 비교(v0.6) |
 | 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, SQLite 스키마 9(업그레이드 전 자동 백업), 비동기 작업, 자동 테스트 6묶음 | 실제 PDF·GPU·메모리 측정, Linux/Windows |
 
 ## 우선순위
@@ -23,7 +23,7 @@
 - Trash 카드 정리, 읽기 뒤로/앞으로, 읽기 상태·즐겨찾기·중복 파일 안내, 드래그 자동 스크롤, 제목·저자 추출 개선과 `Look up online`(arXiv·Crossref, 버튼을 누를 때만).
 - 웹 탭과 PDF 다운로드, Settings. 라이브러리 탭(Collection·Tag·필터)과 범위 검색.
 - 독립 노트·링크·역링크, 그림 캡션, 웹 캡처, 여러 페이지 선택, 삭제 워크스페이스 복원.
-- AI: 제공자 계층·Keychain·동의, AI 독 패널(기본 오른쪽, 우클릭으로 좌우 이동), 대화 Thread 저장·이어 묻기, 모델 선택 메뉴. Claude.ai 계정 로그인은 Anthropic이 제삼자 앱에 허용하지 않아 제외했습니다(Claude는 API 키로 사용).
+- AI: 제공자 계층·Keychain·동의, ACP 에이전트 설치·연결(읽기 전용, Claude는 API 키만), AI 독 패널(기본 오른쪽, 우클릭으로 좌우 이동), 대화 Thread 저장·이어 묻기, 모델 선택 메뉴. Claude.ai 계정 로그인은 Anthropic이 제삼자 앱에 허용하지 않아 제외했습니다(Claude는 API 키로 사용).
 
 ## 검증
 
