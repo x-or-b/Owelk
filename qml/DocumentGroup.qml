@@ -218,6 +218,7 @@ Rectangle {
                 onWorkspaceManageRequested: function(id) { root.controller.homeWorkspaceManageRequested(id) }
                 onWorkspaceCreated: function(name) { root.controller.homeWorkspaceCreated(name) }
                 onLibraryRequested: { root.controller.activateGroup(root.groupId); root.controller.openLibrary({}) }
+                onWebRequested: function(url) { root.controller.activateGroup(root.groupId); root.controller.openWeb(url) }
                 TapHandler { onPressedChanged: if (pressed) root.controller.activateGroup(root.groupId) }
             }
         }

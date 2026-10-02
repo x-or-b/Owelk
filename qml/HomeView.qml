@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "UiTheme.js" as Theme
+import "WorkspaceTree.js" as Tree
 
 Rectangle {
     id: root
@@ -13,6 +14,13 @@ Rectangle {
     readonly property var continuation: researchStore.continueReading
     signal openRequested()
     signal libraryRequested()
+    // An address or a web search typed on Home (opens a web tab).
+    signal webRequested(string url)
+    function searchWeb(text) {
+        const url = Tree.addressToUrl(text, researchStore.setting("searchEngine", "https://scholar.google.com/scholar?q=%s"))
+        if (url.length) webRequested(url)
+        return url.length > 0
+    }
     readonly property var deletedWorkspaces: (researchStore.recentWorkspaces, researchStore.deletedWorkspaces())
     UiControls.Dialog {
         id: deletedDialog
@@ -92,6 +100,32 @@ Rectangle {
                     Keys.onEscapePressed: clear()
                 }
                 SearchFilters { Layout.fillWidth: true; controller: searchModel }
+                // The web, from the same page: an address opens it, words search with the chosen engine.
+                UiControls.TextField {
+                    id: webInput
+                    objectName: "homeWebSearch"
+                    Layout.fillWidth: true
+                    implicitHeight: 34
+                    leftPadding: 30
+                    placeholderText: "Search the web or enter an address  ·  " + (researchStore.setting("searchEngine", "").indexOf("google.com/search") >= 0 ? "Google" : researchStore.setting("searchEngine", "").indexOf("duckduckgo") >= 0 ? "DuckDuckGo" : researchStore.setting("searchEngine", "").indexOf("arxiv") >= 0 ? "arXiv" : "Google Scholar")
+                    selectByMouse: true
+                    font.pixelSize: 13
+                    onAccepted: if (root.searchWeb(text)) clear()
+                    Keys.onEscapePressed: clear()
+                    // A globe: the web, not the library.
+                    Canvas {
+                        x: 9; anchors.verticalCenter: parent.verticalCenter
+                        width: 14; height: 14
+                        onPaint: {
+                            const c = getContext("2d"); c.reset()
+                            c.strokeStyle = Theme.icon; c.lineWidth = 1.1
+                            c.beginPath(); c.arc(7, 7, 6, 0, Math.PI * 2)
+                            c.moveTo(1, 7); c.lineTo(13, 7)
+                            c.moveTo(7, 1); c.bezierCurveTo(3, 4, 3, 10, 7, 13); c.moveTo(7, 1); c.bezierCurveTo(11, 4, 11, 10, 7, 13)
+                            c.stroke()
+                        }
+                    }
+                }
                 IndexStatus { Layout.fillWidth: true }
                 Label { Layout.fillWidth: true; visible: searchModel.error.length > 0; text: "PDF text search failed: " + searchModel.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 11; color: Theme.textMuted }
                 ListView {

@@ -97,6 +97,32 @@ Item {
             compare(Tree.leaves(d.tree)[0].tabs.length, before + 1) // The web tab stays.
             again.browserPdf = false
         }
+        function test_homeTabSearchesTheWeb() {
+            const d = workspace.documents
+            // Cmd+T opens Home in a tab; its web field opens a web tab in place of that Home tab.
+            verify(d.openResource(testInput.webFixture("/page.html")))
+            tryCompare(activeTab(), "kind", "web")
+            d.newHomeTab()
+            tryCompare(activeTab(), "kind", "home")
+            const homeTab = activeTab().id
+            let home = null
+            tryVerify(function() { const v = d.groupView(d.activeGroup); home = v ? findChild(v, "homeView") : null; return home !== null && home.visible })
+            const field = findChild(home, "homeWebSearch")
+            verify(field.placeholderText.indexOf("Search the web") === 0)
+            field.text = testInput.webFixture("/page.html").toString()
+            field.forceActiveFocus()
+            testInput.keyClick(field, Qt.Key_Return)
+            tryCompare(activeTab(), "kind", "web")
+            compare(activeTab().id, homeTab)
+            verify(activeTab().source.indexOf("/page.html") > 0)
+            // Words search with the chosen engine.
+            researchStore.setSetting("searchEngine", testInput.webFixture("/page.html").toString() + "?q=%s")
+            d.newHomeTab()
+            tryVerify(function() { const v = d.groupView(d.activeGroup); home = v ? findChild(v, "homeView") : null; return home !== null && home.visible && activeTab().kind === "home" })
+            verify(home.searchWeb("lidar odometry"))
+            tryVerify(function() { return activeTab().kind === "web" && activeTab().source.indexOf("q=lidar%20odometry") > 0 })
+            researchStore.setSetting("searchEngine", "")
+        }
         function test_webCaptureKeepsPageAndReopensIt() {
             const d = workspace.documents
             const page = testInput.webFixture("/page.html?capture")
