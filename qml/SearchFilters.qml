@@ -93,9 +93,9 @@ ColumnLayout {
             text: "Filters"; checkable: true; checked: root.expanded; onClicked: root.expanded = checked
         }
         Label {
-            Layout.fillWidth: true
+            Layout.fillWidth: true; Layout.minimumWidth: 0
             text: (root.controller.sourceFilter.toString().length ? (researchStore.documentsRevision, researchStore.displayName(root.controller.sourceFilter)) : "All papers")
-                + (root.controller.targetFilter === "all" ? "" : " · " + ({text: "PDF text", filename: "Paper details", captures: "Captures"})[root.controller.targetFilter])
+                + (root.controller.targetFilter === "all" ? "" : " · " + ({text: "PDF text", filename: "Paper details", captures: "Captures", ai: "AI"})[root.controller.targetFilter])
                 + (root.controller.libraryScoped ? " · library filter" : "")
             textFormat: Text.PlainText; elide: Text.ElideMiddle; color: Theme.textTertiary; font.pixelSize: 11
         }
@@ -111,8 +111,8 @@ ColumnLayout {
         FilterCombo {
             objectName: "searchTargetFilter"
             Layout.preferredWidth: 130
-            model: ["Everything", "PDF text", "Paper details", "Captures"]
-            readonly property var values: ["all", "text", "filename", "captures"]
+            model: ["Everything", "PDF text", "Paper details", "Captures", "AI"]
+            readonly property var values: ["all", "text", "filename", "captures", "ai"]
             currentIndex: Math.max(0, values.indexOf(root.controller.targetFilter))
             onActivated: root.controller.targetFilter = values[currentIndex]
         }
@@ -145,7 +145,7 @@ ColumnLayout {
         FilterCombo {
             objectName: "searchCollectionFilter"
             Layout.fillWidth: true
-            Layout.minimumWidth: 110
+            Layout.minimumWidth: 100
             textRole: "name"
             model: [{id: "", name: "Any collection"}].concat(root.collections.map(function(c) { return {id: c.id, name: "  ".repeat(c.depth) + c.name} }))
             currentIndex: Math.max(0, model.findIndex(function(c) { return c.id === (root.library.collection || "") }))
@@ -153,15 +153,27 @@ ColumnLayout {
         }
         FilterCombo {
             objectName: "searchTagFilter"
-            Layout.preferredWidth: 120
+            Layout.fillWidth: true; Layout.minimumWidth: 90
             textRole: "name"
             model: [{id: "", name: "Any tag"}].concat(root.tagList)
             currentIndex: Math.max(0, model.findIndex(function(t) { return t.id === (root.library.tag || "") }))
             onActivated: root.controller.setLibraryFilter("tag", model[currentIndex].id)
         }
         FilterCombo {
+            objectName: "searchWorkspaceFilter"
+            Layout.fillWidth: true; Layout.minimumWidth: 100
+            textRole: "name"
+            model: [{id: "", name: "Any workspace"}].concat(root.workspaces)
+            currentIndex: Math.max(0, model.findIndex(function(w) { return w.id === (root.library.workspace || "") }))
+            onActivated: root.controller.setLibraryFilter("workspace", model[currentIndex].id)
+        }
+    }
+    RowLayout {
+        visible: root.expanded
+        Layout.fillWidth: true
+        FilterCombo {
             objectName: "searchStateFilter"
-            Layout.preferredWidth: 110
+            Layout.preferredWidth: 130
             model: ["Any state", "Unread", "Reading", "Read"]
             readonly property var values: ["", "unread", "reading", "read"]
             currentIndex: Math.max(0, values.indexOf(root.library.state || ""))
@@ -183,13 +195,6 @@ ColumnLayout {
             text: root.library.yearTo ? String(root.library.yearTo) : ""
             onEditingFinished: root.controller.setLibraryFilter("yearTo", text.length === 4 ? Number(text) : "")
         }
-        FilterCombo {
-            objectName: "searchWorkspaceFilter"
-            Layout.preferredWidth: 140
-            textRole: "name"
-            model: [{id: "", name: "Any workspace"}].concat(root.workspaces)
-            currentIndex: Math.max(0, model.findIndex(function(w) { return w.id === (root.library.workspace || "") }))
-            onActivated: root.controller.setLibraryFilter("workspace", model[currentIndex].id)
-        }
+        Item { Layout.fillWidth: true; Layout.minimumWidth: 0 }
     }
 }

@@ -123,5 +123,38 @@ Item {
             keyClick(Qt.Key_Return); compare(command.count, 0)
             keyClick(Qt.Key_Escape); tryCompare(palette, "visible", false)
         }
+        function test_paperRowReadsLikeTheLibrary() {
+            const result = createTemporaryObject(resultComponent, scene, {modelData: {kind: "paper", title: "GaRLIO: Gravity Enhanced Radar-LiDAR-Inertial Odometry", authors: "Chiyun Noh, Wooseong Yang", year: "2025"}, queryText: ""})
+            const byline = findChild(result, "resultByline")
+            verify(byline.visible)
+            compare(byline.text, "Chiyun Noh, Wooseong Yang  ·  2025")
+            compare(findChild(result, "resultTitle").elide, Text.ElideRight)
+            const plain = createTemporaryObject(resultComponent, scene, {modelData: {kind: "capture", title: "Excerpt"}, queryText: ""})
+            verify(!findChild(plain, "resultByline").visible)
+        }
+        function overflowing(item, box, list) {
+            if (!item.visible) return list
+            if (item !== box && item.width > 0) {
+                const right = item.mapToItem(box, item.width, 0).x
+                if (right > box.width + 1) list.push((item.objectName || item.toString()) + " right=" + Math.round(right))
+            }
+            if (item.clip && item !== box) return list
+            const children = item.children || []
+            for (let i = 0; i < children.length; ++i) overflowing(children[i], box, list)
+            return list
+        }
+        function test_expandedFiltersStayInsideThePalette() {
+            palette.close(); tryCompare(palette, "visible", false)
+            search.open(); tryCompare(search, "opened", true)
+            const button = findChild(search, "searchFiltersButton")
+            waitForPolish(search.contentItem)
+            mouseClick(button)
+            tryVerify(function() { return findChild(search, "searchYearFrom").visible })
+            waitForPolish(search.contentItem); wait(30)
+            compare(overflowing(search.contentItem, search.contentItem, []).join(", "), "")
+            const target = findChild(search, "searchTargetFilter")
+            compare(target.values.indexOf("ai"), 4)
+            mouseClick(button)
+        }
     }
 }

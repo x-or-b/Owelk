@@ -70,9 +70,10 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
             for (const auto &detail : details)
                 if (!detail.isEmpty()) shown.append(detail);
             QVariantMap row{{"kind", "paper"}, {"title", title}, {"source", url},
-                {"position", readingPosition(db, url)}, {"year", details.value(1)}};
-            // Show why it matched when the hit is in the authors, year or identifiers rather than the name.
-            if (!named) row.insert("snippet", shown.join(" · "));
+                {"position", readingPosition(db, url)}, {"authors", details.value(0)}, {"year", details.value(1)}};
+            // Authors and year are always shown; say why it matched only when the hit is an identifier.
+            if (!named && !contains(details.value(0)) && !contains(details.value(1)))
+                row.insert("snippet", shown.join(" · "));
             results.append(row);
             matchedPapers.insert(url);
             ++count;
@@ -156,7 +157,7 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
                     {"snippet", snippet(body, body.indexOf(needle, 0, Qt::CaseInsensitive), needle.size())}});
             }
     }
-    if (target == "all" && scope.isEmpty() && !allowed) {
+    if ((target == "all" || target == "ai") && scope.isEmpty() && !allowed) {
         QSqlQuery answers(db);
         // One result per thread: its title, or the latest message mentioning the words.
         answers.prepare(

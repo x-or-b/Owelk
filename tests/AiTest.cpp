@@ -335,6 +335,12 @@ private slots:
         QCOMPARE(thread[2].toMap()["display"].toString(), QString("And the method?"));
         QCOMPARE(thread[0].toMap()["display"].toString(), QString("Summarize"));
         QCOMPARE(store.searchKnowledge("the method").value(0).toMap()["id"].toString(), threadId);
+        // The AI filter returns threads only; other targets leave them out.
+        const auto aiOnly = store.searchKnowledge("Page", QUrl(), "ai");
+        QVERIFY(!aiOnly.isEmpty());
+        for (const auto &row : aiOnly) QCOMPARE(row.toMap()["kind"].toString(), QString("ai"));
+        for (const auto &row : store.searchKnowledge("Page", QUrl(), "captures"))
+            QVERIFY(row.toMap()["kind"].toString() != "ai");
         QSignalSpy models(ai, &AiService::modelsLoaded);
         ai->listModels("claude");
         QCOMPARE(models[0][1].toList()[0].toMap()["id"].toString(), QString("claude-opus-5-5"));

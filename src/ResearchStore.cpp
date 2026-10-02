@@ -366,13 +366,14 @@ QVariantList ResearchStore::recentDocuments() const
 {
     QVariantList results;
     QSqlQuery query(m_database);
-    query.exec("SELECT d.url,d.reading_state,d.favorite FROM recent_documents r JOIN documents d ON d.id=r.document_id "
+    query.exec("SELECT d.url,d.reading_state,d.favorite,d.authors,d.year FROM recent_documents r JOIN documents d ON "
+               "d.id=r.document_id "
                "ORDER BY r.opened_at DESC LIMIT 12");
     while (query.next()) {
         const auto url = QUrl(query.value(0).toString());
         results.append(QVariantMap{{"url", url}, {"name", displayName(url)}, {"fileName", fileName(url)},
-            {"position", readingPosition(url)}, {"readingState", query.value(1)},
-            {"favorite", query.value(2).toBool()}});
+            {"position", readingPosition(url)}, {"readingState", query.value(1)}, {"favorite", query.value(2).toBool()},
+            {"authors", query.value(3).toString()}, {"year", query.value(4).toString()}});
     }
     return results;
 }

@@ -9,7 +9,8 @@ UiControls.ItemDelegate {
     required property var modelData
     property string queryText: ""
     readonly property bool heading: queryText.trim().length > 0 && (modelData.kind === "paperGroup" || modelData.kind === "paper")
-    height: modelData.snippet ? 76 : 44
+    readonly property string byline: modelData.kind === "paper" ? [modelData.authors, modelData.year].filter(function(s) { return s && String(s).length }).join("  ·  ") : ""
+    height: (modelData.snippet ? 76 : 44) + (byline.length ? 14 : 0)
     background: Rectangle {
         color: root.heading ? (root.highlighted || root.hovered ? Theme.searchHeadingHover : Theme.searchHeading) : root.highlighted ? Theme.surfaceSelected : root.hovered ? Theme.surfaceHover : "transparent"
     }
@@ -24,15 +25,26 @@ UiControls.ItemDelegate {
                 textFormat: Text.StyledText
                 color: root.heading ? Theme.onDark : root.modelData.kind === "text" ? Theme.accentText : Theme.textBody
                 font.bold: root.modelData.kind === "paperGroup"
-                elide: Text.ElideMiddle
+                elide: root.modelData.kind === "paper" ? Text.ElideRight : Text.ElideMiddle
             }
             Label {
                 text: root.modelData.kind === "paperGroup" ? root.modelData.total + " matching pages"
                     : root.modelData.kind === "text" ? "p. " + (Number(root.modelData.page) + 1)
                     : ["moreInPaper", "nextResults"].indexOf(root.modelData.kind) >= 0 ? ""
-                    : root.modelData.kind === "paper" && root.modelData.year ? root.modelData.year : root.modelData.kind
+                    : root.modelData.kind === "paper" ? "" : root.modelData.kind
                 color: root.heading ? Theme.onDarkMuted : Theme.textMuted; font.pixelSize: 11
             }
+        }
+        // Papers read like the Library: title, then authors · year.
+        Label {
+            objectName: "resultByline"
+            Layout.fillWidth: true
+            visible: root.byline.length > 0
+            text: root.byline
+            textFormat: Text.PlainText
+            elide: Text.ElideRight
+            color: root.heading ? Theme.onDarkMuted : Theme.textTertiary
+            font.pixelSize: 11
         }
         Label {
             objectName: "resultSnippet"

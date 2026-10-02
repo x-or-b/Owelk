@@ -82,7 +82,7 @@ QtObject {
             namesPending = true
             namesRequest = researchStore.searchKnowledgeAsync(needle, sourceFilter, targetFilter, scope ? scope.map(function(p) { return p.url }) : null)
         } else if (!needle.length && showRecent && !sourceFilter.toString().length && targetFilter !== "text" && targetFilter !== "captures") {
-            names = researchStore.recentDocuments.map(function(p) { return {kind: "paper", title: p.name, source: p.url, position: p.position} })
+            names = researchStore.recentDocuments.map(function(p) { return {kind: "paper", title: p.name, source: p.url, position: p.position, authors: p.authors, year: p.year} })
         }
         publish()
         if (needle.length && (targetFilter === "all" || targetFilter === "text")) {
