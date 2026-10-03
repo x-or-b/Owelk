@@ -33,7 +33,7 @@ Item {
     // mode are remembered per provider and offered only where the model supports them.
     readonly property string model: (ai.providers, ai.model(ai.provider))
     readonly property var modelInfo: (models[ai.provider] || []).find(function(m) { return m.id === root.model }) || ({})
-    readonly property string modelLabel: modelInfo.name || model || (ai.provider === "codex" || ai.provider.endsWith("-agent") ? "Default model" : "Choose a model")
+    readonly property string modelLabel: modelInfo.name || model || (ai.provider === "codex" ? "Default model" : "Choose a model")
     readonly property var efforts: modelInfo.efforts || []
     property string effort: ""
     property bool fast: false
@@ -83,8 +83,7 @@ Item {
         return names[value] || (value ? value.charAt(0).toUpperCase() + value.slice(1) : "")
     }
     function companyName(provider) {
-        return ({claude: "Anthropic", openai: "OpenAI", codex: "ChatGPT account", ollama: "Ollama (this Mac)",
-                 "claude-agent": "Claude Agent", "codex-agent": "Codex Agent", "gemini-agent": "Gemini CLI"})[provider] || provider
+        return ({claude: "Anthropic", openai: "OpenAI", codex: "ChatGPT account", ollama: "Ollama (this Mac)"})[provider] || provider
     }
     function attachImage(url) {
         const value = url.toString()
@@ -192,8 +191,6 @@ Item {
     // Where a provider that cannot answer yet is set up.
     function setupHint(provider) {
         if (provider === "codex") return "Sign in with ChatGPT in Settings → AI."
-        if (provider === "claude-agent") return "Claude Agent needs a Claude API key (console.anthropic.com). Add it in Settings → AI → Claude Agent. A Claude.ai subscription cannot be used here."
-        if (provider.endsWith("-agent")) return "Install the agent in Settings → AI."
         return "Add an API key in Settings → AI."
     }
     function chooseProvider(provider) {

@@ -5,7 +5,6 @@
 ## 1. 실사용 확인 (사용자)
 
 - 실제 키로 Claude API / OpenAI API 답변, ChatGPT 계정(Codex) 브라우저 로그인, Ollama 모델.
-- ACP 에이전트 실제 설치(npm)·로그인·답변: Codex Agent, Gemini CLI, Claude Agent(API 키).
 - GaRLIO 등 arXiv 논문(여백 세로 스탬프)에서 드래그 선택 높이.
 - AI 모델 선택·추론 강도·Fast 실제 호출(요금 확인), 이미지 첨부(붙여넣기·드롭), 웹 PDF 진행 막대와 브라우저 보기, Home 웹 검색.
 - 실제 웹 페이지·로그인 페이지·기관 PDF 다운로드, arXiv `Open PDF`.

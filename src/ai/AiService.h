@@ -6,7 +6,6 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-class AcpBridge;
 class AiProvider;
 class CodexBridge;
 class QNetworkAccessManager;
@@ -52,14 +51,6 @@ public:
     // A pasted screenshot: saved under the data folder and returned as a file URL (empty if none).
     Q_INVOKABLE bool clipboardHasImage() const;
     Q_INVOKABLE QString saveClipboardImage();
-    // ACP agents (Claude Agent, Codex Agent, Gemini CLI): installed from npm into the data folder.
-    Q_INVOKABLE QVariantList agents() const;
-    Q_INVOKABLE bool agentInstalled(const QString &id) const;
-    Q_INVOKABLE bool installAgent(const QString &id);
-    Q_INVOKABLE bool removeAgent(const QString &id);
-    // Starts the agent and reports its sign-in methods: agentStatus(id, {authMethods, error}).
-    Q_INVOKABLE void refreshAgent(const QString &id);
-    Q_INVOKABLE void authenticateAgent(const QString &id, const QString &methodId);
 
 signals:
     void providersChanged();
@@ -73,25 +64,17 @@ signals:
     void ollamaModelsLoaded(const QStringList &models);
     // models: [{id, name}]
     void modelsLoaded(const QString &provider, const QVariantList &models);
-    void agentInstallFinished(const QString &id, bool ok, const QString &message);
-    void agentStatus(const QString &id, const QVariantMap &status);
 
 private:
     QString keyAccount(const QString &provider) const;
     QUrl baseUrl(const QString &provider) const;
     AiProvider *createProvider(const QString &provider, QString *error);
-    QString agentDirectory(const QString &id) const;
     QString attachmentDirectory() const;
-    QString agentExecutable(const QString &id) const;
-    AcpBridge *agentBridge(const QString &id);
     void run(int request, const QString &provider, const QVariantMap &spec, const QVariantMap &prepared);
     ResearchStore *m_store;
     QNetworkAccessManager *m_network;
     CodexBridge *m_codex;
     QHash<int, QPointer<AiProvider>> m_running;
-    QHash<QString, AcpBridge *> m_agents;
-    QHash<QString, QString> m_agentKeys;
-    QPointer<QObject> m_installing;
     int m_nextRequest = 0;
     QVariantMap m_codexAccount;
 };

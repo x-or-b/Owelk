@@ -372,7 +372,7 @@ Item {
                     width: parent.width
                     spacing: 1
                     Repeater {
-                        model: root.c ? root.c.ai.providers.filter(function(p) { return p.installed && (p.configured || p.id === "ollama") }) : []
+                        model: root.c ? root.c.ai.providers.filter(function(p) { return p.configured || p.id === "ollama" }) : []
                         delegate: ColumnLayout {
                             id: providerSection
                             required property var modelData
@@ -433,7 +433,7 @@ Item {
                     // Providers that are not set up yet, in one line.
                     UiControls.ItemDelegate {
                         objectName: "aiModelSetup"
-                        readonly property var missing: root.c ? root.c.ai.providers.filter(function(p) { return p.installed && !p.configured && p.id !== "ollama" }) : []
+                        readonly property var missing: root.c ? root.c.ai.providers.filter(function(p) { return !p.configured && p.id !== "ollama" }) : []
                         visible: missing.length > 0 && !modelFilter.text.length
                         Layout.fillWidth: true; Layout.topMargin: 4
                         implicitHeight: 26

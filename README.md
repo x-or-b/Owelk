@@ -164,18 +164,14 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 ## AI 읽기 보조
 
 - Settings → AI에서 제공자를 고릅니다: **Claude API**(기본 모델 `claude-opus-5-5`), **OpenAI API**, **ChatGPT 계정(Codex)**, **Ollama(이 Mac에서만 실행)**. API 키는 macOS Keychain에 저장합니다. ChatGPT 계정은 설치된 Codex CLI의 공식 로그인(브라우저)을 사용합니다. Claude.ai 계정 로그인은 Anthropic이 제삼자 앱에 허용하지 않아 제공하지 않습니다.
-- **ACP 에이전트**(Zed 방식): Settings → AI에서 `Claude Agent (ACP)`, `Codex Agent (ACP)`, `Gemini CLI (ACP)`를 고르고 `Install…`하면 공식 어댑터(`@agentclientprotocol/claude-agent-acp`, `@agentclientprotocol/codex-acp`, `@google/gemini-cli`)를 npm으로 Owelk 데이터 폴더의 `agents/`에 설치합니다(Node.js 필요). 설치한 에이전트는 AI 패널의 제공자 버튼에 나타납니다.
-  - Codex·Gemini는 에이전트 자체 로그인(브라우저)을 사용합니다.
-  - Claude Agent는 `--hide-claude-auth` 모드로 실행하고 **Claude API 키로만** 동작합니다. Settings → AI → Claude Agent에서 키를 넣거나 `Get a Key…`(console.anthropic.com)로 발급합니다. API 사용료는 Claude Pro/Max 구독과 별도입니다. Claude.ai 구독 로그인은 Anthropic이 승인 없이 제삼자 앱에 허용하지 않아 쓸 수 없습니다.
-  - Owelk는 에이전트를 읽기 전용으로 씁니다. 가장 제한된 모드(Read-only, 없으면 Manual)로 바꾼 뒤에만 질문을 보내고, 파일·터미널을 제공하지 않으며, 에이전트의 모든 실행 권한 요청을 거절합니다. 작업 폴더는 빈 폴더입니다.
 - 문장 선택 → ✦ 아이콘(또는 우클릭)에서 Explain / Translate / Summarize / Ask…, PDF 상단바 ✦에서 이 페이지·이 논문에 대해 묻기·요약, 캡처 카드 메뉴에서 Explain with AI(그림은 이미지로 보냄)를 사용합니다. 답변 언어는 기본 한국어이며 Settings에서 바꿉니다.
 - 처음 쓰는 제공자는 보낼 내용(논문 제목, 선택 문장, 페이지/논문 본문, 캡처 이미지)을 보여 주고 동의를 받습니다. PDF 파일 자체나 다른 라이브러리 자료는 보내지 않습니다. 긴 본문은 잘라서 보내고 그 사실을 표시합니다.
 - AI는 독 패널(기본 오른쪽)에서 엽니다. 상태바 AI 아이콘을 누르면 열고 닫고, 우클릭 → Left/Right Dock으로 위치를 바꿉니다. 리더·캡처의 AI 동작은 패널을 열고 새 Thread를 시작합니다.
 - 모든 대화는 **Thread**로 저장됩니다. 패널에서 이어 묻기(Return 전송, Shift+Return 줄바꿈)를 하면 이전 대화가 함께 전송됩니다. ← 버튼으로 Thread 목록을 보고, 우클릭으로 이름 변경·삭제합니다. `+`는 새 Thread, `+ Context`는 현재 페이지·선택·논문 전체를 붙입니다. Thread는 Cmd+K 검색과 `owelk://ai/…` 링크로 다시 엽니다.
 - 입력창 아래 줄(Zed 방식)에서 이번 질문의 설정을 고릅니다.
-  - **모델 ▾**: 설정된 회사(Anthropic · OpenAI · ChatGPT 계정 · Ollama · 설치한 에이전트)별 모델 목록과 검색. 설정되지 않은 회사는 맨 아래 `Set up …`으로 안내합니다. 기존 Thread를 열면 그 Thread의 모델로 이어 갑니다.
-  - **추론 강도 ▾**: 모델이 지원할 때만 보입니다(Claude Opus/Sonnet/Fable: Low~Max, ChatGPT 계정: 모델별 목록, OpenAI 추론 모델: Low~High, 에이전트: 에이전트가 알려 주는 단계). Haiku·Ollama에는 없습니다.
-  - **Fast**: 지원하는 모델에서만 보입니다(Claude Opus 5.5, ChatGPT 계정·OpenAI의 priority 등급, 에이전트의 fast 옵션). 더 빠르지만 요금이 높습니다.
+  - **모델 ▾**: 설정된 회사(Anthropic · OpenAI · ChatGPT 계정 · Ollama)별 모델 목록과 검색. 설정되지 않은 회사는 맨 아래 `Set up …`으로 안내합니다. 기존 Thread를 열면 그 Thread의 모델로 이어 갑니다.
+  - **추론 강도 ▾**: 모델이 지원할 때만 보입니다(Claude Opus/Sonnet/Fable: Low~Max, ChatGPT 계정: 모델별 목록, OpenAI 추론 모델: Low~High). Haiku·Ollama에는 없습니다.
+  - **Fast**: 지원하는 모델에서만 보입니다(Claude Opus 5.5, ChatGPT 계정·OpenAI의 priority 등급). 더 빠르지만 요금이 높습니다.
   - 추론 강도와 Fast는 회사별로 기억합니다.
 - `+`는 현재 페이지·선택·논문 전체와 **이미지**(파일 선택, 패널에 끌어다 놓기, ⌘V 붙여넣기)를 붙입니다. 이미지는 최대 6장, 긴 변 1568px PNG로 바꿔 그 질문에만 보내며 원본 파일은 바꾸지 않습니다.
 - `+` → `Capture a Region`은 리더에서 영역을 드래그해 캡처하고, 그 이미지를 다음 질문에 붙입니다(캡처는 Captures에도 저장, Esc로 취소). 리더 툴바에도 영역 캡처 버튼이 있습니다(Ctrl+Shift+C).

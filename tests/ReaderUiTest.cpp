@@ -209,14 +209,6 @@ public slots:
         return QUrl(QStringLiteral("http://127.0.0.1:%1%2").arg(m_web.serverPort()).arg(path));
     }
     Q_INVOKABLE QSize imageSize(const QUrl &file) { return QImage(file.toLocalFile()).size(); }
-    Q_INVOKABLE void setEnvironment(const QString &name, const QString &value)
-    {
-        if (value.isEmpty())
-            qunsetenv(name.toUtf8());
-        else
-            qputenv(name.toUtf8(), value.toUtf8());
-    }
-    Q_INVOKABLE QString sourcePath(const QString &name) { return QStringLiteral(QUICK_TEST_SOURCE_DIR) + "/" + name; }
     Q_INVOKABLE QString temporaryFolder(const QString &name)
     {
         QDir().mkpath(m_directory.filePath(name));
