@@ -491,6 +491,42 @@ Item {
             tryCompare(commands, "opened", true); compare(search.visible, false)
             commands.close()
         }
+        function test_tabGroupsCollapsePersistAndSave() {
+            workspace.documents.restore({})
+            workspace.openDocument(fixtureSource); canvas()
+            workspace.documents.openDocument(outlineSource, null, true); canvas()
+            const d = workspace.documents
+            const strip = Tree.leaves(d.tree)[0]
+            const ids = strip.tabs.map(function(t) { return t.id })
+            const label = d.groupTabs(ids, "Reading list")
+            verify(label.length > 0)
+            const view = d.groupView(strip.id)
+            tryCompare(findChild(view, "tabGroupBar"), "visible", true)
+            // Collapsing hides the members except the active one.
+            d.setTabGroupCollapsed(strip.id, label, true)
+            compare(view.shownTabs.length, 1)
+            d.setTabGroupCollapsed(strip.id, label, false)
+            compare(view.shownTabs.length, 2)
+            // The group survives a save and restore.
+            workspace.persist()
+            const saved = researchStore.session
+            d.restore(saved)
+            const restored = Tree.leaves(d.tree)[0]
+            compare(restored.labels.length, 1)
+            compare(restored.labels[0].name, "Reading list")
+            verify(restored.tabs.every(function(t) { return t.label === restored.labels[0].id }))
+            verify(restored.tabs.every(function(t) { return typeof t.documentId === "string" && t.documentId.length > 0 }))
+            // Saved as a workspace and as a collection.
+            const before = researchStore.collections().length
+            verify(d.saveTabGroupAsWorkspace(restored.id, restored.labels[0].id).length > 0)
+            verify(d.saveTabGroupAsCollection(restored.id, restored.labels[0].id).length > 0)
+            compare(researchStore.collections().length, before + 1)
+            // Moving a member to another split leaves the group behind.
+            d.moveActiveTabToSplit("right")
+            Tree.leaves(d.tree).forEach(function(g) { verify(Tree.validate(g, {}, 0)) })
+            d.ungroupTabs(Tree.leaves(d.tree)[0].id, restored.labels[0].id)
+            verify(Tree.leaves(d.tree).every(function(g) { return g.labels === undefined }))
+        }
         function test_relatedTabAsksOnlyWhenShown() {
             workspace.documents.restore({})
             workspace.openDocument(fixtureSource); canvas()

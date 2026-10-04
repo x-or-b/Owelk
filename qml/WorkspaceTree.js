@@ -28,6 +28,47 @@ function arxivPdf(url) {
 function noteTab(noteId, title) { return {id: id("tab"), kind: "note", source: "", noteId: noteId, title: title || "", position: {page: 0, y: 0, x: 0, zoom: 1}} }
 function libraryTab(filter) { return {id: id("tab"), kind: "library", source: "", filter: clone(filter || {}), position: {page: 0, y: 0, x: 0, zoom: 1}} }
 function homeTab() { return {id: id("tab"), kind: "home", source: "", position: {page: 0, y: 0, x: 0, zoom: 1}} }
+// Named tab groups inside one tab strip. Tabs of a group are kept next to each other.
+function addLabel(groupNode, name) {
+    const label = {id: id("label"), name: name.trim().slice(0, 120) || "Group", collapsed: false}
+    groupNode.labels = (groupNode.labels || []).concat([label])
+    return label
+}
+function setTabLabel(groupNode, tabId, labelId) {
+    const at = groupNode.tabs.findIndex(function(t) { return t.id === tabId })
+    if (at < 0) return
+    const t = groupNode.tabs.splice(at, 1)[0]
+    if (labelId) t.label = labelId; else delete t.label
+    // Place it after the group's last tab (or back where it was when leaving a group).
+    let insert = at
+    if (labelId) {
+        for (let i = groupNode.tabs.length - 1; i >= 0; --i)
+            if (groupNode.tabs[i].label === labelId) { insert = i + 1; break }
+    }
+    groupNode.tabs.splice(Math.min(insert, groupNode.tabs.length), 0, t)
+    pruneLabels(groupNode)
+}
+// Labels without tabs disappear; a strip without labels has no labels field.
+function pruneLabels(groupNode) {
+    if (!groupNode.labels) return
+    groupNode.labels = groupNode.labels.filter(function(l) { return groupNode.tabs.some(function(t) { return t.label === l.id }) })
+    if (!groupNode.labels.length) delete groupNode.labels
+}
+// After tabs move between strips: drop labels a strip does not have, and empty labels.
+function tidyLabels(node) {
+    leaves(node).forEach(function(g) {
+        const known = {}
+        ;(g.labels || []).forEach(function(l) { known[l.id] = true })
+        g.tabs.forEach(function(t) { if (t.label !== undefined && !known[t.label]) delete t.label })
+        pruneLabels(g)
+    })
+}
+// The tabs the bar shows: everything except tabs of a collapsed group (the active tab always shows).
+function visibleTabs(groupNode) {
+    const collapsed = {}
+    ;(groupNode.labels || []).forEach(function(l) { if (l.collapsed) collapsed[l.id] = true })
+    return groupNode.tabs.filter(function(t) { return !t.label || !collapsed[t.label] || t.id === groupNode.activeTab })
+}
 function leaves(node) { return node.kind === "group" ? [node] : leaves(node.first).concat(leaves(node.second)) }
 function find(node, key) { if (node.id === key) return node; return node.kind === "split" ? find(node.first, key) || find(node.second, key) : null }
 function owner(node, tabId) { return leaves(node).find(function(g) { return g.tabs.some(function(t) { return t.id === tabId }) }) }
@@ -77,7 +118,19 @@ function validate(node, ids, depth) {
             : t.kind === "web" ? !isWebAddress(t.source) : !t.source.startsWith("file:")) return false
         ids[t.id] = true
         if (!t.position || !Number.isFinite(t.position.page) || t.position.page < 0) return false
+        if (t.documentId !== undefined && typeof t.documentId !== "string") return false
     }
+    // Named tab groups (optional): labels on the strip, a tab names its label.
+    if (node.labels !== undefined) {
+        if (!Array.isArray(node.labels) || node.labels.length > 64) return false
+        const labelIds = {}
+        for (let i = 0; i < node.labels.length; ++i) {
+            const l = node.labels[i]
+            if (!l || typeof l.id !== "string" || !l.id || labelIds[l.id] || typeof l.name !== "string" || l.name.length > 120) return false
+            labelIds[l.id] = true
+        }
+        if (node.tabs.some(function(t) { return t.label !== undefined && !labelIds[t.label] })) return false
+    } else if (node.tabs.some(function(t) { return t.label !== undefined })) return false
     return node.tabs.length ? node.tabs.some(function(t) { return t.id === node.activeTab }) : node.activeTab === ""
 }
 function restore(state) {

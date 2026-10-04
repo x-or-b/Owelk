@@ -34,6 +34,8 @@ Flickable {
     signal homeWorkspaceChosen(string id)
     signal homeWorkspaceManageRequested(string id)
     signal homeWorkspaceCreated(string name)
+    // The tab menu's "Organize Tabs with AI…", handled by the window (needs the AI and a dialog).
+    signal organizeRequested(string groupId)
     ScrollBar.horizontal: ScrollBar {}
     ScrollBar.vertical: ScrollBar {}
     ListModel { id: groupRows }
@@ -64,6 +66,7 @@ Flickable {
     }
     function sync() {
         if (syncing) return
+        Tree.tidyLabels(tree)
         syncing = true
         const minimum = Tree.minimum(tree)
         layoutMinimumWidth = minimum.width; layoutMinimumHeight = minimum.height
@@ -142,6 +145,8 @@ Flickable {
         if (!t) {
             const home = !forceNew && g.tabs.find(function(t) { return t.id === g.activeTab && t.kind === "home" })
             t = Tree.tab(source, position || researchStore.readingPosition(source))
+            // The library's ID travels with the tab, so a moved file is still named in the session.
+            t.documentId = researchStore.documentLinkId(source)
             if (home) { t.id = home.id; g.tabs[g.tabs.indexOf(home)] = t }
             else g.tabs.push(t)
         }
@@ -296,6 +301,94 @@ Flickable {
         if (!Tree.find(tree, activeGroup)) activeGroup = Tree.leaves(tree)[0].id
         sync(); changed()
         if (!Tree.leaves(tree).some(function(g) { return g.tabs.length })) empty()
+    }
+    // --- Named tab groups (inside one tab strip) ---------------------------------------------
+    function groupTabs(tabIds, name) {
+        const g = tabIds.length ? Tree.owner(tree, tabIds[0]) : null
+        if (!g) return ""
+        prepare()
+        const label = Tree.addLabel(g, name)
+        tabIds.forEach(function(id) { if (g.tabs.some(function(t) { return t.id === id })) Tree.setTabLabel(g, id, label.id) })
+        sync(); changed()
+        return label.id
+    }
+    function addTabToGroup(tabId, labelId) {
+        const g = Tree.owner(tree, tabId)
+        if (!g || !(g.labels || []).some(function(l) { return l.id === labelId })) return
+        prepare(); Tree.setTabLabel(g, tabId, labelId); sync(); changed()
+    }
+    function removeTabFromGroup(tabId) {
+        const g = Tree.owner(tree, tabId)
+        if (!g) return
+        prepare(); Tree.setTabLabel(g, tabId, ""); sync(); changed()
+    }
+    function tabLabel(stripId, labelId) {
+        const g = Tree.find(tree, stripId)
+        return g && g.labels ? g.labels.find(function(l) { return l.id === labelId }) : null
+    }
+    function renameTabGroup(stripId, labelId, name) {
+        const label = tabLabel(stripId, labelId)
+        if (!label || !name.trim().length) return
+        prepare(); label.name = name.trim().slice(0, 120); sync(); changed()
+    }
+    function setTabGroupCollapsed(stripId, labelId, collapsed) {
+        const label = tabLabel(stripId, labelId)
+        if (!label) return
+        prepare(); label.collapsed = collapsed; sync(); changed()
+    }
+    function tabGroupTabs(stripId, labelId) {
+        const g = Tree.find(tree, stripId)
+        return g ? g.tabs.filter(function(t) { return t.label === labelId }) : []
+    }
+    function ungroupTabs(stripId, labelId) {
+        const g = Tree.find(tree, stripId)
+        if (!g) return
+        prepare()
+        g.tabs.forEach(function(t) { if (t.label === labelId) delete t.label })
+        Tree.pruneLabels(g); sync(); changed()
+    }
+    function closeTabGroup(stripId, labelId) {
+        tabGroupTabs(stripId, labelId).map(function(t) { return t.id }).forEach(function(id) { closeTab(id) })
+    }
+    // A group worth keeping becomes a workspace (its tabs) or a collection (its papers).
+    function saveTabGroupAsWorkspace(stripId, labelId) {
+        const label = tabLabel(stripId, labelId)
+        if (!label) return ""
+        flush()
+        const tabs = Tree.clone(tabGroupTabs(stripId, labelId)).map(function(t) { delete t.label; return t })
+        const id = researchStore.createWorkspace(label.name)
+        if (!id.length) return ""
+        const strip = Tree.group(tabs)
+        researchStore.saveWorkspace(id, {version: 2, tree: strip, activeGroup: strip.id})
+        researchStore.notify("Saved \u201c" + label.name + "\u201d as a workspace.")
+        return id
+    }
+    function saveTabGroupAsCollection(stripId, labelId) {
+        const label = tabLabel(stripId, labelId)
+        if (!label) return ""
+        const id = researchStore.createCollection(label.name)
+        if (!id.length) return ""
+        tabGroupTabs(stripId, labelId).forEach(function(t) {
+            if (!t.kind && t.source.startsWith("file:")) researchStore.setDocumentCollection(t.source, id, true)
+        })
+        researchStore.notify("Saved the papers of \u201c" + label.name + "\u201d as a collection.")
+        return id
+    }
+    // Suggested groups (AI tab organization), applied only when the reader confirms.
+    function applyTabGroups(stripId, groupsToApply) {
+        const g = Tree.find(tree, stripId)
+        if (!g) return 0
+        prepare()
+        let applied = 0
+        groupsToApply.forEach(function(entry) {
+            const ids = entry.tabIds.filter(function(id) { return g.tabs.some(function(t) { return t.id === id }) })
+            if (!ids.length) return
+            const label = Tree.addLabel(g, entry.name)
+            ids.forEach(function(id) { Tree.setTabLabel(g, id, label.id) })
+            ++applied
+        })
+        sync(); changed()
+        return applied
     }
     function closeActiveTab() { const g = Tree.find(tree, activeGroup); if (g && g.activeTab) closeTab(g.activeTab) }
     function relinkSource(source, candidate) {

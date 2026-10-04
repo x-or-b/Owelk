@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "UiTheme.js" as Theme
 import "Platform.js" as Platform
+import "WorkspaceTree.js" as Tree
 
 Rectangle {
     id: root
@@ -26,6 +27,11 @@ Rectangle {
     }
     property alias reader: pane
     property string menuTab: ""
+    // Named tab groups of this strip, and the tabs the bar shows (a collapsed group's tabs are hidden).
+    readonly property var labels: groupData.labels || []
+    readonly property var shownTabs: Tree.visibleTabs(groupData)
+    readonly property var menuTabData: groupData.tabs.find(function(t) { return t.id === root.menuTab }) || null
+    property string menuLabel: ""
     objectName: "group-" + groupId
     color: Theme.surfaceChrome
     radius: Theme.cornerRadius
@@ -48,11 +54,15 @@ Rectangle {
         pane.restore(t && t.kind !== "home" ? t : {})
     }
     function focusHome() { if (homeLoader.item) homeLoader.item.focusSearch() }
-    function tabIndexAt(x) { return Math.max(0, Math.min(groupData.tabs.length, Math.floor((x + tabs.contentX + 80) / 160))) }
+    // Drop position among all tabs, from a point over the bar (which may hide collapsed groups).
+    function tabIndexAt(x) {
+        const visual = Math.max(0, Math.floor((x + tabs.contentX + 80) / 160))
+        return visual >= shownTabs.length ? groupData.tabs.length : groupData.tabs.indexOf(shownTabs[visual])
+    }
     onGroupDataChanged: {
         refresh()
         Qt.callLater(function() {
-            const at = root.groupData.tabs.findIndex(function(t) { return t.id === root.groupData.activeTab })
+            const at = root.shownTabs.findIndex(function(t) { return t.id === root.groupData.activeTab })
             if (at >= 0) tabs.positionViewAtIndex(at, ListView.Contain)
         })
     }
@@ -61,6 +71,38 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
+        // Group chips: name and size; click collapses, right-click for the group's actions.
+        Flow {
+            objectName: "tabGroupBar"
+            Layout.fillWidth: true
+            Layout.leftMargin: 4; Layout.topMargin: 3; Layout.bottomMargin: 1
+            visible: root.labels.length > 0
+            spacing: 4
+            Repeater {
+                model: root.labels
+                delegate: UiControls.ToolButton {
+                    id: chip
+                    required property var modelData
+                    objectName: "tabGroup-" + modelData.name
+                    readonly property int size: root.groupData.tabs.filter(function(t) { return t.label === chip.modelData.id }).length
+                    implicitHeight: 22
+                    leftPadding: 8; rightPadding: 8
+                    font.pixelSize: 11
+                    text: modelData.name + "  " + size + (modelData.collapsed ? "  ▸" : "  ▾")
+                    hoverEnabled: true
+                    background: Rectangle {
+                        radius: Theme.cornerRadius
+                        color: chip.hovered ? Theme.accentSurface : Theme.surfaceAlt
+                        border.color: Theme.accentMuted
+                    }
+                    contentItem: Label { text: chip.text; font: chip.font; color: Theme.accentText; verticalAlignment: Text.AlignVCenter }
+                    ToolTip.visible: hovered; ToolTip.delay: 450
+                    ToolTip.text: (modelData.collapsed ? "Show" : "Hide") + " this group's tabs · right-click for more"
+                    onClicked: { const label = modelData.id, collapsed = !modelData.collapsed; Qt.callLater(function() { root.controller.setTabGroupCollapsed(root.groupId, label, collapsed) }) }
+                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: { root.menuLabel = chip.modelData.id; groupMenu.popup() } }
+                }
+            }
+        }
         RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: 32
@@ -72,7 +114,7 @@ Rectangle {
             Layout.preferredHeight: 32
             orientation: ListView.Horizontal
             clip: true
-            model: root.groupData.tabs
+            model: root.shownTabs
             ScrollBar.horizontal: ScrollBar { height: 3 }
             delegate: Rectangle {
                 id: tabItem
@@ -82,6 +124,8 @@ Rectangle {
                 objectName: "tab-" + modelData.id
                 radius: Theme.cornerRadius
                 color: modelData.id === root.groupData.activeTab ? Theme.surface : Theme.surfaceSelected
+                // Grouped tabs carry a thin accent band.
+                Rectangle { visible: !!tabItem.modelData.label; anchors.top: parent.top; x: Theme.cornerRadius; width: parent.width - 2 * x; height: 2; color: Theme.accentMuted }
                 Rectangle { anchors.bottom: parent.bottom; x: Theme.cornerRadius; width: parent.width - 2 * x; height: 1; color: root.controller.activeGroup === root.groupId && modelData.id === root.loadedTab ? Theme.tabUnderlineActive : Theme.tabUnderline }
                 Label { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: close.left; anchors.verticalCenter: parent.verticalCenter; text: modelData.kind === "home" ? "Home" : modelData.kind === "library" ? "Library" : modelData.kind === "note" ? (modelData.title || "Untitled note") : modelData.kind === "web" ? (modelData.title || modelData.source.replace(/^https?:\/\/(www\.)?/, "")) : (researchStore.documentsRevision, researchStore.displayName(modelData.source)); elide: Text.ElideRight; font.pixelSize: 12 }
                 MouseArea {
@@ -229,6 +273,55 @@ Rectangle {
         UiControls.MenuItem { text: "Close Tab"; onTriggered: root.controller.closeTab(root.menuTab) }
         UiControls.MenuItem { text: "Duplicate to Right Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("right") } }
         UiControls.MenuItem { text: "Duplicate to Bottom Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("bottom") } }
+        MenuSeparator {}
+        UiControls.MenuItem { objectName: "newTabGroupOption"; text: "Add to New Group…"; onTriggered: { groupName.mode = "new"; groupName.text = ""; groupNameDialog.open() } }
+        Instantiator {
+            model: root.labels.filter(function(l) { return !root.menuTabData || root.menuTabData.label !== l.id })
+            delegate: UiControls.MenuItem {
+                required property var modelData
+                text: "Add to \u201c" + modelData.name + "\u201d"
+                onTriggered: { const tab = root.menuTab, label = modelData.id; Qt.callLater(function() { root.controller.addTabToGroup(tab, label) }) }
+            }
+            onObjectAdded: function(index, item) { tabMenu.insertItem(5 + index, item) }
+            onObjectRemoved: function(index, item) { tabMenu.removeItem(item) }
+        }
+        UiControls.MenuItem { visible: !!root.menuTabData && !!root.menuTabData.label; height: visible ? implicitHeight : 0; text: "Remove from Group"; onTriggered: root.controller.removeTabFromGroup(root.menuTab) }
+        UiControls.MenuItem { objectName: "organizeTabsOption"; text: "Organize Tabs with AI…"; onTriggered: root.controller.organizeRequested(root.groupId) }
+    }
+    UiControls.Menu {
+        id: groupMenu
+        objectName: "tabGroupMenu"
+        UiControls.MenuItem { text: "Rename…"; onTriggered: { const label = root.controller.tabLabel(root.groupId, root.menuLabel); groupName.mode = "rename"; groupName.text = label ? label.name : ""; groupNameDialog.open() } }
+        UiControls.MenuItem { text: "Save as Workspace"; onTriggered: root.controller.saveTabGroupAsWorkspace(root.groupId, root.menuLabel) }
+        UiControls.MenuItem { text: "Save Papers as Collection"; onTriggered: root.controller.saveTabGroupAsCollection(root.groupId, root.menuLabel) }
+        MenuSeparator {}
+        UiControls.MenuItem { text: "Ungroup"; onTriggered: root.controller.ungroupTabs(root.groupId, root.menuLabel) }
+        UiControls.MenuItem { text: "Close Group's Tabs"; onTriggered: { const label = root.menuLabel; Qt.callLater(function() { root.controller.closeTabGroup(root.groupId, label) }) } }
+    }
+    UiControls.Dialog {
+        id: groupNameDialog
+        objectName: "tabGroupNameDialog"
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: 340
+        modal: true
+        title: groupName.mode === "rename" ? "Rename Group" : "New Tab Group"
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onOpened: groupName.forceActiveFocus()
+        UiControls.TextField {
+            id: groupName
+            objectName: "tabGroupName"
+            property string mode: "new"
+            width: parent.width
+            placeholderText: "Group name"
+            maximumLength: 120
+            onAccepted: groupNameDialog.accept()
+        }
+        onAccepted: {
+            if (!groupName.text.trim().length) return
+            if (groupName.mode === "rename") root.controller.renameTabGroup(root.groupId, root.menuLabel, groupName.text)
+            else root.controller.groupTabs([root.menuTab], groupName.text)
+        }
     }
     Rectangle {
         readonly property var target: root.controller.dropTarget

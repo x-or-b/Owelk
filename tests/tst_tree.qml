@@ -14,6 +14,35 @@ TestCase {
             compare(Platform.keys("Ctrl+Shift+L"), "Ctrl+Shift+L")
         }
     }
+    function test_namedTabGroups() {
+        const strip = Tree.group([Tree.tab("file:///a.pdf"), Tree.webTab("https://x.org"), Tree.tab("file:///b.pdf")])
+        const [a, web, b] = strip.tabs
+        const label = Tree.addLabel(strip, "  Radar  ")
+        compare(label.name, "Radar")
+        Tree.setTabLabel(strip, a.id, label.id)
+        Tree.setTabLabel(strip, b.id, label.id)
+        // Members sit next to each other.
+        compare(strip.tabs.map(function(t) { return t.id }), [a.id, b.id, web.id])
+        verify(Tree.validate(strip, {}, 0))
+        label.collapsed = true
+        strip.activeTab = web.id
+        compare(Tree.visibleTabs(strip).map(function(t) { return t.id }), [web.id])
+        strip.activeTab = b.id // The active tab shows even in a collapsed group.
+        compare(Tree.visibleTabs(strip).map(function(t) { return t.id }), [b.id, web.id])
+        // A label the strip does not know is invalid in saved data and dropped by tidyLabels.
+        const other = Tree.group([Tree.clone(a)])
+        verify(!Tree.validate(other, {}, 0))
+        Tree.tidyLabels(other)
+        verify(other.tabs[0].label === undefined && other.labels === undefined)
+        verify(Tree.validate(other, {}, 0))
+        // Leaving the last member removes the group.
+        Tree.setTabLabel(strip, a.id, "")
+        Tree.setTabLabel(strip, b.id, "")
+        verify(strip.labels === undefined)
+        verify(Tree.validate(strip, {}, 0))
+        // Bad label data is rejected rather than half-restored.
+        verify(!Tree.validate({kind: "group", id: "g", activeTab: "", tabs: [], labels: [{id: "", name: "x"}]}, {}, 0))
+    }
     function test_migrateLegacy() {
         const state = {version: 1, left: {source: "file:///a.pdf", position: {page: 3, zoom: 1.4}},
             right: {source: "file:///a.pdf", position: {page: 7, zoom: 1}}, split: true, active: 1}
