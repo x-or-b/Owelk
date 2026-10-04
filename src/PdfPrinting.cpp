@@ -1,4 +1,6 @@
 #include "PdfAccess.h"
+#include "AnnotatedPdf.h"
+#include <QDir>
 #include "ResearchStore.h"
 #include "PdfPrinting.h"
 #include <QApplication>
@@ -202,7 +204,7 @@ bool ResearchStore::readPrintMarks(const QUrl &source, const QString &hash, QVar
 {
     QSqlQuery query(m_database);
     query.prepare(
-        "SELECT page,rectangles,color,kind,body,image,drawing FROM highlights WHERE document_id=? AND sha256=? "
+        "SELECT page,rectangles,color,kind,body,image,drawing,text FROM highlights WHERE document_id=? AND sha256=? "
         "AND deleted_at IS NULL");
     query.addBindValue(findDocument(source));
     query.addBindValue(hash);
@@ -212,7 +214,7 @@ bool ResearchStore::readPrintMarks(const QUrl &source, const QString &hash, QVar
             {"rectangles", QJsonDocument::fromJson(query.value(1).toByteArray()).toVariant()},
             {"color", query.value(2)}, {"kind", query.value(3)}, {"body", query.value(4)},
             {"image", QUrl::fromLocalFile(m_directory + "/annotations/" + query.value(5).toString())},
-            {"drawing", QJsonDocument::fromJson(query.value(6).toByteArray()).toVariant()}});
+            {"drawing", QJsonDocument::fromJson(query.value(6).toByteArray()).toVariant()}, {"text", query.value(7)}});
     return true;
 }
 
@@ -293,4 +295,40 @@ void ResearchStore::printDocumentTo(const QUrl &source, const QString &hash, int
         emit message(error.isEmpty() ? QStringLiteral("Printed.") : error);
     };
     nextPage(job);
+}
+
+void ResearchStore::exportAnnotatedPdf(const QUrl &source, const QString &hash, const QString &file)
+{
+    const auto target = QDir::fromNativeSeparators(file);
+    if (!source.isLocalFile() || hash.isEmpty() || target.isEmpty()) {
+        emit message("Open a local PDF and choose where to save the copy.");
+        return;
+    }
+    if (QFileInfo(target).absoluteFilePath() == QFileInfo(source.toLocalFile()).absoluteFilePath()) {
+        emit message("Choose a different file name to keep the original PDF unchanged.");
+        return;
+    }
+    QVariantList marks;
+    if (!readPrintMarks(source, hash, &marks)) {
+        emit message("Cannot read the annotations.");
+        return;
+    }
+    auto *watcher = new QFutureWatcher<QString>(this);
+    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, target] {
+        const auto error = watcher->result();
+        watcher->deleteLater();
+        emit annotatedPdfExported(error.isEmpty(), target);
+        emit message(error.isEmpty() ? "Saved the annotated copy to " + QDir::toNativeSeparators(target) : error);
+    });
+    watcher->setFuture(QtConcurrent::run(&m_workers, [source, hash, target, marks] {
+        // The original must still be the verified file; only a new file is written.
+        if (FileFingerprint::sha256(source.toLocalFile()) != hash)
+            return QStringLiteral("The PDF changed. Reopen it and try again.");
+        return AnnotatedPdf::write(source.toLocalFile(), target, marks, PdfAccess::password(source.toLocalFile()));
+    }));
+}
+
+bool ResearchStore::canExportAnnotatedPdf() const
+{
+    return AnnotatedPdf::available();
 }

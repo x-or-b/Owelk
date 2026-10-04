@@ -165,12 +165,22 @@ Rectangle {
         MenuSeparator {}
         UiControls.MenuItem { text:"Capture a Region"; onTriggered:{canvas.tool="";canvas.captureMode=true} }
         UiControls.MenuItem { text:"Print PDF…"; onTriggered:root.printDocument() }
+        UiControls.MenuItem { objectName:"exportAnnotatedOption"; text:"Export Annotated PDF…"; visible:researchStore.canExportAnnotatedPdf(); height:visible ? implicitHeight : 0; enabled:canvas.ready && canvas.documentFingerprint.length > 0; onTriggered:annotatedFile.open() }
         UiControls.MenuItem { objectName:"exportMarkdownOption"; text:"Export Highlights and Captures (Markdown)…"; enabled:root.source.toString().length > 0; onTriggered:markdownFolder.open() }
         MenuSeparator {}
         UiControls.MenuItem { text:"Mark Paper as Read"; enabled:root.source.toString().length > 0; onTriggered:researchStore.setReadingState(root.source, "read") }
         UiControls.MenuItem { objectName:"paperDetailsOption"; text:"Paper Details…"; enabled:root.source.toString().length > 0; onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
     }
     Loader { id: paperDetails; active: false; sourceComponent: PaperDetailsDialog {} }
+    FileDialog {
+        id: annotatedFile
+        title: "Save a copy with annotations"
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "pdf"
+        nameFilters: ["PDF (*.pdf)"]
+        currentFile: researchStore.fileUrl(researchStore.localPath(root.source).replace(/\.pdf$/i, "") + " (annotated).pdf")
+        onAccepted: researchStore.exportAnnotatedPdf(root.source, canvas.documentFingerprint, researchStore.localPath(selectedFile))
+    }
     FolderDialog {
         id: markdownFolder
         title: "Export this paper's highlights and captures to…"

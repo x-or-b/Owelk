@@ -29,11 +29,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build libgl1-mesa-dev libxkbcommon-dev libxkbcommon-x11-0 \
-            libnss3 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libasound2t64 libsecret-1-dev pkg-config
+            libnss3 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libasound2t64 libsecret-1-dev pkg-config libqpdf-dev
 
       - name: macOS tools
         if: runner.os == 'macOS'
-        run: brew install ninja
+        run: brew install ninja qpdf
 
       - name: Qt
         uses: jurplel/install-qt-action@v4

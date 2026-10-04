@@ -14,6 +14,11 @@
 #include <QTemporaryDir>
 #include <QElapsedTimer>
 #include <QFileInfo>
+#include "FileFingerprint.h"
+#ifdef OWELK_HAVE_QPDF
+#include <qpdf/QPDF.hh>
+#include <qpdf/QPDFPageDocumentHelper.hh>
+#endif
 #include <QtTest>
 #include <limits>
 
@@ -169,6 +174,53 @@ private slots:
                 marked = first.pixelColor(x, y).red() > first.pixelColor(x, y).green() + 40;
         QVERIFY(marked);
         QVERIFY2(elapsed < 20000, qPrintable(QString::number(elapsed)));
+#ifdef OWELK_HAVE_QPDF
+        // An annotated copy: standard PDF annotations other readers can show and edit.
+        const auto copy = dir.filePath("annotated copy.pdf");
+        QSignalSpy exported(&store, &ResearchStore::annotatedPdfExported);
+        store.exportAnnotatedPdf(source, hash, copy);
+        QTRY_COMPARE_WITH_TIMEOUT(exported.size(), 1, 20000);
+        QVERIFY(exported[0][0].toBool());
+        QCOMPARE(FileFingerprint::sha256(path), hash); // The original is untouched.
+        {
+            QPDF written;
+            written.processFile(copy.toLocal8Bit().constData());
+            auto pages = QPDFPageDocumentHelper(written).getAllPages();
+            QStringList kinds;
+            for (auto annot : pages[0].getObjectHandle().getKey("/Annots").aitems())
+                kinds << QString::fromStdString(annot.getKey("/Subtype").getName());
+            kinds.sort();
+            QCOMPARE(kinds, QStringList({"/FreeText", "/Highlight", "/Ink", "/Stamp"}));
+            for (auto annot : pages[0].getObjectHandle().getKey("/Annots").aitems()) {
+                QVERIFY(annot.hasKey("/AP")); // Drawn by every viewer, including Owelk's own (pdfium).
+                if (annot.getKey("/Subtype").getName() == "/FreeText")
+                    QCOMPARE(
+                        QString::fromStdString(annot.getKey("/Contents").getUTF8Value()), QString("Edited annotation"));
+                if (annot.getKey("/Subtype").getName() == "/Highlight")
+                    QCOMPARE(QString::fromStdString(annot.getKey("/Contents").getUTF8Value()),
+                        QString("Comment on a sentence"));
+            }
+        }
+        QPdfDocument annotated;
+        QCOMPARE(annotated.load(copy), QPdfDocument::Error::None);
+        QCOMPARE(annotated.pageCount(), 8);
+        {
+            // pdfium draws them from the appearance streams: the pink text box shows on the page.
+            const auto size = annotated.pagePointSize(0);
+            QPdfDocumentRenderOptions options;
+            options.setRenderFlags(QPdfDocumentRenderOptions::RenderFlag::Annotations);
+            const auto rendered
+                = annotated.render(0, QSize(qRound(size.width() * 2), qRound(size.height() * 2)), options);
+            bool pink = false;
+            for (int y = int(rendered.height() * .2); y < int(rendered.height() * .3) && !pink; ++y)
+                for (int x = int(rendered.width() * .1); x < int(rendered.width() * .4) && !pink; ++x)
+                    pink = rendered.pixelColor(x, y).red() > rendered.pixelColor(x, y).green() + 40;
+            QVERIFY(pink);
+        }
+        // Exporting onto the original is refused.
+        store.exportAnnotatedPdf(source, hash, path);
+        QCOMPARE(exported.size(), 1);
+#endif
         // A source that changed since it was verified is not printed.
         store.printDocumentTo(source, "0000", pages, dir.filePath("stale.pdf"));
         QTRY_VERIFY_WITH_TIMEOUT(!store.printing(), 10000);

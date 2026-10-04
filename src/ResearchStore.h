@@ -193,6 +193,9 @@ public:
     Q_INVOKABLE void printDocument(const QUrl &source, const QString &fingerprint, int pages);
     // Printing without dialogs, into a PDF file (tests).
     void printDocumentTo(const QUrl &source, const QString &fingerprint, int pages, const QString &pdfFile);
+    // A copy of the PDF with Owelk's annotations as standard PDF annotations (needs qpdf in the build).
+    Q_INVOKABLE void exportAnnotatedPdf(const QUrl &source, const QString &fingerprint, const QString &file);
+    Q_INVOKABLE bool canExportAnnotatedPdf() const;
     Q_INVOKABLE int loadHighlights(const QUrl &source);
     Q_INVOKABLE bool removeHighlight(const QString &id);
     Q_INVOKABLE void openHighlight(const QString &id);
@@ -237,6 +240,7 @@ signals:
     void ocrChanged();
     void backingUpChanged();
     void backupFinished(bool ok, const QString &path, const QString &message);
+    void annotatedPdfExported(bool ok, const QString &file);
     void aiThreadsChanged();
     // The opened file has the same bytes as another library entry that still exists.
     void duplicateFound(const QUrl &source, const QUrl &existing, const QString &existingTitle);

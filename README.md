@@ -204,6 +204,7 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 - **논문 노트(Markdown)**: 리더 우클릭 → `Export Highlights and Captures (Markdown)…`. 제목·저자·연도·DOI, 페이지별 하이라이트·코멘트·텍스트 상자, 캡처(이미지는 옆 폴더에 복사, 캡션·메모), 이 논문에 연결된 노트 목록을 `.md` 하나로 씁니다.
 - **모든 노트**: Settings → Data → `Export Notes…`. 노트마다 `.md` 파일이며 Owelk 전용 링크는 글자만 남깁니다.
 - **BibTeX**: Library의 `Export BibTeX…`(지금 보이는 논문들), 논문 우클릭 → `Copy BibTeX`. DOI가 있으면 `@article`, arXiv만 있으면 `@misc`(eprint)로, 키는 `성연도제목단어`이며 겹치면 a, b…를 붙입니다.
+- **주석 포함 PDF**: 리더 우클릭 → `Export Annotated PDF…`. 원본은 읽기만 하고 새 파일(`이름 (annotated).pdf`)에 하이라이트(Highlight, 코멘트는 그 메모), 영역 코멘트(Text 메모), 텍스트 상자(FreeText), 그리기(Ink), 이미지(Stamp)를 표준 PDF 주석으로 씁니다. 미리보기·Acrobat·Okular에서 보이고 고칠 수 있습니다. 텍스트 상자의 한글 등 라틴 문자 외 글자는 주석 내용(Contents)에 들어가고, 화면 표시는 뷰어에 따라 다릅니다. 이 기능은 qpdf 라이브러리로 빌드했을 때 켜집니다(macOS `brew install qpdf`, Linux `libqpdf-dev`, Windows vcpkg `qpdf`).
 - 내보내기는 고른 폴더에 새 파일만 만들고(같은 이름이면 번호를 붙임) 라이브러리는 바꾸지 않습니다.
 
 ## 원본 PDF 재연결
