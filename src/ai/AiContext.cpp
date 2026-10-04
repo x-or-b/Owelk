@@ -1,11 +1,15 @@
 #include "AiContext.h"
 
+#include <QHash>
+
 namespace {
+// The reader's preferred language (Settings → AI). "source" keeps the paper's language.
 QString languageName(const QString &language)
 {
-    if (language == "en") return "English";
+    static const QHash<QString, QString> names{{"ko", "Korean"}, {"en", "English"}, {"ja", "Japanese"},
+        {"zh", "Simplified Chinese"}, {"de", "German"}, {"fr", "French"}, {"es", "Spanish"}};
     if (language == "source") return {};
-    return "Korean";
+    return names.value(language, "Korean");
 }
 
 QString clip(const QString &text, int &budget, bool &truncated)
@@ -35,10 +39,15 @@ AiPrompt buildAiPrompt(
         "from the material provided. Ground answers in that material; when it does not contain the answer, say so "
         "and separate general knowledge from what the paper states. Keep technical terms, symbols and citations "
         "exact. Use concise Markdown.");
-    prompt.system += target.isEmpty()
-        ? QStringLiteral(" Answer in the language of the reader's request.")
-        : QStringLiteral(" Answer in %1; keep technical terms in their original form where that is clearer.")
-              .arg(target);
+    // A typed question is answered in its own language; one-click actions use the preferred language.
+    if (!question.trimmed().isEmpty())
+        prompt.system += QStringLiteral(" Answer in the language of the reader's request.");
+    else if (target.isEmpty())
+        prompt.system += QStringLiteral(" Answer in the language of the paper.");
+    else
+        prompt.system += QStringLiteral(" Answer in %1; keep technical terms in their original form where that is "
+                                        "clearer.")
+                             .arg(target);
 
     QStringList parts;
     QStringList paper;
@@ -62,7 +71,8 @@ AiPrompt buildAiPrompt(
         parts << "<paper_text>\n" + clip(materials.paperText, remaining, cut) + "\n</paper_text>";
     prompt.truncated = cut;
 
-    const auto into = target.isEmpty() ? QStringLiteral("the reader's language") : target;
+    // Translation needs a target: the preferred language, or English when that is "same as paper".
+    const auto into = target.isEmpty() ? QStringLiteral("English") : target;
     QString task;
     if (action == "explain")
         task = "Explain the selected passage: what it says, why it matters in this paper, and any terms or notation a "

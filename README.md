@@ -159,12 +159,12 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 - 내려받는 동안 웹 탭 툴바 아래에 파일 이름과 크기, 받은 만큼 차오르는 막대, `Cancel`이 보이고, 끝나면 "Opening in the reader…" 후 리더 탭이 열립니다. 서버가 크기를 알려 주지 않으면 막대 없이 지금까지 받은 크기만 표시합니다.
 - PDF를 보여 주는 페이지(PDF 주소, IEEE `getPDF.jsp`처럼 PDF를 프레임에 넣은 페이지)에서는 툴바 아래 안내 줄에 `Open in Reader`(내려받아 리더에서 열기)와 `Show Here`(이 탭에서 바로 읽기)가 나옵니다. 탭에서 읽기를 기본으로 하려면 Settings → Web → PDF links를 `Show in the web tab`으로 바꿉니다. 하이라이트·캡처·노트는 리더에서 동작합니다.
 - 웹 탭은 세션·워크스페이스에 주소와 제목으로 저장됩니다. 그룹마다 활성 탭만 페이지를 띄우므로 다른 웹 탭으로 전환하면 그 주소를 다시 엽니다. 쿠키·캐시는 데이터 폴더의 `web/`에 저장합니다.
-- Settings(`⌘,`)에서 다운로드 폴더, 웹 검색 엔진, AI 답변 언어(기본 한국어)를 정합니다.
+- Settings(macOS `⌘,`, Windows·Linux `Ctrl+,`)에서 다운로드 폴더, 웹 검색 엔진, AI 선호 언어(기본 한국어)를 정합니다.
 
 ## AI 읽기 보조
 
 - Settings → AI에서 제공자를 고릅니다: **Claude API**(기본 모델 `claude-opus-5-5`), **OpenAI API**, **ChatGPT 계정(Codex)**, **Ollama(이 Mac에서만 실행)**. API 키는 macOS Keychain에 저장합니다. ChatGPT 계정은 설치된 Codex CLI의 공식 로그인(브라우저)을 사용합니다. Claude.ai 계정 로그인은 Anthropic이 제삼자 앱에 허용하지 않아 제공하지 않습니다.
-- 문장 선택 → ✦ 아이콘(또는 우클릭)에서 Explain / Translate / Summarize / Ask…, PDF 상단바 ✦에서 이 페이지·이 논문에 대해 묻기·요약, 캡처 카드 메뉴에서 Explain with AI(그림은 이미지로 보냄)를 사용합니다. 답변 언어는 기본 한국어이며 Settings에서 바꿉니다.
+- 문장 선택 → ✦ 아이콘(또는 우클릭)에서 Explain / Translate / Summarize / Ask…, PDF 상단바 ✦에서 이 페이지·이 논문에 대해 묻기·요약, 캡처 카드 메뉴에서 Explain with AI(그림은 이미지로 보냄)를 사용합니다. **선호 언어**(Settings → AI, 기본 한국어, 한·영·일·중·독·불·서 또는 논문 언어)는 버튼으로 실행하는 동작의 답변 언어와 Translate의 대상 언어입니다. 직접 입력한 질문은 그 질문의 언어로 답합니다.
 - 처음 쓰는 제공자는 보낼 내용(논문 제목, 선택 문장, 페이지/논문 본문, 캡처 이미지)을 보여 주고 동의를 받습니다. PDF 파일 자체나 다른 라이브러리 자료는 보내지 않습니다. 긴 본문은 잘라서 보내고 그 사실을 표시합니다.
 - AI는 독 패널(기본 오른쪽)에서 엽니다. 상태바 AI 아이콘을 누르면 열고 닫고, 우클릭 → Left/Right Dock으로 위치를 바꿉니다. 리더·캡처의 AI 동작은 패널을 열고 새 Thread를 시작합니다.
 - 모든 대화는 **Thread**로 저장됩니다. 패널에서 이어 묻기(Return 전송, Shift+Return 줄바꿈)를 하면 이전 대화가 함께 전송됩니다. ← 버튼으로 Thread 목록을 보고, 우클릭으로 이름 변경·삭제합니다. `+`는 새 Thread, `+ Context`는 현재 페이지·선택·논문 전체를 붙입니다. Thread는 Cmd+K 검색과 `owelk://ai/…` 링크로 다시 엽니다.

@@ -21,7 +21,9 @@ UiControls.Dialog {
         {name: "DuckDuckGo", template: "https://duckduckgo.com/?q=%s"},
         {name: "arXiv", template: "https://arxiv.org/search/?query=%s&searchtype=all"}
     ]
-    readonly property var languages: [{name: "Korean", value: "ko"}, {name: "English", value: "en"}, {name: "Same as source", value: "source"}]
+    readonly property var languages: [{name: "Korean", value: "ko"}, {name: "English", value: "en"}, {name: "Japanese", value: "ja"},
+        {name: "Chinese (Simplified)", value: "zh"}, {name: "German", value: "de"}, {name: "French", value: "fr"},
+        {name: "Spanish", value: "es"}, {name: "Same as the paper", value: "source"}]
     function refresh() {
         const folder = researchStore.setting("downloadFolder")
         folderField.text = folder.length ? folder : researchStore.downloadTarget("x").directory
@@ -78,13 +80,17 @@ UiControls.Dialog {
             GridLayout {
                 Layout.fillWidth: true
                 columns: 2; columnSpacing: 10; rowSpacing: 8
-                Label { text: "Answer language"; color: Theme.textBody }
+                Label { text: "Preferred language"; color: Theme.textBody }
                 UiControls.ComboBox {
                     id: languageBox; objectName: "aiLanguageBox"
                     Layout.fillWidth: true
                     model: root.languages.map(function(l) { return l.name })
                     onActivated: function(index) { researchStore.setSetting("aiLanguage", root.languages[index].value) }
                 }
+            }
+            Label {
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+                text: "Used for Explain, Summarize and other one-click actions, and as the Translate target. A question you type is answered in the language you wrote it in."
             }
             GridLayout {
                 id: aiSettings

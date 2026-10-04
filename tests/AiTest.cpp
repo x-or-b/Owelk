@@ -118,6 +118,15 @@ private slots:
         QVERIFY(prompt.system.contains("language of the reader"));
         QVERIFY(prompt.text.endsWith("왜 이 방법이 필요한가?"));
         QVERIFY(!prompt.truncated);
+        // A typed question keeps its own language even with a preferred one; actions use the preference.
+        prompt = buildAiPrompt("ask", "ja", "What does this show?", materials);
+        QVERIFY(prompt.system.contains("language of the reader's request"));
+        QVERIFY(!prompt.system.contains("Japanese"));
+        prompt = buildAiPrompt("summarize", "ja", {}, materials);
+        QVERIFY(prompt.system.contains("Answer in Japanese"));
+        // "Same as the paper" still needs a translation target.
+        prompt = buildAiPrompt("translate", "source", {}, materials);
+        QVERIFY(prompt.text.contains("into English"));
     }
     void keychainRoundTrip()
     {

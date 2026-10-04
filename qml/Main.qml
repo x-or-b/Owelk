@@ -304,7 +304,7 @@ ApplicationWindow {
             Action { text: "Open PDF…"; shortcut: StandardKey.Open; onTriggered: window.chooseFile() }
             Action { objectName: "newNoteAction"; text: "New Note"; shortcut: "Ctrl+Shift+N"; enabled: !window.restoreFailed; onTriggered: documents.newNote() }
             Action { objectName: "openWebAction"; text: "Open Web Page…"; shortcut: "Ctrl+L"; enabled: !window.restoreFailed; onTriggered: window.openWebAddress() }
-            Action { objectName: "settingsAction"; text: "Settings…"; shortcut: StandardKey.Preferences; onTriggered: settingsDialog.open() }
+            Action { objectName: "settingsAction"; text: "Settings…"; shortcut: Qt.platform.os === "osx" ? StandardKey.Preferences : "Ctrl+,"; onTriggered: settingsDialog.open() }
             Action { objectName: "newTabAction"; text: "New Tab"; shortcut: "Ctrl+T"; enabled: !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.newHomeTab() }
             Action { objectName: "closeTabAction"; text: "Close Tab"; shortcut: "Ctrl+W"; enabled: !window.homeVisible && !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.closeActiveTab() }
             Action { text: "Reopen Closed Tab"; shortcut: "Ctrl+Shift+T"; enabled: documents.closedTabs.length > 0 && !window.restoreFailed; onTriggered: documents.reopenClosedTab() }
