@@ -19,6 +19,10 @@ UiControls.Dialog {
                                               || geometryDirty || selectedColor !== (record.color
                                                                                      || Theme.defaultInk))
     property bool geometryDirty: false
+    // Typed text survives a crash as a draft, offered when the same annotation is edited again.
+    readonly property string draftKey: record.kind === "image" ? "" : "annotation:" + (record.id || "new")
+    property string savedDraft: ""
+    Timer { id: draftTimer; interval: 1000; onTriggered: if (root.visible && body.text !== root.originalBody) researchStore.saveDraft(root.draftKey, body.text) }
     parent: Overlay.overlay
     anchors.centerIn: parent
     width: Math.min(470, parent.width - 32)
@@ -47,6 +51,8 @@ UiControls.Dialog {
         tall.text = (r.height * 100).toFixed(2);
         geometryDirty = false;
         saving = false;
+        const kept = researchStore.draft(draftKey);
+        savedDraft = kept.length && kept !== originalBody ? kept : "";
         open();
     }
     function requestClose() {
@@ -69,8 +75,10 @@ UiControls.Dialog {
         } else if (record.id && (record.kind === "highlight" || record.kind === "draw" || (record.kind
                                                                                            === "comment"
                                                                                            && record.text))) {
-            if (researchStore.updateHighlight(record.id, selectedColor, body.text))
+            if (researchStore.updateHighlight(record.id, selectedColor, body.text)) {
+                researchStore.clearDraft(draftKey);
                 close();
+            }
         } else {
             const spec = Object.assign({}, record, {
                                            body: body.text,
@@ -95,8 +103,10 @@ UiControls.Dialog {
         function onAnnotationFinished(success, id) {
             if (root.saving) {
                 root.saving = false;
-                if (success)
+                if (success) {
+                    researchStore.clearDraft(root.draftKey);
                     root.close();
+                }
             }
         }
     }
@@ -114,6 +124,14 @@ UiControls.Dialog {
             elide: Text.ElideRight
             color: Theme.textTertiary
         }
+        RowLayout {
+            objectName: "annotationDraftBar"
+            visible: root.savedDraft.length > 0
+            Layout.fillWidth: true
+            Label { Layout.fillWidth: true; text: "Unsaved text from last time is kept."; color: Theme.textSecondary; font.pixelSize: 12 }
+            UiControls.Button { objectName: "restoreAnnotationDraft"; text: "Restore"; onClicked: { body.text = root.savedDraft; root.savedDraft = "" } }
+            UiControls.Button { text: "Discard"; onClicked: { researchStore.clearDraft(root.draftKey); root.savedDraft = "" } }
+        }
         ScrollView {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -126,6 +144,7 @@ UiControls.Dialog {
                 wrapMode: TextEdit.Wrap
                 selectByMouse: true
                 enabled: !root.saving
+                onTextChanged: if (root.visible) draftTimer.restart()
             }
         }
         Image {
@@ -248,6 +267,6 @@ UiControls.Dialog {
         title: "Discard annotation edits?"
         modal: true
         standardButtons: Dialog.Discard | Dialog.Cancel
-        onDiscarded: root.close()
+        onDiscarded: { researchStore.clearDraft(root.draftKey); root.close() }
     }
 }

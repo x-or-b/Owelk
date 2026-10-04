@@ -31,6 +31,9 @@ class ResearchStore final : public QObject {
     Q_PROPERTY(QObject *metadataLookup READ metadataLookup CONSTANT)
     Q_PROPERTY(QObject *ai READ ai CONSTANT)
     Q_PROPERTY(QObject *semantic READ semantic CONSTANT)
+    Q_PROPERTY(bool backingUp READ backingUp NOTIFY backingUpChanged)
+    Q_PROPERTY(bool recoveredFromCrash READ recoveredFromCrash CONSTANT)
+    Q_PROPERTY(QString startupMessage READ startupMessage CONSTANT)
     Q_PROPERTY(bool relinking READ relinking NOTIFY relinkingChanged)
     Q_PROPERTY(QStringList annotationColors READ annotationColors CONSTANT)
     // Bumped when paper titles or details change; bind to it next to displayName() calls.
@@ -128,6 +131,19 @@ public:
     // OCR for scanned pages with the installed Tesseract: found, program, languages, installed, enabled.
     Q_INVOKABLE QVariantMap ocrStatus() const;
     Q_INVOKABLE void setOcr(bool enabled, const QString &languages);
+    // Backups: a folder with the library database, captures and annotations (see ResearchStoreBackup.cpp).
+    Q_INVOKABLE void backUp(const QString &folder);
+    Q_INVOKABLE QString checkBackup(const QString &folder) const;
+    Q_INVOKABLE bool scheduleRestore(const QString &folder);
+    bool backingUp() const { return m_backingUp; }
+    // Unsaved editor text, kept so a crash does not lose it.
+    Q_INVOKABLE bool saveDraft(const QString &key, const QString &text);
+    Q_INVOKABLE QString draft(const QString &key) const;
+    Q_INVOKABLE void clearDraft(const QString &key);
+    bool recoveredFromCrash() const { return m_recovered; }
+    QString startupMessage() const { return m_startupMessage; }
+    // Applies a restore staged by scheduleRestore; call before the database is opened.
+    static bool applyPendingRestore(const QString &directory, QString *message);
     // Notes sharing the words of this note (local, immediate).
     Q_INVOKABLE QVariantList relatedNotes(const QString &noteId) const;
     Q_INVOKABLE QVariantList linkCandidates(const QString &query) const;
@@ -213,6 +229,8 @@ signals:
     void linksChanged();
     void relatedFound(int request, const QVariantList &papers, const QVariantList &notes);
     void ocrChanged();
+    void backingUpChanged();
+    void backupFinished(bool ok, const QString &path, const QString &message);
     void aiThreadsChanged();
     // The opened file has the same bytes as another library entry that still exists.
     void duplicateFound(const QUrl &source, const QUrl &existing, const QString &existingTitle);
@@ -283,6 +301,11 @@ private:
     bool m_printing = false;
     int m_relatedRequest = 0;
     void configureOcr();
+    void scheduleAutomaticBackup();
+    void markRunning();
+    void markStopped();
+    bool m_backingUp = false, m_recovered = false;
+    QString m_startupMessage;
     QString m_ocrProgram;
     QStringList m_ocrInstalled;
     QVariantList notesSharing(const QStringList &terms, const QString &exceptNote) const;

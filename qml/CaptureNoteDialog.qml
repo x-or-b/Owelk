@@ -17,11 +17,17 @@ UiControls.Dialog {
     property string original: ""
     property string error: ""
     readonly property bool dirty: editor.text !== original
+    // Unsaved text survives a crash: it is kept as a draft and offered the next time.
+    readonly property string draftKey: capture.id ? "capture-note:" + capture.id : ""
+    property string savedDraft: ""
+    Timer { id: draftTimer; interval: 1000; onTriggered: if (root.dirty) researchStore.saveDraft(root.draftKey, editor.text) }
     function begin(id) {
         if (dirty) { open(); return }
         const item = researchStore.captures.find(function(c) { return c.id === id })
         if (!item) return
         capture = item; original = item.note || ""; editor.text = original; error = ""
+        const kept = researchStore.draft(draftKey)
+        savedDraft = kept.length && kept !== original ? kept : ""
         open()
     }
     function saveNote() {
@@ -30,6 +36,7 @@ UiControls.Dialog {
             return false
         }
         original = editor.text; error = ""
+        researchStore.clearDraft(draftKey); savedDraft = ""
         return true
     }
     function requestClose() { if (dirty) discardDialog.open(); else close() }
@@ -60,6 +67,14 @@ UiControls.Dialog {
             fillMode: Image.PreserveAspectFit; asynchronous: true
         }
         Label { text: "Your note"; font.bold: true; color: Theme.textBody }
+        RowLayout {
+            objectName: "captureNoteDraftBar"
+            visible: root.savedDraft.length > 0
+            Layout.fillWidth: true
+            Label { Layout.fillWidth: true; text: "Unsaved text from last time is kept."; color: Theme.textSecondary; font.pixelSize: 12 }
+            UiControls.Button { objectName: "restoreCaptureNoteDraft"; text: "Restore"; onClicked: { editor.text = root.savedDraft; root.savedDraft = "" } }
+            UiControls.Button { text: "Discard"; onClicked: { researchStore.clearDraft(root.draftKey); root.savedDraft = "" } }
+        }
         ScrollView {
             Layout.fillWidth: true; Layout.fillHeight: true
             UiControls.TextArea {
@@ -70,6 +85,7 @@ UiControls.Dialog {
                 color: Theme.textBody
                 background: Rectangle { color: Theme.surface; border.color: editor.activeFocus ? Theme.accentMuted : Theme.borderControl; radius: Theme.cornerRadius }
                 Keys.onEscapePressed: root.requestClose()
+                onTextChanged: if (root.opened) draftTimer.restart()
             }
         }
         Label { text: (root.dirty ? "Unsaved · " : "") + editor.text.length + " / 10,000 characters"; color: editor.text.length > 10000 ? Theme.danger : Theme.textMuted; font.pixelSize: 11 }
@@ -102,7 +118,7 @@ UiControls.Dialog {
         title: "Discard unsaved edits?"; modal: true
         standardButtons: Dialog.Discard | Dialog.Cancel
         Label { text: "The previously saved note will be kept." }
-        onDiscarded: { editor.text = root.original; root.close(); close() }
+        onDiscarded: { researchStore.clearDraft(root.draftKey); editor.text = root.original; root.close(); close() }
     }
     UiControls.Dialog {
         id: deleteDialog

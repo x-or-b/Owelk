@@ -92,6 +92,30 @@ Item {
             workspace.rightDockWidth = 224
             mouseClick(findChild(shelf, "savedCapturesTab"))
         }
+        function test_unsavedNoteTextIsKeptAsADraft() {
+            researchStore.captureRegion(fixtureSource, 0, Qt.rect(.2, .2, .3, .2))
+            tryCompare(researchStore, "busy", false, 10000)
+            const capture = researchStore.captures[0]
+            const dialog = findChild(workspace, "captureNoteDialog")
+            dialog.begin(capture.id)
+            tryCompare(dialog, "opened", true)
+            const editor = findChild(dialog, "captureNoteEditor")
+            editor.text = "A thought typed before a crash"
+            tryCompare(researchStore, "busy", false)
+            tryVerify(function() { return researchStore.draft("capture-note:" + capture.id) === "A thought typed before a crash" }, 3000)
+            // As after a crash: the dialog goes away without saving; reopening offers the text back.
+            editor.text = ""
+            dialog.close()
+            researchStore.saveDraft("capture-note:" + capture.id, "A thought typed before a crash")
+            dialog.begin(capture.id)
+            tryCompare(dialog, "opened", true)
+            verify(findChild(dialog, "captureNoteDraftBar").visible)
+            mouseClick(findChild(dialog, "restoreCaptureNoteDraft"))
+            compare(editor.text, "A thought typed before a crash")
+            mouseClick(findChild(dialog, "saveCaptureNote"))
+            tryCompare(dialog, "visible", false)
+            compare(researchStore.draft("capture-note:" + capture.id), "") // Saved: the draft is gone.
+        }
         function test_captureNoteWorkflow() {
             researchStore.captureRegion(fixtureSource, 0, Qt.rect(.1, .1, .4, .2))
             tryCompare(researchStore, "busy", false, 10000)

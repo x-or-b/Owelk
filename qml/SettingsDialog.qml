@@ -304,6 +304,76 @@ UiControls.Dialog {
                 text: "Keys are stored in " + researchStore.ai.keyStorage() + ". Before the first request to a provider, Owelk shows what will be sent. "
                       + "Claude is available with an API key; signing in with a Claude.ai account is not offered because Anthropic does not allow it for third-party apps."
             }
+            Label { text: "Data"; font.bold: true; color: Theme.text }
+            // Backups: a folder with the library database and images; restore is applied on next start.
+            GridLayout {
+                id: dataSettings
+                objectName: "dataSettings"
+                Layout.fillWidth: true
+                columns: 2; columnSpacing: 10; rowSpacing: 8
+                property string result: ""
+                Connections {
+                    target: researchStore
+                    function onBackupFinished(ok, path, message) { dataSettings.result = message }
+                }
+                Label { text: "Backup"; color: Theme.textBody }
+                RowLayout {
+                    Layout.fillWidth: true
+                    UiControls.Button {
+                        objectName: "backUpNow"
+                        text: researchStore.backingUp ? "Backing Up…" : "Back Up Now…"
+                        enabled: !researchStore.backingUp
+                        onClicked: backupFolderDialog.open()
+                    }
+                    UiControls.Button { objectName: "restoreBackup"; text: "Restore…"; onClicked: restoreFolderDialog.open() }
+                    Item { Layout.fillWidth: true }
+                }
+                Item { width: 1; height: 1 }
+                CheckBox {
+                    objectName: "autoBackup"
+                    text: "Back up automatically once a day (keeps the last 7)"
+                    checked: researchStore.setting("backup.auto", "1") === "1"
+                    onToggled: researchStore.setSetting("backup.auto", checked ? "1" : "0")
+                }
+            }
+            Label {
+                objectName: "backupResult"
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+                text: dataSettings.result.length ? dataSettings.result
+                    : "A backup copies the library (papers' details, captures, notes, annotations, AI threads, workspaces) and its images into a folder. Your PDFs stay where they are and are not copied. Automatic backups go to the data folder's backups/auto."
+            }
         }
+    }
+    Native.FolderDialog {
+        id: backupFolderDialog
+        title: "Choose where to put the backup"
+        onAccepted: { researchStore.setSetting("backup.folder", researchStore.localPath(selectedFolder)); researchStore.backUp(researchStore.localPath(selectedFolder)) }
+    }
+    Native.FolderDialog {
+        id: restoreFolderDialog
+        title: "Choose an Owelk backup folder"
+        onAccepted: {
+            const folder = researchStore.localPath(selectedFolder)
+            const problem = researchStore.checkBackup(folder)
+            if (problem.length) { dataSettings.result = problem; return }
+            restoreConfirm.folder = folder
+            restoreConfirm.open()
+        }
+    }
+    UiControls.Dialog {
+        id: restoreConfirm
+        objectName: "restoreConfirm"
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: 420
+        modal: true
+        property string folder: ""
+        title: "Restore this backup?"
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        Label {
+            width: parent.width; wrapMode: Text.Wrap
+            text: "Owelk replaces its library with the backup the next time it starts. The current library is moved to the data folder's backups, not deleted. Your PDFs are not touched."
+        }
+        onAccepted: if (researchStore.scheduleRestore(folder)) dataSettings.result = "Quit and reopen Owelk to finish restoring."
     }
 }

@@ -80,6 +80,8 @@ private slots:
         QString error;
         QVERIFY2(store.initialize(&error), qPrintable(error));
         QVERIFY(store.rememberDocument(source));
+        // The title is read from the PDF in the background.
+        QTRY_COMPARE_WITH_TIMEOUT(store.displayName(source), QString("Linked Paper"), 10000);
         store.captureRegion(source, 1, QRectF(.1, .1, .3, .2));
         QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
         const auto capture = store.captures()[0].toMap()["id"].toString();
@@ -944,6 +946,63 @@ private slots:
         QVERIFY(!store.ocrStatus()["enabled"].toBool());
         QVERIFY(!index->ocr().enabled());
         qunsetenv("OWELK_TESSERACT");
+    }
+    void backupRestoreCrashMarkerAndDrafts()
+    {
+        QTemporaryDir directory;
+        const auto data = directory.filePath("data");
+        const auto pdf = QUrl::fromLocalFile(directory.filePath("paper.pdf"));
+        writeFixture(pdf.toLocalFile());
+        QString backupPath, kept, later;
+        {
+            ResearchStore store(data);
+            QString error;
+            QVERIFY(store.initialize(&error));
+            QVERIFY(!store.recoveredFromCrash());
+            kept = store.createNote("Kept", "Written before the backup.");
+            QSignalSpy captured(&store, &ResearchStore::captureSaved);
+            store.captureRegion(pdf, 0, QRectF(.1, .1, .3, .2));
+            QTRY_COMPARE_WITH_TIMEOUT(captured.size(), 1, 10000);
+            QSignalSpy done(&store, &ResearchStore::backupFinished);
+            store.backUp(directory.filePath("backups"));
+            QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+            QVERIFY2(done[0][0].toBool(), qPrintable(done[0][2].toString()));
+            backupPath = done[0][1].toString();
+            QVERIFY(QFileInfo::exists(backupPath + "/owelk.sqlite3"));
+            QVERIFY(QFileInfo::exists(backupPath + "/owelk-backup.json"));
+            QCOMPARE(QDir(backupPath + "/captures").entryList({"*.png"}).size(), 1);
+            QCOMPARE(store.checkBackup(backupPath), QString());
+            QVERIFY(!store.checkBackup(directory.path()).isEmpty());
+            // Changes after the backup are undone by restoring it (on the next start).
+            later = store.createNote("Later", "Written after the backup.");
+            QVERIFY(store.scheduleRestore(backupPath));
+            // Drafts: kept until saved or discarded.
+            QVERIFY(store.saveDraft("capture-note:x", "half a thought"));
+            QCOMPARE(store.draft("capture-note:x"), QString("half a thought"));
+            store.clearDraft("capture-note:x");
+            QCOMPARE(store.draft("capture-note:x"), QString());
+        }
+        QVERIFY(!QFileInfo::exists(data + "/.running")); // A clean exit removes the marker.
+        {
+            ResearchStore store(data);
+            QString error;
+            QVERIFY(store.initialize(&error));
+            QVERIFY(store.startupMessage().startsWith("Restored the backup"));
+            QVERIFY(!store.note(kept).isEmpty());
+            QVERIFY(store.note(later).isEmpty());
+            QCOMPARE(store.captures().size(), 1);
+            QVERIFY(QFileInfo(store.captures()[0].toMap()["image"].toUrl().toLocalFile()).exists());
+            // The previous library was moved aside, not deleted.
+            QCOMPARE(QDir(data + "/backups").entryList({"before-restore-*"}, QDir::Dirs).size(), 1);
+        }
+        // An unexpected exit leaves the marker; the next start notices.
+        QFile marker(data + "/.running");
+        QVERIFY(marker.open(QIODevice::WriteOnly));
+        marker.close();
+        ResearchStore store(data);
+        QString error;
+        QVERIFY(store.initialize(&error));
+        QVERIFY(store.recoveredFromCrash());
     }
     void pathsUseThePlatformForm()
     {

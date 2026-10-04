@@ -111,6 +111,7 @@ QStringList ResearchStore::annotationColors()
 
 ResearchStore::~ResearchStore()
 {
+    if (m_database.isOpen()) markStopped();
     m_workers.waitForDone();
     m_verifiers.waitForDone();
     m_metadataWorkers.waitForDone();
@@ -125,6 +126,9 @@ bool ResearchStore::initialize(QString *error)
         *error = tr("Cannot create data folder: %1").arg(m_directory);
         return false;
     }
+    // A restore chosen in Settings is applied now, before the database is opened.
+    applyPendingRestore(m_directory, &m_startupMessage);
+    QDir().mkpath(m_directory + "/captures");
     m_database = QSqlDatabase::addDatabase("QSQLITE", m_connection);
     m_database.setDatabaseName(m_directory + "/owelk.sqlite3");
     if (!m_database.open()) {
@@ -279,6 +283,8 @@ bool ResearchStore::initialize(QString *error)
     connect(m_index, &PaperIndex::contentsChanged, m_semantic, &SemanticIndex::sync);
     m_semantic->sync();
     configureOcr();
+    markRunning();
+    scheduleAutomaticBackup();
     // Durable redirects also replay any search-cache update interrupted by process exit.
     for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)
         m_index->relocateSource(QUrl(it.key()), resolvedSource(QUrl(it.value())));

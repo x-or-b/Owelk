@@ -212,7 +212,12 @@ ApplicationWindow {
         if (!restoreFailed) for (let i = 0; i < initialFiles.length; ++i) documents.openDocument(initialFiles[i])
         homeVisible = true
         if (!restoreFailed) persist()
+        // After a restore or an unexpected exit, say what happened.
+        if (!restoreFailed && researchStore.startupMessage.length) notify(researchStore.startupMessage)
+        else if (!restoreFailed && researchStore.recoveredFromCrash) notify("Owelk closed unexpectedly last time. Your tabs are back; unsaved notes are offered when you reopen them.")
     }
+    // Logging out or quitting from the dock can skip the window's close handler.
+    Connections { target: Qt.application; function onAboutToQuit() { window.persist() } }
     onClosing: function(close) {
         if (researchStore.printing) { close.accepted = false; notify("Finish or cancel printing before closing the window."); return }
         if (window.currentReader && window.currentReader.annotationDirty) { close.accepted = false; notify("Save or discard annotation edits before closing the window."); return }
