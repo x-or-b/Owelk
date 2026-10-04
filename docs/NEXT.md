@@ -1,34 +1,32 @@
 # 다음 개발
 
-구현 이력은 git 로그와 [STATUS.md](STATUS.md)를 참고하세요. 아래는 남은 작업만 적습니다. 기획서 순서보다 실사용 불편을 먼저 처리합니다.
+구현 이력은 git 로그와 [STATUS.md](STATUS.md)를 참고하세요. 아래는 남은 작업만 적습니다. 가볍고 빠름을 먼저 지키고, 실사용 불편을 기획서 순서보다 먼저 처리합니다.
 
 ## 1. 실사용 확인 (사용자)
 
-- 실제 키로 Claude API / OpenAI API 답변, ChatGPT 계정(Codex) 브라우저 로그인, Ollama 모델.
-- GaRLIO 등 arXiv 논문(여백 세로 스탬프)에서 드래그 선택 높이.
-- AI 모델 선택·추론 강도·Fast 실제 호출(요금 확인), 이미지 첨부(붙여넣기·드롭), 웹 PDF 진행 막대와 브라우저 보기, Home 웹 검색.
-- 실제 웹 페이지·로그인 페이지·기관 PDF 다운로드, arXiv `Open PDF`.
-- 트랙패드 핀치, 마우스 뒤로/앞으로 버튼, 실제 키보드 배열의 `⌘⇧[ / ]`, `⌘\`.
-- 실제 논문에서 제목·저자 추출 정확도, 여러 페이지 선택의 하이라이트 위치.
-- 새 Trash 카드·Library·노트·AI 패널(Thread 목록·모델 메뉴)의 밀도와 배치.
+- GitHub에 push해 CI(Ubuntu·Windows·macOS) 결과 확인 → 실패 로그를 주면 고칩니다.
+- Linux·Windows에서 실제 실행: 키 저장(키링·자격 증명 관리자), 파일 대화상자, 단축키 기본값.
+- 인쇄(실제 프린터·PDF로 저장), 주석 포함 PDF를 미리보기·Acrobat·Okular에서 열어 보기.
+- 의미 검색: Ollama `nomic-embed-text` 또는 OpenAI 키로 켜고 검색·관련 논문 확인.
+- OCR: Tesseract 설치 후 스캔 PDF 검색.
+- 백업 → 복원 → 재시작, 암호 PDF 열기·기억.
+- 실제 AI 키로 답변·추론 강도·Fast, 기관 PDF 다운로드, 트랙패드·마우스 버튼.
 
-## 2. 읽기 품질
+## 2. 디자인 손질
+
+- 전체 화면 밀도·간격·색 토큰 정리(`UiTheme.js`), Settings 화면 구성(섹션이 늘어남), 탭 그룹·관련 탭 시각 정리.
+
+## 3. 읽기 품질
 
 - 실제 큰 PDF·여러 분할에서 초기 표시·스크롤·선택 지연, GPU 프레임, 메모리 측정.
-- 웹 탭 전환 시 페이지 상태 유지(현재는 주소를 다시 엶), Reader Mode.
-- 일부 테스트에서 리더가 닫힌 뒤 실행되는 지연 호출 경고(`PdfCanvas.qml` `refreshHighlights`) 정리.
-- Linux/Windows 빌드와 키체인 대체 저장(사용자 전용 파일) 확인.
-
-## 3. 검색·정리 (v0.5)
-
-- 의미 검색(FTS와 병행), 관련 논문·노트 추천, 검색 순위 개선.
-- 이름 있는 Tab Group, AI 탭 정리 제안(사용자 승인 후 적용).
+- 웹 탭 전환 시 페이지 상태 유지, Reader Mode.
+- 테스트 중 리더가 닫힌 뒤 실행되는 지연 호출 경고(`PdfCanvas.qml` `refreshHighlights`) 정리.
 
 ## 4. 연구 지능 (v0.6)
 
-- 여러 논문 비교·워크스페이스 요약, 인용 그래프, 라이브러리 기반 질문.
+- 여러 논문 비교·워크스페이스 요약, 인용 그래프, 라이브러리 전체에 묻기(의미 검색 결과를 근거로).
 
-## 5. v1 품질
+## 5. 남은 v1 세부
 
-- 백업·내보내기(Markdown, BibTeX), 주석 PDF 내보내기, 단축키 변경, 비정상 종료 복구, OCR·암호 PDF.
-- 공통 Document ID를 탭·세션 JSON까지 확장하고 `DocumentAnchor`(PDF·HTML) 일반화.
+- 설치 패키지(macOS dmg, Windows 설치본, Linux AppImage)와 서명.
+- 앵커를 저장 형식으로도 통합(현재는 읽을 때 구성), Figure 자동 캡처, Smart Collection.
