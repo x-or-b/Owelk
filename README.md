@@ -184,7 +184,7 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 ## AI 읽기 보조
 
 - Settings → AI에서 제공자를 고릅니다: **Claude API**(기본 모델 `claude-opus-5-5`), **OpenAI API**, **ChatGPT 계정(Codex)**, **Ollama(이 Mac에서만 실행)**. API 키는 macOS Keychain에 저장합니다. ChatGPT 계정은 설치된 Codex CLI의 공식 로그인(브라우저)을 사용합니다. Claude.ai 계정 로그인은 Anthropic이 제삼자 앱에 허용하지 않아 제공하지 않습니다.
-- 문장 선택 → ✦ 아이콘(또는 우클릭)에서 Explain / Translate / Summarize / Ask…, PDF 상단바 ✦에서 이 페이지·이 논문에 대해 묻기·요약, 캡처 카드 메뉴에서 Explain with AI(그림은 이미지로 보냄)를 사용합니다. **선호 언어**(Settings → AI, 기본 한국어, 한·영·일·중·독·불·서 또는 논문 언어)는 버튼으로 실행하는 동작의 답변 언어와 Translate의 대상 언어입니다. 직접 입력한 질문은 그 질문의 언어로 답합니다.
+- 문장 선택 → ✦ 아이콘(또는 우클릭)에서 Explain / Translate / Summarize / Ask…, 패널의 `+` 또는 우클릭 → `Ask AI about This Page…`로 이 페이지·이 논문에 대해 묻기·요약, 캡처 카드 메뉴에서 Explain with AI(그림은 이미지로 보냄)를 사용합니다. **선호 언어**(Settings → AI, 기본 한국어, 한·영·일·중·독·불·서 또는 논문 언어)는 버튼으로 실행하는 동작의 답변 언어와 Translate의 대상 언어입니다. 직접 입력한 질문은 그 질문의 언어로 답합니다.
 - 처음 쓰는 제공자는 보낼 내용(논문 제목, 선택 문장, 페이지/논문 본문, 캡처 이미지)을 보여 주고 동의를 받습니다. PDF 파일 자체나 다른 라이브러리 자료는 보내지 않습니다. 긴 본문은 잘라서 보내고 그 사실을 표시합니다.
 - AI는 독 패널(기본 오른쪽)에서 엽니다. 상태바 AI 아이콘을 누르면 열고 닫고, 우클릭 → Left/Right Dock으로 위치를 바꿉니다. 리더·캡처의 AI 동작은 패널을 열고 새 Thread를 시작합니다.
 - 모든 대화는 **Thread**로 저장됩니다. 패널에서 이어 묻기(Return 전송, Shift+Return 줄바꿈)를 하면 이전 대화가 함께 전송됩니다. ← 버튼으로 Thread 목록을 보고, 우클릭으로 이름 변경·삭제합니다. `+`는 새 Thread, `+ Context`는 현재 페이지·선택·논문 전체를 붙입니다. Thread는 Cmd+K 검색과 `owelk://ai/…` 링크로 다시 엽니다.
@@ -206,10 +206,10 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 
 ## 내보내기
 
-- **논문 노트(Markdown)**: 리더 우클릭 → `Export Highlights and Captures (Markdown)…`. 제목·저자·연도·DOI, 페이지별 하이라이트·코멘트·텍스트 상자, 캡처(이미지는 옆 폴더에 복사, 캡션·메모), 이 논문에 연결된 노트 목록을 `.md` 하나로 씁니다.
+- **논문 노트(Markdown)**: 리더 ⋯ → `Export Highlights and Captures…` 또는 우클릭 → Export → `Highlights and Captures (Markdown)…`. 제목·저자·연도·DOI, 페이지별 하이라이트·코멘트·텍스트 상자, 캡처(이미지는 옆 폴더에 복사, 캡션·메모), 이 논문에 연결된 노트 목록을 `.md` 하나로 씁니다.
 - **모든 노트**: Settings → Data → `Export Notes…`. 노트마다 `.md` 파일이며 Owelk 전용 링크는 글자만 남깁니다.
 - **BibTeX**: Library의 `Export BibTeX…`(지금 보이는 논문들), 논문 우클릭 → `Copy BibTeX`. DOI가 있으면 `@article`, arXiv만 있으면 `@misc`(eprint)로, 키는 `성연도제목단어`이며 겹치면 a, b…를 붙입니다.
-- **주석 포함 PDF**: 리더 우클릭 → `Export Annotated PDF…`. 원본은 읽기만 하고 새 파일(`이름 (annotated).pdf`)에 하이라이트(Highlight, 코멘트는 그 메모), 영역 코멘트(Text 메모), 텍스트 상자(FreeText), 그리기(Ink), 이미지(Stamp)를 표준 PDF 주석으로 씁니다. 미리보기·Acrobat·Okular에서 보이고 고칠 수 있습니다. 텍스트 상자의 한글 등 라틴 문자 외 글자는 주석 내용(Contents)에 들어가고, 화면 표시는 뷰어에 따라 다릅니다. 이 기능은 qpdf 라이브러리로 빌드했을 때 켜집니다(macOS `brew install qpdf`, Linux `libqpdf-dev`, Windows vcpkg `qpdf`).
+- **주석 포함 PDF**: 리더 ⋯ 또는 우클릭 → Export → `Annotated PDF…`. 원본은 읽기만 하고 새 파일(`이름 (annotated).pdf`)에 하이라이트(Highlight, 코멘트는 그 메모), 영역 코멘트(Text 메모), 텍스트 상자(FreeText), 그리기(Ink), 이미지(Stamp)를 표준 PDF 주석으로 씁니다. 미리보기·Acrobat·Okular에서 보이고 고칠 수 있습니다. 텍스트 상자의 한글 등 라틴 문자 외 글자는 주석 내용(Contents)에 들어가고, 화면 표시는 뷰어에 따라 다릅니다. 이 기능은 qpdf 라이브러리로 빌드했을 때 켜집니다(macOS `brew install qpdf`, Linux `libqpdf-dev`, Windows vcpkg `qpdf`).
 - 내보내기는 고른 폴더에 새 파일만 만들고(같은 이름이면 번호를 붙임) 라이브러리는 바꾸지 않습니다.
 
 ## 원본 PDF 재연결
@@ -245,7 +245,7 @@ C++ 서식은 저장소의 `.clang-format`을 따릅니다: `xcrun clang-format 
 
 캡처 카드의 `Add note` / `Edit note`에서 원문과 별도로 메모를 작성하고 `Save`로 저장합니다. 노트도 Home/Cmd+K 검색에 포함되고, `Delete note`는 원문 캡처를 유지합니다. [노트 범위와 저장 방식](docs/CAPTURE_NOTES.md).
 
-문장 선택 끝점의 아이콘에서 5색 Highlight, Comment, Save Excerpt를 사용합니다. 우클릭으로 복사·페이지 전체 선택·주석 작업을 할 수 있습니다. 얇은 상단바 중앙은 배율, 우측은 코멘트·형광펜·텍스트 박스·이미지·그리기·인쇄입니다. 주석은 재실행 후 유지되며 Cmd+K 검색과 우클릭 편집/삭제를 지원합니다. 원본 PDF는 변경하지 않습니다. 인쇄는 Qt Widgets/PrintSupport의 네이티브 대화상자를 사용하며 주석을 포함한 래스터 출력입니다. [주석 사용법과 제한](docs/HIGHLIGHTS.md).
+문장 선택 끝점의 아이콘에서 5색 Highlight, Comment, Save Excerpt를 사용합니다. 우클릭으로 복사·페이지 전체 선택·주석 작업을 할 수 있습니다. 얇은 상단바 중앙은 배율, 우측은 주석 도구(형광펜·그리기·코멘트·텍스트 상자·이미지), 영역 캡처, ⋯(찾기·인쇄·내보내기·논문 정보)입니다. 형광펜과 그리기는 색을 따로 기억하며, 아이콘 옆 화살표로 색을 고릅니다. 주석은 재실행 후 유지되며 Cmd+K 검색과 우클릭 편집/삭제를 지원합니다. 원본 PDF는 변경하지 않습니다. 인쇄는 네이티브 대화상자를 사용하며 주석을 포함한 래스터 출력(최대 300dpi)입니다. 프린터가 하나도 설정되지 않았으면 인쇄용 PDF를 저장할 위치를 묻습니다. [주석 사용법과 제한](docs/HIGHLIGHTS.md).
 
 외부로 나가는 요청은 웹 탭, 사용자가 누른 `Look up online`, 사용자가 동의하고 보낸 AI 요청뿐입니다. 암호가 걸린 PDF는 처음 열 때 암호를 물어보고(`Remember on this computer`를 켜면 시스템 키링에 저장), 그 암호로 본문 색인·캡처·주석·인쇄·AI도 같은 파일을 엽니다.
 

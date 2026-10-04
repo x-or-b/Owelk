@@ -187,6 +187,11 @@ UiControls.ToolButton {
                     c.moveTo(13, 5);
                     c.lineTo(5, 13);
                     break;
+                case "chevron":
+                    c.moveTo(6, 8);
+                    c.lineTo(9, 11);
+                    c.lineTo(12, 8);
+                    break;
                 case "minus":
                     c.moveTo(4, 9);
                     c.lineTo(14, 9);

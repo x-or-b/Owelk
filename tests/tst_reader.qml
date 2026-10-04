@@ -189,6 +189,38 @@ Item {
             mouseClick(findChild(menu, "removeHighlightAction"))
             tryCompare(canvas, "savedHighlights", [], 10000)
         }
+        function test_toolbarSeparateInksAndMenus() {
+            verify(findChild(reader, "aiToolbarButton") === null, "AI lives in the panel and selection menu, not the toolbar")
+            waitForPolish(reader)
+            mouseClick(findChild(reader, "drawInk"))
+            const colors = findChild(reader, "selectionColors")
+            tryCompare(colors, "opened", true)
+            waitForPolish(colors.contentItem)
+            mouseClick(colors.colorButton(2))
+            tryCompare(canvas, "tool", "draw")
+            compare(canvas.drawColor, "#54a878")
+            compare(researchStore.setting("drawColor"), "#54a878")
+            verify(canvas.markColor !== canvas.drawColor, "Drawing color must not change the highlight color")
+            // The highlight tool turns on in its own color with one click.
+            const highlight = canvas.markColor
+            mouseClick(findChild(reader, "highlightTool"))
+            tryCompare(canvas, "tool", "highlight")
+            compare(canvas.markColor, highlight)
+            mouseClick(findChild(reader, "highlightTool"))
+            tryCompare(canvas, "tool", "")
+            // Menus grow to their longest label instead of cutting it.
+            mouseClick(findChild(reader, "readerMoreButton"))
+            const more = findChild(reader, "readerMoreMenu")
+            tryCompare(more, "opened", true)
+            verify(more.width > 200, "the longest label needs more than the default width")
+            for (let i = 0; i < more.count; ++i) {
+                const item = more.itemAt(i)
+                if (item.visible && item.text) verify(item.implicitWidth <= item.width + 1, item.text + " is cut off")
+            }
+            more.close()
+            tryCompare(more, "visible", false)
+            researchStore.setSetting("drawColor", ""); researchStore.setSetting("highlightColor", "")
+        }
         function test_selectionToolbarCommentsAndPageAnnotations() {
             const unique = testInput.relinkFixture(true).candidate
             canvas.openFile(unique, {page:0,zoom:1})

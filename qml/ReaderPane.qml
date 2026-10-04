@@ -20,7 +20,11 @@ Rectangle {
     property bool searchVisible: false
     readonly property bool annotationDirty: annotationEditor.visible || annotationEditor.saving
     property bool applyHighlightOnColor: false
-    function chooseHighlightColor(item, apply) {
+    // Which ink the color popup changes: "highlight" or "draw".
+    property string inkTarget: "highlight"
+    function chooseHighlightColor(item, apply) { chooseInk(item, "highlight", apply) }
+    function chooseInk(item, target, apply) {
+        inkTarget = target
         applyHighlightOnColor = apply
         const p = item.mapToItem(root, 0, item.height)
         colors.x = Math.max(4, Math.min(root.width - colors.width - 4, p.x))
@@ -32,6 +36,13 @@ Rectangle {
         if (tool === "comment" && canvas.selectedAnchor) { addComment(); return }
         canvas.tool = canvas.tool === tool ? "" : tool
         canvas.clearSelection()
+    }
+    // One click highlights the selection, or turns the highlight tool on, in the current color.
+    function useHighlight() {
+        activated(); canvas.captureMode = false
+        if (canvas.tool === "highlight") canvas.tool = ""
+        else if (canvas.selectedAnchor) canvas.highlightSelection()
+        else { canvas.tool = "highlight"; canvas.clearSelection() }
     }
     function addComment() {
         if (!canvas.selectedAnchor) return
@@ -140,11 +151,19 @@ Rectangle {
         id: colors
         objectName: "selectionColors"
         parent: root
-        selectedColor: canvas.markColor
+        selectedColor: root.inkTarget === "draw" ? canvas.drawColor : canvas.markColor
         onChosen: function(color) {
+            canvas.captureMode = false
+            if (root.inkTarget === "draw") {
+                canvas.drawColor = color
+                researchStore.setSetting("drawColor", color)
+                canvas.tool = "draw"; canvas.clearSelection()
+                return
+            }
             canvas.markColor = color
+            researchStore.setSetting("highlightColor", color)
             if (root.applyHighlightOnColor) canvas.highlightSelection()
-            else { canvas.captureMode = false; canvas.tool = "highlight" }
+            else canvas.tool = "highlight"
         }
     }
     AnnotationEditor { id: annotationEditor }
@@ -164,9 +183,13 @@ Rectangle {
         UiControls.MenuItem { text:"Ask AI about This Page…"; onTriggered:root.requestAi("ask", "page") }
         MenuSeparator {}
         UiControls.MenuItem { text:"Capture a Region"; onTriggered:{canvas.tool="";canvas.captureMode=true} }
-        UiControls.MenuItem { text:"Print PDF…"; onTriggered:root.printDocument() }
-        UiControls.MenuItem { objectName:"exportAnnotatedOption"; text:"Export Annotated PDF…"; visible:researchStore.canExportAnnotatedPdf(); height:visible ? implicitHeight : 0; enabled:canvas.ready && canvas.documentFingerprint.length > 0; onTriggered:annotatedFile.open() }
-        UiControls.MenuItem { objectName:"exportMarkdownOption"; text:"Export Highlights and Captures (Markdown)…"; enabled:root.source.toString().length > 0; onTriggered:markdownFolder.open() }
+        UiControls.MenuItem { text:"Print…"; onTriggered:root.printDocument() }
+        UiControls.Menu {
+            objectName: "exportMenu"
+            title: "Export"
+            UiControls.MenuItem { objectName:"exportAnnotatedOption"; text:"Annotated PDF…"; visible:researchStore.canExportAnnotatedPdf(); height:visible ? implicitHeight : 0; enabled:canvas.ready && canvas.documentFingerprint.length > 0; onTriggered:annotatedFile.open() }
+            UiControls.MenuItem { objectName:"exportMarkdownOption"; text:"Highlights and Captures (Markdown)…"; enabled:root.source.toString().length > 0; onTriggered:markdownFolder.open() }
+        }
         MenuSeparator {}
         UiControls.MenuItem { text:"Mark Paper as Read"; enabled:root.source.toString().length > 0; onTriggered:researchStore.setReadingState(root.source, "read") }
         UiControls.MenuItem { objectName:"paperDetailsOption"; text:"Paper Details…"; enabled:root.source.toString().length > 0; onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
@@ -183,7 +206,7 @@ Rectangle {
     }
     FolderDialog {
         id: markdownFolder
-        title: "Export this paper's highlights and captures to…"
+        title: "Export highlights and captures as Markdown to…"
         onAccepted: researchStore.exportPaperMarkdown(root.source, researchStore.localPath(selectedFolder))
     }
 
@@ -268,43 +291,51 @@ Rectangle {
                 }
                 ReaderIconButton { kind:"plus"; description:"Zoom in"; onClicked:{root.activated();canvas.zoom(1.2)} }
             }
+            // Annotation tools, then capture, then everything else (find, print, export) behind ⋯.
+            // Highlight and Draw keep their own colors; the narrow arrow next to each picks one.
             Row {
                 anchors.right:parent.right;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter
-                visible: readerToolbar.width >= 540
-                ReaderIconButton {
-                    objectName: "aiToolbarButton"
-                    kind: "ai"; description: "AI · Ask about this page or paper"
-                    onClicked: pageAiMenu.popup(this, 0, height)
-                    UiControls.Menu {
-                        id: pageAiMenu
-                        UiControls.MenuItem { text: "Ask about This Page…"; onTriggered: root.requestAi("ask", "page") }
-                        UiControls.MenuItem { text: "Summarize This Page"; onTriggered: root.requestAi("summarize", "page") }
-                        UiControls.MenuItem { text: "Ask about This Paper…"; onTriggered: root.requestAi("ask", "paper") }
-                        UiControls.MenuItem { text: "Summarize This Paper"; onTriggered: root.requestAi("summarize", "paper") }
+                spacing: 2
+                Row {
+                    objectName: "annotationTools"
+                    visible: readerToolbar.width >= 600
+                    ReaderIconButton {
+                        objectName:"highlightTool";kind:"highlight";swatch:canvas.markColor;checked:canvas.tool==="highlight"
+                        description: canvas.selectedAnchor ? "Highlight the selection" : "Highlight · Drag over text; Esc to finish"
+                        onClicked: root.useHighlight()
                     }
+                    ReaderIconButton { objectName:"highlightInk";kind:"chevron";implicitWidth:14;description:"Highlight color";onClicked:root.chooseInk(this,"highlight",!!canvas.selectedAnchor) }
+                    ReaderIconButton { objectName:"drawTool";kind:"draw";swatch:canvas.drawColor;checked:canvas.tool==="draw";description:"Draw · Drag on a page; Esc to finish";onClicked:root.setTool("draw") }
+                    ReaderIconButton { objectName:"drawInk";kind:"chevron";implicitWidth:14;description:"Drawing color";onClicked:root.chooseInk(this,"draw",false) }
+                    ReaderIconButton { objectName:"commentTool";kind:"comment";checked:canvas.tool==="comment";description:"Comment · Select text, or click a page";onClicked:root.setTool("comment") }
+                    ReaderIconButton { objectName:"textTool";kind:"text";checked:canvas.tool==="text";description:"Text box · Click or drag on a page";onClicked:root.setTool("text") }
+                    ReaderIconButton { objectName:"imageTool";kind:"image";checked:canvas.tool==="image";description:"Image · Drag an area; right-click added images to edit";onClicked:root.setTool("image") }
                 }
-                ReaderIconButton { objectName:"readerCaptureButton";kind:"capture";description:"Capture a region · Ctrl+Shift+C";checked:canvas.captureMode;onClicked:root.toggleCapture() }
-                ReaderIconButton { kind:"comment";description:"Add comment · Select text, or click a page";checked:canvas.tool==="comment";onClicked:root.setTool("comment") }
-                ReaderIconButton { kind:"highlight";description:"Highlight text · Choose a color, then drag over text";swatch:canvas.markColor;checked:canvas.tool==="highlight";onClicked:{if(canvas.tool==="highlight")canvas.tool="";else root.chooseHighlightColor(this,!!canvas.selectedAnchor)} }
-                ReaderIconButton { kind:"text";description:"Add text box · Click or drag on a page";checked:canvas.tool==="text";onClicked:root.setTool("text") }
-                ReaderIconButton { kind:"image";description:"Add image · Drag an area; right-click added images to edit";checked:canvas.tool==="image";onClicked:root.setTool("image") }
-                ReaderIconButton { kind:"draw";description:"Draw · Drag on a page; Esc to finish";swatch:canvas.markColor;checked:canvas.tool==="draw";onClicked:root.setTool("draw") }
-                ReaderIconButton { kind:"print";description:"Print PDF and annotations";onClicked:root.printDocument() }
-            }
-            ReaderIconButton {
-                anchors.right:parent.right;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter
-                visible:readerToolbar.width<540
-                description:"Annotation and print tools";onClicked:toolsMenu.popup(this,0,height)
-                UiControls.Menu {
-                    id:toolsMenu
-                    UiControls.MenuItem { text:"Add Comment";onTriggered:root.setTool("comment") }
-                    UiControls.MenuItem { text:"Highlight…";onTriggered:root.chooseHighlightColor(pageField,!!canvas.selectedAnchor) }
-                    UiControls.MenuItem { text:"Add Text Box";onTriggered:root.setTool("text") }
-                    UiControls.MenuItem { text:"Add Image";onTriggered:root.setTool("image") }
-                    UiControls.MenuItem { text:"Draw";onTriggered:root.setTool("draw") }
-                    UiControls.MenuItem { text:"Capture a Region";onTriggered:{canvas.tool="";canvas.captureMode=true} }
-                    UiControls.MenuItem { text:"Print PDF…";onTriggered:root.printDocument() }
-                    UiControls.MenuItem { text:"Ask AI about This Page…";onTriggered:root.requestAi("ask", "page") }
+                Rectangle { visible: readerToolbar.width >= 600; width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.borderSegment }
+                ReaderIconButton { objectName:"readerCaptureButton";kind:"capture";description:"Capture a region · " + Platform.keys("Ctrl+Shift+C");checked:canvas.captureMode;onClicked:root.toggleCapture() }
+                Rectangle { width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.borderSegment }
+                ReaderIconButton {
+                    objectName: "readerMoreButton"
+                    description: "Find, print and export"
+                    onClicked: moreMenu.popup(this, 0, height)
+                    UiControls.Menu {
+                        id: moreMenu
+                        objectName: "readerMoreMenu"
+                        // Narrow panes: the annotation tools move here.
+                        UiControls.MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Highlight";onTriggered:root.useHighlight() }
+                        UiControls.MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Draw";onTriggered:root.setTool("draw") }
+                        UiControls.MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Comment";onTriggered:root.setTool("comment") }
+                        UiControls.MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Text Box";onTriggered:root.setTool("text") }
+                        UiControls.MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Image";onTriggered:root.setTool("image") }
+                        MenuSeparator { visible:readerToolbar.width<600;height:visible?implicitHeight:0 }
+                        UiControls.MenuItem { text:"Find in Document · " + Platform.keys("Ctrl+F");onTriggered:root.find() }
+                        UiControls.MenuItem { objectName:"printOption";text:"Print…";onTriggered:root.printDocument() }
+                        UiControls.MenuItem { text:"Export Annotated PDF…";visible:researchStore.canExportAnnotatedPdf();height:visible?implicitHeight:0;enabled:canvas.documentFingerprint.length>0;onTriggered:annotatedFile.open() }
+                        UiControls.MenuItem { text:"Export Highlights and Captures…";onTriggered:markdownFolder.open() }
+                        MenuSeparator {}
+                        UiControls.MenuItem { text:"Mark Paper as Read";onTriggered:researchStore.setReadingState(root.source, "read") }
+                        UiControls.MenuItem { text:"Paper Details…";onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
+                    }
                 }
             }
         }
@@ -378,7 +409,7 @@ Rectangle {
                 onEditRequested: function(record,selection) { root.activated(); annotationEditor.begin(canvas,record,selection) }
                 onAnnotationPlaced: function(page,rectangle,points) {
                     const kind=canvas.tool
-                    const spec={kind:kind,page:page,rectangles:[rectangle],color:canvas.markColor,sha256:canvas.documentFingerprint,drawing:kind==="draw"?points:[]}
+                    const spec={kind:kind,page:page,rectangles:[rectangle],color:kind==="draw"?canvas.drawColor:canvas.markColor,sha256:canvas.documentFingerprint,drawing:kind==="draw"?points:[]}
                     if(kind==="draw")researchStore.saveAnnotation(canvas.source,page,spec)
                     else {canvas.tool="";annotationEditor.begin(canvas,spec,null)}
                 }

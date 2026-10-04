@@ -23,7 +23,17 @@ Item {
     property var activeSelection: null
     property var selectedAnchor: null
     property string tool: ""
-    property string markColor: Theme.defaultInk
+    // Highlight (also comments and text boxes) and drawing inks are separate and remembered.
+    property string markColor: savedInk("highlightColor")
+    property string drawColor: savedInk("drawColor")
+    function savedInk(key) {
+        const value = researchStore.setting(key)
+        return Theme.annotationInks.some(function(ink) { return ink.value === value }) ? value : Theme.defaultInk
+    }
+    Connections {
+        target: researchStore
+        function onSettingsChanged() { root.markColor = root.savedInk("highlightColor"); root.drawColor = root.savedInk("drawColor") }
+    }
     property string documentFingerprint: ""
     property var editingMark: null
     property point markMenuPosition: Qt.point(0, 0)
@@ -942,7 +952,7 @@ Item {
                         liveStroke.requestPaint()
                     }
                     Rectangle { visible: annotationArea.pressed && root.tool!=="draw"; x:Math.min(annotationArea.start.x,annotationArea.end.x);y:Math.min(annotationArea.start.y,annotationArea.end.y);width:Math.abs(annotationArea.end.x-annotationArea.start.x);height:Math.abs(annotationArea.end.y-annotationArea.start.y);color:"transparent";border.color:Theme.accent }
-                    Canvas { id:liveStroke;anchors.fill:parent;visible:annotationArea.pressed&&root.tool==="draw";onPaint:{const c=getContext("2d");c.reset();c.strokeStyle=root.markColor;c.lineWidth=2*root.pageScale;c.lineCap="round";c.lineJoin="round";c.beginPath();Stroke.trace(c,annotationArea.points,function(p){return p.x*width},function(p){return p.y*height});c.stroke()} }
+                    Canvas { id:liveStroke;anchors.fill:parent;visible:annotationArea.pressed&&root.tool==="draw";onPaint:{const c=getContext("2d");c.reset();c.strokeStyle=root.drawColor;c.lineWidth=2*root.pageScale;c.lineCap="round";c.lineJoin="round";c.beginPath();Stroke.trace(c,annotationArea.points,function(p){return p.x*width},function(p){return p.y*height});c.stroke()} }
                 }
 
                 MouseArea {

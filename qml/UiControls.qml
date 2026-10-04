@@ -20,7 +20,19 @@ QtObject {
     component TextArea: Controls.TextArea { id: control; RoundedSurface { surface: control.background } }
     component ItemDelegate: Controls.ItemDelegate { id: control; RoundedSurface { surface: control.background } }
     component MenuItem: Controls.MenuItem { id: control; RoundedSurface { surface: control.background } }
-    component Menu: Controls.Menu { id: control; RoundedSurface { surface: control.background } }
+    component Menu: Controls.Menu {
+        id: control
+        // As wide as the longest item (Basic menus are a fixed 200px and cut long labels).
+        implicitWidth: {
+            let widest = 0
+            for (let i = 0; i < count; ++i) {
+                const item = itemAt(i)
+                if (item && item.visible) widest = Math.max(widest, item.implicitWidth)
+            }
+            return Math.min(420, Math.max(implicitBackgroundWidth + leftInset + rightInset, widest + leftPadding + rightPadding))
+        }
+        RoundedSurface { surface: control.background }
+    }
     component Popup: Controls.Popup { id: control; RoundedSurface { surface: control.background } }
     component ComboBox: Controls.ComboBox {
         id: control
