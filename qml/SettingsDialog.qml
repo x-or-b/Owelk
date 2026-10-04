@@ -130,6 +130,42 @@ UiControls.Dialog {
                     + "Ollama runs on this computer (install it, then `ollama pull nomic-embed-text`). OpenAI uses your OpenAI API key and is billed per use. "
                     + "Indexing runs in the background and pauses while you read."
             }
+            // OCR for scanned pages, with the Tesseract the reader installed.
+            GridLayout {
+                id: ocrSettings
+                Layout.fillWidth: true
+                columns: 2; columnSpacing: 10; rowSpacing: 8
+                property var status: researchStore.ocrStatus()
+                Connections { target: researchStore; function onOcrChanged() { ocrSettings.status = researchStore.ocrStatus() } }
+                Label { text: "Scanned pages"; color: Theme.textBody }
+                RowLayout {
+                    Layout.fillWidth: true
+                    CheckBox {
+                        objectName: "ocrEnabled"
+                        text: "Read text with OCR"
+                        enabled: ocrSettings.status.found
+                        checked: ocrSettings.status.found && ocrSettings.status.enabled
+                        onToggled: researchStore.setOcr(checked, ocrLanguages.text)
+                    }
+                    UiControls.TextField {
+                        id: ocrLanguages
+                        objectName: "ocrLanguages"
+                        visible: ocrSettings.status.found && ocrSettings.status.enabled
+                        Layout.fillWidth: true
+                        text: ocrSettings.status.languages
+                        placeholderText: "eng+kor"
+                        ToolTip.visible: hovered; ToolTip.delay: 450
+                        ToolTip.text: "Tesseract languages joined with +. Installed: " + (ocrSettings.status.installed || []).join(", ")
+                        onEditingFinished: if (text !== ocrSettings.status.languages) researchStore.setOcr(true, text)
+                    }
+                }
+            }
+            Label {
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+                text: ocrSettings.status.found
+                    ? "Pages without a text layer are read by Tesseract (" + ocrSettings.status.program + ") in the background and become searchable. OCR text is for search only; it cannot be selected on the page."
+                    : "To search scanned PDFs, install Tesseract: macOS `brew install tesseract tesseract-lang`, Linux `sudo apt install tesseract-ocr tesseract-ocr-kor`, Windows the UB Mannheim installer. Owelk finds it on its next start."
+            }
             UiControls.Dialog {
                 id: semanticConsent
                 objectName: "semanticConsent"

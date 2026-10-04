@@ -33,7 +33,7 @@ UiControls.ItemDelegate {
             }
             Label {
                 text: root.modelData.kind === "paperGroup" ? root.modelData.total + " matching pages"
-                    : root.modelData.kind === "text" ? "p. " + (Number(root.modelData.page) + 1)
+                    : root.modelData.kind === "text" ? "p. " + (Number(root.modelData.page) + 1) + (root.modelData.ocr ? " · OCR" : "")
                     : ["moreInPaper", "nextResults", "section"].indexOf(root.modelData.kind) >= 0 ? ""
                     : root.modelData.kind === "paper" ? "" : root.modelData.kind
                 color: root.heading ? Theme.onDarkMuted : Theme.textMuted; font.pixelSize: 11

@@ -1,4 +1,7 @@
 #include "ResearchStore.h"
+#include <QDir>
+#include <QStandardPaths>
+#include <QProcess>
 #include "PdfAccess.h"
 #include <memory>
 #include <algorithm>
@@ -444,4 +447,72 @@ QString ResearchStore::paperOpening(const QUrl &source, int characters)
 {
     const auto document = documentLinkId(source);
     return document.isEmpty() ? QString() : m_index->openingText(document, qBound(0, characters, 2000));
+}
+
+// --- OCR (Tesseract) -----------------------------------------------------------------------
+
+namespace {
+QString findTesseract()
+{
+    const auto override = qEnvironmentVariable("OWELK_TESSERACT");
+    if (!override.isEmpty()) return override;
+    auto found = QStandardPaths::findExecutable("tesseract");
+    if (found.isEmpty())
+        found = QStandardPaths::findExecutable("tesseract",
+            {"/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "C:/Program Files/Tesseract-OCR",
+                "C:/Program Files (x86)/Tesseract-OCR"});
+    return found;
+}
+}
+
+void ResearchStore::configureOcr()
+{
+    m_ocrProgram = findTesseract();
+    m_ocrInstalled.clear();
+    emit ocrChanged();
+    if (m_ocrProgram.isEmpty() || setting("ocr.enabled", "1") != "1") {
+        m_index->setOcr({});
+        return;
+    }
+    // Which language data is installed decides the default (English, plus Korean when present).
+    auto *process = new QProcess(this);
+    connect(process, &QProcess::finished, this, [this, process] {
+        process->deleteLater();
+        const auto lines = QString::fromUtf8(process->readAllStandardOutput()).split('\n', Qt::SkipEmptyParts);
+        for (const auto &line : lines)
+            if (!line.contains(' ') && !line.trimmed().isEmpty() && line.trimmed() != "osd")
+                m_ocrInstalled << line.trimmed();
+        auto languages = setting("ocr.languages");
+        if (languages.isEmpty()) {
+            QStringList chosen;
+            for (const auto *language : {"eng", "kor"})
+                if (m_ocrInstalled.contains(language)) chosen << language;
+            languages = chosen.isEmpty() ? QStringLiteral("eng") : chosen.join('+');
+        }
+        m_index->setOcr({m_ocrProgram, languages});
+        emit ocrChanged();
+    });
+    connect(process, &QProcess::errorOccurred, process, &QObject::deleteLater);
+    if (m_ocrProgram.endsWith(".py"))
+        process->start(
+            QStandardPaths::findExecutable("python3").isEmpty() ? "python" : "python3", {m_ocrProgram, "--list-langs"});
+    else
+        process->start(m_ocrProgram, {"--list-langs"});
+}
+
+QVariantMap ResearchStore::ocrStatus() const
+{
+    const auto active = m_index->ocr();
+    return {{"found", !m_ocrProgram.isEmpty()}, {"program", QDir::toNativeSeparators(m_ocrProgram)},
+        {"enabled", setting("ocr.enabled", "1") == "1"}, {"languages", active.languages},
+        {"installed", m_ocrInstalled}};
+}
+
+void ResearchStore::setOcr(bool enabled, const QString &languages)
+{
+    setSetting("ocr.enabled", enabled ? "1" : "0");
+    static const QRegularExpression valid("^[A-Za-z_]+(\\+[A-Za-z_]+)*$");
+    setSetting("ocr.languages", valid.match(languages.trimmed()).hasMatch() ? languages.trimmed() : QString());
+    m_index->setOcr({});
+    configureOcr();
 }

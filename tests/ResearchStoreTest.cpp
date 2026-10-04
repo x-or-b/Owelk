@@ -900,6 +900,51 @@ private slots:
         PdfAccess::forget(path);
         qunsetenv("OWELK_KEYCHAIN_SERVICE");
     }
+    void scannedPagesAreReadByOcrWhenTesseractIsInstalled()
+    {
+        QTemporaryDir directory;
+        const auto scanned = QUrl::fromLocalFile(directory.filePath("scan.pdf"));
+        // One page with text, two pages that are pictures only.
+        writeTextFixture(scanned.toLocalFile(), {"A typed cover page.", "", ""});
+        // Without Tesseract the picture pages stay unsearchable.
+        qputenv("OWELK_TESSERACT", directory.filePath("missing-tesseract").toUtf8());
+        {
+            ResearchStore store(directory.filePath("plain"));
+            QString error;
+            QVERIFY(store.initialize(&error));
+            QVERIFY(store.rememberDocument(scanned));
+            auto *index = qobject_cast<PaperIndex *>(store.paperIndex());
+            QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 20000);
+            QSignalSpy found(index, &PaperIndex::searchFinished);
+            index->search("furniture");
+            QVERIFY(found.wait(5000));
+            QVERIFY(found[0][1].toList().isEmpty());
+        }
+        qputenv("OWELK_TESSERACT", QByteArray(TEST_SOURCE_DIR) + "/fake_tesseract.py");
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        QTRY_VERIFY_WITH_TIMEOUT(store.ocrStatus()["languages"].toString() == "eng+kor", 10000);
+        QVERIFY(store.ocrStatus()["found"].toBool());
+        QVERIFY(store.rememberDocument(scanned));
+        auto *index = qobject_cast<PaperIndex *>(store.paperIndex());
+        QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 30000);
+        QSignalSpy found(index, &PaperIndex::searchFinished);
+        index->searchGrouped("furniture", {}, 0);
+        QVERIFY(found.wait(5000));
+        int pages = 0;
+        for (const auto &row : found[0][1].toList())
+            if (row.toMap()["kind"] == "text") {
+                QVERIFY(row.toMap()["ocr"].toBool());
+                ++pages;
+            }
+        QCOMPARE(pages, 2);
+        // Turned off: no further OCR, and the setting is kept.
+        store.setOcr(false, {});
+        QVERIFY(!store.ocrStatus()["enabled"].toBool());
+        QVERIFY(!index->ocr().enabled());
+        qunsetenv("OWELK_TESSERACT");
+    }
     void pathsUseThePlatformForm()
     {
         QTemporaryDir directory;

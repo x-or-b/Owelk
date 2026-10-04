@@ -278,6 +278,7 @@ bool ResearchStore::initialize(QString *error)
         connect(this, signal, m_semantic, &SemanticIndex::sync);
     connect(m_index, &PaperIndex::contentsChanged, m_semantic, &SemanticIndex::sync);
     m_semantic->sync();
+    configureOcr();
     // Durable redirects also replay any search-cache update interrupted by process exit.
     for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)
         m_index->relocateSource(QUrl(it.key()), resolvedSource(QUrl(it.value())));

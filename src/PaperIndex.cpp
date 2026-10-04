@@ -22,6 +22,9 @@
 #include <QSqlQuery>
 #include <QThread>
 #include <QUuid>
+#include <QTemporaryFile>
+#include <QStandardPaths>
+#include <QProcess>
 #include <QtConcurrent>
 
 namespace {
@@ -49,13 +52,42 @@ QString matchQuery(const QString &input)
     while (matches.hasNext() && parts.size() < 12) parts << '"' + matches.next().captured() + "\"*";
     return parts.join(" AND ");
 }
+// Text for a page without a text layer (a scan), read by the installed Tesseract. Empty on failure.
+QString recognize(
+    QPdfDocument &pdf, int page, const PaperIndex::Ocr &ocr, const std::shared_ptr<std::atomic_bool> &cancel)
+{
+    const auto points = pdf.pagePointSize(page);
+    // 300 dpi is what Tesseract reads best; very large pages are capped.
+    const qreal scale = qMin(300.0 / 72.0, 4200.0 / qMax(points.width(), points.height()));
+    const auto image = pdf.render(page, QSize(qRound(points.width() * scale), qRound(points.height() * scale)));
+    if (image.isNull()) return {};
+    QTemporaryFile file(QDir::tempPath() + "/owelk-ocr-XXXXXX.png");
+    if (!file.open() || !image.save(&file, "PNG")) return {};
+    file.close();
+    QProcess process;
+    QStringList arguments{file.fileName(), "stdout", "-l", ocr.languages};
+    if (ocr.program.endsWith(".py")) {
+        arguments.prepend(ocr.program);
+        process.start(QStandardPaths::findExecutable("python3").isEmpty() ? "python" : "python3", arguments);
+    } else
+        process.start(ocr.program, arguments);
+    if (!process.waitForStarted(5000)) return {};
+    // Recognition takes seconds; stop it when the index is paused or closed.
+    for (int waited = 0; !process.waitForFinished(200); waited += 200)
+        if (cancel->load() || waited > 180000) {
+            process.kill();
+            process.waitForFinished(1000);
+            return {};
+        }
+    return process.exitCode() == 0 ? QString::fromUtf8(process.readAllStandardOutput()) : QString();
+}
 struct IndexResult {
     QString error;
     bool cancelled = false;
 };
 IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &wantedId,
     const std::shared_ptr<std::atomic_bool> &cancel, const std::shared_ptr<std::atomic_bool> &readerBusy,
-    const std::function<void(int, int)> &progress)
+    const PaperIndex::Ocr &ocr, const std::function<void(int, int)> &progress)
 {
     Connection connection(dbPath);
     auto &db = connection.db;
@@ -89,15 +121,19 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &
         if (!query.exec())
             return {query.lastError().text()}; // Recreate the row if a stale holder of the ID was dropped.
     }
-    query.prepare("SELECT id,sha256,version,state,stamp FROM documents WHERE url=?");
+    query.prepare("SELECT id,sha256,version,state,stamp,pages,text_pages,ocr FROM documents WHERE url=?");
     query.addBindValue(source.toString());
     if (!query.exec() || !query.next()) return {"Cannot read search document record."};
     const auto id = query.value(0).toString(), oldHash = query.value(1).toString();
     const int version = query.value(2).toInt();
     const auto state = query.value(3).toString();
     const auto oldStamp = FileFingerprint::Stamp::fromString(query.value(4).toString());
+    // Pages without text are read once OCR is available (and only then).
+    const bool needsOcr
+        = ocr.enabled() && query.value(7).toInt() == 0 && query.value(6).toInt() < query.value(5).toInt();
     query.finish();
-    const bool current = version == extractorVersion && (state == "ready" || state == "empty") && !oldHash.isEmpty();
+    const bool current
+        = version == extractorVersion && (state == "ready" || state == "empty") && !oldHash.isEmpty() && !needsOcr;
     // Startup revalidation: an unchanged file stamp proves the indexed bytes are current without reading the PDF.
     const auto startStamp = FileFingerprint::stamp(source.toLocalFile());
     if (current && oldStamp.isValid() && oldStamp == startStamp) {
@@ -141,11 +177,27 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &
     query.prepare("DELETE FROM pages WHERE document_id=?");
     query.addBindValue(id);
     if (!query.exec()) return fail("failed", query.lastError().text());
+    query.prepare("DELETE FROM ocr_pages WHERE document_id=?");
+    query.addBindValue(id);
+    if (!query.exec()) return fail("failed", query.lastError().text());
     int textPages = 0;
     for (int page = 0; page < pdf.pageCount(); ++page) {
         while (readerBusy->load() && !cancel->load()) QThread::msleep(2);
         if (cancel->load()) return fail("paused", {});
-        const auto text = normalize(pdf.getAllText(page).text());
+        auto text = normalize(pdf.getAllText(page).text());
+        bool recognized = false;
+        if (text.isEmpty() && ocr.enabled()) {
+            text = normalize(recognize(pdf, page, ocr, cancel));
+            if (cancel->load()) return fail("paused", {});
+            recognized = !text.isEmpty();
+        }
+        if (recognized) {
+            QSqlQuery mark(db);
+            mark.prepare("INSERT OR REPLACE INTO ocr_pages(document_id,page) VALUES(?,?)");
+            mark.addBindValue(id);
+            mark.addBindValue(page);
+            if (!mark.exec()) return fail("failed", mark.lastError().text());
+        }
         if (!text.isEmpty()) {
             query.prepare("INSERT INTO pages(document_id,page,text) VALUES(?,?,?)");
             query.addBindValue(id);
@@ -161,8 +213,8 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &
     const auto finalHash = hashFile(source.toLocalFile(), cancel);
     if (cancel->load()) return fail("paused", {});
     if (finalHash != hash) return fail("failed", "The PDF changed during indexing. Retry when the file is stable.");
-    query.prepare("UPDATE documents SET sha256=?,version=?,state=?,pages=?,text_pages=?,error='',indexed_at=?,stamp=? "
-                  "WHERE id=?");
+    query.prepare("UPDATE documents SET sha256=?,version=?,state=?,pages=?,text_pages=?,error='',indexed_at=?,stamp=?,"
+                  "ocr=? WHERE id=?");
     query.addBindValue(hash);
     query.addBindValue(extractorVersion);
     query.addBindValue(textPages ? "ready" : "empty");
@@ -170,6 +222,7 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &
     query.addBindValue(textPages);
     query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
     query.addBindValue(startStamp.toString());
+    query.addBindValue(ocr.enabled() ? 1 : 0);
     query.addBindValue(id);
     if (!query.exec()) return fail("failed", query.lastError().text());
     if (!db.commit()) return fail("failed", db.lastError().text());
@@ -236,7 +289,8 @@ SearchResult findGroupedText(
     // Materialize FTS auxiliary values before window functions; limit by document, not global hits.
     const QString sql = QStringLiteral(
         "WITH matches AS MATERIALIZED (SELECT d.id,d.url,d.sha256,pages.page,"
-        "snippet(pages.pages,2,'','',' … ',32) AS excerpt,pages.rank AS score "
+        "snippet(pages.pages,2,'','',' … ',32) AS excerpt,pages.rank AS score,"
+        "EXISTS(SELECT 1 FROM ocr_pages o WHERE o.document_id=d.id AND o.page=pages.page) AS ocr "
         "FROM pages JOIN documents d ON d.id=pages.document_id WHERE pages.pages MATCH ? AND d.state='ready' %1 %3),"
         "ranked AS (SELECT *,row_number() OVER(PARTITION BY id ORDER BY score,page) AS hit,"
         "count(*) OVER(PARTITION BY id) AS total,min(score) OVER(PARTITION BY id) AS best FROM matches),"
@@ -244,7 +298,7 @@ SearchResult findGroupedText(
         "adjusted AS (SELECT ranked.*,best-coalesce(b.value,0)-min(total,10)*0.2 AS paper_score FROM ranked "
         "LEFT JOIN json_each(?) b ON b.key=ranked.id),"
         "grouped AS (SELECT *,dense_rank() OVER(ORDER BY paper_score,id) AS paper_rank FROM adjusted) "
-        "SELECT id,url,sha256,page,excerpt,total,paper_rank FROM grouped WHERE %2 ORDER BY paper_rank,hit")
+        "SELECT id,url,sha256,page,excerpt,total,paper_rank,ocr FROM grouped WHERE %2 ORDER BY paper_rank,hit")
                             .arg(scoped ? "AND d.url=?" : "",
                                 scoped ? "hit>? AND hit<=?" : "hit<=3 AND paper_rank>? AND paper_rank<=?",
                                 limit ? "AND d.id IN (SELECT value FROM json_each(?))" : "");
@@ -291,9 +345,10 @@ SearchResult findGroupedText(
                 {"documentId", id}, {"source", source}, {"total", query.value(5)}};
             result.rows.append(lastGroup);
         }
-        result.rows.append(QVariantMap{{"kind", "text"}, {"documentId", id}, {"source", source},
-            {"sha256", query.value(2)}, {"page", query.value(3)}, {"snippet", query.value(4)},
-            {"title", titles.value(source.toString(), QFileInfo(source.toLocalFile()).fileName())}});
+        result.rows.append(
+            QVariantMap{{"kind", "text"}, {"documentId", id}, {"source", source}, {"sha256", query.value(2)},
+                {"page", query.value(3)}, {"snippet", query.value(4)}, {"ocr", query.value(7).toBool()},
+                {"title", titles.value(source.toString(), QFileInfo(source.toLocalFile()).fileName())}});
         ++pages;
     }
     finishGroup();
@@ -432,6 +487,11 @@ bool PaperIndex::initialize(QString *error)
         {2, {"ALTER TABLE documents ADD COLUMN stamp TEXT NOT NULL DEFAULT ''"}},
         // Word statistics over the page text (no extra storage), for "related papers".
         {3, {"CREATE VIRTUAL TABLE IF NOT EXISTS pages_vocab USING fts5vocab(pages, 'row')"}},
+        // Scanned pages read by OCR (search only: they have no text layer to select).
+        {4,
+            {"ALTER TABLE documents ADD COLUMN ocr INTEGER NOT NULL DEFAULT 0",
+                "CREATE TABLE IF NOT EXISTS ocr_pages(document_id TEXT NOT NULL,page INTEGER NOT NULL,"
+                "PRIMARY KEY(document_id,page))"}},
     };
     if (!migrateSchema(m_database, steps, error)) return false;
     // Revalidate persisted sources after every restart, including interrupted documents.
@@ -569,6 +629,16 @@ void PaperIndex::remove(const QUrl &input)
         query.exec();
     }));
 }
+void PaperIndex::setOcr(const Ocr &ocr)
+{
+    const bool turnedOn = ocr.enabled() && !m_ocr.enabled();
+    m_ocr = ocr;
+    if (!turnedOn) return;
+    // Papers indexed before OCR was available, with pages that had no text, are read again.
+    QSqlQuery query(m_database);
+    query.exec("SELECT url FROM documents WHERE ocr=0 AND text_pages<pages AND state IN ('ready','empty')");
+    while (query.next()) enqueue(QUrl(query.value(0).toString()));
+}
 void PaperIndex::retry(const QUrl &source)
 {
     enqueue(source);
@@ -629,8 +699,8 @@ void PaperIndex::startNext()
         startNext();
     });
     watcher->setFuture(QtConcurrent::run(
-        &m_indexWorkers, [this, path = m_path, source, documentId, cancel, readerBusy = m_readerBusy] {
-            return indexFile(path, source, documentId, cancel, readerBusy, [this, source](int page, int total) {
+        &m_indexWorkers, [this, path = m_path, source, documentId, cancel, readerBusy = m_readerBusy, ocr = m_ocr] {
+            return indexFile(path, source, documentId, cancel, readerBusy, ocr, [this, source](int page, int total) {
                 QMetaObject::invokeMethod(
                     this,
                     [this, source, page, total] {

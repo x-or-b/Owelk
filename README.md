@@ -131,6 +131,8 @@ open -n /Users/gyu/Documents/Owelk/build/owelk.app --args --data-dir /Users/gyu/
 - `Remove from Recent Papers`는 최근 목록에서만 제거합니다. 이미 인덱싱한 본문은 검색에 남습니다. 검색 대상에서 제외하는 기능은 후속 단계입니다.
 - 추출한 본문은 데이터 폴더의 `search.sqlite3`에 암호화 없이 로컬 저장합니다. 검색 규칙·안전장치·한계는 [본문 검색 설명](docs/SEARCH.md)을 참고하세요.
 
+- **스캔 PDF(OCR)**: Tesseract가 설치되어 있으면(macOS `brew install tesseract tesseract-lang`, Linux `apt install tesseract-ocr tesseract-ocr-kor`, Windows UB Mannheim 설치본) 글자 층이 없는 페이지만 300dpi로 렌더링해 배경에서 읽고 검색 색인에 넣습니다. 기본 언어는 설치된 것 중 영어+한국어이며 Settings → Search에서 바꾸거나 끕니다. OCR 결과는 검색 전용이라 페이지에서 선택할 수 없고, 검색 결과에 `· OCR`로 표시됩니다. Tesseract가 없으면 아무 작업도 하지 않습니다.
+
 ## 논문 정보
 
 PDF의 문서 정보와 첫 페이지에서 제목·저자·연도·DOI·arXiv ID를 백그라운드로 읽습니다. 네트워크 조회는 하지 않습니다. 제목을 알면 탭·리더 상단·최근 논문·검색 결과·캡처에 파일명 대신 표시합니다. 틀렸다면 최근 논문 또는 리더 본문 우클릭 → **Paper Details…**에서 고칩니다. 직접 고친 정보는 유지되며 `Read from PDF`로 되돌립니다. PDF 문서 정보에 저자가 없으면 첫 페이지의 제목과 초록 사이 줄에서 저자 이름을 찾습니다(소속·이메일·각주 표시 제외). `Look up online`을 누를 때만 arXiv ID·DOI·제목을 arXiv 또는 Crossref로 보내 정보를 찾아 입력란을 채웁니다. PDF 내용은 보내지 않으며 `Save`를 눌러야 저장됩니다. 원본 PDF는 수정하지 않습니다.
@@ -225,7 +227,7 @@ C++ 서식은 저장소의 `.clang-format`을 따릅니다: `xcrun clang-format 
 
 문장 선택 끝점의 아이콘에서 5색 Highlight, Comment, Save Excerpt를 사용합니다. 우클릭으로 복사·페이지 전체 선택·주석 작업을 할 수 있습니다. 얇은 상단바 중앙은 배율, 우측은 코멘트·형광펜·텍스트 박스·이미지·그리기·인쇄입니다. 주석은 재실행 후 유지되며 Cmd+K 검색과 우클릭 편집/삭제를 지원합니다. 원본 PDF는 변경하지 않습니다. 인쇄는 Qt Widgets/PrintSupport의 네이티브 대화상자를 사용하며 주석을 포함한 래스터 출력입니다. [주석 사용법과 제한](docs/HIGHLIGHTS.md).
 
-외부로 나가는 요청은 웹 탭, 사용자가 누른 `Look up online`, 사용자가 동의하고 보낸 AI 요청뿐입니다. OCR, 백업 UI는 아직 미구현입니다. 암호가 걸린 PDF는 처음 열 때 암호를 물어보고(`Remember on this computer`를 켜면 시스템 키링에 저장), 그 암호로 본문 색인·캡처·주석·인쇄·AI도 같은 파일을 엽니다.
+외부로 나가는 요청은 웹 탭, 사용자가 누른 `Look up online`, 사용자가 동의하고 보낸 AI 요청뿐입니다. 암호가 걸린 PDF는 처음 열 때 암호를 물어보고(`Remember on this computer`를 켜면 시스템 키링에 저장), 그 암호로 본문 색인·캡처·주석·인쇄·AI도 같은 파일을 엽니다.
 
 ## 이어서 할 작업
 

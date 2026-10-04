@@ -14,6 +14,14 @@
 // Rebuildable local search data. PDF parsing and search use separate worker-owned connections.
 class PaperIndex final : public QObject {
     Q_OBJECT
+public:
+    // OCR with the installed Tesseract for pages without text; off when program is empty.
+    struct Ocr {
+        QString program, languages;
+        bool enabled() const { return !program.isEmpty(); }
+    };
+
+private:
     Q_PROPERTY(QVariantList documents READ documents NOTIFY changed)
     Q_PROPERTY(QString progress READ progress NOTIFY changed)
     Q_PROPERTY(bool paused READ paused NOTIFY changed)
@@ -34,6 +42,8 @@ public:
     void relocateSource(const QUrl &source, const QUrl &candidate);
     Q_INVOKABLE void setPaused(bool paused);
     Q_INVOKABLE void retry(const QUrl &source);
+    void setOcr(const Ocr &ocr);
+    Ocr ocr() const { return m_ocr; }
     Q_INVOKABLE int search(const QString &text);
     // scopeIds: optional list of document IDs (from library filters); null searches everything.
     Q_INVOKABLE int searchGrouped(
@@ -72,6 +82,7 @@ private:
     std::function<bool(const QUrl &)> m_excluded;
     QSet<QObject *> m_readers, m_interactingReaders;
     bool m_active = false, m_paused = false;
+    Ocr m_ocr;
     int m_request = 0;
     std::shared_ptr<std::atomic_bool> m_cancel = std::make_shared<std::atomic_bool>(false);
     std::shared_ptr<std::atomic_bool> m_readerBusy = std::make_shared<std::atomic_bool>(false);

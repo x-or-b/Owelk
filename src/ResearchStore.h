@@ -125,6 +125,9 @@ public:
     // and AI can open the file too. keep: also store it in the system keyring.
     Q_INVOKABLE void rememberPdfPassword(const QUrl &source, const QString &password, bool keep);
     Q_INVOKABLE QString pdfPassword(const QUrl &source) const;
+    // OCR for scanned pages with the installed Tesseract: found, program, languages, installed, enabled.
+    Q_INVOKABLE QVariantMap ocrStatus() const;
+    Q_INVOKABLE void setOcr(bool enabled, const QString &languages);
     // Notes sharing the words of this note (local, immediate).
     Q_INVOKABLE QVariantList relatedNotes(const QString &noteId) const;
     Q_INVOKABLE QVariantList linkCandidates(const QString &query) const;
@@ -209,6 +212,7 @@ signals:
     void notesChanged();
     void linksChanged();
     void relatedFound(int request, const QVariantList &papers, const QVariantList &notes);
+    void ocrChanged();
     void aiThreadsChanged();
     // The opened file has the same bytes as another library entry that still exists.
     void duplicateFound(const QUrl &source, const QUrl &existing, const QString &existingTitle);
@@ -278,6 +282,9 @@ private:
     int m_knowledgeRequest = 0;
     bool m_printing = false;
     int m_relatedRequest = 0;
+    void configureOcr();
+    QString m_ocrProgram;
+    QStringList m_ocrInstalled;
     QVariantList notesSharing(const QStringList &terms, const QString &exceptNote) const;
     bool readPrintMarks(const QUrl &source, const QString &hash, QVariantList *marks);
     PaperIndex *m_index;
