@@ -1071,6 +1071,40 @@ private slots:
         QVERIFY(store.exportBibTeX({a.toString()}, directory.filePath("refs.bib")));
         QVERIFY(QFileInfo(directory.filePath("refs.bib")).size() > 50);
     }
+    void capturesAndAnnotationsShareOneAnchor()
+    {
+        QTemporaryDir directory;
+        const auto source = QUrl::fromLocalFile(directory.filePath("paper.pdf"));
+        writeFixture(source.toLocalFile());
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        QSignalSpy captured(&store, &ResearchStore::captureSaved);
+        store.captureRegion(source, 2, QRectF(.1, .2, .3, .1));
+        QTRY_COMPARE_WITH_TIMEOUT(captured.size(), 1, 10000);
+        const auto anchor = store.anchor("capture", captured[0][0].toString());
+        QCOMPARE(anchor["kind"].toString(), QString("pdf"));
+        QCOMPARE(anchor["documentId"].toString(), store.documentLinkId(source));
+        QCOMPARE(anchor["page"].toInt(), 2);
+        QCOMPARE(anchor["source"].toUrl(), source);
+        QVERIFY(qAbs(anchor["bounds"].toMap()["y"].toDouble() - .2) < 1e-6);
+        QVERIFY(!anchor["sha256"].toString().isEmpty());
+        QVERIFY(store.anchor("capture", "missing").isEmpty());
+        QVERIFY(store.anchor("note", "x").isEmpty());
+        // Opening goes through the same path: verify, then reveal.
+        QSignalSpy ready(&store, &ResearchStore::sourceReady);
+        store.openCapture(captured[0][0].toString());
+        QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
+        QCOMPARE(ready[0][0].toUrl(), source);
+        QCOMPARE(ready[0][1].toInt(), 2);
+        // A changed file is not revealed; the item is kept.
+        writeFixture(source.toLocalFile(), "Changed", 4);
+        QSignalSpy messages(&store, &ResearchStore::message);
+        store.revealAnchor(anchor);
+        QTRY_VERIFY_WITH_TIMEOUT(!messages.isEmpty(), 10000);
+        QVERIFY(messages.last()[0].toString().contains("changed"));
+        QCOMPARE(ready.size(), 1);
+    }
     void pathsUseThePlatformForm()
     {
         QTemporaryDir directory;

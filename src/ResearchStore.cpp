@@ -1140,49 +1140,6 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
     }));
 }
 
-void ResearchStore::openCapture(const QString &id)
-{
-    QSqlQuery query(m_database);
-    query.prepare(
-        "SELECT d.url,c.sha256,c.page,c.x,c.y,c.width,c.height,c.anchor_kind FROM captures c "
-        "JOIN documents d ON d.id=c.document_id WHERE c.id=? AND c.id NOT IN (SELECT id FROM deleted_captures)");
-    query.addBindValue(id);
-    if (!query.exec() || !query.next()) return;
-    const auto url = QUrl(query.value(0).toString());
-    const auto expectedHash = query.value(1).toString();
-    const int page = query.value(2).toInt();
-    if (query.value(7).toString() == "web") {
-        // A web page has no fixed bytes to verify; reopen the page itself.
-        emit webSourceRequested(url);
-        return;
-    }
-    const QRectF rect(
-        query.value(3).toDouble(), query.value(4).toDouble(), query.value(5).toDouble(), query.value(6).toDouble());
-    auto *watcher = new QFutureWatcher<QString>(this);
-    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, id, url, expectedHash, page, rect] {
-        const auto hash = watcher->result();
-        watcher->deleteLater();
-        QSqlQuery deleted(m_database);
-        deleted.prepare("SELECT d.url FROM captures c JOIN documents d ON d.id=c.document_id "
-                        "WHERE c.id=? AND c.id NOT IN (SELECT id FROM deleted_captures)");
-        deleted.addBindValue(id);
-        if (!deleted.exec() || !deleted.next()) return;
-        if (QUrl(deleted.value(0).toString()) != url) {
-            openCapture(id);
-            return;
-        }
-        if (hash.isEmpty()) {
-            emit message(tr("Source file not found. The saved capture is preserved."));
-            emit relinkRequested(url);
-        } else if (hash != expectedHash)
-            emit message(
-                tr("The source PDF has changed. Its location cannot be verified; the saved capture is preserved."));
-        else
-            emit sourceReady(url, page, rect);
-    });
-    watcher->setFuture(QtConcurrent::run(&m_verifiers, [url] { return fingerprint(url.toLocalFile()); }));
-}
-
 void ResearchStore::copyText(const QString &text)
 {
     QGuiApplication::clipboard()->setText(text);

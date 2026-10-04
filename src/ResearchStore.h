@@ -198,6 +198,10 @@ public:
     Q_INVOKABLE bool canExportAnnotatedPdf() const;
     Q_INVOKABLE int loadHighlights(const QUrl &source);
     Q_INVOKABLE bool removeHighlight(const QString &id);
+    // Where a capture or annotation sits (a DocumentAnchor; see ResearchStoreAnchors.cpp), and the one
+    // way to show it: verify the source, then move the reader there.
+    Q_INVOKABLE QVariantMap anchor(const QString &item, const QString &id) const;
+    Q_INVOKABLE void revealAnchor(const QVariantMap &anchor);
     Q_INVOKABLE void openHighlight(const QString &id);
     Q_INVOKABLE void openCapture(const QString &id);
     Q_INVOKABLE void copyText(const QString &text);
