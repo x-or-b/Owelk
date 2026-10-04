@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "PdfAccess.h"
 #include <memory>
 #include <algorithm>
 #include "SemanticIndex.h"
@@ -424,6 +425,19 @@ int ResearchStore::relatedTo(const QUrl &source)
             });
     }
     return request;
+}
+
+void ResearchStore::rememberPdfPassword(const QUrl &source, const QString &password, bool keep)
+{
+    if (!source.isLocalFile() || password.isEmpty()) return;
+    PdfAccess::remember(source.toLocalFile(), password, keep, m_directory);
+    // A paper skipped as locked can be indexed now.
+    m_index->retry(source);
+}
+
+QString ResearchStore::pdfPassword(const QUrl &source) const
+{
+    return source.isLocalFile() ? PdfAccess::password(source.toLocalFile()) : QString();
 }
 
 QString ResearchStore::paperOpening(const QUrl &source, int characters)

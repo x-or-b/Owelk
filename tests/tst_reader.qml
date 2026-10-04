@@ -63,6 +63,24 @@ Item {
             verify(!canvas.crossPages.length)
             canvas.zoom(1 / 0.6)
         }
+        function test_lockedPdfAsksOnceThenOpensWithTheRememberedPassword() {
+            const locked = testInput.dataFile("locked.pdf")
+            canvas.openFile(locked, {page: 0, y: 0, x: 0, zoom: 1})
+            const dialog = findChild(canvas, "pdfPasswordDialog")
+            tryCompare(dialog, "opened", true, 10000)
+            findChild(canvas, "pdfPasswordField").text = "owelk"
+            dialog.accept()
+            tryCompare(canvas, "ready", true, 10000)
+            compare(researchStore.pdfPassword(locked), "owelk") // Shared with background work.
+            // Opened again: the known password is used without asking.
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+            canvas.openFile(locked, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+            compare(dialog.opened, false)
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+        }
         function test_linkHistoryBackAndForward() {
             canvas.openFile(linkSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)

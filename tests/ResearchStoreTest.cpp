@@ -17,6 +17,8 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QTemporaryDir>
+#include "PdfAccess.h"
+#include <QUuid>
 #include <QtTest>
 
 class ResearchStoreTest : public QObject {
@@ -853,6 +855,50 @@ private slots:
         QCOMPARE(close.size(), 1);
         QCOMPARE(close[0].toMap()["id"].toString(), twin);
         QVERIFY(store.relatedNotes(unrelated).isEmpty());
+    }
+    void lockedPdfsWorkOnceTheReaderGivesThePassword()
+    {
+        qputenv("OWELK_KEYCHAIN_SERVICE",
+            ("org.owelk.tests." + QUuid::createUuid().toString(QUuid::WithoutBraces)).toUtf8());
+        QTemporaryDir directory;
+        const auto path = directory.filePath("locked.pdf");
+        QVERIFY(QFile::copy(QStringLiteral(TEST_DATA_DIR) + "/locked.pdf", path));
+        const auto source = QUrl::fromLocalFile(path);
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        auto *index = qobject_cast<PaperIndex *>(store.paperIndex());
+        QVERIFY(store.rememberDocument(source));
+        QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 20000);
+        const auto state = [&] {
+            for (const auto &row : index->documents())
+                if (row.toMap()["source"].toUrl() == source) return row.toMap()["state"].toString();
+            return QString();
+        };
+        QCOMPARE(state(), QString("locked"));
+        QPdfDocument pdf;
+        QCOMPARE(PdfAccess::load(pdf, path), QPdfDocument::Error::IncorrectPassword);
+        // The viewer reports the password that opened it: indexing retries and finds the text.
+        store.rememberPdfPassword(source, "owelk", false);
+        QTRY_COMPARE_WITH_TIMEOUT(state(), QString("ready"), 20000);
+        QSignalSpy found(index, &PaperIndex::searchFinished);
+        index->search("research finding");
+        QVERIFY(found.wait(5000));
+        QVERIFY(!found[0][1].toList().isEmpty());
+        QPdfDocument reopened;
+        QCOMPARE(PdfAccess::load(reopened, path), QPdfDocument::Error::None);
+        // Background work such as captures can open it too.
+        QSignalSpy saved(&store, &ResearchStore::captureSaved);
+        store.captureRegion(source, 0, QRectF(.1, .1, .3, .2));
+        QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000);
+        // Remembered in the keyring: a new session finds it there.
+        PdfAccess::remember(path, "owelk", true, store.dataDirectory());
+        PdfAccess::forget(path);
+        QCOMPARE(store.pdfPassword(source), QString());
+        PdfAccess::remember(path, "owelk", true, store.dataDirectory());
+        QCOMPARE(store.pdfPassword(source), QString("owelk"));
+        PdfAccess::forget(path);
+        qunsetenv("OWELK_KEYCHAIN_SERVICE");
     }
     void pathsUseThePlatformForm()
     {

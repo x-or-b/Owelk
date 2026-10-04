@@ -1,3 +1,4 @@
+#include "PdfAccess.h"
 #include "PaperIndex.h"
 #include "FileFingerprint.h"
 #include "SchemaMigration.h"
@@ -129,11 +130,12 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &
     query.addBindValue(id);
     if (!query.exec()) return {query.lastError().text()};
     QPdfDocument pdf;
-    const auto loadError = pdf.load(source.toLocalFile());
+    const auto loadError = PdfAccess::load(pdf, source.toLocalFile());
     if (loadError != QPdfDocument::Error::None || pdf.status() != QPdfDocument::Status::Ready) {
         const bool locked = loadError == QPdfDocument::Error::IncorrectPassword;
         return fail(locked ? "locked" : "failed",
-            locked ? "Password-protected PDFs are not indexed yet." : "Cannot extract text from this PDF.");
+            locked ? "Locked: open it in Owelk and enter its password to index it."
+                   : "Cannot extract text from this PDF.");
     }
     if (!db.transaction()) return fail("failed", db.lastError().text());
     query.prepare("DELETE FROM pages WHERE document_id=?");

@@ -1,3 +1,4 @@
+#include "PdfAccess.h"
 #include "ResearchStore.h"
 #include "AnnotationImage.h"
 #include "FileFingerprint.h"
@@ -212,7 +213,7 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
             return result;
         }
         QPdfDocument pdf;
-        if (pdf.load(source.toLocalFile()) != QPdfDocument::Error::None || page >= pdf.pageCount()) {
+        if (PdfAccess::load(pdf, source.toLocalFile()) != QPdfDocument::Error::None || page >= pdf.pageCount()) {
             result.error = "Cannot read this PDF page.";
             return result;
         }

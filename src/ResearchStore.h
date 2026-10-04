@@ -121,6 +121,10 @@ public:
     Q_INVOKABLE int relatedTo(const QUrl &source);
     // The opening of a paper's indexed text (for tab organization); empty when not indexed yet.
     Q_INVOKABLE QString paperOpening(const QUrl &source, int characters = 400);
+    // Encrypted PDFs: the viewer hands over a password that worked, so indexing, captures, printing
+    // and AI can open the file too. keep: also store it in the system keyring.
+    Q_INVOKABLE void rememberPdfPassword(const QUrl &source, const QString &password, bool keep);
+    Q_INVOKABLE QString pdfPassword(const QUrl &source) const;
     // Notes sharing the words of this note (local, immediate).
     Q_INVOKABLE QVariantList relatedNotes(const QString &noteId) const;
     Q_INVOKABLE QVariantList linkCandidates(const QString &query) const;

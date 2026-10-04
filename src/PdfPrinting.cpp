@@ -1,3 +1,4 @@
+#include "PdfAccess.h"
 #include "ResearchStore.h"
 #include "PdfPrinting.h"
 #include <QApplication>
@@ -169,7 +170,7 @@ void nextPage(const std::shared_ptr<PrintJob> &job)
         if (!job->pdf) {
             if (FileFingerprint::sha256(job->source.toLocalFile()) != job->hash) return QImage();
             job->pdf = std::make_shared<QPdfDocument>();
-            if (job->pdf->load(job->source.toLocalFile()) != QPdfDocument::Error::None) return QImage();
+            if (PdfAccess::load(*job->pdf, job->source.toLocalFile()) != QPdfDocument::Error::None) return QImage();
         }
         if (job->page >= job->pdf->pageCount()) return QImage();
         const auto points = job->pdf->pagePointSize(job->page);

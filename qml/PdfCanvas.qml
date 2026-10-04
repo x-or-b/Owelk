@@ -141,8 +141,26 @@ Item {
         jump(place.page, place.y, place.x)
         return true
     }
+    // A password given before (this session, or remembered) is tried first, once per opening.
+    function tryKnownPassword() {
+        const known = researchStore.pdfPassword(source)
+        if (!known.length || passwordDialog.autoTried === source.toString()) return false
+        passwordDialog.autoTried = source.toString()
+        pdfDocument.password = known
+        return true
+    }
     function openFile(url, position) {
-        if (!researchStore.sameSource(source, url)) { backStack = []; forwardStack = [] }
+        const otherFile = !researchStore.sameSource(source, url)
+        if (otherFile) {
+            backStack = []; forwardStack = []
+            // A password belongs to one file: unload the locked file first, so clearing the password
+            // does not reload it, and the next file opens without it.
+            if (pdfDocument.password.length) {
+                source = ""
+                pdfDocument.password = ""
+            }
+            passwordDialog.autoTried = ""
+        }
         stopSourceMotion()
         spotlight.stop()
         if (pinching) cancelPinch()
@@ -160,6 +178,8 @@ Item {
         if (researchStore.sameSource(source, url) && ready) {
             restoreTimer.restart()
         } else {
+            // A password belongs to one file: clear it once the next file is the source, so the
+            // locked file is not reloaded (and asked for again) on the way out.
             source = url
         }
         if (!url.toString().length) restoring = false
@@ -474,9 +494,16 @@ Item {
         id: pdfDocument
         source: root.source
         onStatusChanged: function(status) {
-            if (status === PdfDocument.Ready) restoreTimer.restart()
+            // A locked file may also just fail to load; a known password is then tried once.
+            if (status === PdfDocument.Error && !pdfDocument.password.length) root.tryKnownPassword()
+            if (status === PdfDocument.Ready) {
+                restoreTimer.restart()
+                // A password that worked is shared with indexing, captures, printing and AI.
+                if (passwordDialog.tried.length) researchStore.rememberPdfPassword(root.source, passwordDialog.tried, passwordDialog.keep)
+                passwordDialog.tried = ""
+            }
         }
-        onPasswordRequired: passwordDialog.open()
+        onPasswordRequired: if (!root.tryKnownPassword()) passwordDialog.open()
     }
 
     PdfSearchModel {
@@ -983,17 +1010,32 @@ Item {
 
     UiControls.Dialog {
         id: passwordDialog
+        objectName: "pdfPasswordDialog"
         anchors.centerIn: parent
         modal: true
         title: "PDF password"
         standardButtons: Dialog.Ok | Dialog.Cancel
-        UiControls.TextField {
-            id: passwordField
-            placeholderText: "Enter password"
-            echoMode: TextInput.Password
-            onAccepted: passwordDialog.accept()
+        property string tried: ""
+        property string autoTried: ""
+        property bool keep: false
+        onOpened: passwordField.forceActiveFocus()
+        Column {
+            spacing: 8
+            UiControls.TextField {
+                id: passwordField
+                objectName: "pdfPasswordField"
+                width: 260
+                placeholderText: "Enter password"
+                echoMode: TextInput.Password
+                onAccepted: passwordDialog.accept()
+            }
+            CheckBox { id: rememberPassword; objectName: "pdfPasswordRemember"; text: "Remember on this computer" }
         }
-        onAccepted: { pdfDocument.password = passwordField.text; passwordField.clear() }
+        onAccepted: {
+            tried = passwordField.text; keep = rememberPassword.checked
+            pdfDocument.password = passwordField.text
+            passwordField.clear()
+        }
         onRejected: passwordField.clear()
     }
     // Mouse side buttons follow the same history as Cmd+[ / Cmd+].

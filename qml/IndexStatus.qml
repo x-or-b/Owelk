@@ -27,7 +27,7 @@ UiControls.ToolButton {
         standardButtons: Dialog.Close
         contentItem: ColumnLayout {
             spacing: 8
-            Label { Layout.fillWidth: true; text: "Opened PDFs only · Stored locally · No OCR or password indexing"; wrapMode: Text.Wrap; color: Theme.textMuted }
+            Label { Layout.fillWidth: true; text: "Opened PDFs only · Stored locally · Locked PDFs are indexed after you open them with their password"; wrapMode: Text.Wrap; color: Theme.textMuted }
             RowLayout {
                 Layout.fillWidth: true
                 Label { Layout.fillWidth: true; text: root.indexer.progress || (root.indexer.paused ? "Paused" : "Up to date"); elide: Text.ElideMiddle }

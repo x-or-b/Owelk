@@ -242,6 +242,14 @@ public slots:
         return QUrl(QStringLiteral("http://127.0.0.1:%1%2").arg(m_web.serverPort()).arg(path));
     }
     Q_INVOKABLE QSize imageSize(const QUrl &file) { return QImage(file.toLocalFile()).size(); }
+    // A copy of a checked-in test file (tests/data), so tests never change the original.
+    Q_INVOKABLE QUrl dataFile(const QString &name)
+    {
+        const auto target = m_directory.filePath("data-" + name);
+        QFile::remove(target);
+        QFile::copy(QStringLiteral(QUICK_TEST_SOURCE_DIR) + "/data/" + name, target);
+        return QUrl::fromLocalFile(target);
+    }
     Q_INVOKABLE QString temporaryFolder(const QString &name)
     {
         QDir().mkpath(m_directory.filePath(name));

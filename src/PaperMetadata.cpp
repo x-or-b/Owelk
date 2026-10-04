@@ -1,3 +1,4 @@
+#include "PdfAccess.h"
 #include "PaperMetadata.h"
 #include "SelectionGeometry.h"
 
@@ -206,7 +207,7 @@ PaperMetadata extractPaperMetadata(const QString &path)
 {
     PaperMetadata result;
     QPdfDocument pdf;
-    if (pdf.load(path) != QPdfDocument::Error::None || pdf.pageCount() < 1) return result;
+    if (PdfAccess::load(pdf, path) != QPdfDocument::Error::None || pdf.pageCount() < 1) return result;
     const auto fileName = QFileInfo(path).fileName();
     const auto field = [&](QPdfDocument::MetaDataField key) { return pdf.metaData(key).toString().simplified(); };
     const auto firstPage = pdf.getAllText(0).text();

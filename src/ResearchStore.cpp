@@ -1,3 +1,4 @@
+#include "PdfAccess.h"
 #include "ResearchStore.h"
 #include "SemanticIndex.h"
 #include "FileFingerprint.h"
@@ -268,6 +269,7 @@ bool ResearchStore::initialize(QString *error)
     // The search cache adopts the same document IDs, so a result names the same paper everywhere.
     m_index->setDocumentResolver([this](const QUrl &url) { return ensureDocument(url); });
     m_index->setExclusionCheck([this](const QUrl &url) { return excludedFromIndex(url); });
+    PdfAccess::setKeyDirectory(m_directory);
     if (!m_index->initialize(error)) return false;
     // Meaning search follows changes to indexed text and saved items, only while it is turned on.
     m_semantic = new SemanticIndex(this, m_index, m_directory, this);
@@ -658,7 +660,8 @@ void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &re
         const QFileInfo before(path);
         result.hash = fingerprint(path);
         QPdfDocument document;
-        if (result.hash.isEmpty() || document.load(path) != QPdfDocument::Error::None || page >= document.pageCount()) {
+        if (result.hash.isEmpty() || PdfAccess::load(document, path) != QPdfDocument::Error::None
+            || page >= document.pageCount()) {
             result.error = tr("Cannot read the source PDF for this capture.");
             return result;
         }
@@ -864,7 +867,7 @@ void ResearchStore::captureTextSegments(const QUrl &source, const QVariantList &
         const auto path = source.toLocalFile();
         anchor.hash = fingerprint(path);
         QPdfDocument document;
-        if (anchor.hash.isEmpty() || document.load(path) != QPdfDocument::Error::None) {
+        if (anchor.hash.isEmpty() || PdfAccess::load(document, path) != QPdfDocument::Error::None) {
             anchor.error = "Cannot read the source PDF for this excerpt.";
             return result;
         }
@@ -1072,7 +1075,8 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
         const auto path = source.toLocalFile();
         anchor.hash = fingerprint(path);
         QPdfDocument document;
-        if (anchor.hash.isEmpty() || document.load(path) != QPdfDocument::Error::None || page >= document.pageCount()) {
+        if (anchor.hash.isEmpty() || PdfAccess::load(document, path) != QPdfDocument::Error::None
+            || page >= document.pageCount()) {
             anchor.error = "Cannot read the source PDF for this excerpt.";
             return result;
         }

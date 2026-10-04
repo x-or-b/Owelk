@@ -1,3 +1,4 @@
+#include "PdfAccess.h"
 #include "AiService.h"
 #include "AiContext.h"
 #include "AiProviders.h"
@@ -278,7 +279,7 @@ int AiService::ask(const QVariantMap &input)
         Material material;
         if (pdfSource.isLocalFile() && (scope == "page" || scope == "paper")) {
             QPdfDocument pdf;
-            if (pdf.load(pdfSource.toLocalFile()) != QPdfDocument::Error::None) {
+            if (PdfAccess::load(pdf, pdfSource.toLocalFile()) != QPdfDocument::Error::None) {
                 material.error = "Cannot read the PDF for this request.";
                 return material;
             }
