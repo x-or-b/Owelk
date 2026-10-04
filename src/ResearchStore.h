@@ -134,6 +134,12 @@ public:
     // Backups: a folder with the library database, captures and annotations (see ResearchStoreBackup.cpp).
     Q_INVOKABLE void backUp(const QString &folder);
     Q_INVOKABLE QString checkBackup(const QString &folder) const;
+    // Exports (new files only): a paper's highlights, comments and captures as Markdown; every note as a
+    // Markdown file; BibTeX for papers (sources: file URLs).
+    Q_INVOKABLE QString exportPaperMarkdown(const QUrl &source, const QString &folder);
+    Q_INVOKABLE int exportNotesMarkdown(const QString &folder);
+    Q_INVOKABLE QString bibtex(const QVariantList &sources) const;
+    Q_INVOKABLE bool exportBibTeX(const QVariantList &sources, const QString &file);
     Q_INVOKABLE bool scheduleRestore(const QString &folder);
     bool backingUp() const { return m_backingUp; }
     // Unsaved editor text, kept so a crash does not lose it.

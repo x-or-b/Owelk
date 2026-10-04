@@ -326,6 +326,7 @@ UiControls.Dialog {
                         onClicked: backupFolderDialog.open()
                     }
                     UiControls.Button { objectName: "restoreBackup"; text: "Restore…"; onClicked: restoreFolderDialog.open() }
+                    UiControls.Button { objectName: "exportNotes"; text: "Export Notes…"; onClicked: notesFolderDialog.open() }
                     Item { Layout.fillWidth: true }
                 }
                 Item { width: 1; height: 1 }
@@ -348,6 +349,11 @@ UiControls.Dialog {
         id: backupFolderDialog
         title: "Choose where to put the backup"
         onAccepted: { researchStore.setSetting("backup.folder", researchStore.localPath(selectedFolder)); researchStore.backUp(researchStore.localPath(selectedFolder)) }
+    }
+    Native.FolderDialog {
+        id: notesFolderDialog
+        title: "Export every note as Markdown to…"
+        onAccepted: dataSettings.result = researchStore.exportNotesMarkdown(researchStore.localPath(selectedFolder)) + " notes exported."
     }
     Native.FolderDialog {
         id: restoreFolderDialog

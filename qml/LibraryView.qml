@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "UiTheme.js" as Theme
+import QtQuick.Dialogs as Native
 
 // Every paper in the library, filtered by reading state, favorites, collection or tag.
 // Papers are referenced, never copied: collections and tags only group them.
@@ -118,6 +119,7 @@ Rectangle {
         UiControls.MenuItem { text: paperMenu.row.favorite ? "Remove from Favorites" : "Add to Favorites"; onTriggered: researchStore.setFavorite(paperMenu.row.url, !paperMenu.row.favorite) }
         UiControls.MenuItem { text: paperMenu.row.excluded ? "Include in Text Search" : "Exclude from Text Search"; onTriggered: researchStore.setExcludedFromIndex(paperMenu.row.url, !paperMenu.row.excluded) }
         UiControls.MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(paperMenu.row.url) }
+        UiControls.MenuItem { objectName: "copyBibtex"; text: "Copy BibTeX"; onTriggered: { researchStore.copyText(researchStore.bibtex([paperMenu.row.url.toString()])); researchStore.notify("BibTeX copied.") } }
     }
     RowLayout {
         anchors.fill: parent
@@ -261,7 +263,26 @@ Rectangle {
                     onActivated: function(index) { root.sort = keys[index] }
                 }
             }
-            Label { visible: !root.showingNotes; objectName: "libraryCount"; text: root.rows.length + (root.rows.length === 1 ? " paper" : " papers"); font.pixelSize: 12; color: Theme.textTertiary }
+            RowLayout {
+                Layout.fillWidth: true
+                visible: !root.showingNotes
+                Label { objectName: "libraryCount"; Layout.fillWidth: true; text: root.rows.length + (root.rows.length === 1 ? " paper" : " papers"); font.pixelSize: 12; color: Theme.textTertiary }
+                UiControls.ToolButton {
+                    objectName: "exportBibtex"
+                    text: "Export BibTeX…"; font.pixelSize: 12
+                    enabled: root.rows.length > 0
+                    ToolTip.visible: hovered; ToolTip.delay: 450; ToolTip.text: "Save the papers listed here as a .bib file"
+                    onClicked: bibtexDialog.open()
+                }
+            }
+            Native.FileDialog {
+                id: bibtexDialog
+                title: "Export BibTeX"
+                fileMode: Native.FileDialog.SaveFile
+                defaultSuffix: "bib"
+                nameFilters: ["BibTeX (*.bib)"]
+                onAccepted: researchStore.exportBibTeX(root.rows.map(function(r) { return r.url.toString() }), researchStore.localPath(selectedFile))
+            }
             ListView {
                 id: papers
                 objectName: "libraryList"

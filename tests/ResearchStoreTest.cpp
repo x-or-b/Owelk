@@ -1004,6 +1004,73 @@ private slots:
         QVERIFY(store.initialize(&error));
         QVERIFY(store.recoveredFromCrash());
     }
+    void markdownAndBibtexExports()
+    {
+        QTemporaryDir directory;
+        const auto a = QUrl::fromLocalFile(directory.filePath("a.pdf")),
+                   b = QUrl::fromLocalFile(directory.filePath("b.pdf"));
+        writeFixture(a.toLocalFile(), "Radar & Lidar Odometry");
+        writeFixture(b.toLocalFile(), "Radar Mapping");
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        QVERIFY(store.rememberDocument(a));
+        QVERIFY(store.rememberDocument(b));
+        QVERIFY(store.updateDocumentDetails(a,
+            {{"title", "Radar & Lidar Odometry"}, {"authors", "Ada Kim, Bo Lee"}, {"year", "2025"},
+                {"doi", "10.1000/xyz_1"}}));
+        QVERIFY(store.updateDocumentDetails(
+            b, {{"title", "Radar Mapping"}, {"authors", "Ada Kim"}, {"year", "2025"}, {"arxiv", "2501.01234"}}));
+        // Reading notes for paper A: a text box, a capture with a note, and a linked note.
+        QSignalSpy loaded(&store, &ResearchStore::highlightsLoaded), done(&store, &ResearchStore::annotationFinished);
+        store.loadHighlights(a);
+        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
+        store.saveAnnotation(a, 1,
+            {{"kind", "text"}, {"body", "Check the drift term"}, {"color", "#d87797"}, {"sha256", loaded.last()[4]},
+                {"rectangles", QVariantList{QVariantMap{{"x", .1}, {"y", .2}, {"width", .3}, {"height", .1}}}}});
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+        QSignalSpy captured(&store, &ResearchStore::captureSaved);
+        store.captureRegion(a, 0, QRectF(.1, .1, .3, .2));
+        QTRY_COMPARE_WITH_TIMEOUT(captured.size(), 1, 10000);
+        QVERIFY(store.saveCaptureNote(captured[0][0].toString(), "Figure shows drift"));
+        const auto note = store.createNote(
+            "Odometry plan", "Compare with " + store.markdownLink("document", store.documentLinkId(a)));
+        const auto out = directory.filePath("export");
+        const auto path = store.exportPaperMarkdown(a, out);
+        QVERIFY(QFileInfo::exists(path));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const auto markdown = QString::fromUtf8(file.readAll());
+        QVERIFY(markdown.startsWith("# Radar & Lidar Odometry"));
+        QVERIFY(markdown.contains("Ada Kim, Bo Lee · 2025 · DOI 10.1000/xyz_1"));
+        QVERIFY(markdown.contains("- p. 2 · text box"));
+        QVERIFY(markdown.contains("> Check the drift term"));
+        QVERIFY(markdown.contains("Note: Figure shows drift"));
+        QVERIFY(markdown.contains("![p. 1](Radar%20&%20Lidar%20Odometry%20images/"));
+        QCOMPARE(QDir(out + "/Radar & Lidar Odometry images").entryList({"*.png"}).size(), 1);
+        QVERIFY(markdown.contains("- Odometry plan"));
+        // Exporting again never overwrites.
+        QVERIFY(store.exportPaperMarkdown(a, out).endsWith("Radar & Lidar Odometry 2.md"));
+        // Every note as a file; Owelk-only links become their text.
+        QCOMPARE(store.exportNotesMarkdown(directory.filePath("notes")), 1);
+        QFile exported(directory.filePath("notes/Odometry plan.md"));
+        QVERIFY(exported.open(QIODevice::ReadOnly));
+        const auto noteText = QString::fromUtf8(exported.readAll());
+        QVERIFY(noteText.startsWith("# Odometry plan"));
+        QVERIFY(!noteText.contains("owelk://"));
+        QVERIFY(!note.isEmpty());
+        // BibTeX: escaped, "and"-joined authors, unique keys, DOI as article, arXiv as preprint.
+        const auto bib = store.bibtex({a.toString(), b.toString(), b.toString()});
+        QVERIFY(bib.contains("@article{kim2025radar,"));
+        QVERIFY(bib.contains("title = {Radar \\& Lidar Odometry}"));
+        QVERIFY(bib.contains("author = {Ada Kim and Bo Lee}"));
+        QVERIFY(bib.contains("doi = {10.1000/xyz\\_1}"));
+        QVERIFY(bib.contains("@misc{kim2025radara,"));
+        QVERIFY(bib.contains("eprint = {2501.01234}"));
+        QVERIFY(bib.contains("@misc{kim2025radarb,"));
+        QVERIFY(store.exportBibTeX({a.toString()}, directory.filePath("refs.bib")));
+        QVERIFY(QFileInfo(directory.filePath("refs.bib")).size() > 50);
+    }
     void pathsUseThePlatformForm()
     {
         QTemporaryDir directory;
