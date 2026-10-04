@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs as Native
 import "UiTheme.js" as Theme
+import "Platform.js" as Platform
 
 ApplicationWindow {
     id: window
@@ -12,7 +13,7 @@ ApplicationWindow {
     minimumWidth: 880; minimumHeight: 580
     title: ""
     color: Theme.surfaceChrome
-    font.family: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "sans-serif"
+    // The platform UI font (San Francisco, Segoe UI, the desktop font on Linux).
     font.pixelSize: 13
     palette.window: Theme.surfacePanel
     palette.windowText: Theme.text
@@ -360,7 +361,7 @@ ApplicationWindow {
                 text: "Same file as \u201c" + duplicateBar.existingTitle + "\u201d"
                 elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text
                 ToolTip.visible: duplicateHover.hovered; ToolTip.delay: 450
-                ToolTip.text: duplicateBar.existing.toString().length ? decodeURIComponent(duplicateBar.existing.toString().replace("file://", "")) : ""
+                ToolTip.text: researchStore.localPath(duplicateBar.existing)
                 HoverHandler { id: duplicateHover }
             }
             UiControls.Button {
@@ -528,7 +529,7 @@ ApplicationWindow {
                 text: window.notification.length ? window.notification : researchStore.busy ? "Saving capture…" : window.workspaceName.length ? window.workspaceName : "Local workspace"
                 elide: Text.ElideRight; font.pixelSize: 11; color: Theme.textTertiary
             }
-            StatusIcon { kind: "search"; description: "Search · Ctrl/Cmd+K"; onTriggered: { commandPalette.close(); searchPalette.open() } }
+            StatusIcon { kind: "search"; description: "Search · " + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }
             UiControls.ToolButton {
                 objectName: "manageWorkspaceButton"; text: "Workspace…"
                 visible: window.activeWorkspace.length > 0; implicitHeight: 27

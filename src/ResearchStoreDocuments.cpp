@@ -1,4 +1,6 @@
 #include "ResearchStore.h"
+
+#include <QDir>
 #include "FileFingerprint.h"
 #include "PaperMetadata.h"
 
@@ -188,6 +190,16 @@ void ResearchStore::rememberTitle(const QUrl &url, const QString &title)
         m_titles.remove(url.toString());
     else
         m_titles.insert(url.toString(), title);
+}
+
+QString ResearchStore::localPath(const QUrl &url) const
+{
+    return url.isLocalFile() ? QDir::toNativeSeparators(url.toLocalFile()) : url.toString();
+}
+
+QUrl ResearchStore::fileUrl(const QString &path) const
+{
+    return QUrl::fromLocalFile(QDir::fromNativeSeparators(path));
 }
 
 QString ResearchStore::displayName(const QUrl &source) const

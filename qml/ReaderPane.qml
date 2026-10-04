@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import "UiTheme.js" as Theme
+import "Platform.js" as Platform
 
 Rectangle {
     id: root
@@ -216,12 +217,12 @@ Rectangle {
                 spacing: 3
                 ReaderIconButton {
                     objectName: "historyBack"; kind: "back"; implicitWidth: 24
-                    description: "Back to previous place · Cmd+["; enabled: canvas.canGoBack
+                    description: "Back to previous place · " + Platform.keys("Ctrl+["); enabled: canvas.canGoBack
                     onClicked: { root.activated(); canvas.goBack() }
                 }
                 ReaderIconButton {
                     objectName: "historyForward"; kind: "forward"; implicitWidth: 24
-                    description: "Forward · Cmd+]"; enabled: canvas.canGoForward
+                    description: "Forward · " + Platform.keys("Ctrl+]"); enabled: canvas.canGoForward
                     onClicked: { root.activated(); canvas.goForward() }
                 }
                 UiControls.TextField {

@@ -1,5 +1,7 @@
 #include "AiProviders.h"
 
+#include <QDir>
+
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -342,10 +344,16 @@ QString CodexBridge::executable()
     const auto override = qEnvironmentVariable("OWELK_CODEX");
     if (!override.isEmpty()) return override;
     auto found = QStandardPaths::findExecutable("codex");
-    // Apps started from Finder do not see the shell's PATH.
-    for (const auto *candidate : {"/opt/homebrew/bin/codex", "/usr/local/bin/codex"})
-        if (found.isEmpty() && QFileInfo(candidate).isExecutable()) found = candidate;
-    return found;
+    if (!found.isEmpty()) return found;
+    // Apps started from Finder, a desktop launcher or the Start menu often miss the shell's PATH:
+    // look where Homebrew, npm and pipx-style installs put the command.
+    const auto home = QDir::homePath();
+    QStringList folders{"/opt/homebrew/bin", "/usr/local/bin", home + "/.local/bin", home + "/.npm-global/bin",
+        home + "/.volta/bin", home + "/bin"};
+#ifdef Q_OS_WIN
+    folders = {qEnvironmentVariable("APPDATA") + "/npm", qEnvironmentVariable("LOCALAPPDATA") + "/Programs/codex"};
+#endif
+    return QStandardPaths::findExecutable("codex", folders);
 }
 
 void CodexBridge::ensureStarted()
@@ -366,7 +374,14 @@ void CodexBridge::ensureStarted()
             Qt::QueuedConnection);
         return;
     }
-    m_process.start(program, {"app-server"});
+    // npm installs a .cmd launcher on Windows; scripts (tests) run through their interpreter.
+    if (program.endsWith(".cmd", Qt::CaseInsensitive) || program.endsWith(".bat", Qt::CaseInsensitive))
+        m_process.start("cmd.exe", {"/c", program, "app-server"});
+    else if (program.endsWith(".py"))
+        m_process.start(
+            QStandardPaths::findExecutable("python3").isEmpty() ? "python" : "python3", {program, "app-server"});
+    else
+        m_process.start(program, {"app-server"});
     const int id = m_nextId++;
     m_callbacks.insert(id, [this](const QJsonValue &, const QString &error) {
         if (!error.isEmpty()) return;

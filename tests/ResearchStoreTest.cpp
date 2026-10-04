@@ -775,6 +775,16 @@ private slots:
         QCOMPARE(workspace["workspaceName"].toString(), "Alpha study");
         QCOMPARE(workspace["left"].toMap()["position"].toMap()["page"].toInt(), 3);
     }
+    void pathsUseThePlatformForm()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        const auto path = directory.filePath("a folder/paper.pdf");
+        const auto url = store.fileUrl(QDir::toNativeSeparators(path));
+        QCOMPARE(url, QUrl::fromLocalFile(path));
+        QCOMPARE(store.localPath(url), QDir::toNativeSeparators(path));
+        QCOMPARE(store.localPath(QUrl("https://arxiv.org/abs/1")), QString("https://arxiv.org/abs/1"));
+    }
     void selectionUsesLineRectangles()
     {
         SelectionGeometry geometry;

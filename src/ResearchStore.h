@@ -69,6 +69,10 @@ public:
     Q_INVOKABLE int emptyCaptureTrash();
     Q_INVOKABLE bool saveCaptureNote(const QString &id, const QString &body);
     Q_INVOKABLE QString fileName(const QUrl &url) const;
+    // A local file URL as a path in the platform's own form (C:\Users\… on Windows), or the URL text.
+    Q_INVOKABLE QString localPath(const QUrl &url) const;
+    // A path (any platform form) as a file URL.
+    Q_INVOKABLE QUrl fileUrl(const QString &path) const;
     // Paper title when known, otherwise the file name.
     Q_INVOKABLE QString displayName(const QUrl &source) const;
     Q_INVOKABLE QVariantMap documentDetails(const QUrl &source) const;

@@ -1,0 +1,57 @@
+# Build and test Owelk on Linux, Windows and macOS. Every test runs offscreen.
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: linux_gcc_64
+          - os: windows-2022
+            arch: win64_msvc2022_64
+          - os: macos-14
+            arch: clang_64
+    runs-on: ${{ matrix.os }}
+    env:
+      QTWEBENGINE_DISABLE_SANDBOX: 1
+      QTWEBENGINE_CHROMIUM_FLAGS: --no-sandbox
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgl1-mesa-dev libxkbcommon-dev libxkbcommon-x11-0 \
+            libnss3 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libasound2t64 libsecret-1-dev pkg-config
+
+      - name: macOS tools
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.11.*'
+          arch: ${{ matrix.arch }}
+          modules: 'qtpdf qtwebengine qtwebchannel qtpositioning qtimageformats'
+          cache: true
+
+      - name: MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --timeout 600

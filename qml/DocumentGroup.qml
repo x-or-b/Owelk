@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "UiTheme.js" as Theme
+import "Platform.js" as Platform
 
 Rectangle {
     id: root
@@ -149,7 +150,7 @@ Rectangle {
             text: "+"; font.pixelSize: 20
             Accessible.name: "New Home tab"
             ToolTip.visible: hovered; ToolTip.delay: 450
-            ToolTip.text: "New Home tab (" + (Qt.platform.os === "osx" ? "⌘T" : "Ctrl+T") + ")"
+            ToolTip.text: "New Home tab (" + Platform.keys("Ctrl+T") + ")"
             background: Rectangle { color: newTabButton.down ? Theme.tabPressed : newTabButton.hovered ? Theme.tabHover : Theme.surfaceSelected }
             onClicked: { root.controller.activateGroup(root.groupId); root.controller.newHomeTab() }
         }

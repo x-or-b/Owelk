@@ -12,13 +12,25 @@ target_include_directories(owelk_core PUBLIC src src/ai)
 target_sources(owelk_core PRIVATE src/AnnotationImage.cpp src/AnnotationImage.h)
 if(APPLE)
     target_link_libraries(owelk_core PUBLIC "-framework ImageIO" "-framework CoreGraphics" "-framework CoreFoundation" "-framework Security")
+elseif(WIN32)
+    target_link_libraries(owelk_core PUBLIC Advapi32)
+else()
+    # Keys go to the desktop keyring when libsecret is available; otherwise to an owner-only file.
+    find_package(PkgConfig QUIET)
+    if(PKG_CONFIG_FOUND)
+        pkg_check_modules(LIBSECRET IMPORTED_TARGET libsecret-1)
+    endif()
+    if(LIBSECRET_FOUND)
+        target_link_libraries(owelk_core PUBLIC PkgConfig::LIBSECRET)
+        target_compile_definitions(owelk_core PUBLIC OWELK_HAVE_LIBSECRET)
+    endif()
 endif()
 
 qt_add_executable(owelk MACOSX_BUNDLE src/main.cpp)
 qt_add_qml_module(owelk
     URI Owelk VERSION 1.0
     QML_FILES qml/SearchFilters.qml qml/CaptureNoteDialog.qml qml/WorkspaceManager.qml qml/UiTheme.js qml/RoundedSurface.qml qml/UiControls.qml qml/ReaderIconButton.qml qml/AnnotationColors.qml qml/AnnotationEditor.qml
-    QML_FILES qml/Main.qml qml/ReaderPane.qml qml/PdfCanvas.qml qml/CaptureShelf.qml qml/CommandPalette.qml qml/FilePanel.qml qml/DockSidebar.qml qml/HomeView.qml qml/StatusIcon.qml qml/DocumentWorkspace.qml qml/DocumentGroup.qml qml/WorkspaceTree.js qml/RecentPaperDelegate.qml qml/PaletteMatch.js qml/StrokePath.js qml/SearchPalette.qml qml/PdfNavigationPanel.qml qml/ResearchSearch.qml qml/SearchResultDelegate.qml qml/IndexStatus.qml qml/RelinkDialog.qml qml/PaperDetailsDialog.qml qml/WebPane.qml qml/SettingsDialog.qml qml/LibraryView.qml qml/NotePane.qml qml/LinkToNoteDialog.qml qml/AiController.qml qml/AiPanel.qml
+    QML_FILES qml/Main.qml qml/ReaderPane.qml qml/PdfCanvas.qml qml/CaptureShelf.qml qml/CommandPalette.qml qml/FilePanel.qml qml/DockSidebar.qml qml/HomeView.qml qml/StatusIcon.qml qml/DocumentWorkspace.qml qml/DocumentGroup.qml qml/WorkspaceTree.js qml/RecentPaperDelegate.qml qml/PaletteMatch.js qml/StrokePath.js qml/SearchPalette.qml qml/PdfNavigationPanel.qml qml/ResearchSearch.qml qml/SearchResultDelegate.qml qml/IndexStatus.qml qml/RelinkDialog.qml qml/PaperDetailsDialog.qml qml/WebPane.qml qml/SettingsDialog.qml qml/LibraryView.qml qml/NotePane.qml qml/LinkToNoteDialog.qml qml/AiController.qml qml/AiPanel.qml qml/Platform.js
 )
 target_link_libraries(owelk PRIVATE owelk_core Qt6::Quick Qt6::QuickControls2 Qt6::PdfQuick Qt6::WebEngineQuick)
 set_target_properties(owelk PROPERTIES
@@ -28,6 +40,12 @@ set_target_properties(owelk PROPERTIES
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
     WIN32_EXECUTABLE TRUE
 )
+
+# Install with the Qt runtime it needs (QML modules, Pdf, WebEngine): `cmake --install build`.
+include(GNUInstallDirs)
+install(TARGETS owelk BUNDLE DESTINATION . RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+qt_generate_deploy_qml_app_script(TARGET owelk OUTPUT_SCRIPT owelk_deploy_script NO_UNSUPPORTED_PLATFORM_ERROR)
+install(SCRIPT ${owelk_deploy_script})
 
 include(CTest)
 if(BUILD_TESTING)

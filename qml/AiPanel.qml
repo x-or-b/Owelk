@@ -272,7 +272,7 @@ Item {
                 id: modelButton
                 objectName: "aiModelButton"
                 text: (root.c ? root.c.modelLabel : "") + " ▾"
-                ToolTip.text: root.c ? root.c.providerInfo.name + " · " + (root.c.providerInfo.kind === "local" ? "stays on this Mac" : "sent to " + (root.c.providerInfo.sends || "")) : ""
+                ToolTip.text: root.c ? root.c.providerInfo.name + " · " + (root.c.providerInfo.kind === "local" ? "stays on this computer" : "sent to " + (root.c.providerInfo.sends || "")) : ""
                 onClicked: { root.c.loadModels(); modelFilter.text = ""; modelMenu.open() }
             }
             Chip {

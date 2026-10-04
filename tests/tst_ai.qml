@@ -251,7 +251,7 @@ Item {
             let saved = false
             p.grabToImage(function(result) { saved = result.saveToFile(folder + "/figure.png") })
             tryVerify(function() { return saved })
-            const url = "file://" + folder + "/figure.png"
+            const url = researchStore.fileUrl(folder + "/figure.png").toString()
             verify(ai.attachImage(url))
             verify(!ai.attachImage(url)) // Once only.
             verify(!ai.attachImage("file:///tmp/notes.txt"))

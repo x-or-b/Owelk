@@ -33,6 +33,8 @@ public:
     Q_INVOKABLE bool setApiKey(const QString &provider, const QString &key);
     Q_INVOKABLE bool hasApiKey(const QString &provider) const;
     Q_INVOKABLE bool clearApiKey(const QString &provider);
+    // Where keys are kept on this system, for Settings.
+    Q_INVOKABLE QString keyStorage() const;
     Q_INVOKABLE bool consented(const QString &provider) const;
     Q_INVOKABLE void giveConsent(const QString &provider);
     // spec: provider, action (explain|translate|summarize|ask|figure), question, source, page (0-based),

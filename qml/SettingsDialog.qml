@@ -34,7 +34,7 @@ UiControls.Dialog {
         id: folderDialog
         title: "Download folder for web PDFs"
         onAccepted: {
-            const path = decodeURIComponent(selectedFolder.toString().replace(/^file:\/\//, ""))
+            const path = researchStore.localPath(selectedFolder)
             if (researchStore.setSetting("downloadFolder", path)) root.refresh()
         }
     }
@@ -126,7 +126,7 @@ UiControls.Dialog {
                         id: keyField; objectName: "aiKeyField"
                         Layout.fillWidth: true
                         echoMode: TextInput.Password
-                        placeholderText: aiSettings.keyStored ? "Stored in the Keychain" : "Paste your API key"
+                        placeholderText: aiSettings.keyStored ? "Stored securely" : "Paste your API key"
                     }
                     UiControls.Button {
                         objectName: "aiSaveKey"; text: "Save"; enabled: keyField.text.trim().length > 0
@@ -190,7 +190,7 @@ UiControls.Dialog {
             }
             Label {
                 Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
-                text: "Keys are stored in the macOS Keychain. Before the first request to a provider, Owelk shows what will be sent. "
+                text: "Keys are stored in " + researchStore.ai.keyStorage() + ". Before the first request to a provider, Owelk shows what will be sent. "
                       + "Claude is available with an API key; signing in with a Claude.ai account is not offered because Anthropic does not allow it for third-party apps."
             }
         }

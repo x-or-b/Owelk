@@ -183,7 +183,7 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 
 ## 빌드와 테스트
 
-C++20, CMake 3.24 이상, Qt 6.9 이상이 필요합니다. 현재 macOS에서 Qt 6.11.2로 빌드·테스트합니다.
+C++20, CMake 3.24 이상, Qt 6.9 이상(Quick, Controls, Pdf, WebEngine, Sql, Network, PrintSupport)이 필요합니다. macOS·Linux·Windows를 지원하며, `.github/workflows/ci.yml`이 세 OS에서 빌드와 offscreen 테스트를 실행합니다.
 
 ```sh
 brew install cmake qtbase qtdeclarative qtwebengine
@@ -194,7 +194,11 @@ ctest --test-dir build --output-on-failure
 
 C++ 서식은 저장소의 `.clang-format`을 따릅니다: `xcrun clang-format -i src/*.cpp src/*.h tests/*.cpp tests/*.h`. QML 색상은 `qml/UiTheme.js` 토큰만 사용합니다.
 
-Qt PDF는 Homebrew의 `qtwebengine`에 포함됩니다. 현재 앱은 PDF 모듈을 사용하며, 웹 브라우저는 아직 구현하지 않았습니다. Intel Mac이나 다른 OS에서는 Qt 설치 경로를 맞춰야 합니다. Linux/Windows의 실제 실행은 아직 검증하지 않았습니다.
+운영체제별 메모:
+- **macOS**: Qt PDF는 Homebrew `qtwebengine`에 포함됩니다. API 키는 macOS Keychain에 저장합니다.
+- **Linux**: 배포판 Qt 6 또는 Qt 온라인 설치기(Pdf, WebEngine, WebChannel, Positioning). `libsecret-1-dev`가 있으면 API 키를 시스템 키링(GNOME Keyring·KWallet)에 저장하고, 없거나 키링이 실행 중이 아니면 데이터 폴더의 사용자 전용 파일에 저장합니다.
+- **Windows**: Qt WebEngine 때문에 MSVC(Visual Studio 2022) 빌드가 필요합니다. API 키는 Windows 자격 증명 관리자에 저장합니다.
+- 설치본은 `cmake --install build --prefix <폴더>`로 Qt 런타임(QML·Pdf·WebEngine)과 함께 만듭니다. HEIC 이미지 첨부는 macOS에서만 읽습니다.
 
 테스트는 임시 PDF와 데이터 폴더를 만들고, 데스크톱 조작 없이 offscreen Qt 창에서 실행합니다. 저장·출처 검증, PDF 렌더링·선택·복사, 줄 높이, 검색·위치 복원, 분리된 팔레트와 일치 강조, 중첩 목차·썸네일 이동, 패널 복원, 폴더 탐색, Home 지연 로드, 탭 닫기·다시 열기, 분할·드래그, 삭제·원본 보존을 검사합니다. 합성 네이티브 핀치 이벤트·중심점·렌더 해상도 유지도 검사합니다. 합성 PDF 성능 기준과 한계는 [PERFORMANCE.md](docs/PERFORMANCE.md)에 기록합니다. 테스트 통과가 실제 장치에서의 사용성 검증을 대신하지는 않습니다.
 

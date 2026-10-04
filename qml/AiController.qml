@@ -83,7 +83,7 @@ Item {
         return names[value] || (value ? value.charAt(0).toUpperCase() + value.slice(1) : "")
     }
     function companyName(provider) {
-        return ({claude: "Anthropic", openai: "OpenAI", codex: "ChatGPT account", ollama: "Ollama (this Mac)"})[provider] || provider
+        return ({claude: "Anthropic", openai: "OpenAI", codex: "ChatGPT account", ollama: "Ollama (this computer)"})[provider] || provider
     }
     function attachImage(url) {
         const value = url.toString()
@@ -281,7 +281,7 @@ Item {
             Label {
                 Layout.fillWidth: true; wrapMode: Text.Wrap
                 text: "Owelk sends the parts shown below and the earlier turns of this thread to " + (root.providerInfo.sends || "the provider")
-                      + " each time you ask. Nothing else from your library leaves this Mac, and the PDF file itself is never uploaded."
+                      + " each time you ask. Nothing else from your library leaves this computer, and the PDF file itself is never uploaded."
             }
             Repeater {
                 model: root.attachments

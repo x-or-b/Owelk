@@ -1,9 +1,19 @@
 import QtQuick
 import QtTest
 import "../qml/WorkspaceTree.js" as Tree
+import "../qml/Platform.js" as Platform
 
 TestCase {
     name: "WorkspaceTree"
+    function test_shortcutHintsFollowThePlatform() {
+        if (Qt.platform.os === "osx") {
+            compare(Platform.keys("Ctrl+Shift+L"), "⇧⌘L")
+            compare(Platform.keys("Ctrl+Alt+\\"), "⌥⌘\\")
+            compare(Platform.keys("Ctrl+["), "⌘[")
+        } else {
+            compare(Platform.keys("Ctrl+Shift+L"), "Ctrl+Shift+L")
+        }
+    }
     function test_migrateLegacy() {
         const state = {version: 1, left: {source: "file:///a.pdf", position: {page: 3, zoom: 1.4}},
             right: {source: "file:///a.pdf", position: {page: 7, zoom: 1}}, split: true, active: 1}

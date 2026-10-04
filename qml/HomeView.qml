@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "UiTheme.js" as Theme
+import "Platform.js" as Platform
 import "WorkspaceTree.js" as Tree
 
 Rectangle {
@@ -233,7 +234,7 @@ Rectangle {
                         UiControls.ToolButton {
                             objectName: "openLibraryButton"; text: "Library"
                             ToolTip.visible: hovered; ToolTip.delay: 450
-                            ToolTip.text: "All papers, collections and tags (" + (Qt.platform.os === "osx" ? "⇧⌘L" : "Ctrl+Shift+L") + ")"
+                            ToolTip.text: "All papers, collections and tags (" + Platform.keys("Ctrl+Shift+L") + ")"
                             onClicked: root.libraryRequested()
                         }
                     }

@@ -138,6 +138,11 @@ bool AiService::clearApiKey(const QString &provider)
     return ok;
 }
 
+QString AiService::keyStorage() const
+{
+    return Keychain::storageName();
+}
+
 bool AiService::consented(const QString &provider) const
 {
     // Local Ollama keeps everything on this Mac.
