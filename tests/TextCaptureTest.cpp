@@ -4,6 +4,8 @@
 #include "AnnotationImage.h"
 #include <QApplication>
 #include <QPrintDialog>
+#include <QPrinterInfo>
+#include <QFileDialog>
 #ifdef Q_OS_MACOS
 #include <ImageIO/ImageIO.h>
 #endif
@@ -25,7 +27,7 @@
 class TextCaptureTest : public QObject {
     Q_OBJECT
 private slots:
-    void printDialogOpensWithoutPrinterAndCancels()
+    void printDialogOpensAndCancels()
     {
         QTemporaryDir dir;
         const auto path = dir.filePath("print.pdf");
@@ -36,14 +38,56 @@ private slots:
         QSignalSpy loaded(&store, &ResearchStore::highlightsLoaded);
         store.loadHighlights(QUrl::fromLocalFile(path));
         QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
-        store.printDocument(QUrl::fromLocalFile(path), loaded[0][4].toString(), 8);
+        const auto hash = loaded[0][4].toString();
+        const auto open = [](auto *type) {
+            using Dialog = std::remove_pointer_t<decltype(type)>;
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (auto *candidate = qobject_cast<Dialog *>(widget); candidate && candidate->isVisible())
+                    return candidate;
+            return static_cast<Dialog *>(nullptr);
+        };
+        const bool printers = !QPrinterInfo::availablePrinterNames().isEmpty();
+        store.printDocument(QUrl::fromLocalFile(path), hash, 8);
         QVERIFY(store.printing());
-        QPrintDialog *dialog = nullptr;
-        for (auto *widget : QApplication::topLevelWidgets())
-            if (auto *candidate = qobject_cast<QPrintDialog *>(widget)) dialog = candidate;
-        QVERIFY(dialog);
-        dialog->reject();
+        if (printers) {
+            auto *dialog = open(static_cast<QPrintDialog *>(nullptr));
+            QVERIFY(dialog);
+            dialog->reject();
+            QTRY_VERIFY(!store.printing());
+            return;
+        }
+        // No printer: Qt would skip the macOS print panel entirely. A save dialog is offered instead,
+        // and cancelling it ends the job (the window can close again).
+        auto *save = open(static_cast<QFileDialog *>(nullptr));
+        QVERIFY(save);
+        QCOMPARE(save->acceptMode(), QFileDialog::AcceptSave);
+        save->reject();
         QTRY_VERIFY(!store.printing());
+
+        // Choosing a file prints every page into it, with the annotations.
+        QSignalSpy messages(&store, &ResearchStore::message);
+        store.printDocument(QUrl::fromLocalFile(path), hash, 8);
+        save = open(static_cast<QFileDialog *>(nullptr));
+        QVERIFY(save);
+        const auto output = dir.filePath("printed.pdf");
+        save->selectFile(output);
+        static_cast<QDialog *>(save)->accept();
+        QTRY_VERIFY_WITH_TIMEOUT(!store.printing(), 20000);
+        QVERIFY2(messages.last().first().toString().startsWith("Saved a printable PDF"),
+            qPrintable(messages.last().first().toString()));
+        QPdfDocument printed;
+        QCOMPARE(printed.load(output), QPdfDocument::Error::None);
+        QCOMPARE(printed.pageCount(), 8);
+
+        // The original can never be the output.
+        store.printDocument(QUrl::fromLocalFile(path), hash, 8);
+        save = open(static_cast<QFileDialog *>(nullptr));
+        QVERIFY(save);
+        save->setOption(QFileDialog::DontConfirmOverwrite);
+        save->selectFile(path);
+        static_cast<QDialog *>(save)->accept();
+        QTRY_VERIFY(!store.printing());
+        QVERIFY(messages.last().first().toString().contains("preserve the original"));
     }
     void heicImportOrientationAndLimits()
     {

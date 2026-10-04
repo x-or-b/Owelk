@@ -10,6 +10,7 @@
 #include <QWindow>
 #include "FileFingerprint.h"
 #include <QFile>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QJsonDocument>
@@ -198,6 +199,23 @@ std::shared_ptr<PrintJob> makeJob(QObject *owner, const QUrl &source, const QStr
     job->hash = hash;
     return job;
 }
+// The progress window for a job whose range is chosen; then the pages render one by one.
+void start(const std::shared_ptr<PrintJob> &job)
+{
+    job->progress = new QProgressDialog("Printing PDF and annotations…", "Cancel", 0, job->last - job->first + 1);
+    job->progress->setWindowModality(Qt::ApplicationModal);
+    job->progress->setAutoClose(false);
+    keepInFront(job->progress);
+    job->progress->show();
+    nextPage(job);
+}
+bool overwritesOriginal(const QString &file, const QUrl &source)
+{
+    const QFileInfo output(file), original(source.toLocalFile());
+    return !file.isEmpty()
+        && (output.absoluteFilePath() == original.absoluteFilePath()
+            || (!output.canonicalFilePath().isEmpty() && output.canonicalFilePath() == original.canonicalFilePath()));
+}
 }
 
 bool ResearchStore::readPrintMarks(const QUrl &source, const QString &hash, QVariantList *marks)
@@ -243,11 +261,46 @@ void ResearchStore::printDocument(const QUrl &source, const QString &hash, int p
     }
     m_printing = true;
     emit printingChanged();
-    job->finished = [this](const QString &error) {
+    job->finished = [this, printer = job->printer.get()](const QString &error) {
         m_printing = false;
         emit printingChanged();
-        emit message(error.isEmpty() ? "Print job sent. Comments are printed as markers, not full note text." : error);
+        if (!error.isEmpty())
+            emit message(error);
+        else if (printer->outputFormat() == QPrinter::PdfFormat)
+            emit message("Saved a printable PDF to " + QDir::toNativeSeparators(printer->outputFileName()));
+        else
+            emit message("Print job sent. Comments are printed as markers, not full note text.");
     };
+    // Without any printer set up, Qt switches the printer to PDF output and the macOS print panel
+    // never opens. Offer the same output as a PDF file instead.
+    if (job->printer->outputFormat() != QPrinter::NativeFormat) {
+        auto *dialog = new QFileDialog(nullptr, "No printer is set up · Save a printable PDF");
+        dialog->setAcceptMode(QFileDialog::AcceptSave);
+        dialog->setNameFilter("PDF (*.pdf)");
+        dialog->setDefaultSuffix("pdf");
+        const QFileInfo original(source.toLocalFile());
+        dialog->setDirectory(original.absolutePath());
+        dialog->selectFile(original.completeBaseName() + " (print).pdf");
+        keepInFront(dialog);
+        connect(dialog, &QDialog::finished, this, [job, dialog, pages](int result) {
+            dialog->deleteLater();
+            const auto files = dialog->selectedFiles();
+            if (result != QDialog::Accepted || files.isEmpty()) {
+                job->finished("Printing cancelled.");
+                return;
+            }
+            if (overwritesOriginal(files.first(), job->source)) {
+                job->finished("Choose a different output file to preserve the original PDF.");
+                return;
+            }
+            job->printer->setOutputFileName(files.first());
+            job->first = job->page = 0;
+            job->last = pages - 1;
+            start(job);
+        });
+        dialog->open();
+        return;
+    }
     auto *dialog = new QPrintDialog(job->printer.get());
     dialog->setMinMax(1, pages);
     dialog->setWindowTitle("Print PDF and annotations");
@@ -258,22 +311,13 @@ void ResearchStore::printDocument(const QUrl &source, const QString &hash, int p
             job->finished("Printing cancelled.");
             return;
         }
-        const QFileInfo output(job->printer->outputFileName()), original(job->source.toLocalFile());
-        if (!job->printer->outputFileName().isEmpty()
-            && (output.absoluteFilePath() == original.absoluteFilePath()
-                || (!output.canonicalFilePath().isEmpty()
-                    && output.canonicalFilePath() == original.canonicalFilePath()))) {
+        if (overwritesOriginal(job->printer->outputFileName(), job->source)) {
             job->finished("Choose a different output file to preserve the original PDF.");
             return;
         }
         job->first = job->page = qMax(0, job->printer->fromPage() - 1);
         job->last = job->printer->toPage() > 0 ? qMin(pages - 1, job->printer->toPage() - 1) : pages - 1;
-        job->progress = new QProgressDialog("Printing PDF and annotations…", "Cancel", 0, job->last - job->first + 1);
-        job->progress->setWindowModality(Qt::ApplicationModal);
-        job->progress->setAutoClose(false);
-        keepInFront(job->progress);
-        job->progress->show();
-        nextPage(job);
+        start(job);
     });
     dialog->open();
 }
