@@ -42,6 +42,9 @@ public:
     // Excluded documents are never queued for indexing.
     void setExclusionCheck(std::function<bool(const QUrl &)> excluded) { m_excluded = std::move(excluded); }
     Q_INVOKABLE void openResult(const QString &documentId, int page, const QString &hash);
+    // Papers sharing this one's distinctive words (keyword fallback when meaning search is off).
+    // Answered by searchFinished: paper rows, then one {kind: "terms", terms} row.
+    Q_INVOKABLE int related(const QString &documentId, int limit = 5);
     Q_INVOKABLE void setReaderInteracting(QObject *reader, bool active);
     // Shared with other background work that must also yield to the reader.
     std::shared_ptr<std::atomic_bool> readerBusyFlag() const { return m_readerBusy; }

@@ -816,6 +816,44 @@ private slots:
         QVERIFY(store.updateDocumentDetails(b, {{"title", "Observation in Context"}}));
         QCOMPARE(firstPaper(), b);
     }
+    void relatedPapersAndNotesShareDistinctiveWords()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        const auto radar = QStringLiteral("Radar odometry fuses doppler velocity with inertial gravity estimates. ");
+        const auto a = QUrl::fromLocalFile(directory.filePath("a.pdf")),
+                   b = QUrl::fromLocalFile(directory.filePath("b.pdf")),
+                   c = QUrl::fromLocalFile(directory.filePath("c.pdf"));
+        writeTextFixture(a.toLocalFile(), {radar.repeated(6), "Doppler radar odometry under gravity drift."});
+        writeTextFixture(
+            b.toLocalFile(), {"We study doppler radar odometry and inertial velocity. " + radar.repeated(3)});
+        writeTextFixture(
+            c.toLocalFile(), {QStringLiteral("Semantic segmentation of indoor furniture scenes. ").repeated(8)});
+        for (const auto &url : {a, b, c}) QVERIFY(store.rememberDocument(url));
+        QTRY_VERIFY_WITH_TIMEOUT(!qobject_cast<PaperIndex *>(store.paperIndex())->busy(), 20000);
+        const auto related = store.createNote("Odometry ideas", "Try doppler velocity for radar drift.");
+        const auto unrelated = store.createNote("Furniture", "Chairs and tables in scenes.");
+        QSignalSpy found(&store, &ResearchStore::relatedFound);
+        const int request = store.relatedTo(a);
+        QTRY_COMPARE_WITH_TIMEOUT(found.size(), 1, 10000);
+        QCOMPARE(found[0][0].toInt(), request);
+        const auto papers = found[0][1].toList();
+        QVERIFY(!papers.isEmpty());
+        QCOMPARE(papers[0].toMap()["source"].toUrl(), b);
+        QVERIFY(std::none_of(
+            papers.cbegin(), papers.cend(), [&](const QVariant &p) { return p.toMap()["source"].toUrl() == a; }));
+        const auto notes = found[0][2].toList();
+        QCOMPARE(notes.size(), 1);
+        QCOMPARE(notes[0].toMap()["id"].toString(), related);
+        // A note's related notes share its words; the note itself is never listed.
+        const auto twin = store.createNote("Drift", "Radar doppler drift and velocity checks.");
+        const auto close = store.relatedNotes(related);
+        QCOMPARE(close.size(), 1);
+        QCOMPARE(close[0].toMap()["id"].toString(), twin);
+        QVERIFY(store.relatedNotes(unrelated).isEmpty());
+    }
     void pathsUseThePlatformForm()
     {
         QTemporaryDir directory;

@@ -23,6 +23,25 @@ Item {
         function onNotesChanged() { root.linkRevision++ }
     }
     readonly property bool ready: !!reader && reader.pdfReady
+    // Related papers and notes: asked for only while the Related tab is showing.
+    property var relatedPapers: []
+    property var relatedNotes: []
+    property int relatedRequest: -1
+    property bool relatedLoading: false
+    readonly property string relatedSource: ready && mode === 3 ? reader.source.toString() : ""
+    onRelatedSourceChanged: {
+        relatedPapers = []; relatedNotes = []
+        if (!relatedSource.length) { relatedRequest = -1; relatedLoading = false; return }
+        relatedLoading = true
+        relatedRequest = researchStore.relatedTo(reader.source)
+    }
+    Connections {
+        target: researchStore
+        function onRelatedFound(request, papers, notes) {
+            if (request !== root.relatedRequest) return
+            root.relatedPapers = papers; root.relatedNotes = notes; root.relatedLoading = false
+        }
+    }
     PdfDocument { id: emptyDocument }
     // A blank document also avoids passing null to an active Qt PDF image/model during tab removal.
     readonly property var navigationDocument: reader && reader.pdfDocument ? reader.pdfDocument : emptyDocument
@@ -68,6 +87,61 @@ Item {
                 text: "Links" + (root.backlinks.length ? " (" + root.backlinks.length + ")" : "")
                 background: Rectangle { color: linksTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
                 onClicked: root.modeChosen(2)
+            }
+            UiControls.TabButton {
+                id: relatedTab
+                objectName: "relatedTab"
+                text: "Related"
+                background: Rectangle { color: relatedTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
+                onClicked: root.modeChosen(3)
+            }
+        }
+        Flickable {
+            objectName: "relatedView"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.mode === 3 && root.ready
+            clip: true
+            contentHeight: relatedColumn.implicitHeight
+            ColumnLayout {
+                id: relatedColumn
+                width: parent.width
+                spacing: 2
+                Label { text: "Papers"; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4 }
+                Repeater {
+                    model: root.relatedPapers
+                    delegate: UiControls.ItemDelegate {
+                        required property var modelData
+                        objectName: "relatedPaper-" + index
+                        required property int index
+                        Layout.fillWidth: true
+                        text: modelData.title
+                        font.pixelSize: 12
+                        ToolTip.visible: hovered; ToolTip.delay: 450; ToolTip.text: researchStore.localPath(modelData.source)
+                        onClicked: root.linkActivated("owelk://document/" + modelData.documentId)
+                    }
+                }
+                Label {
+                    visible: !root.relatedPapers.length
+                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textMuted
+                    text: root.relatedLoading ? "Looking for related papers…" : "No related papers in the library yet."
+                }
+                Label { text: "Notes"; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 10 }
+                Repeater {
+                    model: root.relatedNotes
+                    delegate: UiControls.ItemDelegate {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        text: modelData.title
+                        font.pixelSize: 12
+                        onClicked: root.linkActivated("owelk://note/" + modelData.id)
+                    }
+                }
+                Label {
+                    visible: !root.relatedNotes.length && !root.relatedLoading
+                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textMuted
+                    text: "No notes share this paper's key words."
+                }
             }
         }
         ListView {

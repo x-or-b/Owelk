@@ -491,6 +491,21 @@ Item {
             tryCompare(commands, "opened", true); compare(search.visible, false)
             commands.close()
         }
+        function test_relatedTabAsksOnlyWhenShown() {
+            workspace.documents.restore({})
+            workspace.openDocument(fixtureSource); canvas()
+            workspace.togglePanel("document")
+            const panel = findChild(workspace, "pdfNavigationPanel")
+            tryVerify(function() { return panel !== null && panel.ready })
+            workspace.navigationMode = 0
+            compare(panel.relatedRequest, -1) // Nothing is computed while another tab shows.
+            workspace.navigationMode = 3
+            verify(panel.relatedRequest > 0)
+            tryCompare(panel, "relatedLoading", false, 10000)
+            verify(findChild(panel, "relatedView").visible)
+            workspace.navigationMode = 0
+            workspace.togglePanel("document")
+        }
         function test_navigationFollowsActiveGroupAndPersistsMode() {
             workspace.openDocument(outlineSource); canvas()
             workspace.togglePanel("document")

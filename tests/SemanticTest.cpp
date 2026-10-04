@@ -129,6 +129,12 @@ private slots:
         QCOMPARE(rows[0].toMap()["source"].toUrl(), c);
         QCOMPARE(rows[0].toMap()["kind"].toString(), QString("paper"));
 
+        // The store's Related list uses meaning when it is on.
+        QSignalSpy related(&store, &ResearchStore::relatedFound);
+        store.relatedTo(a);
+        QTRY_COMPARE_WITH_TIMEOUT(related.size(), 1, 10000);
+        QCOMPARE(related[0][1].toList().first().toMap()["source"].toUrl(), c);
+
         // Incremental: unchanged text is not embedded again; a new note is.
         semantic->configure("ollama", "test-embed");
         QTRY_VERIFY_WITH_TIMEOUT(!semantic->busy(), 20000);

@@ -17,6 +17,8 @@ Rectangle {
     // The note shown in the fields; noteId may already name the next one when switching tabs.
     property string loadedId: ""
     property var backlinks: []
+    // Notes sharing this note's key words; recomputed when it is opened or saved (local and quick).
+    property var related: []
     signal activated()
     color: Theme.surface
     function load() {
@@ -29,12 +31,14 @@ Rectangle {
         dirty = false
         preview = (row.body || "").length > 0
         backlinks = researchStore.backlinks("note", noteId)
+        related = researchStore.relatedNotes(noteId)
     }
     function save() {
         if (!dirty || !loadedId.length) return true
         if (!researchStore.saveNote(loadedId, titleField.text, body.text)) return false
         dirty = false
         controller.updateNoteTab(loadedId, titleField.text)
+        related = researchStore.relatedNotes(loadedId)
         return true
     }
     function focusTitle() { preview = false; titleField.forceActiveFocus() }
@@ -162,6 +166,23 @@ Rectangle {
                     text: modelData.title
                     font.pixelSize: 12
                     onClicked: root.openLink("owelk://" + modelData.kind + "/" + modelData.id)
+                }
+            }
+        }
+        ColumnLayout {
+            objectName: "noteRelated"
+            Layout.fillWidth: true
+            visible: root.related.length > 0
+            spacing: 2
+            Label { text: "Related notes"; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary }
+            Repeater {
+                model: root.related
+                delegate: UiControls.ItemDelegate {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    text: modelData.title
+                    font.pixelSize: 12
+                    onClicked: root.openLink("owelk://note/" + modelData.id)
                 }
             }
         }

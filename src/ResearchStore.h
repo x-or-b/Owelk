@@ -116,6 +116,11 @@ public:
         const QString &fromKind, const QString &fromId, const QString &toKind, const QString &toId);
     Q_INVOKABLE QVariantMap linkTarget(const QString &kind, const QString &id) const;
     Q_INVOKABLE QVariantList backlinks(const QString &kind, const QString &id) const;
+    // Papers and notes related to a paper, computed on request: meaning vectors when meaning search
+    // is on, otherwise the paper's distinctive words. Answered by relatedFound(request, papers, notes).
+    Q_INVOKABLE int relatedTo(const QUrl &source);
+    // Notes sharing the words of this note (local, immediate).
+    Q_INVOKABLE QVariantList relatedNotes(const QString &noteId) const;
     Q_INVOKABLE QVariantList linkCandidates(const QString &query) const;
     Q_INVOKABLE QString documentLinkId(const QUrl &source);
     Q_INVOKABLE QString markdownHtml(const QString &markdown, const QString &linkColor) const;
@@ -197,6 +202,7 @@ signals:
     void settingsChanged();
     void notesChanged();
     void linksChanged();
+    void relatedFound(int request, const QVariantList &papers, const QVariantList &notes);
     void aiThreadsChanged();
     // The opened file has the same bytes as another library entry that still exists.
     void duplicateFound(const QUrl &source, const QUrl &existing, const QString &existingTitle);
@@ -265,6 +271,8 @@ private:
     int m_highlightRequest = 0;
     int m_knowledgeRequest = 0;
     bool m_printing = false;
+    int m_relatedRequest = 0;
+    QVariantList notesSharing(const QStringList &terms, const QString &exceptNote) const;
     bool readPrintMarks(const QUrl &source, const QString &hash, QVariantList *marks);
     PaperIndex *m_index;
     QObject *m_lookup;

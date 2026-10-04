@@ -9,6 +9,8 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <optional>
+#include <cmath>
+#include <QSet>
 #include <QDir>
 #include <QFileInfo>
 #include <QFutureWatcher>
@@ -295,6 +297,71 @@ SearchResult findGroupedText(
     finishGroup();
     return result;
 }
+// Words that say what a paper is about: frequent in its first pages, rare in the rest of the library.
+QStringList distinctiveTerms(QSqlDatabase &db, const QString &document, int count)
+{
+    static const QSet<QString> common{"this", "that", "with", "from", "which", "these", "their", "there", "where",
+        "have", "were", "been", "also", "such", "into", "than", "then", "they", "them", "when", "each", "more", "most",
+        "other", "some", "only", "over", "both", "between", "using", "used", "based", "while", "however", "figure",
+        "table", "section", "paper", "results", "method", "methods", "show", "shown", "proposed", "approach", "page"};
+    QSqlQuery pages(db);
+    pages.prepare("SELECT text FROM pages WHERE document_id=? AND page<3");
+    pages.addBindValue(document);
+    QHash<QString, int> frequency;
+    if (pages.exec())
+        while (pages.next())
+            for (const auto &word :
+                pages.value(0).toString().toLower().split(QRegularExpression("[^\\p{L}\\p{N}]+"), Qt::SkipEmptyParts))
+                if (word.size() >= 4 && !common.contains(word) && !word.front().isDigit()) ++frequency[word];
+    QSqlQuery total(db);
+    const double pagesInLibrary
+        = total.exec("SELECT count(*) FROM pages") && total.next() ? std::max(1, total.value(0).toInt()) : 1;
+    QList<std::pair<double, QString>> scored;
+    QSqlQuery spread(db);
+    spread.prepare("SELECT doc FROM pages_vocab WHERE term=?");
+    for (auto it = frequency.cbegin(); it != frequency.cend(); ++it) {
+        if (it.value() < 2) continue;
+        spread.addBindValue(it.key());
+        const int pagesWithWord = spread.exec() && spread.next() ? spread.value(0).toInt() : 1;
+        // Words on most pages of the library say nothing about this paper.
+        if (pagesInLibrary > 20 && pagesWithWord > pagesInLibrary * .3) continue;
+        scored.append({it.value() * std::log(1 + pagesInLibrary / pagesWithWord), it.key()});
+    }
+    std::sort(scored.begin(), scored.end(), [](const auto &a, const auto &b) { return a.first > b.first; });
+    QStringList terms;
+    for (const auto &entry : scored)
+        if (terms.size() < count) terms << entry.second;
+    return terms;
+}
+
+SearchResult findRelated(const QString &path, const QString &document, int limit)
+{
+    Connection connection(path, true);
+    if (!connection.db.isOpen()) return {{}, connection.db.lastError().text()};
+    const auto terms = distinctiveTerms(connection.db, document, 8);
+    if (terms.isEmpty()) return {};
+    QStringList quoted;
+    for (const auto &term : terms) quoted << '"' + term + '"';
+    // Papers sharing the most of these words, by their summed bm25 over matching pages.
+    QSqlQuery query(connection.db);
+    query.prepare("SELECT d.id,d.url,sum(pages.rank) AS score FROM pages JOIN documents d ON d.id=pages.document_id "
+                  "WHERE pages.pages MATCH ? AND d.id<>? AND d.state='ready' GROUP BY d.id ORDER BY score LIMIT ?");
+    query.addBindValue(quoted.join(" OR "));
+    query.addBindValue(document);
+    query.addBindValue(limit);
+    if (!query.exec()) return {{}, query.lastError().text()};
+    SearchResult result;
+    const auto titles = libraryTitles(path);
+    while (query.next()) {
+        const QUrl source(query.value(1).toString());
+        result.rows.append(QVariantMap{{"kind", "paper"}, {"documentId", query.value(0)}, {"source", source},
+            {"title", titles.value(source.toString(), QFileInfo(source.toLocalFile()).fileName())}});
+    }
+    // The words also find related notes in the library.
+    result.rows.append(QVariantMap{{"kind", "terms"}, {"terms", terms}});
+    return result;
+}
+
 SearchResult findText(const QString &path, const QString &input)
 {
     const auto match = matchQuery(input);
@@ -361,6 +428,8 @@ bool PaperIndex::initialize(QString *error)
                 "CREATE VIRTUAL TABLE IF NOT EXISTS pages USING fts5(document_id UNINDEXED,page UNINDEXED,text,"
                 "tokenize='unicode61 remove_diacritics 2')"}},
         {2, {"ALTER TABLE documents ADD COLUMN stamp TEXT NOT NULL DEFAULT ''"}},
+        // Word statistics over the page text (no extra storage), for "related papers".
+        {3, {"CREATE VIRTUAL TABLE IF NOT EXISTS pages_vocab USING fts5vocab(pages, 'row')"}},
     };
     if (!migrateSchema(m_database, steps, error)) return false;
     // Revalidate persisted sources after every restart, including interrupted documents.
@@ -598,6 +667,19 @@ int PaperIndex::searchGrouped(const QString &text, const QUrl &source, int offse
     });
     watcher->setFuture(QtConcurrent::run(&m_searchWorkers,
         [path = m_path, text, source, offset, limit] { return findGroupedText(path, text, source, offset, limit); }));
+    return request;
+}
+int PaperIndex::related(const QString &documentId, int limit)
+{
+    const int request = ++m_request;
+    auto *watcher = new QFutureWatcher<SearchResult>(this);
+    connect(watcher, &QFutureWatcher<SearchResult>::finished, this, [this, watcher, request] {
+        const auto result = watcher->result();
+        watcher->deleteLater();
+        emit searchFinished(request, result.rows, result.error);
+    });
+    watcher->setFuture(QtConcurrent::run(
+        &m_searchWorkers, [path = m_path, documentId, limit] { return findRelated(path, documentId, limit); }));
     return request;
 }
 void PaperIndex::openResult(const QString &documentId, int page, const QString &hash)

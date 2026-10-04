@@ -1,4 +1,8 @@
 #include "ResearchStore.h"
+#include <memory>
+#include <algorithm>
+#include "SemanticIndex.h"
+#include "PaperIndex.h"
 
 #include <QColor>
 #include <QDateTime>
@@ -315,4 +319,109 @@ QVariantList ResearchStore::linkCandidates(const QString &queryText) const
         if (rows.size() >= 20) break;
     }
     return rows;
+}
+
+// --- Related papers and notes ---------------------------------------------------------------
+
+namespace {
+QStringList noteTerms(const QString &text, int count)
+{
+    static const QSet<QString> common{"this", "that", "with", "from", "which", "these", "their", "there", "where",
+        "have", "were", "been", "also", "such", "into", "than", "then", "they", "them", "when", "each", "more", "most",
+        "other", "some", "only", "over", "both", "between", "using", "used", "based", "while", "however", "about",
+        "would", "could", "should", "note", "notes", "paper", "page"};
+    QHash<QString, int> frequency;
+    for (const auto &word : text.toLower().split(QRegularExpression("[^\\p{L}\\p{N}]+"), Qt::SkipEmptyParts))
+        if (word.size() >= 4 && !common.contains(word) && !word.front().isDigit()) ++frequency[word];
+    QList<std::pair<int, QString>> ranked;
+    for (auto it = frequency.cbegin(); it != frequency.cend(); ++it) ranked.append({it.value(), it.key()});
+    std::sort(ranked.begin(), ranked.end(),
+        [](const auto &a, const auto &b) { return a.first != b.first ? a.first > b.first : a.second < b.second; });
+    QStringList terms;
+    for (const auto &entry : ranked)
+        if (terms.size() < count) terms << entry.second;
+    return terms;
+}
+}
+
+QVariantList ResearchStore::notesSharing(const QStringList &terms, const QString &exceptNote) const
+{
+    if (terms.isEmpty()) return {};
+    // A note is related when it uses at least two of the words (one when only a couple are known).
+    const int needed = terms.size() >= 3 ? 2 : 1;
+    QList<std::pair<int, QVariantMap>> scored;
+    QSqlQuery query(m_database);
+    query.exec("SELECT id,title,body FROM notes WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT 2000");
+    while (query.next()) {
+        if (query.value(0).toString() == exceptNote) continue;
+        const auto text = query.value(1).toString() + ' ' + query.value(2).toString();
+        int shared = 0;
+        for (const auto &term : terms) shared += text.contains(term, Qt::CaseInsensitive);
+        if (shared < needed) continue;
+        const auto title = query.value(1).toString();
+        scored.append({shared,
+            QVariantMap{{"kind", "standalone-note"}, {"id", query.value(0)},
+                {"title", title.isEmpty() ? QStringLiteral("Untitled") : title}}});
+    }
+    std::stable_sort(scored.begin(), scored.end(), [](const auto &a, const auto &b) { return a.first > b.first; });
+    QVariantList notes;
+    for (const auto &entry : scored)
+        if (notes.size() < 5) notes.append(entry.second);
+    return notes;
+}
+
+QVariantList ResearchStore::relatedNotes(const QString &noteId) const
+{
+    const auto row = note(noteId);
+    if (row.isEmpty()) return {};
+    return notesSharing(noteTerms(row["title"].toString() + ' ' + row["body"].toString(), 8), noteId);
+}
+
+int ResearchStore::relatedTo(const QUrl &source)
+{
+    const int request = ++m_relatedRequest;
+    const auto document = documentLinkId(source);
+    struct Pending {
+        int waiting = 1;
+        QVariantList keywordPapers, meaningPapers;
+        QStringList terms;
+        QMetaObject::Connection index, meaning;
+    };
+    auto pending = std::make_shared<Pending>();
+    const auto finish = [this, request, pending] {
+        if (--pending->waiting > 0) return;
+        disconnect(pending->index);
+        disconnect(pending->meaning);
+        // Meaning beats shared words when it is available; notes always come from the words.
+        const auto papers = pending->meaningPapers.isEmpty() ? pending->keywordPapers : pending->meaningPapers;
+        emit relatedFound(request, papers, notesSharing(pending->terms, {}));
+    };
+    if (document.isEmpty()) {
+        QMetaObject::invokeMethod(this, [this, request] { emit relatedFound(request, {}, {}); }, Qt::QueuedConnection);
+        return request;
+    }
+    const int indexRequest = m_index->related(document);
+    pending->index = connect(m_index, &PaperIndex::searchFinished, this,
+        [pending, indexRequest, finish](int id, const QVariantList &rows, const QString &) {
+            if (id != indexRequest) return;
+            for (const auto &value : rows) {
+                const auto row = value.toMap();
+                if (row["kind"] == "terms")
+                    pending->terms = row["terms"].toStringList();
+                else
+                    pending->keywordPapers.append(row);
+            }
+            finish();
+        });
+    if (m_semantic && m_semantic->enabled()) {
+        ++pending->waiting;
+        const int meaningRequest = m_semantic->relatedPapers(source);
+        pending->meaning = connect(m_semantic, &SemanticIndex::found, this,
+            [pending, meaningRequest, finish](int id, const QVariantList &rows, const QString &) {
+                if (id != meaningRequest) return;
+                pending->meaningPapers = rows;
+                finish();
+            });
+    }
+    return request;
 }

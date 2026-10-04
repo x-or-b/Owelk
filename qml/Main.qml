@@ -201,7 +201,7 @@ ApplicationWindow {
         documentSide = panels.documentSide === "right" ? "right" : "left"
         aiVisible = !!panels.aiVisible
         aiSide = panels.aiSide === "left" ? "left" : "right"
-        navigationMode = [0, 1, 2].indexOf(panels.navigationMode) >= 0 ? panels.navigationMode : 0
+        navigationMode = [0, 1, 2, 3].indexOf(panels.navigationMode) >= 0 ? panels.navigationMode : 0
         paperFolder = panels.folder || ""
         if (leftPanels.indexOf(panels.leftActive) >= 0) leftDock.activePanel = panels.leftActive
         if (rightPanels.indexOf(panels.rightActive) >= 0) rightDock.activePanel = panels.rightActive
