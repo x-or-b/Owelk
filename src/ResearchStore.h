@@ -119,6 +119,8 @@ public:
     // Papers and notes related to a paper, computed on request: meaning vectors when meaning search
     // is on, otherwise the paper's distinctive words. Answered by relatedFound(request, papers, notes).
     Q_INVOKABLE int relatedTo(const QUrl &source);
+    // The opening of a paper's indexed text (for tab organization); empty when not indexed yet.
+    Q_INVOKABLE QString paperOpening(const QUrl &source, int characters = 400);
     // Notes sharing the words of this note (local, immediate).
     Q_INVOKABLE QVariantList relatedNotes(const QString &noteId) const;
     Q_INVOKABLE QVariantList linkCandidates(const QString &query) const;

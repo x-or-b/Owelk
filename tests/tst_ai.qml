@@ -301,5 +301,30 @@ Item {
             button.clicked()
             compare(c.captureMode, false)
         }
+        function test_9z_organizeTabsAppliesOnlyOnApply() {
+            verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
+            researchStore.ai.provider = "claude"
+            const d = workspace.documents
+            d.restore({})
+            workspace.openDocument(fixtureSource); canvas()
+            d.openDocument(fixtureSource, null, true); canvas()
+            const strip = Tree.leaves(d.tree)[0]
+            workspace.organizeTabsIn(strip.id)
+            const dialog = findChild(workspace, "organizeTabsDialog")
+            tryCompare(dialog, "opened", true)
+            compare(dialog.tabs.length, 2)
+            mouseClick(findChild(dialog, "organizeAsk"))
+            tryVerify(function() { return dialog.suggestions.length === 1 }, 10000)
+            compare(dialog.suggestions[0].name, "Fixture papers")
+            verify(Tree.leaves(d.tree)[0].labels === undefined) // Nothing changes before Apply.
+            const apply = findChild(dialog, "organizeApply")
+            verify(apply.enabled)
+            mouseClick(apply)
+            tryCompare(dialog, "opened", false)
+            const labels = Tree.leaves(d.tree)[0].labels
+            compare(labels.length, 1)
+            compare(labels[0].name, "Fixture papers")
+            verify(Tree.leaves(d.tree)[0].tabs.every(function(t) { return t.label === labels[0].id }))
+        }
     }
 }

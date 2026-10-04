@@ -275,6 +275,7 @@ ApplicationWindow {
             case "/library": documents.openLibrary({}); break
             case "/new note": documents.newNote(); break
             case "/settings": settingsDialog.open(); break
+            case "/organize tabs": window.organizeTabsIn(""); break
             case "/move right": documents.moveActiveTabToSplit("right"); break
             case "/move down": documents.moveActiveTabToSplit("bottom"); break
             case "/next split": documents.focusGroup(1); break
@@ -335,6 +336,13 @@ ApplicationWindow {
     }
     CaptureNoteDialog { id: captureNote }
     SettingsDialog { id: settingsDialog }
+    // Created on first use: the AI tab organizer.
+    Loader { id: organizeTabs; active: false; sourceComponent: OrganizeTabsDialog { controller: documents } }
+    function organizeTabsIn(groupId) {
+        if (restoreFailed || homeVisible) return
+        organizeTabs.active = true
+        organizeTabs.item.begin(groupId || documents.activeGroup)
+    }
     AiController { id: aiController; reader: window.homeVisible ? null : window.currentReader }
     // Same bytes as another library entry: offer the existing copy without merging anything silently.
     // A notice, not a dialog: it never takes keyboard focus from the reader.
@@ -463,6 +471,7 @@ ApplicationWindow {
             onHomeResultChosen: function(result) { window.openSearchResult(result) }
             onHomeWorkspaceChosen: function(id) { window.openWorkspace(id) }
             onHomeWorkspaceManageRequested: function(id) { window.manageWorkspace(id) }
+            onOrganizeRequested: function(groupId) { window.organizeTabsIn(groupId) }
             onHomeWorkspaceCreated: function(name) { if (!window.restoreFailed) { const id = researchStore.createWorkspace(name); if (id.length) window.openWorkspace(id) } }
         }
         Rectangle {

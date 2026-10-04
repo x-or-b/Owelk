@@ -187,7 +187,13 @@ public slots:
                     } else if (head.contains("POST /v1/messages")) {
                         // A Claude-style stream for AI panel tests.
                         type = "text/event-stream";
-                        for (const auto *piece : {"Mock ", "answer about **occlusion**."})
+                        // Tab organization prompts get groups back; everything else a fixed answer.
+                        const bool grouping = request.contains("Group these tabs");
+                        const QList<QByteArray> pieces = grouping
+                            ? QList<QByteArray>{"{\\\"groups\\\": [{\\\"name\\\": \\\"Fixture papers\\\", ",
+                                  "\\\"tabs\\\": [\\\"t1\\\", \\\"t2\\\"]}]}"}
+                            : QList<QByteArray>{"Mock ", "answer about **occlusion**."};
+                        for (const auto &piece : pieces)
                             body += QByteArray(
                                         "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":"
                                         "{\"type\":\"text_delta\",\"text\":\"")

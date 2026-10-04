@@ -45,6 +45,9 @@ public:
     Q_INVOKABLE void listModels(const QString &provider);
     Q_INVOKABLE void cancel(int request);
     Q_INVOKABLE void testConnection(const QString &provider);
+    // Suggest named groups for open tabs. tabs: [{id, title, url, kind, authors, year, opening}].
+    // Answered by tabsOrganized(request, groups [{name, tabIds}], error). Nothing is changed here.
+    Q_INVOKABLE int organizeTabs(const QVariantList &tabs);
     // Codex app server: account status, ChatGPT sign-in (opens the browser) and sign-out.
     Q_INVOKABLE void refreshCodexAccount();
     Q_INVOKABLE void codexSignIn();
@@ -62,6 +65,7 @@ signals:
     void finished(int request, const QString &text, const QVariantMap &details);
     void failed(int request, const QString &error);
     void connectionTested(const QString &provider, bool ok, const QString &detail);
+    void tabsOrganized(int request, const QVariantList &groups, const QString &error);
     void codexAccountChanged(const QVariantMap &account);
     void ollamaModelsLoaded(const QStringList &models);
     // models: [{id, name}]

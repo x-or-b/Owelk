@@ -77,6 +77,13 @@ open -n /Users/gyu/Documents/Owelk/build/owelk.app --args --data-dir /Users/gyu/
 - `⌘/Ctrl+Shift+T` 또는 `Tab: Reopen Closed Tab`으로 닫은 탭의 위치·배율을 복원합니다. 현재 실행·워크스페이스에서 최근 20개까지 기억하며 재실행·워크스페이스 전환 시 기록을 비웁니다. 기존 그룹이 없어지면 활성 그룹에 엽니다.
 - OS 별도 창으로 탭 떼어내기와 드래그 중 가장자리 자동 스크롤은 아직 없습니다.
 
+## 탭 그룹
+
+- 탭 우클릭 → `Add to New Group…`으로 이름 있는 탭 그룹을 만들고, `Add to "이름"`으로 더하고, `Remove from Group`으로 뺍니다. 그룹의 탭은 서로 붙어 있고 위에 얇은 띠가 보입니다.
+- 탭 줄 위의 그룹 칩을 누르면 그 그룹의 탭을 접고 펼칩니다(활성 탭은 항상 보임). 칩 우클릭: 이름 바꾸기, Workspace로 저장, 논문을 Collection으로 저장, 그룹 해제, 그룹 탭 닫기.
+- 그룹은 세션·워크스페이스에 함께 저장됩니다. 탭을 다른 분할로 옮기면 그 탭은 그룹에서 빠집니다.
+- **AI로 정리**: 탭 우클릭 → `Organize Tabs with AI…` 또는 명령 `/organize tabs`. 보낼 내용(탭 제목, 웹 주소, 논문 저자·연도·앞부분 400자)을 보여 주고, `Ask`를 누르면 선택한 AI가 그룹을 제안합니다. 이름을 고치거나 체크를 끈 뒤 `Apply`를 눌러야만 탭이 바뀝니다.
+
 ## 목록 제거·캡처 삭제
 
 - Home의 Recent Papers 또는 Files의 Recent files에서 항목을 우클릭 → **Remove from Recent Papers…** → 확인. 원본 PDF, 열린 탭, 읽기 위치, 워크스페이스 연결, 캡처는 유지합니다. PDF를 다시 열면 최근 목록에 다시 등록됩니다.

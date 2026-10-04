@@ -669,6 +669,17 @@ int PaperIndex::searchGrouped(const QString &text, const QUrl &source, int offse
         [path = m_path, text, source, offset, limit] { return findGroupedText(path, text, source, offset, limit); }));
     return request;
 }
+QString PaperIndex::openingText(const QString &documentId, int characters) const
+{
+    QSqlQuery query(m_database);
+    query.prepare("SELECT text FROM pages WHERE document_id=? AND page<2 ORDER BY page");
+    query.addBindValue(documentId);
+    QString text;
+    if (query.exec())
+        while (query.next() && text.size() < characters) text += query.value(0).toString().simplified() + ' ';
+    return text.left(characters).trimmed();
+}
+
 int PaperIndex::related(const QString &documentId, int limit)
 {
     const int request = ++m_request;

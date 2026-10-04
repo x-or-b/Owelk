@@ -425,3 +425,9 @@ int ResearchStore::relatedTo(const QUrl &source)
     }
     return request;
 }
+
+QString ResearchStore::paperOpening(const QUrl &source, int characters)
+{
+    const auto document = documentLinkId(source);
+    return document.isEmpty() ? QString() : m_index->openingText(document, qBound(0, characters, 2000));
+}

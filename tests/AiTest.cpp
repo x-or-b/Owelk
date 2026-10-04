@@ -298,6 +298,60 @@ private slots:
         request.text = "no material";
         QVERIFY(!run(new CodexProvider(&bridge, this), request).error.isEmpty());
     }
+    void organizeTabsSuggestsGroupsWithoutApplying()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        MockServer server;
+        // The model answers with tab names t1…tN; unknown names and repeats are ignored.
+        const auto answer = QStringLiteral(
+            "Here you go: {\"groups\": [{\"name\": \"Radar odometry\", \"tabs\": [\"t1\", \"t3\", \"t9\"]}, "
+            "{\"name\": \"Scenes\", \"tabs\": [\"t2\", \"t1\"]}, {\"name\": \"Empty\", \"tabs\": []}]}");
+        server.chunks
+            = {MockServer::sse("content_block_delta",
+                   {{"type", "content_block_delta"}, {"delta", QJsonObject{{"type", "text_delta"}, {"text", answer}}}}),
+                MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        store.setSetting("ai.baseUrl.claude", server.base().toString());
+        ai->setProvider("claude");
+        QVERIFY(ai->setApiKey("claude", "sk-ant-test-key"));
+        QSignalSpy organized(ai, &AiService::tabsOrganized);
+        const QVariantList tabs{
+            QVariantMap{{"id", "tab-a"}, {"title", "Radar odometry under gravity"}, {"opening", "We fuse doppler…"}},
+            QVariantMap{{"id", "tab-b"}, {"title", "Indoor scenes"}, {"url", "https://example.org/scenes"}},
+            QVariantMap{
+                {"id", "tab-c"}, {"title", "Doppler radar inertial odometry"}, {"authors", "Kim"}, {"year", "2025"}}};
+        ai->organizeTabs(tabs);
+        QTRY_COMPARE_WITH_TIMEOUT(organized.size(), 1, 10000);
+        QCOMPARE(organized[0][2].toString(), QString());
+        const auto groups = organized[0][1].toList();
+        QCOMPARE(groups.size(), 2);
+        QCOMPARE(groups[0].toMap()["name"].toString(), QString("Radar odometry"));
+        QCOMPARE(groups[0].toMap()["tabIds"].toStringList(), QStringList({"tab-a", "tab-c"}));
+        QCOMPARE(groups[1].toMap()["tabIds"].toStringList(), QStringList({"tab-b"}));
+        // What was sent: titles, openings and short tab names, no tab IDs.
+        const auto sent = server.seen.last()
+                              .body["messages"]
+                              .toArray()
+                              .last()
+                              .toObject()["content"]
+                              .toArray()
+                              .last()
+                              .toObject()["text"]
+                              .toString();
+        QVERIFY(sent.contains("t1: Radar odometry under gravity"));
+        QVERIFY(sent.contains("begins: We fuse doppler"));
+        QVERIFY(!sent.contains("tab-a"));
+        // One tab: nothing to organize, nothing sent.
+        const auto requests = server.seen.size();
+        ai->organizeTabs({tabs[0]});
+        QTRY_COMPARE_WITH_TIMEOUT(organized.size(), 2, 5000);
+        QVERIFY(!organized[1][2].toString().isEmpty());
+        QCOMPARE(server.seen.size(), requests);
+        QVERIFY(ai->clearApiKey("claude"));
+    }
     void serviceRequiresConsentKeyAndSavesAnswers()
     {
         QTemporaryDir directory;
@@ -307,6 +361,8 @@ private slots:
         QString error;
         QVERIFY2(store.initialize(&error), qPrintable(error));
         QVERIFY(store.rememberDocument(QUrl::fromLocalFile(pdf)));
+        // The title is read from the PDF in the background.
+        QTRY_COMPARE_WITH_TIMEOUT(store.displayName(QUrl::fromLocalFile(pdf)), QString("Service Paper"), 10000);
         auto *ai = qobject_cast<AiService *>(store.ai());
         QVERIFY(ai);
         MockServer server;

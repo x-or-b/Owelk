@@ -45,6 +45,8 @@ public:
     // Papers sharing this one's distinctive words (keyword fallback when meaning search is off).
     // Answered by searchFinished: paper rows, then one {kind: "terms", terms} row.
     Q_INVOKABLE int related(const QString &documentId, int limit = 5);
+    // The start of an indexed paper's text (its abstract, usually); empty when not indexed.
+    QString openingText(const QString &documentId, int characters) const;
     Q_INVOKABLE void setReaderInteracting(QObject *reader, bool active);
     // Shared with other background work that must also yield to the reader.
     std::shared_ptr<std::atomic_bool> readerBusyFlag() const { return m_readerBusy; }
