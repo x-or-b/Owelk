@@ -3,6 +3,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs as Native
+import "Shortcuts.js" as Shortcuts
+import "Platform.js" as Platform
 
 // App preferences. Values are stored locally in the settings table and apply immediately.
 UiControls.Dialog {
@@ -342,6 +344,73 @@ UiControls.Dialog {
                 Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
                 text: dataSettings.result.length ? dataSettings.result
                     : "A backup copies the library (papers' details, captures, notes, annotations, AI threads, workspaces) and its images into a folder. Your PDFs stay where they are and are not copied. Automatic backups go to the data folder's backups/auto."
+            }
+            Label { text: "Shortcuts"; font.bold: true; color: Theme.text }
+            // Click a shortcut, then press the new keys (Esc cancels, Backspace turns it off).
+            ColumnLayout {
+                id: shortcutSettings
+                objectName: "shortcutSettings"
+                Layout.fillWidth: true
+                spacing: 2
+                property var overrides: Shortcuts.parse(researchStore.setting("shortcuts"))
+                property string recording: ""
+                readonly property var clashes: Shortcuts.conflicts(overrides, Qt.platform.os)
+                function store(id, keys) {
+                    const next = Object.assign({}, overrides)
+                    if (keys === Shortcuts.defaultKeys(id, Qt.platform.os)) delete next[id]; else next[id] = keys
+                    overrides = next
+                    researchStore.setSetting("shortcuts", JSON.stringify(next))
+                }
+                function resetAll() { overrides = ({}); researchStore.setSetting("shortcuts", "{}") }
+                Repeater {
+                    model: Shortcuts.actions
+                    delegate: RowLayout {
+                        id: shortcutRow
+                        required property var modelData
+                        Layout.fillWidth: true
+                        readonly property string current: Shortcuts.keys(modelData.id, shortcutSettings.overrides, Qt.platform.os)
+                        readonly property bool clash: current.length > 0 && !!shortcutSettings.clashes[current]
+                        Label { Layout.fillWidth: true; text: shortcutRow.modelData.name; color: Theme.textBody; elide: Text.ElideRight }
+                        UiControls.Button {
+                            id: keyButton
+                            objectName: "shortcut-" + shortcutRow.modelData.id
+                            Layout.preferredWidth: 150
+                            text: shortcutSettings.recording === shortcutRow.modelData.id ? "Press keys…"
+                                : shortcutRow.current.length ? Platform.keys(shortcutRow.current) : "None"
+                            highlighted: shortcutSettings.recording === shortcutRow.modelData.id
+                            palette.buttonText: shortcutRow.clash ? Theme.danger : Theme.textBody
+                            ToolTip.visible: hovered && shortcutRow.clash; ToolTip.delay: 300
+                            ToolTip.text: shortcutRow.clash ? "Also used by " + shortcutSettings.clashes[shortcutRow.current].filter(function(n) { return n !== shortcutRow.modelData.name }).join(", ") : ""
+                            onClicked: { shortcutSettings.recording = shortcutRow.modelData.id; keyButton.forceActiveFocus() }
+                            Keys.onPressed: function(event) {
+                                if (shortcutSettings.recording !== shortcutRow.modelData.id) return
+                                event.accepted = true
+                                if (event.key === Qt.Key_Escape) { shortcutSettings.recording = ""; return }
+                                if (event.key === Qt.Key_Backspace) { shortcutSettings.store(shortcutRow.modelData.id, ""); shortcutSettings.recording = ""; return }
+                                const keys = Shortcuts.fromEvent(event.key, event.modifiers, event.text)
+                                if (!keys.length) return
+                                shortcutSettings.store(shortcutRow.modelData.id, keys)
+                                shortcutSettings.recording = ""
+                            }
+                            onActiveFocusChanged: if (!activeFocus && shortcutSettings.recording === shortcutRow.modelData.id) shortcutSettings.recording = ""
+                        }
+                        ReaderIconButton {
+                            kind: "restore"; description: "Default: " + Platform.keys(Shortcuts.defaultKeys(shortcutRow.modelData.id, Qt.platform.os))
+                            enabled: shortcutRow.current !== Shortcuts.defaultKeys(shortcutRow.modelData.id, Qt.platform.os)
+                            onClicked: shortcutSettings.store(shortcutRow.modelData.id, Shortcuts.defaultKeys(shortcutRow.modelData.id, Qt.platform.os))
+                        }
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Label {
+                        Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12
+                        color: Object.keys(shortcutSettings.clashes).length ? Theme.danger : Theme.textTertiary
+                        text: Object.keys(shortcutSettings.clashes).length ? "Some shortcuts are used twice (in red); only one of them will work."
+                            : "Click a shortcut and press the new keys. Esc cancels, Backspace turns it off."
+                    }
+                    UiControls.Button { objectName: "resetShortcuts"; text: "Reset All"; onClicked: shortcutSettings.resetAll() }
+                }
             }
         }
     }

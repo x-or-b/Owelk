@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Dialogs as Native
 import "UiTheme.js" as Theme
 import "Platform.js" as Platform
+import "Shortcuts.js" as Shortcuts
 
 ApplicationWindow {
     id: window
@@ -56,6 +57,10 @@ ApplicationWindow {
     property string notification: ""
     property alias documents: documents
     readonly property var currentReader: documents.currentReader
+    // Shortcuts the reader changed in Settings (id → keys; "" turns one off).
+    property var shortcutOverrides: Shortcuts.parse(researchStore.setting("shortcuts"))
+    function keys(id) { return Shortcuts.keys(id, shortcutOverrides, Qt.platform.os) }
+    Connections { target: researchStore; function onSettingsChanged() { window.shortcutOverrides = Shortcuts.parse(researchStore.setting("shortcuts")) } }
 
     function panelsForSide(side) {
         const panels = []
@@ -308,34 +313,34 @@ ApplicationWindow {
         UiControls.Menu {
             title: "File"
             Action { text: "Open PDF…"; shortcut: StandardKey.Open; onTriggered: window.chooseFile() }
-            Action { objectName: "newNoteAction"; text: "New Note"; shortcut: "Ctrl+Shift+N"; enabled: !window.restoreFailed; onTriggered: documents.newNote() }
-            Action { objectName: "openWebAction"; text: "Open Web Page…"; shortcut: "Ctrl+L"; enabled: !window.restoreFailed; onTriggered: window.openWebAddress() }
+            Action { objectName: "newNoteAction"; text: "New Note"; shortcut: window.keys("newNote"); enabled: !window.restoreFailed; onTriggered: documents.newNote() }
+            Action { objectName: "openWebAction"; text: "Open Web Page…"; shortcut: window.keys("openWeb"); enabled: !window.restoreFailed; onTriggered: window.openWebAddress() }
             Action { objectName: "settingsAction"; text: "Settings…"; shortcut: Qt.platform.os === "osx" ? StandardKey.Preferences : "Ctrl+,"; onTriggered: settingsDialog.open() }
-            Action { objectName: "newTabAction"; text: "New Tab"; shortcut: "Ctrl+T"; enabled: !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.newHomeTab() }
-            Action { objectName: "closeTabAction"; text: "Close Tab"; shortcut: "Ctrl+W"; enabled: !window.homeVisible && !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.closeActiveTab() }
-            Action { text: "Reopen Closed Tab"; shortcut: "Ctrl+Shift+T"; enabled: documents.closedTabs.length > 0 && !window.restoreFailed; onTriggered: documents.reopenClosedTab() }
-            Action { objectName: "nextTabAction"; text: "Next Tab"; shortcut: "Ctrl+Alt+Right"; enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(1) }
-            Action { objectName: "previousTabAction"; text: "Previous Tab"; shortcut: "Ctrl+Alt+Left"; enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(-1) }
+            Action { objectName: "newTabAction"; text: "New Tab"; shortcut: window.keys("newTab"); enabled: !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.newHomeTab() }
+            Action { objectName: "closeTabAction"; text: "Close Tab"; shortcut: window.keys("closeTab"); enabled: !window.homeVisible && !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.closeActiveTab() }
+            Action { text: "Reopen Closed Tab"; shortcut: window.keys("reopenTab"); enabled: documents.closedTabs.length > 0 && !window.restoreFailed; onTriggered: documents.reopenClosedTab() }
+            Action { objectName: "nextTabAction"; text: "Next Tab"; shortcut: window.keys("nextTab"); enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(1) }
+            Action { objectName: "previousTabAction"; text: "Previous Tab"; shortcut: window.keys("previousTab"); enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(-1) }
             MenuSeparator {}
             Action { text: "Quit"; shortcut: StandardKey.Quit; onTriggered: window.close() }
         }
         UiControls.Menu {
             title: "View"
-            Action { text: "Home"; shortcut: "Ctrl+Shift+H"; onTriggered: window.showHome() }
-            Action { objectName: "libraryAction"; text: "Library"; shortcut: "Ctrl+Shift+L"; enabled: !window.restoreFailed; onTriggered: documents.openLibrary({}) }
-            Action { text: "Search Research"; shortcut: "Ctrl+K"; onTriggered: { commandPalette.close(); searchPalette.open() } }
-            Action { text: "Command Palette"; shortcut: "Ctrl+Shift+P"; onTriggered: { searchPalette.close(); commandPalette.open() } }
+            Action { text: "Home"; shortcut: window.keys("home"); onTriggered: window.showHome() }
+            Action { objectName: "libraryAction"; text: "Library"; shortcut: window.keys("library"); enabled: !window.restoreFailed; onTriggered: documents.openLibrary({}) }
+            Action { text: "Search Research"; shortcut: window.keys("search"); onTriggered: { commandPalette.close(); searchPalette.open() } }
+            Action { text: "Command Palette"; shortcut: window.keys("commands"); onTriggered: { searchPalette.close(); commandPalette.open() } }
             Action { text: "Find"; shortcut: StandardKey.Find; onTriggered: window.findInView() }
             Action { text: "Zoom in"; shortcut: StandardKey.ZoomIn; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1.2) }
             Action { text: "Zoom out"; shortcut: StandardKey.ZoomOut; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1 / 1.2) }
-            Action { text: "Capture region"; shortcut: "Ctrl+Shift+C"; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.toggleCapture() }
+            Action { text: "Capture region"; shortcut: window.keys("capture"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.toggleCapture() }
             MenuSeparator {}
-            Action { objectName: "splitRightAction"; text: "Duplicate to Right Split"; shortcut: "Ctrl+\\"; enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("right") }
-            Action { objectName: "splitDownAction"; text: "Duplicate to Bottom Split"; shortcut: "Ctrl+Alt+\\"; enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("bottom") }
-            Action { objectName: "moveRightAction"; text: "Move Tab to Right Split"; shortcut: "Ctrl+Shift+Alt+Right"; enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.moveActiveTabToSplit("right") }
-            Action { objectName: "moveDownAction"; text: "Move Tab to Bottom Split"; shortcut: "Ctrl+Shift+Alt+Down"; enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.moveActiveTabToSplit("bottom") }
-            Action { objectName: "nextSplitAction"; text: "Focus Next Split"; shortcut: "Ctrl+Alt+Down"; enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.focusGroup(1) }
-            Action { objectName: "previousSplitAction"; text: "Focus Previous Split"; shortcut: "Ctrl+Alt+Up"; enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.focusGroup(-1) }
+            Action { objectName: "splitRightAction"; text: "Duplicate to Right Split"; shortcut: window.keys("splitRight"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("right") }
+            Action { objectName: "splitDownAction"; text: "Duplicate to Bottom Split"; shortcut: window.keys("splitDown"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("bottom") }
+            Action { objectName: "moveRightAction"; text: "Move Tab to Right Split"; shortcut: window.keys("moveRight"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.moveActiveTabToSplit("right") }
+            Action { objectName: "moveDownAction"; text: "Move Tab to Bottom Split"; shortcut: window.keys("moveDown"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.moveActiveTabToSplit("bottom") }
+            Action { objectName: "nextSplitAction"; text: "Focus Next Split"; shortcut: window.keys("nextSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.focusGroup(1) }
+            Action { objectName: "previousSplitAction"; text: "Focus Previous Split"; shortcut: window.keys("previousSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.focusGroup(-1) }
             Action { text: "Join All Groups"; enabled: !window.homeVisible; onTriggered: documents.joinAll() }
         }
     }

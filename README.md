@@ -77,6 +77,11 @@ open -n /Users/gyu/Documents/Owelk/build/owelk.app --args --data-dir /Users/gyu/
 - `⌘/Ctrl+Shift+T` 또는 `Tab: Reopen Closed Tab`으로 닫은 탭의 위치·배율을 복원합니다. 현재 실행·워크스페이스에서 최근 20개까지 기억하며 재실행·워크스페이스 전환 시 기록을 비웁니다. 기존 그룹이 없어지면 활성 그룹에 엽니다.
 - OS 별도 창으로 탭 떼어내기와 드래그 중 가장자리 자동 스크롤은 아직 없습니다.
 
+## 단축키 바꾸기
+
+- Settings → Shortcuts: 동작을 누르고 새 키를 누르면 바뀝니다(Esc 취소, Backspace 끄기, ↺ 기본값). 같은 키를 두 동작에 쓰면 빨갛게 표시합니다. `Reset All`로 모두 기본값으로 돌립니다.
+- 기본값은 macOS와 Linux·Windows가 다릅니다. Linux·Windows에서는 데스크톱이 쓰는 `Ctrl+Alt+화살표`와 AltGr로 겹치는 `Ctrl+Alt+\` 대신 탭 이동 `Ctrl+PgDown / PgUp`, 아래 분할 `Ctrl+Shift+\`, 분할 이동 `Ctrl+Alt+. / ,`, 탭을 분할로 옮기기 `Ctrl+Shift+Alt+. / ,`를 씁니다.
+
 ## 탭 그룹
 
 - 탭 우클릭 → `Add to New Group…`으로 이름 있는 탭 그룹을 만들고, `Add to "이름"`으로 더하고, `Remove from Group`으로 뺍니다. 그룹의 탭은 서로 붙어 있고 위에 얇은 띠가 보입니다.

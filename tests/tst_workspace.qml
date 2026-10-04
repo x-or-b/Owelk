@@ -527,6 +527,25 @@ Item {
             d.ungroupTabs(Tree.leaves(d.tree)[0].id, restored.labels[0].id)
             verify(Tree.leaves(d.tree).every(function(g) { return g.labels === undefined }))
         }
+        function test_recordedShortcutReplacesTheDefault() {
+            const settings = findChild(workspace, "settingsDialog")
+            settings.open(); tryCompare(settings, "opened", true)
+            const button = visualChild(settings.contentItem, "shortcut-newTab")
+            verify(button)
+            button.clicked()
+            testInput.keyClick(button, Qt.Key_Y, Qt.ControlModifier | Qt.ShiftModifier)
+            compare(JSON.parse(researchStore.setting("shortcuts")).newTab, "Ctrl+Shift+Y")
+            compare(workspace.keys("newTab"), "Ctrl+Shift+Y")
+            settings.close(); tryCompare(settings, "visible", false)
+            // The menu action now answers the new keys.
+            workspace.documents.restore({})
+            workspace.openDocument(fixtureSource); canvas()
+            const before = Tree.leaves(workspace.documents.tree)[0].tabs.length
+            testInput.keyClick(workspace.currentReader, Qt.Key_Y, Qt.ControlModifier | Qt.ShiftModifier)
+            tryCompare(Tree.leaves(workspace.documents.tree)[0].tabs, "length", before + 1)
+            researchStore.setSetting("shortcuts", "{}")
+            compare(workspace.keys("newTab"), "Ctrl+T")
+        }
         function test_relatedTabAsksOnlyWhenShown() {
             workspace.documents.restore({})
             workspace.openDocument(fixtureSource); canvas()

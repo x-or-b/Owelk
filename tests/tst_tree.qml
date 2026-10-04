@@ -2,9 +2,29 @@ import QtQuick
 import QtTest
 import "../qml/WorkspaceTree.js" as Tree
 import "../qml/Platform.js" as Platform
+import "../qml/Shortcuts.js" as Shortcuts
 
 TestCase {
     name: "WorkspaceTree"
+    function test_shortcutRegistry() {
+        // Linux/Windows defaults avoid desktop and AltGr combinations.
+        compare(Shortcuts.defaultKeys("nextTab", "osx"), "Ctrl+Alt+Right")
+        compare(Shortcuts.defaultKeys("nextTab", "linux"), "Ctrl+PgDown")
+        compare(Shortcuts.defaultKeys("splitDown", "windows"), "Ctrl+Shift+\\")
+        verify(Shortcuts.actions.every(function(a) { return a.other.indexOf("Ctrl+Alt+Left") < 0 && a.other.indexOf("Ctrl+Alt+Right") < 0 && a.other.indexOf("Ctrl+Alt+\\") < 0 }))
+        // No clashes among the defaults on any platform.
+        compare(Object.keys(Shortcuts.conflicts({}, "osx")).length, 0)
+        compare(Object.keys(Shortcuts.conflicts({}, "linux")).length, 0)
+        const mine = {newTab: "Ctrl+K", closeTab: ""}
+        compare(Shortcuts.keys("newTab", mine, "linux"), "Ctrl+K")
+        compare(Shortcuts.keys("closeTab", mine, "linux"), "")
+        compare(Shortcuts.conflicts(mine, "linux")["Ctrl+K"].length, 2)
+        compare(Shortcuts.parse("not json"), {})
+        compare(Shortcuts.fromEvent(Qt.Key_Y, Qt.ControlModifier | Qt.ShiftModifier, "Y"), "Ctrl+Shift+Y")
+        compare(Shortcuts.fromEvent(Qt.Key_Shift, Qt.ShiftModifier, ""), "")
+        compare(Shortcuts.fromEvent(Qt.Key_Y, 0, "y"), "") // A plain letter is typing, not a shortcut.
+        compare(Shortcuts.fromEvent(Qt.Key_F5, 0, ""), "F5")
+    }
     function test_shortcutHintsFollowThePlatform() {
         if (Qt.platform.os === "osx") {
             compare(Platform.keys("Ctrl+Shift+L"), "⇧⌘L")
