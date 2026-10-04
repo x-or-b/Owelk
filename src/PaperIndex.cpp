@@ -5,6 +5,8 @@
 
 #include <QDateTime>
 #include <QJsonArray>
+#include <algorithm>
+#include <QJsonObject>
 #include <QJsonDocument>
 #include <optional>
 #include <QDir>
@@ -185,6 +187,36 @@ QHash<QString, QString> libraryTitles(const QString &searchPath)
         while (query.next()) titles.insert(query.value(0).toString(), query.value(1).toString());
     return titles;
 }
+// Per-paper ranking help from the library: the query in the title, recently opened, favorite or being read.
+// Added to bm25 (lower is better), so a paper about the words outranks one that only mentions them.
+QString libraryBoosts(const QString &searchPath, const QString &input)
+{
+    QJsonObject boosts;
+    const auto library = QFileInfo(searchPath).absolutePath() + "/owelk.sqlite3";
+    if (!QFileInfo::exists(library)) return "{}";
+    const auto terms = input.simplified().split(' ', Qt::SkipEmptyParts);
+    Connection connection(library, true);
+    QSqlQuery query(connection.db);
+    if (!connection.db.isOpen()
+        || !query.exec(
+            "SELECT d.id,d.title,d.favorite,d.reading_state,r.opened_at FROM documents d "
+            "LEFT JOIN recent_documents r ON r.document_id=d.id ORDER BY r.opened_at IS NULL,r.opened_at DESC"))
+        return "{}";
+    int rank = 0;
+    while (query.next()) {
+        const auto title = query.value(1).toString();
+        double boost = 0;
+        if (!terms.isEmpty() && std::all_of(terms.cbegin(), terms.cend(), [&](const QString &term) {
+                return title.contains(term, Qt::CaseInsensitive);
+            }))
+            boost += 3;
+        if (!query.value(4).isNull() && rank++ < 10) boost += 1;
+        if (query.value(2).toBool()) boost += .5;
+        if (query.value(3).toString() == "reading") boost += .5;
+        if (boost > 0) boosts.insert(query.value(0).toString(), boost);
+    }
+    return QString::fromUtf8(QJsonDocument(boosts).toJson(QJsonDocument::Compact));
+}
 // limit: when set, only these document IDs (library filters such as a collection or tag) are searched.
 SearchResult findGroupedText(
     const QString &path, const QString &input, const QUrl &scope, int offset, const std::optional<QStringList> &limit)
@@ -204,7 +236,10 @@ SearchResult findGroupedText(
         "FROM pages JOIN documents d ON d.id=pages.document_id WHERE pages.pages MATCH ? AND d.state='ready' %1 %3),"
         "ranked AS (SELECT *,row_number() OVER(PARTITION BY id ORDER BY score,page) AS hit,"
         "count(*) OVER(PARTITION BY id) AS total,min(score) OVER(PARTITION BY id) AS best FROM matches),"
-        "grouped AS (SELECT *,dense_rank() OVER(ORDER BY best,id) AS paper_rank FROM ranked) "
+        // Paper order: the best page's bm25, helped by library boosts and by matching on several pages.
+        "adjusted AS (SELECT ranked.*,best-coalesce(b.value,0)-min(total,10)*0.2 AS paper_score FROM ranked "
+        "LEFT JOIN json_each(?) b ON b.key=ranked.id),"
+        "grouped AS (SELECT *,dense_rank() OVER(ORDER BY paper_score,id) AS paper_rank FROM adjusted) "
         "SELECT id,url,sha256,page,excerpt,total,paper_rank FROM grouped WHERE %2 ORDER BY paper_rank,hit")
                             .arg(scoped ? "AND d.url=?" : "",
                                 scoped ? "hit>? AND hit<=?" : "hit<=3 AND paper_rank>? AND paper_rank<=?",
@@ -215,6 +250,7 @@ SearchResult findGroupedText(
     if (limit)
         query.addBindValue(
             QString::fromUtf8(QJsonDocument(QJsonArray::fromStringList(*limit)).toJson(QJsonDocument::Compact)));
+    query.addBindValue(libraryBoosts(path, input));
     query.addBindValue(offset);
     query.addBindValue(offset + (scoped ? 41 : 21));
     if (!query.exec()) return {{}, query.lastError().text()};

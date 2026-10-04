@@ -775,6 +775,45 @@ private slots:
         QCOMPARE(workspace["workspaceName"].toString(), "Alpha study");
         QCOMPARE(workspace["left"].toMap()["position"].toMap()["page"].toInt(), 3);
     }
+    void searchRanksTitlesAndMatchesWordsInAnyOrder()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        // Saved items: all words, any order; a title hit outranks a body hit.
+        const auto inBody = store.createNote("Reading log", "We saw mapping fail under heavy occlusion.");
+        const auto inTitle = store.createNote("Occlusion mapping", "Notes for later.");
+        QVERIFY(!inBody.isEmpty() && !inTitle.isEmpty());
+        auto rows = store.searchKnowledge("mapping occlusion");
+        QCOMPARE(rows.size(), 2);
+        QCOMPARE(rows[0].toMap()["id"].toString(), inTitle);
+        QCOMPARE(rows[1].toMap()["id"].toString(), inBody);
+        QVERIFY(store.searchKnowledge("mapping lidar").isEmpty());
+        // PDF text: two papers with the same pages; the one whose title has the words comes first.
+        const auto a = QUrl::fromLocalFile(directory.filePath("a.pdf")),
+                   b = QUrl::fromLocalFile(directory.filePath("b.pdf"));
+        writeFixture(a.toLocalFile());
+        writeFixture(b.toLocalFile());
+        QVERIFY(store.rememberDocument(a));
+        QVERIFY(store.rememberDocument(b));
+        auto *index = qobject_cast<PaperIndex *>(store.paperIndex());
+        QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 20000);
+        QSignalSpy found(index, &PaperIndex::searchFinished);
+        const auto firstPaper = [&] {
+            found.clear();
+            index->searchGrouped("context observation", {}, 0);
+            if (!found.wait(5000)) return QUrl();
+            for (const auto &row : found[0][1].toList())
+                if (row.toMap()["kind"] == "paperGroup") return row.toMap()["source"].toUrl();
+            return QUrl();
+        };
+        QVERIFY(store.updateDocumentDetails(a, {{"title", "Context and Observation"}}));
+        QCOMPARE(firstPaper(), a);
+        store.resetDocumentDetails(a);
+        QVERIFY(store.updateDocumentDetails(b, {{"title", "Observation in Context"}}));
+        QCOMPARE(firstPaper(), b);
+    }
     void pathsUseThePlatformForm()
     {
         QTemporaryDir directory;
