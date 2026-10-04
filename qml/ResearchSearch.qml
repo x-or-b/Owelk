@@ -78,7 +78,7 @@ QtObject {
     }
     function selectionIndex() {
         if (!results.length) return -1
-        return Math.min(preferredIndex > 0 ? preferredIndex : Math.max(0, results.findIndex(function(r) { return r.kind !== "paperGroup" })), results.length - 1)
+        return Math.min(preferredIndex > 0 ? preferredIndex : Math.max(0, results.findIndex(function(r) { return r.kind !== "paperGroup" && r.kind !== "section" })), results.length - 1)
     }
     function back() {
         if (!history.length) return

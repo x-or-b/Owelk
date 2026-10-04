@@ -67,6 +67,8 @@ UiControls.Popup {
             Layout.fillWidth: true
             Layout.preferredHeight: Math.min(360, Math.max(44, contentHeight))
             model: root.results
+            // A new model resets the current row to 0, which can be a heading; choose again afterwards.
+            onModelChanged: currentIndex = search.selectionIndex()
             clip: true
             ScrollBar.vertical: ScrollBar {}
             delegate: SearchResultDelegate {

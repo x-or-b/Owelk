@@ -811,6 +811,8 @@ private slots:
         QVERIFY(store.updateDocumentDetails(a, {{"title", "Context and Observation"}}));
         QCOMPARE(firstPaper(), a);
         store.resetDocumentDetails(a);
+        // The reset re-reads the PDF's own title in the background.
+        QTRY_VERIFY_WITH_TIMEOUT(store.documentDetails(a)["title"].toString() != "Context and Observation", 10000);
         QVERIFY(store.updateDocumentDetails(b, {{"title", "Observation in Context"}}));
         QCOMPARE(firstPaper(), b);
     }

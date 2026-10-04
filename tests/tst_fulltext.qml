@@ -63,13 +63,20 @@ Item {
             // No page has these words, but "hidden view" means occlusion and observation.
             findChild(palette, "searchPaletteQuery").text = "hidden view"
             tryVerify(function() { return palette.results.some(function(r) { return r.kind === "section" }) }, 10000)
+            tryVerify(function() { return !palette.searchController.waiting }, 10000)
+            wait(200)
             const at = palette.results.findIndex(function(r) { return r.kind === "section" })
             compare(palette.results[at].title, "Similar meaning")
             verify(palette.results[at + 1].semantic)
-            verify(researchStore.sameSource(palette.results[at + 1].source, fixtureSource) || palette.results[at + 1].kind !== "text")
-            // The heading is skipped by the keyboard.
-            palette.move(1)
-            verify(palette.results[findChild(palette, "searchPaletteResults").currentIndex].kind !== "section")
+            // Fixture pages (other test files add more copies of the same text) are found by meaning.
+            verify(palette.results.some(function(r) { return r.semantic && r.kind === "text" && r.title === "A Small Research Reader" }))
+            // The heading is never selected: not first, and skipped by the keyboard.
+            const list = findChild(palette, "searchPaletteResults")
+            verify(palette.results[list.currentIndex].kind !== "section")
+            for (let i = 0; i < palette.results.length; ++i) {
+                palette.move(1)
+                verify(palette.results[list.currentIndex].kind !== "section")
+            }
             palette.close()
             semantic.configure("", "")
             semantic.clear()
