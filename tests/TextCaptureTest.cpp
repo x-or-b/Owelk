@@ -12,6 +12,8 @@
 #include <QSignalSpy>
 #include <QSqlQuery>
 #include <QTemporaryDir>
+#include <QElapsedTimer>
+#include <QFileInfo>
 #include <QtTest>
 #include <limits>
 
@@ -146,6 +148,31 @@ private slots:
         printed.fill(Qt::white);
         paintPdfAnnotations(printed, rows, 1);
         QVERIFY(printed.pixelColor(100, 180) != QColor(Qt::white));
+        // The real print path, into a PDF: every page, annotations drawn, sharp and quick.
+        const auto output = dir.filePath("printed.pdf");
+        QSignalSpy printing(&store, &ResearchStore::printingChanged);
+        QElapsedTimer clock;
+        clock.start();
+        const int pages = 8; // writeFixture default
+        store.printDocumentTo(source, hash, pages, output);
+        QTRY_VERIFY_WITH_TIMEOUT(!store.printing() && printing.size() >= 2, 30000);
+        const auto elapsed = clock.elapsed();
+        QPdfDocument out;
+        QCOMPARE(out.load(output), QPdfDocument::Error::None);
+        QCOMPARE(out.pageCount(), 8);
+        const auto size = out.pagePointSize(0);
+        const auto first = out.render(0, QSize(qRound(size.width()), qRound(size.height())));
+        // The text box sits at (0.1, 0.2) in pink; something other than white is drawn there.
+        bool marked = false;
+        for (int y = int(size.height() * .2); y < int(size.height() * .3) && !marked; ++y)
+            for (int x = int(size.width() * .1); x < int(size.width() * .4) && !marked; ++x)
+                marked = first.pixelColor(x, y).red() > first.pixelColor(x, y).green() + 40;
+        QVERIFY(marked);
+        QVERIFY2(elapsed < 20000, qPrintable(QString::number(elapsed)));
+        // A source that changed since it was verified is not printed.
+        store.printDocumentTo(source, "0000", pages, dir.filePath("stale.pdf"));
+        QTRY_VERIFY_WITH_TIMEOUT(!store.printing(), 10000);
+        QVERIFY(QFileInfo(dir.filePath("stale.pdf")).size() < 2000);
         QVERIFY(!store.updateHighlight(textId, "not-a-color", ""));
         mark["rectangles"] = QVariantList{QVariantMap{{"x", .9}, {"y", .2}, {"width", .3}, {"height", .1}}};
         store.saveAnnotation(source, 0, mark);

@@ -1,6 +1,10 @@
 #include "ResearchStore.h"
 #include "PdfPrinting.h"
 #include <QApplication>
+#include <QGuiApplication>
+#include <QPointer>
+#include <QThreadPool>
+#include <QWindow>
 #include "FileFingerprint.h"
 #include <QFile>
 #include <QFileInfo>
@@ -77,15 +81,28 @@ namespace {
 struct PrintJob {
     std::unique_ptr<QPrinter> printer = std::make_unique<QPrinter>(QPrinter::HighResolution);
     std::unique_ptr<QPainter> painter;
-    QProgressDialog *progress = nullptr;
+    QPointer<QProgressDialog> progress;
     QObject *owner = nullptr;
-    QThreadPool *pool = nullptr;
+    // One thread that keeps the PDF open for the whole job.
+    std::shared_ptr<QThreadPool> renderer;
+    std::shared_ptr<QPdfDocument> pdf;
     QUrl source;
     QString hash;
     QVariantList marks;
     int page = 0, last = 0, first = 0;
     std::function<void(const QString &)> finished;
 };
+// Native dialogs need the app window as their parent, or they can open behind it.
+void keepInFront(QWidget *dialog)
+{
+    dialog->winId();
+    if (auto *window = dialog->windowHandle(); window && QGuiApplication::focusWindow())
+        window->setTransientParent(QGuiApplication::focusWindow());
+}
+bool cancelled(const std::shared_ptr<PrintJob> &job)
+{
+    return job->progress && job->progress->wasCanceled();
+}
 void finish(const std::shared_ptr<PrintJob> &job, const QString &error)
 {
     if (job->painter) {
@@ -95,13 +112,15 @@ void finish(const std::shared_ptr<PrintJob> &job, const QString &error)
     if (job->progress) {
         job->progress->close();
         job->progress->deleteLater();
-        job->progress = nullptr;
     }
+    // The document belongs to the render thread; release it there.
+    auto pdf = std::exchange(job->pdf, {});
+    if (job->renderer) job->renderer->start([pdf]() mutable { pdf.reset(); });
     job->finished(error);
 }
 void nextPage(const std::shared_ptr<PrintJob> &job)
 {
-    if (job->progress->wasCanceled()) {
+    if (cancelled(job)) {
         job->printer->abort();
         finish(job, "Printing cancelled.");
         return;
@@ -110,6 +129,8 @@ void nextPage(const std::shared_ptr<PrintJob> &job)
         finish(job, QString());
         return;
     }
+    // Printer resolution, capped: 300 dpi is sharp on paper and keeps the spool small.
+    const qreal dpi = qMin(300, job->printer->resolution());
     auto *watcher = new QFutureWatcher<QImage>(job->owner);
     QObject::connect(watcher, &QFutureWatcher<QImage>::finished, job->owner, [job, watcher] {
         const auto pixels = watcher->result();
@@ -119,7 +140,7 @@ void nextPage(const std::shared_ptr<PrintJob> &job)
             finish(job, "Printing stopped: the source changed or a page could not be rendered.");
             return;
         }
-        if (job->progress->wasCanceled()) {
+        if (cancelled(job)) {
             job->printer->abort();
             finish(job, "Printing cancelled.");
             return;
@@ -130,6 +151,7 @@ void nextPage(const std::shared_ptr<PrintJob> &job)
                 finish(job, "Cannot start the print job.");
                 return;
             }
+            job->painter->setRenderHint(QPainter::SmoothPixmapTransform);
         } else if (!job->printer->newPage()) {
             finish(job, "The printer could not create the next page.");
             return;
@@ -138,26 +160,59 @@ void nextPage(const std::shared_ptr<PrintJob> &job)
         const auto size = pixels.size().scaled(area.size(), Qt::KeepAspectRatio);
         job->painter->drawImage(
             QRect(QPoint((area.width() - size.width()) / 2, (area.height() - size.height()) / 2), size), pixels);
-        job->progress->setValue(job->page - job->first + 1);
+        if (job->progress) job->progress->setValue(job->page - job->first + 1);
         ++job->page;
         nextPage(job);
     });
-    watcher->setFuture(QtConcurrent::run(job->pool, [job] {
-        if (FileFingerprint::sha256(job->source.toLocalFile()) != job->hash) return QImage();
-        QPdfDocument pdf;
-        if (pdf.load(job->source.toLocalFile()) != QPdfDocument::Error::None || job->page >= pdf.pageCount())
-            return QImage();
-        const auto points = pdf.pagePointSize(job->page);
-        const qreal scale = qMin(2.0, 4096.0 / qMax(points.width(), points.height()));
-        auto image = pdf.render(job->page, QSize(qRound(points.width() * scale), qRound(points.height() * scale)));
+    watcher->setFuture(QtConcurrent::run(job->renderer.get(), [job, dpi] {
+        // The source is verified once before the first page and once after the last, not per page.
+        if (!job->pdf) {
+            if (FileFingerprint::sha256(job->source.toLocalFile()) != job->hash) return QImage();
+            job->pdf = std::make_shared<QPdfDocument>();
+            if (job->pdf->load(job->source.toLocalFile()) != QPdfDocument::Error::None) return QImage();
+        }
+        if (job->page >= job->pdf->pageCount()) return QImage();
+        const auto points = job->pdf->pagePointSize(job->page);
+        const qreal scale = qMin(dpi / 72.0, 7000.0 / qMax(points.width(), points.height()));
+        auto image
+            = job->pdf->render(job->page, QSize(qRound(points.width() * scale), qRound(points.height() * scale)));
         QVariantList marks;
         for (const auto &m : job->marks)
             if (m.toMap()["page"].toInt() == job->page) marks.append(m);
         if (!image.isNull()) paintPdfAnnotations(image, marks, scale);
-        if (FileFingerprint::sha256(job->source.toLocalFile()) != job->hash) return QImage();
+        if (job->page == job->last && FileFingerprint::sha256(job->source.toLocalFile()) != job->hash) return QImage();
         return image;
     }));
 }
+std::shared_ptr<PrintJob> makeJob(QObject *owner, const QUrl &source, const QString &hash)
+{
+    auto job = std::make_shared<PrintJob>();
+    job->owner = owner;
+    job->renderer = std::make_shared<QThreadPool>();
+    job->renderer->setMaxThreadCount(1);
+    job->renderer->setExpiryTimeout(-1);
+    job->source = source;
+    job->hash = hash;
+    return job;
+}
+}
+
+bool ResearchStore::readPrintMarks(const QUrl &source, const QString &hash, QVariantList *marks)
+{
+    QSqlQuery query(m_database);
+    query.prepare(
+        "SELECT page,rectangles,color,kind,body,image,drawing FROM highlights WHERE document_id=? AND sha256=? "
+        "AND deleted_at IS NULL");
+    query.addBindValue(findDocument(source));
+    query.addBindValue(hash);
+    if (!query.exec()) return false;
+    while (query.next())
+        marks->append(QVariantMap{{"page", query.value(0)},
+            {"rectangles", QJsonDocument::fromJson(query.value(1).toByteArray()).toVariant()},
+            {"color", query.value(2)}, {"kind", query.value(3)}, {"body", query.value(4)},
+            {"image", QUrl::fromLocalFile(m_directory + "/annotations/" + query.value(5).toString())},
+            {"drawing", QJsonDocument::fromJson(query.value(6).toByteArray()).toVariant()}});
+    return true;
 }
 
 void ResearchStore::printDocument(const QUrl &source, const QString &hash, int pages)
@@ -178,27 +233,11 @@ void ResearchStore::printDocument(const QUrl &source, const QString &hash, int p
         emit message("Printing needs the updated desktop app. Quit Owelk completely and reopen it.");
         return;
     }
-    auto job = std::make_shared<PrintJob>();
-    job->owner = this;
-    job->pool = &m_workers;
-    job->source = source;
-    job->hash = hash;
-    QSqlQuery query(m_database);
-    query.prepare(
-        "SELECT page,rectangles,color,kind,body,image,drawing FROM highlights WHERE document_id=? AND sha256=? "
-        "AND deleted_at IS NULL");
-    query.addBindValue(findDocument(source));
-    query.addBindValue(hash);
-    if (!query.exec()) {
+    auto job = makeJob(this, source, hash);
+    if (!readPrintMarks(source, hash, &job->marks)) {
         emit message("Cannot read annotations for printing.");
         return;
     }
-    while (query.next())
-        job->marks.append(QVariantMap{{"page", query.value(0)},
-            {"rectangles", QJsonDocument::fromJson(query.value(1).toByteArray()).toVariant()},
-            {"color", query.value(2)}, {"kind", query.value(3)}, {"body", query.value(4)},
-            {"image", QUrl::fromLocalFile(m_directory + "/annotations/" + query.value(5).toString())},
-            {"drawing", QJsonDocument::fromJson(query.value(6).toByteArray()).toVariant()}});
     m_printing = true;
     emit printingChanged();
     job->finished = [this](const QString &error) {
@@ -209,6 +248,7 @@ void ResearchStore::printDocument(const QUrl &source, const QString &hash, int p
     auto *dialog = new QPrintDialog(job->printer.get());
     dialog->setMinMax(1, pages);
     dialog->setWindowTitle("Print PDF and annotations");
+    keepInFront(dialog);
     connect(dialog, &QDialog::finished, this, [job, dialog, pages](int result) {
         dialog->deleteLater();
         if (result != QDialog::Accepted) {
@@ -228,8 +268,28 @@ void ResearchStore::printDocument(const QUrl &source, const QString &hash, int p
         job->progress = new QProgressDialog("Printing PDF and annotations…", "Cancel", 0, job->last - job->first + 1);
         job->progress->setWindowModality(Qt::ApplicationModal);
         job->progress->setAutoClose(false);
+        keepInFront(job->progress);
         job->progress->show();
         nextPage(job);
     });
     dialog->open();
+}
+
+void ResearchStore::printDocumentTo(const QUrl &source, const QString &hash, int pages, const QString &pdfFile)
+{
+    // Same rendering as printing, without dialogs: used by tests to check the printed output.
+    auto job = makeJob(this, source, hash);
+    readPrintMarks(source, hash, &job->marks);
+    job->printer->setOutputFormat(QPrinter::PdfFormat);
+    job->printer->setOutputFileName(pdfFile);
+    job->first = job->page = 0;
+    job->last = pages - 1;
+    m_printing = true;
+    emit printingChanged();
+    job->finished = [this](const QString &error) {
+        m_printing = false;
+        emit printingChanged();
+        emit message(error.isEmpty() ? QStringLiteral("Printed.") : error);
+    };
+    nextPage(job);
 }

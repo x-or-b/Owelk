@@ -153,6 +153,8 @@ public:
                 source.toEncoded().toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals)));
     }
     Q_INVOKABLE void printDocument(const QUrl &source, const QString &fingerprint, int pages);
+    // Printing without dialogs, into a PDF file (tests).
+    void printDocumentTo(const QUrl &source, const QString &fingerprint, int pages, const QString &pdfFile);
     Q_INVOKABLE int loadHighlights(const QUrl &source);
     Q_INVOKABLE bool removeHighlight(const QString &id);
     Q_INVOKABLE void openHighlight(const QString &id);
@@ -261,6 +263,7 @@ private:
     int m_highlightRequest = 0;
     int m_knowledgeRequest = 0;
     bool m_printing = false;
+    bool readPrintMarks(const QUrl &source, const QString &hash, QVariantList *marks);
     PaperIndex *m_index;
     QObject *m_lookup;
     QObject *m_ai;
