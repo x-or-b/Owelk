@@ -30,6 +30,7 @@ class ResearchStore final : public QObject {
     // Online details lookup, used only from the Paper Details dialog's button.
     Q_PROPERTY(QObject *metadataLookup READ metadataLookup CONSTANT)
     Q_PROPERTY(QObject *ai READ ai CONSTANT)
+    Q_PROPERTY(QObject *semantic READ semantic CONSTANT)
     Q_PROPERTY(bool relinking READ relinking NOTIFY relinkingChanged)
     Q_PROPERTY(QStringList annotationColors READ annotationColors CONSTANT)
     // Bumped when paper titles or details change; bind to it next to displayName() calls.
@@ -54,6 +55,7 @@ public:
     QObject *paperIndex() const;
     QObject *metadataLookup() const { return m_lookup; }
     QObject *ai() const { return m_ai; }
+    QObject *semantic() const;
     bool relinking() const { return m_relinking; }
     Q_INVOKABLE QUrl resolvedSource(const QUrl &source) const;
     Q_INVOKABLE void requestRelink(const QUrl &source);
@@ -267,4 +269,5 @@ private:
     PaperIndex *m_index;
     QObject *m_lookup;
     QObject *m_ai;
+    class SemanticIndex *m_semantic = nullptr;
 };

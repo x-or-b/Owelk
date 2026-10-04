@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "SemanticIndex.h"
 #include "FileFingerprint.h"
 #include "SchemaMigration.h"
 #include "PaperIndex.h"
@@ -90,6 +91,11 @@ ResearchStore::ResearchStore(const QString &directory, QObject *parent)
     m_metadataWorkers.setMaxThreadCount(1);
     m_metadataWorkers.setThreadPriority(QThread::LowPriority);
     connect(m_index, &PaperIndex::message, this, &ResearchStore::message);
+}
+
+QObject *ResearchStore::semantic() const
+{
+    return m_semantic;
 }
 
 QObject *ResearchStore::paperIndex() const
@@ -263,6 +269,13 @@ bool ResearchStore::initialize(QString *error)
     m_index->setDocumentResolver([this](const QUrl &url) { return ensureDocument(url); });
     m_index->setExclusionCheck([this](const QUrl &url) { return excludedFromIndex(url); });
     if (!m_index->initialize(error)) return false;
+    // Meaning search follows changes to indexed text and saved items, only while it is turned on.
+    m_semantic = new SemanticIndex(this, m_index, m_directory, this);
+    for (const auto signal : {&ResearchStore::notesChanged, &ResearchStore::highlightsChanged,
+             &ResearchStore::capturesChanged, &ResearchStore::aiThreadsChanged})
+        connect(this, signal, m_semantic, &SemanticIndex::sync);
+    connect(m_index, &PaperIndex::contentsChanged, m_semantic, &SemanticIndex::sync);
+    m_semantic->sync();
     // Durable redirects also replay any search-cache update interrupted by process exit.
     for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)
         m_index->relocateSource(QUrl(it.key()), resolvedSource(QUrl(it.value())));

@@ -10,7 +10,10 @@ UiControls.ItemDelegate {
     property string queryText: ""
     readonly property bool heading: queryText.trim().length > 0 && (modelData.kind === "paperGroup" || modelData.kind === "paper")
     readonly property string byline: modelData.kind === "paper" ? [modelData.authors, modelData.year].filter(function(s) { return s && String(s).length }).join("  ·  ") : ""
-    height: (modelData.snippet ? 76 : 44) + (byline.length ? 14 : 0)
+    // A section heading ("Similar meaning") is a label, not a result.
+    readonly property bool section: modelData.kind === "section"
+    enabled: !section
+    height: section ? 30 : (modelData.snippet ? 76 : 44) + (byline.length ? 14 : 0)
     background: Rectangle {
         color: root.heading ? (root.highlighted || root.hovered ? Theme.searchHeadingHover : Theme.searchHeading) : root.highlighted ? Theme.surfaceSelected : root.hovered ? Theme.surfaceHover : "transparent"
     }
@@ -23,14 +26,15 @@ UiControls.ItemDelegate {
                 Layout.fillWidth: true
                 text: Match.highlight(root.modelData.title, root.queryText, root.heading ? Theme.accentOnDark : Theme.accent)
                 textFormat: Text.StyledText
-                color: root.heading ? Theme.onDark : root.modelData.kind === "text" ? Theme.accentText : Theme.textBody
-                font.bold: root.modelData.kind === "paperGroup"
+                color: root.section ? Theme.textTertiary : root.heading ? Theme.onDark : root.modelData.kind === "text" ? Theme.accentText : Theme.textBody
+                font.bold: root.modelData.kind === "paperGroup" || root.section
+                font.pointSize: root.section ? Qt.application.font.pointSize * .85 : Qt.application.font.pointSize
                 elide: root.modelData.kind === "paper" ? Text.ElideRight : Text.ElideMiddle
             }
             Label {
                 text: root.modelData.kind === "paperGroup" ? root.modelData.total + " matching pages"
                     : root.modelData.kind === "text" ? "p. " + (Number(root.modelData.page) + 1)
-                    : ["moreInPaper", "nextResults"].indexOf(root.modelData.kind) >= 0 ? ""
+                    : ["moreInPaper", "nextResults", "section"].indexOf(root.modelData.kind) >= 0 ? ""
                     : root.modelData.kind === "paper" ? "" : root.modelData.kind
                 color: root.heading ? Theme.onDarkMuted : Theme.textMuted; font.pixelSize: 11
             }

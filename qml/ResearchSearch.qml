@@ -10,6 +10,10 @@ QtObject {
     property int request: -1
     property int namesRequest: -1
     property var textRows: []
+    // Meaning matches (when semantic search is on), shown after the keyword results.
+    property var semanticRows: []
+    property int semanticRequest: -1
+    readonly property var semantic: researchStore.semantic
     property bool namesPending: false
     property bool textPending: false
     readonly property bool waiting: namesPending || textPending
@@ -62,6 +66,7 @@ QtObject {
     onSourceFilterChanged: filtersChanged()
     onTargetFilterChanged: filtersChanged()
     function choose(result) {
+        if (result.kind === "section") return true
         if (["paperGroup", "moreInPaper", "nextResults"].indexOf(result.kind) < 0) return false
         if (result.kind === "paperGroup" && researchStore.sameSource(sourceFilter, result.source)) return true
         history = history.concat([{source: sourceFilter.toString(), target: targetFilter, offset: offset, index: results.indexOf(result)}])
@@ -85,10 +90,18 @@ QtObject {
     }
     function invalidate() {
         request = -1; namesRequest = -1; namesPending = false; textPending = false
-        names = []; textRows = []; results = []; error = ""
+        names = []; textRows = []; semanticRows = []; semanticRequest = -1; results = []; error = ""
     }
     // Saved items come first; publish only once they are known so the selection does not jump.
-    function publish() { if (!namesPending) results = names.concat(textRows) }
+    function publish() {
+        if (namesPending) return
+        const shown = names.concat(textRows)
+        // Meaning matches not already listed, under their own heading.
+        const seen = {}
+        shown.forEach(function(r) { seen[r.kind === "text" ? "text|" + r.documentId + "|" + r.page : r.kind + "|" + r.id] = true })
+        const extra = semanticRows.filter(function(r) { return !seen[r.kind === "text" ? "text|" + r.documentId + "|" + r.page : r.kind + "|" + r.id] })
+        results = extra.length ? shown.concat([{kind: "section", title: "Similar meaning"}]).concat(extra) : shown
+    }
     function refresh() {
         delay.stop()
         invalidate()
@@ -106,6 +119,9 @@ QtObject {
             names = researchStore.recentDocuments.map(function(p) { return {kind: "paper", title: p.name, source: p.url, position: p.position, authors: p.authors, year: p.year} })
         }
         publish()
+        if (semantic && semantic.enabled && needle.length && offset === 0 && !sourceFilter.toString().length && !libraryScoped
+                && (targetFilter === "all" || targetFilter === "text"))
+            semanticRequest = semantic.search(needle)
         if (needle.length && (targetFilter === "all" || targetFilter === "text")) {
             textPending = true
             request = researchStore.paperIndex.searchGrouped(needle, sourceFilter, offset, scope ? scope.map(function(p) { return p.id }) : null)
@@ -120,6 +136,13 @@ QtObject {
         function onKnowledgeFound(id, rows) {
             if (!root.active || root.namesRequest !== id) return
             root.names = rows; root.namesPending = false; root.publish()
+        }
+    }
+    property Connections semanticUpdates: Connections {
+        target: root.semantic
+        function onFound(id, rows, error) {
+            if (!root.active || root.semanticRequest !== id) return
+            root.semanticRows = rows; root.publish()
         }
     }
     property Connections indexUpdates: Connections {

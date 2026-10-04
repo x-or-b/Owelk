@@ -52,6 +52,28 @@ Item {
             for (let i = 0; i < children.length; ++i) { const found = visualChild(children[i], name); if (found) return found }
             return null
         }
+        function test_meaningResultsFollowKeywordResults() {
+            const semantic = researchStore.semantic
+            researchStore.setSetting("semantic.baseUrl.ollama", testInput.webFixture("/").toString())
+            semantic.configure("ollama", "test-embed")
+            tryVerify(function() { return !semantic.busy && semantic.storedCount() > 0 }, 20000)
+            compare(semantic.error, "")
+            const palette = findChild(workspace, "searchPalette")
+            palette.open(); tryCompare(palette, "opened", true)
+            // No page has these words, but "hidden view" means occlusion and observation.
+            findChild(palette, "searchPaletteQuery").text = "hidden view"
+            tryVerify(function() { return palette.results.some(function(r) { return r.kind === "section" }) }, 10000)
+            const at = palette.results.findIndex(function(r) { return r.kind === "section" })
+            compare(palette.results[at].title, "Similar meaning")
+            verify(palette.results[at + 1].semantic)
+            verify(researchStore.sameSource(palette.results[at + 1].source, fixtureSource) || palette.results[at + 1].kind !== "text")
+            // The heading is skipped by the keyboard.
+            palette.move(1)
+            verify(palette.results[findChild(palette, "searchPaletteResults").currentIndex].kind !== "section")
+            palette.close()
+            semantic.configure("", "")
+            semantic.clear()
+        }
         function test_scopeChipsAndTypedLibraryConditions() {
             const palette = findChild(workspace, "searchPalette")
             palette.open(); tryCompare(palette, "opened", true)

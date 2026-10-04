@@ -76,6 +76,75 @@ UiControls.Dialog {
                 Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
                 text: "PDFs downloaded from web pages are saved here. Existing files are never overwritten. In the web tab, PDFs can also be read in place (More → Show PDFs in This Tab) and sent to the reader with Open in Reader; highlights, captures and notes work in the reader."
             }
+            Label { text: "Search"; font.bold: true; color: Theme.text }
+            // Meaning search: off by default; an engine embeds the library in the background.
+            GridLayout {
+                id: semanticSettings
+                Layout.fillWidth: true
+                columns: 2; columnSpacing: 10; rowSpacing: 8
+                readonly property var semantic: researchStore.semantic
+                readonly property var engines: [{name: "Off", value: ""}, {name: "Ollama (this computer)", value: "ollama"}, {name: "OpenAI", value: "openai"}]
+                property int stored: 0
+                function refreshCount() { stored = semantic.storedCount() }
+                Component.onCompleted: refreshCount()
+                Connections { target: semanticSettings.semantic; function onChanged() { semanticSettings.refreshCount() } }
+                Label { text: "Meaning search"; color: Theme.textBody }
+                UiControls.ComboBox {
+                    id: semanticEngineBox; objectName: "semanticEngineBox"
+                    Layout.fillWidth: true
+                    model: semanticSettings.engines.map(function(e) { return e.name })
+                    currentIndex: Math.max(0, semanticSettings.engines.findIndex(function(e) { return e.value === semanticSettings.semantic.engine }))
+                    onActivated: function(index) {
+                        const engine = semanticSettings.engines[index].value
+                        // Sending the library's text to OpenAI is confirmed first.
+                        if (engine === "openai" && researchStore.setting("semantic.consent.openai") !== "1") { semanticConsent.open(); currentIndex = Qt.binding(function() { return Math.max(0, semanticSettings.engines.findIndex(function(e) { return e.value === semanticSettings.semantic.engine })) }); return }
+                        semanticSettings.semantic.configure(engine, "")
+                    }
+                }
+                Label { visible: semanticSettings.semantic.enabled; text: "Model"; color: Theme.textBody }
+                UiControls.TextField {
+                    objectName: "semanticModelField"
+                    visible: semanticSettings.semantic.enabled
+                    Layout.fillWidth: true
+                    text: semanticSettings.semantic.model
+                    onEditingFinished: if (text.trim() !== semanticSettings.semantic.model) semanticSettings.semantic.configure(semanticSettings.semantic.engine, text)
+                }
+                Item { visible: semanticSettings.semantic.enabled || semanticSettings.stored > 0; width: 1; height: 1 }
+                RowLayout {
+                    visible: semanticSettings.semantic.enabled || semanticSettings.stored > 0
+                    Layout.fillWidth: true
+                    Label {
+                        objectName: "semanticStatus"
+                        Layout.fillWidth: true; elide: Text.ElideRight; font.pixelSize: 12
+                        color: semanticSettings.semantic.error.length ? Theme.danger : Theme.textSecondary
+                        text: semanticSettings.semantic.progress.length ? semanticSettings.semantic.progress
+                            : semanticSettings.stored + " passages indexed"
+                    }
+                    UiControls.Button { text: "Update"; visible: semanticSettings.semantic.enabled; enabled: !semanticSettings.semantic.busy; onClicked: semanticSettings.semantic.configure(semanticSettings.semantic.engine, semanticSettings.semantic.model) }
+                    UiControls.Button { text: "Delete Vectors"; enabled: !semanticSettings.semantic.busy && semanticSettings.stored > 0; onClicked: { semanticSettings.semantic.clear(); semanticSettings.refreshCount() } }
+                }
+            }
+            Label {
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+                text: "Finds passages, notes and answers by meaning as well as by words; results appear under \"Similar meaning\". Keyword search always works without it. "
+                    + "Ollama runs on this computer (install it, then `ollama pull nomic-embed-text`). OpenAI uses your OpenAI API key and is billed per use. "
+                    + "Indexing runs in the background and pauses while you read."
+            }
+            UiControls.Dialog {
+                id: semanticConsent
+                objectName: "semanticConsent"
+                parent: Overlay.overlay
+                anchors.centerIn: parent
+                width: 420
+                modal: true
+                title: "Send library text to OpenAI?"
+                standardButtons: Dialog.Ok | Dialog.Cancel
+                Label {
+                    width: parent.width; wrapMode: Text.Wrap
+                    text: "To search by meaning with OpenAI, Owelk sends the text of your indexed papers, notes, annotations, captures and AI answers to OpenAI's embedding service, a little at a time, and again for new or changed items. PDF files themselves are not uploaded. Usage is billed to your OpenAI key."
+                }
+                onAccepted: { researchStore.setSetting("semantic.consent.openai", "1"); researchStore.semantic.configure("openai", "") }
+            }
             Label { text: "AI"; font.bold: true; color: Theme.text }
             GridLayout {
                 Layout.fillWidth: true

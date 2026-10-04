@@ -17,6 +17,10 @@
 #include <QDir>
 #include <QFile>
 #include <QUuid>
+#include <QRegularExpression>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QJsonArray>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTimer>
@@ -155,9 +159,32 @@ public slots:
             connect(&m_web, &QTcpServer::newConnection, this, [this] {
                 auto *socket = m_web.nextPendingConnection();
                 connect(socket, &QTcpSocket::readyRead, socket, [this, socket] {
-                    const auto head = QString::fromUtf8(socket->readAll()).section("\r\n", 0, 0);
+                    const auto request = socket->readAll();
+                    const auto head = QString::fromUtf8(request).section("\r\n", 0, 0);
                     QByteArray body, type = "text/html";
-                    if (head.contains("POST /v1/messages")) {
+                    if (head.contains("POST /api/embed")) {
+                        // Ollama-style embeddings where related words share a dimension (meaning search).
+                        type = "application/json";
+                        const auto input = QJsonDocument::fromJson(request.mid(request.indexOf("\r\n\r\n") + 4))
+                                               .object()
+                                               .value("input")
+                                               .toArray();
+                        static const QList<QStringList> concepts{{"occlusion", "hidden", "occluded", "covered"},
+                            {"observation", "view", "seen"}, {"context", "surroundings", "scene"}};
+                        QJsonArray embeddings;
+                        for (const auto &text : input) {
+                            QJsonArray vector;
+                            const auto words = text.toString().toLower().split(QRegularExpression("\\W+"));
+                            for (const auto &related : concepts) {
+                                double value = .01;
+                                for (const auto &word : words) value += related.contains(word) ? 1 : 0;
+                                vector.append(value);
+                            }
+                            vector.append(.05);
+                            embeddings.append(vector);
+                        }
+                        body = QJsonDocument(QJsonObject{{"embeddings", embeddings}}).toJson(QJsonDocument::Compact);
+                    } else if (head.contains("POST /v1/messages")) {
                         // A Claude-style stream for AI panel tests.
                         type = "text/event-stream";
                         for (const auto *piece : {"Mock ", "answer about **occlusion**."})

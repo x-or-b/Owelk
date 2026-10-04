@@ -40,6 +40,19 @@ inline void writeFixture(const QString &path, const QString &title = "A Small Re
     }
 }
 
+// One page per string, plain text: for search tests that need specific words.
+inline void writeTextFixture(const QString &path, const QStringList &pages)
+{
+    QPdfWriter writer(path);
+    writer.setResolution(72);
+    QPainter painter(&writer);
+    painter.setFont(QFont("Helvetica", 12));
+    for (int p = 0; p < pages.size(); ++p) {
+        if (p) writer.newPage();
+        painter.drawText(QRectF(35, 40, 480, 700), Qt::TextWordWrap, pages[p]);
+    }
+}
+
 // Minimal, deterministic PDF with a nested outline; used only by automated tests.
 inline bool writeOutlineFixture(const QString &path)
 {

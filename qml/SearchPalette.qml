@@ -29,7 +29,7 @@ UiControls.Popup {
     function move(direction) {
         if (!results.length) return
         list.currentIndex = (list.currentIndex + direction + results.length) % results.length
-        if (results[list.currentIndex].kind === "paperGroup" && results.length > 1)
+        if ((results[list.currentIndex].kind === "paperGroup" || results[list.currentIndex].kind === "section") && results.length > 1)
             list.currentIndex = (list.currentIndex + direction + results.length) % results.length
         list.positionViewAtIndex(list.currentIndex, ListView.Contain)
     }

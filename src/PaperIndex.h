@@ -43,6 +43,9 @@ public:
     void setExclusionCheck(std::function<bool(const QUrl &)> excluded) { m_excluded = std::move(excluded); }
     Q_INVOKABLE void openResult(const QString &documentId, int page, const QString &hash);
     Q_INVOKABLE void setReaderInteracting(QObject *reader, bool active);
+    // Shared with other background work that must also yield to the reader.
+    std::shared_ptr<std::atomic_bool> readerBusyFlag() const { return m_readerBusy; }
+    QString databasePath() const { return m_path; }
 signals:
     void changed();
     void contentsChanged();
