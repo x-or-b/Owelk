@@ -1,4 +1,4 @@
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import "WorkspaceTree.js" as Tree
 import QtQuick
 import QtQuick.Controls
@@ -132,7 +132,7 @@ UiControls.Dialog {
                 anchors.centerIn: parent
                 visible: root.asking
                 text: "Asking " + (root.providerInfo.name || "AI") + "…"
-                color: Theme.textMuted
+                color: Theme.textTertiary
             }
         }
     }

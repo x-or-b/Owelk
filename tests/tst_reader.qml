@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import Owelk.Ui
 import "../qml" as App
 
 Item {
@@ -444,8 +445,8 @@ Item {
             tryVerify(function() { return canvas.spotlightOpacity > .95 })
             const border = findChild(canvas, "captureSourceBorder3")
             verify(border !== null)
-            compare(border.border.color.toString(), "#426b9a")
-            compare(border.radius, 5)
+            verify(Qt.colorEqual(border.border.color, Theme.captureBorder))
+            compare(border.radius, Theme.radius)
             compare(border.children.length, 0, "Source spotlight must have no translucent outer border")
             tryVerify(function() { return canvas.spotlightOpacity > 0 && canvas.spotlightOpacity < .9 }, 2000)
             tryCompare(canvas, "spotlightOpacity", 0, 3000)

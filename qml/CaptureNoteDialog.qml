@@ -1,4 +1,4 @@
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -56,8 +56,8 @@ UiControls.Dialog {
                 objectName: "noteSourceText"
                 text: root.capture.text || ""; textFormat: TextEdit.PlainText
                 readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap
-                color: Theme.textQuote
-                background: Rectangle { color: Theme.surfaceChrome; border.color: Theme.borderReadOnly }
+                color: Theme.textSecondary
+                background: Rectangle { color: Theme.window; border.color: Theme.separator }
             }
         }
         Image {
@@ -66,7 +66,7 @@ UiControls.Dialog {
             source: root.capture.image || ""; sourceSize.width: 600
             fillMode: Image.PreserveAspectFit; asynchronous: true
         }
-        Label { text: "Your note"; font.bold: true; color: Theme.textBody }
+        Label { text: "Your note"; font.bold: true; color: Theme.text }
         RowLayout {
             objectName: "captureNoteDraftBar"
             visible: root.savedDraft.length > 0
@@ -82,13 +82,13 @@ UiControls.Dialog {
                 objectName: "captureNoteEditor"
                 placeholderText: "Your interpretation, questions, or comparison with another paper…"
                 textFormat: TextEdit.PlainText; selectByMouse: true; wrapMode: TextEdit.Wrap
-                color: Theme.textBody
-                background: Rectangle { color: Theme.surface; border.color: editor.activeFocus ? Theme.accentMuted : Theme.borderControl; radius: Theme.cornerRadius }
+                color: Theme.text
+                background: Rectangle { color: Theme.content; border.color: editor.activeFocus ? Theme.accentBorder : Theme.border; radius: Theme.radius }
                 Keys.onEscapePressed: root.requestClose()
                 onTextChanged: if (root.opened) draftTimer.restart()
             }
         }
-        Label { text: (root.dirty ? "Unsaved · " : "") + editor.text.length + " / 10,000 characters"; color: editor.text.length > 10000 ? Theme.danger : Theme.textMuted; font.pixelSize: 11 }
+        Label { text: (root.dirty ? "Unsaved · " : "") + editor.text.length + " / 10,000 characters"; color: editor.text.length > 10000 ? Theme.danger : Theme.textTertiary; font.pixelSize: 11 }
         Label { Layout.fillWidth: true; visible: root.error.length > 0; text: root.error; wrapMode: Text.Wrap; color: Theme.danger }
         RowLayout {
             Layout.fillWidth: true

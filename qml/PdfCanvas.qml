@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Pdf
 import QtQuick.Shapes
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import "StrokePath.js" as Stroke
 
 Item {
@@ -567,7 +567,7 @@ Item {
             x: root.width - width; y: 0; width: 16; height: pages.height
             policy: ScrollBar.AlwaysOn; interactive: true; minimumSize: .05; padding: 3
             onPressedChanged: if (pressed) root.stopSourceMotion()
-            background: Rectangle { color: Theme.scrollTrack }
+            background: Rectangle { color: Theme.hover }
             contentItem: Rectangle { implicitWidth: 10; implicitHeight: 36; radius: 5; color: parent.pressed ? Theme.scrollHandlePressed : parent.hovered ? Theme.scrollHandleHover : Theme.scrollHandle }
         }
         ScrollBar.horizontal: ScrollBar {
@@ -677,7 +677,7 @@ Item {
                 width: pageHolder.pointSize.width * root.pageScale
                 height: pageHolder.height
                 anchors.horizontalCenter: parent.horizontalCenter
-                color: "white"
+                color: Theme.paper
 
                 PdfPageImage {
                     id: pageImage
@@ -713,7 +713,7 @@ Item {
                     visible: pageImage.status === Image.Ready
                     ShapePath {
                         strokeWidth: -1
-                        fillColor: "#33777777"
+                        fillColor: Theme.searchMatch
                         scale: Qt.size(root.pageScale, root.pageScale)
                         PathMultiline {
                             id: matches
@@ -823,7 +823,7 @@ Item {
                             y: modelData.y * root.pageScale
                             width: modelData.width * root.pageScale
                             height: modelData.height * root.pageScale
-                            color: "#66555555"
+                            color: Theme.pageSelection
                         }
                     }
                 }
@@ -914,7 +914,7 @@ Item {
                     width: region.width * paper.width
                     height: region.height * paper.height
                     color: "transparent"
-                    radius: Theme.cornerRadius
+                    radius: Theme.radius
                     border.color: Theme.captureBorder
                     border.width: 2
                 }
@@ -988,7 +988,7 @@ Item {
                         y: Math.min(captureArea.start.y, captureArea.end.y)
                         width: Math.abs(captureArea.end.x - captureArea.start.x)
                         height: Math.abs(captureArea.end.y - captureArea.start.y)
-                        color: "#33555555"
+                        color: Theme.overlay
                         border.color: Theme.overlayBorder
                         border.width: 2
                     }

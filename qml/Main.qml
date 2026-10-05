@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs as Native
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import "Platform.js" as Platform
 import "Shortcuts.js" as Shortcuts
 
@@ -13,27 +13,30 @@ ApplicationWindow {
     width: 1440; height: 930
     minimumWidth: 880; minimumHeight: 580
     title: ""
-    color: Theme.surfaceChrome
+    color: Theme.window
     // The platform UI font (San Francisco, Segoe UI, the desktop font on Linux).
-    font.pixelSize: 13
-    palette.window: Theme.surfacePanel
+    font.pixelSize: Theme.fontBody
+    palette.window: Theme.sidebar
     palette.windowText: Theme.text
-    palette.highlight: Theme.highlight
-    palette.highlightedText: "white"
-    palette.button: Theme.surfaceChrome
-    palette.buttonText: Theme.textBody
+    palette.highlight: Theme.accent
+    palette.highlightedText: Theme.onAccent
+    palette.button: Theme.control
+    palette.buttonText: Theme.text
     palette.text: Theme.text
-    palette.base: Theme.surface
-    palette.alternateBase: Theme.surfaceAlt
+    palette.base: Theme.content
+    palette.alternateBase: Theme.window
     // Rich and Markdown text links (notes, AI answers) use the accent, not default blue.
     palette.link: Theme.accent
     palette.linkVisited: Theme.accent
-    palette.light: Theme.surface
-    palette.midlight: Theme.surfaceChrome
-    palette.mid: Theme.shadeMid
-    palette.dark: Theme.shadeDark
+    palette.light: Theme.content
+    palette.midlight: Theme.window
+    palette.mid: Theme.border
+    palette.dark: Theme.textTertiary
     palette.shadow: Theme.shadow
-    palette.placeholderText: Theme.textMuted
+    palette.placeholderText: Theme.textTertiary
+    palette.toolTipBase: Theme.raised
+    palette.toolTipText: Theme.text
+    palette.brightText: Theme.onAccent
     property bool shelfVisible: true
     property bool filesVisible: true
     property string filesSide: "left"
@@ -370,7 +373,7 @@ ApplicationWindow {
         visible: false
         x: (parent.width - width) / 2; y: 8
         width: Math.min(560, parent.width - 32); height: 44
-        color: Theme.surfacePanel; border.color: Theme.borderPopup; radius: Theme.cornerRadius
+        color: Theme.raised; border.color: Theme.border; radius: Theme.radius
         RowLayout {
             anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 6
             spacing: 6
@@ -437,7 +440,7 @@ ApplicationWindow {
         Rectangle {
             visible: leftDock.visible
             Layout.preferredWidth: 6; Layout.fillHeight: true
-            color: leftResize.containsMouse || leftResize.pressed ? Theme.edgeHandleHover : Theme.edgeHandle
+            color: leftResize.containsMouse || leftResize.pressed ? Theme.border : Theme.separator
             MouseArea {
                 id: leftResize
                 objectName: "leftDockResize"
@@ -487,7 +490,7 @@ ApplicationWindow {
         Rectangle {
             visible: rightDock.visible
             Layout.preferredWidth: 6; Layout.fillHeight: true
-            color: rightResize.containsMouse || rightResize.pressed ? Theme.edgeHandleHover : Theme.edgeHandle
+            color: rightResize.containsMouse || rightResize.pressed ? Theme.border : Theme.separator
             MouseArea {
                 id: rightResize
                 objectName: "rightDockResize"
@@ -526,7 +529,7 @@ ApplicationWindow {
         id: statusBar
         objectName: "statusBar"
         height: 29
-        color: Theme.surfacePanel
+        color: Theme.sidebar
         RowLayout {
             anchors.fill: parent
             anchors.leftMargin: 4; anchors.rightMargin: 4

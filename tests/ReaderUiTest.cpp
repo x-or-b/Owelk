@@ -1,6 +1,7 @@
 #include "ResearchStore.h"
 #include "AnnotationImageProvider.h"
 #include "SelectionGeometry.h"
+#include "Theme.h"
 #include "PdfFixture.h"
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -116,6 +117,8 @@ public slots:
         m_store = new ResearchStore(m_directory.filePath("data"), this);
         QString error;
         if (!m_store->initialize(&error)) qFatal("%s", qPrintable(error));
+        m_theme = new Theme(m_store, this);
+        qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "Theme", m_theme);
     }
     void qmlEngineAvailable(QQmlEngine *engine)
     {
@@ -264,6 +267,7 @@ private:
     quint64 m_timestamp = 1000;
     QTemporaryDir m_directory;
     ResearchStore *m_store = nullptr;
+    Theme *m_theme = nullptr;
 };
 
 QUICK_TEST_MAIN_WITH_SETUP(reader_ui, ReaderSetup)

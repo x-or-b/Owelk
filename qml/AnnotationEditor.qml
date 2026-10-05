@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
-import "UiTheme.js" as Theme
+import Owelk.Ui
 
 UiControls.Dialog {
     id: root

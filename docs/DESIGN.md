@@ -1,11 +1,11 @@
 # UI shape tokens
 
-- `qml/UiTheme.js`의 `cornerRadius = 5`를 공통 모서리 반경으로 사용합니다. 기존 필터의 3px보다 약간 둥근 정도입니다.
+- 색·모서리·크기·글자 크기는 `Theme` 싱글턴(`src/ui/Theme.cpp`, QML `import Owelk.Ui`)이 정합니다. 테마는 시드 색 몇 개로 정의하고 나머지(호버·선택·보조 글자 등)는 시드에서 계산합니다. 모서리는 `radiusSmall 5`·`radius 7`·`radiusLarge 10`입니다.
 - 버튼, 도구 버튼, 탭 버튼, 입력창, 목록 항목, 메뉴, 검색 팔레트, 대화상자는 `UiControls.*`를 사용합니다. Qt Basic의 기존 크기·색상·입력 동작을 유지하고 배경의 모서리만 공통 값에 연결합니다. 대화상자 기본 확인/취소 버튼도 같은 값을 사용합니다.
 - 직접 그리는 탭·카드·패널·캡처 위치 테두리는 같은 토큰을 참조합니다. 앞으로 모서리 강도를 바꿀 때 개별 화면마다 숫자를 수정하지 않습니다.
-- QML의 모든 색은 `UiTheme.js`의 이름 있는 토큰(텍스트·표면·컨트롤·테두리·스크롤바·주석 잉크)을 사용합니다. 화면 파일에 hex 값을 직접 쓰지 않습니다. 주석 잉크는 `Theme.annotationInks`와 C++ `ResearchStore::annotationColors()`가 같아야 하며 테스트로 확인합니다.
+- QML의 모든 색은 `Theme`의 이름 있는 토큰(텍스트·표면·컨트롤·테두리·스크롤바·주석 잉크)을 사용합니다. 화면 파일에 hex 값을 직접 쓰지 않습니다. 주석 잉크는 `Theme.annotationInks`와 C++ `ResearchStore::annotationColors()`가 같아야 하며 테스트로 확인합니다.
 - 강조색은 Cmd+K에서 사용하는 파란색 계열로 통일합니다. `accent = #426b9a`(기본), `accentMuted = #829ab4`(은은한 테두리), `accentSurface = #d9dfe6`(선택 배경), `accentOnDark = #c5dcf5`(어두운 바탕의 강조), `accentText = #243e60`(제목)을 공통 토큰으로 사용합니다. 기본 표면은 회색, 삭제·오류는 빨간색을 유지합니다.
-- 캡처 이동 후 위치 테두리는 `captureBorder = accent`의 단일 2px 선입니다. 주변 반투명 테두리/glow는 사용하지 않습니다. 스크롤 후 OutBack 등장·최대 강조까지 표시하고 완전히 페이드아웃합니다. `qml/UiTheme.js`의 `captureFadeDuration`(밀리초)으로 시간을 조절하고 `qml/PdfCanvas.qml`의 `captureSpotlightFade`에서 곡선을 변경합니다. 정적 잔상은 남기지 않습니다.
+- 캡처 이동 후 위치 테두리는 `captureBorder = accent`의 단일 2px 선입니다. 주변 반투명 테두리/glow는 사용하지 않습니다. 스크롤 후 OutBack 등장·최대 강조까지 표시하고 완전히 페이드아웃합니다. `Theme.captureFadeDuration`(밀리초, `src/ui/Theme.h`)으로 시간을 조절하고 `qml/PdfCanvas.qml`의 `captureSpotlightFade`에서 곡선을 변경합니다. 정적 잔상은 남기지 않습니다.
 - Cmd+K 검색 결과 선택은 배경색으로 표시하며 왼쪽 파란색 막대는 사용하지 않습니다. 검색어의 파란색 일치 강조는 유지합니다.
 - 탭 × 버튼은 24×24px 정사각형을 탭 중앙에 배치하고 기본 배경은 탭과 같습니다. 호버/키보드 포커스 테두리는 `accent`로 표시합니다.
 - PDF 페이지, 문장 선택 영역과 실제 캡처 좌표는 변경하지 않습니다. 스크롤바 손잡이, 얇은 구분선·선택 표시의 모양도 기존 용도를 유지합니다. 시스템이 그리는 파일 선택창·메뉴 등의 외형은 OS가 관리합니다.

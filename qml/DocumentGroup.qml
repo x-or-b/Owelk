@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import "Platform.js" as Platform
 import "WorkspaceTree.js" as Tree
 
@@ -33,8 +33,8 @@ Rectangle {
     readonly property var menuTabData: groupData.tabs.find(function(t) { return t.id === root.menuTab }) || null
     property string menuLabel: ""
     objectName: "group-" + groupId
-    color: Theme.surfaceChrome
-    radius: Theme.cornerRadius
+    color: Theme.window
+    radius: Theme.radius
     clip: true
     function refresh() {
         if (!pane) return
@@ -91,11 +91,11 @@ Rectangle {
                     text: modelData.name + "  " + size + (modelData.collapsed ? "  ▸" : "  ▾")
                     hoverEnabled: true
                     background: Rectangle {
-                        radius: Theme.cornerRadius
-                        color: chip.hovered ? Theme.accentSurface : Theme.surfaceAlt
-                        border.color: Theme.accentMuted
+                        radius: Theme.radius
+                        color: chip.hovered ? Theme.selected : Theme.window
+                        border.color: Theme.accentBorder
                     }
-                    contentItem: Label { text: chip.text; font: chip.font; color: Theme.accentText; verticalAlignment: Text.AlignVCenter }
+                    contentItem: Label { text: chip.text; font: chip.font; color: Theme.selectedText; verticalAlignment: Text.AlignVCenter }
                     ToolTip.visible: hovered; ToolTip.delay: 450
                     ToolTip.text: (modelData.collapsed ? "Show" : "Hide") + " this group's tabs · right-click for more"
                     onClicked: { const label = modelData.id, collapsed = !modelData.collapsed; Qt.callLater(function() { root.controller.setTabGroupCollapsed(root.groupId, label, collapsed) }) }
@@ -122,11 +122,11 @@ Rectangle {
                 width: 160
                 height: 32
                 objectName: "tab-" + modelData.id
-                radius: Theme.cornerRadius
-                color: modelData.id === root.groupData.activeTab ? Theme.surface : Theme.surfaceSelected
+                radius: Theme.radius
+                color: modelData.id === root.groupData.activeTab ? Theme.content : Theme.hover
                 // Grouped tabs carry a thin accent band.
-                Rectangle { visible: !!tabItem.modelData.label; anchors.top: parent.top; x: Theme.cornerRadius; width: parent.width - 2 * x; height: 2; color: Theme.accentMuted }
-                Rectangle { anchors.bottom: parent.bottom; x: Theme.cornerRadius; width: parent.width - 2 * x; height: 1; color: root.controller.activeGroup === root.groupId && modelData.id === root.loadedTab ? Theme.tabUnderlineActive : Theme.tabUnderline }
+                Rectangle { visible: !!tabItem.modelData.label; anchors.top: parent.top; x: Theme.radius; width: parent.width - 2 * x; height: 2; color: Theme.accentBorder }
+                Rectangle { anchors.bottom: parent.bottom; x: Theme.radius; width: parent.width - 2 * x; height: 1; color: root.controller.activeGroup === root.groupId && modelData.id === root.loadedTab ? Theme.textTertiary : Theme.separator }
                 Label { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: close.left; anchors.verticalCenter: parent.verticalCenter; text: modelData.kind === "home" ? "Home" : modelData.kind === "library" ? "Library" : modelData.kind === "note" ? (modelData.title || "Untitled note") : modelData.kind === "web" ? (modelData.title || modelData.source.replace(/^https?:\/\/(www\.)?/, "")) : (researchStore.documentsRevision, researchStore.displayName(modelData.source)); elide: Text.ElideRight; font.pixelSize: 12 }
                 MouseArea {
                     id: pointer
@@ -174,18 +174,18 @@ Rectangle {
                     text: "×"
                     Accessible.name: "Close tab"
                     background: Rectangle {
-                        color: close.down ? Theme.accentSurface : tabItem.color
+                        color: close.down ? Theme.selected : tabItem.color
                         border.width: 1
                         border.color: close.hovered || close.visualFocus ? Theme.accent : "transparent"
                     }
-                    contentItem: Text { text: "×"; color: close.hovered ? Theme.textStrong : Theme.textTertiary; font: close.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    contentItem: Text { text: "×"; color: close.hovered ? Theme.text : Theme.textTertiary; font: close.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     onClicked: { const id = modelData.id; Qt.callLater(function() { root.controller.closeTab(id) }) }
                 }
                 ToolTip.visible: pointer.containsMouse && !pointer.pressed
                 ToolTip.delay: 450
                 ToolTip.text: modelData.kind === "home" ? "Home" : modelData.source
             }
-            Label { visible: !tabs.count; anchors.centerIn: parent; text: "No open tabs"; color: Theme.textMuted }
+            Label { visible: !tabs.count; anchors.centerIn: parent; text: "No open tabs"; color: Theme.textTertiary }
         }
         UiControls.ToolButton {
             id: newTabButton
@@ -195,7 +195,7 @@ Rectangle {
             Accessible.name: "New Home tab"
             ToolTip.visible: hovered; ToolTip.delay: 450
             ToolTip.text: "New Home tab (" + Platform.keys("Ctrl+T") + ")"
-            background: Rectangle { color: newTabButton.down ? Theme.tabPressed : newTabButton.hovered ? Theme.tabHover : Theme.surfaceSelected }
+            background: Rectangle { color: newTabButton.down ? Theme.pressed : newTabButton.hovered ? Theme.hover : Theme.hover }
             onClicked: { root.controller.activateGroup(root.groupId); root.controller.newHomeTab() }
         }
         }
@@ -331,10 +331,10 @@ Rectangle {
         y: edge === "bottom" ? parent.height / 2 : 0
         width: edge === "left" || edge === "right" ? parent.width / 2 : parent.width
         height: edge === "top" || edge === "bottom" ? parent.height / 2 : target && target.index !== undefined ? 32 : parent.height
-        color: "#33555555"
-        radius: Theme.cornerRadius
-        border.color: Theme.borderSelected
+        color: Theme.overlay
+        radius: Theme.radius
+        border.color: Theme.accent
         z: 10
-        Label { anchors.centerIn: parent; text: parent.edge === "center" ? "Move tab here" : "Split " + parent.edge; color: Theme.textBody }
+        Label { anchors.centerIn: parent; text: parent.edge === "center" ? "Move tab here" : "Split " + parent.edge; color: Theme.text }
     }
 }

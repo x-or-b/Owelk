@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "UiTheme.js" as Theme
+import Owelk.Ui
 
 Rectangle {
     id: root
@@ -19,9 +19,9 @@ Rectangle {
     signal linkActivated(string link)
     signal aiRequested(var spec)
     signal settingsRequested()
-    color: Theme.surfaceSidebar
-    border.color: Theme.border
-    radius: Theme.cornerRadius
+    color: Theme.sidebar
+    border.color: Theme.separator
+    radius: Theme.radius
     onPanelsChanged: if (panels.indexOf(activePanel) < 0) activePanel = panels.length ? panels[0] : ""
     ColumnLayout {
         anchors.fill: parent
@@ -37,8 +37,8 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.minimumWidth: modelData === "files" || modelData === "ai" ? 40 : 74
                     Layout.preferredHeight: 34
-                    color: root.activePanel === modelData ? Theme.surfaceSelected : "transparent"
-                    radius: Theme.cornerRadius
+                    color: root.activePanel === modelData ? Theme.hover : "transparent"
+                    radius: Theme.radius
                     Label { anchors.centerIn: parent; text: modelData === "files" ? "Files" : modelData === "captures" ? "Captures" : modelData === "ai" ? "AI" : "Document"; font.pixelSize: 12 }
                     TapHandler { onTapped: root.activePanel = modelData }
                 }

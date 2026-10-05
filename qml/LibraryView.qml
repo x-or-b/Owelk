@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import QtQuick.Dialogs as Native
 
 // Every paper in the library, filtered by reading state, favorites, collection or tag.
@@ -9,7 +9,7 @@ import QtQuick.Dialogs as Native
 Rectangle {
     id: root
     objectName: "libraryView"
-    color: Theme.surface
+    color: Theme.content
     property var filter: ({})
     property string sort: "opened"
     property string query: ""
@@ -127,7 +127,7 @@ Rectangle {
         // Sidebar: built-in views, collections, tags.
         Rectangle {
             Layout.preferredWidth: 210; Layout.fillHeight: true
-            color: Theme.surfacePanel
+            color: Theme.sidebar
             ListView {
                 id: sidebar
                 anchors.fill: parent; anchors.margins: 8
@@ -167,13 +167,13 @@ Rectangle {
                         font.pixelSize: 13
                         // Selection uses the accent surface; the label stays dark and readable.
                         background: Rectangle {
-                            radius: Theme.cornerRadius
-                            color: item.highlighted ? Theme.accentSurface : item.hovered ? Theme.surfaceHover : "transparent"
+                            radius: Theme.radius
+                            color: item.highlighted ? Theme.selected : item.hovered ? Theme.hover : "transparent"
                         }
                         contentItem: Text {
                             leftPadding: 0; rightPadding: 28
                             text: item.text; font: item.font; elide: Text.ElideRight; textFormat: Text.PlainText
-                            color: item.highlighted ? Theme.accentText : Theme.textBody
+                            color: item.highlighted ? Theme.selectedText : Theme.text
                             verticalAlignment: Text.AlignVCenter
                         }
                         onClicked: {
@@ -184,7 +184,7 @@ Rectangle {
                         Label {
                             anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
                             visible: entry.modelData.count !== undefined; text: entry.modelData.count || 0
-                            font.pixelSize: 11; color: Theme.textMuted
+                            font.pixelSize: 11; color: Theme.textTertiary
                         }
                         TapHandler {
                             acceptedButtons: Qt.RightButton
@@ -197,13 +197,13 @@ Rectangle {
                             enabled: entry.modelData.key === "collection"
                             keys: ["owelk/paper"]
                             onDropped: function(drop) { researchStore.setDocumentCollection(drop.source.paperUrl, entry.modelData.value, true) }
-                            Rectangle { anchors.fill: parent; color: "transparent"; border.color: Theme.accent; radius: Theme.cornerRadius; visible: parent.containsDrag }
+                            Rectangle { anchors.fill: parent; color: "transparent"; border.color: Theme.accent; radius: Theme.radius; visible: parent.containsDrag }
                         }
                     }
                 }
             }
         }
-        Rectangle { Layout.preferredWidth: 1; Layout.fillHeight: true; color: Theme.border }
+        Rectangle { Layout.preferredWidth: 1; Layout.fillHeight: true; color: Theme.separator }
         ColumnLayout {
             Layout.fillWidth: true; Layout.fillHeight: true
             Layout.margins: 12
@@ -244,7 +244,7 @@ Rectangle {
                         }
                     }
                 }
-                Label { anchors.centerIn: parent; visible: noteList.count === 0; text: root.filter.notesTrash ? "Trash is empty." : "No notes yet."; color: Theme.textMuted }
+                Label { anchors.centerIn: parent; visible: noteList.count === 0; text: root.filter.notesTrash ? "Trash is empty." : "No notes yet."; color: Theme.textTertiary }
             }
             RowLayout {
                 Layout.fillWidth: true
@@ -312,8 +312,8 @@ Rectangle {
                         Rectangle {
                             // Reading state: hollow unread, half reading, full read.
                             Layout.preferredWidth: 8; Layout.preferredHeight: 8; radius: 4
-                            color: paper.modelData.readingState === "read" ? Theme.textMuted : paper.modelData.readingState === "reading" ? Theme.accent : "transparent"
-                            border.color: paper.modelData.readingState === "read" ? Theme.textMuted : Theme.accent
+                            color: paper.modelData.readingState === "read" ? Theme.textTertiary : paper.modelData.readingState === "reading" ? Theme.accent : "transparent"
+                            border.color: paper.modelData.readingState === "read" ? Theme.textTertiary : Theme.accent
                         }
                         ColumnLayout {
                             Layout.fillWidth: true
@@ -324,7 +324,7 @@ Rectangle {
                                 text: [paper.modelData.authors, paper.modelData.year, paper.modelData.tags ? "# " + paper.modelData.tags : ""].filter(function(s) { return s && s.length }).join("  ·  ")
                             }
                         }
-                        Label { visible: paper.modelData.duplicate; text: "duplicate"; font.pixelSize: 11; color: Theme.textMuted }
+                        Label { visible: paper.modelData.duplicate; text: "duplicate"; font.pixelSize: 11; color: Theme.textTertiary }
                         ReaderIconButton {
                             objectName: "libraryFavorite-" + paper.modelData.id
                             kind: "star"; implicitWidth: 24
@@ -338,7 +338,7 @@ Rectangle {
                     anchors.centerIn: parent
                     visible: papers.count === 0
                     text: root.query.length || Object.keys(root.filter).length ? "No papers match." : "Papers you open appear here."
-                    color: Theme.textMuted
+                    color: Theme.textTertiary
                 }
             }
         }

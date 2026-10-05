@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import Owelk.Ui
 import "../qml" as App
 
 Item {
@@ -32,14 +33,14 @@ Item {
         }
         function test_selectedModeIsDarker() {
             const outline = findChild(panel, "outlineTab"), thumbnails = findChild(panel, "thumbnailsTab")
-            compare(outline.background.color, "#d8d8d8")
-            compare(thumbnails.background.color, "#f5f5f5")
-            compare(outline.contentItem.color, "#242424")
-            compare(thumbnails.contentItem.color, "#242424")
+            verify(Qt.colorEqual(outline.background.color, Theme.selected))
+            verify(Qt.colorEqual(thumbnails.background.color, Theme.window))
+            verify(Qt.colorEqual(outline.contentItem.color, Theme.text))
+            verify(Qt.colorEqual(thumbnails.contentItem.color, Theme.text))
             mouseClick(thumbnails)
             compare(panel.mode, 1)
-            compare(thumbnails.background.color, "#d8d8d8")
-            compare(outline.background.color, "#f5f5f5")
+            verify(Qt.colorEqual(thumbnails.background.color, Theme.selected))
+            verify(Qt.colorEqual(outline.background.color, Theme.window))
         }
         function test_thumbnailsReuseReaderAndJump() {
             panel.mode = 1

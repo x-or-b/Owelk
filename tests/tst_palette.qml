@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import Owelk.Ui
 import "../qml" as App
 import "../qml/PaletteMatch.js" as Match
 
@@ -29,28 +30,28 @@ Item {
             compare(command.signalArguments[0][0], "/split right")
         }
         function test_highlightSafeAndOverlapping() {
-            compare(Match.highlight("sample command", "comma"), 'sample <font color="#426b9a"><b>comma</b></font>nd')
+            compare(Match.highlight("sample command", "comma", "#426b9a"), 'sample <font color="#426b9a"><b>comma</b></font>nd')
             verify(Match.matches("Split: Duplicate Tab Right", "RIGHT dup"))
             verify(!Match.matches("Split: Duplicate Tab Right", "left"))
-            verify(Match.highlight("<b>& command", "<b>").indexOf("&lt;b&gt;") >= 0)
-            compare(Match.highlight("<b>& command", "<b>"), '<font color="#426b9a"><b>&lt;b&gt;</b></font>&amp; command')
-            compare((Match.highlight("command command", "comma").match(/<font/g) || []).length, 2)
-            compare((Match.highlight("command", "com comma").match(/<font/g) || []).length, 1)
+            verify(Match.highlight("<b>& command", "<b>", "#426b9a").indexOf("&lt;b&gt;") >= 0)
+            compare(Match.highlight("<b>& command", "<b>", "#426b9a"), '<font color="#426b9a"><b>&lt;b&gt;</b></font>&amp; command')
+            compare((Match.highlight("command command", "comma", "#426b9a").match(/<font/g) || []).length, 2)
+            compare((Match.highlight("command", "com comma", "#426b9a").match(/<font/g) || []).length, 1)
         }
         function test_recentPaperAndSearchHeadingStyles() {
             const result = createTemporaryObject(resultComponent, scene, {modelData: {kind: "paper", title: "Paper.pdf"}, queryText: ""})
             compare(result.heading, false)
-            compare(findChild(result, "resultTitle").color.toString(), "#333333")
+            verify(Qt.colorEqual(findChild(result, "resultTitle").color, Theme.text))
             result.queryText = "Paper"
             compare(result.heading, true)
-            compare(result.background.color.toString(), "#767676")
-            compare(findChild(result, "resultTitle").color.toString(), "#ffffff")
+            verify(Qt.colorEqual(result.background.color, Theme.textTertiary))
+            verify(Qt.colorEqual(findChild(result, "resultTitle").color, Theme.onAccent))
         }
         function test_selectionHasNoAccentRail() {
             const result = createTemporaryObject(resultComponent, scene, {
                 modelData: {kind: "paper", title: "Paper.pdf"}, queryText: "", highlighted: true
             })
-            compare(result.background.color.toString(), "#e9e9e9")
+            verify(Qt.colorEqual(result.background.color, Theme.selected))
             compare(result.background.children.length, 0)
         }
         function bluePixels(item) {

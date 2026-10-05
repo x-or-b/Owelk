@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "UiTheme.js" as Theme
+import Owelk.Ui
 
 UiControls.ToolButton {
     id: root
@@ -15,7 +15,7 @@ UiControls.ToolButton {
     onClicked: details.open()
     ToolTip.visible: hovered
     ToolTip.text: "Local text index · Status, pause and retry"
-    contentItem: Label { text: root.text; color: Theme.textMuted; font: root.font; elide: Text.ElideMiddle }
+    contentItem: Label { text: root.text; color: Theme.textTertiary; font: root.font; elide: Text.ElideMiddle }
     UiControls.Dialog {
         id: details
         objectName: "indexDetails"
@@ -27,7 +27,7 @@ UiControls.ToolButton {
         standardButtons: Dialog.Close
         contentItem: ColumnLayout {
             spacing: 8
-            Label { Layout.fillWidth: true; text: "Opened PDFs only · Stored locally · Locked PDFs are indexed after you open them with their password"; wrapMode: Text.Wrap; color: Theme.textMuted }
+            Label { Layout.fillWidth: true; text: "Opened PDFs only · Stored locally · Locked PDFs are indexed after you open them with their password"; wrapMode: Text.Wrap; color: Theme.textTertiary }
             RowLayout {
                 Layout.fillWidth: true
                 Label { Layout.fillWidth: true; text: root.indexer.progress || (root.indexer.paused ? "Paused" : "Up to date"); elide: Text.ElideMiddle }
@@ -52,7 +52,7 @@ UiControls.ToolButton {
                                 text: modelData.state === "ready" ? "Searchable · " + modelData.textPages + "/" + modelData.pages + " pages with text"
                                     : modelData.state === "empty" ? "No extractable text · OCR is not available"
                                     : modelData.error || modelData.state
-                                textFormat: Text.PlainText; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; color: Theme.textMuted; font.pixelSize: 11
+                                textFormat: Text.PlainText; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; color: Theme.textTertiary; font.pixelSize: 11
                             }
                         }
                         UiControls.Button { text: "Retry"; visible: ["failed", "missing", "locked", "paused"].indexOf(modelData.state) >= 0; onClicked: root.indexer.retry(modelData.source) }
@@ -61,7 +61,7 @@ UiControls.ToolButton {
                     ToolTip.visible: hovered
                     ToolTip.text: modelData.source.toString()
                 }
-                Label { anchors.centerIn: parent; visible: root.records.length === 0; text: "Open a PDF to start indexing."; color: Theme.textMuted }
+                Label { anchors.centerIn: parent; visible: root.records.length === 0; text: "Open a PDF to start indexing."; color: Theme.textTertiary }
             }
         }
     }

@@ -1,12 +1,14 @@
 #include "ResearchStore.h"
 #include "AnnotationImageProvider.h"
 #include "SelectionGeometry.h"
+#include "Theme.h"
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
 #include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQmlEngine>
 #include <QQuickStyle>
 #include <QStandardPaths>
 #include <QTimer>
@@ -45,6 +47,9 @@ int main(int argc, char *argv[])
         initialFiles.append(QUrl::fromLocalFile(QFileInfo(path).absoluteFilePath()));
 
     SelectionGeometry selectionGeometry;
+    // Read before the window exists, so the first frame already has the chosen theme.
+    Theme theme(&store);
+    qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "Theme", &theme);
     QQmlApplicationEngine engine;
     engine.addImageProvider("annotation", new AnnotationImageProvider);
     engine.rootContext()->setContextProperty("selectionGeometry", &selectionGeometry);

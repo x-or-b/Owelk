@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls
-import "UiTheme.js" as Theme
+import Owelk.Ui
 
 UiControls.ToolButton {
     id: root
@@ -8,7 +8,7 @@ UiControls.ToolButton {
     property string description: ""
     property color swatch: "transparent"
     // Stroke color; Theme.danger for destructive actions.
-    property color tint: Theme.iconStrong
+    property color tint: Theme.text
     implicitWidth: 28
     implicitHeight: 26
     hoverEnabled: true
@@ -17,7 +17,7 @@ UiControls.ToolButton {
     ToolTip.delay: 450
     ToolTip.text: description
     background: Rectangle {
-        color: root.checked ? Theme.accentSurface : root.hovered ? Theme.iconHover : "transparent"
+        color: root.checked ? Theme.selected : root.hovered ? Theme.hover : "transparent"
         border.color: root.visualFocus || root.checked ? Theme.accent : "transparent"
     }
     contentItem: Item {

@@ -1,4 +1,4 @@
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -38,7 +38,7 @@ Item {
             }
             ReaderIconButton { objectName: "aiNewThread"; kind: "plus"; description: "New thread"; onClicked: { root.c.newThread(); root.focusQuestion() } }
         }
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }
         // Saved threads, newest first.
         ListView {
             id: threadList
@@ -57,8 +57,8 @@ Item {
                 objectName: "aiThread-" + index
                 width: ListView.view.width
                 height: 44
-                radius: Theme.cornerRadius
-                color: rowHover.hovered ? Theme.surfaceSelected : "transparent"
+                radius: Theme.radius
+                color: rowHover.hovered ? Theme.hover : "transparent"
                 HoverHandler { id: rowHover }
                 TapHandler { acceptedButtons: Qt.LeftButton; onTapped: { const id = row.modelData.id; Qt.callLater(function() { root.c.openThread(id) }) } }
                 TapHandler { acceptedButtons: Qt.RightButton; onTapped: threadMenu.popup() }
@@ -108,7 +108,7 @@ Item {
                     visible: message.modelData.role === "user"
                     Layout.fillWidth: true
                     implicitHeight: userText.implicitHeight + 12
-                    radius: Theme.cornerRadius; color: Theme.surfaceAlt
+                    radius: Theme.radius; color: Theme.window
                     Label {
                         id: userText
                         anchors.fill: parent; anchors.margins: 6
@@ -122,7 +122,7 @@ Item {
                     Layout.fillWidth: true
                     text: visible ? researchStore.markdownHtml(message.modelData.content, Theme.accent) : ""
                     textFormat: Text.RichText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                    color: Theme.textBody; font.pixelSize: 13
+                    color: Theme.text; font.pixelSize: 13
                     onLinkActivated: function(link) { root.linkActivated(link) }
                 }
                 RowLayout {
@@ -143,7 +143,7 @@ Item {
                     visible: root.c && root.c.pendingQuestion.length > 0
                     Layout.fillWidth: true; Layout.topMargin: 10
                     implicitHeight: pendingText.implicitHeight + 12
-                    radius: Theme.cornerRadius; color: Theme.surfaceAlt
+                    radius: Theme.radius; color: Theme.window
                     Label { id: pendingText; anchors.fill: parent; anchors.margins: 6; text: root.c ? root.c.pendingQuestion : ""; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; textFormat: Text.PlainText; color: Theme.text; font.pixelSize: 12 }
                 }
                 Text {
@@ -152,7 +152,7 @@ Item {
                     Layout.fillWidth: true
                     text: !root.c ? "" : root.c.answer.length ? researchStore.markdownHtml(root.c.answer, Theme.accent) : "<i>Thinking…</i>"
                     textFormat: Text.RichText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                    color: Theme.textBody; font.pixelSize: 13
+                    color: Theme.text; font.pixelSize: 13
                     onTextChanged: Qt.callLater(conversation.positionViewAtEnd)
                 }
                 Label {
@@ -185,7 +185,7 @@ Item {
                     readonly property bool removable: modelData.kind !== "paper"
                     readonly property real lead: modelData.kind === "image" ? 26 : 6
                     height: 22; width: Math.min(chip.implicitWidth + lead + (removable ? 22 : 6), root.width - 16)
-                    radius: Theme.cornerRadius; color: Theme.surfaceAlt; border.color: Theme.border
+                    radius: Theme.radius; color: Theme.window; border.color: Theme.separator
                     Image {
                         visible: chipBox.modelData.kind === "image"
                         x: 3; anchors.verticalCenter: parent.verticalCenter
@@ -241,12 +241,12 @@ Item {
                 width: Math.min(implicitWidth, bar.width)
                 contentItem: Label {
                     text: chipButton.text; elide: Text.ElideRight; font: chipButton.font; verticalAlignment: Text.AlignVCenter
-                    color: chipButton.checked ? Theme.accentText : chipButton.enabled ? Theme.textSecondary : Theme.textMuted
+                    color: chipButton.checked ? Theme.selectedText : chipButton.enabled ? Theme.textSecondary : Theme.textTertiary
                 }
                 background: Rectangle {
-                    radius: Theme.cornerRadius
-                    color: chipButton.checked ? Theme.accentSurface : chipButton.down || chipButton.hovered ? Theme.surfaceHover : "transparent"
-                    border.color: chipButton.checked ? Theme.accentMuted : Theme.border
+                    radius: Theme.radius
+                    color: chipButton.checked ? Theme.selected : chipButton.down || chipButton.hovered ? Theme.hover : "transparent"
+                    border.color: chipButton.checked ? Theme.accentBorder : Theme.separator
                 }
                 ToolTip.visible: hovered && ToolTip.text.length > 0; ToolTip.delay: 450
             }
@@ -349,7 +349,7 @@ Item {
         height: Math.min(440, pickerColumn.implicitHeight + 16)
         padding: 8
         onOpened: modelFilter.forceActiveFocus()
-        background: Rectangle { color: Theme.surfacePanel; border.color: Theme.borderPopup; radius: Theme.cornerRadius }
+        background: Rectangle { color: Theme.raised; border.color: Theme.border; radius: Theme.radius }
         contentItem: ColumnLayout {
             id: pickerColumn
             spacing: 4
@@ -388,7 +388,7 @@ Item {
                             Label {
                                 visible: !providerSection.loaded && !providerSection.needle.length
                                 text: "Loading…"
-                                font.pixelSize: 11; color: Theme.textMuted; Layout.leftMargin: 10
+                                font.pixelSize: 11; color: Theme.textTertiary; Layout.leftMargin: 10
                             }
                             // A provider that lists no models (or is signed out) still runs its own default.
                             UiControls.ItemDelegate {
@@ -416,8 +416,8 @@ Item {
                                     highlighted: current
                                     contentItem: RowLayout {
                                         spacing: 6
-                                        Label { Layout.fillWidth: true; text: modelRow.modelData.name; elide: Text.ElideRight; font.pixelSize: 12; color: modelRow.current ? Theme.accentText : Theme.text }
-                                        Label { visible: !!modelRow.modelData.fast; text: "Fast"; font.pixelSize: 10; color: Theme.textMuted }
+                                        Label { Layout.fillWidth: true; text: modelRow.modelData.name; elide: Text.ElideRight; font.pixelSize: 12; color: modelRow.current ? Theme.selectedText : Theme.text }
+                                        Label { visible: !!modelRow.modelData.fast; text: "Fast"; font.pixelSize: 10; color: Theme.textTertiary }
                                         Label { visible: modelRow.current; text: "✓"; font.pixelSize: 12; color: Theme.accent }
                                     }
                                     // Choosing rebuilds this list (the provider list changes), so act after the handler returns.

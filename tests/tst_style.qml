@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtTest
 import "../qml" as App
-import "../qml/UiTheme.js" as Theme
+import Owelk.Ui
 
 Item {
     id: scene
@@ -21,12 +21,12 @@ Item {
         when: windowShown
         function test_sharedRadiusAndDialogButtons() {
             for (const control of [button, toolButton, field, area, combo, row, menu, dialog])
-                compare(control.background.radius, 5)
-            compare(combo.popup.background.radius, 5)
+                compare(control.background.radius, Theme.radius)
+            compare(combo.popup.background.radius, Theme.radius)
             dialog.open(); tryCompare(dialog, "opened", true)
-            compare(dialog.header.background.radius, 5)
+            compare(dialog.header.background.radius, Theme.radius)
             const ok = dialog.standardButton(Dialog.Ok)
-            compare(ok.background.radius, 5)
+            compare(ok.background.radius, Theme.radius)
             mouseClick(ok)
             compare(accepted.count, 1)
             tryCompare(dialog, "visible", false)

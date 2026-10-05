@@ -1,4 +1,4 @@
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -89,24 +89,24 @@ UiControls.Dialog {
             Layout.fillWidth: true; text: root.details.fileName || ""; elide: Text.ElideMiddle
             textFormat: Text.PlainText; color: Theme.textTertiary
         }
-        Label { text: "Title"; color: Theme.textBody }
+        Label { text: "Title"; color: Theme.text }
         UiControls.TextField {
             id: titleField; objectName: "detailsTitle"; Layout.fillWidth: true
             placeholderText: "Shown instead of the file name"; maximumLength: 300; onAccepted: root.save()
         }
-        Label { text: "Authors"; color: Theme.textBody }
+        Label { text: "Authors"; color: Theme.text }
         UiControls.TextField { id: authorsField; objectName: "detailsAuthors"; Layout.fillWidth: true; maximumLength: 1000; onAccepted: root.save() }
-        Label { text: "Year"; color: Theme.textBody }
+        Label { text: "Year"; color: Theme.text }
         UiControls.TextField {
             id: yearField; objectName: "detailsYear"; Layout.preferredWidth: 80; maximumLength: 4
             validator: RegularExpressionValidator { regularExpression: /\d{0,4}/ }
             onAccepted: root.save()
         }
-        Label { text: "DOI"; color: Theme.textBody }
+        Label { text: "DOI"; color: Theme.text }
         UiControls.TextField { id: doiField; Layout.fillWidth: true; maximumLength: 200; onAccepted: root.save() }
-        Label { text: "arXiv ID"; color: Theme.textBody }
+        Label { text: "arXiv ID"; color: Theme.text }
         UiControls.TextField { id: arxivField; Layout.fillWidth: true; maximumLength: 40; onAccepted: root.save() }
-        Label { text: "Reading"; color: Theme.textBody }
+        Label { text: "Reading"; color: Theme.text }
         RowLayout {
             UiControls.ComboBox { id: stateBox; objectName: "detailsReadingState"; model: ["Unread", "Reading", "Read"]; Layout.preferredWidth: 120 }
             CheckBox { id: favoriteBox; objectName: "detailsFavorite"; text: "Favorite" }

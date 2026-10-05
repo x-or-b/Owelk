@@ -227,7 +227,7 @@ cmake --build build --parallel 6
 ctest --test-dir build --output-on-failure
 ```
 
-C++ 서식은 저장소의 `.clang-format`을 따릅니다: `xcrun clang-format -i src/*.cpp src/*.h tests/*.cpp tests/*.h`. QML 색상은 `qml/UiTheme.js` 토큰만 사용합니다.
+C++ 서식은 저장소의 `.clang-format`을 따릅니다: `xcrun clang-format -i src/*.cpp src/*.h tests/*.cpp tests/*.h`. QML 색·크기·글자 크기는 `Theme` 싱글턴(`import Owelk.Ui`, `src/ui/Theme.cpp`) 토큰만 사용합니다.
 
 운영체제별 메모:
 - **macOS**: Qt PDF는 Homebrew `qtwebengine`에 포함됩니다. API 키는 macOS Keychain에 저장합니다.

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtTest
+import Owelk.Ui
 import "../qml" as App
 import "../qml/WorkspaceTree.js" as Tree
 
@@ -208,7 +209,7 @@ Item {
             mouseMove(button, 12, 16)
             tryCompare(button, "hovered", true)
             compare(button.background.color, button.parent.color)
-            compare(button.background.border.color.toString(), "#426b9a")
+            verify(Qt.colorEqual(button.background.border.color, Theme.accent))
             mouseClick(button, 12, 12)
             tryCompare(workspace.documents, "hasTabs", false)
         }

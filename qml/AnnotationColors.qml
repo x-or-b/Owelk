@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls
-import "UiTheme.js" as Theme
+import Owelk.Ui
 
 UiControls.Popup {
     id: root
@@ -14,8 +14,8 @@ UiControls.Popup {
     padding: 7
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     background: Rectangle {
-        color: Theme.surfacePanel
-        border.color: Theme.borderPopup
+        color: Theme.sidebar
+        border.color: Theme.border
     }
     Row {
         spacing: 4

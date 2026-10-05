@@ -1,4 +1,4 @@
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts

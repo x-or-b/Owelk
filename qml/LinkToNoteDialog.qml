@@ -1,4 +1,4 @@
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -51,6 +51,6 @@ UiControls.Dialog {
                 onClicked: { researchStore.appendNoteLink(modelData.id, root.kind, root.targetId); root.close() }
             }
         }
-        Label { visible: root.noteRows.length === 0; text: "No notes yet."; color: Theme.textMuted }
+        Label { visible: root.noteRows.length === 0; text: "No notes yet."; color: Theme.textTertiary }
     }
 }

@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import "Platform.js" as Platform
 
 Rectangle {
@@ -54,9 +54,9 @@ Rectangle {
     signal documentAboutToOpen()
     signal documentOpened()
     signal fileChosen(url source)
-    color: Theme.readerBackground
-    border.color: isActive ? Theme.borderPaneActive : Theme.borderPane
-    radius: Theme.cornerRadius
+    color: Theme.pdfBackdrop
+    border.color: isActive ? Theme.border : Theme.separator
+    radius: Theme.radius
 
     function chooseFile() { fileDialog.open() }
     function cancelReveal() { revealTimer.stop(); sourceToReveal = null }
@@ -210,8 +210,8 @@ Rectangle {
             visible: !root.managed
             Layout.fillWidth: true
             Layout.preferredHeight: visible ? 48 : 0
-            color: Theme.surface
-            radius: Theme.cornerRadius
+            color: Theme.content
+            radius: Theme.radius
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 12
@@ -240,8 +240,8 @@ Rectangle {
             id: readerToolbar
             objectName: "readerToolbar"
             Layout.preferredHeight: visible ? 32 : 0
-            color: Theme.surfaceAlt
-            radius: Theme.cornerRadius
+            color: Theme.window
+            radius: Theme.radius
             RowLayout {
                 anchors.left: parent.left; anchors.leftMargin: 4; anchors.verticalCenter: parent.verticalCenter
                 spacing: 3
@@ -309,9 +309,9 @@ Rectangle {
                     ReaderIconButton { objectName:"textTool";kind:"text";checked:canvas.tool==="text";description:"Text box · Click or drag on a page";onClicked:root.setTool("text") }
                     ReaderIconButton { objectName:"imageTool";kind:"image";checked:canvas.tool==="image";description:"Image · Drag an area; right-click added images to edit";onClicked:root.setTool("image") }
                 }
-                Rectangle { visible: readerToolbar.width >= 600; width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.borderSegment }
+                Rectangle { visible: readerToolbar.width >= 600; width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
                 ReaderIconButton { objectName:"readerCaptureButton";kind:"capture";description:"Capture a region · " + Platform.keys("Ctrl+Shift+C");checked:canvas.captureMode;onClicked:root.toggleCapture() }
-                Rectangle { width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.borderSegment }
+                Rectangle { width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
                 ReaderIconButton {
                     objectName: "readerMoreButton"
                     description: "Find, print and export"
@@ -390,7 +390,7 @@ Rectangle {
             Layout.leftMargin: 12
             Layout.bottomMargin: 6
             text: canvas.captureMode ? "Drag a region to capture · Esc to cancel" : canvas.tool === "highlight" ? "Drag over text to highlight · Esc to finish" : "Click or drag on a page to add " + canvas.tool + " · Esc to cancel"
-            color: Theme.textQuote
+            color: Theme.textSecondary
             font.pixelSize: 11
         }
 
@@ -430,7 +430,7 @@ Rectangle {
                 x: Math.max(4,Math.min(parent.width-width-20,canvas.selectionEnd.x+8))
                 y: Math.max(4,canvas.selectionEnd.y+height+12>parent.height?canvas.selectionEnd.y-height-8:canvas.selectionEnd.y+8)
                 width: 140; height: 34
-                color: Theme.surfacePanel; border.color: Theme.borderPopup; radius: Theme.cornerRadius
+                color: Theme.raised; border.color: Theme.border; radius: Theme.radius
                 Row {
                     id: selectionActions
                     x: 8; y: 4; width: parent.width - 16; spacing: 4
@@ -474,7 +474,7 @@ Rectangle {
                     horizontalAlignment: Text.AlignHCenter
                     font.pixelSize: 16
                     font.weight: Font.Medium
-                    color: Theme.textBody
+                    color: Theme.text
                 }
                 Label {
                     Layout.fillWidth: true
@@ -508,7 +508,7 @@ Rectangle {
                 Rectangle {
                     anchors.fill: parent
                     visible: parent.containsDrag
-                    color: "#22555555"
+                    color: Theme.overlay
                     border.color: Theme.overlayBorder
                     border.width: 2
                 }

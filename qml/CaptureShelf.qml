@@ -1,4 +1,4 @@
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -6,7 +6,7 @@ import QtQuick.Layouts
 Rectangle {
     id: root
     objectName: "captureShelf"
-    color: Theme.surfacePanel
+    color: Theme.sidebar
     property string deletingId: ""
     property var viewingCapture: ({})
     property bool showingTrash: false
@@ -44,7 +44,7 @@ Rectangle {
                     readOnly: true
                     selectByMouse: true
                     wrapMode: TextEdit.Wrap
-                    background: Rectangle { color: Theme.surfaceAlt; border.color: Theme.border }
+                    background: Rectangle { color: Theme.window; border.color: Theme.separator }
                 }
             }
             RowLayout {
@@ -110,14 +110,14 @@ Rectangle {
                 id: savedTab
                 objectName: "savedCapturesTab"
                 text: "Saved"
-                background: Rectangle { color: savedTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
+                background: Rectangle { color: savedTab.checked ? Theme.selected : Theme.window; border.color: Theme.border }
                 onClicked: root.showingTrash = false
             }
             UiControls.TabButton {
                 id: trashTab
                 objectName: "captureTrashTab"
                 text: "Trash (" + researchStore.trashedCaptures.length + ")"
-                background: Rectangle { color: trashTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
+                background: Rectangle { color: trashTab.checked ? Theme.selected : Theme.window; border.color: Theme.border }
                 onClicked: root.showingTrash = true
             }
         }
@@ -209,9 +209,9 @@ Rectangle {
                     onClicked: captureMenu.popup(captureActions, 0, captureActions.height)
                 }
                 background: Rectangle {
-                    color: card.hovered ? Theme.surfaceChrome : "white"
-                    border.color: Theme.border
-                    radius: Theme.cornerRadius
+                    color: card.hovered ? Theme.mix(Theme.content, Theme.text, .05) : Theme.content
+                    border.color: Theme.separator
+                    radius: Theme.radius
                 }
                 contentItem: Column {
                     spacing: 7
@@ -244,7 +244,7 @@ Rectangle {
                         maximumLineCount: root.showingTrash ? 3 : 6
                         elide: Text.ElideRight
                         font.pixelSize: 13
-                        color: Theme.textBody
+                        color: Theme.text
                     }
                     Label {
                         visible: !root.showingTrash
@@ -253,7 +253,7 @@ Rectangle {
                         textFormat: Text.PlainText
                         elide: Text.ElideMiddle
                         font.pixelSize: 11
-                        color: Theme.textQuote
+                        color: Theme.textSecondary
                     }
                     Label { visible: !root.showingTrash; text: (card.modelData.kind === "web" ? "Web page" : "p. " + (card.modelData.page + 1)) + "  ·  View source"; font.pixelSize: 11; color: Theme.textSecondary; width: parent.width; wrapMode: Text.Wrap }
                     Label {
@@ -303,7 +303,7 @@ Rectangle {
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 lineHeight: 1.5
-                color: Theme.textMuted
+                color: Theme.textTertiary
             }
         }
     }

@@ -1,4 +1,4 @@
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -53,20 +53,20 @@ UiControls.Dialog {
             GridLayout {
                 Layout.fillWidth: true
                 columns: 2; columnSpacing: 10; rowSpacing: 8
-                Label { text: "PDF downloads"; color: Theme.textBody }
+                Label { text: "PDF downloads"; color: Theme.text }
                 RowLayout {
                     Layout.fillWidth: true
                     UiControls.TextField { id: folderField; objectName: "downloadFolderField"; Layout.fillWidth: true; readOnly: true }
                     UiControls.Button { text: "Choose…"; onClicked: folderDialog.open() }
                 }
-                Label { text: "PDF links"; color: Theme.textBody }
+                Label { text: "PDF links"; color: Theme.text }
                 UiControls.ComboBox {
                     id: pdfModeBox; objectName: "webPdfModeBox"
                     Layout.fillWidth: true
                     model: ["Download and open in the reader", "Show in the web tab"]
                     onActivated: function(index) { researchStore.setSetting("webPdfMode", index === 1 ? "browser" : "reader") }
                 }
-                Label { text: "Search with"; color: Theme.textBody }
+                Label { text: "Search with"; color: Theme.text }
                 UiControls.ComboBox {
                     id: engineBox; objectName: "searchEngineBox"
                     Layout.fillWidth: true
@@ -90,7 +90,7 @@ UiControls.Dialog {
                 function refreshCount() { stored = semantic.storedCount() }
                 Component.onCompleted: refreshCount()
                 Connections { target: semanticSettings.semantic; function onChanged() { semanticSettings.refreshCount() } }
-                Label { text: "Meaning search"; color: Theme.textBody }
+                Label { text: "Meaning search"; color: Theme.text }
                 UiControls.ComboBox {
                     id: semanticEngineBox; objectName: "semanticEngineBox"
                     Layout.fillWidth: true
@@ -103,7 +103,7 @@ UiControls.Dialog {
                         semanticSettings.semantic.configure(engine, "")
                     }
                 }
-                Label { visible: semanticSettings.semantic.enabled; text: "Model"; color: Theme.textBody }
+                Label { visible: semanticSettings.semantic.enabled; text: "Model"; color: Theme.text }
                 UiControls.TextField {
                     objectName: "semanticModelField"
                     visible: semanticSettings.semantic.enabled
@@ -139,7 +139,7 @@ UiControls.Dialog {
                 columns: 2; columnSpacing: 10; rowSpacing: 8
                 property var status: researchStore.ocrStatus()
                 Connections { target: researchStore; function onOcrChanged() { ocrSettings.status = researchStore.ocrStatus() } }
-                Label { text: "Scanned pages"; color: Theme.textBody }
+                Label { text: "Scanned pages"; color: Theme.text }
                 RowLayout {
                     Layout.fillWidth: true
                     CheckBox {
@@ -187,7 +187,7 @@ UiControls.Dialog {
             GridLayout {
                 Layout.fillWidth: true
                 columns: 2; columnSpacing: 10; rowSpacing: 8
-                Label { text: "Preferred language"; color: Theme.textBody }
+                Label { text: "Preferred language"; color: Theme.text }
                 UiControls.ComboBox {
                     id: languageBox; objectName: "aiLanguageBox"
                     Layout.fillWidth: true
@@ -219,7 +219,7 @@ UiControls.Dialog {
                     if (current.id === "codex") ai.refreshCodexAccount()
                     if (current.id === "ollama") ai.listOllamaModels()
                 }
-                Label { text: "Provider"; color: Theme.textBody }
+                Label { text: "Provider"; color: Theme.text }
                 UiControls.ComboBox {
                     objectName: "aiSettingsProvider"
                     Layout.fillWidth: true
@@ -231,7 +231,7 @@ UiControls.Dialog {
                 readonly property string keyProvider: current.id
                 readonly property bool needsKey: current.kind === "api"
                 readonly property bool keyStored: (ai.providers, ai.hasApiKey(keyProvider))
-                Label { visible: aiSettings.needsKey; text: "API key"; color: Theme.textBody }
+                Label { visible: aiSettings.needsKey; text: "API key"; color: Theme.text }
                 RowLayout {
                     visible: aiSettings.needsKey
                     Layout.fillWidth: true
@@ -253,7 +253,7 @@ UiControls.Dialog {
                         onClicked: Qt.openUrlExternally(aiSettings.keyProvider === "claude" ? "https://console.anthropic.com/settings/keys" : "https://platform.openai.com/api-keys")
                     }
                 }
-                Label { visible: aiSettings.current.id === "codex"; text: "Account"; color: Theme.textBody }
+                Label { visible: aiSettings.current.id === "codex"; text: "Account"; color: Theme.text }
                 RowLayout {
                     visible: aiSettings.current.id === "codex"
                     Layout.fillWidth: true
@@ -270,14 +270,14 @@ UiControls.Dialog {
                         onClicked: aiSettings.codexAccount.signedIn ? aiSettings.ai.codexSignOut() : aiSettings.ai.codexSignIn()
                     }
                 }
-                Label { visible: aiSettings.current.id === "ollama"; text: "Host"; color: Theme.textBody }
+                Label { visible: aiSettings.current.id === "ollama"; text: "Host"; color: Theme.text }
                 UiControls.TextField {
                     visible: aiSettings.current.id === "ollama"
                     Layout.fillWidth: true
                     text: researchStore.setting("ai.baseUrl.ollama", "http://127.0.0.1:11434/")
                     onEditingFinished: { researchStore.setSetting("ai.baseUrl.ollama", text.trim()); aiSettings.ai.listOllamaModels() }
                 }
-                Label { text: "Model"; color: Theme.textBody }
+                Label { text: "Model"; color: Theme.text }
                 RowLayout {
                     Layout.fillWidth: true
                     UiControls.TextField {
@@ -318,7 +318,7 @@ UiControls.Dialog {
                     target: researchStore
                     function onBackupFinished(ok, path, message) { dataSettings.result = message }
                 }
-                Label { text: "Backup"; color: Theme.textBody }
+                Label { text: "Backup"; color: Theme.text }
                 RowLayout {
                     Layout.fillWidth: true
                     UiControls.Button {
@@ -370,7 +370,7 @@ UiControls.Dialog {
                         Layout.fillWidth: true
                         readonly property string current: Shortcuts.keys(modelData.id, shortcutSettings.overrides, Qt.platform.os)
                         readonly property bool clash: current.length > 0 && !!shortcutSettings.clashes[current]
-                        Label { Layout.fillWidth: true; text: shortcutRow.modelData.name; color: Theme.textBody; elide: Text.ElideRight }
+                        Label { Layout.fillWidth: true; text: shortcutRow.modelData.name; color: Theme.text; elide: Text.ElideRight }
                         UiControls.Button {
                             id: keyButton
                             objectName: "shortcut-" + shortcutRow.modelData.id
@@ -378,7 +378,7 @@ UiControls.Dialog {
                             text: shortcutSettings.recording === shortcutRow.modelData.id ? "Press keys…"
                                 : shortcutRow.current.length ? Platform.keys(shortcutRow.current) : "None"
                             highlighted: shortcutSettings.recording === shortcutRow.modelData.id
-                            palette.buttonText: shortcutRow.clash ? Theme.danger : Theme.textBody
+                            palette.buttonText: shortcutRow.clash ? Theme.danger : Theme.text
                             ToolTip.visible: hovered && shortcutRow.clash; ToolTip.delay: 300
                             ToolTip.text: shortcutRow.clash ? "Also used by " + shortcutSettings.clashes[shortcutRow.current].filter(function(n) { return n !== shortcutRow.modelData.name }).join(", ") : ""
                             onClicked: { shortcutSettings.recording = shortcutRow.modelData.id; keyButton.forceActiveFocus() }

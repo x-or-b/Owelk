@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic as Controls
-import "UiTheme.js" as Theme
+import Owelk.Ui
 
 QtObject {
     // Keep Basic's sizing, palette, focus, hover and disabled behavior. Only shape changes.

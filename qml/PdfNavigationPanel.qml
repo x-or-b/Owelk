@@ -1,4 +1,4 @@
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -71,28 +71,28 @@ Item {
                 id: outlineTab
                 objectName: "outlineTab"
                 text: "Outline"
-                background: Rectangle { color: outlineTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
+                background: Rectangle { color: outlineTab.checked ? Theme.selected : Theme.window; border.color: Theme.border }
                 onClicked: root.modeChosen(0)
             }
             UiControls.TabButton {
                 id: thumbnailsTab
                 objectName: "thumbnailsTab"
                 text: "Thumbnails"
-                background: Rectangle { color: thumbnailsTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
+                background: Rectangle { color: thumbnailsTab.checked ? Theme.selected : Theme.window; border.color: Theme.border }
                 onClicked: root.modeChosen(1)
             }
             UiControls.TabButton {
                 id: linksTab
                 objectName: "linksTab"
                 text: "Links" + (root.backlinks.length ? " (" + root.backlinks.length + ")" : "")
-                background: Rectangle { color: linksTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
+                background: Rectangle { color: linksTab.checked ? Theme.selected : Theme.window; border.color: Theme.border }
                 onClicked: root.modeChosen(2)
             }
             UiControls.TabButton {
                 id: relatedTab
                 objectName: "relatedTab"
                 text: "Related"
-                background: Rectangle { color: relatedTab.checked ? Theme.segmentChecked : Theme.surfaceAlt; border.color: Theme.borderSegment }
+                background: Rectangle { color: relatedTab.checked ? Theme.selected : Theme.window; border.color: Theme.border }
                 onClicked: root.modeChosen(3)
             }
         }
@@ -123,7 +123,7 @@ Item {
                 }
                 Label {
                     visible: !root.relatedPapers.length
-                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textMuted
+                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
                     text: root.relatedLoading ? "Looking for related papers…" : "No related papers in the library yet."
                 }
                 Label { text: "Notes"; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 10 }
@@ -139,7 +139,7 @@ Item {
                 }
                 Label {
                     visible: !root.relatedNotes.length && !root.relatedLoading
-                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textMuted
+                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
                     text: "No notes share this paper's key words."
                 }
             }
@@ -164,7 +164,7 @@ Item {
                 anchors.centerIn: parent; width: parent.width - 16
                 visible: parent.count === 0
                 text: "No notes link to this paper yet. Use Link to Note… on an excerpt or annotation, or [[ in a note."
-                wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; color: Theme.textMuted
+                wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; color: Theme.textTertiary
             }
         }
         Item {
@@ -199,7 +199,7 @@ Item {
                 text: "This PDF has no embedded outline.\nUse Thumbnails to navigate."
                 wrapMode: Text.Wrap
                 horizontalAlignment: Text.AlignHCenter
-                color: Theme.textMuted
+                color: Theme.textTertiary
             }
         }
         ListView {
@@ -225,7 +225,7 @@ Item {
                 height: preview.height + 30
                 padding: 6
                 onClicked: root.go(index, null)
-                background: Rectangle { color: Theme.surfaceAlt; border.color: root.reader && root.reader.currentPage === thumb.index ? Theme.borderSelected : Theme.border; radius: Theme.cornerRadius }
+                background: Rectangle { color: Theme.window; border.color: root.reader && root.reader.currentPage === thumb.index ? Theme.accent : Theme.separator; radius: Theme.radius }
                 contentItem: Column {
                     spacing: 4
                     PdfPageImage {
@@ -253,7 +253,7 @@ Item {
             wrapMode: Text.Wrap
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
-            color: Theme.textMuted
+            color: Theme.textTertiary
         }
     }
 }

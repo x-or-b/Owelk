@@ -43,7 +43,7 @@ public:
     explicit ResearchStore(const QString &directory, QObject *parent = nullptr);
     ~ResearchStore() override;
     bool initialize(QString *error);
-    // The only accepted annotation inks; UiTheme.annotationInks must list the same values.
+    // The only accepted annotation inks; Theme.annotationInks (src/ui/Theme.cpp) must list the same values.
     static QStringList annotationColors();
     static QString defaultAnnotationColor() { return annotationColors().constFirst(); }
     // "Figure 3: …" / "Table 2 …" next to a captured region (normalised page coordinates), or empty.

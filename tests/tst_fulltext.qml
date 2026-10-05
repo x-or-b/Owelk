@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import Owelk.Ui
 import "../qml" as App
 import "../qml/WorkspaceTree.js" as Tree
 
@@ -92,7 +93,7 @@ Item {
                 mouseClick(chip)
                 compare(palette.searchController.targetFilter, value)
                 compare(chip.checked, true)
-                compare(chip.contentItem.color.toString(), "#333333")
+                verify(Qt.colorEqual(chip.contentItem.color, Theme.text))
             }
             verify(findChild(palette, "searchTargetFilter") === null)
             verify(findChild(palette, "searchYearFrom") === null)

@@ -1,4 +1,4 @@
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -61,7 +61,7 @@ UiControls.Popup {
     onResultsChanged: if (list) list.currentIndex = results.length ? 0 : -1
     onAboutToShow: { query.clear(); list.currentIndex = results.length ? 0 : -1 }
     onOpened: query.forceActiveFocus()
-    background: Rectangle { color: Theme.surface; border.color: Theme.borderPopup; radius: Theme.cornerRadius }
+    background: Rectangle { color: Theme.raised; border.color: Theme.border; radius: Theme.radius }
     contentItem: ColumnLayout {
         spacing: 8
         UiControls.TextField {
@@ -90,19 +90,19 @@ UiControls.Popup {
                 highlighted: list.currentIndex === index
                 enabled: modelData.enabled
                 onClicked: root.choose(index)
-                background: Rectangle { color: highlighted ? Theme.surfaceChrome : "transparent" }
+                background: Rectangle { color: highlighted ? Theme.window : "transparent" }
                 contentItem: Label {
                     objectName: "commandTitle-" + index
-                    text: Match.highlight(modelData.title, query.text)
+                    text: Match.highlight(modelData.title, query.text, Theme.accent)
                     textFormat: Text.StyledText
-                    color: Theme.textBody
+                    color: Theme.text
                     opacity: modelData.enabled ? 1 : .45
                     elide: Text.ElideRight
                     verticalAlignment: Text.AlignVCenter
                 }
             }
-            Label { visible: list.count === 0; anchors.centerIn: parent; text: "No matching commands"; color: Theme.textMuted }
+            Label { visible: list.count === 0; anchors.centerIn: parent; text: "No matching commands"; color: Theme.textTertiary }
         }
-        Label { text: "↑↓ Navigate · Enter Run · Esc Close"; color: Theme.textMuted; font.pixelSize: 11 }
+        Label { text: "↑↓ Navigate · Enter Run · Esc Close"; color: Theme.textTertiary; font.pixelSize: 11 }
     }
 }

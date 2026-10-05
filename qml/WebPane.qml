@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtWebEngine
 import "WorkspaceTree.js" as Tree
-import "UiTheme.js" as Theme
+import Owelk.Ui
 
 // A web page inside a tab. PDFs reached here are downloaded through the page's own session
 // (so institution logins keep working) and open in the reader.
@@ -40,7 +40,7 @@ Rectangle {
     property bool downloadOpening: false
     signal downloadStarted(string fileName)
     signal activated()
-    color: Theme.surface
+    color: Theme.content
     property bool capturing: false
     // Screenshot the visible page and keep the chosen part (normalised to the view).
     function captureRegion(rect) {
@@ -102,7 +102,7 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 32
-            color: Theme.surfaceAlt
+            color: Theme.window
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 4; anchors.rightMargin: 4
                 spacing: 2
@@ -169,13 +169,13 @@ Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 32
             visible: root.pdfAddress.length > 0 && root.download === null && !root.downloadOpening
-            color: Theme.surfacePanel
+            color: Theme.sidebar
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 4
                 spacing: 6
                 Label {
                     Layout.fillWidth: true; Layout.minimumWidth: 0
-                    elide: Text.ElideRight; font.pixelSize: 12; color: Theme.textBody
+                    elide: Text.ElideRight; font.pixelSize: 12; color: Theme.text
                     text: root.browserPdf ? "Reading the PDF in this tab. Highlights, captures and notes work in the reader."
                                           : "This page shows a PDF."
                 }
@@ -204,7 +204,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 30
             visible: root.download !== null || root.downloadOpening
-            color: Theme.surfacePanel
+            color: Theme.sidebar
             readonly property real received: root.download ? root.download.receivedBytes : 0
             readonly property real total: root.download ? root.download.totalBytes : 0
             function size(bytes) { return bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(bytes / 1024)) + " KB" }
@@ -215,7 +215,7 @@ Rectangle {
                 Label {
                     objectName: "webDownloadLabel"
                     Layout.fillWidth: true; Layout.minimumWidth: 0
-                    elide: Text.ElideMiddle; font.pixelSize: 12; color: Theme.textBody; textFormat: Text.PlainText
+                    elide: Text.ElideMiddle; font.pixelSize: 12; color: Theme.text; textFormat: Text.PlainText
                     text: root.downloadOpening ? "Opening in the reader…"
                         : root.download ? "Downloading " + root.download.downloadFileName
                           + (downloadBar.total > 0 ? " · " + downloadBar.size(downloadBar.total)
@@ -228,7 +228,7 @@ Rectangle {
                     visible: fill.known
                     readonly property real progress: fill.known ? Math.min(1, downloadBar.received / downloadBar.total) : 0
                     Layout.preferredWidth: Math.min(220, downloadBar.width / 3); Layout.preferredHeight: 5
-                    radius: 2; color: Theme.border
+                    radius: 2; color: Theme.separator
                     clip: true
                     Rectangle {
                         id: fill

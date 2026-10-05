@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "UiTheme.js" as Theme
+import Owelk.Ui
 
 // A standalone Markdown note. Saves itself shortly after typing stops; [[ inserts a link to a
 // paper, excerpt, annotation or other note, and links open their source.
@@ -20,7 +20,7 @@ Rectangle {
     // Notes sharing this note's key words; recomputed when it is opened or saved (local and quick).
     property var related: []
     signal activated()
-    color: Theme.surface
+    color: Theme.content
     function load() {
         loadedId = noteId
         const row = researchStore.note(noteId)
@@ -115,7 +115,7 @@ Rectangle {
                 }
             }
         }
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }
         ScrollView {
             Layout.fillWidth: true; Layout.fillHeight: true
             visible: !root.preview
@@ -146,7 +146,7 @@ Rectangle {
                 textFormat: Text.RichText
                 wrapMode: Text.Wrap
                 font.pixelSize: 14
-                color: Theme.textBody
+                color: Theme.text
                 onLinkActivated: function(link) { root.openLink(link) }
                 TapHandler { onDoubleTapped: { root.preview = false; body.forceActiveFocus() } }
                 HoverHandler { cursorShape: parent.hoveredLink.length ? Qt.PointingHandCursor : Qt.IBeamCursor }
@@ -197,7 +197,7 @@ Rectangle {
         property var candidates: []
         onOpened: { linkQuery.text = ""; candidates = researchStore.linkCandidates(""); linkQuery.forceActiveFocus() }
         onClosed: body.forceActiveFocus()
-        background: Rectangle { color: Theme.surfacePanel; border.color: Theme.borderPopup; radius: Theme.cornerRadius }
+        background: Rectangle { color: Theme.raised; border.color: Theme.border; radius: Theme.radius }
         contentItem: ColumnLayout {
             spacing: 6
             UiControls.TextField {

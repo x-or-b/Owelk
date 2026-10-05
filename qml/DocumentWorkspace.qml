@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtWebEngine
 import "WorkspaceTree.js" as Tree
-import "UiTheme.js" as Theme
+import Owelk.Ui
 
 Flickable {
     id: root
@@ -581,7 +581,7 @@ Flickable {
             required property var model
             objectName: "splitHandle-" + model.nodeId
             x: model.x; y: model.y; width: model.width; height: model.height
-            color: resize.containsMouse || resize.pressed ? Theme.splitterHover : Theme.splitter
+            color: resize.containsMouse || resize.pressed ? Theme.border : Theme.separator
             MouseArea {
                 id: resize
                 anchors.fill: parent

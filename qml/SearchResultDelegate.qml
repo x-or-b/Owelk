@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "PaletteMatch.js" as Match
-import "UiTheme.js" as Theme
+import Owelk.Ui
 
 UiControls.ItemDelegate {
     id: root
@@ -15,7 +15,7 @@ UiControls.ItemDelegate {
     enabled: !section
     height: section ? 30 : (modelData.snippet ? 76 : 44) + (byline.length ? 14 : 0)
     background: Rectangle {
-        color: root.heading ? (root.highlighted || root.hovered ? Theme.searchHeadingHover : Theme.searchHeading) : root.highlighted ? Theme.surfaceSelected : root.hovered ? Theme.surfaceHover : "transparent"
+        color: root.heading ? (root.highlighted || root.hovered ? Theme.textSecondary : Theme.textTertiary) : root.highlighted ? Theme.selected : root.hovered ? Theme.hover : "transparent"
     }
     contentItem: ColumnLayout {
         spacing: 3
@@ -24,9 +24,9 @@ UiControls.ItemDelegate {
             Label {
                 objectName: "resultTitle"
                 Layout.fillWidth: true
-                text: Match.highlight(root.modelData.title, root.queryText, root.heading ? Theme.accentOnDark : Theme.accent)
+                text: Match.highlight(root.modelData.title, root.queryText, root.heading ? Theme.mix(Theme.accent, Theme.onAccent, .5) : Theme.accent)
                 textFormat: Text.StyledText
-                color: root.section ? Theme.textTertiary : root.heading ? Theme.onDark : root.modelData.kind === "text" ? Theme.accentText : Theme.textBody
+                color: root.section ? Theme.textTertiary : root.heading ? Theme.onAccent : root.modelData.kind === "text" ? Theme.selectedText : Theme.text
                 font.bold: root.modelData.kind === "paperGroup" || root.section
                 font.pointSize: root.section ? Qt.application.font.pointSize * .85 : Qt.application.font.pointSize
                 elide: root.modelData.kind === "paper" ? Text.ElideRight : Text.ElideMiddle
@@ -36,7 +36,7 @@ UiControls.ItemDelegate {
                     : root.modelData.kind === "text" ? "p. " + (Number(root.modelData.page) + 1) + (root.modelData.ocr ? " · OCR" : "")
                     : ["moreInPaper", "nextResults", "section"].indexOf(root.modelData.kind) >= 0 ? ""
                     : root.modelData.kind === "paper" ? "" : root.modelData.kind
-                color: root.heading ? Theme.onDarkMuted : Theme.textMuted; font.pixelSize: 11
+                color: root.heading ? Theme.onAccent : Theme.textTertiary; font.pixelSize: 11
             }
         }
         // Papers read like the Library: title, then authors · year.
@@ -47,14 +47,14 @@ UiControls.ItemDelegate {
             text: root.byline
             textFormat: Text.PlainText
             elide: Text.ElideRight
-            color: root.heading ? Theme.onDarkMuted : Theme.textTertiary
+            color: root.heading ? Theme.onAccent : Theme.textTertiary
             font.pixelSize: 11
         }
         Label {
             objectName: "resultSnippet"
             Layout.fillWidth: true
             visible: !!root.modelData.snippet
-            text: Match.highlight(root.modelData.snippet || "", root.queryText)
+            text: Match.highlight(root.modelData.snippet || "", root.queryText, Theme.accent)
             textFormat: Text.StyledText
             wrapMode: Text.Wrap
             maximumLineCount: 2

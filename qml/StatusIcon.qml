@@ -1,4 +1,4 @@
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 
@@ -22,9 +22,9 @@ Item {
     Rectangle {
         anchors.fill: parent
         anchors.margins: 2
-        radius: Theme.cornerRadius
-        color: root.selected ? Theme.controlHover : pointer.containsMouse ? Theme.surfaceSelected : "transparent"
-        border.color: root.activeFocus ? Theme.focusRing : "transparent"
+        radius: Theme.radius
+        color: root.selected ? Theme.hover : pointer.containsMouse ? Theme.hover : "transparent"
+        border.color: root.activeFocus ? Theme.focus : "transparent"
     }
     Canvas {
         id: icon

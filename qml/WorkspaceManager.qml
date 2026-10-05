@@ -1,4 +1,4 @@
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -77,13 +77,13 @@ UiControls.Dialog {
                 Layout.fillWidth: true
                 textRole: "label"
                 model: root.availableCaptures.map(function(c) { return {id: c.id, label: c.name + " · p. " + (Number(c.page) + 1) + " · " + (c.text || c.note || "Region capture").slice(0, 90)} })
-                contentItem: Text { text: capturePicker.displayText; textFormat: Text.PlainText; color: Theme.textBody; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
+                contentItem: Text { text: capturePicker.displayText; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
                 delegate: UiControls.ItemDelegate {
                     required property var modelData
                     required property int index
                     width: capturePicker.width; highlighted: capturePicker.highlightedIndex === index
-                    background: Rectangle { color: highlighted ? Theme.controlHover : Theme.surfacePanel }
-                    contentItem: Text { text: modelData.label; textFormat: Text.PlainText; color: Theme.textBody; elide: Text.ElideMiddle; verticalAlignment: Text.AlignVCenter }
+                    background: Rectangle { color: highlighted ? Theme.hover : Theme.sidebar }
+                    contentItem: Text { text: modelData.label; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideMiddle; verticalAlignment: Text.AlignVCenter }
                 }
             }
             UiControls.Button { objectName: "linkCaptureButton"; text: "Link capture"; enabled: capturePicker.currentIndex >= 0 && root.availableCaptures.length > 0; onClicked: root.linkCapture(root.availableCaptures[capturePicker.currentIndex].id, true) }
@@ -97,12 +97,12 @@ UiControls.Dialog {
             delegate: Rectangle {
                 required property var modelData
                 width: list.width; height: root.mode === 0 ? 62 : 94
-                color: Theme.surfaceMuted; border.color: Theme.controlHover; radius: Theme.cornerRadius
+                color: Theme.window; border.color: Theme.hover; radius: Theme.radius
                 RowLayout {
                     anchors.fill: parent; anchors.margins: 8
                     ColumnLayout {
                         Layout.fillWidth: true
-                        Label { Layout.fillWidth: true; text: modelData.name; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: Theme.textBody }
+                        Label { Layout.fillWidth: true; text: modelData.name; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: Theme.text }
                         Label {
                             Layout.fillWidth: true
                             text: root.mode === 0 ? modelData.source.toString() : "p. " + (Number(modelData.page) + 1) + " · " + (modelData.text || "Region capture")
@@ -115,7 +115,7 @@ UiControls.Dialog {
                     UiControls.ToolButton { objectName: "unlinkWorkspaceItem"; text: "Unlink"; onClicked: { if (root.mode === 0) root.linkDocument(modelData.source, false); else root.linkCapture(modelData.id, false) } }
                 }
             }
-            Label { anchors.centerIn: parent; visible: list.count === 0; text: root.mode === 0 ? "No linked documents" : "No linked captures"; color: Theme.textMuted }
+            Label { anchors.centerIn: parent; visible: list.count === 0; text: root.mode === 0 ? "No linked documents" : "No linked captures"; color: Theme.textTertiary }
         }
         Label { Layout.fillWidth: true; visible: root.error.length > 0; text: root.error; wrapMode: Text.Wrap; color: Theme.danger }
     }

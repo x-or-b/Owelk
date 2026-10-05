@@ -1,4 +1,4 @@
-import "UiTheme.js" as Theme
+import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -12,13 +12,13 @@ ColumnLayout {
         implicitHeight: 28
         leftPadding: 10; rightPadding: 10
         contentItem: Text {
-            text: button.text; color: button.enabled ? Theme.textBody : Theme.textDisabled; font: button.font
+            text: button.text; color: button.enabled ? Theme.text : Theme.textDisabled; font: button.font
             horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
         }
         background: Rectangle {
-            radius: Theme.cornerRadius
-            color: !button.enabled ? Theme.controlDisabled : button.checked || button.down ? Theme.accentSurface : button.hovered ? Theme.controlHover : Theme.controlFill
-            border.color: button.activeFocus || button.checked ? Theme.accentMuted : Theme.borderControl
+            radius: Theme.radius
+            color: !button.enabled ? Theme.control : button.checked || button.down ? Theme.selected : button.hovered ? Theme.hover : Theme.control
+            border.color: button.activeFocus || button.checked ? Theme.accentBorder : Theme.border
         }
     }
     // One row: where to search, plus This PDF in the reader. Library conditions are typed into the
