@@ -79,7 +79,7 @@ Dialog {
     contentItem: ColumnLayout {
         spacing: 8
         Label {
-            Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+            Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
             visible: !root.suggestions.length
             text: root.tabs.length < 2 ? "Open at least two tabs in this strip to organize them."
                 : "Sends the titles of these " + root.tabs.length + " tabs, web addresses, paper authors and years, and the first lines of each paper to "
@@ -88,7 +88,7 @@ Dialog {
         Label {
             objectName: "organizeError"
             visible: root.error.length > 0
-            Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.danger; font.pixelSize: 12
+            Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.danger; font.pixelSize: Theme.fontSmall
             text: root.error
         }
         ListView {
@@ -123,7 +123,7 @@ Dialog {
                     delegate: Label {
                         required property string modelData
                         Layout.fillWidth: true; Layout.leftMargin: 34
-                        elide: Text.ElideRight; font.pixelSize: 12; color: Theme.textSecondary
+                        elide: Text.ElideRight; font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
                         text: (root.tabs.find(function(t) { return t.id === modelData }) || {title: ""}).title
                     }
                 }

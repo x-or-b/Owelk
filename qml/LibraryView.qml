@@ -58,7 +58,7 @@ Rectangle {
         ColumnLayout {
             width: parent.width
             TextField { id: tagField; objectName: "libraryTagField"; Layout.fillWidth: true; placeholderText: "Comma-separated, e.g. SLAM, to read"; onAccepted: tagDialog.accept() }
-            Label { text: "Existing: " + root.tagRows.map(function(t) { return t.name }).join(", "); visible: root.tagRows.length > 0; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: 12; color: Theme.textTertiary }
+            Label { text: "Existing: " + root.tagRows.map(function(t) { return t.name }).join(", "); visible: root.tagRows.length > 0; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
         }
         onAccepted: researchStore.setDocumentTags(source, tagField.text.split(",").map(function(t) { return t.trim() }).filter(function(t) { return t.length }))
     }
@@ -148,7 +148,7 @@ Rectangle {
                     Label {
                         visible: !!entry.modelData.header
                         anchors.left: parent.left; anchors.leftMargin: 6; anchors.bottom: parent.bottom; anchors.bottomMargin: 4
-                        text: entry.modelData.header || ""; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary
+                        text: entry.modelData.header || ""; font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textTertiary
                     }
                     IconButton {
                         visible: !!entry.modelData.add
@@ -164,12 +164,6 @@ Rectangle {
                         leftPadding: 8 + 14 * (entry.modelData.depth || 0)
                         highlighted: !entry.modelData.header && root.selected(entry.modelData.key, entry.modelData.value)
                         text: entry.modelData.label || ""
-                        font.pixelSize: 13
-                        // Selection uses the accent surface; the label stays dark and readable.
-                        background: Rectangle {
-                            radius: Theme.radius
-                            color: item.highlighted ? Theme.selected : item.hovered ? Theme.hover : "transparent"
-                        }
                         contentItem: Text {
                             leftPadding: 0; rightPadding: 28
                             text: item.text; font: item.font; elide: Text.ElideRight; textFormat: Text.PlainText
@@ -184,7 +178,7 @@ Rectangle {
                         Label {
                             anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
                             visible: entry.modelData.count !== undefined; text: entry.modelData.count || 0
-                            font.pixelSize: 11; color: Theme.textTertiary
+                            font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                         }
                         TapHandler {
                             acceptedButtons: Qt.RightButton
@@ -211,7 +205,7 @@ Rectangle {
             RowLayout {
                 Layout.fillWidth: true
                 visible: root.showingNotes
-                Label { Layout.fillWidth: true; text: root.filter.notesTrash ? "Notes trash" : "Notes"; font.pixelSize: 15; font.weight: Font.DemiBold; color: Theme.text }
+                Label { Layout.fillWidth: true; text: root.filter.notesTrash ? "Notes trash" : "Notes"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
                 IconButton { objectName: "libraryNewNote"; visible: !root.filter.notesTrash; icon.name: "note"; description: "New note"; onClicked: root.newNoteRequested() }
             }
             ListView {
@@ -225,13 +219,15 @@ Rectangle {
                     id: noteItem
                     required property var modelData
                     objectName: "libraryNote-" + modelData.id
-                    width: noteList.width; height: 50
+                    required property int index
+                    width: noteList.width; height: Theme.rowHeightTall
+                    separator: index < noteList.count - 1
                     onClicked: if (!root.filter.notesTrash) root.noteChosen(modelData.id)
                     contentItem: RowLayout {
                         ColumnLayout {
                             Layout.fillWidth: true; spacing: 2
-                            Label { Layout.fillWidth: true; text: noteItem.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text; font.pixelSize: 13 }
-                            Label { Layout.fillWidth: true; text: noteItem.modelData.snippet || " "; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: 11; color: Theme.textTertiary }
+                            Label { Layout.fillWidth: true; text: noteItem.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                            Label { Layout.fillWidth: true; text: noteItem.modelData.snippet || " "; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
                         }
                         IconButton {
                             visible: !!root.filter.notesTrash; objectName: "restoreNote-" + noteItem.modelData.id
@@ -266,12 +262,12 @@ Rectangle {
             RowLayout {
                 Layout.fillWidth: true
                 visible: !root.showingNotes
-                Label { objectName: "libraryCount"; Layout.fillWidth: true; text: root.rows.length + (root.rows.length === 1 ? " paper" : " papers"); font.pixelSize: 12; color: Theme.textTertiary }
-                ToolButton {
+                Label { objectName: "libraryCount"; Layout.fillWidth: true; text: root.rows.length + (root.rows.length === 1 ? " paper" : " papers"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
+                IconButton {
                     objectName: "exportBibtex"
-                    text: "Export BibTeX…"; font.pixelSize: 12
+                    icon.name: "export"
                     enabled: root.rows.length > 0
-                    ToolTip.visible: hovered; ToolTip.delay: 450; ToolTip.text: "Save the papers listed here as a .bib file"
+                    description: "Export BibTeX… · the papers listed here"
                     onClicked: bibtexDialog.open()
                 }
             }
@@ -296,8 +292,10 @@ Rectangle {
                     required property var modelData
                     readonly property url paperUrl: modelData.url
                     objectName: "libraryPaper-" + modelData.id
+                    required property int index
                     width: papers.width
-                    height: 50
+                    height: Theme.rowHeightTall
+                    separator: index < papers.count - 1
                     onClicked: root.documentChosen(modelData.url, modelData.position)
                     ToolTip.visible: hovered; ToolTip.delay: 600
                     ToolTip.text: modelData.fileName + (modelData.duplicate ? "\nSame file as another library entry" : "") + (modelData.excluded ? "\nExcluded from text search" : "")
@@ -318,16 +316,18 @@ Rectangle {
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 2
-                            Label { Layout.fillWidth: true; text: paper.modelData.name; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text; font.pixelSize: 13 }
+                            Label { Layout.fillWidth: true; text: paper.modelData.name; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
                             Label {
-                                Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: 11; color: Theme.textTertiary
+                                Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                                 text: [paper.modelData.authors, paper.modelData.year, paper.modelData.tags ? "# " + paper.modelData.tags : ""].filter(function(s) { return s && s.length }).join("  ·  ")
                             }
                         }
-                        Label { visible: paper.modelData.duplicate; text: "duplicate"; font.pixelSize: 11; color: Theme.textTertiary }
+                        Label { visible: paper.modelData.duplicate; text: "duplicate"; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                        // The star shows on favorites; on hover it is the toggle.
                         IconButton {
                             objectName: "libraryFavorite-" + paper.modelData.id
-                            icon.name: "star"; implicitWidth: 24
+                            icon.name: "star"
+                            opacity: paper.modelData.favorite || paper.hovered || hovered ? 1 : 0
                             tint: paper.modelData.favorite ? Theme.accent : Theme.textDisabled
                             description: paper.modelData.favorite ? "Remove from Favorites" : "Add to Favorites"
                             onClicked: researchStore.setFavorite(paper.modelData.url, !paper.modelData.favorite)

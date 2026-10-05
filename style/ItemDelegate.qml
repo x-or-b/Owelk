@@ -6,6 +6,8 @@ import Owelk.Ui
 // A list row: rounded hover, accent-tinted when highlighted (selected or keyboard-current).
 T.ItemDelegate {
     id: control
+    // A hairline under the row, inset to the text (lists, as in macOS settings).
+    property bool separator: false
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset, implicitContentWidth + leftPadding + rightPadding)
     implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset, implicitContentHeight + topPadding + bottomPadding,
                              implicitIndicatorHeight + topPadding + bottomPadding)
@@ -33,5 +35,13 @@ T.ItemDelegate {
         color: control.highlighted ? Theme.selected : control.down ? Theme.pressed : control.hovered ? Theme.hover : "transparent"
         border.width: control.visualFocus ? 2 : 0
         border.color: Theme.focus
+        Rectangle {
+            visible: control.separator && !control.highlighted
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: -1
+            x: control.leftPadding; width: parent.width - control.leftPadding - control.rightPadding
+            height: 1
+            color: Theme.separator
+        }
     }
 }

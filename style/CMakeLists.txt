@@ -7,6 +7,6 @@ qt_add_qml_module(owelk_style
     QML_FILES Button.qml ToolButton.qml TextField.qml TextArea.qml Label.qml ToolTip.qml ScrollBar.qml
         Menu.qml MenuItem.qml MenuSeparator.qml ItemDelegate.qml TabBar.qml TabButton.qml
         ComboBox.qml CheckBox.qml Switch.qml Popup.qml Dialog.qml DialogButtonBox.qml
-        Icon.qml IconButton.qml Icons.js
+        Chip.qml ListGroup.qml Icon.qml IconButton.qml Icons.js
 )
 target_link_libraries(owelk_style PRIVATE Qt6::Quick Qt6::QuickControls2)

@@ -7,20 +7,6 @@ ColumnLayout {
     id: root
     required property var controller
     property url currentSource: ""
-    component FilterButton: ToolButton {
-        id: button
-        implicitHeight: 28
-        leftPadding: 10; rightPadding: 10
-        contentItem: Text {
-            text: button.text; color: button.enabled ? Theme.text : Theme.textDisabled; font: button.font
-            horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-        }
-        background: Rectangle {
-            radius: Theme.radius
-            color: !button.enabled ? Theme.control : button.checked || button.down ? Theme.selected : button.hovered ? Theme.hover : Theme.control
-            border.color: button.activeFocus || button.checked ? Theme.accentBorder : Theme.border
-        }
-    }
     // One row: where to search, plus This PDF in the reader. Library conditions are typed into the
     // query (tag:, collection:, state:, year:, workspace:) instead of filling the box with menus.
     Flow {
@@ -30,7 +16,7 @@ ColumnLayout {
         Repeater {
             model: [{value: "all", name: "All"}, {value: "text", name: "PDF text"}, {value: "filename", name: "Papers"},
                     {value: "captures", name: "Captures"}, {value: "ai", name: "AI"}]
-            delegate: FilterButton {
+            delegate: Chip {
                 required property var modelData
                 objectName: "searchTarget-" + modelData.value
                 text: modelData.name
@@ -39,7 +25,7 @@ ColumnLayout {
                 onClicked: root.controller.targetFilter = modelData.value
             }
         }
-        FilterButton {
+        Chip {
             objectName: "currentPdfFilter"
             visible: root.currentSource.toString().length > 0
             text: "This PDF"
@@ -56,6 +42,6 @@ ColumnLayout {
         text: [root.controller.sourceFilter.toString().length && !researchStore.sameSource(root.controller.sourceFilter, root.currentSource)
                    ? (researchStore.documentsRevision, researchStore.displayName(root.controller.sourceFilter)) : ""]
               .concat(root.controller.tokenLabels).filter(function(s) { return s.length }).join("  ·  ")
-        textFormat: Text.PlainText; elide: Text.ElideMiddle; color: Theme.textTertiary; font.pixelSize: 11
+        textFormat: Text.PlainText; elide: Text.ElideMiddle; color: Theme.textTertiary; font.pixelSize: Theme.fontCaption
     }
 }

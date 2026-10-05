@@ -101,6 +101,7 @@ Item {
             clip: true
             ScrollBar.vertical: ScrollBar {}
             delegate: ItemDelegate {
+                id: fileRow
                 required property int index
                 required property string name
                 required property string url
@@ -109,12 +110,20 @@ Item {
                 required property bool loading
                 required property int depth
                 width: ListView.view.width
-                height: 28
-                leftPadding: 6 + depth * 14
-                text: (loading ? "… " : directory ? (expanded ? "▾ " : "▸ ") : "  ") + name
+                height: Theme.rowHeight
+                // A chevron for folders, a document glyph for PDFs.
+                leftPadding: 26 + depth * 14
+                text: name
                 onClicked: root.toggle(index)
+                Icon {
+                    x: 6 + fileRow.depth * 14; anchors.verticalCenter: parent.verticalCenter
+                    name: fileRow.loading ? "reload" : fileRow.directory ? (fileRow.expanded ? "down" : "right") : "document"
+                    size: Theme.fontBody
+                    color: Theme.textTertiary
+                }
                 ToolTip.visible: hovered
-                ToolTip.text: url
+                ToolTip.delay: 500
+                ToolTip.text: researchStore.localPath(url)
             }
         }
         ListView {
@@ -126,7 +135,7 @@ Item {
             ScrollBar.vertical: ScrollBar {}
             delegate: RecentPaperDelegate {
                 width: ListView.view.width
-                height: 30
+                height: Theme.rowHeight
                 onDocumentChosen: function(source, position) { root.documentChosen(source) }
             }
         }

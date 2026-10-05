@@ -43,16 +43,18 @@ Item {
             compare(result.heading, false)
             verify(Qt.colorEqual(findChild(result, "resultTitle").color, Theme.text))
             result.queryText = "Paper"
+            // A matching paper heads its pages in bold, on the normal row background (no dark bar).
             compare(result.heading, true)
-            verify(Qt.colorEqual(result.background.color, Theme.textTertiary))
-            verify(Qt.colorEqual(findChild(result, "resultTitle").color, Theme.onAccent))
+            compare(findChild(result, "resultTitle").font.weight, Font.DemiBold)
+            compare(result.background.color.a, 0)
         }
         function test_selectionHasNoAccentRail() {
             const result = createTemporaryObject(resultComponent, scene, {
                 modelData: {kind: "paper", title: "Paper.pdf"}, queryText: "", highlighted: true
             })
             verify(Qt.colorEqual(result.background.color, Theme.selected))
-            compare(result.background.children.length, 0)
+            // No accent rail: nothing else is drawn on a selected row.
+            verify(Array.from(result.background.children).every(function(c) { return !c.visible }))
         }
         function bluePixels(item) {
             waitForRendering(scene, 100)

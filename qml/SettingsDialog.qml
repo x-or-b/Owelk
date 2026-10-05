@@ -75,7 +75,7 @@ Dialog {
                 }
             }
             Label {
-                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                 text: "PDFs downloaded from web pages are saved here. Existing files are never overwritten. In the web tab, PDFs can also be read in place (More → Show PDFs in This Tab) and sent to the reader with Open in Reader; highlights, captures and notes work in the reader."
             }
             Label { text: "Search"; font.bold: true; color: Theme.text }
@@ -117,7 +117,7 @@ Dialog {
                     Layout.fillWidth: true
                     Label {
                         objectName: "semanticStatus"
-                        Layout.fillWidth: true; elide: Text.ElideRight; font.pixelSize: 12
+                        Layout.fillWidth: true; elide: Text.ElideRight; font.pixelSize: Theme.fontSmall
                         color: semanticSettings.semantic.error.length ? Theme.danger : Theme.textSecondary
                         text: semanticSettings.semantic.progress.length ? semanticSettings.semantic.progress
                             : semanticSettings.stored + " passages indexed"
@@ -127,7 +127,7 @@ Dialog {
                 }
             }
             Label {
-                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                 text: "Finds passages, notes and answers by meaning as well as by words; results appear under \"Similar meaning\". Keyword search always works without it. "
                     + "Ollama runs on this computer (install it, then `ollama pull nomic-embed-text`). OpenAI uses your OpenAI API key and is billed per use. "
                     + "Indexing runs in the background and pauses while you read."
@@ -163,7 +163,7 @@ Dialog {
                 }
             }
             Label {
-                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                 text: ocrSettings.status.found
                     ? "Pages without a text layer are read by Tesseract (" + ocrSettings.status.program + ") in the background and become searchable. OCR text is for search only; it cannot be selected on the page."
                     : "To search scanned PDFs, install Tesseract: macOS `brew install tesseract tesseract-lang`, Linux `sudo apt install tesseract-ocr tesseract-ocr-kor`, Windows the UB Mannheim installer. Owelk finds it on its next start."
@@ -196,7 +196,7 @@ Dialog {
                 }
             }
             Label {
-                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                 text: "Used for Explain, Summarize and other one-click actions, and as the Translate target. A question you type is answered in the language you wrote it in."
             }
             GridLayout {
@@ -298,11 +298,11 @@ Dialog {
                 RowLayout {
                     Layout.fillWidth: true
                     Button { objectName: "aiTestConnection"; text: "Test Connection"; onClicked: { aiSettings.testResult = "Testing…"; aiSettings.ai.testConnection(aiSettings.current.id) } }
-                    Label { objectName: "aiTestResult"; Layout.fillWidth: true; text: aiSettings.testResult; elide: Text.ElideRight; color: Theme.textSecondary; font.pixelSize: 12 }
+                    Label { objectName: "aiTestResult"; Layout.fillWidth: true; text: aiSettings.testResult; elide: Text.ElideRight; color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
                 }
             }
             Label {
-                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                 text: "Keys are stored in " + researchStore.ai.keyStorage() + ". Before the first request to a provider, Owelk shows what will be sent. "
                       + "Claude is available with an API key; signing in with a Claude.ai account is not offered because Anthropic does not allow it for third-party apps."
             }
@@ -341,7 +341,7 @@ Dialog {
             }
             Label {
                 objectName: "backupResult"
-                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                 text: dataSettings.result.length ? dataSettings.result
                     : "A backup copies the library (papers' details, captures, notes, annotations, AI threads, workspaces) and its images into a folder. Your PDFs stay where they are and are not copied. Automatic backups go to the data folder's backups/auto."
             }
@@ -404,7 +404,7 @@ Dialog {
                 RowLayout {
                     Layout.fillWidth: true
                     Label {
-                        Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12
+                        Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall
                         color: Object.keys(shortcutSettings.clashes).length ? Theme.danger : Theme.textTertiary
                         text: Object.keys(shortcutSettings.clashes).length ? "Some shortcuts are used twice (in red); only one of them will work."
                             : "Click a shortcut and press the new keys. Esc cancels, Backspace turns it off."

@@ -80,54 +80,71 @@ Rectangle {
             spacing: 4
             Repeater {
                 model: root.labels
-                delegate: ToolButton {
+                delegate: Chip {
                     id: chip
                     required property var modelData
                     objectName: "tabGroup-" + modelData.name
                     readonly property int size: root.groupData.tabs.filter(function(t) { return t.label === chip.modelData.id }).length
-                    implicitHeight: 22
-                    leftPadding: 8; rightPadding: 8
-                    font.pixelSize: 11
-                    text: modelData.name + "  " + size + (modelData.collapsed ? "  ▸" : "  ▾")
-                    hoverEnabled: true
-                    background: Rectangle {
-                        radius: Theme.radius
-                        color: chip.hovered ? Theme.selected : Theme.window
-                        border.color: Theme.accentBorder
-                    }
-                    contentItem: Label { text: chip.text; font: chip.font; color: Theme.selectedText; verticalAlignment: Text.AlignVCenter }
-                    ToolTip.visible: hovered; ToolTip.delay: 450
+                    text: modelData.name + "  " + size
+                    trailingIcon: modelData.collapsed ? "right" : "down"
+                    checked: !modelData.collapsed
+                    checkable: false
                     ToolTip.text: (modelData.collapsed ? "Show" : "Hide") + " this group's tabs · right-click for more"
                     onClicked: { const label = modelData.id, collapsed = !modelData.collapsed; Qt.callLater(function() { root.controller.setTabGroupCollapsed(root.groupId, label, collapsed) }) }
                     TapHandler { acceptedButtons: Qt.RightButton; onTapped: { root.menuLabel = chip.modelData.id; groupMenu.popup() } }
                 }
             }
         }
+        // Tabs are rounded pills in the bar: the active one is raised, the others show on hover.
         RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 32
+            Layout.preferredHeight: Theme.barHeight
             spacing: 0
         ListView {
             id: tabs
             objectName: "tabBar"
             Layout.fillWidth: true
-            Layout.preferredHeight: 32
+            Layout.preferredHeight: Theme.barHeight
+            Layout.leftMargin: 3
             orientation: ListView.Horizontal
             clip: true
             model: root.shownTabs
-            ScrollBar.horizontal: ScrollBar { height: 3 }
-            delegate: Rectangle {
+            ScrollBar.horizontal: ScrollBar { height: 4 }
+            delegate: Item {
                 id: tabItem
                 required property var modelData
+                readonly property bool current: modelData.id === root.groupData.activeTab
+                readonly property string title: modelData.kind === "home" ? "Home" : modelData.kind === "library" ? "Library" : modelData.kind === "note" ? (modelData.title || "Untitled note") : modelData.kind === "web" ? (modelData.title || modelData.source.replace(/^https?:\/\/(www\.)?/, "")) : (researchStore.documentsRevision, researchStore.displayName(modelData.source))
                 width: 160
-                height: 32
+                height: Theme.barHeight
                 objectName: "tab-" + modelData.id
-                radius: Theme.radius
-                color: modelData.id === root.groupData.activeTab ? Theme.content : Theme.hover
-                // Grouped tabs carry a thin accent band.
-                Rectangle { visible: !!tabItem.modelData.label; anchors.top: parent.top; x: Theme.radius; width: parent.width - 2 * x; height: 2; color: Theme.accentBorder }
-                Rectangle { anchors.bottom: parent.bottom; x: Theme.radius; width: parent.width - 2 * x; height: 1; color: root.controller.activeGroup === root.groupId && modelData.id === root.loadedTab ? Theme.textTertiary : Theme.separator }
-                Label { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: close.left; anchors.verticalCenter: parent.verticalCenter; text: modelData.kind === "home" ? "Home" : modelData.kind === "library" ? "Library" : modelData.kind === "note" ? (modelData.title || "Untitled note") : modelData.kind === "web" ? (modelData.title || modelData.source.replace(/^https?:\/\/(www\.)?/, "")) : (researchStore.documentsRevision, researchStore.displayName(modelData.source)); elide: Text.ElideRight; font.pixelSize: 12 }
+                Rectangle {
+                    id: pill
+                    objectName: "tabPill"
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    anchors.leftMargin: 1; anchors.rightMargin: 1
+                    radius: Theme.radius
+                    color: tabItem.current ? Theme.content : pointer.containsMouse || close.hovered ? Theme.hover : "transparent"
+                    border.width: tabItem.current && !Theme.dark ? 1 : 0
+                    border.color: Theme.separator
+                }
+                // Grouped tabs carry a small accent dot.
+                Rectangle {
+                    visible: !!tabItem.modelData.label
+                    x: 9; anchors.verticalCenter: parent.verticalCenter
+                    width: 6; height: 6; radius: 3; color: Theme.accent
+                }
+                Label {
+                    anchors.left: parent.left; anchors.leftMargin: tabItem.modelData.label ? 20 : 12
+                    anchors.right: close.left; anchors.rightMargin: 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: tabItem.title
+                    elide: Text.ElideRight
+                    font.pixelSize: Theme.fontSmall
+                    font.weight: tabItem.current && root.controller.activeGroup === root.groupId ? Font.Medium : Font.Normal
+                    color: tabItem.current ? Theme.text : Theme.textSecondary
+                }
                 MouseArea {
                     id: pointer
                     anchors.fill: parent
@@ -166,8 +183,10 @@ Rectangle {
                 IconButton {
                     id: close
                     objectName: "closeTabButton-" + modelData.id
+                    // Shown on the active tab and on hover, like Safari.
+                    opacity: tabItem.current || pointer.containsMouse || hovered ? 1 : 0
                     anchors.right: parent.right
-                    anchors.rightMargin: 4
+                    anchors.rightMargin: 6
                     anchors.verticalCenter: parent.verticalCenter
                     width: Theme.controlHeightSmall - 2; height: width; glyphSize: Theme.fontBody
                     icon.name: "close"
@@ -175,8 +194,8 @@ Rectangle {
                     onClicked: { const id = modelData.id; Qt.callLater(function() { root.controller.closeTab(id) }) }
                 }
                 ToolTip.visible: pointer.containsMouse && !pointer.pressed
-                ToolTip.delay: 450
-                ToolTip.text: modelData.kind === "home" ? "Home" : modelData.source
+                ToolTip.delay: 500
+                ToolTip.text: tabItem.title + (modelData.kind === "web" ? "\n" + modelData.source : modelData.source && modelData.source.length ? "\n" + researchStore.localPath(modelData.source) : "")
             }
             Label { visible: !tabs.count; anchors.centerIn: parent; text: "No open tabs"; color: Theme.textTertiary }
         }

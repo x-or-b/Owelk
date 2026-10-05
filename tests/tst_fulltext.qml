@@ -93,7 +93,7 @@ Item {
                 mouseClick(chip)
                 compare(palette.searchController.targetFilter, value)
                 compare(chip.checked, true)
-                verify(Qt.colorEqual(chip.contentItem.color, Theme.text))
+                verify(Qt.colorEqual(chip.background.color, Theme.selected))
             }
             verify(findChild(palette, "searchTargetFilter") === null)
             verify(findChild(palette, "searchYearFrom") === null)

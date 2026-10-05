@@ -34,7 +34,7 @@ Item {
                 Layout.fillWidth: true; Layout.minimumWidth: 0
                 text: root.showingThreads ? "Threads" : (root.c.thread.title || "New thread")
                 elide: Text.ElideRight; textFormat: Text.PlainText
-                font.pixelSize: 13; font.weight: Font.DemiBold; color: Theme.text
+                font.pixelSize: Theme.fontBody; font.weight: Font.DemiBold; color: Theme.text
             }
             IconButton { objectName: "aiNewThread"; icon.name: "add"; description: "New thread"; onClicked: { root.c.newThread(); root.focusQuestion() } }
         }
@@ -47,35 +47,38 @@ Item {
             visible: root.showingThreads
             Layout.fillWidth: true; Layout.fillHeight: true
             clip: true
-            spacing: 2
+            spacing: 0
             model: researchStore.aiThreads()
             Connections { target: researchStore; function onAiThreadsChanged() { threadList.model = researchStore.aiThreads() } }
-            delegate: Rectangle {
+            delegate: ItemDelegate {
                 id: row
                 required property var modelData
                 required property int index
                 objectName: "aiThread-" + index
                 width: ListView.view.width
-                height: 44
-                radius: Theme.radius
-                color: rowHover.hovered ? Theme.hover : "transparent"
-                HoverHandler { id: rowHover }
-                TapHandler { acceptedButtons: Qt.LeftButton; onTapped: { const id = row.modelData.id; Qt.callLater(function() { root.c.openThread(id) }) } }
+                height: Theme.rowHeightTall
+                separator: index < threadList.count - 1
+                onClicked: { const id = row.modelData.id; Qt.callLater(function() { root.c.openThread(id) }) }
                 TapHandler { acceptedButtons: Qt.RightButton; onTapped: threadMenu.popup() }
-                ColumnLayout {
-                    anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
+                contentItem: ColumnLayout {
                     spacing: 1
-                    Label { Layout.fillWidth: true; text: row.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text; font.pixelSize: 12 }
+                    Label { Layout.fillWidth: true; text: row.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
                     Label {
                         Layout.fillWidth: true
                         text: Math.ceil(row.modelData.messages / 2) + (row.modelData.messages > 2 ? " turns" : " turn") + " · " + row.modelData.model
-                        elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: 11
+                        elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: Theme.fontCaption
                     }
                 }
                 Menu {
                     id: threadMenu
                     MenuItem { text: "Rename…"; onTriggered: { renameDialog.threadId = row.modelData.id; renameField.text = row.modelData.title; renameDialog.open() } }
-                    MenuItem { text: "Delete"; onTriggered: { const id = row.modelData.id; Qt.callLater(function() { root.c.deleteThread(id) }) } }
+                    MenuSeparator {}
+                    MenuItem {
+                        objectName: "deleteThreadOption"
+                        text: "Delete Thread…"
+                        palette.windowText: Theme.danger
+                        onTriggered: { deleteDialog.threadId = row.modelData.id; deleteDialog.open() }
+                    }
                 }
             }
             Label {
@@ -84,7 +87,7 @@ Item {
                 visible: threadList.count === 0
                 text: "Ask about a selection, page or figure, or start a new thread with +."
                 wrapMode: Text.WrapAtWordBoundaryOrAnywhere; horizontalAlignment: Text.AlignHCenter
-                color: Theme.textTertiary; font.pixelSize: 12
+                color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
             }
         }
         // The conversation: earlier turns, then the streaming answer.
@@ -113,7 +116,7 @@ Item {
                         id: userText
                         anchors.fill: parent; anchors.margins: 6
                         text: message.modelData.display || ""; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; textFormat: Text.PlainText
-                        color: Theme.text; font.pixelSize: 12
+                        color: Theme.text; font.pixelSize: Theme.fontSmall
                     }
                 }
                 Text {
@@ -122,7 +125,7 @@ Item {
                     Layout.fillWidth: true
                     text: visible ? researchStore.markdownHtml(message.modelData.content, Theme.accent) : ""
                     textFormat: Text.RichText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                    color: Theme.text; font.pixelSize: 13
+                    color: Theme.text; font.pixelSize: Theme.fontBody
                     onLinkActivated: function(link) { root.linkActivated(link) }
                 }
                 RowLayout {
@@ -144,7 +147,7 @@ Item {
                     Layout.fillWidth: true; Layout.topMargin: 10
                     implicitHeight: pendingText.implicitHeight + 12
                     radius: Theme.radius; color: Theme.window
-                    Label { id: pendingText; anchors.fill: parent; anchors.margins: 6; text: root.c ? root.c.pendingQuestion : ""; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; textFormat: Text.PlainText; color: Theme.text; font.pixelSize: 12 }
+                    Label { id: pendingText; anchors.fill: parent; anchors.margins: 6; text: root.c ? root.c.pendingQuestion : ""; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; textFormat: Text.PlainText; color: Theme.text; font.pixelSize: Theme.fontSmall }
                 }
                 Text {
                     objectName: "aiAnswer"
@@ -152,7 +155,7 @@ Item {
                     Layout.fillWidth: true
                     text: !root.c ? "" : root.c.answer.length ? researchStore.markdownHtml(root.c.answer, Theme.accent) : "<i>Thinking…</i>"
                     textFormat: Text.RichText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                    color: Theme.text; font.pixelSize: 13
+                    color: Theme.text; font.pixelSize: Theme.fontBody
                     onTextChanged: Qt.callLater(conversation.positionViewAtEnd)
                 }
                 Label {
@@ -160,12 +163,12 @@ Item {
                     visible: root.c && root.c.error.length > 0
                     Layout.fillWidth: true; Layout.topMargin: 6
                     text: root.c ? root.c.error : ""; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; textFormat: Text.PlainText
-                    color: Theme.danger; font.pixelSize: 12
+                    color: Theme.danger; font.pixelSize: Theme.fontSmall
                 }
                 Button {
                     objectName: "aiOpenSettings"
                     visible: root.c && root.c.error.indexOf("Settings") >= 0
-                    text: "Open Settings…"; implicitHeight: 26
+                    text: "Open Settings…"; implicitHeight: Theme.rowHeight - 2
                     onClicked: root.settingsRequested()
                 }
             }
@@ -193,7 +196,7 @@ Item {
                         source: visible ? chipBox.modelData.url : ""
                         sourceSize.width: 36; sourceSize.height: 32; asynchronous: true
                     }
-                    Label { id: chip; x: chipBox.lead; anchors.verticalCenter: parent.verticalCenter; width: parent.width - chipBox.lead - (chipBox.removable ? 20 : 6); text: chipBox.modelData.label; elide: Text.ElideRight; maximumLineCount: 1; textFormat: Text.PlainText; font.pixelSize: 11; color: Theme.textSecondary }
+                    Label { id: chip; x: chipBox.lead; anchors.verticalCenter: parent.verticalCenter; width: parent.width - chipBox.lead - (chipBox.removable ? 20 : 6); text: chipBox.modelData.label; elide: Text.ElideRight; maximumLineCount: 1; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
                     IconButton {
                         visible: chipBox.removable
                         objectName: "aiChipRemove-" + chipBox.index
@@ -213,7 +216,7 @@ Item {
             Layout.preferredHeight: Math.min(140, Math.max(56, implicitHeight))
             placeholderText: root.c && root.c.threadId.length ? "Ask a follow-up…" : "Ask about the paper…"
             wrapMode: TextEdit.Wrap
-            font.pixelSize: 12
+            font.pixelSize: Theme.fontSmall
             // Return sends, Shift+Return adds a line; pasting an image attaches it.
             Keys.onPressed: function(event) {
                 if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
@@ -233,31 +236,6 @@ Item {
             Layout.fillWidth: true; Layout.minimumWidth: 0
             Layout.alignment: Qt.AlignBottom
             spacing: 4
-            // A pop-up chip: its value and a chevron.
-            component Chip: ToolButton {
-                id: chipButton
-                implicitHeight: Theme.controlHeightSmall
-                font.pixelSize: Theme.fontSmall
-                hoverEnabled: true
-                leftPadding: 8; rightPadding: 4
-                // Never wider than the panel; long model names elide.
-                width: Math.min(implicitWidth, bar.width)
-                contentItem: RowLayout {
-                    spacing: 2
-                    Label {
-                        Layout.fillWidth: true
-                        text: chipButton.text; elide: Text.ElideRight; font: chipButton.font; verticalAlignment: Text.AlignVCenter
-                        color: chipButton.checked ? Theme.selectedText : chipButton.enabled ? Theme.textSecondary : Theme.textTertiary
-                    }
-                    Icon { name: "down"; size: Theme.fontSmall; color: Theme.textTertiary }
-                }
-                background: Rectangle {
-                    radius: Theme.radius
-                    color: chipButton.checked ? Theme.selected : chipButton.down || chipButton.hovered ? Theme.hover : "transparent"
-                    border.color: chipButton.checked ? Theme.accentBorder : Theme.separator
-                }
-                ToolTip.visible: hovered && ToolTip.text.length > 0; ToolTip.delay: 450
-            }
             IconButton {
                 id: attachButton
                 objectName: "aiAttachButton"
@@ -277,6 +255,8 @@ Item {
             }
             Chip {
                 id: modelButton
+                trailingIcon: "down"
+                width: Math.min(implicitWidth, bar.width)
                 objectName: "aiModelButton"
                 text: root.c ? root.c.modelLabel : ""
                 ToolTip.text: root.c ? root.c.providerInfo.name + " · " + (root.c.providerInfo.kind === "local" ? "stays on this computer" : "sent to " + (root.c.providerInfo.sends || "")) : ""
@@ -284,6 +264,7 @@ Item {
             }
             Chip {
                 id: effortButton
+                trailingIcon: "down"
                 objectName: "aiEffortButton"
                 visible: root.c && root.c.efforts.length > 0
                 text: root.c ? root.c.effortName(root.c.effectiveEffort) : ""
@@ -359,7 +340,6 @@ Item {
         height: Math.min(440, pickerColumn.implicitHeight + 16)
         padding: 8
         onOpened: modelFilter.forceActiveFocus()
-        background: Rectangle { color: Theme.raised; border.color: Theme.border; radius: Theme.radius }
         contentItem: ColumnLayout {
             id: pickerColumn
             spacing: 4
@@ -367,8 +347,8 @@ Item {
                 id: modelFilter
                 objectName: "aiModelFilter"
                 Layout.fillWidth: true
-                implicitHeight: 28
-                font.pixelSize: 12
+                implicitHeight: Theme.controlHeight
+                font.pixelSize: Theme.fontSmall
                 placeholderText: "Search models"
                 Keys.onEscapePressed: modelMenu.close()
             }
@@ -393,21 +373,21 @@ Item {
                             visible: !needle.length || list.length > 0
                             Layout.fillWidth: true
                             spacing: 1
-                            Label { text: root.c.companyName(providerSection.modelData.id); font.pixelSize: 11; font.weight: Font.DemiBold; color: Theme.textTertiary; Layout.topMargin: 4; Layout.leftMargin: 4 }
+                            Label { text: root.c.companyName(providerSection.modelData.id); font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textTertiary; Layout.topMargin: 4; Layout.leftMargin: 4 }
                             readonly property bool loaded: root.c.models[modelData.id] !== undefined
                             Label {
                                 visible: !providerSection.loaded && !providerSection.needle.length
                                 text: "Loading…"
-                                font.pixelSize: 11; color: Theme.textTertiary; Layout.leftMargin: 10
+                                font.pixelSize: Theme.fontCaption; color: Theme.textTertiary; Layout.leftMargin: 10
                             }
                             // A provider that lists no models (or is signed out) still runs its own default.
                             ItemDelegate {
                                 objectName: "aiModel-" + providerSection.modelData.id + "-default"
                                 visible: providerSection.loaded && (root.c.models[providerSection.modelData.id] || []).length === 0 && !providerSection.needle.length
                                 Layout.fillWidth: true
-                                implicitHeight: 26
+                                implicitHeight: Theme.rowHeight - 2
                                 highlighted: root.c.ai.provider === providerSection.modelData.id && !root.c.model
-                                contentItem: Label { text: "Default model"; font.pixelSize: 12; color: Theme.text }
+                                contentItem: Label { text: "Default model"; font.pixelSize: Theme.fontSmall; color: Theme.text }
                                 onClicked: {
                                     const provider = providerSection.modelData.id, controller = root.c
                                     modelMenu.close()
@@ -422,13 +402,13 @@ Item {
                                     readonly property bool current: root.c.ai.provider === providerSection.modelData.id && root.c.model === modelData.id
                                     objectName: "aiModel-" + providerSection.modelData.id + "-" + modelData.id
                                     Layout.fillWidth: true
-                                    implicitHeight: 26
+                                    implicitHeight: Theme.rowHeight - 2
                                     highlighted: current
                                     contentItem: RowLayout {
                                         spacing: 6
-                                        Label { Layout.fillWidth: true; text: modelRow.modelData.name; elide: Text.ElideRight; font.pixelSize: 12; color: modelRow.current ? Theme.selectedText : Theme.text }
-                                        Label { visible: !!modelRow.modelData.fast; text: "Fast"; font.pixelSize: 10; color: Theme.textTertiary }
-                                        Label { visible: modelRow.current; text: "✓"; font.pixelSize: 12; color: Theme.accent }
+                                        Label { Layout.fillWidth: true; text: modelRow.modelData.name; elide: Text.ElideRight; font.pixelSize: Theme.fontSmall; color: modelRow.current ? Theme.selectedText : Theme.text }
+                                        Label { visible: !!modelRow.modelData.fast; text: "Fast"; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                                        Icon { visible: modelRow.current; name: "check"; size: Theme.fontBody; color: Theme.selectedText }
                                     }
                                     // Choosing rebuilds this list (the provider list changes), so act after the handler returns.
                                     onClicked: {
@@ -446,16 +426,32 @@ Item {
                         readonly property var missing: root.c ? root.c.ai.providers.filter(function(p) { return !p.configured && p.id !== "ollama" }) : []
                         visible: missing.length > 0 && !modelFilter.text.length
                         Layout.fillWidth: true; Layout.topMargin: 4
-                        implicitHeight: 26
+                        implicitHeight: Theme.rowHeight - 2
                         contentItem: Label {
                             text: "Set up " + parent.missing.map(function(p) { return root.c.companyName(p.id) }).join(", ") + "…"
-                            elide: Text.ElideRight; font.pixelSize: 11; color: Theme.textTertiary
+                            elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                         }
                         onClicked: { modelMenu.close(); root.settingsRequested() }
                     }
                 }
             }
         }
+    }
+    Dialog {
+        id: deleteDialog
+        objectName: "deleteThreadDialog"
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: 360
+        modal: true
+        title: "Delete this thread?"
+        property string threadId: ""
+        Label { width: parent.width; text: "Its questions and answers are removed. Notes saved from it stay."; wrapMode: Text.Wrap; color: Theme.textSecondary }
+        footer: DialogButtonBox {
+            Button { text: "Cancel"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Button { objectName: "confirmDeleteThread"; text: "Delete"; palette.buttonText: Theme.danger; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
+        }
+        onAccepted: { const id = threadId; Qt.callLater(function() { root.c.deleteThread(id) }) }
     }
     Dialog {
         id: renameDialog

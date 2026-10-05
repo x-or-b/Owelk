@@ -44,7 +44,6 @@ Rectangle {
                     readOnly: true
                     selectByMouse: true
                     wrapMode: TextEdit.Wrap
-                    background: Rectangle { color: Theme.window; border.color: Theme.separator }
                 }
             }
             RowLayout {
@@ -124,7 +123,7 @@ Rectangle {
             Label {
                 Layout.fillWidth: true
                 text: root.showingTrash ? researchStore.trashedCaptures.length + " deleted" : researchStore.captures.length + " saved"
-                elide: Text.ElideRight; font.pixelSize: 12; color: Theme.textTertiary
+                elide: Text.ElideRight; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
             }
             ToolButton {
                 objectName: "emptyTrashButton"
@@ -143,7 +142,7 @@ Rectangle {
             text: "Select a capture to return to its source."
             wrapMode: Text.Wrap
             color: Theme.textTertiary
-            font.pixelSize: 11
+            font.pixelSize: Theme.fontCaption
         }
         ListView {
             id: list
@@ -230,7 +229,7 @@ Rectangle {
                         text: card.modelData.caption || ""
                         textFormat: Text.PlainText; wrapMode: Text.Wrap
                         maximumLineCount: root.showingTrash ? 1 : 2; elide: Text.ElideRight
-                        font.pixelSize: 11; color: Theme.textSecondary
+                        font.pixelSize: Theme.fontCaption; color: Theme.textSecondary
                     }
                     Label {
                         objectName: "excerptPreview"
@@ -241,7 +240,7 @@ Rectangle {
                         wrapMode: Text.Wrap
                         maximumLineCount: root.showingTrash ? 3 : 6
                         elide: Text.ElideRight
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fontBody
                         color: Theme.text
                     }
                     Label {
@@ -250,17 +249,17 @@ Rectangle {
                         text: card.modelData.name
                         textFormat: Text.PlainText
                         elide: Text.ElideMiddle
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                         color: Theme.textSecondary
                     }
-                    Label { visible: !root.showingTrash; text: (card.modelData.kind === "web" ? "Web page" : "p. " + (card.modelData.page + 1)) + "  ·  View source"; font.pixelSize: 11; color: Theme.textSecondary; width: parent.width; wrapMode: Text.Wrap }
+                    Label { visible: !root.showingTrash; text: (card.modelData.kind === "web" ? "Web page" : "p. " + (card.modelData.page + 1)) + "  ·  View source"; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary; width: parent.width; wrapMode: Text.Wrap }
                     Label {
                         visible: !root.showingTrash && !!card.modelData.note
                         width: parent.width
                         text: "Note · " + (card.modelData.note || "")
                         textFormat: Text.PlainText; wrapMode: Text.Wrap
                         maximumLineCount: 3; elide: Text.ElideRight
-                        font.pixelSize: 12; color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
                     }
                     ToolButton {
                         objectName: "captureNoteButton-" + card.modelData.id
@@ -278,7 +277,7 @@ Rectangle {
                             Layout.fillWidth: true
                             text: card.modelData.name + " · p. " + (card.modelData.page + 1)
                             textFormat: Text.PlainText; elide: Text.ElideRight
-                            font.pixelSize: 11; color: Theme.textTertiary
+                            font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                         }
                         IconButton {
                             objectName: "restoreCapture-" + card.modelData.id

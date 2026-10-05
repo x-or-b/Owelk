@@ -13,10 +13,9 @@ ItemDelegate {
     // A section heading ("Similar meaning") is a label, not a result.
     readonly property bool section: modelData.kind === "section"
     enabled: !section
-    height: section ? 30 : (modelData.snippet ? 76 : 44) + (byline.length ? 14 : 0)
-    background: Rectangle {
-        color: root.heading ? (root.highlighted || root.hovered ? Theme.textSecondary : Theme.textTertiary) : root.highlighted ? Theme.selected : root.hovered ? Theme.hover : "transparent"
-    }
+    // Rows follow the shared list look (hover, selection); a paper that groups its matching pages
+    // reads as a bold heading rather than a dark bar.
+    height: section ? Theme.rowHeight : (modelData.snippet ? Theme.rowHeightTall + 30 : Theme.rowHeightTall) + (byline.length ? 14 : 0)
     contentItem: ColumnLayout {
         spacing: 3
         RowLayout {
@@ -24,11 +23,11 @@ ItemDelegate {
             Label {
                 objectName: "resultTitle"
                 Layout.fillWidth: true
-                text: Match.highlight(root.modelData.title, root.queryText, root.heading ? Theme.mix(Theme.accent, Theme.onAccent, .5) : Theme.accent)
+                text: Match.highlight(root.modelData.title, root.queryText, Theme.accent)
                 textFormat: Text.StyledText
-                color: root.section ? Theme.textTertiary : root.heading ? Theme.onAccent : root.modelData.kind === "text" ? Theme.selectedText : Theme.text
-                font.bold: root.modelData.kind === "paperGroup" || root.section
-                font.pointSize: root.section ? Qt.application.font.pointSize * .85 : Qt.application.font.pointSize
+                color: root.section ? Theme.textTertiary : Theme.text
+                font.weight: root.heading || root.section || root.modelData.kind === "paperGroup" ? Font.DemiBold : Font.Normal
+                font.pixelSize: root.section ? Theme.fontCaption : Theme.fontBody
                 elide: root.modelData.kind === "paper" ? Text.ElideRight : Text.ElideMiddle
             }
             Label {
@@ -36,7 +35,7 @@ ItemDelegate {
                     : root.modelData.kind === "text" ? "p. " + (Number(root.modelData.page) + 1) + (root.modelData.ocr ? " · OCR" : "")
                     : ["moreInPaper", "nextResults", "section"].indexOf(root.modelData.kind) >= 0 ? ""
                     : root.modelData.kind === "paper" ? "" : root.modelData.kind
-                color: root.heading ? Theme.onAccent : Theme.textTertiary; font.pixelSize: 11
+                color: Theme.textTertiary; font.pixelSize: Theme.fontCaption
             }
         }
         // Papers read like the Library: title, then authors · year.
@@ -47,8 +46,8 @@ ItemDelegate {
             text: root.byline
             textFormat: Text.PlainText
             elide: Text.ElideRight
-            color: root.heading ? Theme.onAccent : Theme.textTertiary
-            font.pixelSize: 11
+            color: Theme.textTertiary
+            font.pixelSize: Theme.fontCaption
         }
         Label {
             objectName: "resultSnippet"
@@ -59,8 +58,8 @@ ItemDelegate {
             wrapMode: Text.Wrap
             maximumLineCount: 2
             elide: Text.ElideRight
-            color: Theme.textTertiary
-            font.pixelSize: 12
+            color: Theme.textSecondary
+            font.pixelSize: Theme.fontSmall
         }
     }
 }

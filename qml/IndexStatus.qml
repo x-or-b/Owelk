@@ -10,8 +10,8 @@ ToolButton {
     readonly property var records: indexer.documents
     readonly property int unavailable: records.filter(function(d) { return ["failed", "missing", "locked", "empty"].indexOf(d.state) >= 0 }).length
     text: indexer.paused ? "Text index paused" : indexer.busy ? indexer.progress || "Indexing PDFs…" : "Text index · " + records.filter(function(d) { return d.state === "ready" }).length + " searchable" + (unavailable ? " · " + unavailable + " unavailable" : "")
-    font.pixelSize: 11
-    implicitHeight: 28
+    font.pixelSize: Theme.fontCaption
+    implicitHeight: Theme.controlHeightSmall + 4
     onClicked: details.open()
     ToolTip.visible: hovered
     ToolTip.text: "Local text index · Status, pause and retry"
@@ -52,7 +52,7 @@ ToolButton {
                                 text: modelData.state === "ready" ? "Searchable · " + modelData.textPages + "/" + modelData.pages + " pages with text"
                                     : modelData.state === "empty" ? "No extractable text · OCR is not available"
                                     : modelData.error || modelData.state
-                                textFormat: Text.PlainText; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; color: Theme.textTertiary; font.pixelSize: 11
+                                textFormat: Text.PlainText; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; color: Theme.textTertiary; font.pixelSize: Theme.fontCaption
                             }
                         }
                         IconButton { icon.name: "reload"; description: "Retry"; visible: ["failed", "missing", "locked", "paused"].indexOf(modelData.state) >= 0; onClicked: root.indexer.retry(modelData.source) }

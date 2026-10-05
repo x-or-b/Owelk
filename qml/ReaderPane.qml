@@ -209,7 +209,7 @@ Rectangle {
         Rectangle {
             visible: !root.managed
             Layout.fillWidth: true
-            Layout.preferredHeight: visible ? 48 : 0
+            Layout.preferredHeight: visible ? Theme.barHeight + 8 : 0
             color: Theme.content
             radius: Theme.radius
             RowLayout {
@@ -221,7 +221,7 @@ Rectangle {
                     text: root.paneIndex === 0 ? "A" : "B"
                     color: Theme.textSecondary
                     font.bold: true
-                    font.pixelSize: 12
+                    font.pixelSize: Theme.fontSmall
                 }
                 Label {
                     Layout.fillWidth: true
@@ -239,7 +239,7 @@ Rectangle {
             Layout.fillWidth: true
             id: readerToolbar
             objectName: "readerToolbar"
-            Layout.preferredHeight: visible ? 32 : 0
+            Layout.preferredHeight: visible ? Theme.barHeight : 0
             color: Theme.window
             radius: Theme.radius
             RowLayout {
@@ -257,7 +257,7 @@ Rectangle {
                 }
                 TextField {
                     id: pageField
-                    Layout.preferredWidth: 34; Layout.preferredHeight: 25
+                    Layout.preferredWidth: Theme.fontBody * 3; Layout.preferredHeight: Theme.controlHeightSmall
                     horizontalAlignment: Text.AlignHCenter
                     text: (canvas.currentPage + 1).toString()
                     onActiveFocusChanged: if (activeFocus) root.activated()
@@ -385,7 +385,7 @@ Rectangle {
             Layout.bottomMargin: 6
             text: canvas.captureMode ? "Drag a region to capture · Esc to cancel" : canvas.tool === "highlight" ? "Drag over text to highlight · Esc to finish" : "Click or drag on a page to add " + canvas.tool + " · Esc to cancel"
             color: Theme.textSecondary
-            font.pixelSize: 11
+            font.pixelSize: Theme.fontCaption
         }
 
         Item {
@@ -466,7 +466,7 @@ Rectangle {
                     Layout.fillWidth: true
                     text: canvas.error.length ? "Cannot open document" : "Open PDF"
                     horizontalAlignment: Text.AlignHCenter
-                    font.pixelSize: 16
+                    font.pixelSize: Theme.fontHeadline
                     font.weight: Font.Medium
                     color: Theme.text
                 }

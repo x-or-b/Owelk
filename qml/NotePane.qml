@@ -84,7 +84,7 @@ Rectangle {
                 objectName: "noteTitle"
                 Layout.fillWidth: true
                 placeholderText: "Untitled note"
-                font.pixelSize: 18
+                font.pixelSize: Theme.fontTitle
                 background: Item {}
                 onTextEdited: { root.dirty = true; autosave.restart() }
                 onActiveFocusChanged: if (activeFocus) root.activated()
@@ -125,7 +125,7 @@ Rectangle {
                 placeholderText: "Write in Markdown. Type [[ to link a paper, excerpt or note."
                 wrapMode: TextEdit.Wrap
                 selectByMouse: true
-                font.pixelSize: 14
+                font.pixelSize: Theme.fontHeadline
                 textFormat: TextEdit.PlainText
                 background: Item {}
                 onActiveFocusChanged: if (activeFocus) root.activated()
@@ -145,7 +145,7 @@ Rectangle {
                 text: root.preview ? researchStore.markdownHtml(body.text.length ? body.text : "*Empty note*", Theme.accent) : ""
                 textFormat: Text.RichText
                 wrapMode: Text.Wrap
-                font.pixelSize: 14
+                font.pixelSize: Theme.fontHeadline
                 color: Theme.text
                 onLinkActivated: function(link) { root.openLink(link) }
                 TapHandler { onDoubleTapped: { root.preview = false; body.forceActiveFocus() } }
@@ -157,14 +157,14 @@ Rectangle {
             Layout.fillWidth: true
             visible: root.backlinks.length > 0
             spacing: 2
-            Label { text: "Linked from"; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary }
+            Label { text: "Linked from"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary }
             Repeater {
                 model: root.backlinks
                 delegate: ItemDelegate {
                     required property var modelData
                     Layout.fillWidth: true
                     text: modelData.title
-                    font.pixelSize: 12
+                    font.pixelSize: Theme.fontSmall
                     onClicked: root.openLink("owelk://" + modelData.kind + "/" + modelData.id)
                 }
             }
@@ -174,14 +174,14 @@ Rectangle {
             Layout.fillWidth: true
             visible: root.related.length > 0
             spacing: 2
-            Label { text: "Related notes"; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary }
+            Label { text: "Related notes"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary }
             Repeater {
                 model: root.related
                 delegate: ItemDelegate {
                     required property var modelData
                     Layout.fillWidth: true
                     text: modelData.title
-                    font.pixelSize: 12
+                    font.pixelSize: Theme.fontSmall
                     onClicked: root.openLink("owelk://note/" + modelData.id)
                 }
             }
@@ -197,7 +197,6 @@ Rectangle {
         property var candidates: []
         onOpened: { linkQuery.text = ""; candidates = researchStore.linkCandidates(""); linkQuery.forceActiveFocus() }
         onClosed: body.forceActiveFocus()
-        background: Rectangle { color: Theme.raised; border.color: Theme.border; radius: Theme.radius }
         contentItem: ColumnLayout {
             spacing: 6
             TextField {
@@ -219,7 +218,7 @@ Rectangle {
                     width: ListView.view.width
                     objectName: "noteLinkCandidate-" + modelData.kind + "-" + modelData.id
                     text: ({note: "Note", document: "Paper", capture: "Excerpt", highlight: "Annotation"})[modelData.kind] + " · " + modelData.title
-                    font.pixelSize: 12
+                    font.pixelSize: Theme.fontSmall
                     onClicked: { root.insertLink(modelData.kind, modelData.id); linkPicker.close() }
                 }
             }

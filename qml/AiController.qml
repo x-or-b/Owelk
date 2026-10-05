@@ -287,7 +287,7 @@ Item {
                 model: root.attachments
                 delegate: Label { required property var modelData; text: "• " + modelData.label; color: Theme.textSecondary; elide: Text.ElideRight; Layout.fillWidth: true }
             }
-            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary; text: "You are asked once per provider. Usage is billed by the provider under your account." }
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary; text: "You are asked once per provider. Usage is billed by the provider under your account." }
         }
         onAccepted: { root.ai.giveConsent(root.ai.provider); root.send(question) }
     }

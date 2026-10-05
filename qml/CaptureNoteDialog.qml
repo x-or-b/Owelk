@@ -48,7 +48,7 @@ Dialog {
             text: (root.capture.name || "") + " · p. " + (Number(root.capture.page || 0) + 1)
             textFormat: Text.PlainText; elide: Text.ElideMiddle; color: Theme.textSecondary
         }
-        Label { text: "Source capture · read-only"; color: Theme.textTertiary; font.pixelSize: 11 }
+        Label { text: "Source capture · read-only"; color: Theme.textTertiary; font.pixelSize: Theme.fontCaption }
         ScrollView {
             visible: root.capture.kind === "text"
             Layout.fillWidth: true; Layout.preferredHeight: 110
@@ -57,7 +57,6 @@ Dialog {
                 text: root.capture.text || ""; textFormat: TextEdit.PlainText
                 readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap
                 color: Theme.textSecondary
-                background: Rectangle { color: Theme.window; border.color: Theme.separator }
             }
         }
         Image {
@@ -71,7 +70,7 @@ Dialog {
             objectName: "captureNoteDraftBar"
             visible: root.savedDraft.length > 0
             Layout.fillWidth: true
-            Label { Layout.fillWidth: true; text: "Unsaved text from last time is kept."; color: Theme.textSecondary; font.pixelSize: 12 }
+            Label { Layout.fillWidth: true; text: "Unsaved text from last time is kept."; color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
             Button { objectName: "restoreCaptureNoteDraft"; text: "Restore"; onClicked: { editor.text = root.savedDraft; root.savedDraft = "" } }
             Button { text: "Discard"; onClicked: { researchStore.clearDraft(root.draftKey); root.savedDraft = "" } }
         }
@@ -83,12 +82,11 @@ Dialog {
                 placeholderText: "Your interpretation, questions, or comparison with another paper…"
                 textFormat: TextEdit.PlainText; selectByMouse: true; wrapMode: TextEdit.Wrap
                 color: Theme.text
-                background: Rectangle { color: Theme.content; border.color: editor.activeFocus ? Theme.accentBorder : Theme.border; radius: Theme.radius }
                 Keys.onEscapePressed: root.requestClose()
                 onTextChanged: if (root.opened) draftTimer.restart()
             }
         }
-        Label { text: (root.dirty ? "Unsaved · " : "") + editor.text.length + " / 10,000 characters"; color: editor.text.length > 10000 ? Theme.danger : Theme.textTertiary; font.pixelSize: 11 }
+        Label { text: (root.dirty ? "Unsaved · " : "") + editor.text.length + " / 10,000 characters"; color: editor.text.length > 10000 ? Theme.danger : Theme.textTertiary; font.pixelSize: Theme.fontCaption }
         Label { Layout.fillWidth: true; visible: root.error.length > 0; text: root.error; wrapMode: Text.Wrap; color: Theme.danger }
         RowLayout {
             Layout.fillWidth: true

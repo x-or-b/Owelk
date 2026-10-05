@@ -9,35 +9,34 @@ Popup {
     function colorButton(index) {
         return swatches.itemAt(index);
     }
-    width: 174
-    height: 46
-    padding: 7
+    // Round color wells; the current ink has a ring.
+    padding: 8
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-    background: Rectangle {
-        color: Theme.sidebar
-        border.color: Theme.border
-    }
     Row {
-        spacing: 4
+        spacing: 6
         Repeater {
             id: swatches
             model: Theme.annotationInks
             delegate: ToolButton {
                 required property var modelData
                 objectName: "annotationColor-" + modelData.name
-                width: 28
-                height: 30
+                width: Theme.iconButton
+                height: Theme.iconButton
+                padding: 3
                 hoverEnabled: true
-                Accessible.name: modelData.name + " highlight"
+                Accessible.name: modelData.name + " ink"
                 ToolTip.visible: hovered
+                ToolTip.delay: 500
                 ToolTip.text: modelData.name
                 background: Rectangle {
+                    radius: width / 2
                     color: "transparent"
-                    border.color: root.selectedColor === modelData.value ? Theme.accent : "transparent"
+                    border.width: 2
+                    border.color: root.selectedColor === modelData.value ? Theme.text : parent.hovered ? Theme.border : "transparent"
                 }
                 contentItem: Rectangle {
                     color: modelData.value
-                    radius: 4
+                    radius: width / 2
                 }
                 onClicked: {
                     root.close();

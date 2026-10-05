@@ -19,6 +19,7 @@ Rectangle {
     signal linkActivated(string link)
     signal aiRequested(var spec)
     signal settingsRequested()
+    function panelName(panel) { return panel === "files" ? "Files" : panel === "captures" ? "Captures" : panel === "ai" ? "AI" : panel === "document" ? "Document" : "" }
     color: Theme.sidebar
     border.color: Theme.separator
     radius: Theme.radius
@@ -27,20 +28,33 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: 1
         spacing: 0
-        RowLayout {
+        // One panel: its name. Several: a segmented control of their icons.
+        Label {
+            visible: root.panels.length === 1
             Layout.fillWidth: true
-            spacing: 0
+            Layout.preferredHeight: Theme.barHeight
+            leftPadding: 12
+            verticalAlignment: Text.AlignVCenter
+            text: root.panelName(root.activePanel)
+            font.pixelSize: Theme.fontSmall
+            font.weight: Font.DemiBold
+            color: Theme.textSecondary
+        }
+        TabBar {
+            objectName: "dockTabs"
+            visible: root.panels.length > 1
+            Layout.fillWidth: true
+            Layout.margins: 6
+            Layout.bottomMargin: 2
+            currentIndex: root.panels.indexOf(root.activePanel)
             Repeater {
                 model: root.panels
-                delegate: Rectangle {
+                delegate: TabButton {
                     required property string modelData
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: modelData === "files" || modelData === "ai" ? 40 : 74
-                    Layout.preferredHeight: 34
-                    color: root.activePanel === modelData ? Theme.hover : "transparent"
-                    radius: Theme.radius
-                    Label { anchors.centerIn: parent; text: modelData === "files" ? "Files" : modelData === "captures" ? "Captures" : modelData === "ai" ? "AI" : "Document"; font.pixelSize: 12 }
-                    TapHandler { onTapped: root.activePanel = modelData }
+                    objectName: "dockTab-" + modelData
+                    icon.name: ({files: "folder", captures: "capture", document: "document", ai: "ai"})[modelData]
+                    ToolTip.text: root.panelName(modelData)
+                    onClicked: root.activePanel = modelData
                 }
             }
         }

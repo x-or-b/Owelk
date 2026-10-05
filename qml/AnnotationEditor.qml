@@ -128,7 +128,7 @@ Dialog {
             objectName: "annotationDraftBar"
             visible: root.savedDraft.length > 0
             Layout.fillWidth: true
-            Label { Layout.fillWidth: true; text: "Unsaved text from last time is kept."; color: Theme.textSecondary; font.pixelSize: 12 }
+            Label { Layout.fillWidth: true; text: "Unsaved text from last time is kept."; color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
             Button { objectName: "restoreAnnotationDraft"; text: "Restore"; onClicked: { body.text = root.savedDraft; root.savedDraft = "" } }
             Button { text: "Discard"; onClicked: { researchStore.clearDraft(root.draftKey); root.savedDraft = "" } }
         }

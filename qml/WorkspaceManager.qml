@@ -63,7 +63,7 @@ Dialog {
         Label {
             Layout.fillWidth: true
             text: "Unlink only removes the association. PDFs, captures, notes and open tabs are kept."
-            wrapMode: Text.Wrap; color: Theme.textTertiary; font.pixelSize: 12
+            wrapMode: Text.Wrap; color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
         }
         RowLayout {
             visible: root.mode === 0
@@ -82,7 +82,6 @@ Dialog {
                     required property var modelData
                     required property int index
                     width: capturePicker.width; highlighted: capturePicker.highlightedIndex === index
-                    background: Rectangle { color: highlighted ? Theme.hover : Theme.sidebar }
                     contentItem: Text { text: modelData.label; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideMiddle; verticalAlignment: Text.AlignVCenter }
                 }
             }
@@ -106,9 +105,9 @@ Dialog {
                         Label {
                             Layout.fillWidth: true
                             text: root.mode === 0 ? modelData.source.toString() : "p. " + (Number(modelData.page) + 1) + " · " + (modelData.text || "Region capture")
-                            textFormat: Text.PlainText; elide: Text.ElideRight; color: Theme.textTertiary; font.pixelSize: 11
+                            textFormat: Text.PlainText; elide: Text.ElideRight; color: Theme.textTertiary; font.pixelSize: Theme.fontCaption
                         }
-                        Label { Layout.fillWidth: true; visible: root.mode === 1 && !!modelData.note; text: "Note · " + (modelData.note || ""); textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 11; color: Theme.textSecondary }
+                        Label { Layout.fillWidth: true; visible: root.mode === 1 && !!modelData.note; text: "Note · " + (modelData.note || ""); textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
                     }
                     IconButton { icon.name: "open"; description: "Open"; onClicked: { root.close(); if (root.mode === 0) root.documentChosen(modelData.source); else researchStore.openCapture(modelData.id) } }
                     IconButton { visible: root.mode === 1; icon.name: "note"; description: "Capture note"; onClicked: { root.close(); root.noteRequested(modelData.id) } }

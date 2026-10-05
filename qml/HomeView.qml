@@ -34,7 +34,7 @@ Rectangle {
         standardButtons: Dialog.Close
         ColumnLayout {
             width: parent.width
-            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary; text: "Deleting a workspace only hides it. Restore brings back its papers, captures and layout." }
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary; text: "Deleting a workspace only hides it. Restore brings back its papers, captures and layout." }
             Repeater {
                 model: root.deletedWorkspaces
                 delegate: RowLayout {
@@ -83,7 +83,7 @@ Rectangle {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 8
-                Label { text: "Search your research"; font.pixelSize: 22; font.weight: Font.Medium; color: Theme.text }
+                Label { text: "Search your research"; font.pixelSize: Theme.fontTitle; font.weight: Font.Medium; color: Theme.text }
                 TextField {
                     id: searchInput
                     objectName: "homeSearch"
@@ -106,18 +106,18 @@ Rectangle {
                     id: webInput
                     objectName: "homeWebSearch"
                     Layout.fillWidth: true
-                    implicitHeight: 34
+                    implicitHeight: Theme.controlHeight + 6
                     leftPadding: 30
                     placeholderText: "Search the web or enter an address  ·  " + (researchStore.setting("searchEngine", "").indexOf("google.com/search") >= 0 ? "Google" : researchStore.setting("searchEngine", "").indexOf("duckduckgo") >= 0 ? "DuckDuckGo" : researchStore.setting("searchEngine", "").indexOf("arxiv") >= 0 ? "arXiv" : "Google Scholar")
                     selectByMouse: true
-                    font.pixelSize: 13
+                    font.pixelSize: Theme.fontBody
                     onAccepted: if (root.searchWeb(text)) clear()
                     Keys.onEscapePressed: clear()
                     // A globe: the web, not the library.
                     Icon { x: 9; anchors.verticalCenter: parent.verticalCenter; name: "globe"; size: Theme.fontBody + 1; color: Theme.textTertiary }
                 }
                 IndexStatus { Layout.fillWidth: true }
-                Label { Layout.fillWidth: true; visible: searchModel.error.length > 0; text: "PDF text search failed: " + searchModel.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 11; color: Theme.textTertiary }
+                Label { Layout.fillWidth: true; visible: searchModel.error.length > 0; text: "PDF text search failed: " + searchModel.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
                 ListView {
                     id: searchResults
                     objectName: "homeResults"
@@ -141,7 +141,7 @@ Rectangle {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 8
-                Label { text: "Continue Reading"; font.pixelSize: 14; font.weight: Font.DemiBold }
+                Label { text: "Continue Reading"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold }
                 RowLayout {
                     Layout.fillWidth: true
                     ColumnLayout {
@@ -154,7 +154,7 @@ Rectangle {
                         Label {
                             text: root.continuation.source ? "Page " + (((root.continuation.position || {}).page || 0) + 1) : "Open a PDF. Your reading position is saved automatically."
                             color: Theme.textTertiary
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.fontCaption
                         }
                     }
                     Button {
@@ -179,7 +179,7 @@ Rectangle {
                     spacing: 6
                     RowLayout {
                         Layout.fillWidth: true
-                        Label { text: "Recent Workspaces"; font.pixelSize: 14; font.weight: Font.DemiBold }
+                        Label { text: "Recent Workspaces"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold }
                         Item { Layout.fillWidth: true }
                         IconButton {
                             objectName: "deletedWorkspacesButton"
@@ -190,26 +190,33 @@ Rectangle {
                         }
                         IconButton { icon.name: "add"; description: "New workspace"; onClicked: workspaceDialog.open() }
                     }
-                    Repeater {
-                        model: researchStore.recentWorkspaces
-                        delegate: ItemDelegate {
-                            id: workspaceItem
-                            required property var modelData
-                            Layout.fillWidth: true
-                            implicitHeight: 44
-                            text: modelData.name + "  ·  " + modelData.papers + " papers"
-                            rightPadding: 36
-                            ToolButton {
-                                anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                                width: 32; text: "…"; Accessible.name: "Manage workspace"
-                                onClicked: root.workspaceManageRequested(workspaceItem.modelData.id)
-                                ToolTip.visible: hovered; ToolTip.text: "Open workspace and manage links"
+                    ListGroup {
+                        Layout.fillWidth: true
+                        visible: researchStore.recentWorkspaces.length > 0
+                        Repeater {
+                            model: researchStore.recentWorkspaces
+                            delegate: ItemDelegate {
+                                id: workspaceItem
+                                required property var modelData
+                                required property int index
+                                width: parent.width
+                                height: Theme.rowHeight + 4
+                                separator: index < researchStore.recentWorkspaces.length - 1
+                                text: modelData.name + "  ·  " + modelData.papers + " papers"
+                                onClicked: root.workspaceChosen(modelData.id)
+                                // Right-click for the workspace's actions.
+                                TapHandler { acceptedButtons: Qt.RightButton; onTapped: workspaceMenu.popup() }
+                                Menu {
+                                    id: workspaceMenu
+                                    objectName: "workspaceMenu"
+                                    MenuItem { text: "Open"; onTriggered: root.workspaceChosen(workspaceItem.modelData.id) }
+                                    MenuItem { objectName: "manageWorkspaceOption"; text: "Manage Links…"; onTriggered: root.workspaceManageRequested(workspaceItem.modelData.id) }
+                                }
                             }
-                            onClicked: root.workspaceChosen(modelData.id)
                         }
                     }
                     Label { visible: researchStore.recentWorkspaces.length === 0; text: "No workspaces yet"; color: Theme.textTertiary }
-                    Label { Layout.fillWidth: true; text: "Keep papers, tabs and reading state together by topic."; wrapMode: Text.Wrap; font.pixelSize: 11; color: Theme.textTertiary }
+                    Label { Layout.fillWidth: true; text: "Keep papers, tabs and reading state together by topic."; wrapMode: Text.Wrap; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
                 }
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -218,19 +225,25 @@ Rectangle {
                     spacing: 6
                     RowLayout {
                         Layout.fillWidth: true
-                        Label { text: "Recent Papers"; font.pixelSize: 14; font.weight: Font.DemiBold; Layout.preferredHeight: 32; Layout.fillWidth: true }
+                        Label { text: "Recent Papers"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32; Layout.fillWidth: true }
                         IconButton {
                             objectName: "openLibraryButton"; icon.name: "library"
                             description: "Library · All papers, collections and tags · " + Platform.keys("Ctrl+Shift+L")
                             onClicked: root.libraryRequested()
                         }
                     }
-                    Repeater {
-                        model: researchStore.recentDocuments
-                        delegate: RecentPaperDelegate {
-                            Layout.fillWidth: true
-                            implicitHeight: 44
-                            onDocumentChosen: function(source, position) { root.documentChosen(source, position) }
+                    ListGroup {
+                        Layout.fillWidth: true
+                        visible: researchStore.recentDocuments.length > 0
+                        Repeater {
+                            model: researchStore.recentDocuments
+                            delegate: RecentPaperDelegate {
+                                required property int index
+                                width: parent.width
+                                height: Theme.rowHeight + 4
+                                separator: index < researchStore.recentDocuments.length - 1
+                                onDocumentChosen: function(source, position) { root.documentChosen(source, position) }
+                            }
                         }
                     }
                     Label { visible: researchStore.recentDocuments.length === 0; text: "No recent papers"; color: Theme.textTertiary }

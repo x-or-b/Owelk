@@ -27,7 +27,7 @@ Dialog {
         Label {
             Layout.fillWidth: true; wrapMode: Text.Wrap; textFormat: Text.PlainText
             text: researchStore.linkTarget(root.kind, root.targetId).title || ""
-            font.pixelSize: 12; color: Theme.textTertiary
+            font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
         }
         Button {
             objectName: "linkToNewNote"

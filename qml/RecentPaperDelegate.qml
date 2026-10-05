@@ -1,18 +1,21 @@
 import QtQuick
 import QtQuick.Controls
+import Owelk.Ui
 
 ItemDelegate {
     id: root
     required property var modelData
     objectName: "recentPaper-" + modelData.url.toString()
     signal documentChosen(url source, var position)
-    text: (modelData.favorite ? "★ " : "") + modelData.name
+    text: modelData.name
+    rightPadding: modelData.favorite ? 30 : 10
+    // Read papers are quieter; favorites carry a star.
     opacity: modelData.readingState === "read" ? .65 : 1
+    Icon { visible: root.modelData.favorite; anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter; name: "star"; size: Theme.fontBody; color: Theme.accent }
     onClicked: documentChosen(modelData.url, modelData.position)
     ToolTip.visible: hovered
-    ToolTip.delay: 450
-    ToolTip.text: (modelData.fileName && modelData.fileName !== modelData.name ? modelData.fileName + "\n" : "")
-        + modelData.url.toString() + "\nRight-click for details or to remove from Recent Papers"
+    ToolTip.delay: 500
+    ToolTip.text: modelData.name + "\n" + researchStore.localPath(modelData.url)
     MouseArea { anchors.fill: parent; acceptedButtons: Qt.RightButton; onClicked: menu.popup() }
     Menu {
         id: menu; objectName: "recentPaperMenu"

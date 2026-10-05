@@ -567,8 +567,8 @@ Item {
             x: root.width - width; y: 0; width: 16; height: pages.height
             policy: ScrollBar.AlwaysOn; interactive: true; minimumSize: .05; padding: 3
             onPressedChanged: if (pressed) root.stopSourceMotion()
-            background: Rectangle { color: Theme.hover }
-            contentItem: Rectangle { implicitWidth: 10; implicitHeight: 36; radius: 5; color: parent.pressed ? Theme.scrollHandlePressed : parent.hovered ? Theme.scrollHandleHover : Theme.scrollHandle }
+            background: Item {}
+            contentItem: Rectangle { implicitWidth: 8; implicitHeight: 36; radius: 4; color: parent.pressed ? Theme.scrollHandlePressed : parent.hovered ? Theme.scrollHandleHover : Theme.scrollHandle }
         }
         ScrollBar.horizontal: ScrollBar {
             objectName: "pdfHorizontalScrollBar"
@@ -576,7 +576,8 @@ Item {
             x: 0; y: root.height - height; width: pages.width; height: 14
             policy: ScrollBar.AsNeeded; interactive: true; minimumSize: .05; padding: 3
             onPressedChanged: if (pressed) root.stopSourceMotion()
-            contentItem: Rectangle { implicitWidth: 36; implicitHeight: 8; radius: 4; color: parent.pressed ? Theme.scrollHandlePressed : Theme.scrollHandle }
+            background: Item {}
+            contentItem: Rectangle { implicitWidth: 36; implicitHeight: 8; radius: 4; color: parent.pressed ? Theme.scrollHandlePressed : parent.hovered ? Theme.scrollHandleHover : Theme.scrollHandle }
         }
         WheelHandler {
             target: null

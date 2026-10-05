@@ -116,7 +116,7 @@ Dialog {
             objectName: "lookupStatus"
             visible: root.lookupStatus.length > 0
             Layout.fillWidth: true; text: root.lookupStatus; wrapMode: Text.Wrap
-            font.pixelSize: 12; color: Theme.textTertiary
+            font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
         }
     }
 }

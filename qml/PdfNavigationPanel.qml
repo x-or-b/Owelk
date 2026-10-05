@@ -60,7 +60,7 @@ Item {
             text: root.reader && root.reader.source.toString().length ? (researchStore.documentsRevision, researchStore.displayName(root.reader.source)) : "No active PDF"
             textFormat: Text.PlainText
             elide: Text.ElideMiddle
-            font.pixelSize: 12
+            font.pixelSize: Theme.fontSmall
             color: Theme.textSecondary
         }
         TabBar {
@@ -87,7 +87,7 @@ Item {
                 id: relatedColumn
                 width: parent.width
                 spacing: 2
-                Label { text: "Papers"; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4 }
+                Label { text: "Papers"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4 }
                 Repeater {
                     model: root.relatedPapers
                     delegate: ItemDelegate {
@@ -96,30 +96,30 @@ Item {
                         required property int index
                         Layout.fillWidth: true
                         text: modelData.title
-                        font.pixelSize: 12
+                        font.pixelSize: Theme.fontSmall
                         ToolTip.visible: hovered; ToolTip.delay: 450; ToolTip.text: researchStore.localPath(modelData.source)
                         onClicked: root.linkActivated("owelk://document/" + modelData.documentId)
                     }
                 }
                 Label {
                     visible: !root.relatedPapers.length
-                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                     text: root.relatedLoading ? "Looking for related papers…" : "No related papers in the library yet."
                 }
-                Label { text: "Notes"; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 10 }
+                Label { text: "Notes"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 10 }
                 Repeater {
                     model: root.relatedNotes
                     delegate: ItemDelegate {
                         required property var modelData
                         Layout.fillWidth: true
                         text: modelData.title
-                        font.pixelSize: 12
+                        font.pixelSize: Theme.fontSmall
                         onClicked: root.linkActivated("owelk://note/" + modelData.id)
                     }
                 }
                 Label {
                     visible: !root.relatedNotes.length && !root.relatedLoading
-                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 12; color: Theme.textTertiary
+                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                     text: "No notes share this paper's key words."
                 }
             }
@@ -135,7 +135,7 @@ Item {
                 required property var modelData
                 width: ListView.view.width
                 text: modelData.title
-                font.pixelSize: 12
+                font.pixelSize: Theme.fontSmall
                 ToolTip.visible: hovered; ToolTip.delay: 450
                 ToolTip.text: modelData.via === "document" ? "Links to this paper" : "Links to an " + (modelData.via === "capture" ? "excerpt" : "annotation") + " in this paper"
                 onClicked: root.linkActivated("owelk://" + modelData.kind + "/" + modelData.id)
@@ -221,7 +221,7 @@ Item {
                         sourceSize.width: Math.min(440, Math.ceil(width * Screen.devicePixelRatio))
                         fillMode: Image.PreserveAspectFit
                     }
-                    Label { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: thumb.index + 1; font.pixelSize: 11; color: Theme.textTertiary }
+                    Label { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: thumb.index + 1; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
                 }
             }
         }

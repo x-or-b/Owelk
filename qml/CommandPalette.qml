@@ -61,7 +61,6 @@ Popup {
     onResultsChanged: if (list) list.currentIndex = results.length ? 0 : -1
     onAboutToShow: { query.clear(); list.currentIndex = results.length ? 0 : -1 }
     onOpened: query.forceActiveFocus()
-    background: Rectangle { color: Theme.raised; border.color: Theme.border; radius: Theme.radius }
     contentItem: ColumnLayout {
         spacing: 8
         TextField {
@@ -79,30 +78,28 @@ Popup {
             id: list
             objectName: "paletteResults"
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(9, Math.max(1, count)) * 36
+            Layout.preferredHeight: Math.min(9, Math.max(1, count)) * (Theme.rowHeight + 4)
             model: root.results
             clip: true
             ScrollBar.vertical: ScrollBar {}
             delegate: ItemDelegate {
                 required property int index
                 required property var modelData
-                width: list.width; height: 36
+                width: list.width; height: Theme.rowHeight + 4
                 highlighted: list.currentIndex === index
                 enabled: modelData.enabled
                 onClicked: root.choose(index)
-                background: Rectangle { color: highlighted ? Theme.window : "transparent" }
                 contentItem: Label {
                     objectName: "commandTitle-" + index
                     text: Match.highlight(modelData.title, query.text, Theme.accent)
                     textFormat: Text.StyledText
-                    color: Theme.text
-                    opacity: modelData.enabled ? 1 : .45
+                    color: modelData.enabled ? Theme.text : Theme.textDisabled
                     elide: Text.ElideRight
                     verticalAlignment: Text.AlignVCenter
                 }
             }
             Label { visible: list.count === 0; anchors.centerIn: parent; text: "No matching commands"; color: Theme.textTertiary }
         }
-        Label { text: "↑↓ Navigate · Enter Run · Esc Close"; color: Theme.textTertiary; font.pixelSize: 11 }
+        Label { text: "↑↓ Navigate · Enter Run · Esc Close"; color: Theme.textTertiary; font.pixelSize: Theme.fontCaption }
     }
 }

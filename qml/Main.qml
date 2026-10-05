@@ -549,7 +549,7 @@ ApplicationWindow {
             Label {
                 Layout.fillWidth: true
                 text: window.notification.length ? window.notification : researchStore.busy ? "Saving capture…" : window.workspaceName.length ? window.workspaceName : "Local workspace"
-                elide: Text.ElideRight; font.pixelSize: 11; color: Theme.textTertiary
+                elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
             }
             StatusIcon { kind: "search"; description: "Search · " + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }
             IconButton {

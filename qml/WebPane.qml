@@ -101,7 +101,7 @@ Rectangle {
         spacing: 0
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 32
+            Layout.preferredHeight: Theme.barHeight
             color: Theme.window
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 4; anchors.rightMargin: 4
@@ -116,10 +116,10 @@ Rectangle {
                 TextField {
                     id: address
                     objectName: "webAddress"
-                    Layout.fillWidth: true; Layout.preferredHeight: 25
+                    Layout.fillWidth: true; Layout.preferredHeight: Theme.controlHeightSmall
                     placeholderText: "Address or search"
                     selectByMouse: true
-                    font.pixelSize: 12
+                    font.pixelSize: Theme.fontSmall
                     text: activeFocus ? text : view.url.toString()
                     onActiveFocusChanged: if (activeFocus) { root.activated(); text = view.url.toString(); selectAll() }
                     onAccepted: root.go(text)
@@ -135,7 +135,7 @@ Rectangle {
                     objectName: "webOpenArxivPdf"
                     visible: Tree.arxivPdf(view.url).length > 0
                     text: "Open PDF"
-                    Layout.preferredHeight: 25
+                    Layout.preferredHeight: Theme.controlHeightSmall
                     ToolTip.visible: hovered; ToolTip.delay: 450
                     ToolTip.text: "Download this paper and open it in the reader"
                     onClicked: view.url = Tree.arxivPdf(view.url)
@@ -167,7 +167,7 @@ Rectangle {
         Rectangle {
             objectName: "webPdfNotice"
             Layout.fillWidth: true
-            Layout.preferredHeight: 32
+            Layout.preferredHeight: Theme.barHeight
             visible: root.pdfAddress.length > 0 && root.download === null && !root.downloadOpening
             color: Theme.sidebar
             RowLayout {
@@ -175,21 +175,21 @@ Rectangle {
                 spacing: 6
                 Label {
                     Layout.fillWidth: true; Layout.minimumWidth: 0
-                    elide: Text.ElideRight; font.pixelSize: 12; color: Theme.text
+                    elide: Text.ElideRight; font.pixelSize: Theme.fontSmall; color: Theme.text
                     text: root.browserPdf ? "Reading the PDF in this tab. Highlights, captures and notes work in the reader."
                                           : "This page shows a PDF."
                 }
                 Button {
                     objectName: "webOpenInReader"
                     text: "Open in Reader"; highlighted: true
-                    implicitHeight: 26
+                    implicitHeight: Theme.controlHeight
                     onClicked: root.openPdfInReader()
                 }
                 Button {
                     objectName: "webShowPdfHere"
                     visible: !root.browserPdf
                     text: "Show Here"
-                    implicitHeight: 26
+                    implicitHeight: Theme.controlHeight
                     ToolTip.visible: hovered; ToolTip.delay: 450
                     ToolTip.text: "Read PDFs in this web tab (More → Show PDFs in This Tab)"
                     onClicked: root.browserPdf = true
@@ -215,7 +215,7 @@ Rectangle {
                 Label {
                     objectName: "webDownloadLabel"
                     Layout.fillWidth: true; Layout.minimumWidth: 0
-                    elide: Text.ElideMiddle; font.pixelSize: 12; color: Theme.text; textFormat: Text.PlainText
+                    elide: Text.ElideMiddle; font.pixelSize: Theme.fontSmall; color: Theme.text; textFormat: Text.PlainText
                     text: root.downloadOpening ? "Opening in the reader…"
                         : root.download ? "Downloading " + root.download.downloadFileName
                           + (downloadBar.total > 0 ? " · " + downloadBar.size(downloadBar.total)
