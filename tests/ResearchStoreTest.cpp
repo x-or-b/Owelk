@@ -870,6 +870,35 @@ private slots:
         QCOMPARE(close[0].toMap()["id"].toString(), twin);
         QVERIFY(store.relatedNotes(unrelated).isEmpty());
     }
+    void deletedWorkspacesCanBeForgotten()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        const auto path = directory.filePath("paper.pdf");
+        writeFixture(path);
+        const auto source = QUrl::fromLocalFile(path);
+        QVERIFY(store.rememberDocument(source));
+        const auto keep = store.createWorkspace("Keep"), first = store.createWorkspace("Old A"),
+                   second = store.createWorkspace("Old B");
+        QVERIFY(store.setWorkspaceDocument(first, source, true));
+        QVERIFY(store.deleteWorkspace(first));
+        QVERIFY(store.deleteWorkspace(second));
+        QCOMPARE(store.deletedWorkspaces().size(), 2);
+        // One, then the rest; only deleted workspaces can be forgotten.
+        QCOMPARE(store.purgeDeletedWorkspaces(first), 1);
+        QCOMPARE(store.deletedWorkspaces().size(), 1);
+        QVERIFY(!store.restoreWorkspace(first));
+        QCOMPARE(store.purgeDeletedWorkspaces(keep), 0);
+        QCOMPARE(store.purgeDeletedWorkspaces(), 1);
+        QVERIFY(store.deletedWorkspaces().isEmpty());
+        const auto recent = store.recentWorkspaces();
+        QVERIFY(
+            std::any_of(recent.cbegin(), recent.cend(), [&](const QVariant &w) { return w.toMap()["id"] == keep; }));
+        // The paper itself stays in the library.
+        QCOMPARE(store.libraryDocuments({}).size(), 1);
+    }
     void unsortedPapersAndCollectionSuggestions()
     {
         QTemporaryDir directory;

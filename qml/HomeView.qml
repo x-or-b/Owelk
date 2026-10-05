@@ -15,6 +15,10 @@ Rectangle {
     readonly property var continuation: researchStore.continueReading
     signal openRequested()
     signal libraryRequested()
+    // A Collection (or Unsorted) chosen on Home: the Library opens filtered to it.
+    signal libraryFilterRequested(var filter)
+    readonly property var topCollections: (researchStore.documentsRevision, researchStore.recentDocuments, researchStore.collections().filter(function(c) { return c.depth === 0 }))
+    readonly property int unsorted: (researchStore.documentsRevision, researchStore.recentDocuments, researchStore.unsortedCount())
     // An address or a web search typed on Home (opens a web tab).
     signal webRequested(string url)
     function searchWeb(text) {
@@ -28,31 +32,81 @@ Rectangle {
         objectName: "deletedWorkspacesDialog"
         parent: Overlay.overlay
         anchors.centerIn: parent
-        width: 420
+        width: 440
         modal: true
         title: "Deleted workspaces"
-        standardButtons: Dialog.Close
+        // Restore brings a workspace back; Delete forgets it for good (papers, captures and notes stay).
+        footer: DialogButtonBox {
+            Button {
+                objectName: "emptyDeletedWorkspaces"
+                text: "Delete All…"
+                palette.buttonText: Theme.danger
+                DialogButtonBox.buttonRole: DialogButtonBox.DestructiveRole
+                onClicked: { purgeConfirm.workspace = ""; purgeConfirm.open() }
+            }
+            Button { text: "Done"; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
+        }
+        onAccepted: close()
         ColumnLayout {
             width: parent.width
-            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary; text: "Deleting a workspace only hides it. Restore brings back its papers, captures and layout." }
-            Repeater {
-                model: root.deletedWorkspaces
-                delegate: RowLayout {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    Label { Layout.fillWidth: true; text: modelData.name + "  ·  " + modelData.papers + " papers"; elide: Text.ElideRight; textFormat: Text.PlainText }
-                    Button {
-                        objectName: "restoreWorkspace-" + modelData.id
-                        text: "Restore"
-                        // Restoring removes this row; finish with the delegate before the list changes.
-                        onClicked: {
-                            const id = modelData.id
-                            if (root.deletedWorkspaces.length === 1) deletedDialog.close()
-                            Qt.callLater(function() { researchStore.restoreWorkspace(id) })
+            spacing: 8
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary; text: "A deleted workspace is only hidden. Restore brings back its papers, captures and layout; Delete removes the workspace itself. Papers, captures and notes are never deleted." }
+            ListGroup {
+                Layout.fillWidth: true
+                visible: root.deletedWorkspaces.length > 0
+                Repeater {
+                    model: root.deletedWorkspaces
+                    delegate: ItemDelegate {
+                        required property var modelData
+                        required property int index
+                        width: parent.width
+                        height: Theme.rowHeight + 4
+                        separator: index < root.deletedWorkspaces.length - 1
+                        rightPadding: 64
+                        text: modelData.name + "  ·  " + modelData.papers + " papers"
+                        Row {
+                            anchors.right: parent.right; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter
+                            spacing: 2
+                            IconButton {
+                                objectName: "restoreWorkspace-" + modelData.id
+                                icon.name: "restore"; description: "Restore"
+                                // Restoring removes this row; finish with the delegate before the list changes.
+                                onClicked: {
+                                    const id = modelData.id
+                                    if (root.deletedWorkspaces.length === 1) deletedDialog.close()
+                                    Qt.callLater(function() { researchStore.restoreWorkspace(id) })
+                                }
+                            }
+                            IconButton {
+                                objectName: "purgeWorkspace-" + modelData.id
+                                icon.name: "trash"; tint: Theme.danger; description: "Delete permanently…"
+                                onClicked: { purgeConfirm.workspace = modelData.id; purgeConfirm.name = modelData.name; purgeConfirm.open() }
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+    Dialog {
+        id: purgeConfirm
+        objectName: "purgeWorkspaceDialog"
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: 400
+        modal: true
+        property string workspace: ""
+        property string name: ""
+        title: workspace.length ? "Delete \u201c" + name + "\u201d permanently?" : "Delete all " + root.deletedWorkspaces.length + " deleted workspaces?"
+        Label { width: parent.width; wrapMode: Text.Wrap; color: Theme.textSecondary; text: "This cannot be undone. Papers, captures and notes stay in the library." }
+        footer: DialogButtonBox {
+            Button { text: "Cancel"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Button { objectName: "confirmPurgeWorkspace"; text: "Delete"; palette.buttonText: Theme.danger; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
+        }
+        onAccepted: {
+            const id = workspace, all = !workspace.length || root.deletedWorkspaces.length === 1
+            if (all) deletedDialog.close()
+            Qt.callLater(function() { researchStore.purgeDeletedWorkspaces(id) })
         }
     }
     signal documentChosen(url source, var position)
@@ -168,6 +222,35 @@ Rectangle {
                 }
             }
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }
+            // The bookshelf: top-level collections and the papers still to file.
+            ColumnLayout {
+                objectName: "homeCollections"
+                Layout.fillWidth: true
+                visible: root.topCollections.length > 0 || root.unsorted > 0
+                spacing: 6
+                Label { text: "Collections"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold }
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    Chip {
+                        objectName: "homeUnsorted"
+                        visible: root.unsorted > 0
+                        text: "Unsorted  " + root.unsorted
+                        ToolTip.text: "Papers in no collection · file them in the Library"
+                        onClicked: root.libraryFilterRequested({unsorted: true})
+                    }
+                    Repeater {
+                        model: root.topCollections
+                        delegate: Chip {
+                            required property var modelData
+                            objectName: "homeCollection-" + modelData.name
+                            text: modelData.name + "  " + modelData.count
+                            onClicked: root.libraryFilterRequested({collection: modelData.id})
+                        }
+                    }
+                }
+            }
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator; visible: root.topCollections.length > 0 || root.unsorted > 0 }
             RowLayout {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop

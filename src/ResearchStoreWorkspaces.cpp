@@ -170,3 +170,36 @@ bool ResearchStore::restoreWorkspace(const QString &id)
     emit message("Workspace restored with its papers, captures and layout.");
     return true;
 }
+
+int ResearchStore::purgeDeletedWorkspaces(const QString &id)
+{
+    QStringList ids;
+    QSqlQuery list(m_database);
+    list.prepare("SELECT id FROM deleted_workspaces WHERE ?='' OR id=?");
+    list.addBindValue(id.isNull() ? QStringLiteral("") : id);
+    list.addBindValue(id.isNull() ? QStringLiteral("") : id);
+    if (!list.exec()) return 0;
+    while (list.next()) ids << list.value(0).toString();
+    if (ids.isEmpty() || !m_database.transaction()) return 0;
+    for (const auto &workspace : ids) {
+        for (const auto *sql : {"DELETE FROM workspace_documents WHERE workspace_id=?",
+                 "DELETE FROM workspace_document_exclusions WHERE workspace_id=?",
+                 "DELETE FROM workspace_captures WHERE workspace_id=?", "DELETE FROM workspaces WHERE id=?",
+                 "DELETE FROM deleted_workspaces WHERE id=?"}) {
+            QSqlQuery query(m_database);
+            query.prepare(sql);
+            query.addBindValue(workspace);
+            if (!query.exec()) {
+                m_database.rollback();
+                emit message("Cannot remove the deleted workspace.");
+                return 0;
+            }
+        }
+    }
+    if (!m_database.commit()) return 0;
+    emit homeChanged();
+    emit message(ids.size() == 1
+            ? QStringLiteral("Deleted workspace removed. Papers, captures and notes were kept.")
+            : QString("%1 deleted workspaces removed. Papers, captures and notes were kept.").arg(ids.size()));
+    return int(ids.size());
+}

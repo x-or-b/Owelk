@@ -466,6 +466,7 @@ ApplicationWindow {
             onWorkspaceCreated: function(name) { if (!window.restoreFailed) { const id = researchStore.createWorkspace(name); if (id.length) window.openWorkspace(id) } }
             onResultChosen: function(result) { window.openSearchResult(result) }
             onLibraryRequested: if (!window.restoreFailed) documents.openLibrary({})
+            onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) documents.openLibrary(filter) }
             onWebRequested: function(url) { if (!window.restoreFailed) documents.openWeb(url, true) }
         }
         DocumentWorkspace {

@@ -249,6 +249,9 @@ public:
     Q_INVOKABLE bool deleteWorkspace(const QString &id);
     Q_INVOKABLE QVariantList deletedWorkspaces() const;
     Q_INVOKABLE bool restoreWorkspace(const QString &id);
+    // Forgets a deleted workspace for good (its layout and links; papers, captures and notes stay).
+    // An empty id forgets every deleted workspace. Returns how many were removed.
+    Q_INVOKABLE int purgeDeletedWorkspaces(const QString &id = QString());
     QVariantList recentWorkspaces() const;
     QVariantMap continueReading() const;
 
