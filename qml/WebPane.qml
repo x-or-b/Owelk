@@ -187,7 +187,7 @@ Rectangle {
             id: downloadBar
             objectName: "webDownloadBar"
             Layout.fillWidth: true
-            Layout.preferredHeight: 30
+            Layout.preferredHeight: Theme.barHeight - 4
             visible: root.download !== null || root.downloadOpening
             color: Theme.sidebar
             readonly property real received: root.download ? root.download.receivedBytes : 0

@@ -62,6 +62,22 @@ Item {
             mouseClick(visualChild(settings.contentItem, "customDarkSwitch"))
             compare(Theme.dark, true)
         }
+        function test_aiPageAsksForTheAccountOnce() {
+            // Reading the ChatGPT account refreshes the provider list; that must not ask again (a loop
+            // that kept the CPU busy while Settings existed).
+            const before = researchStore.ai.provider
+            researchStore.ai.provider = "codex"
+            const spy = Qt.createQmlObject('import QtTest; SignalSpy { signalName: "codexAccountChanged" }', scene)
+            spy.target = researchStore.ai
+            settings.openPage("ai"); tryCompare(settings, "opened", true)
+            wait(1000)
+            const settled = spy.count
+            wait(1500)
+            compare(spy.count, settled, "the account is not read again and again")
+            settings.close()
+            researchStore.ai.provider = before
+            spy.destroy()
+        }
         function test_darkPagesOnlyWhileOn() {
             if (!Theme.canInvertPages) skip("built without Qt ShaderTools")
             reader.visible = true

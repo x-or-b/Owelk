@@ -221,15 +221,15 @@ Dialog {
             }
         }
         RowLayout {
-            Button {
-                text: "Color…"
+            // The ink: a round color well; click to choose another.
+            ToolButton {
+                objectName: "annotationColorWell"
+                implicitWidth: Theme.iconButton; implicitHeight: Theme.iconButton
+                padding: 4
+                ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: "Color"
+                Accessible.name: "Color"
+                contentItem: Rectangle { radius: width / 2; color: root.selectedColor }
                 onClicked: colors.open()
-            }
-            Rectangle {
-                width: 16
-                height: 16
-                radius: 3
-                color: root.selectedColor
             }
             Item {
                 Layout.fillWidth: true

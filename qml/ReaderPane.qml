@@ -424,7 +424,7 @@ Rectangle {
                 x: Math.max(4,Math.min(parent.width-width-20,canvas.selectionEnd.x+8))
                 y: Math.max(4,canvas.selectionEnd.y+height+12>parent.height?canvas.selectionEnd.y-height-8:canvas.selectionEnd.y+8)
                 width: 140; height: 34
-                color: Theme.raised; border.color: Theme.border; radius: Theme.radius
+                color: Theme.raised; border.color: Theme.border; radius: Theme.radiusLarge
                 Row {
                     id: selectionActions
                     x: 8; y: 4; width: parent.width - 16; spacing: 4

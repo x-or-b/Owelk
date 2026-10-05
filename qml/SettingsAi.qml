@@ -23,12 +23,15 @@ ColumnLayout {
         function onCodexAccountChanged(account) { root.codexAccount = account }
         function onOllamaModelsLoaded(models) { root.ollamaModels = models }
     }
-    onCurrentChanged: {
+    // Re-read the account or local models when the provider changes, not when its details refresh.
+    readonly property string currentId: current.id || ""
+    onCurrentIdChanged: refreshProvider()
+    function refreshProvider() {
         testResult = ""
-        if (current.id === "codex") ai.refreshCodexAccount()
-        if (current.id === "ollama") ai.listOllamaModels()
+        if (currentId === "codex") ai.refreshCodexAccount()
+        if (currentId === "ollama") ai.listOllamaModels()
     }
-    Component.onCompleted: currentChanged()
+    Component.onCompleted: refreshProvider()
     SettingsGroup {
         title: "Answers"
         note: "Used for Explain, Summarize and other one-click actions, and as the Translate target. A question you type is answered in the language you wrote it in."

@@ -373,7 +373,7 @@ ApplicationWindow {
         visible: false
         x: (parent.width - width) / 2; y: 8
         width: Math.min(560, parent.width - 32); height: 44
-        color: Theme.raised; border.color: Theme.border; radius: Theme.radius
+        color: Theme.raised; border.color: Theme.border; radius: Theme.radiusLarge
         RowLayout {
             anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 6
             spacing: 6

@@ -535,11 +535,15 @@ void AiService::refreshCodexAccount()
 {
     m_codex->call("account/read", {}, [this](const QJsonValue &result, const QString &error) {
         const auto account = result.toObject().value("account").toObject();
-        m_codexAccount = {{"available", error.isEmpty() || !error.contains("Codex")}, {"error", error},
+        QVariantMap next{{"available", error.isEmpty() || !error.contains("Codex")}, {"error", error},
             {"signedIn", account.value("type").toString() == "chatgpt" || account.value("type").toString() == "apiKey"},
             {"email", account.value("email").toString()}, {"plan", account.value("planType").toString()}};
-        if (!error.isEmpty()) m_codexAccount.insert("available", false);
-        emit codexAccountChanged(m_codexAccount);
+        if (!error.isEmpty()) next.insert("available", false);
+        emit codexAccountChanged(next);
+        // Only a real change updates the provider list: listeners that re-read the account
+        // when providers change must not loop.
+        if (next == m_codexAccount) return;
+        m_codexAccount = next;
         emit providersChanged();
     });
 }
