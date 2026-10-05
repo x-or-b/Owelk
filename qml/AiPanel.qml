@@ -339,7 +339,9 @@ Item {
         objectName: "aiModelMenu"
         parent: modelButton
         y: -height - 4
-        width: Math.max(240, Math.min(320, root.width))
+        // Stays inside the window, however narrow the panel.
+        margins: 6
+        width: Math.max(220, Math.min(300, root.width))
         height: Math.min(440, pickerColumn.implicitHeight + 16)
         padding: 8
         onOpened: modelFilter.forceActiveFocus()
@@ -407,10 +409,12 @@ Item {
                                     Layout.fillWidth: true
                                     implicitHeight: Theme.rowHeight - 2
                                     highlighted: current
+                                    // The name, then a small bolt when the model has a fast mode; a check marks the one in use.
                                     contentItem: RowLayout {
-                                        spacing: 6
-                                        Label { Layout.fillWidth: true; text: modelRow.modelData.name; elide: Text.ElideRight; font.pixelSize: Theme.fontSmall; color: modelRow.current ? Theme.selectedText : Theme.text }
-                                        Label { visible: !!modelRow.modelData.fast; text: "Fast"; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                                        spacing: 4
+                                        Label { Layout.maximumWidth: modelRow.availableWidth - 40; text: modelRow.modelData.name; elide: Text.ElideRight; font.pixelSize: Theme.fontSmall; color: modelRow.current ? Theme.selectedText : Theme.text }
+                                        Icon { visible: !!modelRow.modelData.fast; name: "fast"; size: Theme.fontCaption; color: Theme.textTertiary }
+                                        Item { Layout.fillWidth: true }
                                         Icon { visible: modelRow.current; name: "check"; size: Theme.fontBody; color: Theme.selectedText }
                                     }
                                     // Choosing rebuilds this list (the provider list changes), so act after the handler returns.

@@ -73,7 +73,8 @@ Item {
             wait(1000)
             const settled = spy.count
             wait(1500)
-            compare(spy.count, settled, "the account is not read again and again")
+            // One more read can come from elsewhere (the AI panel); the old loop read it many times a second.
+            verify(spy.count - settled <= 1, "the account is not read again and again: " + (spy.count - settled) + " more reads")
             settings.close()
             researchStore.ai.provider = before
             spy.destroy()

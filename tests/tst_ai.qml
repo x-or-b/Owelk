@@ -132,6 +132,15 @@ Item {
             pickModel(p, "aiModel-claude-claude-opus-5-5")
             tryVerify(function() { return researchStore.ai.model("claude") === "claude-opus-5-5" })
             tryCompare(findChild(p, "aiModelButton"), "text", "Claude Opus 5.5")
+            // In a narrow panel the model list stays inside the window.
+            workspace.rightDockWidth = 170
+            tryVerify(function() { return p.width < 200 })
+            mouseClick(findChild(p, "aiModelButton"))
+            const list = findChild(p, "aiModelMenu")
+            tryCompare(list, "opened", true)
+            verify(list.contentItem.mapToItem(null, list.contentItem.width, 0).x <= workspace.width, "the model list fits the window")
+            list.close(); tryCompare(list, "visible", false)
+            workspace.rightDockWidth = 224
             // Opus: effort levels and fast mode.
             tryCompare(effort, "visible", true)
             compare(effort.text, "Medium")

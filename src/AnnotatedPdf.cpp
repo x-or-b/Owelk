@@ -142,7 +142,7 @@ QString write(const QString &source, const QString &target, const QVariantList &
             auto &helper = pages[size_t(index)];
             auto pageObject = helper.getObjectHandle();
             const auto box = helper.getCropBox().getArrayAsRectangle();
-            const auto rotate = helper.getAttribute("/Rotate", false);
+            auto rotate = helper.getAttribute("/Rotate", false); // not const: older qpdf (Ubuntu) has non-const getters
             Page page{box.llx, box.lly, box.urx - box.llx, box.ury - box.lly,
                 ((rotate.isInteger() ? rotate.getIntValueAsInt() : 0) % 360 + 360) % 360};
             const QColor color(mark.value("color").toString());
