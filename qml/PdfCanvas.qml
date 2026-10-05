@@ -798,10 +798,10 @@ Item {
                                         highlightMenu.popup(parent, mouse.x, mouse.y)
                                     }
                                 }
-                                ReaderIconButton {
+                                IconButton {
                                     objectName: "commentMarker-" + persistentMark.modelData.id + "-" + index
                                     visible: index === 0 && (!!persistentMark.modelData.body && persistentMark.modelData.kind !== "text")
-                                    kind: "comment"; description: persistentMark.modelData.body || ""
+                                    icon.name: "comment"; description: persistentMark.modelData.body || ""
                                     anchors.right: parent.right; y: -height / 2
                                     onClicked: root.editRequested(persistentMark.modelData, null)
                                 }

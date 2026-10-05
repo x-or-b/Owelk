@@ -397,7 +397,7 @@ ApplicationWindow {
                 objectName: "keepBothCopies"; text: "Keep Both"; focusPolicy: Qt.NoFocus
                 onClicked: { researchStore.keepDuplicate(duplicateBar.source); duplicateBar.close() }
             }
-            ReaderIconButton { kind: "close"; description: "Dismiss"; focusPolicy: Qt.NoFocus; onClicked: duplicateBar.close() }
+            IconButton { icon.name: "close"; description: "Dismiss"; focusPolicy: Qt.NoFocus; onClicked: duplicateBar.close() }
         }
     }
     Connections {
@@ -552,12 +552,10 @@ ApplicationWindow {
                 elide: Text.ElideRight; font.pixelSize: 11; color: Theme.textTertiary
             }
             StatusIcon { kind: "search"; description: "Search · " + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }
-            UiControls.ToolButton {
-                objectName: "manageWorkspaceButton"; text: "Workspace…"
-                visible: window.activeWorkspace.length > 0; implicitHeight: 27
-                hoverEnabled: true
-                ToolTip.visible: hovered; ToolTip.delay: 450
-                ToolTip.text: "Manage linked papers and captures in this reading workspace"
+            IconButton {
+                objectName: "manageWorkspaceButton"; icon.name: "workspace"
+                visible: window.activeWorkspace.length > 0
+                description: "Workspace · Linked papers and captures"
                 onClicked: window.manageWorkspace(window.activeWorkspace)
             }
             StatusIcon { kind: "split"; description: "Duplicate tab to right split"; visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }

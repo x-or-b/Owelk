@@ -394,8 +394,8 @@ UiControls.Dialog {
                             }
                             onActiveFocusChanged: if (!activeFocus && shortcutSettings.recording === shortcutRow.modelData.id) shortcutSettings.recording = ""
                         }
-                        ReaderIconButton {
-                            kind: "restore"; description: "Default: " + Platform.keys(Shortcuts.defaultKeys(shortcutRow.modelData.id, Qt.platform.os))
+                        IconButton {
+                            icon.name: "restore"; description: "Default: " + Platform.keys(Shortcuts.defaultKeys(shortcutRow.modelData.id, Qt.platform.os))
                             enabled: shortcutRow.current !== Shortcuts.defaultKeys(shortcutRow.modelData.id, Qt.platform.os)
                             onClicked: shortcutSettings.store(shortcutRow.modelData.id, Shortcuts.defaultKeys(shortcutRow.modelData.id, Qt.platform.os))
                         }

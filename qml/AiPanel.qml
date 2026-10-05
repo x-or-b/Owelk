@@ -23,9 +23,9 @@ Item {
         RowLayout {
             Layout.fillWidth: true; Layout.minimumWidth: 0
             spacing: 2
-            ReaderIconButton {
+            IconButton {
                 objectName: "aiThreadsButton"
-                kind: "back"; description: "All threads"
+                icon.name: "back"; description: "All threads"
                 visible: !root.showingThreads
                 onClicked: root.c.showThreads()
             }
@@ -36,7 +36,7 @@ Item {
                 elide: Text.ElideRight; textFormat: Text.PlainText
                 font.pixelSize: 13; font.weight: Font.DemiBold; color: Theme.text
             }
-            ReaderIconButton { objectName: "aiNewThread"; kind: "plus"; description: "New thread"; onClicked: { root.c.newThread(); root.focusQuestion() } }
+            IconButton { objectName: "aiNewThread"; icon.name: "add"; description: "New thread"; onClicked: { root.c.newThread(); root.focusQuestion() } }
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }
         // Saved threads, newest first.
@@ -128,10 +128,10 @@ Item {
                 RowLayout {
                     visible: message.modelData.role === "assistant"
                     spacing: 0
-                    UiControls.ToolButton { text: "Copy"; font.pixelSize: 11; implicitHeight: 22; onClicked: researchStore.copyText(message.modelData.content) }
-                    UiControls.ToolButton {
+                    IconButton { icon.name: "copy"; description: "Copy answer"; glyphSize: Theme.fontBody; onClicked: researchStore.copyText(message.modelData.content) }
+                    IconButton {
                         objectName: "aiSaveNote-" + message.index
-                        text: "Save as Note"; font.pixelSize: 11; implicitHeight: 22
+                        icon.name: "note"; description: "Save as note"; glyphSize: Theme.fontBody
                         onClicked: root.c.saveAsNote(message.index)
                     }
                 }
@@ -194,11 +194,13 @@ Item {
                         sourceSize.width: 36; sourceSize.height: 32; asynchronous: true
                     }
                     Label { id: chip; x: chipBox.lead; anchors.verticalCenter: parent.verticalCenter; width: parent.width - chipBox.lead - (chipBox.removable ? 20 : 6); text: chipBox.modelData.label; elide: Text.ElideRight; maximumLineCount: 1; textFormat: Text.PlainText; font.pixelSize: 11; color: Theme.textSecondary }
-                    Label {
+                    IconButton {
                         visible: chipBox.removable
-                        anchors.right: parent.right; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter
-                        text: "×"; color: Theme.textTertiary; font.pixelSize: 12
-                        TapHandler { onTapped: { const kind = chipBox.modelData.kind, at = chipBox.modelData.index; Qt.callLater(function() { root.c.detach(kind, at) }) } }
+                        objectName: "aiChipRemove-" + chipBox.index
+                        anchors.right: parent.right; anchors.rightMargin: 2; anchors.verticalCenter: parent.verticalCenter
+                        width: 18; height: 18; glyphSize: Theme.fontSmall
+                        icon.name: "close"; description: "Remove"
+                        onClicked: { const kind = chipBox.modelData.kind, at = chipBox.modelData.index; Qt.callLater(function() { root.c.detach(kind, at) }) }
                     }
                 }
             }
@@ -231,17 +233,23 @@ Item {
             Layout.fillWidth: true; Layout.minimumWidth: 0
             Layout.alignment: Qt.AlignBottom
             spacing: 4
+            // A pop-up chip: its value and a chevron.
             component Chip: UiControls.ToolButton {
                 id: chipButton
-                implicitHeight: 24
-                font.pixelSize: 11
+                implicitHeight: Theme.controlHeightSmall
+                font.pixelSize: Theme.fontSmall
                 hoverEnabled: true
-                leftPadding: 7; rightPadding: 7
+                leftPadding: 8; rightPadding: 4
                 // Never wider than the panel; long model names elide.
                 width: Math.min(implicitWidth, bar.width)
-                contentItem: Label {
-                    text: chipButton.text; elide: Text.ElideRight; font: chipButton.font; verticalAlignment: Text.AlignVCenter
-                    color: chipButton.checked ? Theme.selectedText : chipButton.enabled ? Theme.textSecondary : Theme.textTertiary
+                contentItem: RowLayout {
+                    spacing: 2
+                    Label {
+                        Layout.fillWidth: true
+                        text: chipButton.text; elide: Text.ElideRight; font: chipButton.font; verticalAlignment: Text.AlignVCenter
+                        color: chipButton.checked ? Theme.selectedText : chipButton.enabled ? Theme.textSecondary : Theme.textTertiary
+                    }
+                    Icon { name: "down"; size: Theme.fontSmall; color: Theme.textTertiary }
                 }
                 background: Rectangle {
                     radius: Theme.radius
@@ -250,12 +258,11 @@ Item {
                 }
                 ToolTip.visible: hovered && ToolTip.text.length > 0; ToolTip.delay: 450
             }
-            Chip {
+            IconButton {
                 id: attachButton
                 objectName: "aiAttachButton"
-                text: "+"
-                font.pixelSize: 13
-                ToolTip.text: "Add context: page, selection, paper, a captured region or an image"
+                icon.name: "attach"
+                description: "Add context · page, selection, paper, a captured region or an image"
                 onClicked: attachMenu.popup(attachButton, 0, -attachMenu.implicitHeight)
                 UiControls.Menu {
                     id: attachMenu
@@ -271,7 +278,7 @@ Item {
             Chip {
                 id: modelButton
                 objectName: "aiModelButton"
-                text: (root.c ? root.c.modelLabel : "") + " ▾"
+                text: root.c ? root.c.modelLabel : ""
                 ToolTip.text: root.c ? root.c.providerInfo.name + " · " + (root.c.providerInfo.kind === "local" ? "stays on this computer" : "sent to " + (root.c.providerInfo.sends || "")) : ""
                 onClicked: { root.c.loadModels(); modelFilter.text = ""; modelMenu.open() }
             }
@@ -279,7 +286,7 @@ Item {
                 id: effortButton
                 objectName: "aiEffortButton"
                 visible: root.c && root.c.efforts.length > 0
-                text: root.c ? root.c.effortName(root.c.effectiveEffort) + " ▾" : ""
+                text: root.c ? root.c.effortName(root.c.effectiveEffort) : ""
                 ToolTip.text: "Reasoning effort: higher thinks longer and costs more"
                 onClicked: effortMenu.popup(effortButton, 0, -effortMenu.implicitHeight)
                 UiControls.Menu {
@@ -299,23 +306,26 @@ Item {
                     }
                 }
             }
-            Chip {
+            IconButton {
                 objectName: "aiFastButton"
                 visible: root.c && root.c.fastAvailable
-                text: "Fast"
+                icon.name: "fast"
                 checkable: true
                 checked: root.c && root.c.effectiveFast
-                ToolTip.text: "Fast mode: faster answers at a higher price"
+                description: "Fast mode · faster answers at a higher price"
                 onClicked: root.c.setFast(checked)
             }
         }
-            UiControls.Button {
+            IconButton {
                 id: sendButton
                 objectName: "aiSend"
                 Layout.alignment: Qt.AlignBottom
-                text: root.c && root.c.streaming ? "Stop" : "Send"
-                highlighted: !(root.c && root.c.streaming)
-                implicitHeight: 26
+                primary: true
+                readonly property bool stopping: root.c && root.c.streaming
+                icon.name: stopping ? "stop" : "send"
+                glyphSize: stopping ? Theme.fontSmall : Theme.iconSize
+                description: stopping ? "Stop" : "Send · Return"
+                enabled: stopping || question.text.trim().length > 0 || (root.c && root.c.attachments.length > 0)
                 onClicked: {
                     if (root.c.streaming) root.c.stop()
                     else if (root.c.send(question.text)) question.text = ""

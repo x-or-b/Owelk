@@ -200,17 +200,17 @@ Item {
             const id = view.groupData.activeTab
             const button = findChild(view, "closeTabButton-" + id)
             verify(button !== null)
-            compare(button.background.color, button.parent.color)
-            compare(button.width, 24)
+            // At rest the close button is invisible on the tab; hover uses the shared hover fill.
+            compare(button.background.color.a, 0)
             compare(button.height, button.width)
             compare(button.y, (button.parent.height - button.height) / 2)
             waitForPolish(workspace)
             wait(50)
-            mouseMove(button, 12, 16)
+            mouseMove(button, button.width / 2, button.height / 2)
             tryCompare(button, "hovered", true)
-            compare(button.background.color, button.parent.color)
-            verify(Qt.colorEqual(button.background.border.color, Theme.accent))
-            mouseClick(button, 12, 12)
+            verify(Qt.colorEqual(button.background.color, Theme.hover))
+            compare(button.ToolTip.text, "Close tab")
+            mouseClick(button)
             tryCompare(workspace.documents, "hasTabs", false)
         }
         function test_workspaceManagerLinksRenameDelete() {

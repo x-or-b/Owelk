@@ -106,10 +106,10 @@ Rectangle {
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 4; anchors.rightMargin: 4
                 spacing: 2
-                ReaderIconButton { objectName: "webBack"; kind: "back"; implicitWidth: 24; description: "Back"; enabled: view.canGoBack; onClicked: view.goBack() }
-                ReaderIconButton { objectName: "webForward"; kind: "forward"; implicitWidth: 24; description: "Forward"; enabled: view.canGoForward; onClicked: view.goForward() }
-                ReaderIconButton {
-                    objectName: "webReload"; kind: view.loading ? "close" : "reload"; implicitWidth: 24
+                IconButton { objectName: "webBack"; icon.name: "back"; implicitWidth: 24; description: "Back"; enabled: view.canGoBack; onClicked: view.goBack() }
+                IconButton { objectName: "webForward"; icon.name: "forward"; implicitWidth: 24; description: "Forward"; enabled: view.canGoForward; onClicked: view.goForward() }
+                IconButton {
+                    objectName: "webReload"; icon.name: view.loading ? "close" : "reload"; implicitWidth: 24
                     description: view.loading ? "Stop" : "Reload"
                     onClicked: view.loading ? view.stop() : view.reload()
                 }
@@ -125,8 +125,8 @@ Rectangle {
                     onAccepted: root.go(text)
                     Keys.onEscapePressed: { text = view.url.toString(); view.forceActiveFocus() }
                 }
-                ReaderIconButton {
-                    objectName: "webCapture"; kind: "capture"; implicitWidth: 24; checkable: true
+                IconButton {
+                    objectName: "webCapture"; icon.name: "capture"; implicitWidth: 24; checkable: true
                     checked: root.capturing
                     description: "Capture a region of this page"
                     onClicked: root.capturing = !root.capturing
@@ -140,7 +140,7 @@ Rectangle {
                     ToolTip.text: "Download this paper and open it in the reader"
                     onClicked: view.url = Tree.arxivPdf(view.url)
                 }
-                ReaderIconButton {
+                IconButton { icon.name: "more";
                     implicitWidth: 24; description: "More"
                     onClicked: webMenu.popup(this, 0, height)
                     UiControls.Menu {
@@ -238,10 +238,10 @@ Rectangle {
                         Behavior on width { NumberAnimation { duration: 150 } }
                     }
                 }
-                UiControls.ToolButton {
+                IconButton {
                     objectName: "webDownloadCancel"
                     visible: root.download !== null
-                    text: "Cancel"; implicitHeight: 24; font.pixelSize: 11
+                    icon.name: "close"; description: "Cancel download"
                     onClicked: root.download.cancel()
                 }
             }

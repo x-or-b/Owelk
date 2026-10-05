@@ -18,6 +18,8 @@ else()
     message(STATUS "qpdf not found: annotated PDF export is disabled")
 endif()
 target_sources(owelk_core PRIVATE src/AnnotationImage.cpp src/AnnotationImage.h)
+# The icon font (a Lucide subset, see tools/icons.py), loaded once by Theme.
+qt_add_resources(owelk_core "icons" PREFIX "/owelk" BASE resources FILES resources/icons/lucide.ttf)
 if(APPLE)
     target_link_libraries(owelk_core PUBLIC "-framework ImageIO" "-framework CoreGraphics" "-framework CoreFoundation" "-framework Security")
 elseif(WIN32)
@@ -37,7 +39,7 @@ endif()
 qt_add_executable(owelk MACOSX_BUNDLE src/main.cpp)
 qt_add_qml_module(owelk
     URI Owelk VERSION 1.0
-    QML_FILES qml/SearchFilters.qml qml/CaptureNoteDialog.qml qml/WorkspaceManager.qml qml/RoundedSurface.qml qml/UiControls.qml qml/ReaderIconButton.qml qml/AnnotationColors.qml qml/AnnotationEditor.qml
+    QML_FILES qml/SearchFilters.qml qml/CaptureNoteDialog.qml qml/WorkspaceManager.qml qml/RoundedSurface.qml qml/UiControls.qml qml/IconButton.qml qml/Icon.qml qml/Icons.js qml/AnnotationColors.qml qml/AnnotationEditor.qml
     QML_FILES qml/Main.qml qml/ReaderPane.qml qml/PdfCanvas.qml qml/CaptureShelf.qml qml/CommandPalette.qml qml/FilePanel.qml qml/DockSidebar.qml qml/HomeView.qml qml/StatusIcon.qml qml/DocumentWorkspace.qml qml/DocumentGroup.qml qml/WorkspaceTree.js qml/RecentPaperDelegate.qml qml/PaletteMatch.js qml/StrokePath.js qml/SearchPalette.qml qml/PdfNavigationPanel.qml qml/ResearchSearch.qml qml/SearchResultDelegate.qml qml/IndexStatus.qml qml/RelinkDialog.qml qml/PaperDetailsDialog.qml qml/WebPane.qml qml/SettingsDialog.qml qml/LibraryView.qml qml/NotePane.qml qml/LinkToNoteDialog.qml qml/AiController.qml qml/AiPanel.qml qml/Platform.js qml/Shortcuts.js qml/OrganizeTabsDialog.qml
 )
 target_link_libraries(owelk PRIVATE owelk_core Qt6::Quick Qt6::QuickControls2 Qt6::PdfQuick Qt6::WebEngineQuick)

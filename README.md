@@ -227,6 +227,8 @@ cmake --build build --parallel 6
 ctest --test-dir build --output-on-failure
 ```
 
+아이콘은 Lucide(ISC)의 일부를 글꼴로 넣었습니다(`resources/icons`, 다시 만들기: `tools/icons.py`).
+
 C++ 서식은 저장소의 `.clang-format`을 따릅니다: `xcrun clang-format -i src/*.cpp src/*.h tests/*.cpp tests/*.h`. QML 색·크기·글자 크기는 `Theme` 싱글턴(`import Owelk.Ui`, `src/ui/Theme.cpp`) 토큰만 사용합니다.
 
 운영체제별 메모:

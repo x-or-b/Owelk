@@ -110,9 +110,9 @@ UiControls.Dialog {
                         }
                         Label { Layout.fillWidth: true; visible: root.mode === 1 && !!modelData.note; text: "Note · " + (modelData.note || ""); textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 11; color: Theme.textSecondary }
                     }
-                    UiControls.ToolButton { text: "Open"; onClicked: { root.close(); if (root.mode === 0) root.documentChosen(modelData.source); else researchStore.openCapture(modelData.id) } }
-                    UiControls.ToolButton { visible: root.mode === 1; text: "Note"; onClicked: { root.close(); root.noteRequested(modelData.id) } }
-                    UiControls.ToolButton { objectName: "unlinkWorkspaceItem"; text: "Unlink"; onClicked: { if (root.mode === 0) root.linkDocument(modelData.source, false); else root.linkCapture(modelData.id, false) } }
+                    IconButton { icon.name: "open"; description: "Open"; onClicked: { root.close(); if (root.mode === 0) root.documentChosen(modelData.source); else researchStore.openCapture(modelData.id) } }
+                    IconButton { visible: root.mode === 1; icon.name: "note"; description: "Capture note"; onClicked: { root.close(); root.noteRequested(modelData.id) } }
+                    IconButton { objectName: "unlinkWorkspaceItem"; icon.name: "close"; description: "Unlink from this workspace"; onClicked: { if (root.mode === 0) root.linkDocument(modelData.source, false); else root.linkCapture(modelData.id, false) } }
                 }
             }
             Label { anchors.centerIn: parent; visible: list.count === 0; text: root.mode === 0 ? "No linked documents" : "No linked captures"; color: Theme.textTertiary }

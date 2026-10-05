@@ -48,9 +48,9 @@ Rectangle {
                 }
             }
             RowLayout {
-                UiControls.Button { objectName: "copyExcerptButton"; text: "Copy text"; onClicked: researchStore.copyText(root.viewingCapture.text) }
-                UiControls.Button {
-                    text: "View source"
+                IconButton { objectName: "copyExcerptButton"; icon.name: "copy"; description: "Copy text"; onClicked: researchStore.copyText(root.viewingCapture.text) }
+                IconButton {
+                    icon.name: "external"; description: "Show in the PDF"
                     enabled: !root.showingTrash
                     onClicked: { textDialog.close(); researchStore.openCapture(root.viewingCapture.id) }
                 }
@@ -282,14 +282,14 @@ Rectangle {
                             textFormat: Text.PlainText; elide: Text.ElideRight
                             font.pixelSize: 11; color: Theme.textTertiary
                         }
-                        ReaderIconButton {
+                        IconButton {
                             objectName: "restoreCapture-" + card.modelData.id
-                            kind: "restore"; description: "Restore with note and workspace links"
+                            icon.name: "restore"; description: "Restore with note and workspace links"
                             onClicked: { const id = card.modelData.id; Qt.callLater(function() { researchStore.restoreCapture(id) }) }
                         }
-                        ReaderIconButton {
+                        IconButton {
                             objectName: "purgeCapture-" + card.modelData.id
-                            kind: "trash"; tint: Theme.danger; description: "Delete permanently…"
+                            icon.name: "trash"; tint: Theme.danger; description: "Delete permanently…"
                             onClicked: { root.purgingId = card.modelData.id; purgeDialog.open() }
                         }
                     }

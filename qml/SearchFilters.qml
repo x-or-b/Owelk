@@ -26,7 +26,7 @@ ColumnLayout {
     Flow {
         Layout.fillWidth: true; Layout.minimumWidth: 0
         spacing: 4
-        FilterButton { text: "← Back"; visible: root.controller.history.length > 0; onClicked: root.controller.back() }
+        IconButton { icon.name: "back"; description: "Back to the previous search"; visible: root.controller.history.length > 0; onClicked: root.controller.back() }
         Repeater {
             model: [{value: "all", name: "All"}, {value: "text", name: "PDF text"}, {value: "filename", name: "Papers"},
                     {value: "captures", name: "Captures"}, {value: "ai", name: "AI"}]

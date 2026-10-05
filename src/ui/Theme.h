@@ -85,6 +85,8 @@ class Theme : public QObject {
     // Annotation inks are document data, not theme: they never follow the accent.
     Q_PROPERTY(QVariantList annotationInks READ annotationInks CONSTANT)
     Q_PROPERTY(QString defaultInk READ defaultInk CONSTANT)
+    // The icon font family (qml/Icons.js maps names to glyphs).
+    Q_PROPERTY(QString iconFont MEMBER m_iconFont CONSTANT)
 
 public:
     explicit Theme(ResearchStore *store = nullptr, QObject *parent = nullptr);
@@ -146,5 +148,6 @@ private:
     QColor m_accent, m_accentHover, m_accentBorder, m_danger;
     QColor m_overlay, m_overlayBorder, m_shadow, m_pageSelection, m_searchMatch;
     QColor m_scrollHandle, m_scrollHandleHover, m_scrollHandlePressed;
+    QString m_iconFont;
     int m_captureFadeDuration = 300, m_radiusSmall = 5, m_radius = 7, m_radiusLarge = 10;
 };

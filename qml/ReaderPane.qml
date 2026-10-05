@@ -245,13 +245,13 @@ Rectangle {
             RowLayout {
                 anchors.left: parent.left; anchors.leftMargin: 4; anchors.verticalCenter: parent.verticalCenter
                 spacing: 3
-                ReaderIconButton {
-                    objectName: "historyBack"; kind: "back"; implicitWidth: 24
+                IconButton {
+                    objectName: "historyBack"; icon.name: "back"; implicitWidth: 24
                     description: "Back to previous place · " + Platform.keys("Ctrl+["); enabled: canvas.canGoBack
                     onClicked: { root.activated(); canvas.goBack() }
                 }
-                ReaderIconButton {
-                    objectName: "historyForward"; kind: "forward"; implicitWidth: 24
+                IconButton {
+                    objectName: "historyForward"; icon.name: "forward"; implicitWidth: 24
                     description: "Forward · " + Platform.keys("Ctrl+]"); enabled: canvas.canGoForward
                     onClicked: { root.activated(); canvas.goForward() }
                 }
@@ -272,7 +272,7 @@ Rectangle {
             }
             Row {
                 anchors.centerIn: parent
-                ReaderIconButton { kind:"minus"; description:"Zoom out"; onClicked:{root.activated();canvas.zoom(1/1.2)} }
+                IconButton { icon.name: "minus"; description:"Zoom out"; onClicked:{root.activated();canvas.zoom(1/1.2)} }
                 UiControls.ToolButton {
                     height:26; width:48; hoverEnabled:true
                     text: Math.round(canvas.zoomFactor * 100) + "%"
@@ -280,7 +280,7 @@ Rectangle {
                     ToolTip.visible: hovered
                     ToolTip.text: "Click to fit width · Ctrl+wheel to zoom"
                 }
-                ReaderIconButton { kind:"plus"; description:"Zoom in"; onClicked:{root.activated();canvas.zoom(1.2)} }
+                IconButton { icon.name: "add"; description:"Zoom in"; onClicked:{root.activated();canvas.zoom(1.2)} }
             }
             // Annotation tools, then capture, then everything else (find, print, export) behind ⋯.
             // Highlight and Draw keep their own colors; the narrow arrow next to each picks one.
@@ -291,28 +291,28 @@ Rectangle {
                     objectName: "annotationTools"
                     visible: readerToolbar.width >= 600
                     // Right-click a tool for its options (here: the ink color).
-                    ReaderIconButton {
+                    IconButton {
                         id: highlightTool
-                        objectName:"highlightTool";kind:"highlight";swatch:canvas.markColor;checked:canvas.tool==="highlight"
+                        objectName:"highlightTool";icon.name: "highlight";swatch:canvas.markColor;checked:canvas.tool==="highlight"
                         description: (canvas.selectedAnchor ? "Highlight the selection" : "Highlight · Drag over text") + " · Right-click for color"
                         onClicked: root.useHighlight()
                         TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.chooseInk(highlightTool, "highlight", !!canvas.selectedAnchor) }
                     }
-                    ReaderIconButton {
+                    IconButton {
                         id: drawTool
-                        objectName:"drawTool";kind:"draw";swatch:canvas.drawColor;checked:canvas.tool==="draw"
+                        objectName:"drawTool";icon.name: "draw";swatch:canvas.drawColor;checked:canvas.tool==="draw"
                         description:"Draw · Drag on a page · Right-click for color"
                         onClicked: root.setTool("draw")
                         TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.chooseInk(drawTool, "draw", false) }
                     }
-                    ReaderIconButton { objectName:"commentTool";kind:"comment";checked:canvas.tool==="comment";description:"Comment · Select text, or click a page";onClicked:root.setTool("comment") }
-                    ReaderIconButton { objectName:"textTool";kind:"text";checked:canvas.tool==="text";description:"Text box · Click or drag on a page";onClicked:root.setTool("text") }
-                    ReaderIconButton { objectName:"imageTool";kind:"image";checked:canvas.tool==="image";description:"Image · Drag an area; right-click added images to edit";onClicked:root.setTool("image") }
+                    IconButton { objectName:"commentTool";icon.name: "comment";checked:canvas.tool==="comment";description:"Comment · Select text, or click a page";onClicked:root.setTool("comment") }
+                    IconButton { objectName:"textTool";icon.name: "text";checked:canvas.tool==="text";description:"Text box · Click or drag on a page";onClicked:root.setTool("text") }
+                    IconButton { objectName:"imageTool";icon.name: "image";checked:canvas.tool==="image";description:"Image · Drag an area; right-click added images to edit";onClicked:root.setTool("image") }
                 }
                 Rectangle { visible: readerToolbar.width >= 600; width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
-                ReaderIconButton { objectName:"readerCaptureButton";kind:"capture";description:"Capture a region · " + Platform.keys("Ctrl+Shift+C");checked:canvas.captureMode;onClicked:root.toggleCapture() }
+                IconButton { objectName:"readerCaptureButton";icon.name: "capture";description:"Capture a region · " + Platform.keys("Ctrl+Shift+C");checked:canvas.captureMode;onClicked:root.toggleCapture() }
                 Rectangle { width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
-                ReaderIconButton {
+                IconButton { icon.name: "more";
                     objectName: "readerMoreButton"
                     description: "Find, print and export"
                     onClicked: moreMenu.popup(this, 0, height)
@@ -366,15 +366,9 @@ Rectangle {
                 text: canvas.searchString.length ? (canvas.matchCount ? (canvas.currentMatch + 1) + "/" + canvas.matchCount : "0") : ""
                 color: Theme.textTertiary
             }
-            UiControls.ToolButton { text: "↑"; enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(-1) }
-            UiControls.ToolButton { text: "↓"; enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(1) }
-            UiControls.ToolButton {
-                text: "×"
-                onClicked: root.hideSearch()
-                ToolTip.visible: hovered
-                ToolTip.text: "Close search (Esc)"
-                Accessible.name: "Close search"
-            }
+            IconButton { icon.name: "up"; description: "Previous match"; enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(-1) }
+            IconButton { icon.name: "down"; description: "Next match"; enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(1) }
+            IconButton { icon.name: "close"; description: "Close search · Esc"; onClicked: root.hideSearch() }
         }
 
         Label {
@@ -434,22 +428,22 @@ Rectangle {
                 Row {
                     id: selectionActions
                     x: 8; y: 4; width: parent.width - 16; spacing: 4
-                    ReaderIconButton {
+                    IconButton {
                         objectName: "highlightSelectionButton"
-                        kind: "highlight"; description:"Highlight selection · Choose a color"; swatch:canvas.markColor
+                        icon.name: "highlight"; description:"Highlight selection · Choose a color"; swatch:canvas.markColor
                         enabled: canvas.selectedAnchor !== null && !researchStore.busy
                         onClicked: { root.activated(); root.chooseHighlightColor(this,true) }
                     }
-                    ReaderIconButton { objectName:"commentSelectionButton";kind:"comment";description:"Add a comment attached to this selection";enabled:!!canvas.selectedAnchor&&!researchStore.busy;onClicked:root.addComment() }
-                    ReaderIconButton {
+                    IconButton { objectName:"commentSelectionButton";icon.name: "comment";description:"Add a comment attached to this selection";enabled:!!canvas.selectedAnchor&&!researchStore.busy;onClicked:root.addComment() }
+                    IconButton {
                         objectName: "saveExcerptButton"
-                        kind:"excerpt";description:"Save excerpt · Keep the selected text and its source in Captures"
+                        icon.name: "excerpt";description:"Save excerpt · Keep the selected text and its source in Captures"
                         enabled: canvas.selectedAnchor !== null && !researchStore.busy
                         onClicked: { root.activated(); canvas.captureSelection() }
                     }
-                    ReaderIconButton {
+                    IconButton {
                         objectName: "aiSelectionButton"
-                        kind: "ai"; description: "AI · Explain, translate or ask about the selection"
+                        icon.name: "ai"; description: "AI · Explain, translate or ask about the selection"
                         onClicked: selectionAiMenu.popup(this, 0, height)
                         UiControls.Menu {
                             id: selectionAiMenu

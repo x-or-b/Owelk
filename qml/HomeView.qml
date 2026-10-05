@@ -114,18 +114,7 @@ Rectangle {
                     onAccepted: if (root.searchWeb(text)) clear()
                     Keys.onEscapePressed: clear()
                     // A globe: the web, not the library.
-                    Canvas {
-                        x: 9; anchors.verticalCenter: parent.verticalCenter
-                        width: 14; height: 14
-                        onPaint: {
-                            const c = getContext("2d"); c.reset()
-                            c.strokeStyle = Theme.icon; c.lineWidth = 1.1
-                            c.beginPath(); c.arc(7, 7, 6, 0, Math.PI * 2)
-                            c.moveTo(1, 7); c.lineTo(13, 7)
-                            c.moveTo(7, 1); c.bezierCurveTo(3, 4, 3, 10, 7, 13); c.moveTo(7, 1); c.bezierCurveTo(11, 4, 11, 10, 7, 13)
-                            c.stroke()
-                        }
-                    }
+                    Icon { x: 9; anchors.verticalCenter: parent.verticalCenter; name: "globe"; size: Theme.fontBody + 1; color: Theme.textTertiary }
                 }
                 IndexStatus { Layout.fillWidth: true }
                 Label { Layout.fillWidth: true; visible: searchModel.error.length > 0; text: "PDF text search failed: " + searchModel.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 11; color: Theme.textTertiary }
@@ -170,7 +159,7 @@ Rectangle {
                     }
                     UiControls.Button {
                         objectName: "continueReading"
-                        text: root.continuation.source ? "Continue →" : "Open PDF…"
+                        text: root.continuation.source ? "Continue" : "Open PDF…"
                         onClicked: {
                             if (root.continuation.source) root.documentChosen(root.continuation.source, root.continuation.position)
                             else root.openRequested()
@@ -192,15 +181,14 @@ Rectangle {
                         Layout.fillWidth: true
                         Label { text: "Recent Workspaces"; font.pixelSize: 14; font.weight: Font.DemiBold }
                         Item { Layout.fillWidth: true }
-                        UiControls.ToolButton {
+                        IconButton {
                             objectName: "deletedWorkspacesButton"
                             visible: root.deletedWorkspaces.length > 0
-                            text: "Deleted (" + root.deletedWorkspaces.length + ")"
-                            font.pixelSize: 12
-                            ToolTip.visible: hovered; ToolTip.delay: 450; ToolTip.text: "Restore a deleted workspace"
+                            icon.name: "trash"
+                            description: "Deleted workspaces (" + root.deletedWorkspaces.length + ") · Restore"
                             onClicked: deletedDialog.open()
                         }
-                        UiControls.ToolButton { text: "+"; onClicked: workspaceDialog.open(); Accessible.name: "New workspace"; ToolTip.visible: hovered; ToolTip.text: "New workspace" }
+                        IconButton { icon.name: "add"; description: "New workspace"; onClicked: workspaceDialog.open() }
                     }
                     Repeater {
                         model: researchStore.recentWorkspaces
@@ -231,10 +219,9 @@ Rectangle {
                     RowLayout {
                         Layout.fillWidth: true
                         Label { text: "Recent Papers"; font.pixelSize: 14; font.weight: Font.DemiBold; Layout.preferredHeight: 32; Layout.fillWidth: true }
-                        UiControls.ToolButton {
-                            objectName: "openLibraryButton"; text: "Library"
-                            ToolTip.visible: hovered; ToolTip.delay: 450
-                            ToolTip.text: "All papers, collections and tags (" + Platform.keys("Ctrl+Shift+L") + ")"
+                        IconButton {
+                            objectName: "openLibraryButton"; icon.name: "library"
+                            description: "Library · All papers, collections and tags · " + Platform.keys("Ctrl+Shift+L")
                             onClicked: root.libraryRequested()
                         }
                     }
@@ -247,7 +234,6 @@ Rectangle {
                         }
                     }
                     Label { visible: researchStore.recentDocuments.length === 0; text: "No recent papers"; color: Theme.textTertiary }
-                    UiControls.Button { text: "Open PDF…"; onClicked: root.openRequested() }
                 }
             }
         }

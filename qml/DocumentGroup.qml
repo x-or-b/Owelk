@@ -163,22 +163,15 @@ Rectangle {
                     onCanceled: { cancelled = true; moving = false; root.controller.finishDrag(true) }
                 }
                 Keys.onEscapePressed: { pointer.cancelled = true; pointer.moving = false; root.controller.finishDrag(true) }
-                UiControls.ToolButton {
+                IconButton {
                     id: close
                     objectName: "closeTabButton-" + modelData.id
-                    hoverEnabled: true
                     anchors.right: parent.right
                     anchors.rightMargin: 4
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 24; height: 24
-                    text: "×"
-                    Accessible.name: "Close tab"
-                    background: Rectangle {
-                        color: close.down ? Theme.selected : tabItem.color
-                        border.width: 1
-                        border.color: close.hovered || close.visualFocus ? Theme.accent : "transparent"
-                    }
-                    contentItem: Text { text: "×"; color: close.hovered ? Theme.text : Theme.textTertiary; font: close.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    width: Theme.controlHeightSmall - 2; height: width; glyphSize: Theme.fontBody
+                    icon.name: "close"
+                    description: "Close tab"
                     onClicked: { const id = modelData.id; Qt.callLater(function() { root.controller.closeTab(id) }) }
                 }
                 ToolTip.visible: pointer.containsMouse && !pointer.pressed
@@ -187,15 +180,12 @@ Rectangle {
             }
             Label { visible: !tabs.count; anchors.centerIn: parent; text: "No open tabs"; color: Theme.textTertiary }
         }
-        UiControls.ToolButton {
+        IconButton {
             id: newTabButton
             objectName: "newTabButton"
-            Layout.preferredWidth: 32; Layout.preferredHeight: 32
-            text: "+"; font.pixelSize: 20
-            Accessible.name: "New Home tab"
-            ToolTip.visible: hovered; ToolTip.delay: 450
-            ToolTip.text: "New Home tab (" + Platform.keys("Ctrl+T") + ")"
-            background: Rectangle { color: newTabButton.down ? Theme.pressed : newTabButton.hovered ? Theme.hover : Theme.hover }
+            Layout.rightMargin: 4
+            icon.name: "add"
+            description: "New tab · " + Platform.keys("Ctrl+T")
             onClicked: { root.controller.activateGroup(root.groupId); root.controller.newHomeTab() }
         }
         }

@@ -31,7 +31,7 @@ UiControls.ToolButton {
             RowLayout {
                 Layout.fillWidth: true
                 Label { Layout.fillWidth: true; text: root.indexer.progress || (root.indexer.paused ? "Paused" : "Up to date"); elide: Text.ElideMiddle }
-                UiControls.Button { objectName: "pauseIndex"; text: root.indexer.paused ? "Resume" : "Pause"; onClicked: root.indexer.setPaused(!root.indexer.paused) }
+                IconButton { objectName: "pauseIndex"; icon.name: root.indexer.paused ? "play" : "pause"; description: root.indexer.paused ? "Resume indexing" : "Pause indexing"; onClicked: root.indexer.setPaused(!root.indexer.paused) }
             }
             ListView {
                 Layout.fillWidth: true
@@ -55,8 +55,8 @@ UiControls.ToolButton {
                                 textFormat: Text.PlainText; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; color: Theme.textTertiary; font.pixelSize: 11
                             }
                         }
-                        UiControls.Button { text: "Retry"; visible: ["failed", "missing", "locked", "paused"].indexOf(modelData.state) >= 0; onClicked: root.indexer.retry(modelData.source) }
-                        UiControls.Button { text: "Locate…"; onClicked: { const source = modelData.source; details.close(); researchStore.requestRelink(source) } }
+                        IconButton { icon.name: "reload"; description: "Retry"; visible: ["failed", "missing", "locked", "paused"].indexOf(modelData.state) >= 0; onClicked: root.indexer.retry(modelData.source) }
+                        IconButton { icon.name: "locate"; description: "Locate the original PDF…"; onClicked: { const source = modelData.source; details.close(); researchStore.requestRelink(source) } }
                     }
                     ToolTip.visible: hovered
                     ToolTip.text: modelData.source.toString()

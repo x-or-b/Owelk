@@ -1,5 +1,7 @@
 #include "Theme.h"
 #include "ResearchStore.h"
+#include <QFontDatabase>
+#include <QFontDatabase>
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -49,6 +51,9 @@ constexpr const char *seedKeys[] = {"window", "sidebar", "content", "raised", "t
 
 Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(store)
 {
+    const int font = QFontDatabase::addApplicationFont(":/owelk/icons/lucide.ttf");
+    if (const auto families = QFontDatabase::applicationFontFamilies(font); !families.isEmpty())
+        m_iconFont = families.first();
     if (m_store) {
         const auto theme = m_store->setting("appearance.theme");
         if (knownTheme(theme)) m_theme = theme;

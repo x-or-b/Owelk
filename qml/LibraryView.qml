@@ -150,10 +150,10 @@ Rectangle {
                         anchors.left: parent.left; anchors.leftMargin: 6; anchors.bottom: parent.bottom; anchors.bottomMargin: 4
                         text: entry.modelData.header || ""; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary
                     }
-                    ReaderIconButton {
+                    IconButton {
                         visible: !!entry.modelData.add
                         anchors.right: parent.right; anchors.bottom: parent.bottom
-                        objectName: "newCollectionButton"; kind: "plus"; implicitWidth: 24; implicitHeight: 22
+                        objectName: "newCollectionButton"; icon.name: "add"; implicitWidth: 24; implicitHeight: 22
                         description: "New collection"; onClicked: collectionDialog.begin("", "")
                     }
                     UiControls.ItemDelegate {
@@ -212,7 +212,7 @@ Rectangle {
                 Layout.fillWidth: true
                 visible: root.showingNotes
                 Label { Layout.fillWidth: true; text: root.filter.notesTrash ? "Notes trash" : "Notes"; font.pixelSize: 15; font.weight: Font.DemiBold; color: Theme.text }
-                UiControls.Button { objectName: "libraryNewNote"; visible: !root.filter.notesTrash; text: "New Note"; onClicked: root.newNoteRequested() }
+                IconButton { objectName: "libraryNewNote"; visible: !root.filter.notesTrash; icon.name: "note"; description: "New note"; onClicked: root.newNoteRequested() }
             }
             ListView {
                 id: noteList
@@ -233,13 +233,13 @@ Rectangle {
                             Label { Layout.fillWidth: true; text: noteItem.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text; font.pixelSize: 13 }
                             Label { Layout.fillWidth: true; text: noteItem.modelData.snippet || " "; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: 11; color: Theme.textTertiary }
                         }
-                        ReaderIconButton {
+                        IconButton {
                             visible: !!root.filter.notesTrash; objectName: "restoreNote-" + noteItem.modelData.id
-                            kind: "restore"; description: "Restore note"; onClicked: researchStore.restoreNote(noteItem.modelData.id)
+                            icon.name: "restore"; description: "Restore note"; onClicked: researchStore.restoreNote(noteItem.modelData.id)
                         }
-                        ReaderIconButton {
+                        IconButton {
                             visible: !!root.filter.notesTrash; objectName: "purgeNote-" + noteItem.modelData.id
-                            kind: "trash"; tint: Theme.danger; description: "Delete permanently"
+                            icon.name: "trash"; tint: Theme.danger; description: "Delete permanently"
                             onClicked: researchStore.purgeNote(noteItem.modelData.id)
                         }
                     }
@@ -325,9 +325,9 @@ Rectangle {
                             }
                         }
                         Label { visible: paper.modelData.duplicate; text: "duplicate"; font.pixelSize: 11; color: Theme.textTertiary }
-                        ReaderIconButton {
+                        IconButton {
                             objectName: "libraryFavorite-" + paper.modelData.id
-                            kind: "star"; implicitWidth: 24
+                            icon.name: "star"; implicitWidth: 24
                             tint: paper.modelData.favorite ? Theme.accent : Theme.textDisabled
                             description: paper.modelData.favorite ? "Remove from Favorites" : "Add to Favorites"
                             onClicked: researchStore.setFavorite(paper.modelData.url, !paper.modelData.favorite)

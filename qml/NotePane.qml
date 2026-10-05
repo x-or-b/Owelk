@@ -90,17 +90,17 @@ Rectangle {
                 onActiveFocusChanged: if (activeFocus) root.activated()
                 Keys.onReturnPressed: { root.preview = false; body.forceActiveFocus() }
             }
-            UiControls.ToolButton {
+            IconButton {
                 objectName: "notePreviewToggle"
-                text: root.preview ? "Edit" : "Preview"
-                checkable: false
+                icon.name: root.preview ? "edit" : "preview"
+                description: root.preview ? "Edit" : "Preview"
                 onClicked: { root.save(); root.preview = !root.preview; if (!root.preview) body.forceActiveFocus() }
             }
-            ReaderIconButton {
-                objectName: "noteInsertLink"; kind: "link"; description: "Insert link to a paper, excerpt or note ([[)"
+            IconButton {
+                objectName: "noteInsertLink"; icon.name: "link"; description: "Insert link to a paper, excerpt or note ([[)"
                 onClicked: { root.preview = false; linkPicker.open() }
             }
-            ReaderIconButton {
+            IconButton { icon.name: "more";
                 description: "More"
                 onClicked: noteMenu.popup(this, 0, height)
                 UiControls.Menu {

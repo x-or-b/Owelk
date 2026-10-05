@@ -78,9 +78,9 @@ Item {
         spacing: 6
         RowLayout {
             Layout.fillWidth: true
-            UiControls.Button { text: "Open folder…"; onClicked: folderDialog.open() }
+            IconButton { icon.name: "open"; description: "Open a folder…"; onClicked: folderDialog.open() }
             Item { Layout.fillWidth: true }
-            UiControls.ToolButton { text: "↻"; enabled: root.folder.toString().length > 0; onClicked: root.refresh(); Accessible.name: "Refresh folder" }
+            IconButton { icon.name: "reload"; description: "Refresh folder"; enabled: root.folder.toString().length > 0; onClicked: root.refresh() }
         }
         Label {
             Layout.fillWidth: true
