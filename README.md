@@ -77,6 +77,16 @@ open -n /Users/gyu/Documents/Owelk/build/owelk.app --args --data-dir /Users/gyu/
 - `⌘/Ctrl+Shift+T` 또는 `Tab: Reopen Closed Tab`으로 닫은 탭의 위치·배율을 복원합니다. 현재 실행·워크스페이스에서 최근 20개까지 기억하며 재실행·워크스페이스 전환 시 기록을 비웁니다. 기존 그룹이 없어지면 활성 그룹에 엽니다.
 - OS 별도 창으로 탭 떼어내기와 드래그 중 가장자리 자동 스크롤은 아직 없습니다.
 
+## 화면(테마·강조색·글자 크기)
+
+Settings(`⌘,`) → Appearance에서 바꾸며 바로 적용됩니다.
+- **테마**: Neutral(기본), Paper, Solarized Light, Dark, Nord, One Dark, Dracula, Custom. Custom은 지금 테마를 복사해 시작하고, 창·사이드바·문서·메뉴·글자·선·PDF 배경 색과 어두운 테마 여부를 고릅니다. 호버·선택·보조 글자 색은 이 색들에서 자동으로 계산됩니다.
+- **강조색**: 파랑(기본)·청록·초록·주황·분홍·보라·회색. 선택, 주요 버튼, 포커스, 링크에 쓰입니다. 주석 잉크 색은 바뀌지 않습니다.
+- **글자 크기**: 11–17pt. 버튼·목록 행·툴바 높이도 함께 바뀝니다. PDF 배율과는 별개입니다.
+- **Dark pages**: PDF 페이지의 밝기를 반전하고 색조는 유지합니다(흰 페이지 → 어두운 페이지). 내보내기·인쇄는 원래 색입니다. Qt ShaderTools로 빌드했을 때 나타납니다.
+
+Settings는 Appearance·Web·Search·AI·Shortcuts·Data로 나뉩니다. 보이는 페이지만 만들어 가볍습니다.
+
 ## 단축키 바꾸기
 
 - Settings → Shortcuts: 동작을 누르고 새 키를 누르면 바뀝니다(Esc 취소, Backspace 끄기, ↺ 기본값). 같은 키를 두 동작에 쓰면 빨갛게 표시합니다. `Reset All`로 모두 기본값으로 돌립니다.
@@ -99,7 +109,7 @@ open -n /Users/gyu/Documents/Owelk/build/owelk.app --args --data-dir /Users/gyu/
 ## 텍스트 캡처
 
 - 문장을 드래그한 뒤 리더의 **Save excerpt**, 또는 명령 팔레트의 **Capture: Save Selected Text**를 실행합니다. 저장하면 Captures 패널이 열립니다.
-- 카드 클릭은 원문 위치로 이동합니다. `…` / 우클릭 → **Read Excerpt…**에서 긴 문장을 읽고, **Copy Text**로 저장한 원문 전체를 복사합니다.
+- 카드 클릭은 원문 위치로 이동합니다. 우클릭 → **Read Excerpt…**에서 긴 문장을 읽고, **Copy Text**로 저장한 원문 전체를 복사합니다.
 - Home / `⌘/Ctrl+K`에서 저장한 문장 내용도 검색합니다. 캡처 문장은 대소문자를 구분하지 않는 부분 문자열 검색이며, PDF 본문의 단어 접두어 검색과는 다릅니다.
 - 파일이 없어지거나 변경되어도 저장한 문장은 남습니다. 원본 이동은 동일 파일로 재연결하고, 다른 버전으로의 자동 이동은 하지 않습니다.
 - 한 페이지 안의 선택만 지원합니다. OCR·수식/2단 읽기 순서 교정·영구 하이라이트·메모는 아직 없습니다. [저장·검증 범위](docs/TEXT_CAPTURES.md).

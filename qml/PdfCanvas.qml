@@ -24,6 +24,7 @@ Item {
     property var selectedAnchor: null
     property string tool: ""
     // Highlight (also comments and text boxes) and drawing inks are separate and remembered.
+    readonly property bool invertPages: Theme.invertPages && Theme.canInvertPages
     property string markColor: savedInk("highlightColor")
     property string drawColor: savedInk("drawColor")
     function savedInk(key) {
@@ -683,7 +684,7 @@ Item {
                 width: pageHolder.pointSize.width * root.pageScale
                 height: pageHolder.height
                 anchors.horizontalCenter: parent.horizontalCenter
-                color: Theme.paper
+                color: root.invertPages ? Theme.paperInverted : Theme.paper
 
                 PdfPageImage {
                     id: pageImage
@@ -696,6 +697,9 @@ Item {
                     cache: false
                     sourceSize.width: Math.min(4096, Math.ceil(pageHolder.pointSize.width * root.rasterScale * Screen.devicePixelRatio))
                     fillMode: Image.PreserveAspectFit
+                    // Dark pages (Settings → Appearance): only while the option is on, so it costs nothing otherwise.
+                    layer.enabled: root.invertPages
+                    layer.effect: ShaderEffect { objectName: "invertEffect"; fragmentShader: "qrc:/owelk/shaders/invert.frag.qsb" }
                 }
 
                 BusyIndicator {

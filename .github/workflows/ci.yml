@@ -40,7 +40,7 @@ jobs:
         with:
           version: '6.11.*'
           arch: ${{ matrix.arch }}
-          modules: 'qtpdf qtwebengine qtwebchannel qtpositioning qtimageformats'
+          modules: 'qtpdf qtwebengine qtwebchannel qtpositioning qtimageformats qtshadertools'
           cache: true
 
       - name: MSVC

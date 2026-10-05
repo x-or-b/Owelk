@@ -24,6 +24,18 @@
 class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void bundledIconFontAndShaders()
+    {
+        // The icon font and, when built with Qt ShaderTools, the dark-pages shader are compiled in.
+        QFile font(":/owelk/icons/lucide.ttf");
+        QVERIFY(font.open(QIODevice::ReadOnly));
+        QVERIFY(font.size() > 10000 && font.size() < 100000);
+#ifdef OWELK_HAVE_SHADERS
+        QFile shader(":/owelk/shaders/invert.frag.qsb");
+        QVERIFY(shader.open(QIODevice::ReadOnly));
+        QVERIFY(shader.size() > 100);
+#endif
+    }
     void regionCaptureKeepsFigureCaption()
     {
         QTemporaryDir directory;

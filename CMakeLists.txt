@@ -20,6 +20,14 @@ endif()
 target_sources(owelk_core PRIVATE src/AnnotationImage.cpp src/AnnotationImage.h)
 # The icon font (a Lucide subset, see tools/icons.py), loaded once by Theme.
 qt_add_resources(owelk_core "icons" PREFIX "/owelk" BASE resources FILES resources/icons/lucide.ttf)
+# Optional: dark (inverted) PDF pages need a compiled shader (Qt ShaderTools at build time only).
+find_package(Qt6 QUIET COMPONENTS ShaderTools)
+if(TARGET Qt6::ShaderTools)
+    qt_add_shaders(owelk_core "shaders" PREFIX "/owelk" FILES shaders/invert.frag)
+    target_compile_definitions(owelk_core PUBLIC OWELK_HAVE_SHADERS)
+else()
+    message(STATUS "Qt ShaderTools not found: the invert-pages option is hidden")
+endif()
 if(APPLE)
     target_link_libraries(owelk_core PUBLIC "-framework ImageIO" "-framework CoreGraphics" "-framework CoreFoundation" "-framework Security")
 elseif(WIN32)
@@ -42,7 +50,7 @@ qt_add_executable(owelk MACOSX_BUNDLE src/main.cpp)
 qt_add_qml_module(owelk
     URI Owelk VERSION 1.0
     QML_FILES qml/SearchFilters.qml qml/CaptureNoteDialog.qml qml/WorkspaceManager.qml qml/AnnotationColors.qml qml/AnnotationEditor.qml
-    QML_FILES qml/Main.qml qml/ReaderPane.qml qml/PdfCanvas.qml qml/CaptureShelf.qml qml/CommandPalette.qml qml/FilePanel.qml qml/DockSidebar.qml qml/HomeView.qml qml/StatusIcon.qml qml/DocumentWorkspace.qml qml/DocumentGroup.qml qml/WorkspaceTree.js qml/RecentPaperDelegate.qml qml/PaperMenu.qml qml/PaletteMatch.js qml/StrokePath.js qml/SearchPalette.qml qml/PdfNavigationPanel.qml qml/ResearchSearch.qml qml/SearchResultDelegate.qml qml/IndexStatus.qml qml/RelinkDialog.qml qml/PaperDetailsDialog.qml qml/WebPane.qml qml/SettingsDialog.qml qml/LibraryView.qml qml/NotePane.qml qml/LinkToNoteDialog.qml qml/AiController.qml qml/AiPanel.qml qml/Platform.js qml/Shortcuts.js qml/OrganizeTabsDialog.qml
+    QML_FILES qml/Main.qml qml/ReaderPane.qml qml/PdfCanvas.qml qml/CaptureShelf.qml qml/CommandPalette.qml qml/FilePanel.qml qml/DockSidebar.qml qml/HomeView.qml qml/StatusIcon.qml qml/DocumentWorkspace.qml qml/DocumentGroup.qml qml/WorkspaceTree.js qml/RecentPaperDelegate.qml qml/PaperMenu.qml qml/PaletteMatch.js qml/StrokePath.js qml/SearchPalette.qml qml/PdfNavigationPanel.qml qml/ResearchSearch.qml qml/SearchResultDelegate.qml qml/IndexStatus.qml qml/RelinkDialog.qml qml/PaperDetailsDialog.qml qml/WebPane.qml qml/SettingsDialog.qml qml/SettingsGroup.qml qml/SettingsRow.qml qml/SettingsAppearance.qml qml/SettingsWeb.qml qml/SettingsSearch.qml qml/SettingsAi.qml qml/SettingsShortcuts.qml qml/SettingsData.qml qml/LibraryView.qml qml/NotePane.qml qml/LinkToNoteDialog.qml qml/AiController.qml qml/AiPanel.qml qml/Platform.js qml/Shortcuts.js qml/OrganizeTabsDialog.qml
 )
 target_link_libraries(owelk PRIVATE owelk_core owelk_styleplugin Qt6::Quick Qt6::QuickControls2 Qt6::PdfQuick Qt6::WebEngineQuick)
 set_target_properties(owelk PROPERTIES

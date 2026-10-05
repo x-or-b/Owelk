@@ -530,7 +530,8 @@ Item {
         }
         function test_recordedShortcutReplacesTheDefault() {
             const settings = findChild(workspace, "settingsDialog")
-            settings.open(); tryCompare(settings, "opened", true)
+            settings.openPage("shortcuts"); tryCompare(settings, "opened", true)
+            tryVerify(function() { return visualChild(settings.contentItem, "shortcut-newTab") !== null })
             const button = visualChild(settings.contentItem, "shortcut-newTab")
             verify(button)
             button.clicked()

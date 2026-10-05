@@ -19,6 +19,8 @@ class Theme : public QObject {
     Q_PROPERTY(int textSize READ textSize WRITE setTextSize NOTIFY changed)
     Q_PROPERTY(bool invertPages READ invertPages WRITE setInvertPages NOTIFY changed)
     Q_PROPERTY(bool dark READ dark NOTIFY changed)
+    // Whether this build can invert PDF pages (compiled with Qt ShaderTools).
+    Q_PROPERTY(bool canInvertPages READ canInvertPages CONSTANT)
     Q_PROPERTY(QVariantList themes READ themes CONSTANT)
     Q_PROPERTY(QVariantList accents READ accents CONSTANT)
 
@@ -31,6 +33,7 @@ class Theme : public QObject {
     Q_PROPERTY(QColor control MEMBER m_control NOTIFY changed) // push buttons, chips at rest
     Q_PROPERTY(QColor pdfBackdrop MEMBER m_pdfBackdrop NOTIFY changed)
     Q_PROPERTY(QColor paper MEMBER m_paper CONSTANT) // the PDF page itself
+    Q_PROPERTY(QColor paperInverted MEMBER m_paperInverted CONSTANT) // a white page with Invert pages on
     // Text and glyphs.
     Q_PROPERTY(QColor text MEMBER m_text NOTIFY changed)
     Q_PROPERTY(QColor textSecondary MEMBER m_textSecondary NOTIFY changed)
@@ -100,6 +103,14 @@ public:
     bool invertPages() const { return m_invertPages; }
     void setInvertPages(bool on);
     bool dark() const { return m_dark; }
+    bool canInvertPages() const
+    {
+#ifdef OWELK_HAVE_SHADERS
+        return true;
+#else
+        return false;
+#endif
+    }
     QVariantList themes() const;
     QVariantList accents() const;
 
@@ -142,7 +153,8 @@ private:
     QString m_theme = "neutral", m_accentName = "blue";
     int m_textSize = 13;
     bool m_invertPages = false, m_dark = false;
-    QColor m_window, m_sidebar, m_content, m_raised, m_field, m_control, m_pdfBackdrop, m_paper{Qt::white};
+    QColor m_window, m_sidebar, m_content, m_raised, m_field, m_control, m_pdfBackdrop, m_paper{Qt::white},
+        m_paperInverted{"#121212"};
     QColor m_text, m_textSecondary, m_textTertiary, m_textDisabled, m_icon, m_onAccent;
     QColor m_separator, m_border, m_hover, m_pressed, m_selected, m_selectedText, m_focus;
     QColor m_accent, m_accentHover, m_accentBorder, m_danger;
