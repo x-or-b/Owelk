@@ -492,6 +492,62 @@ Item {
             tryCompare(commands, "opened", true); compare(search.visible, false)
             commands.close()
         }
+        function test_dragTabsLikeABrowserAndGroupByHolding() {
+            workspace.documents.restore({})
+            const d = workspace.documents
+            d.openDocument(fixtureSource, null, true); canvas()
+            d.openDocument(outlineSource, null, true); canvas()
+            d.openDocument(longSource, null, true); canvas()
+            const strip = Tree.leaves(d.tree)[0], view = d.groupView(strip.id)
+            const [a, b, c] = strip.tabs.map(function(t) { return t.id })
+            waitForPolish(workspace); wait(50)
+            const tabA = visualChild(view, "tab-" + a), tabC = visualChild(view, "tab-" + c)
+            // Dragging the first tab past the last opens a gap there; nothing says "Move tab here".
+            d.dragTitle = "dragged"
+            const end = tabC.mapToItem(null, tabC.width * .9, tabC.height / 2)
+            d.dragTab(a, end.x, end.y)
+            compare(d.dropTarget.index, 3)
+            verify(view.shiftFor(view.strip.findIndex(function(e) { return e.type === "tab" && e.tab.id === c })) < 0, "the others step aside")
+            compare(tabA.opacity, 0)
+            verify(findChild(workspace, "dragGhost").visible, "the tab follows the pointer")
+            d.finishDrag(false)
+            tryVerify(function() { return Tree.leaves(d.tree)[0].tabs[2].id === a })
+            // Holding a tab over the middle of another makes a group, and its name field opens.
+            waitForPolish(workspace); wait(50)
+            const target = visualChild(view, "tab-" + b)
+            const middle = target.mapToItem(null, target.width / 2, target.height / 2)
+            d.dragTitle = "dragged"
+            d.dragTab(c, middle.x, middle.y)
+            compare(d.dropTarget.over, b)
+            wait(600)
+            d.dragTab(c, middle.x + 1, middle.y)
+            compare(d.dropTarget.join, b)
+            d.finishDrag(false)
+            tryVerify(function() { const g = Tree.leaves(d.tree)[0]; return (g.labels || []).length === 1 })
+            const group = Tree.leaves(d.tree)[0]
+            verify(group.tabs.filter(function(t) { return t.label === group.labels[0].id }).length === 2)
+            tryCompare(view, "editingLabel", group.labels[0].id)
+            // (This window is not the active one in the test run, so check the focus request.)
+            tryVerify(function() { const f = visualChild(view, "tabGroupNameField"); return f && f.visible && f.focus })
+            const field = visualChild(view, "tabGroupNameField")
+            field.text = "Methods"
+            field.accepted()
+            tryCompare(d.tabLabel(group.id, group.labels[0].id), "name", "Methods")
+            // The label folds and unfolds its tabs.
+            tryVerify(function() { return visualChild(view, "tabGroupHeader-Methods") !== null })
+            waitForPolish(workspace); wait(50)
+            mouseClick(visualChild(visualChild(view, "tabGroupHeader-Methods"), "tabGroupLabel"))
+            tryVerify(function() { return d.tabLabel(group.id, group.labels[0].id).collapsed })
+            // The strip is rebuilt; find the label again.
+            tryVerify(function() { return visualChild(view, "tabGroupHeader-Methods") !== null })
+            waitForPolish(workspace); wait(50)
+            mouseClick(visualChild(visualChild(view, "tabGroupHeader-Methods"), "tabGroupLabel"))
+            tryVerify(function() { return !d.tabLabel(group.id, group.labels[0].id).collapsed })
+            // A second group gets another color.
+            const other = d.newTabGroup([a])
+            verify(d.tabLabel(group.id, other).color !== d.tabLabel(group.id, group.labels[0].id).color)
+            view.editingLabel = ""
+        }
         function test_tabGroupsCollapsePersistAndSave() {
             workspace.documents.restore({})
             workspace.openDocument(fixtureSource); canvas()
@@ -502,7 +558,7 @@ Item {
             const label = d.groupTabs(ids, "Reading list")
             verify(label.length > 0)
             const view = d.groupView(strip.id)
-            tryCompare(findChild(view, "tabGroupBar"), "visible", true)
+            tryVerify(function() { return visualChild(view, "tabGroupHeader-Reading list") !== null })
             // Collapsing hides the members except the active one.
             d.setTabGroupCollapsed(strip.id, label, true)
             compare(view.shownTabs.length, 1)

@@ -54,15 +54,78 @@ Rectangle {
         pane.restore(t && t.kind !== "home" ? t : {})
     }
     function focusHome() { if (homeLoader.item) homeLoader.item.focusSearch() }
-    // Drop position among all tabs, from a point over the bar (which may hide collapsed groups).
-    function tabIndexAt(x) {
-        const visual = Math.max(0, Math.floor((x + tabs.contentX + 80) / 160))
-        return visual >= shownTabs.length ? groupData.tabs.length : groupData.tabs.indexOf(shownTabs[visual])
+    // The strip: each group's label, then its tabs (a folded group shows only its label and the
+    // active tab). Tabs of a group are always next to each other.
+    readonly property int tabWidth: 160
+    readonly property var strip: {
+        const byId = {}, list = []
+        labels.forEach(function(l) { byId[l.id] = l })
+        let previous = ""
+        groupData.tabs.forEach(function(t) {
+            const label = t.label && byId[t.label] ? byId[t.label] : null
+            if (label && label.id !== previous)
+                list.push({type: "header", label: label, size: groupData.tabs.filter(function(x) { return x.label === label.id }).length})
+            previous = label ? label.id : ""
+            if (!label || !label.collapsed || t.id === groupData.activeTab) list.push({type: "tab", tab: t, label: label})
+        })
+        return list
+    }
+    function groupColor(label) {
+        const accent = Theme.accents.find(function(a) { return a.id === label.color }) || Theme.accents[0]
+        return Theme.dark ? accent.dark : accent.light
+    }
+    // Where a dragged tab would land, from a point over the bar: the tab index to insert at, and the
+    // tab under the pointer's middle (holding there makes a group).
+    function dropInfo(x, dragged) {
+        const local = tabs.mapFromItem(root, x, 0).x + tabs.contentX
+        const i = tabs.indexAt(local, tabs.height / 2)
+        if (i < 0) return {index: local < 0 ? 0 : groupData.tabs.length, over: ""}
+        const entry = strip[i], item = tabs.itemAtIndex(i)
+        if (entry.type === "header") return {index: groupData.tabs.findIndex(function(t) { return t.label === entry.label.id }), over: ""}
+        const at = groupData.tabs.indexOf(entry.tab), part = item ? (local - item.x) / item.width : 0
+        if (entry.tab.id !== dragged && part > .3 && part < .7) return {index: at + 1, over: entry.tab.id}
+        return {index: part < .5 ? at : at + 1, over: ""}
+    }
+    function visualIndex(tabIndex) {
+        if (tabIndex >= groupData.tabs.length) return strip.length
+        const t = groupData.tabs[tabIndex]
+        const i = strip.findIndex(function(e) { return e.type === "tab" && e.tab.id === t.id })
+        return i >= 0 ? i : strip.length
+    }
+    readonly property int draggedVisual: controller.draggedTab.length ? strip.findIndex(function(e) { return e.type === "tab" && e.tab.id === controller.draggedTab }) : -1
+    readonly property int insertVisual: {
+        const t = controller.dropTarget
+        return t && t.group === groupId && t.index !== undefined && !t.join ? visualIndex(t.index) : -1
+    }
+    function shiftFor(i) {
+        const w = tabWidth, d = draggedVisual, t = insertVisual
+        if (d >= 0 && t >= 0) return t > d && i > d && i < t ? -w : t < d && i >= t && i < d ? w : 0
+        if (d >= 0 && controller.dropTarget) return i > d ? -w : 0 // the tab is leaving this strip
+        if (d < 0 && t >= 0) return i >= t ? w : 0 // a tab from another strip is coming in
+        return 0
+    }
+    // A new group's label opens for its name.
+    property string editingLabel: ""
+    function finishNaming(text) {
+        const label = editingLabel
+        editingLabel = ""
+        if (label.length && text.trim().length) root.controller.renameTabGroup(root.groupId, label, text)
+    }
+    Connections {
+        target: root.controller
+        function onTabGroupCreated(stripId, labelId) {
+            if (stripId !== root.groupId) return
+            root.editingLabel = labelId
+            Qt.callLater(function() {
+                const at = root.strip.findIndex(function(e) { return e.type === "header" && e.label.id === labelId })
+                if (at >= 0) tabs.positionViewAtIndex(at, ListView.Contain)
+            })
+        }
     }
     onGroupDataChanged: {
         refresh()
         Qt.callLater(function() {
-            const at = root.shownTabs.findIndex(function(t) { return t.id === root.groupData.activeTab })
+            const at = root.strip.findIndex(function(e) { return e.type === "tab" && e.tab.id === root.groupData.activeTab })
             if (at >= 0) tabs.positionViewAtIndex(at, ListView.Contain)
         })
     }
@@ -71,31 +134,9 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
-        // Group chips: name and size; click collapses, right-click for the group's actions.
-        Flow {
-            objectName: "tabGroupBar"
-            Layout.fillWidth: true
-            Layout.leftMargin: 4; Layout.topMargin: 3; Layout.bottomMargin: 1
-            visible: root.labels.length > 0
-            spacing: 4
-            Repeater {
-                model: root.labels
-                delegate: Chip {
-                    id: chip
-                    required property var modelData
-                    objectName: "tabGroup-" + modelData.name
-                    readonly property int size: root.groupData.tabs.filter(function(t) { return t.label === chip.modelData.id }).length
-                    text: modelData.name + "  " + size
-                    trailingIcon: modelData.collapsed ? "right" : "down"
-                    checked: !modelData.collapsed
-                    checkable: false
-                    ToolTip.text: (modelData.collapsed ? "Show" : "Hide") + " this group's tabs · right-click for more"
-                    onClicked: { const label = modelData.id, collapsed = !modelData.collapsed; Qt.callLater(function() { root.controller.setTabGroupCollapsed(root.groupId, label, collapsed) }) }
-                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: { root.menuLabel = chip.modelData.id; groupMenu.popup() } }
-                }
-            }
-        }
-        // Tabs are rounded pills in the bar: the active one is raised, the others show on hover.
+        // The tab strip, as in a browser: named groups are a colored label followed by their tabs
+        // (click the label to fold the group). Dragging a tab moves it among the others; holding it
+        // over another tab makes a group of the two.
         RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.barHeight
@@ -108,35 +149,99 @@ Rectangle {
             Layout.leftMargin: 3
             orientation: ListView.Horizontal
             clip: true
-            model: root.shownTabs
+            model: root.strip
             ScrollBar.horizontal: ScrollBar { height: 4 }
             delegate: Item {
                 id: tabItem
                 required property var modelData
-                readonly property bool current: modelData.id === root.groupData.activeTab
-                readonly property string title: modelData.kind === "home" ? "Home" : modelData.kind === "library" ? "Library" : modelData.kind === "note" ? (modelData.title || "Untitled note") : modelData.kind === "web" ? (modelData.title || modelData.source.replace(/^https?:\/\/(www\.)?/, "")) : (researchStore.documentsRevision, researchStore.displayName(modelData.source))
-                width: 160
+                required property int index
+                readonly property bool isHeader: modelData.type === "header"
+                readonly property var tabData: isHeader ? ({}) : modelData.tab
+                readonly property var labelData: modelData.label
+                readonly property color groupColor: labelData ? root.groupColor(labelData) : "transparent"
+                readonly property bool current: !isHeader && tabData.id === root.groupData.activeTab
+                readonly property bool dragged: !isHeader && root.controller.draggedTab === tabData.id
+                readonly property bool joinTarget: !isHeader && !!root.controller.dropTarget && root.controller.dropTarget.join === tabData.id
+                readonly property string title: isHeader ? "" : tabData.kind === "home" ? "Home" : tabData.kind === "library" ? "Library" : tabData.kind === "note" ? (tabData.title || "Untitled note") : tabData.kind === "web" ? (tabData.title || tabData.source.replace(/^https?:\/\/(www\.)?/, "")) : (researchStore.documentsRevision, researchStore.displayName(tabData.source))
+                width: isHeader ? header.width + 6 : root.tabWidth
                 height: Theme.barHeight
-                objectName: "tab-" + modelData.id
+                objectName: isHeader ? "tabGroupHeader-" + labelData.name : "tab-" + tabData.id
+                // Tabs step aside to open a gap where the dragged tab would land.
+                transform: Translate { x: root.shiftFor(tabItem.index); Behavior on x { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } } }
+                opacity: dragged ? 0 : 1
+
+                // --- A group's label ---------------------------------------------------------------
+                Rectangle {
+                    id: header
+                    visible: tabItem.isHeader
+                    objectName: tabItem.isHeader ? "tabGroupLabel" : ""
+                    x: 3; anchors.verticalCenter: parent.verticalCenter
+                    height: Theme.barHeight - 12
+                    width: (nameField.visible ? Math.max(90, nameField.implicitWidth) : headerText.implicitWidth) + 18
+                    radius: Theme.radiusSmall
+                    color: tabItem.isHeader ? Theme.mix(Theme.content, tabItem.groupColor, headerHover.hovered ? .32 : .22) : "transparent"
+                    Label {
+                        id: headerText
+                        visible: !nameField.visible
+                        anchors.centerIn: parent
+                        text: tabItem.isHeader ? tabItem.labelData.name + (tabItem.labelData.collapsed ? "  " + tabItem.modelData.size : "") : ""
+                        font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold
+                        color: tabItem.isHeader ? Theme.mix(tabItem.groupColor, Theme.text, Theme.dark ? .1 : .35) : Theme.text
+                    }
+                    TextField {
+                        id: nameField
+                        objectName: tabItem.isHeader ? "tabGroupNameField" : ""
+                        visible: tabItem.isHeader && root.editingLabel === tabItem.labelData.id
+                        anchors.centerIn: parent
+                        width: Math.max(90, implicitWidth)
+                        height: parent.height - 2
+                        padding: 1; leftPadding: 6; rightPadding: 6
+                        font.pixelSize: Theme.fontSmall
+                        maximumLength: 120
+                        placeholderText: "Name this group"
+                        // The strip is rebuilt as tabs change, so a new label may already be open when made.
+                        function claim() { if (visible) { text = tabItem.labelData.name; forceActiveFocus(); selectAll() } }
+                        onVisibleChanged: claim()
+                        Component.onCompleted: Qt.callLater(claim)
+                        onAccepted: root.finishNaming(text)
+                        onActiveFocusChanged: if (!activeFocus && visible) root.finishNaming(text)
+                        Keys.onEscapePressed: root.editingLabel = ""
+                    }
+                    HoverHandler { id: headerHover }
+                    TapHandler {
+                        enabled: !nameField.visible
+                        onTapped: { const label = tabItem.labelData.id, collapsed = !tabItem.labelData.collapsed; Qt.callLater(function() { root.controller.setTabGroupCollapsed(root.groupId, label, collapsed) }) }
+                        onDoubleTapped: root.editingLabel = tabItem.labelData.id
+                    }
+                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: { root.menuLabel = tabItem.labelData.id; groupMenu.popup() } }
+                    ToolTip.visible: headerHover.hovered && !nameField.visible
+                    ToolTip.delay: 500
+                    ToolTip.text: tabItem.isHeader ? (tabItem.labelData.collapsed ? "Show " : "Hide ") + tabItem.modelData.size + " tabs · double-click to rename · right-click for more" : ""
+                }
+
+                // --- A tab ---------------------------------------------------------------------------
                 Rectangle {
                     id: pill
+                    visible: !tabItem.isHeader
                     objectName: "tabPill"
                     anchors.fill: parent
                     anchors.margins: 4
                     anchors.leftMargin: 1; anchors.rightMargin: 1
                     radius: Theme.radius
                     color: tabItem.current ? Theme.content : pointer.containsMouse || close.hovered ? Theme.hover : "transparent"
-                    border.width: tabItem.current && !Theme.dark ? 1 : 0
-                    border.color: Theme.separator
+                    border.width: tabItem.joinTarget ? 2 : tabItem.current && !Theme.dark ? 1 : 0
+                    border.color: tabItem.joinTarget ? Theme.accent : Theme.separator
                 }
-                // Grouped tabs carry a small accent dot.
+                // A grouped tab carries its group's color along the bottom.
                 Rectangle {
-                    visible: !!tabItem.modelData.label
-                    x: 9; anchors.verticalCenter: parent.verticalCenter
-                    width: 6; height: 6; radius: 3; color: Theme.accent
+                    visible: !tabItem.isHeader && !!tabItem.labelData
+                    anchors.bottom: parent.bottom; anchors.bottomMargin: 2
+                    x: 4; width: parent.width - 8; height: 2; radius: 1
+                    color: tabItem.groupColor
                 }
                 Label {
-                    anchors.left: parent.left; anchors.leftMargin: tabItem.modelData.label ? 20 : 12
+                    visible: !tabItem.isHeader
+                    anchors.left: parent.left; anchors.leftMargin: 12
                     anchors.right: close.left; anchors.rightMargin: 2
                     anchors.verticalCenter: parent.verticalCenter
                     text: tabItem.title
@@ -147,6 +252,7 @@ Rectangle {
                 }
                 MouseArea {
                     id: pointer
+                    enabled: !tabItem.isHeader
                     anchors.fill: parent
                     anchors.rightMargin: close.width + close.anchors.rightMargin
                     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
@@ -162,19 +268,19 @@ Rectangle {
                     onPositionChanged: function(mouse) {
                         if (!pressed || cancelled || pressedButtons !== Qt.LeftButton) return
                         const p = mapToItem(null, mouse.x, mouse.y)
-                        if (Math.abs(p.x - start.x) + Math.abs(p.y - start.y) > 8) moving = true
-                        if (moving) root.controller.dragTab(modelData.id, p.x, p.y)
+                        if (!moving && Math.abs(p.x - start.x) + Math.abs(p.y - start.y) > 8) { moving = true; root.controller.dragTitle = tabItem.title }
+                        if (moving) root.controller.dragTab(tabItem.tabData.id, p.x, p.y)
                     }
                     onReleased: function(mouse) {
                         if (cancelled) return
                         if (moving) {
                             const point = mapToItem(null, mouse.x, mouse.y)
-                            root.controller.dragTab(modelData.id, point.x, point.y)
+                            root.controller.dragTab(tabItem.tabData.id, point.x, point.y)
                             root.controller.finishDrag(false)
                         }
-                        else if (mouse.button === Qt.RightButton) { root.menuTab = modelData.id; tabMenu.popup() }
-                        else if (mouse.button === Qt.MiddleButton) Qt.callLater(function() { root.controller.closeTab(modelData.id) })
-                        else Qt.callLater(function() { root.controller.activateTab(modelData.id) })
+                        else if (mouse.button === Qt.RightButton) { root.menuTab = tabItem.tabData.id; tabMenu.popup() }
+                        else if (mouse.button === Qt.MiddleButton) { const id = tabItem.tabData.id; Qt.callLater(function() { root.controller.closeTab(id) }) }
+                        else { const id = tabItem.tabData.id; Qt.callLater(function() { root.controller.activateTab(id) }) }
                         moving = false
                     }
                     onCanceled: { cancelled = true; moving = false; root.controller.finishDrag(true) }
@@ -182,7 +288,8 @@ Rectangle {
                 Keys.onEscapePressed: { pointer.cancelled = true; pointer.moving = false; root.controller.finishDrag(true) }
                 IconButton {
                     id: close
-                    objectName: "closeTabButton-" + modelData.id
+                    visible: !tabItem.isHeader
+                    objectName: "closeTabButton-" + (tabItem.tabData.id || "")
                     // Shown on the active tab and on hover, like Safari.
                     opacity: tabItem.current || pointer.containsMouse || hovered ? 1 : 0
                     anchors.right: parent.right
@@ -191,11 +298,11 @@ Rectangle {
                     width: Theme.controlHeightSmall - 2; height: width; glyphSize: Theme.fontBody
                     icon.name: "close"
                     description: "Close tab"
-                    onClicked: { const id = modelData.id; Qt.callLater(function() { root.controller.closeTab(id) }) }
+                    onClicked: { const id = tabItem.tabData.id; Qt.callLater(function() { root.controller.closeTab(id) }) }
                 }
-                ToolTip.visible: pointer.containsMouse && !pointer.pressed
+                ToolTip.visible: !tabItem.isHeader && pointer.containsMouse && !pointer.pressed
                 ToolTip.delay: 500
-                ToolTip.text: tabItem.title + (modelData.kind === "web" ? "\n" + modelData.source : modelData.source && modelData.source.length ? "\n" + researchStore.localPath(modelData.source) : "")
+                ToolTip.text: tabItem.isHeader ? "" : tabItem.title + (tabItem.tabData.kind === "web" ? "\n" + tabItem.tabData.source : tabItem.tabData.source && tabItem.tabData.source.length ? "\n" + researchStore.localPath(tabItem.tabData.source) : "")
             }
             Label { visible: !tabs.count; anchors.centerIn: parent; text: "No open tabs"; color: Theme.textTertiary }
         }
@@ -272,6 +379,7 @@ Rectangle {
                 onWorkspaceManageRequested: function(id) { root.controller.homeWorkspaceManageRequested(id) }
                 onWorkspaceCreated: function(name) { root.controller.homeWorkspaceCreated(name) }
                 onLibraryRequested: { root.controller.activateGroup(root.groupId); root.controller.openLibrary({}) }
+                onLibraryFilterRequested: function(filter) { root.controller.activateGroup(root.groupId); root.controller.openLibrary(filter) }
                 onWebRequested: function(url) { root.controller.activateGroup(root.groupId); root.controller.openWeb(url) }
                 TapHandler { onPressedChanged: if (pressed) root.controller.activateGroup(root.groupId) }
             }
@@ -293,7 +401,7 @@ Rectangle {
         MenuItem { text: "Duplicate to Right Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("right") } }
         MenuItem { text: "Duplicate to Bottom Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("bottom") } }
         MenuSeparator {}
-        MenuItem { id: newGroupItem; objectName: "newTabGroupOption"; text: "Add to New Group…"; onTriggered: { groupName.mode = "new"; groupName.text = ""; groupNameDialog.open() } }
+        MenuItem { id: newGroupItem; objectName: "newTabGroupOption"; text: "Add to New Group"; onTriggered: { const tab = root.menuTab; Qt.callLater(function() { root.controller.newTabGroup([tab]) }) } }
         Instantiator {
             model: root.labels.filter(function(l) { return !root.menuTabData || root.menuTabData.label !== l.id })
             delegate: MenuItem {
@@ -320,50 +428,42 @@ Rectangle {
     Menu {
         id: groupMenu
         objectName: "tabGroupMenu"
-        MenuItem { text: "Rename…"; onTriggered: { const label = root.controller.tabLabel(root.groupId, root.menuLabel); groupName.mode = "rename"; groupName.text = label ? label.name : ""; groupNameDialog.open() } }
+        MenuItem { text: "Rename"; onTriggered: root.editingLabel = root.menuLabel }
+        Menu {
+            id: colorMenu
+            title: "Color"
+            Instantiator {
+                model: Theme.accents
+                delegate: MenuItem {
+                    required property var modelData
+                    text: modelData.name
+                    checkable: true
+                    checked: { const l = root.controller.tabLabel(root.groupId, root.menuLabel); return !!l && (l.color || "blue") === modelData.id }
+                    onTriggered: root.controller.setTabGroupColor(root.groupId, root.menuLabel, modelData.id)
+                }
+                onObjectAdded: function(index, item) { colorMenu.insertItem(index, item) }
+                onObjectRemoved: function(index, item) { colorMenu.removeItem(item) }
+            }
+        }
         MenuItem { text: "Save as Workspace"; onTriggered: root.controller.saveTabGroupAsWorkspace(root.groupId, root.menuLabel) }
         MenuItem { text: "Save Papers as Collection"; onTriggered: root.controller.saveTabGroupAsCollection(root.groupId, root.menuLabel) }
         MenuSeparator {}
         MenuItem { text: "Ungroup"; onTriggered: root.controller.ungroupTabs(root.groupId, root.menuLabel) }
         MenuItem { text: "Close Group's Tabs"; onTriggered: { const label = root.menuLabel; Qt.callLater(function() { root.controller.closeTabGroup(root.groupId, label) }) } }
     }
-    Dialog {
-        id: groupNameDialog
-        objectName: "tabGroupNameDialog"
-        parent: Overlay.overlay
-        anchors.centerIn: parent
-        width: 340
-        modal: true
-        title: groupName.mode === "rename" ? "Rename Group" : "New Tab Group"
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        onOpened: groupName.forceActiveFocus()
-        TextField {
-            id: groupName
-            objectName: "tabGroupName"
-            property string mode: "new"
-            width: parent.width
-            placeholderText: "Group name"
-            maximumLength: 120
-            onAccepted: groupNameDialog.accept()
-        }
-        onAccepted: {
-            if (!groupName.text.trim().length) return
-            if (groupName.mode === "rename") root.controller.renameTabGroup(root.groupId, root.menuLabel, groupName.text)
-            else root.controller.groupTabs([root.menuTab], groupName.text)
-        }
-    }
     Rectangle {
         readonly property var target: root.controller.dropTarget
         readonly property string edge: target ? target.edge : ""
-        visible: !!target && target.group === root.groupId
+        // Only a split shows an area; moving among tabs shows the gap in the strip instead.
+        visible: !!target && target.group === root.groupId && edge !== "center"
         x: edge === "right" ? parent.width / 2 : 0
         y: edge === "bottom" ? parent.height / 2 : 0
         width: edge === "left" || edge === "right" ? parent.width / 2 : parent.width
-        height: edge === "top" || edge === "bottom" ? parent.height / 2 : target && target.index !== undefined ? 32 : parent.height
+        height: edge === "top" || edge === "bottom" ? parent.height / 2 : parent.height
         color: Theme.overlay
         radius: Theme.radius
         border.color: Theme.accent
         z: 10
-        Label { anchors.centerIn: parent; text: parent.edge === "center" ? "Move tab here" : "Split " + parent.edge; color: Theme.text }
+        Icon { anchors.centerIn: parent; name: parent.edge === "top" || parent.edge === "bottom" ? "splitDown" : "split"; size: Theme.fontTitle; color: Theme.accent }
     }
 }

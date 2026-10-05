@@ -29,8 +29,9 @@ function noteTab(noteId, title) { return {id: id("tab"), kind: "note", source: "
 function libraryTab(filter) { return {id: id("tab"), kind: "library", source: "", filter: clone(filter || {}), position: {page: 0, y: 0, x: 0, zoom: 1}} }
 function homeTab() { return {id: id("tab"), kind: "home", source: "", position: {page: 0, y: 0, x: 0, zoom: 1}} }
 // Named tab groups inside one tab strip. Tabs of a group are kept next to each other.
-function addLabel(groupNode, name) {
+function addLabel(groupNode, name, color) {
     const label = {id: id("label"), name: name.trim().slice(0, 120) || "Group", collapsed: false}
+    if (color) label.color = color
     groupNode.labels = (groupNode.labels || []).concat([label])
     return label
 }
@@ -127,6 +128,7 @@ function validate(node, ids, depth) {
         for (let i = 0; i < node.labels.length; ++i) {
             const l = node.labels[i]
             if (!l || typeof l.id !== "string" || !l.id || labelIds[l.id] || typeof l.name !== "string" || l.name.length > 120) return false
+            if (l.color !== undefined && typeof l.color !== "string") return false
             labelIds[l.id] = true
         }
         if (node.tabs.some(function(t) { return t.label !== undefined && !labelIds[t.label] })) return false

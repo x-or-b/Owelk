@@ -17,6 +17,12 @@ Flickable {
     property bool suspended: false
     property string draggedTab: ""
     property var dropTarget: null
+    // The dragged tab's title (for the tab that follows the pointer).
+    property string dragTitle: ""
+    // Holding a dragged tab over the middle of another tab for a moment makes a group of the two.
+    property string joinCandidate: ""
+    property bool joinReady: false
+    Timer { id: joinTimer; interval: 450; onTriggered: { root.joinReady = root.joinCandidate.length > 0; if (root.joinReady && root.dropTarget) root.dropTarget = Object.assign({}, root.dropTarget, {join: root.joinCandidate}) } }
     property var closedTabs: []
     readonly property int groupCount: groupRows.count
     readonly property bool hasTabs: { const r = revision; return Tree.leaves(tree).some(function(g) { return g.tabs.length > 0 }) }
@@ -36,6 +42,8 @@ Flickable {
     signal homeWorkspaceCreated(string name)
     // The tab menu's "Organize Tabs with AI…", handled by the window (needs the AI and a dialog).
     signal organizeRequested(string groupId)
+    // A group was just made (by dragging or the tab menu): its label opens for the name.
+    signal tabGroupCreated(string stripId, string labelId)
     ScrollBar.horizontal: ScrollBar {}
     ScrollBar.vertical: ScrollBar {}
     ListModel { id: groupRows }
@@ -308,14 +316,42 @@ Flickable {
         if (!Tree.leaves(tree).some(function(g) { return g.tabs.length })) empty()
     }
     // --- Named tab groups (inside one tab strip) ---------------------------------------------
+    // Each new group takes the next color not used in its strip.
+    function nextGroupColor(g) {
+        const used = (g.labels || []).map(function(l) { return l.color })
+        const free = Theme.accents.map(function(a) { return a.id }).filter(function(c) { return used.indexOf(c) < 0 })
+        return free.length ? free[0] : Theme.accents[(g.labels || []).length % Theme.accents.length].id
+    }
     function groupTabs(tabIds, name) {
         const g = tabIds.length ? Tree.owner(tree, tabIds[0]) : null
         if (!g) return ""
         prepare()
-        const label = Tree.addLabel(g, name)
+        const label = Tree.addLabel(g, name, nextGroupColor(g))
         tabIds.forEach(function(id) { if (g.tabs.some(function(t) { return t.id === id })) Tree.setTabLabel(g, id, label.id) })
         sync(); changed()
         return label.id
+    }
+    // A new group, named in place right after.
+    function newTabGroup(tabIds) {
+        const label = groupTabs(tabIds, "New group")
+        const g = label.length ? Tree.owner(tree, tabIds[0]) : null
+        if (g) tabGroupCreated(g.id, label)
+        return label
+    }
+    function setTabGroupColor(stripId, labelId, color) {
+        const label = tabLabel(stripId, labelId)
+        if (!label) return
+        prepare(); label.color = color; sync(); changed()
+    }
+    // Drop a tab onto another: it joins that tab's group, or the two start a new group.
+    function joinTabs(id, targetTab) {
+        if (id === targetTab) return
+        const g = Tree.owner(tree, targetTab)
+        if (!g) return
+        moveTab(id, g.id, "center", g.tabs.findIndex(function(t) { return t.id === targetTab }) + 1)
+        const target = Tree.owner(tree, targetTab).tabs.find(function(t) { return t.id === targetTab })
+        if (target.label) addTabToGroup(id, target.label)
+        else newTabGroup([targetTab, id])
     }
     function addTabToGroup(tabId, labelId) {
         const g = Tree.owner(tree, tabId)
@@ -523,22 +559,56 @@ Flickable {
         for (let i = 0; i < groups.count; ++i) {
             const view = groups.itemAt(i), p = view.mapFromItem(null, x, y)
             if (p.x < 0 || p.y < 0 || p.x > view.width || p.y > view.height) continue
-            let edge = "center", at = undefined
-            if (p.y < 32) at = view.tabIndexAt(p.x)
+            let edge = "center", at = undefined, over = ""
+            const owner = Tree.owner(tree, id)
+            if (p.y < Theme.barHeight) { const info = view.dropInfo(p.x, id); at = info.index; over = info.over }
             else if (p.x < view.width * .22) edge = "left"
             else if (p.x > view.width * .78) edge = "right"
             else if (p.y < view.height * .25) edge = "top"
             else if (p.y > view.height * .75) edge = "bottom"
-            const owner = Tree.owner(tree, id)
+            // Over another strip's page: the tab goes to the end of that strip; over its own page, nowhere.
+            else if (owner && owner.id === view.groupId) break
+            else at = view.groupData.tabs.length
             if (owner && owner.id === view.groupId && owner.tabs.length === 1 && edge !== "center") return
-            dropTarget = {group: view.groupId, edge: edge, index: at}
+            if (over !== joinCandidate) { joinCandidate = over; joinReady = false; if (over.length) joinTimer.restart(); else joinTimer.stop() }
+            dropTarget = {group: view.groupId, edge: edge, index: at, over: over, join: over.length && joinReady ? over : ""}
             break
         }
     }
     function finishDrag(cancelled) {
         const id = draggedTab, target = dropTarget
-        draggedTab = ""; dropTarget = null; dragPointer = null
-        if (!cancelled && target) Qt.callLater(function() { root.moveTab(id, target.group, target.edge, target.index) })
+        draggedTab = ""; dropTarget = null; dragPointer = null; dragTitle = ""
+        joinTimer.stop(); joinCandidate = ""; joinReady = false
+        if (cancelled || !target) return
+        if (target.join) Qt.callLater(function() { root.joinTabs(id, target.join) })
+        else Qt.callLater(function() { root.moveTab(id, target.group, target.edge, target.index) })
+    }
+    // The dragged tab follows the pointer, above everything.
+    Rectangle {
+        id: dragGhost
+        objectName: "dragGhost"
+        parent: root.Window.window ? root.Window.window.contentItem : root
+        visible: root.draggedTab.length > 0 && root.dragPointer !== null && root.dragTitle.length > 0
+        readonly property point at: visible ? parent.mapFromItem(null, root.dragPointer.x, root.dragPointer.y) : Qt.point(0, 0)
+        z: 1000
+        x: at.x - 40; y: at.y - height / 2
+        width: 160; height: Theme.barHeight - 8
+        radius: Theme.radius
+        color: Theme.content
+        border.color: root.dropTarget && root.dropTarget.join ? Theme.accent : Theme.border
+        opacity: .96
+        Label {
+            anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12
+            verticalAlignment: Text.AlignVCenter
+            text: root.dragTitle; elide: Text.ElideRight
+            font.pixelSize: Theme.fontSmall; font.weight: Font.Medium
+        }
+        Label {
+            visible: !!root.dropTarget && !!root.dropTarget.join
+            anchors.top: parent.bottom; anchors.topMargin: 3; anchors.horizontalCenter: parent.horizontalCenter
+            text: "Group"
+            font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.accent
+        }
     }
     function reveal(source, page, region) {
         let t = null

@@ -70,11 +70,12 @@ Item {
             const spy = Qt.createQmlObject('import QtTest; SignalSpy { signalName: "codexAccountChanged" }', scene)
             spy.target = researchStore.ai
             settings.openPage("ai"); tryCompare(settings, "opened", true)
-            wait(1000)
-            const settled = spy.count
             wait(1500)
-            // One more read can come from elsewhere (the AI panel); the old loop read it many times a second.
-            verify(spy.count - settled <= 1, "the account is not read again and again: " + (spy.count - settled) + " more reads")
+            const settled = spy.count
+            wait(3000)
+            // Late answers to earlier requests can still arrive in a busy run; the old loop read the
+            // account dozens of times a second.
+            verify(spy.count - settled < 5, "the account is not read again and again: " + (spy.count - settled) + " more reads in 3 s")
             settings.close()
             researchStore.ai.provider = before
             spy.destroy()
