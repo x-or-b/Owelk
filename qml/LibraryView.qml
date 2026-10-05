@@ -44,7 +44,7 @@ Rectangle {
         function onNotesChanged() { if (root.showingNotes) root.refresh() }
     }
     PaperDetailsDialog { id: details }
-    UiControls.Dialog {
+    Dialog {
         id: tagDialog
         objectName: "libraryTagDialog"
         property url source: ""
@@ -57,12 +57,12 @@ Rectangle {
         function begin(url) { source = url; tagField.text = researchStore.documentOrganization(url).tags.join(", "); open(); tagField.forceActiveFocus() }
         ColumnLayout {
             width: parent.width
-            UiControls.TextField { id: tagField; objectName: "libraryTagField"; Layout.fillWidth: true; placeholderText: "Comma-separated, e.g. SLAM, to read"; onAccepted: tagDialog.accept() }
+            TextField { id: tagField; objectName: "libraryTagField"; Layout.fillWidth: true; placeholderText: "Comma-separated, e.g. SLAM, to read"; onAccepted: tagDialog.accept() }
             Label { text: "Existing: " + root.tagRows.map(function(t) { return t.name }).join(", "); visible: root.tagRows.length > 0; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: 12; color: Theme.textTertiary }
         }
         onAccepted: researchStore.setDocumentTags(source, tagField.text.split(",").map(function(t) { return t.trim() }).filter(function(t) { return t.length }))
     }
-    UiControls.Dialog {
+    Dialog {
         id: collectionDialog
         objectName: "collectionDialog"
         property string collectionId: ""
@@ -74,35 +74,35 @@ Rectangle {
         title: collectionId.length ? "Rename collection" : "New collection"
         standardButtons: Dialog.Save | Dialog.Cancel
         function begin(id, name, parent) { collectionId = id; parentId = parent || ""; collectionName.text = name || ""; open(); collectionName.forceActiveFocus() }
-        UiControls.TextField { id: collectionName; objectName: "collectionName"; width: parent.width; placeholderText: "Collection name"; onAccepted: collectionDialog.accept() }
+        TextField { id: collectionName; objectName: "collectionName"; width: parent.width; placeholderText: "Collection name"; onAccepted: collectionDialog.accept() }
         onAccepted: {
             if (collectionId.length) researchStore.renameCollection(collectionId, collectionName.text)
             else researchStore.createCollection(collectionName.text, parentId)
         }
     }
-    UiControls.Menu {
+    Menu {
         id: collectionMenu
         property var row: ({})
-        UiControls.MenuItem { text: "New Sub-collection…"; onTriggered: collectionDialog.begin("", "", collectionMenu.row.id) }
-        UiControls.MenuItem { text: "Rename…"; onTriggered: collectionDialog.begin(collectionMenu.row.id, collectionMenu.row.name) }
-        UiControls.MenuItem {
+        MenuItem { text: "New Sub-collection…"; onTriggered: collectionDialog.begin("", "", collectionMenu.row.id) }
+        MenuItem { text: "Rename…"; onTriggered: collectionDialog.begin(collectionMenu.row.id, collectionMenu.row.name) }
+        MenuItem {
             text: "Delete Collection"
             palette.text: Theme.danger; palette.windowText: Theme.danger; palette.highlightedText: Theme.danger
             onTriggered: { researchStore.deleteCollection(collectionMenu.row.id); if (root.filter.collection === collectionMenu.row.id) root.setFilter({}) }
         }
     }
-    UiControls.Menu {
+    Menu {
         id: paperMenu
         property var row: ({})
-        UiControls.MenuItem { text: "Open"; onTriggered: root.documentChosen(paperMenu.row.url, paperMenu.row.position) }
-        UiControls.MenuItem { text: "Paper Details…"; onTriggered: details.begin(paperMenu.row.url) }
-        UiControls.MenuItem { objectName: "libraryTagsOption"; text: "Tags…"; onTriggered: tagDialog.begin(paperMenu.row.url) }
-        UiControls.Menu {
+        MenuItem { text: "Open"; onTriggered: root.documentChosen(paperMenu.row.url, paperMenu.row.position) }
+        MenuItem { text: "Paper Details…"; onTriggered: details.begin(paperMenu.row.url) }
+        MenuItem { objectName: "libraryTagsOption"; text: "Tags…"; onTriggered: tagDialog.begin(paperMenu.row.url) }
+        Menu {
             id: addToCollection
             title: "Collections"
             Instantiator {
                 model: root.collectionRows
-                delegate: UiControls.MenuItem {
+                delegate: MenuItem {
                     required property var modelData
                     checkable: true
                     checked: paperMenu.opened && researchStore.documentOrganization(paperMenu.row.url).collections.indexOf(modelData.id) >= 0
@@ -112,14 +112,14 @@ Rectangle {
                 onObjectAdded: function(index, object) { addToCollection.insertItem(index, object) }
                 onObjectRemoved: function(index, object) { addToCollection.removeItem(object) }
             }
-            UiControls.MenuItem { text: "New Collection…"; onTriggered: collectionDialog.begin("", "") }
+            MenuItem { text: "New Collection…"; onTriggered: collectionDialog.begin("", "") }
         }
         MenuSeparator {}
-        UiControls.MenuItem { text: paperMenu.row.readingState === "read" ? "Mark as Unread" : "Mark as Read"; onTriggered: researchStore.setReadingState(paperMenu.row.url, paperMenu.row.readingState === "read" ? "unread" : "read") }
-        UiControls.MenuItem { text: paperMenu.row.favorite ? "Remove from Favorites" : "Add to Favorites"; onTriggered: researchStore.setFavorite(paperMenu.row.url, !paperMenu.row.favorite) }
-        UiControls.MenuItem { text: paperMenu.row.excluded ? "Include in Text Search" : "Exclude from Text Search"; onTriggered: researchStore.setExcludedFromIndex(paperMenu.row.url, !paperMenu.row.excluded) }
-        UiControls.MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(paperMenu.row.url) }
-        UiControls.MenuItem { objectName: "copyBibtex"; text: "Copy BibTeX"; onTriggered: { researchStore.copyText(researchStore.bibtex([paperMenu.row.url.toString()])); researchStore.notify("BibTeX copied.") } }
+        MenuItem { text: paperMenu.row.readingState === "read" ? "Mark as Unread" : "Mark as Read"; onTriggered: researchStore.setReadingState(paperMenu.row.url, paperMenu.row.readingState === "read" ? "unread" : "read") }
+        MenuItem { text: paperMenu.row.favorite ? "Remove from Favorites" : "Add to Favorites"; onTriggered: researchStore.setFavorite(paperMenu.row.url, !paperMenu.row.favorite) }
+        MenuItem { text: paperMenu.row.excluded ? "Include in Text Search" : "Exclude from Text Search"; onTriggered: researchStore.setExcludedFromIndex(paperMenu.row.url, !paperMenu.row.excluded) }
+        MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(paperMenu.row.url) }
+        MenuItem { objectName: "copyBibtex"; text: "Copy BibTeX"; onTriggered: { researchStore.copyText(researchStore.bibtex([paperMenu.row.url.toString()])); researchStore.notify("BibTeX copied.") } }
     }
     RowLayout {
         anchors.fill: parent
@@ -156,7 +156,7 @@ Rectangle {
                         objectName: "newCollectionButton"; icon.name: "add"; implicitWidth: 24; implicitHeight: 22
                         description: "New collection"; onClicked: collectionDialog.begin("", "")
                     }
-                    UiControls.ItemDelegate {
+                    ItemDelegate {
                         id: item
                         visible: !entry.modelData.header
                         objectName: "librarySidebar-" + entry.modelData.key + "-" + (entry.modelData.value === undefined ? "" : entry.modelData.value)
@@ -221,7 +221,7 @@ Rectangle {
                 Layout.fillWidth: true; Layout.fillHeight: true
                 clip: true
                 model: root.noteRows
-                delegate: UiControls.ItemDelegate {
+                delegate: ItemDelegate {
                     id: noteItem
                     required property var modelData
                     objectName: "libraryNote-" + modelData.id
@@ -249,13 +249,13 @@ Rectangle {
             RowLayout {
                 Layout.fillWidth: true
                 visible: !root.showingNotes
-                UiControls.TextField {
+                TextField {
                     objectName: "libraryQuery"
                     Layout.fillWidth: true
                     placeholderText: "Filter by title, author, year, DOI or file name"
                     onTextChanged: root.query = text
                 }
-                UiControls.ComboBox {
+                ComboBox {
                     objectName: "librarySort"
                     Layout.preferredWidth: 140
                     model: ["Last opened", "Last added", "Title", "Year"]
@@ -267,7 +267,7 @@ Rectangle {
                 Layout.fillWidth: true
                 visible: !root.showingNotes
                 Label { objectName: "libraryCount"; Layout.fillWidth: true; text: root.rows.length + (root.rows.length === 1 ? " paper" : " papers"); font.pixelSize: 12; color: Theme.textTertiary }
-                UiControls.ToolButton {
+                ToolButton {
                     objectName: "exportBibtex"
                     text: "Export BibTeX…"; font.pixelSize: 12
                     enabled: root.rows.length > 0
@@ -291,7 +291,7 @@ Rectangle {
                 clip: true
                 model: root.rows
                 ScrollBar.vertical: ScrollBar {}
-                delegate: UiControls.ItemDelegate {
+                delegate: ItemDelegate {
                     id: paper
                     required property var modelData
                     readonly property url paperUrl: modelData.url

@@ -16,10 +16,10 @@ IconButton {
     onClicked: triggered()
     Keys.onMenuPressed: if (dockSide.length) dockMenu.popup()
     TapHandler { acceptedButtons: Qt.RightButton; enabled: root.dockSide.length > 0; onTapped: dockMenu.popup() }
-    UiControls.Menu {
+    Menu {
         id: dockMenu
         objectName: "dockMenu-" + root.kind
-        UiControls.MenuItem { objectName: "leftDockOption"; text: "Left Dock"; checkable: true; checked: root.dockSide === "left"; onTriggered: root.dockSideChosen("left") }
-        UiControls.MenuItem { objectName: "rightDockOption"; text: "Right Dock"; checkable: true; checked: root.dockSide === "right"; onTriggered: root.dockSideChosen("right") }
+        MenuItem { objectName: "leftDockOption"; text: "Left Dock"; checkable: true; checked: root.dockSide === "left"; onTriggered: root.dockSideChosen("left") }
+        MenuItem { objectName: "rightDockOption"; text: "Right Dock"; checkable: true; checked: root.dockSide === "right"; onTriggered: root.dockSideChosen("right") }
     }
 }

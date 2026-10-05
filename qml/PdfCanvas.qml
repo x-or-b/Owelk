@@ -80,13 +80,13 @@ Item {
             root.pendingHighlightSelection = null
         }
     }
-    UiControls.Menu {
+    Menu {
         id: highlightMenu
         objectName: "highlightMenu"
-        UiControls.MenuItem { text: "Edit / Comment…"; onTriggered: root.editRequested(root.editingMark, null) }
-        UiControls.MenuItem { objectName: "changeAnnotationColor"; text: "Change Color…"; onTriggered: markColors.open() }
-        UiControls.MenuItem { text: "Link to Note…"; onTriggered: linkToNote.begin("highlight", root.editingMark.id) }
-        UiControls.MenuItem {
+        MenuItem { text: "Edit / Comment…"; onTriggered: root.editRequested(root.editingMark, null) }
+        MenuItem { objectName: "changeAnnotationColor"; text: "Change Color…"; onTriggered: markColors.open() }
+        MenuItem { text: "Link to Note…"; onTriggered: linkToNote.begin("highlight", root.editingMark.id) }
+        MenuItem {
             objectName: "removeHighlightAction"
             text: "Remove Annotation"
             palette.text: Theme.danger; palette.windowText: Theme.danger; palette.highlightedText: Theme.danger
@@ -1018,7 +1018,7 @@ Item {
         }
     }
 
-    UiControls.Dialog {
+    Dialog {
         id: passwordDialog
         objectName: "pdfPasswordDialog"
         anchors.centerIn: parent
@@ -1031,7 +1031,7 @@ Item {
         onOpened: passwordField.forceActiveFocus()
         Column {
             spacing: 8
-            UiControls.TextField {
+            TextField {
                 id: passwordField
                 objectName: "pdfPasswordField"
                 width: 260

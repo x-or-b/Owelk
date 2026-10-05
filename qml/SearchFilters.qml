@@ -7,7 +7,7 @@ ColumnLayout {
     id: root
     required property var controller
     property url currentSource: ""
-    component FilterButton: UiControls.ToolButton {
+    component FilterButton: ToolButton {
         id: button
         implicitHeight: 28
         leftPadding: 10; rightPadding: 10

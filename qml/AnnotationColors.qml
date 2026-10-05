@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import Owelk.Ui
 
-UiControls.Popup {
+Popup {
     id: root
     property string selectedColor: Theme.defaultInk
     signal chosen(string color)
@@ -22,7 +22,7 @@ UiControls.Popup {
         Repeater {
             id: swatches
             model: Theme.annotationInks
-            delegate: UiControls.ToolButton {
+            delegate: ToolButton {
                 required property var modelData
                 objectName: "annotationColor-" + modelData.name
                 width: 28

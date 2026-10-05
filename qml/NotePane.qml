@@ -79,7 +79,7 @@ Rectangle {
         spacing: 10
         RowLayout {
             Layout.fillWidth: true
-            UiControls.TextField {
+            TextField {
                 id: titleField
                 objectName: "noteTitle"
                 Layout.fillWidth: true
@@ -103,10 +103,10 @@ Rectangle {
             IconButton { icon.name: "more";
                 description: "More"
                 onClicked: noteMenu.popup(this, 0, height)
-                UiControls.Menu {
+                Menu {
                     id: noteMenu
-                    UiControls.MenuItem { text: "Copy Markdown"; onTriggered: researchStore.copyText(body.text) }
-                    UiControls.MenuItem {
+                    MenuItem { text: "Copy Markdown"; onTriggered: researchStore.copyText(body.text) }
+                    MenuItem {
                         objectName: "deleteNoteOption"
                         text: "Move Note to Trash"
                         palette.text: Theme.danger; palette.windowText: Theme.danger; palette.highlightedText: Theme.danger
@@ -119,7 +119,7 @@ Rectangle {
         ScrollView {
             Layout.fillWidth: true; Layout.fillHeight: true
             visible: !root.preview
-            UiControls.TextArea {
+            TextArea {
                 id: body
                 objectName: "noteBody"
                 placeholderText: "Write in Markdown. Type [[ to link a paper, excerpt or note."
@@ -160,7 +160,7 @@ Rectangle {
             Label { text: "Linked from"; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary }
             Repeater {
                 model: root.backlinks
-                delegate: UiControls.ItemDelegate {
+                delegate: ItemDelegate {
                     required property var modelData
                     Layout.fillWidth: true
                     text: modelData.title
@@ -177,7 +177,7 @@ Rectangle {
             Label { text: "Related notes"; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary }
             Repeater {
                 model: root.related
-                delegate: UiControls.ItemDelegate {
+                delegate: ItemDelegate {
                     required property var modelData
                     Layout.fillWidth: true
                     text: modelData.title
@@ -187,7 +187,7 @@ Rectangle {
             }
         }
     }
-    UiControls.Popup {
+    Popup {
         id: linkPicker
         objectName: "noteLinkPicker"
         parent: root
@@ -200,7 +200,7 @@ Rectangle {
         background: Rectangle { color: Theme.raised; border.color: Theme.border; radius: Theme.radius }
         contentItem: ColumnLayout {
             spacing: 6
-            UiControls.TextField {
+            TextField {
                 id: linkQuery
                 objectName: "noteLinkQuery"
                 Layout.fillWidth: true
@@ -214,7 +214,7 @@ Rectangle {
                 Layout.preferredHeight: Math.min(240, contentHeight)
                 clip: true
                 model: linkPicker.candidates
-                delegate: UiControls.ItemDelegate {
+                delegate: ItemDelegate {
                     required property var modelData
                     width: ListView.view.width
                     objectName: "noteLinkCandidate-" + modelData.kind + "-" + modelData.id

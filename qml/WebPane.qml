@@ -113,7 +113,7 @@ Rectangle {
                     description: view.loading ? "Stop" : "Reload"
                     onClicked: view.loading ? view.stop() : view.reload()
                 }
-                UiControls.TextField {
+                TextField {
                     id: address
                     objectName: "webAddress"
                     Layout.fillWidth: true; Layout.preferredHeight: 25
@@ -131,7 +131,7 @@ Rectangle {
                     description: "Capture a region of this page"
                     onClicked: root.capturing = !root.capturing
                 }
-                UiControls.Button {
+                Button {
                     objectName: "webOpenArxivPdf"
                     visible: Tree.arxivPdf(view.url).length > 0
                     text: "Open PDF"
@@ -143,16 +143,16 @@ Rectangle {
                 IconButton { icon.name: "more";
                     implicitWidth: 24; description: "More"
                     onClicked: webMenu.popup(this, 0, height)
-                    UiControls.Menu {
+                    Menu {
                         id: webMenu
-                        UiControls.MenuItem {
+                        MenuItem {
                             objectName: "webBrowserPdf"
                             text: "Show PDFs in This Tab"
                             checkable: true; checked: root.browserPdf
                             onTriggered: root.browserPdf = checked
                         }
-                        UiControls.MenuItem { text: "Open in Browser"; onTriggered: Qt.openUrlExternally(view.url) }
-                        UiControls.MenuItem { text: "Copy Address"; onTriggered: researchStore.copyText(view.url.toString()) }
+                        MenuItem { text: "Open in Browser"; onTriggered: Qt.openUrlExternally(view.url) }
+                        MenuItem { text: "Copy Address"; onTriggered: researchStore.copyText(view.url.toString()) }
                     }
                 }
             }
@@ -179,13 +179,13 @@ Rectangle {
                     text: root.browserPdf ? "Reading the PDF in this tab. Highlights, captures and notes work in the reader."
                                           : "This page shows a PDF."
                 }
-                UiControls.Button {
+                Button {
                     objectName: "webOpenInReader"
                     text: "Open in Reader"; highlighted: true
                     implicitHeight: 26
                     onClicked: root.openPdfInReader()
                 }
-                UiControls.Button {
+                Button {
                     objectName: "webShowPdfHere"
                     visible: !root.browserPdf
                     text: "Show Here"

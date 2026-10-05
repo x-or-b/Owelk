@@ -10,10 +10,13 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QQuickStyle>
+#include <QtQml/QQmlExtensionPlugin>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
 #include <cstdio>
+
+Q_IMPORT_QML_PLUGIN(OwelkStylePlugin)
 
 int main(int argc, char *argv[])
 {
@@ -23,7 +26,7 @@ int main(int argc, char *argv[])
     app.setOrganizationName("Owelk");
     app.setApplicationName("Owelk");
     app.setApplicationVersion("0.1.0");
-    QQuickStyle::setStyle("Basic");
+    QQuickStyle::setStyle("OwelkStyle");
 
     QCommandLineParser parser;
     parser.setApplicationDescription("Owelk — a local research reader");

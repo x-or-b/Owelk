@@ -80,7 +80,7 @@ Rectangle {
             spacing: 4
             Repeater {
                 model: root.labels
-                delegate: UiControls.ToolButton {
+                delegate: ToolButton {
                     id: chip
                     required property var modelData
                     objectName: "tabGroup-" + modelData.name
@@ -258,16 +258,16 @@ Rectangle {
             }
         }
     }
-    UiControls.Menu {
+    Menu {
         id: tabMenu
-        UiControls.MenuItem { text: "Close Tab"; onTriggered: root.controller.closeTab(root.menuTab) }
-        UiControls.MenuItem { text: "Duplicate to Right Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("right") } }
-        UiControls.MenuItem { text: "Duplicate to Bottom Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("bottom") } }
+        MenuItem { text: "Close Tab"; onTriggered: root.controller.closeTab(root.menuTab) }
+        MenuItem { text: "Duplicate to Right Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("right") } }
+        MenuItem { text: "Duplicate to Bottom Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("bottom") } }
         MenuSeparator {}
-        UiControls.MenuItem { objectName: "newTabGroupOption"; text: "Add to New Group…"; onTriggered: { groupName.mode = "new"; groupName.text = ""; groupNameDialog.open() } }
+        MenuItem { objectName: "newTabGroupOption"; text: "Add to New Group…"; onTriggered: { groupName.mode = "new"; groupName.text = ""; groupNameDialog.open() } }
         Instantiator {
             model: root.labels.filter(function(l) { return !root.menuTabData || root.menuTabData.label !== l.id })
-            delegate: UiControls.MenuItem {
+            delegate: MenuItem {
                 required property var modelData
                 text: "Add to \u201c" + modelData.name + "\u201d"
                 onTriggered: { const tab = root.menuTab, label = modelData.id; Qt.callLater(function() { root.controller.addTabToGroup(tab, label) }) }
@@ -275,20 +275,20 @@ Rectangle {
             onObjectAdded: function(index, item) { tabMenu.insertItem(5 + index, item) }
             onObjectRemoved: function(index, item) { tabMenu.removeItem(item) }
         }
-        UiControls.MenuItem { visible: !!root.menuTabData && !!root.menuTabData.label; height: visible ? implicitHeight : 0; text: "Remove from Group"; onTriggered: root.controller.removeTabFromGroup(root.menuTab) }
-        UiControls.MenuItem { objectName: "organizeTabsOption"; text: "Organize Tabs with AI…"; onTriggered: root.controller.organizeRequested(root.groupId) }
+        MenuItem { visible: !!root.menuTabData && !!root.menuTabData.label; height: visible ? implicitHeight : 0; text: "Remove from Group"; onTriggered: root.controller.removeTabFromGroup(root.menuTab) }
+        MenuItem { objectName: "organizeTabsOption"; text: "Organize Tabs with AI…"; onTriggered: root.controller.organizeRequested(root.groupId) }
     }
-    UiControls.Menu {
+    Menu {
         id: groupMenu
         objectName: "tabGroupMenu"
-        UiControls.MenuItem { text: "Rename…"; onTriggered: { const label = root.controller.tabLabel(root.groupId, root.menuLabel); groupName.mode = "rename"; groupName.text = label ? label.name : ""; groupNameDialog.open() } }
-        UiControls.MenuItem { text: "Save as Workspace"; onTriggered: root.controller.saveTabGroupAsWorkspace(root.groupId, root.menuLabel) }
-        UiControls.MenuItem { text: "Save Papers as Collection"; onTriggered: root.controller.saveTabGroupAsCollection(root.groupId, root.menuLabel) }
+        MenuItem { text: "Rename…"; onTriggered: { const label = root.controller.tabLabel(root.groupId, root.menuLabel); groupName.mode = "rename"; groupName.text = label ? label.name : ""; groupNameDialog.open() } }
+        MenuItem { text: "Save as Workspace"; onTriggered: root.controller.saveTabGroupAsWorkspace(root.groupId, root.menuLabel) }
+        MenuItem { text: "Save Papers as Collection"; onTriggered: root.controller.saveTabGroupAsCollection(root.groupId, root.menuLabel) }
         MenuSeparator {}
-        UiControls.MenuItem { text: "Ungroup"; onTriggered: root.controller.ungroupTabs(root.groupId, root.menuLabel) }
-        UiControls.MenuItem { text: "Close Group's Tabs"; onTriggered: { const label = root.menuLabel; Qt.callLater(function() { root.controller.closeTabGroup(root.groupId, label) }) } }
+        MenuItem { text: "Ungroup"; onTriggered: root.controller.ungroupTabs(root.groupId, root.menuLabel) }
+        MenuItem { text: "Close Group's Tabs"; onTriggered: { const label = root.menuLabel; Qt.callLater(function() { root.controller.closeTabGroup(root.groupId, label) }) } }
     }
-    UiControls.Dialog {
+    Dialog {
         id: groupNameDialog
         objectName: "tabGroupNameDialog"
         parent: Overlay.overlay
@@ -298,7 +298,7 @@ Rectangle {
         title: groupName.mode === "rename" ? "Rename Group" : "New Tab Group"
         standardButtons: Dialog.Ok | Dialog.Cancel
         onOpened: groupName.forceActiveFocus()
-        UiControls.TextField {
+        TextField {
             id: groupName
             objectName: "tabGroupName"
             property string mode: "new"

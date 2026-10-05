@@ -7,7 +7,7 @@ import "Shortcuts.js" as Shortcuts
 import "Platform.js" as Platform
 
 // App preferences. Values are stored locally in the settings table and apply immediately.
-UiControls.Dialog {
+Dialog {
     id: root
     objectName: "settingsDialog"
     parent: Overlay.overlay
@@ -56,18 +56,18 @@ UiControls.Dialog {
                 Label { text: "PDF downloads"; color: Theme.text }
                 RowLayout {
                     Layout.fillWidth: true
-                    UiControls.TextField { id: folderField; objectName: "downloadFolderField"; Layout.fillWidth: true; readOnly: true }
-                    UiControls.Button { text: "Choose…"; onClicked: folderDialog.open() }
+                    TextField { id: folderField; objectName: "downloadFolderField"; Layout.fillWidth: true; readOnly: true }
+                    Button { text: "Choose…"; onClicked: folderDialog.open() }
                 }
                 Label { text: "PDF links"; color: Theme.text }
-                UiControls.ComboBox {
+                ComboBox {
                     id: pdfModeBox; objectName: "webPdfModeBox"
                     Layout.fillWidth: true
                     model: ["Download and open in the reader", "Show in the web tab"]
                     onActivated: function(index) { researchStore.setSetting("webPdfMode", index === 1 ? "browser" : "reader") }
                 }
                 Label { text: "Search with"; color: Theme.text }
-                UiControls.ComboBox {
+                ComboBox {
                     id: engineBox; objectName: "searchEngineBox"
                     Layout.fillWidth: true
                     model: root.engines.map(function(e) { return e.name })
@@ -91,7 +91,7 @@ UiControls.Dialog {
                 Component.onCompleted: refreshCount()
                 Connections { target: semanticSettings.semantic; function onChanged() { semanticSettings.refreshCount() } }
                 Label { text: "Meaning search"; color: Theme.text }
-                UiControls.ComboBox {
+                ComboBox {
                     id: semanticEngineBox; objectName: "semanticEngineBox"
                     Layout.fillWidth: true
                     model: semanticSettings.engines.map(function(e) { return e.name })
@@ -104,7 +104,7 @@ UiControls.Dialog {
                     }
                 }
                 Label { visible: semanticSettings.semantic.enabled; text: "Model"; color: Theme.text }
-                UiControls.TextField {
+                TextField {
                     objectName: "semanticModelField"
                     visible: semanticSettings.semantic.enabled
                     Layout.fillWidth: true
@@ -122,8 +122,8 @@ UiControls.Dialog {
                         text: semanticSettings.semantic.progress.length ? semanticSettings.semantic.progress
                             : semanticSettings.stored + " passages indexed"
                     }
-                    UiControls.Button { text: "Update"; visible: semanticSettings.semantic.enabled; enabled: !semanticSettings.semantic.busy; onClicked: semanticSettings.semantic.configure(semanticSettings.semantic.engine, semanticSettings.semantic.model) }
-                    UiControls.Button { text: "Delete Vectors"; enabled: !semanticSettings.semantic.busy && semanticSettings.stored > 0; onClicked: { semanticSettings.semantic.clear(); semanticSettings.refreshCount() } }
+                    Button { text: "Update"; visible: semanticSettings.semantic.enabled; enabled: !semanticSettings.semantic.busy; onClicked: semanticSettings.semantic.configure(semanticSettings.semantic.engine, semanticSettings.semantic.model) }
+                    Button { text: "Delete Vectors"; enabled: !semanticSettings.semantic.busy && semanticSettings.stored > 0; onClicked: { semanticSettings.semantic.clear(); semanticSettings.refreshCount() } }
                 }
             }
             Label {
@@ -149,7 +149,7 @@ UiControls.Dialog {
                         checked: ocrSettings.status.found && ocrSettings.status.enabled
                         onToggled: researchStore.setOcr(checked, ocrLanguages.text)
                     }
-                    UiControls.TextField {
+                    TextField {
                         id: ocrLanguages
                         objectName: "ocrLanguages"
                         visible: ocrSettings.status.found && ocrSettings.status.enabled
@@ -168,7 +168,7 @@ UiControls.Dialog {
                     ? "Pages without a text layer are read by Tesseract (" + ocrSettings.status.program + ") in the background and become searchable. OCR text is for search only; it cannot be selected on the page."
                     : "To search scanned PDFs, install Tesseract: macOS `brew install tesseract tesseract-lang`, Linux `sudo apt install tesseract-ocr tesseract-ocr-kor`, Windows the UB Mannheim installer. Owelk finds it on its next start."
             }
-            UiControls.Dialog {
+            Dialog {
                 id: semanticConsent
                 objectName: "semanticConsent"
                 parent: Overlay.overlay
@@ -188,7 +188,7 @@ UiControls.Dialog {
                 Layout.fillWidth: true
                 columns: 2; columnSpacing: 10; rowSpacing: 8
                 Label { text: "Preferred language"; color: Theme.text }
-                UiControls.ComboBox {
+                ComboBox {
                     id: languageBox; objectName: "aiLanguageBox"
                     Layout.fillWidth: true
                     model: root.languages.map(function(l) { return l.name })
@@ -220,7 +220,7 @@ UiControls.Dialog {
                     if (current.id === "ollama") ai.listOllamaModels()
                 }
                 Label { text: "Provider"; color: Theme.text }
-                UiControls.ComboBox {
+                ComboBox {
                     objectName: "aiSettingsProvider"
                     Layout.fillWidth: true
                     textRole: "name"
@@ -235,18 +235,18 @@ UiControls.Dialog {
                 RowLayout {
                     visible: aiSettings.needsKey
                     Layout.fillWidth: true
-                    UiControls.TextField {
+                    TextField {
                         id: keyField; objectName: "aiKeyField"
                         Layout.fillWidth: true
                         echoMode: TextInput.Password
                         placeholderText: aiSettings.keyStored ? "Stored securely" : "Paste your API key"
                     }
-                    UiControls.Button {
+                    Button {
                         objectName: "aiSaveKey"; text: "Save"; enabled: keyField.text.trim().length > 0
                         onClicked: { if (aiSettings.ai.setApiKey(aiSettings.keyProvider, keyField.text)) keyField.clear() }
                     }
-                    UiControls.Button { text: "Remove"; enabled: aiSettings.keyStored; onClicked: aiSettings.ai.clearApiKey(aiSettings.keyProvider) }
-                    UiControls.Button {
+                    Button { text: "Remove"; enabled: aiSettings.keyStored; onClicked: aiSettings.ai.clearApiKey(aiSettings.keyProvider) }
+                    Button {
                         objectName: "aiGetKey"
                         visible: !aiSettings.keyStored && (aiSettings.keyProvider === "claude" || aiSettings.keyProvider === "openai")
                         text: "Get a Key…"
@@ -263,7 +263,7 @@ UiControls.Dialog {
                             : aiSettings.codexAccount.signedIn ? "Signed in" + (aiSettings.codexAccount.email ? " as " + aiSettings.codexAccount.email : "")
                             : "Not signed in"
                     }
-                    UiControls.Button {
+                    Button {
                         objectName: "codexSignIn"
                         text: aiSettings.codexAccount.signedIn ? "Sign Out" : "Sign in with ChatGPT"
                         enabled: aiSettings.codexAccount.available !== false
@@ -271,7 +271,7 @@ UiControls.Dialog {
                     }
                 }
                 Label { visible: aiSettings.current.id === "ollama"; text: "Host"; color: Theme.text }
-                UiControls.TextField {
+                TextField {
                     visible: aiSettings.current.id === "ollama"
                     Layout.fillWidth: true
                     text: researchStore.setting("ai.baseUrl.ollama", "http://127.0.0.1:11434/")
@@ -280,14 +280,14 @@ UiControls.Dialog {
                 Label { text: "Model"; color: Theme.text }
                 RowLayout {
                     Layout.fillWidth: true
-                    UiControls.TextField {
+                    TextField {
                         objectName: "aiModelField"
                         Layout.fillWidth: true
                         text: aiSettings.current.model || ""
                         placeholderText: aiSettings.current.id === "codex" ? "Account default" : aiSettings.current.defaultModel || "Model name"
                         onEditingFinished: aiSettings.ai.setModel(aiSettings.current.id, text)
                     }
-                    UiControls.ComboBox {
+                    ComboBox {
                         visible: aiSettings.current.id === "ollama" && aiSettings.ollamaModels.length > 0
                         Layout.preferredWidth: 160
                         model: aiSettings.ollamaModels
@@ -297,7 +297,7 @@ UiControls.Dialog {
                 Item { width: 1; height: 1 }
                 RowLayout {
                     Layout.fillWidth: true
-                    UiControls.Button { objectName: "aiTestConnection"; text: "Test Connection"; onClicked: { aiSettings.testResult = "Testing…"; aiSettings.ai.testConnection(aiSettings.current.id) } }
+                    Button { objectName: "aiTestConnection"; text: "Test Connection"; onClicked: { aiSettings.testResult = "Testing…"; aiSettings.ai.testConnection(aiSettings.current.id) } }
                     Label { objectName: "aiTestResult"; Layout.fillWidth: true; text: aiSettings.testResult; elide: Text.ElideRight; color: Theme.textSecondary; font.pixelSize: 12 }
                 }
             }
@@ -321,14 +321,14 @@ UiControls.Dialog {
                 Label { text: "Backup"; color: Theme.text }
                 RowLayout {
                     Layout.fillWidth: true
-                    UiControls.Button {
+                    Button {
                         objectName: "backUpNow"
                         text: researchStore.backingUp ? "Backing Up…" : "Back Up Now…"
                         enabled: !researchStore.backingUp
                         onClicked: backupFolderDialog.open()
                     }
-                    UiControls.Button { objectName: "restoreBackup"; text: "Restore…"; onClicked: restoreFolderDialog.open() }
-                    UiControls.Button { objectName: "exportNotes"; text: "Export Notes…"; onClicked: notesFolderDialog.open() }
+                    Button { objectName: "restoreBackup"; text: "Restore…"; onClicked: restoreFolderDialog.open() }
+                    Button { objectName: "exportNotes"; text: "Export Notes…"; onClicked: notesFolderDialog.open() }
                     Item { Layout.fillWidth: true }
                 }
                 Item { width: 1; height: 1 }
@@ -371,7 +371,7 @@ UiControls.Dialog {
                         readonly property string current: Shortcuts.keys(modelData.id, shortcutSettings.overrides, Qt.platform.os)
                         readonly property bool clash: current.length > 0 && !!shortcutSettings.clashes[current]
                         Label { Layout.fillWidth: true; text: shortcutRow.modelData.name; color: Theme.text; elide: Text.ElideRight }
-                        UiControls.Button {
+                        Button {
                             id: keyButton
                             objectName: "shortcut-" + shortcutRow.modelData.id
                             Layout.preferredWidth: 150
@@ -409,7 +409,7 @@ UiControls.Dialog {
                         text: Object.keys(shortcutSettings.clashes).length ? "Some shortcuts are used twice (in red); only one of them will work."
                             : "Click a shortcut and press the new keys. Esc cancels, Backspace turns it off."
                     }
-                    UiControls.Button { objectName: "resetShortcuts"; text: "Reset All"; onClicked: shortcutSettings.resetAll() }
+                    Button { objectName: "resetShortcuts"; text: "Reset All"; onClicked: shortcutSettings.resetAll() }
                 }
             }
         }
@@ -435,7 +435,7 @@ UiControls.Dialog {
             restoreConfirm.open()
         }
     }
-    UiControls.Dialog {
+    Dialog {
         id: restoreConfirm
         objectName: "restoreConfirm"
         parent: Overlay.overlay

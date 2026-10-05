@@ -6,6 +6,7 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QQuickStyle>
+#include <QtQml/QQmlExtensionPlugin>
 #include <QPdfDocument>
 #include <QPdfSelection>
 #include <QMouseEvent>
@@ -33,6 +34,8 @@
 #include <memory>
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
 #include <QtTest/QTest>
+
+Q_IMPORT_QML_PLUGIN(OwelkStylePlugin)
 
 class ReaderSetup : public QObject {
     Q_OBJECT
@@ -103,7 +106,7 @@ public:
 public slots:
     void applicationAvailable()
     {
-        QQuickStyle::setStyle("Basic");
+        QQuickStyle::setStyle("OwelkStyle");
         writeFixture(m_directory.filePath("fixture.pdf"));
         QImage preview(80, 60, QImage::Format_RGB32);
         preview.fill(Qt::blue);

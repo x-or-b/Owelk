@@ -23,7 +23,7 @@ Rectangle {
         return url.length > 0
     }
     readonly property var deletedWorkspaces: (researchStore.recentWorkspaces, researchStore.deletedWorkspaces())
-    UiControls.Dialog {
+    Dialog {
         id: deletedDialog
         objectName: "deletedWorkspacesDialog"
         parent: Overlay.overlay
@@ -41,7 +41,7 @@ Rectangle {
                     required property var modelData
                     Layout.fillWidth: true
                     Label { Layout.fillWidth: true; text: modelData.name + "  ·  " + modelData.papers + " papers"; elide: Text.ElideRight; textFormat: Text.PlainText }
-                    UiControls.Button {
+                    Button {
                         objectName: "restoreWorkspace-" + modelData.id
                         text: "Restore"
                         // Restoring removes this row; finish with the delegate before the list changes.
@@ -84,7 +84,7 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: 8
                 Label { text: "Search your research"; font.pixelSize: 22; font.weight: Font.Medium; color: Theme.text }
-                UiControls.TextField {
+                TextField {
                     id: searchInput
                     objectName: "homeSearch"
                     Layout.fillWidth: true
@@ -102,7 +102,7 @@ Rectangle {
                 }
                 SearchFilters { Layout.fillWidth: true; controller: searchModel }
                 // The web, from the same page: an address opens it, words search with the chosen engine.
-                UiControls.TextField {
+                TextField {
                     id: webInput
                     objectName: "homeWebSearch"
                     Layout.fillWidth: true
@@ -157,7 +157,7 @@ Rectangle {
                             font.pixelSize: 11
                         }
                     }
-                    UiControls.Button {
+                    Button {
                         objectName: "continueReading"
                         text: root.continuation.source ? "Continue" : "Open PDF…"
                         onClicked: {
@@ -192,14 +192,14 @@ Rectangle {
                     }
                     Repeater {
                         model: researchStore.recentWorkspaces
-                        delegate: UiControls.ItemDelegate {
+                        delegate: ItemDelegate {
                             id: workspaceItem
                             required property var modelData
                             Layout.fillWidth: true
                             implicitHeight: 44
                             text: modelData.name + "  ·  " + modelData.papers + " papers"
                             rightPadding: 36
-                            UiControls.ToolButton {
+                            ToolButton {
                                 anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
                                 width: 32; text: "…"; Accessible.name: "Manage workspace"
                                 onClicked: root.workspaceManageRequested(workspaceItem.modelData.id)
@@ -238,7 +238,7 @@ Rectangle {
             }
         }
     }
-    UiControls.Dialog {
+    Dialog {
         id: workspaceDialog
         parent: Overlay.overlay
         anchors.centerIn: parent
@@ -246,7 +246,7 @@ Rectangle {
         modal: true
         standardButtons: Dialog.Ok | Dialog.Cancel
         onOpened: { workspaceName.clear(); workspaceName.forceActiveFocus() }
-        UiControls.TextField { id: workspaceName; placeholderText: "Workspace name"; maximumLength: 120; onAccepted: workspaceDialog.accept() }
+        TextField { id: workspaceName; placeholderText: "Workspace name"; maximumLength: 120; onAccepted: workspaceDialog.accept() }
         onAccepted: root.workspaceCreated(workspaceName.text)
     }
 }

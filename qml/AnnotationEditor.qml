@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 import Owelk.Ui
 
-UiControls.Dialog {
+Dialog {
     id: root
     objectName: "annotationEditor"
     property var readerCanvas
@@ -129,14 +129,14 @@ UiControls.Dialog {
             visible: root.savedDraft.length > 0
             Layout.fillWidth: true
             Label { Layout.fillWidth: true; text: "Unsaved text from last time is kept."; color: Theme.textSecondary; font.pixelSize: 12 }
-            UiControls.Button { objectName: "restoreAnnotationDraft"; text: "Restore"; onClicked: { body.text = root.savedDraft; root.savedDraft = "" } }
-            UiControls.Button { text: "Discard"; onClicked: { researchStore.clearDraft(root.draftKey); root.savedDraft = "" } }
+            Button { objectName: "restoreAnnotationDraft"; text: "Restore"; onClicked: { body.text = root.savedDraft; root.savedDraft = "" } }
+            Button { text: "Discard"; onClicked: { researchStore.clearDraft(root.draftKey); root.savedDraft = "" } }
         }
         ScrollView {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: root.record.kind !== "image"
-            UiControls.TextArea {
+            TextArea {
                 id: body
                 objectName: "annotationBody"
                 placeholderText: root.record.kind === "text" ? "Enter text…" : "Write a comment…"
@@ -157,7 +157,7 @@ UiControls.Dialog {
             fillMode: Image.PreserveAspectFit
             sourceSize.width: 500
         }
-        UiControls.Button {
+        Button {
             visible: root.record.kind === "image"
             text: "Choose / Replace Image…"
             enabled: !root.saving
@@ -179,7 +179,7 @@ UiControls.Dialog {
             Label {
                 text: "Height %"
             }
-            UiControls.TextField {
+            TextField {
                 id: left
                 Layout.fillWidth: true
                 validator: DoubleValidator {
@@ -189,7 +189,7 @@ UiControls.Dialog {
                 }
                 onTextEdited: root.geometryDirty = true
             }
-            UiControls.TextField {
+            TextField {
                 id: top
                 Layout.fillWidth: true
                 validator: DoubleValidator {
@@ -199,7 +199,7 @@ UiControls.Dialog {
                 }
                 onTextEdited: root.geometryDirty = true
             }
-            UiControls.TextField {
+            TextField {
                 id: span
                 Layout.fillWidth: true
                 validator: DoubleValidator {
@@ -209,7 +209,7 @@ UiControls.Dialog {
                 }
                 onTextEdited: root.geometryDirty = true
             }
-            UiControls.TextField {
+            TextField {
                 id: tall
                 Layout.fillWidth: true
                 validator: DoubleValidator {
@@ -221,7 +221,7 @@ UiControls.Dialog {
             }
         }
         RowLayout {
-            UiControls.Button {
+            Button {
                 text: "Color…"
                 onClicked: colors.open()
             }
@@ -234,13 +234,13 @@ UiControls.Dialog {
             Item {
                 Layout.fillWidth: true
             }
-            UiControls.Button {
+            Button {
                 objectName: "cancelAnnotation"
                 text: "Cancel"
                 enabled: !root.saving
                 onClicked: root.requestClose()
             }
-            UiControls.Button {
+            Button {
                 objectName: "saveAnnotation"
                 text: root.saving ? "Saving…" : "Save"
                 enabled: !root.saving && !researchStore.busy
@@ -260,7 +260,7 @@ UiControls.Dialog {
         nameFilters: ["Images (*.png *.jpg *.jpeg *.webp *.heic *.heif *.HEIC *.HEIF)"]
         onAccepted: root.chosenImage = selectedFile.toString()
     }
-    UiControls.Dialog {
+    Dialog {
         id: discard
         parent: Overlay.overlay
         anchors.centerIn: parent

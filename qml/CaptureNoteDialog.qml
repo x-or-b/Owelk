@@ -3,7 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-UiControls.Dialog {
+Dialog {
     id: root
     objectName: "captureNoteDialog"
     parent: Overlay.overlay
@@ -52,7 +52,7 @@ UiControls.Dialog {
         ScrollView {
             visible: root.capture.kind === "text"
             Layout.fillWidth: true; Layout.preferredHeight: 110
-            UiControls.TextArea {
+            TextArea {
                 objectName: "noteSourceText"
                 text: root.capture.text || ""; textFormat: TextEdit.PlainText
                 readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap
@@ -72,12 +72,12 @@ UiControls.Dialog {
             visible: root.savedDraft.length > 0
             Layout.fillWidth: true
             Label { Layout.fillWidth: true; text: "Unsaved text from last time is kept."; color: Theme.textSecondary; font.pixelSize: 12 }
-            UiControls.Button { objectName: "restoreCaptureNoteDraft"; text: "Restore"; onClicked: { editor.text = root.savedDraft; root.savedDraft = "" } }
-            UiControls.Button { text: "Discard"; onClicked: { researchStore.clearDraft(root.draftKey); root.savedDraft = "" } }
+            Button { objectName: "restoreCaptureNoteDraft"; text: "Restore"; onClicked: { editor.text = root.savedDraft; root.savedDraft = "" } }
+            Button { text: "Discard"; onClicked: { researchStore.clearDraft(root.draftKey); root.savedDraft = "" } }
         }
         ScrollView {
             Layout.fillWidth: true; Layout.fillHeight: true
-            UiControls.TextArea {
+            TextArea {
                 id: editor
                 objectName: "captureNoteEditor"
                 placeholderText: "Your interpretation, questions, or comparison with another paper…"
@@ -92,13 +92,13 @@ UiControls.Dialog {
         Label { Layout.fillWidth: true; visible: root.error.length > 0; text: root.error; wrapMode: Text.Wrap; color: Theme.danger }
         RowLayout {
             Layout.fillWidth: true
-            UiControls.Button {
+            Button {
                 objectName: "deleteCaptureNote"
                 text: "Delete note"; visible: root.original.trim().length > 0
                 palette.buttonText: Theme.danger
                 onClicked: deleteDialog.open()
             }
-            UiControls.Button {
+            Button {
                 text: "View source"
                 onClicked: {
                     if (root.dirty && !root.saveNote()) return
@@ -107,11 +107,11 @@ UiControls.Dialog {
                 ToolTip.visible: hovered; ToolTip.text: "Save any edits and view the original PDF"
             }
             Item { Layout.fillWidth: true }
-            UiControls.Button { objectName: "cancelCaptureNote"; text: "Cancel"; onClicked: root.requestClose() }
-            UiControls.Button { objectName: "saveCaptureNote"; text: "Save"; enabled: editor.text.length <= 10000; onClicked: if (root.saveNote()) root.close() }
+            Button { objectName: "cancelCaptureNote"; text: "Cancel"; onClicked: root.requestClose() }
+            Button { objectName: "saveCaptureNote"; text: "Save"; enabled: editor.text.length <= 10000; onClicked: if (root.saveNote()) root.close() }
         }
     }
-    UiControls.Dialog {
+    Dialog {
         id: discardDialog
         objectName: "discardNoteDialog"
         parent: Overlay.overlay; anchors.centerIn: parent
@@ -120,7 +120,7 @@ UiControls.Dialog {
         Label { text: "The previously saved note will be kept." }
         onDiscarded: { researchStore.clearDraft(root.draftKey); editor.text = root.original; root.close(); close() }
     }
-    UiControls.Dialog {
+    Dialog {
         id: deleteDialog
         objectName: "deleteNoteDialog"
         parent: Overlay.overlay; anchors.centerIn: parent

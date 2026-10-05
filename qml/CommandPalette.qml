@@ -4,7 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "PaletteMatch.js" as Match
 
-UiControls.Popup {
+Popup {
     id: root
     objectName: "commandPalette"
     width: Math.min(640, parent ? parent.width - 32 : 640)
@@ -64,7 +64,7 @@ UiControls.Popup {
     background: Rectangle { color: Theme.raised; border.color: Theme.border; radius: Theme.radius }
     contentItem: ColumnLayout {
         spacing: 8
-        UiControls.TextField {
+        TextField {
             id: query
             objectName: "paletteQuery"
             Layout.fillWidth: true
@@ -83,7 +83,7 @@ UiControls.Popup {
             model: root.results
             clip: true
             ScrollBar.vertical: ScrollBar {}
-            delegate: UiControls.ItemDelegate {
+            delegate: ItemDelegate {
                 required property int index
                 required property var modelData
                 width: list.width; height: 36

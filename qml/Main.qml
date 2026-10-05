@@ -313,7 +313,7 @@ ApplicationWindow {
         onResultChosen: function(result) { window.openSearchResult(result) }
     }
     menuBar: MenuBar {
-        UiControls.Menu {
+        Menu {
             title: "File"
             Action { text: "Open PDF…"; shortcut: StandardKey.Open; onTriggered: window.chooseFile() }
             Action { objectName: "newNoteAction"; text: "New Note"; shortcut: window.keys("newNote"); enabled: !window.restoreFailed; onTriggered: documents.newNote() }
@@ -327,7 +327,7 @@ ApplicationWindow {
             MenuSeparator {}
             Action { text: "Quit"; shortcut: StandardKey.Quit; onTriggered: window.close() }
         }
-        UiControls.Menu {
+        Menu {
             title: "View"
             Action { text: "Home"; shortcut: window.keys("home"); onTriggered: window.showHome() }
             Action { objectName: "libraryAction"; text: "Library"; shortcut: window.keys("library"); enabled: !window.restoreFailed; onTriggered: documents.openLibrary({}) }
@@ -385,7 +385,7 @@ ApplicationWindow {
                 ToolTip.text: researchStore.localPath(duplicateBar.existing)
                 HoverHandler { id: duplicateHover }
             }
-            UiControls.Button {
+            Button {
                 objectName: "openExistingCopy"; text: "Open Existing"; focusPolicy: Qt.NoFocus
                 onClicked: {
                     if (researchStore.useExistingCopy(duplicateBar.source, duplicateBar.existing))
@@ -393,7 +393,7 @@ ApplicationWindow {
                     duplicateBar.close()
                 }
             }
-            UiControls.Button {
+            Button {
                 objectName: "keepBothCopies"; text: "Keep Both"; focusPolicy: Qt.NoFocus
                 onClicked: { researchStore.keepDuplicate(duplicateBar.source); duplicateBar.close() }
             }

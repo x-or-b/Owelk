@@ -4,7 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs as Native
 
-UiControls.Dialog {
+Dialog {
     id: root
     objectName: "workspaceManager"
     parent: Overlay.overlay
@@ -16,9 +16,9 @@ UiControls.Dialog {
     footer: RowLayout {
         spacing: 8
         Item { Layout.preferredWidth: 4 }
-        UiControls.Button { objectName: "deleteWorkspaceButton"; text: "Delete workspace…"; palette.buttonText: Theme.danger; onClicked: deleteDialog.open() }
+        Button { objectName: "deleteWorkspaceButton"; text: "Delete workspace…"; palette.buttonText: Theme.danger; onClicked: deleteDialog.open() }
         Item { Layout.fillWidth: true }
-        UiControls.Button { objectName: "closeWorkspaceButton"; text: "Close"; onClicked: root.reject() }
+        Button { objectName: "closeWorkspaceButton"; text: "Close"; onClicked: root.reject() }
         Item { Layout.preferredWidth: 4 }
     }
     property string workspaceId: ""
@@ -48,16 +48,16 @@ UiControls.Dialog {
         spacing: 10
         RowLayout {
             Layout.fillWidth: true
-            UiControls.TextField { id: nameField; objectName: "workspaceNameEditor"; Layout.fillWidth: true; maximumLength: 120; selectByMouse: true }
-            UiControls.Button {
+            TextField { id: nameField; objectName: "workspaceNameEditor"; Layout.fillWidth: true; maximumLength: 120; selectByMouse: true }
+            Button {
                 objectName: "renameWorkspaceButton"; text: "Rename"
                 enabled: nameField.text.trim().length > 0 && nameField.text.trim() !== root.details.name
                 onClicked: root.error = researchStore.renameWorkspace(root.workspaceId, nameField.text) ? "" : "Could not rename this workspace."
             }
         }
         RowLayout {
-            UiControls.Button { text: "Documents (" + (root.details.documents || []).length + ")"; checkable: true; checked: root.mode === 0; onClicked: root.mode = 0 }
-            UiControls.Button { text: "Captures (" + (root.details.captures || []).length + ")"; checkable: true; checked: root.mode === 1; onClicked: root.mode = 1 }
+            Button { text: "Documents (" + (root.details.documents || []).length + ")"; checkable: true; checked: root.mode === 0; onClicked: root.mode = 0 }
+            Button { text: "Captures (" + (root.details.captures || []).length + ")"; checkable: true; checked: root.mode === 1; onClicked: root.mode = 1 }
             Item { Layout.fillWidth: true }
         }
         Label {
@@ -67,18 +67,18 @@ UiControls.Dialog {
         }
         RowLayout {
             visible: root.mode === 0
-            UiControls.Button { objectName: "linkCurrentDocument"; text: "Link current PDF"; enabled: root.currentSource.toString().length > 0; onClicked: root.linkDocument(root.currentSource, true) }
-            UiControls.Button { text: "Link PDF…"; onClicked: pdfPicker.open() }
+            Button { objectName: "linkCurrentDocument"; text: "Link current PDF"; enabled: root.currentSource.toString().length > 0; onClicked: root.linkDocument(root.currentSource, true) }
+            Button { text: "Link PDF…"; onClicked: pdfPicker.open() }
         }
         RowLayout {
             visible: root.mode === 1; Layout.fillWidth: true
-            UiControls.ComboBox {
+            ComboBox {
                 id: capturePicker; objectName: "workspaceCapturePicker"
                 Layout.fillWidth: true
                 textRole: "label"
                 model: root.availableCaptures.map(function(c) { return {id: c.id, label: c.name + " · p. " + (Number(c.page) + 1) + " · " + (c.text || c.note || "Region capture").slice(0, 90)} })
                 contentItem: Text { text: capturePicker.displayText; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
-                delegate: UiControls.ItemDelegate {
+                delegate: ItemDelegate {
                     required property var modelData
                     required property int index
                     width: capturePicker.width; highlighted: capturePicker.highlightedIndex === index
@@ -86,7 +86,7 @@ UiControls.Dialog {
                     contentItem: Text { text: modelData.label; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideMiddle; verticalAlignment: Text.AlignVCenter }
                 }
             }
-            UiControls.Button { objectName: "linkCaptureButton"; text: "Link capture"; enabled: capturePicker.currentIndex >= 0 && root.availableCaptures.length > 0; onClicked: root.linkCapture(root.availableCaptures[capturePicker.currentIndex].id, true) }
+            Button { objectName: "linkCaptureButton"; text: "Link capture"; enabled: capturePicker.currentIndex >= 0 && root.availableCaptures.length > 0; onClicked: root.linkCapture(root.availableCaptures[capturePicker.currentIndex].id, true) }
         }
         ListView {
             id: list; objectName: "workspaceLinksList"
@@ -123,7 +123,7 @@ UiControls.Dialog {
         id: pdfPicker; title: "Link PDF to workspace"; nameFilters: ["PDF files (*.pdf)"]
         onAccepted: root.linkDocument(selectedFile, true)
     }
-    UiControls.Dialog {
+    Dialog {
         id: deleteDialog; objectName: "deleteWorkspaceDialog"
         parent: Overlay.overlay; anchors.centerIn: parent
         width: Math.min(420, parent.width - 32)

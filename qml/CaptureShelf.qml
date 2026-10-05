@@ -14,7 +14,7 @@ Rectangle {
     signal noteRequested(string id)
     function requestDelete(id) { deletingId = id; deleteDialog.open() }
     function viewText(capture) { viewingCapture = capture; textDialog.open() }
-    UiControls.Dialog {
+    Dialog {
         id: textDialog
         objectName: "excerptDialog"
         parent: Overlay.overlay
@@ -37,7 +37,7 @@ Rectangle {
             ScrollView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                UiControls.TextArea {
+                TextArea {
                     objectName: "excerptText"
                     text: root.viewingCapture.text || ""
                     textFormat: TextEdit.PlainText
@@ -57,7 +57,7 @@ Rectangle {
             }
         }
     }
-    UiControls.Dialog {
+    Dialog {
         id: deleteDialog
         objectName: "deleteCaptureDialog"
         parent: Overlay.overlay
@@ -71,7 +71,7 @@ Rectangle {
     }
     property string purgingId: ""
     LinkToNoteDialog { id: linkToNote }
-    UiControls.Dialog {
+    Dialog {
         id: purgeDialog
         objectName: "purgeCaptureDialog"
         parent: Overlay.overlay
@@ -83,7 +83,7 @@ Rectangle {
         Label { width: 310; wrapMode: Text.Wrap; text: "This capture, its text and note cannot be recovered. The original PDF will be kept." }
         onAccepted: { const id = root.purgingId; Qt.callLater(function() { researchStore.purgeCapture(id) }) }
     }
-    UiControls.Dialog {
+    Dialog {
         id: emptyDialog
         objectName: "emptyTrashDialog"
         parent: Overlay.overlay
@@ -106,18 +106,16 @@ Rectangle {
         TabBar {
             Layout.fillWidth: true
             currentIndex: root.showingTrash ? 1 : 0
-            UiControls.TabButton {
+            TabButton {
                 id: savedTab
                 objectName: "savedCapturesTab"
                 text: "Saved"
-                background: Rectangle { color: savedTab.checked ? Theme.selected : Theme.window; border.color: Theme.border }
                 onClicked: root.showingTrash = false
             }
-            UiControls.TabButton {
+            TabButton {
                 id: trashTab
                 objectName: "captureTrashTab"
                 text: "Trash (" + researchStore.trashedCaptures.length + ")"
-                background: Rectangle { color: trashTab.checked ? Theme.selected : Theme.window; border.color: Theme.border }
                 onClicked: root.showingTrash = true
             }
         }
@@ -128,7 +126,7 @@ Rectangle {
                 text: root.showingTrash ? researchStore.trashedCaptures.length + " deleted" : researchStore.captures.length + " saved"
                 elide: Text.ElideRight; font.pixelSize: 12; color: Theme.textTertiary
             }
-            UiControls.ToolButton {
+            ToolButton {
                 objectName: "emptyTrashButton"
                 visible: root.showingTrash
                 enabled: researchStore.trashedCaptures.length > 0
@@ -155,7 +153,7 @@ Rectangle {
             clip: true
             model: root.showingTrash ? researchStore.trashedCaptures : researchStore.captures
             ScrollBar.vertical: ScrollBar {}
-            delegate: UiControls.ItemDelegate {
+            delegate: ItemDelegate {
                 id: card
                 required property var modelData
                 objectName: (root.showingTrash ? "trashedCaptureCard-" : "captureCard-") + modelData.id
@@ -177,21 +175,21 @@ Rectangle {
                     enabled: !root.showingTrash
                     onClicked: function(mouse) { captureMenu.popup(card, mouse.x, mouse.y) }
                 }
-                UiControls.Menu {
+                Menu {
                     id: captureMenu
                     objectName: "captureMenu-" + card.modelData.id
-                    UiControls.MenuItem { objectName: "readExcerpt-" + card.modelData.id; text: "Read Excerpt…"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: root.viewText(card.modelData) }
-                    UiControls.MenuItem { text: "Copy Text"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: researchStore.copyText(card.modelData.text) }
-                    UiControls.MenuItem { text: card.modelData.note ? "Edit Note…" : "Add Note…"; onTriggered: root.noteRequested(card.modelData.id) }
-                    UiControls.MenuItem {
+                    MenuItem { objectName: "readExcerpt-" + card.modelData.id; text: "Read Excerpt…"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: root.viewText(card.modelData) }
+                    MenuItem { text: "Copy Text"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: researchStore.copyText(card.modelData.text) }
+                    MenuItem { text: card.modelData.note ? "Edit Note…" : "Add Note…"; onTriggered: root.noteRequested(card.modelData.id) }
+                    MenuItem {
                         objectName: "explainCapture-" + card.modelData.id
                         text: "Explain with AI"
                         onTriggered: root.aiRequested({action: card.modelData.kind === "text" ? "explain" : "figure", scope: "none",
                                                        captureId: card.modelData.id, source: card.modelData.kind === "web" ? "" : card.modelData.source, page: card.modelData.page})
                     }
-                    UiControls.MenuItem { objectName: "linkCaptureToNote-" + card.modelData.id; text: "Link to Note…"; onTriggered: linkToNote.begin("capture", card.modelData.id) }
-                    UiControls.MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(card.modelData.source) }
-                    UiControls.MenuItem {
+                    MenuItem { objectName: "linkCaptureToNote-" + card.modelData.id; text: "Link to Note…"; onTriggered: linkToNote.begin("capture", card.modelData.id) }
+                    MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(card.modelData.source) }
+                    MenuItem {
                         text: "Delete"
                         palette.text: Theme.danger
                         palette.windowText: Theme.danger
@@ -199,7 +197,7 @@ Rectangle {
                         onTriggered: root.requestDelete(card.modelData.id)
                     }
                 }
-                UiControls.ToolButton {
+                ToolButton {
                     id: captureActions
                     objectName: "captureActions-" + card.modelData.id
                     anchors.right: parent.right; anchors.bottom: parent.bottom
@@ -264,7 +262,7 @@ Rectangle {
                         maximumLineCount: 3; elide: Text.ElideRight
                         font.pixelSize: 12; color: Theme.textSecondary
                     }
-                    UiControls.ToolButton {
+                    ToolButton {
                         objectName: "captureNoteButton-" + card.modelData.id
                         visible: !root.showingTrash
                         text: card.modelData.note ? "Edit note" : "Add note"

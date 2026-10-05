@@ -36,13 +36,15 @@ else()
     endif()
 endif()
 
+add_subdirectory(style)
+
 qt_add_executable(owelk MACOSX_BUNDLE src/main.cpp)
 qt_add_qml_module(owelk
     URI Owelk VERSION 1.0
-    QML_FILES qml/SearchFilters.qml qml/CaptureNoteDialog.qml qml/WorkspaceManager.qml qml/RoundedSurface.qml qml/UiControls.qml qml/IconButton.qml qml/Icon.qml qml/Icons.js qml/AnnotationColors.qml qml/AnnotationEditor.qml
+    QML_FILES qml/SearchFilters.qml qml/CaptureNoteDialog.qml qml/WorkspaceManager.qml qml/AnnotationColors.qml qml/AnnotationEditor.qml
     QML_FILES qml/Main.qml qml/ReaderPane.qml qml/PdfCanvas.qml qml/CaptureShelf.qml qml/CommandPalette.qml qml/FilePanel.qml qml/DockSidebar.qml qml/HomeView.qml qml/StatusIcon.qml qml/DocumentWorkspace.qml qml/DocumentGroup.qml qml/WorkspaceTree.js qml/RecentPaperDelegate.qml qml/PaletteMatch.js qml/StrokePath.js qml/SearchPalette.qml qml/PdfNavigationPanel.qml qml/ResearchSearch.qml qml/SearchResultDelegate.qml qml/IndexStatus.qml qml/RelinkDialog.qml qml/PaperDetailsDialog.qml qml/WebPane.qml qml/SettingsDialog.qml qml/LibraryView.qml qml/NotePane.qml qml/LinkToNoteDialog.qml qml/AiController.qml qml/AiPanel.qml qml/Platform.js qml/Shortcuts.js qml/OrganizeTabsDialog.qml
 )
-target_link_libraries(owelk PRIVATE owelk_core Qt6::Quick Qt6::QuickControls2 Qt6::PdfQuick Qt6::WebEngineQuick)
+target_link_libraries(owelk PRIVATE owelk_core owelk_styleplugin Qt6::Quick Qt6::QuickControls2 Qt6::PdfQuick Qt6::WebEngineQuick)
 set_target_properties(owelk PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME Owelk
     MACOSX_BUNDLE_GUI_IDENTIFIER org.owelk.reader
@@ -90,7 +92,7 @@ if(BUILD_TESTING)
     qt_add_executable(owelk_fixtures tests/fixtures.cpp)
     target_link_libraries(owelk_fixtures PRIVATE Qt6::Gui)
     qt_add_executable(owelk_ui_tests tests/ReaderUiTest.cpp)
-    target_link_libraries(owelk_ui_tests PRIVATE owelk_core Qt6::QuickTest Qt6::QuickControls2 Qt6::PdfQuick Qt6::WebEngineQuick Qt6::Network)
+    target_link_libraries(owelk_ui_tests PRIVATE owelk_core owelk_styleplugin Qt6::QuickTest Qt6::QuickControls2 Qt6::PdfQuick Qt6::WebEngineQuick Qt6::Network)
     target_compile_definitions(owelk_ui_tests PRIVATE QUICK_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests")
     add_test(NAME reader_interactions COMMAND owelk_ui_tests)
     set_tests_properties(reader_interactions PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")

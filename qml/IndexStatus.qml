@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Owelk.Ui
 
-UiControls.ToolButton {
+ToolButton {
     id: root
     objectName: "indexStatus"
     readonly property var indexer: researchStore.paperIndex
@@ -16,7 +16,7 @@ UiControls.ToolButton {
     ToolTip.visible: hovered
     ToolTip.text: "Local text index · Status, pause and retry"
     contentItem: Label { text: root.text; color: Theme.textTertiary; font: root.font; elide: Text.ElideMiddle }
-    UiControls.Dialog {
+    Dialog {
         id: details
         objectName: "indexDetails"
         parent: Overlay.overlay
@@ -39,7 +39,7 @@ UiControls.ToolButton {
                 model: details.visible ? root.records : []
                 clip: true
                 ScrollBar.vertical: ScrollBar {}
-                delegate: UiControls.ItemDelegate {
+                delegate: ItemDelegate {
                     required property var modelData
                     width: ListView.view.width
                     height: 76

@@ -1,10 +1,11 @@
 import QtQuick
 import QtTest
 import Owelk.Ui
-import "../qml/Icons.js" as Icons
+import OwelkStyle
 
 Item {
     width: 10; height: 10
+    Icon { id: probe }
     TestCase {
         name: "Icons"
         property int found: 0
@@ -15,7 +16,8 @@ Item {
             if (item.description !== undefined && item.icon !== undefined && item.swatch !== undefined) {
                 ++found
                 if (!item.description.length) problems.push("no description: " + (item.objectName || item.icon.name))
-                if (!Icons.glyph(item.icon.name).length) problems.push("unknown icon: " + item.icon.name)
+                probe.name = item.icon.name
+                if (!probe.text.length) problems.push("unknown icon: " + item.icon.name)
             }
             for (let i = 0; i < item.children.length; ++i) check(item.children[i], problems)
         }

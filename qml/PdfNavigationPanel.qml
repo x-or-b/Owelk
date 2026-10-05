@@ -67,34 +67,14 @@ Item {
             objectName: "navigationMode"
             Layout.fillWidth: true
             currentIndex: root.mode
-            UiControls.TabButton {
-                id: outlineTab
-                objectName: "outlineTab"
-                text: "Outline"
-                background: Rectangle { color: outlineTab.checked ? Theme.selected : Theme.window; border.color: Theme.border }
-                onClicked: root.modeChosen(0)
-            }
-            UiControls.TabButton {
-                id: thumbnailsTab
-                objectName: "thumbnailsTab"
-                text: "Thumbnails"
-                background: Rectangle { color: thumbnailsTab.checked ? Theme.selected : Theme.window; border.color: Theme.border }
-                onClicked: root.modeChosen(1)
-            }
-            UiControls.TabButton {
-                id: linksTab
-                objectName: "linksTab"
-                text: "Links" + (root.backlinks.length ? " (" + root.backlinks.length + ")" : "")
-                background: Rectangle { color: linksTab.checked ? Theme.selected : Theme.window; border.color: Theme.border }
+            TabButton { id: outlineTab; objectName: "outlineTab"; icon.name: "outline"; ToolTip.text: "Outline"; onClicked: root.modeChosen(0) }
+            TabButton { id: thumbnailsTab; objectName: "thumbnailsTab"; icon.name: "thumbnails"; ToolTip.text: "Thumbnails"; onClicked: root.modeChosen(1) }
+            TabButton {
+                id: linksTab; objectName: "linksTab"; icon.name: "link"
+                ToolTip.text: "Notes linking to this paper" + (root.backlinks.length ? " · " + root.backlinks.length : "")
                 onClicked: root.modeChosen(2)
             }
-            UiControls.TabButton {
-                id: relatedTab
-                objectName: "relatedTab"
-                text: "Related"
-                background: Rectangle { color: relatedTab.checked ? Theme.selected : Theme.window; border.color: Theme.border }
-                onClicked: root.modeChosen(3)
-            }
+            TabButton { id: relatedTab; objectName: "relatedTab"; icon.name: "related"; ToolTip.text: "Related papers and notes"; onClicked: root.modeChosen(3) }
         }
         Flickable {
             objectName: "relatedView"
@@ -110,7 +90,7 @@ Item {
                 Label { text: "Papers"; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4 }
                 Repeater {
                     model: root.relatedPapers
-                    delegate: UiControls.ItemDelegate {
+                    delegate: ItemDelegate {
                         required property var modelData
                         objectName: "relatedPaper-" + index
                         required property int index
@@ -129,7 +109,7 @@ Item {
                 Label { text: "Notes"; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 10 }
                 Repeater {
                     model: root.relatedNotes
-                    delegate: UiControls.ItemDelegate {
+                    delegate: ItemDelegate {
                         required property var modelData
                         Layout.fillWidth: true
                         text: modelData.title
@@ -151,7 +131,7 @@ Item {
             visible: root.mode === 2 && root.ready
             clip: true
             model: root.backlinks
-            delegate: UiControls.ItemDelegate {
+            delegate: ItemDelegate {
                 required property var modelData
                 width: ListView.view.width
                 text: modelData.title
@@ -217,7 +197,7 @@ Item {
             reuseItems: true
             spacing: 10
             ScrollBar.vertical: ScrollBar {}
-            delegate: UiControls.ItemDelegate {
+            delegate: ItemDelegate {
                 id: thumb
                 required property int index
                 objectName: "thumbnail-" + index

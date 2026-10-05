@@ -72,10 +72,10 @@ Item {
                         elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: 11
                     }
                 }
-                UiControls.Menu {
+                Menu {
                     id: threadMenu
-                    UiControls.MenuItem { text: "Rename…"; onTriggered: { renameDialog.threadId = row.modelData.id; renameField.text = row.modelData.title; renameDialog.open() } }
-                    UiControls.MenuItem { text: "Delete"; onTriggered: { const id = row.modelData.id; Qt.callLater(function() { root.c.deleteThread(id) }) } }
+                    MenuItem { text: "Rename…"; onTriggered: { renameDialog.threadId = row.modelData.id; renameField.text = row.modelData.title; renameDialog.open() } }
+                    MenuItem { text: "Delete"; onTriggered: { const id = row.modelData.id; Qt.callLater(function() { root.c.deleteThread(id) }) } }
                 }
             }
             Label {
@@ -162,7 +162,7 @@ Item {
                     text: root.c ? root.c.error : ""; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; textFormat: Text.PlainText
                     color: Theme.danger; font.pixelSize: 12
                 }
-                UiControls.Button {
+                Button {
                     objectName: "aiOpenSettings"
                     visible: root.c && root.c.error.indexOf("Settings") >= 0
                     text: "Open Settings…"; implicitHeight: 26
@@ -205,7 +205,7 @@ Item {
                 }
             }
         }
-        UiControls.TextArea {
+        TextArea {
             id: question
             objectName: "aiQuestion"
             Layout.minimumWidth: 0
@@ -234,7 +234,7 @@ Item {
             Layout.alignment: Qt.AlignBottom
             spacing: 4
             // A pop-up chip: its value and a chevron.
-            component Chip: UiControls.ToolButton {
+            component Chip: ToolButton {
                 id: chipButton
                 implicitHeight: Theme.controlHeightSmall
                 font.pixelSize: Theme.fontSmall
@@ -264,15 +264,15 @@ Item {
                 icon.name: "attach"
                 description: "Add context · page, selection, paper, a captured region or an image"
                 onClicked: attachMenu.popup(attachButton, 0, -attachMenu.implicitHeight)
-                UiControls.Menu {
+                Menu {
                     id: attachMenu
-                    UiControls.MenuItem { objectName: "aiAttachPage"; text: "Current Page"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.attach("page") }
-                    UiControls.MenuItem { text: "Selection"; enabled: root.c && root.c.reader && root.c.reader.selectedText.length > 0; onTriggered: root.c.attach("selection") }
-                    UiControls.MenuItem { text: "Whole Paper"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.attach("paper") }
+                    MenuItem { objectName: "aiAttachPage"; text: "Current Page"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.attach("page") }
+                    MenuItem { text: "Selection"; enabled: root.c && root.c.reader && root.c.reader.selectedText.length > 0; onTriggered: root.c.attach("selection") }
+                    MenuItem { text: "Whole Paper"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.attach("paper") }
                     MenuSeparator {}
-                    UiControls.MenuItem { objectName: "aiAttachCapture"; text: "Capture a Region"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.captureRegion() }
-                    UiControls.MenuItem { objectName: "aiAttachImage"; text: "Image…"; onTriggered: imageDialog.open() }
-                    UiControls.MenuItem { objectName: "aiPasteImage"; text: "Paste Image"; enabled: attachMenu.opened && root.c.ai.clipboardHasImage(); onTriggered: root.c.pasteImage() }
+                    MenuItem { objectName: "aiAttachCapture"; text: "Capture a Region"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.captureRegion() }
+                    MenuItem { objectName: "aiAttachImage"; text: "Image…"; onTriggered: imageDialog.open() }
+                    MenuItem { objectName: "aiPasteImage"; text: "Paste Image"; enabled: attachMenu.opened && root.c.ai.clipboardHasImage(); onTriggered: root.c.pasteImage() }
                 }
             }
             Chip {
@@ -289,12 +289,12 @@ Item {
                 text: root.c ? root.c.effortName(root.c.effectiveEffort) : ""
                 ToolTip.text: "Reasoning effort: higher thinks longer and costs more"
                 onClicked: effortMenu.popup(effortButton, 0, -effortMenu.implicitHeight)
-                UiControls.Menu {
+                Menu {
                     id: effortMenu
                     objectName: "aiEffortMenu"
                     Instantiator {
                         model: root.c ? root.c.efforts : []
-                        delegate: UiControls.MenuItem {
+                        delegate: MenuItem {
                             required property string modelData
                             objectName: "aiEffort-" + modelData
                             text: root.c.effortName(modelData)
@@ -350,7 +350,7 @@ Item {
         onAccepted: { for (const url of selectedFiles) root.c.attachImage(url) }
     }
     // Model picker: every set-up provider's models, grouped by company, with a filter.
-    UiControls.Popup {
+    Popup {
         id: modelMenu
         objectName: "aiModelMenu"
         parent: modelButton
@@ -363,7 +363,7 @@ Item {
         contentItem: ColumnLayout {
             id: pickerColumn
             spacing: 4
-            UiControls.TextField {
+            TextField {
                 id: modelFilter
                 objectName: "aiModelFilter"
                 Layout.fillWidth: true
@@ -401,7 +401,7 @@ Item {
                                 font.pixelSize: 11; color: Theme.textTertiary; Layout.leftMargin: 10
                             }
                             // A provider that lists no models (or is signed out) still runs its own default.
-                            UiControls.ItemDelegate {
+                            ItemDelegate {
                                 objectName: "aiModel-" + providerSection.modelData.id + "-default"
                                 visible: providerSection.loaded && (root.c.models[providerSection.modelData.id] || []).length === 0 && !providerSection.needle.length
                                 Layout.fillWidth: true
@@ -416,7 +416,7 @@ Item {
                             }
                             Repeater {
                                 model: providerSection.list
-                                delegate: UiControls.ItemDelegate {
+                                delegate: ItemDelegate {
                                     id: modelRow
                                     required property var modelData
                                     readonly property bool current: root.c.ai.provider === providerSection.modelData.id && root.c.model === modelData.id
@@ -441,7 +441,7 @@ Item {
                         }
                     }
                     // Providers that are not set up yet, in one line.
-                    UiControls.ItemDelegate {
+                    ItemDelegate {
                         objectName: "aiModelSetup"
                         readonly property var missing: root.c ? root.c.ai.providers.filter(function(p) { return !p.configured && p.id !== "ollama" }) : []
                         visible: missing.length > 0 && !modelFilter.text.length
@@ -457,7 +457,7 @@ Item {
             }
         }
     }
-    UiControls.Dialog {
+    Dialog {
         id: renameDialog
         parent: Overlay.overlay
         anchors.centerIn: parent
@@ -466,7 +466,7 @@ Item {
         title: "Rename Thread"
         property string threadId: ""
         standardButtons: Dialog.Ok | Dialog.Cancel
-        UiControls.TextField { id: renameField; objectName: "aiRenameField"; width: parent.width; onAccepted: renameDialog.accept() }
+        TextField { id: renameField; objectName: "aiRenameField"; width: parent.width; onAccepted: renameDialog.accept() }
         onAccepted: root.c.renameThread(threadId, renameField.text)
     }
 }

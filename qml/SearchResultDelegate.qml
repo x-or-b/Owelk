@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import "PaletteMatch.js" as Match
 import Owelk.Ui
 
-UiControls.ItemDelegate {
+ItemDelegate {
     id: root
     required property var modelData
     property string queryText: ""

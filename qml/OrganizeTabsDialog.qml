@@ -6,7 +6,7 @@ import QtQuick.Layouts
 
 // AI tab organization: shows what will be sent, asks the chosen provider for named groups, and applies
 // only the groups the reader keeps. Nothing about the tabs changes before Apply.
-UiControls.Dialog {
+Dialog {
     id: root
     objectName: "organizeTabsDialog"
     parent: Overlay.overlay
@@ -61,20 +61,20 @@ UiControls.Dialog {
         }
     }
     footer: DialogButtonBox {
-        UiControls.Button {
+        Button {
             objectName: "organizeAsk"
             text: root.asking ? "Asking…" : root.suggestions.length ? "Ask Again" : "Ask " + (root.providerInfo.name || "AI")
             enabled: !root.asking && root.tabs.length >= 2
             onClicked: root.ask()
         }
-        UiControls.Button {
+        Button {
             objectName: "organizeApply"
             text: "Apply"
             highlighted: true
             enabled: (root.revision, root.suggestions.some(function(g) { return g.keep && g.name.trim().length }))
             onClicked: root.apply()
         }
-        UiControls.Button { text: "Cancel"; onClicked: root.close() }
+        Button { text: "Cancel"; onClicked: root.close() }
     }
     contentItem: ColumnLayout {
         spacing: 8
@@ -110,7 +110,7 @@ UiControls.Dialog {
                         checked: suggestion.modelData.keep
                         onToggled: { root.suggestions[suggestion.index].keep = checked; root.revision++ }
                     }
-                    UiControls.TextField {
+                    TextField {
                         objectName: "organizeName-" + suggestion.index
                         Layout.fillWidth: true
                         text: suggestion.modelData.name

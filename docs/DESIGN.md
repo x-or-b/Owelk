@@ -1,7 +1,10 @@
 # UI shape tokens
 
 - 색·모서리·크기·글자 크기는 `Theme` 싱글턴(`src/ui/Theme.cpp`, QML `import Owelk.Ui`)이 정합니다. 테마는 시드 색 몇 개로 정의하고 나머지(호버·선택·보조 글자 등)는 시드에서 계산합니다. 모서리는 `radiusSmall 5`·`radius 7`·`radiusLarge 10`입니다.
-- 버튼, 도구 버튼, 탭 버튼, 입력창, 목록 항목, 메뉴, 검색 팔레트, 대화상자는 `UiControls.*`를 사용합니다. Qt Basic의 기존 크기·색상·입력 동작을 유지하고 배경의 모서리만 공통 값에 연결합니다. 대화상자 기본 확인/취소 버튼도 같은 값을 사용합니다.
+- 앱 전체가 자체 Qt Quick Controls 스타일 `OwelkStyle`(`style/`, Basic을 기반으로 다시 그림)을 씁니다. QML 파일은 그냥 `Button`, `Menu`, `TextField`… 를 쓰면 같은 규칙이 적용됩니다.
+- 상태 규칙(모든 컨트롤 공통): 호버 `Theme.hover` · 누름 `Theme.pressed` · 선택/켜짐 `Theme.selected` + `Theme.selectedText` · 키보드 포커스 `Theme.focus` 2px 테두리 · 주요 버튼(`primary`/`highlighted`, 대화상자의 확인 버튼) 강조색 채움 · 위험 동작은 빨간 글자.
+- 모양: 컨트롤·카드 `radius`, 도구 버튼·메뉴 행·목록 행 `radiusSmall`, 메뉴·팝오버·대화상자 `radiusLarge`. 탭 막대(`TabBar`)는 세그먼트 컨트롤(트랙 안에서 현재 칸이 올라옴)입니다.
+- 잘린 글자(`Label`의 elide)는 호버하면 전체가 툴팁으로 나옵니다(잘렸을 때만 동작). 메뉴는 가장 긴 항목만큼 넓어집니다. 스크롤바는 스크롤·호버 때만 보이는 얇은 둥근 손잡이입니다.
 - 직접 그리는 탭·카드·패널·캡처 위치 테두리는 같은 토큰을 참조합니다. 앞으로 모서리 강도를 바꿀 때 개별 화면마다 숫자를 수정하지 않습니다.
 - QML의 모든 색은 `Theme`의 이름 있는 토큰(텍스트·표면·컨트롤·테두리·스크롤바·주석 잉크)을 사용합니다. 화면 파일에 hex 값을 직접 쓰지 않습니다. 주석 잉크는 `Theme.annotationInks`와 C++ `ResearchStore::annotationColors()`가 같아야 하며 테스트로 확인합니다.
 - 강조색은 Cmd+K에서 사용하는 파란색 계열로 통일합니다. `accent = #426b9a`(기본), `accentMuted = #829ab4`(은은한 테두리), `accentSurface = #d9dfe6`(선택 배경), `accentOnDark = #c5dcf5`(어두운 바탕의 강조), `accentText = #243e60`(제목)을 공통 토큰으로 사용합니다. 기본 표면은 회색, 삭제·오류는 빨간색을 유지합니다.

@@ -3,7 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-UiControls.Popup {
+Popup {
     id: root
     objectName: "searchPalette"
     width: Math.min(600, parent ? parent.width - 32 : 600)
@@ -45,7 +45,7 @@ UiControls.Popup {
     background: Rectangle { color: Theme.raised; border.color: Theme.border; radius: Theme.radius }
     contentItem: ColumnLayout {
         spacing: 8
-        UiControls.TextField {
+        TextField {
             id: searchInput
             objectName: "searchPaletteQuery"
             Layout.fillWidth: true

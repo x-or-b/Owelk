@@ -167,23 +167,23 @@ Rectangle {
         }
     }
     AnnotationEditor { id: annotationEditor }
-    UiControls.Menu {
+    Menu {
         id: selectionMenu
         objectName: "selectionContextMenu"
         property int page: 0
-        UiControls.MenuItem { objectName:"selectionCopy"; text:"Copy"; enabled:!!canvas.selectedText; onTriggered:canvas.copySelection() }
-        UiControls.MenuItem { text:"Select All on Page"; onTriggered:canvas.selectPage(selectionMenu.page) }
+        MenuItem { objectName:"selectionCopy"; text:"Copy"; enabled:!!canvas.selectedText; onTriggered:canvas.copySelection() }
+        MenuItem { text:"Select All on Page"; onTriggered:canvas.selectPage(selectionMenu.page) }
         MenuSeparator {}
-        UiControls.MenuItem { text:"Add Comment to Selection…"; enabled:!!canvas.selectedAnchor; onTriggered:root.addComment() }
-        UiControls.MenuItem { text:"Highlight Selection…"; enabled:!!canvas.selectedAnchor; onTriggered:root.chooseHighlightColor(pageField,true) }
-        UiControls.MenuItem { text:"Save Excerpt"; enabled:!!canvas.selectedAnchor; onTriggered:canvas.captureSelection() }
+        MenuItem { text:"Add Comment to Selection…"; enabled:!!canvas.selectedAnchor; onTriggered:root.addComment() }
+        MenuItem { text:"Highlight Selection…"; enabled:!!canvas.selectedAnchor; onTriggered:root.chooseHighlightColor(pageField,true) }
+        MenuItem { text:"Save Excerpt"; enabled:!!canvas.selectedAnchor; onTriggered:canvas.captureSelection() }
         MenuSeparator {}
-        UiControls.MenuItem { text:"Explain with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("explain", "selection") }
-        UiControls.MenuItem { text:"Translate with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("translate", "selection") }
-        UiControls.MenuItem { text:"Summarize with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("summarize", "selection") }
-        UiControls.MenuItem { text:canvas.selectedText ? "Ask AI about the Selection…" : "Ask AI about This Page…"; onTriggered:root.requestAi("ask", canvas.selectedText ? "selection" : "page") }
+        MenuItem { text:"Explain with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("explain", "selection") }
+        MenuItem { text:"Translate with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("translate", "selection") }
+        MenuItem { text:"Summarize with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("summarize", "selection") }
+        MenuItem { text:canvas.selectedText ? "Ask AI about the Selection…" : "Ask AI about This Page…"; onTriggered:root.requestAi("ask", canvas.selectedText ? "selection" : "page") }
         MenuSeparator {}
-        UiControls.MenuItem { text:"Capture a Region"; onTriggered:root.startCapture() }
+        MenuItem { text:"Capture a Region"; onTriggered:root.startCapture() }
     }
     Loader { id: paperDetails; active: false; sourceComponent: PaperDetailsDialog {} }
     FileDialog {
@@ -230,7 +230,7 @@ Rectangle {
                     color: Theme.text
                     font.weight: Font.Medium
                 }
-                UiControls.Button { text: "Open"; onClicked: root.chooseFile() }
+                Button { text: "Open"; onClicked: root.chooseFile() }
             }
         }
 
@@ -255,7 +255,7 @@ Rectangle {
                     description: "Forward · " + Platform.keys("Ctrl+]"); enabled: canvas.canGoForward
                     onClicked: { root.activated(); canvas.goForward() }
                 }
-                UiControls.TextField {
+                TextField {
                     id: pageField
                     Layout.preferredWidth: 34; Layout.preferredHeight: 25
                     horizontalAlignment: Text.AlignHCenter
@@ -273,7 +273,7 @@ Rectangle {
             Row {
                 anchors.centerIn: parent
                 IconButton { icon.name: "minus"; description:"Zoom out"; onClicked:{root.activated();canvas.zoom(1/1.2)} }
-                UiControls.ToolButton {
+                ToolButton {
                     height:26; width:48; hoverEnabled:true
                     text: Math.round(canvas.zoomFactor * 100) + "%"
                     onClicked: { root.activated(); canvas.fitWidth() }
@@ -316,23 +316,23 @@ Rectangle {
                     objectName: "readerMoreButton"
                     description: "Find, print and export"
                     onClicked: moreMenu.popup(this, 0, height)
-                    UiControls.Menu {
+                    Menu {
                         id: moreMenu
                         objectName: "readerMoreMenu"
                         // Narrow panes: the annotation tools move here.
-                        UiControls.MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Highlight";onTriggered:root.useHighlight() }
-                        UiControls.MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Draw";onTriggered:root.setTool("draw") }
-                        UiControls.MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Comment";onTriggered:root.setTool("comment") }
-                        UiControls.MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Text Box";onTriggered:root.setTool("text") }
-                        UiControls.MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Image";onTriggered:root.setTool("image") }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Highlight";onTriggered:root.useHighlight() }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Draw";onTriggered:root.setTool("draw") }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Comment";onTriggered:root.setTool("comment") }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Text Box";onTriggered:root.setTool("text") }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Image";onTriggered:root.setTool("image") }
                         MenuSeparator { visible:readerToolbar.width<600;height:visible?implicitHeight:0 }
-                        UiControls.MenuItem { text:"Find in Document · " + Platform.keys("Ctrl+F");onTriggered:root.find() }
-                        UiControls.MenuItem { objectName:"printOption";text:"Print…";onTriggered:root.printDocument() }
-                        UiControls.MenuItem { objectName:"exportAnnotatedOption";text:"Export Annotated PDF…";visible:researchStore.canExportAnnotatedPdf();height:visible?implicitHeight:0;enabled:canvas.documentFingerprint.length>0;onTriggered:annotatedFile.open() }
-                        UiControls.MenuItem { objectName:"exportMarkdownOption";text:"Export Highlights and Captures…";onTriggered:markdownFolder.open() }
+                        MenuItem { text:"Find in Document · " + Platform.keys("Ctrl+F");onTriggered:root.find() }
+                        MenuItem { objectName:"printOption";text:"Print…";onTriggered:root.printDocument() }
+                        MenuItem { objectName:"exportAnnotatedOption";text:"Export Annotated PDF…";visible:researchStore.canExportAnnotatedPdf();height:visible?implicitHeight:0;enabled:canvas.documentFingerprint.length>0;onTriggered:annotatedFile.open() }
+                        MenuItem { objectName:"exportMarkdownOption";text:"Export Highlights and Captures…";onTriggered:markdownFolder.open() }
                         MenuSeparator {}
-                        UiControls.MenuItem { text:"Mark Paper as Read";onTriggered:researchStore.setReadingState(root.source, "read") }
-                        UiControls.MenuItem { objectName:"paperDetailsOption";text:"Paper Details…";onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
+                        MenuItem { text:"Mark Paper as Read";onTriggered:researchStore.setReadingState(root.source, "read") }
+                        MenuItem { objectName:"paperDetailsOption";text:"Paper Details…";onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
                     }
                 }
             }
@@ -347,7 +347,7 @@ Rectangle {
             Layout.topMargin: visible ? 6 : 0
             Layout.bottomMargin: visible ? 6 : 0
             spacing: 4
-            UiControls.TextField {
+            TextField {
                 id: searchField
                 objectName: "searchField"
                 Layout.fillWidth: true
@@ -445,13 +445,13 @@ Rectangle {
                         objectName: "aiSelectionButton"
                         icon.name: "ai"; description: "AI · Explain, translate or ask about the selection"
                         onClicked: selectionAiMenu.popup(this, 0, height)
-                        UiControls.Menu {
+                        Menu {
                             id: selectionAiMenu
                             objectName: "selectionAiMenu"
-                            UiControls.MenuItem { objectName: "aiExplainSelection"; text: "Explain"; onTriggered: root.requestAi("explain", "selection") }
-                            UiControls.MenuItem { objectName: "aiTranslateSelection"; text: "Translate"; onTriggered: root.requestAi("translate", "selection") }
-                            UiControls.MenuItem { text: "Summarize"; onTriggered: root.requestAi("summarize", "selection") }
-                            UiControls.MenuItem { text: "Ask…"; onTriggered: root.requestAi("ask", "selection") }
+                            MenuItem { objectName: "aiExplainSelection"; text: "Explain"; onTriggered: root.requestAi("explain", "selection") }
+                            MenuItem { objectName: "aiTranslateSelection"; text: "Translate"; onTriggered: root.requestAi("translate", "selection") }
+                            MenuItem { text: "Summarize"; onTriggered: root.requestAi("summarize", "selection") }
+                            MenuItem { text: "Ask…"; onTriggered: root.requestAi("ask", "selection") }
                         }
                     }
                 }
@@ -478,12 +478,12 @@ Rectangle {
                     color: Theme.textTertiary
                     lineHeight: 1.4
                 }
-                UiControls.Button {
+                Button {
                     Layout.alignment: Qt.AlignHCenter
                     text: "Open PDF"
                     onClicked: root.chooseFile()
                 }
-                UiControls.Button {
+                Button {
                     Layout.alignment: Qt.AlignHCenter
                     visible: canvas.error.length > 0 && root.source.toString().length > 0
                     text: "Locate Original PDF…"

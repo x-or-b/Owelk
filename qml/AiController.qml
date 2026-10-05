@@ -265,7 +265,7 @@ Item {
             }
         }
     }
-    UiControls.Dialog {
+    Dialog {
         id: consent
         objectName: "aiConsentDialog"
         parent: Overlay.overlay

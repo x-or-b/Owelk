@@ -100,7 +100,7 @@ Item {
             model: rows
             clip: true
             ScrollBar.vertical: ScrollBar {}
-            delegate: UiControls.ItemDelegate {
+            delegate: ItemDelegate {
                 required property int index
                 required property string name
                 required property string url

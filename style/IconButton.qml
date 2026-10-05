@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Templates as T
 import Owelk.Ui
 
 // Icon-only button. `description` is shown on hover and read by screen readers;
@@ -19,9 +19,9 @@ ToolButton {
     hoverEnabled: true
     focusPolicy: Qt.TabFocus
     Accessible.name: description
-    ToolTip.visible: hovered && description.length > 0
-    ToolTip.delay: 500
-    ToolTip.text: description
+    T.ToolTip.visible: hovered && description.length > 0
+    T.ToolTip.delay: 500
+    T.ToolTip.text: description
     background: Rectangle {
         radius: root.primary ? height / 2 : Theme.radiusSmall
         color: root.primary ? (!root.enabled ? Theme.control : root.down || root.hovered ? Theme.accentHover : Theme.accent)

@@ -4,7 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 // Edit the title and bibliographic details shown for a PDF. The PDF file itself is never changed.
-UiControls.Dialog {
+Dialog {
     id: root
     objectName: "paperDetails"
     parent: Overlay.overlay
@@ -59,14 +59,14 @@ UiControls.Dialog {
     footer: RowLayout {
         spacing: 8
         Item { Layout.preferredWidth: 4 }
-        UiControls.Button {
+        Button {
             objectName: "readDetailsFromPdf"
             text: "Read from PDF"
             ToolTip.visible: hovered; ToolTip.delay: 450
             ToolTip.text: "Discard edits and read the details from the PDF again"
             onClicked: { researchStore.resetDocumentDetails(root.source); root.close() }
         }
-        UiControls.Button {
+        Button {
             objectName: "lookUpOnline"
             text: "Look up online"
             enabled: !researchStore.metadataLookup.busy
@@ -75,8 +75,8 @@ UiControls.Dialog {
             onClicked: root.lookUp()
         }
         Item { Layout.fillWidth: true }
-        UiControls.Button { text: "Cancel"; onClicked: root.close() }
-        UiControls.Button { objectName: "saveDetails"; text: "Save"; highlighted: true; onClicked: root.save() }
+        Button { text: "Cancel"; onClicked: root.close() }
+        Button { objectName: "saveDetails"; text: "Save"; highlighted: true; onClicked: root.save() }
         Item { Layout.preferredWidth: 4 }
     }
     GridLayout {
@@ -90,25 +90,25 @@ UiControls.Dialog {
             textFormat: Text.PlainText; color: Theme.textTertiary
         }
         Label { text: "Title"; color: Theme.text }
-        UiControls.TextField {
+        TextField {
             id: titleField; objectName: "detailsTitle"; Layout.fillWidth: true
             placeholderText: "Shown instead of the file name"; maximumLength: 300; onAccepted: root.save()
         }
         Label { text: "Authors"; color: Theme.text }
-        UiControls.TextField { id: authorsField; objectName: "detailsAuthors"; Layout.fillWidth: true; maximumLength: 1000; onAccepted: root.save() }
+        TextField { id: authorsField; objectName: "detailsAuthors"; Layout.fillWidth: true; maximumLength: 1000; onAccepted: root.save() }
         Label { text: "Year"; color: Theme.text }
-        UiControls.TextField {
+        TextField {
             id: yearField; objectName: "detailsYear"; Layout.preferredWidth: 80; maximumLength: 4
             validator: RegularExpressionValidator { regularExpression: /\d{0,4}/ }
             onAccepted: root.save()
         }
         Label { text: "DOI"; color: Theme.text }
-        UiControls.TextField { id: doiField; Layout.fillWidth: true; maximumLength: 200; onAccepted: root.save() }
+        TextField { id: doiField; Layout.fillWidth: true; maximumLength: 200; onAccepted: root.save() }
         Label { text: "arXiv ID"; color: Theme.text }
-        UiControls.TextField { id: arxivField; Layout.fillWidth: true; maximumLength: 40; onAccepted: root.save() }
+        TextField { id: arxivField; Layout.fillWidth: true; maximumLength: 40; onAccepted: root.save() }
         Label { text: "Reading"; color: Theme.text }
         RowLayout {
-            UiControls.ComboBox { id: stateBox; objectName: "detailsReadingState"; model: ["Unread", "Reading", "Read"]; Layout.preferredWidth: 120 }
+            ComboBox { id: stateBox; objectName: "detailsReadingState"; model: ["Unread", "Reading", "Read"]; Layout.preferredWidth: 120 }
             CheckBox { id: favoriteBox; objectName: "detailsFavorite"; text: "Favorite" }
         }
         Item { width: 1; height: 1; visible: root.lookupStatus.length > 0 }

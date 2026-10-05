@@ -4,7 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 // Add a link to a capture, annotation or paper at the end of a note (or in a new note).
-UiControls.Dialog {
+Dialog {
     id: root
     objectName: "linkToNoteDialog"
     parent: Overlay.overlay
@@ -29,7 +29,7 @@ UiControls.Dialog {
             text: researchStore.linkTarget(root.kind, root.targetId).title || ""
             font.pixelSize: 12; color: Theme.textTertiary
         }
-        UiControls.Button {
+        Button {
             objectName: "linkToNewNote"
             text: "New Note with This Link"
             onClicked: {
@@ -43,7 +43,7 @@ UiControls.Dialog {
             Layout.preferredHeight: Math.min(260, contentHeight)
             clip: true
             model: root.noteRows
-            delegate: UiControls.ItemDelegate {
+            delegate: ItemDelegate {
                 required property var modelData
                 width: ListView.view.width
                 objectName: "linkToNote-" + modelData.id

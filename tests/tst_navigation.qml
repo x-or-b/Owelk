@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtTest
 import Owelk.Ui
 import "../qml" as App
@@ -31,16 +32,17 @@ Item {
             tryCompare(canvas, "restoring", false)
             verify(canvas.position().y > .3)
         }
-        function test_selectedModeIsDarker() {
+        function test_modesAreIconSegments() {
             const outline = findChild(panel, "outlineTab"), thumbnails = findChild(panel, "thumbnailsTab")
-            verify(Qt.colorEqual(outline.background.color, Theme.selected))
-            verify(Qt.colorEqual(thumbnails.background.color, Theme.window))
-            verify(Qt.colorEqual(outline.contentItem.color, Theme.text))
-            verify(Qt.colorEqual(thumbnails.contentItem.color, Theme.text))
+            // The current segment is raised; the others are flat until hovered. Icons say what each is.
+            verify(outline.checked && !thumbnails.checked)
+            verify(outline.background.color.a > 0)
+            compare(thumbnails.background.color.a, 0)
+            compare(thumbnails.icon.name, "thumbnails")
+            compare(thumbnails.ToolTip.text, "Thumbnails")
             mouseClick(thumbnails)
             compare(panel.mode, 1)
-            verify(Qt.colorEqual(thumbnails.background.color, Theme.selected))
-            verify(Qt.colorEqual(outline.background.color, Theme.window))
+            verify(thumbnails.checked && !outline.checked)
         }
         function test_thumbnailsReuseReaderAndJump() {
             panel.mode = 1
