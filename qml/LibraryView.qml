@@ -43,25 +43,6 @@ Rectangle {
         function onRecentDocumentsChanged() { root.refresh() }
         function onNotesChanged() { if (root.showingNotes) root.refresh() }
     }
-    PaperDetailsDialog { id: details }
-    Dialog {
-        id: tagDialog
-        objectName: "libraryTagDialog"
-        property url source: ""
-        parent: Overlay.overlay
-        anchors.centerIn: parent
-        width: 380
-        modal: true
-        title: "Tags"
-        standardButtons: Dialog.Save | Dialog.Cancel
-        function begin(url) { source = url; tagField.text = researchStore.documentOrganization(url).tags.join(", "); open(); tagField.forceActiveFocus() }
-        ColumnLayout {
-            width: parent.width
-            TextField { id: tagField; objectName: "libraryTagField"; Layout.fillWidth: true; placeholderText: "Comma-separated, e.g. SLAM, to read"; onAccepted: tagDialog.accept() }
-            Label { text: "Existing: " + root.tagRows.map(function(t) { return t.name }).join(", "); visible: root.tagRows.length > 0; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
-        }
-        onAccepted: researchStore.setDocumentTags(source, tagField.text.split(",").map(function(t) { return t.trim() }).filter(function(t) { return t.length }))
-    }
     Dialog {
         id: collectionDialog
         objectName: "collectionDialog"
@@ -87,39 +68,22 @@ Rectangle {
         MenuItem { text: "Rename…"; onTriggered: collectionDialog.begin(collectionMenu.row.id, collectionMenu.row.name) }
         MenuItem {
             text: "Delete Collection"
-            palette.text: Theme.danger; palette.windowText: Theme.danger; palette.highlightedText: Theme.danger
+            palette.windowText: Theme.danger
             onTriggered: { researchStore.deleteCollection(collectionMenu.row.id); if (root.filter.collection === collectionMenu.row.id) root.setFilter({}) }
         }
     }
     Menu {
-        id: paperMenu
-        property var row: ({})
-        MenuItem { text: "Open"; onTriggered: root.documentChosen(paperMenu.row.url, paperMenu.row.position) }
-        MenuItem { text: "Paper Details…"; onTriggered: details.begin(paperMenu.row.url) }
-        MenuItem { objectName: "libraryTagsOption"; text: "Tags…"; onTriggered: tagDialog.begin(paperMenu.row.url) }
-        Menu {
-            id: addToCollection
-            title: "Collections"
-            Instantiator {
-                model: root.collectionRows
-                delegate: MenuItem {
-                    required property var modelData
-                    checkable: true
-                    checked: paperMenu.opened && researchStore.documentOrganization(paperMenu.row.url).collections.indexOf(modelData.id) >= 0
-                    text: "    ".repeat(modelData.depth) + modelData.name
-                    onTriggered: researchStore.setDocumentCollection(paperMenu.row.url, modelData.id, checked)
-                }
-                onObjectAdded: function(index, object) { addToCollection.insertItem(index, object) }
-                onObjectRemoved: function(index, object) { addToCollection.removeItem(object) }
-            }
-            MenuItem { text: "New Collection…"; onTriggered: collectionDialog.begin("", "") }
-        }
+        id: noteMenu
+        objectName: "libraryNoteMenu"
+        property string noteId: ""
+        MenuItem { text: "Open"; onTriggered: root.noteChosen(noteMenu.noteId) }
+        MenuItem { text: "Copy Markdown"; onTriggered: researchStore.copyText(researchStore.note(noteMenu.noteId).body || "") }
         MenuSeparator {}
-        MenuItem { text: paperMenu.row.readingState === "read" ? "Mark as Unread" : "Mark as Read"; onTriggered: researchStore.setReadingState(paperMenu.row.url, paperMenu.row.readingState === "read" ? "unread" : "read") }
-        MenuItem { text: paperMenu.row.favorite ? "Remove from Favorites" : "Add to Favorites"; onTriggered: researchStore.setFavorite(paperMenu.row.url, !paperMenu.row.favorite) }
-        MenuItem { text: paperMenu.row.excluded ? "Include in Text Search" : "Exclude from Text Search"; onTriggered: researchStore.setExcludedFromIndex(paperMenu.row.url, !paperMenu.row.excluded) }
-        MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(paperMenu.row.url) }
-        MenuItem { objectName: "copyBibtex"; text: "Copy BibTeX"; onTriggered: { researchStore.copyText(researchStore.bibtex([paperMenu.row.url.toString()])); researchStore.notify("BibTeX copied.") } }
+        MenuItem { text: "Move Note to Trash"; palette.windowText: Theme.danger; onTriggered: researchStore.deleteNote(noteMenu.noteId) }
+    }
+    PaperMenu {
+        id: paperMenu
+        onOpenRequested: function(source, position) { root.documentChosen(source, position) }
     }
     RowLayout {
         anchors.fill: parent
@@ -223,6 +187,7 @@ Rectangle {
                     width: noteList.width; height: Theme.rowHeightTall
                     separator: index < noteList.count - 1
                     onClicked: if (!root.filter.notesTrash) root.noteChosen(modelData.id)
+                    TapHandler { acceptedButtons: Qt.RightButton; enabled: !root.filter.notesTrash; onTapped: { noteMenu.noteId = noteItem.modelData.id; noteMenu.popup() } }
                     contentItem: RowLayout {
                         ColumnLayout {
                             Layout.fillWidth: true; spacing: 2
@@ -304,7 +269,7 @@ Rectangle {
                     Drag.source: paper
                     Drag.hotSpot: Qt.point(20, 20)
                     DragHandler { id: dragHandler; target: null; onActiveChanged: if (!active) paper.Drag.drop() }
-                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: { paperMenu.row = paper.modelData; paperMenu.popup() } }
+                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: paperMenu.show(paper.modelData) }
                     contentItem: RowLayout {
                         spacing: 10
                         Rectangle {

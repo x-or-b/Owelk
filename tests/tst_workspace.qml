@@ -584,16 +584,42 @@ Item {
             const emptyPanel = findChild(workspace, "pdfNavigationPanel")
             compare(emptyPanel.ready, false)
         }
+        function test_tabMenuFollowsTheTabAndClosesOthers() {
+            workspace.openDocument(fixtureSource); canvas()
+            workspace.documents.openLibrary({})
+            const view = workspace.documents.groupView(workspace.documents.activeGroup)
+            tryVerify(function() { return view.groupData.tabs.length >= 2 })
+            const pdfTab = view.groupData.tabs.find(function(t) { return !t.kind })
+            const item = findChild(view, "tab-" + pdfTab.id)
+            waitForPolish(workspace); wait(50)
+            mouseClick(item, 30, item.height / 2, Qt.RightButton)
+            const menu = findChild(view, "tabMenu")
+            tryCompare(menu, "opened", true)
+            compare(menu.kind, "pdf")
+            verify(menu.path.length > 0, "a paper tab offers its file")
+            findChild(menu, "closeOtherTabsOption").triggered()
+            tryVerify(function() {
+                const tabs = Tree.leaves(workspace.documents.snapshot().tree).reduce(function(all, g) { return all.concat(g.tabs) }, [])
+                return tabs.length === 1 && tabs[0].id === pdfTab.id
+            })
+        }
         function test_removeRecentRequiresConfirmation() {
             researchStore.rememberDocument(fixtureSource)
             workspace.showHome()
             const item = visualChild(findChild(workspace, "homeView"), "recentPaper-" + fixtureSource.toString())
             verify(item !== null)
-            mouseClick(item, 30, 20, Qt.RightButton)
-            const menu = findChild(item, "recentPaperMenu")
+            tryVerify(function() { return item.width > 100 && item.height > 0 })
+            waitForPolish(findChild(workspace, "homeView")); wait(50)
+            mouseClick(item, 30, 12, Qt.RightButton)
+            // Home's one paper menu, the same as in the Library, with Remove for recents.
+            const menu = findChild(findChild(workspace, "homeView"), "recentPaperMenu").menu
             tryCompare(menu, "opened", true)
-            mouseClick(findChild(menu, "removeRecentOption"))
-            const dialog = findChild(item, "removeRecentDialog")
+            verify(findChild(menu, "paperOpenOption") !== null && findChild(menu, "copyBibtex") !== null)
+            const remove = findChild(menu, "removeRecentOption")
+            compare(menu.itemAt(menu.count - 1), remove, "the destructive item is last")
+            remove.triggered()
+            tryVerify(function() { return findChild(findChild(workspace, "homeView"), "recentPaperMenu").removeDialog !== null })
+            const dialog = findChild(findChild(workspace, "homeView"), "recentPaperMenu").removeDialog
             tryCompare(dialog, "opened", true)
             dialog.reject()
             verify(researchStore.recentDocuments.some(function(p) { return p.url.toString() === fixtureSource.toString() }))

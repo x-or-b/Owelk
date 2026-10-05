@@ -277,13 +277,23 @@ Rectangle {
             }
         }
     }
+    // Tab menu: what this tab is (address, file, note) | splits | groups | close; note trash last.
     Menu {
         id: tabMenu
-        MenuItem { text: "Close Tab"; onTriggered: root.controller.closeTab(root.menuTab) }
+        objectName: "tabMenu"
+        readonly property string kind: root.menuTabData ? (root.menuTabData.kind || "pdf") : ""
+        readonly property string path: kind === "pdf" ? researchStore.localPath(root.menuTabData.source) : ""
+        function itemIndex(item) { for (let i = 0; i < count; ++i) if (itemAt(i) === item) return i; return count }
+        MenuItem { visible: tabMenu.kind === "web"; height: visible ? implicitHeight : 0; text: "Open in Browser"; onTriggered: Qt.openUrlExternally(root.menuTabData.source) }
+        MenuItem { visible: tabMenu.kind === "web"; height: visible ? implicitHeight : 0; text: "Copy Address"; onTriggered: researchStore.copyText(root.menuTabData.source) }
+        MenuItem { visible: tabMenu.kind === "pdf"; height: visible ? implicitHeight : 0; text: "Copy File Path"; onTriggered: researchStore.copyText(tabMenu.path) }
+        MenuItem { visible: tabMenu.kind === "pdf"; height: visible ? implicitHeight : 0; text: Qt.platform.os === "osx" ? "Show in Finder" : "Show in Folder"; onTriggered: Qt.openUrlExternally(researchStore.fileUrl(tabMenu.path.substring(0, tabMenu.path.lastIndexOf("/")))) }
+        MenuItem { visible: tabMenu.kind === "note"; height: visible ? implicitHeight : 0; text: "Copy Markdown"; onTriggered: researchStore.copyText(researchStore.note(root.menuTabData.noteId).body || "") }
+        MenuSeparator { visible: ["web", "pdf", "note"].indexOf(tabMenu.kind) >= 0; height: visible ? implicitHeight : 0 }
         MenuItem { text: "Duplicate to Right Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("right") } }
         MenuItem { text: "Duplicate to Bottom Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("bottom") } }
         MenuSeparator {}
-        MenuItem { objectName: "newTabGroupOption"; text: "Add to New Group…"; onTriggered: { groupName.mode = "new"; groupName.text = ""; groupNameDialog.open() } }
+        MenuItem { id: newGroupItem; objectName: "newTabGroupOption"; text: "Add to New Group…"; onTriggered: { groupName.mode = "new"; groupName.text = ""; groupNameDialog.open() } }
         Instantiator {
             model: root.labels.filter(function(l) { return !root.menuTabData || root.menuTabData.label !== l.id })
             delegate: MenuItem {
@@ -291,11 +301,21 @@ Rectangle {
                 text: "Add to \u201c" + modelData.name + "\u201d"
                 onTriggered: { const tab = root.menuTab, label = modelData.id; Qt.callLater(function() { root.controller.addTabToGroup(tab, label) }) }
             }
-            onObjectAdded: function(index, item) { tabMenu.insertItem(5 + index, item) }
+            onObjectAdded: function(index, item) { tabMenu.insertItem(tabMenu.itemIndex(newGroupItem) + 1 + index, item) }
             onObjectRemoved: function(index, item) { tabMenu.removeItem(item) }
         }
         MenuItem { visible: !!root.menuTabData && !!root.menuTabData.label; height: visible ? implicitHeight : 0; text: "Remove from Group"; onTriggered: root.controller.removeTabFromGroup(root.menuTab) }
         MenuItem { objectName: "organizeTabsOption"; text: "Organize Tabs with AI…"; onTriggered: root.controller.organizeRequested(root.groupId) }
+        MenuSeparator {}
+        MenuItem { objectName: "closeOtherTabsOption"; text: "Close Other Tabs"; enabled: root.groupData.tabs.length > 1; onTriggered: { const id = root.menuTab; Qt.callLater(function() { root.controller.closeOtherTabs(id) }) } }
+        MenuItem { objectName: "closeTabOption"; text: "Close Tab"; onTriggered: { const id = root.menuTab; Qt.callLater(function() { root.controller.closeTab(id) }) } }
+        MenuSeparator { visible: tabMenu.kind === "note"; height: visible ? implicitHeight : 0 }
+        MenuItem {
+            visible: tabMenu.kind === "note"; height: visible ? implicitHeight : 0
+            text: "Move Note to Trash"
+            palette.windowText: Theme.danger
+            onTriggered: { const id = root.menuTabData.noteId; if (researchStore.deleteNote(id)) root.controller.closeNoteTabs(id) }
+        }
     }
     Menu {
         id: groupMenu

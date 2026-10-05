@@ -140,21 +140,6 @@ Rectangle {
                     ToolTip.text: "Download this paper and open it in the reader"
                     onClicked: view.url = Tree.arxivPdf(view.url)
                 }
-                IconButton { icon.name: "more";
-                    implicitWidth: 24; description: "More"
-                    onClicked: webMenu.popup(this, 0, height)
-                    Menu {
-                        id: webMenu
-                        MenuItem {
-                            objectName: "webBrowserPdf"
-                            text: "Show PDFs in This Tab"
-                            checkable: true; checked: root.browserPdf
-                            onTriggered: root.browserPdf = checked
-                        }
-                        MenuItem { text: "Open in Browser"; onTriggered: Qt.openUrlExternally(view.url) }
-                        MenuItem { text: "Copy Address"; onTriggered: researchStore.copyText(view.url.toString()) }
-                    }
-                }
             }
             Rectangle {
                 anchors.left: parent.left; anchors.bottom: parent.bottom
@@ -191,7 +176,7 @@ Rectangle {
                     text: "Show Here"
                     implicitHeight: Theme.controlHeight
                     ToolTip.visible: hovered; ToolTip.delay: 450
-                    ToolTip.text: "Read PDFs in this web tab (More → Show PDFs in This Tab)"
+                    ToolTip.text: "Read this PDF in the web tab"
                     onClicked: root.browserPdf = true
                 }
             }

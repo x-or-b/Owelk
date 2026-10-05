@@ -76,7 +76,7 @@ Dialog {
             }
             Label {
                 Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
-                text: "PDFs downloaded from web pages are saved here. Existing files are never overwritten. In the web tab, PDFs can also be read in place (More → Show PDFs in This Tab) and sent to the reader with Open in Reader; highlights, captures and notes work in the reader."
+                text: "PDFs downloaded from web pages are saved here. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place and Open in Reader sends it to the reader, where highlights, captures and notes work."
             }
             Label { text: "Search"; font.bold: true; color: Theme.text }
             // Meaning search: off by default; an engine embeds the library in the background.

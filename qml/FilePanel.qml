@@ -115,6 +115,7 @@ Item {
                 leftPadding: 26 + depth * 14
                 text: name
                 onClicked: root.toggle(index)
+                MouseArea { anchors.fill: parent; acceptedButtons: Qt.RightButton; onClicked: { fileMenu.row = {url: fileRow.url, directory: fileRow.directory, index: fileRow.index}; fileMenu.popup() } }
                 Icon {
                     x: 6 + fileRow.depth * 14; anchors.verticalCenter: parent.verticalCenter
                     name: fileRow.loading ? "reload" : fileRow.directory ? (fileRow.expanded ? "down" : "right") : "document"
@@ -137,7 +138,26 @@ Item {
                 width: ListView.view.width
                 height: Theme.rowHeight
                 onDocumentChosen: function(source, position) { root.documentChosen(source) }
+                onMenuRequested: function(row) { recentMenu.show(row) }
             }
+        }
+    }
+    PaperMenu {
+        id: recentMenu
+        recent: true
+        onOpenRequested: function(source, position) { root.documentChosen(source) }
+    }
+    Menu {
+        id: fileMenu
+        objectName: "fileMenu"
+        property var row: ({})
+        readonly property string path: row.url ? researchStore.localPath(row.url) : ""
+        MenuItem { text: fileMenu.row.directory ? "Expand or Collapse" : "Open"; onTriggered: root.toggle(fileMenu.row.index) }
+        MenuSeparator {}
+        MenuItem { text: "Copy Path"; onTriggered: researchStore.copyText(fileMenu.path) }
+        MenuItem {
+            text: Qt.platform.os === "osx" ? "Show in Finder" : "Show in Folder"
+            onTriggered: Qt.openUrlExternally(fileMenu.row.directory ? fileMenu.row.url : researchStore.fileUrl(fileMenu.path.substring(0, fileMenu.path.lastIndexOf("/"))))
         }
     }
 }

@@ -79,6 +79,19 @@ Rectangle {
         spacing: 10
         RowLayout {
             Layout.fillWidth: true
+            // Right-click the header for the note's actions (also in its tab's menu).
+            TapHandler { acceptedButtons: Qt.RightButton; onTapped: noteMenu.popup() }
+            Menu {
+                id: noteMenu
+                MenuItem { text: "Copy Markdown"; onTriggered: researchStore.copyText(body.text) }
+                MenuSeparator {}
+                MenuItem {
+                    objectName: "deleteNoteOption"
+                    text: "Move Note to Trash"
+                    palette.windowText: Theme.danger
+                    onTriggered: { root.save(); const id = root.noteId; if (researchStore.deleteNote(id)) root.controller.closeNoteTabs(id) }
+                }
+            }
             TextField {
                 id: titleField
                 objectName: "noteTitle"
@@ -99,20 +112,6 @@ Rectangle {
             IconButton {
                 objectName: "noteInsertLink"; icon.name: "link"; description: "Insert link to a paper, excerpt or note ([[)"
                 onClicked: { root.preview = false; linkPicker.open() }
-            }
-            IconButton { icon.name: "more";
-                description: "More"
-                onClicked: noteMenu.popup(this, 0, height)
-                Menu {
-                    id: noteMenu
-                    MenuItem { text: "Copy Markdown"; onTriggered: researchStore.copyText(body.text) }
-                    MenuItem {
-                        objectName: "deleteNoteOption"
-                        text: "Move Note to Trash"
-                        palette.text: Theme.danger; palette.windowText: Theme.danger; palette.highlightedText: Theme.danger
-                        onTriggered: { root.save(); const id = root.noteId; if (researchStore.deleteNote(id)) root.controller.closeNoteTabs(id) }
-                    }
-                }
             }
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }

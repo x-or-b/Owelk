@@ -87,9 +87,14 @@ Item {
         MenuItem { objectName: "changeAnnotationColor"; text: "Change Color…"; onTriggered: markColors.open() }
         MenuItem { text: "Link to Note…"; onTriggered: linkToNote.begin("highlight", root.editingMark.id) }
         MenuItem {
+            visible: !!root.editingMark && !!root.editingMark.text; height: visible ? implicitHeight : 0
+            text: "Copy Text"; onTriggered: researchStore.copyText(root.editingMark.text)
+        }
+        MenuSeparator {}
+        MenuItem {
             objectName: "removeHighlightAction"
             text: "Remove Annotation"
-            palette.text: Theme.danger; palette.windowText: Theme.danger; palette.highlightedText: Theme.danger
+            palette.windowText: Theme.danger
             onTriggered: { const id = root.removingHighlight; Qt.callLater(function() { researchStore.removeHighlight(id) }) }
         }
     }

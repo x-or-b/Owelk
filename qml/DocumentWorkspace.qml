@@ -289,6 +289,11 @@ Flickable {
         sync(); changed(); opened()
         Qt.callLater(function() { const view = root.groupView(g.id); if (view) view.focusHome() })
     }
+    function closeOtherTabs(id) {
+        const g = Tree.owner(tree, id)
+        if (!g) return
+        g.tabs.map(function(t) { return t.id }).filter(function(other) { return other !== id }).forEach(function(other) { root.closeTab(other) })
+    }
     function closeTab(id) {
         const g = Tree.owner(tree, id)
         if (!g) return

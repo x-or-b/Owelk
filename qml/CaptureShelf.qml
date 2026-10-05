@@ -179,31 +179,22 @@ Rectangle {
                     objectName: "captureMenu-" + card.modelData.id
                     MenuItem { objectName: "readExcerpt-" + card.modelData.id; text: "Read Excerpt…"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: root.viewText(card.modelData) }
                     MenuItem { text: "Copy Text"; visible: card.modelData.kind === "text"; height: visible ? implicitHeight : 0; onTriggered: researchStore.copyText(card.modelData.text) }
-                    MenuItem { text: card.modelData.note ? "Edit Note…" : "Add Note…"; onTriggered: root.noteRequested(card.modelData.id) }
+                    MenuSeparator {}
+                    MenuItem { objectName: "captureNoteOption-" + card.modelData.id; text: card.modelData.note ? "Edit Note…" : "Add Note…"; onTriggered: root.noteRequested(card.modelData.id) }
+                    MenuItem { objectName: "linkCaptureToNote-" + card.modelData.id; text: "Link to Note…"; onTriggered: linkToNote.begin("capture", card.modelData.id) }
                     MenuItem {
                         objectName: "explainCapture-" + card.modelData.id
                         text: "Explain with AI"
                         onTriggered: root.aiRequested({action: card.modelData.kind === "text" ? "explain" : "figure", scope: "none",
                                                        captureId: card.modelData.id, source: card.modelData.kind === "web" ? "" : card.modelData.source, page: card.modelData.page})
                     }
-                    MenuItem { objectName: "linkCaptureToNote-" + card.modelData.id; text: "Link to Note…"; onTriggered: linkToNote.begin("capture", card.modelData.id) }
+                    MenuSeparator {}
                     MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(card.modelData.source) }
                     MenuItem {
-                        text: "Delete"
-                        palette.text: Theme.danger
+                        text: "Delete…"
                         palette.windowText: Theme.danger
-                        palette.highlightedText: Theme.danger
                         onTriggered: root.requestDelete(card.modelData.id)
                     }
-                }
-                ToolButton {
-                    id: captureActions
-                    objectName: "captureActions-" + card.modelData.id
-                    anchors.right: parent.right; anchors.bottom: parent.bottom
-                    width: 28; height: 28; text: "…"
-                    Accessible.name: "Capture actions"
-                    visible: !root.showingTrash
-                    onClicked: captureMenu.popup(captureActions, 0, captureActions.height)
                 }
                 background: Rectangle {
                     color: card.hovered ? Theme.mix(Theme.content, Theme.text, .05) : Theme.content
@@ -260,13 +251,6 @@ Rectangle {
                         textFormat: Text.PlainText; wrapMode: Text.Wrap
                         maximumLineCount: 3; elide: Text.ElideRight
                         font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
-                    }
-                    ToolButton {
-                        objectName: "captureNoteButton-" + card.modelData.id
-                        visible: !root.showingTrash
-                        text: card.modelData.note ? "Edit note" : "Add note"
-                        height: 28
-                        onClicked: root.noteRequested(card.modelData.id)
                     }
                     RowLayout {
                         objectName: "trashCardFooter-" + card.modelData.id

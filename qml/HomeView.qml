@@ -243,6 +243,7 @@ Rectangle {
                                 height: Theme.rowHeight + 4
                                 separator: index < researchStore.recentDocuments.length - 1
                                 onDocumentChosen: function(source, position) { root.documentChosen(source, position) }
+                                onMenuRequested: function(row) { recentMenu.show(row) }
                             }
                         }
                     }
@@ -250,6 +251,12 @@ Rectangle {
                 }
             }
         }
+    }
+    PaperMenu {
+        id: recentMenu
+        objectName: "recentPaperMenu"
+        recent: true
+        onOpenRequested: function(source, position) { root.documentChosen(source, position) }
     }
     Dialog {
         id: workspaceDialog
