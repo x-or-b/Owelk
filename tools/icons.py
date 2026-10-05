@@ -67,6 +67,7 @@ pause pause
 play play
 fast zap
 effort gauge
+margin panel-right
 key key-round
 settings settings
 locate file-search

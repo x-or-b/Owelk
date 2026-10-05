@@ -234,6 +234,64 @@ Item {
             tryCompare(more, "visible", false)
             researchStore.setSetting("drawColor", ""); researchStore.setSetting("highlightColor", "")
         }
+        function test_marginNotesLinkToThePageAndUndo() {
+            const unique = testInput.relinkFixture(true).candidate
+            canvas.openFile(unique, {page:0,zoom:1})
+            tryCompare(canvas,"ready",true); tryCompare(canvas,"restoring",false)
+            tryVerify(function(){return canvas.documentFingerprint.length>0})
+            reader.setMarginNotes(true)
+            const margin = findChild(reader, "marginNotes")
+            tryCompare(margin, "visible", true)
+            verify(canvas.width < reader.width - 200, "the page makes room for the notes")
+            // A note on a selection is written beside the page.
+            const paper=findChild(canvas,"paperPage0"),bounds=fixtureTextBounds
+            const from=paper.mapToItem(canvas,bounds.x*canvas.pageScale,(bounds.y+bounds.height/2)*canvas.pageScale)
+            testInput.pointerDrag(canvas,from,Qt.point(from.x+bounds.width*canvas.pageScale*.6,from.y),false)
+            tryVerify(function(){return canvas.selectedText.length>0})
+            reader.addComment()
+            verify(margin.draft !== null)
+            tryVerify(function() { const e = findChild(margin, "marginNoteEditor"); return e && e.activeFocus })
+            const editor = findChild(margin, "marginNoteEditor")
+            editor.text = "Why does this hold?"
+            keyClick(Qt.Key_Return, Qt.ControlModifier)
+            tryVerify(function() { return margin.notes.length === 1 }, 10000)
+            const note = margin.notes[0]
+            compare(note.body, "Why does this hold?")
+            verify(note.text.length > 0, "linked to the selected text")
+            // Hovering the note outlines its place on the page.
+            tryVerify(function() { return findChild(margin, "marginNote-" + note.id) !== null })
+            const card = findChild(margin, "marginNote-" + note.id)
+            waitForPolish(margin); wait(50)
+            mouseMove(card, card.width / 2, card.height / 2)
+            tryCompare(canvas, "focusedMark", note.id)
+            // The page's comment marker opens the note in the margin, not a dialog.
+            const marker = findChild(canvas, "commentMarker-" + note.id + "-0")
+            mouseClick(marker)
+            compare(margin.editingId, note.id)
+            verify(!findChild(reader, "annotationEditor").visible)
+            margin.editingId = ""
+            // Cmd+Z removes the note, Cmd+Shift+Z brings it back.
+            canvas.forceActiveFocus()
+            keyClick(Qt.Key_Z, Qt.ControlModifier)
+            tryVerify(function() { return margin.notes.length === 0 }, 10000)
+            keyClick(Qt.Key_Z, Qt.ControlModifier | Qt.ShiftModifier)
+            tryVerify(function() { return margin.notes.length === 1 }, 10000)
+            // A drawing is undone the same way.
+            reader.setTool("draw"); waitForPolish(reader)
+            const area = findChild(canvas, "annotationArea0")
+            const start = area.mapToItem(canvas, area.width * .6, area.height * .5)
+            testInput.pointerDrag(canvas, start, Qt.point(start.x + 50, start.y + 20), false)
+            tryVerify(function() { return canvas.savedHighlights.some(function(m) { return m.kind === "draw" }) }, 10000)
+            canvas.tool = ""; canvas.forceActiveFocus()
+            keyClick(Qt.Key_Z, Qt.ControlModifier)
+            tryVerify(function() { return !canvas.savedHighlights.some(function(m) { return m.kind === "draw" }) }, 10000)
+            // Pen comes first among the tools.
+            const tools = findChild(reader, "annotationTools")
+            compare(tools.children[0].objectName, "drawTool")
+            compare(tools.children[1].objectName, "highlightTool")
+            reader.setMarginNotes(false)
+            for (const m of canvas.savedHighlights) researchStore.removeHighlight(m.id)
+        }
         function test_selectionToolbarCommentsAndPageAnnotations() {
             const unique = testInput.relinkFixture(true).candidate
             canvas.openFile(unique, {page:0,zoom:1})

@@ -122,6 +122,64 @@ private slots:
         QSKIP("Native HEIC import is tested on macOS; other platforms use installed Qt image codecs.");
 #endif
     }
+    void undoAndRedoAnnotationsAndCaptures()
+    {
+        QTemporaryDir dir;
+        const auto path = dir.filePath("undo.pdf");
+        writeFixture(path);
+        ResearchStore store(dir.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        const auto source = QUrl::fromLocalFile(path);
+        QSignalSpy loaded(&store, &ResearchStore::highlightsLoaded), done(&store, &ResearchStore::annotationFinished);
+        store.loadHighlights(source);
+        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
+        const auto hash = loaded.last()[4].toString();
+        QVERIFY(!store.canUndo(source));
+        const auto marks = [&] {
+            QSignalSpy reloaded(&store, &ResearchStore::highlightsLoaded);
+            store.loadHighlights(source);
+            if (!reloaded.wait(10000)) return QVariantList{};
+            return reloaded.last()[2].toList();
+        };
+        // A new drawing: undo removes it, redo brings it back.
+        const QVariantList rects{QVariantMap{{"x", .1}, {"y", .2}, {"width", .3}, {"height", .1}}};
+        const QVariantList stroke{QVariantMap{{"x", .1}, {"y", .2}}, QVariantMap{{"x", .4}, {"y", .3}}};
+        store.saveAnnotation(source, 0,
+            {{"kind", "draw"}, {"color", "#54a878"}, {"sha256", hash}, {"rectangles", rects}, {"drawing", stroke}});
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+        const auto id = done.last()[1].toString();
+        QCOMPARE(marks().size(), 1);
+        QVERIFY(store.canUndo(source));
+        QVERIFY(store.undo(source));
+        QCOMPARE(marks().size(), 0);
+        QVERIFY(store.canRedo(source));
+        QVERIFY(store.redo(source));
+        QCOMPARE(marks().size(), 1);
+        // A color change undoes to the old color; a removal undoes to the annotation.
+        QVERIFY(store.updateHighlight(id, "#d87797", ""));
+        QCOMPARE(marks()[0].toMap()["color"].toString(), "#d87797");
+        QVERIFY(!store.canRedo(source)); // a new change ends the redo trail
+        QVERIFY(store.undo(source));
+        QCOMPARE(marks()[0].toMap()["color"].toString(), "#54a878");
+        QVERIFY(store.removeHighlight(id));
+        QCOMPARE(marks().size(), 0);
+        QVERIFY(store.undo(source));
+        QCOMPARE(marks().size(), 1);
+        QCOMPARE(marks()[0].toMap()["drawing"].toList().size(), 2);
+        // A capture: undo moves it to the trash, redo restores it.
+        store.captureRegion(source, 0, QRectF(.1, .1, .3, .2));
+        QTRY_VERIFY_WITH_TIMEOUT(!store.busy() && store.captures().size() == 1, 10000);
+        QVERIFY(store.undo(source));
+        QCOMPARE(store.captures().size(), 0);
+        QCOMPARE(store.trashedCaptures().size(), 1);
+        QVERIFY(store.redo(source));
+        QCOMPARE(store.captures().size(), 1);
+        // Nothing left to undo past the start.
+        while (store.canUndo(source)) QVERIFY(store.undo(source));
+        QVERIFY(!store.undo(source));
+        QCOMPARE(marks().size(), 0);
+    }
     void annotationColorsCommentsImagesAndDrawing()
     {
         QTemporaryDir dir;

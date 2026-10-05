@@ -23,6 +23,8 @@ class ResearchStore final : public QObject {
     Q_PROPERTY(QVariantList recentDocuments READ recentDocuments NOTIFY recentDocumentsChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(bool printing READ printing NOTIFY printingChanged)
+    // Bumps when undo/redo history changes (for enabling Undo and Redo).
+    Q_PROPERTY(int historyRevision READ historyRevision NOTIFY historyChanged)
     Q_PROPERTY(QString dataDirectory READ dataDirectory CONSTANT)
     Q_PROPERTY(QVariantList recentWorkspaces READ recentWorkspaces NOTIFY homeChanged)
     Q_PROPERTY(QVariantMap continueReading READ continueReading NOTIFY homeChanged)
@@ -198,6 +200,12 @@ public:
     Q_INVOKABLE bool canExportAnnotatedPdf() const;
     Q_INVOKABLE int loadHighlights(const QUrl &source);
     Q_INVOKABLE bool removeHighlight(const QString &id);
+    // Undo/redo the last annotation or capture change in this document (Cmd+Z, Cmd+Shift+Z).
+    Q_INVOKABLE bool undo(const QUrl &source) { return replay(source, false); }
+    Q_INVOKABLE bool redo(const QUrl &source) { return replay(source, true); }
+    Q_INVOKABLE bool canUndo(const QUrl &source) const;
+    Q_INVOKABLE bool canRedo(const QUrl &source) const;
+    int historyRevision() const { return m_historyRevision; }
     // Where a capture or annotation sits (a DocumentAnchor; see ResearchStoreAnchors.cpp), and the one
     // way to show it: verify the source, then move the reader there.
     Q_INVOKABLE QVariantMap anchor(const QString &item, const QString &id) const;
@@ -257,6 +265,7 @@ signals:
     void recentDocumentsChanged();
     void busyChanged();
     void printingChanged();
+    void historyChanged();
     void message(const QString &text);
     void captureSaved(const QString &id);
     void knowledgeFound(int request, const QVariantList &results);
@@ -313,6 +322,20 @@ private:
     int m_highlightRequest = 0;
     int m_knowledgeRequest = 0;
     bool m_printing = false;
+    // Undo and redo, per document, for this session: annotation states and capture trash moves.
+    struct HistoryStep {
+        QString type, id, label;
+        QVariantMap before, after;
+    };
+    QHash<QString, QList<HistoryStep>> m_undo, m_redo;
+    bool m_replaying = false;
+    int m_historyRevision = 0;
+    QVariantMap annotationState(const QString &id) const;
+    bool applyAnnotationState(const QString &id, const QVariantMap &state);
+    void recordAnnotation(const QString &id, const QVariantMap &before, const QString &label);
+    void recordCapture(const QString &id, bool trashed);
+    void pushHistory(const QString &document, const HistoryStep &step);
+    bool replay(const QUrl &source, bool forward);
     int m_relatedRequest = 0;
     void configureOcr();
     void scheduleAutomaticBackup();

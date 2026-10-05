@@ -68,6 +68,7 @@ int ResearchStore::loadHighlights(const QUrl &source)
 bool ResearchStore::updateHighlight(const QString &id, const QString &color, const QString &body)
 {
     if (body.size() > 10000 || !annotationColors().contains(color)) return false;
+    const auto before = annotationState(id);
     QSqlQuery query(m_database);
     query.prepare("UPDATE highlights SET color=?,body=? WHERE id=? AND deleted_at IS NULL");
     query.addBindValue(color);
@@ -77,6 +78,7 @@ bool ResearchStore::updateHighlight(const QString &id, const QString &color, con
         emit message("Cannot update annotation.");
         return false;
     }
+    recordAnnotation(id, before, "");
     emit highlightsChanged();
     emit homeChanged();
     return true;
@@ -148,6 +150,7 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
         oldImage = old.value(1).toString();
     } else
         id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const auto before = editing ? annotationState(id) : QVariantMap{};
     if (expected.isEmpty()) {
         fail("Wait for PDF source verification to finish.");
         return;
@@ -200,6 +203,7 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
             reject("Cannot save annotation. The previous version was kept.");
             return;
         }
+        recordAnnotation(id, before, "");
         emit highlightsChanged();
         emit homeChanged();
         emit annotationSaved(id);
@@ -240,6 +244,7 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
 
 bool ResearchStore::removeHighlight(const QString &id)
 {
+    const auto before = annotationState(id);
     QSqlQuery query(m_database);
     query.prepare("UPDATE highlights SET deleted_at=? WHERE id=? AND deleted_at IS NULL");
     query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
@@ -248,6 +253,7 @@ bool ResearchStore::removeHighlight(const QString &id)
         emit message("Cannot remove this highlight.");
         return false;
     }
+    recordAnnotation(id, before, "Remove " + before.value("kind").toString());
     emit highlightsChanged();
     emit homeChanged();
     emit message("Highlight removed. The source PDF was kept.");

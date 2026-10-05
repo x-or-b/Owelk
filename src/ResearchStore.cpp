@@ -89,6 +89,8 @@ ResearchStore::ResearchStore(const QString &directory, QObject *parent)
 {
     m_workers.setMaxThreadCount(1);
     m_verifiers.setMaxThreadCount(2);
+    // A new capture can be undone (it moves to the trash).
+    connect(this, &ResearchStore::captureSaved, this, [this](const QString &id) { recordCapture(id, false); });
     m_metadataWorkers.setMaxThreadCount(1);
     m_metadataWorkers.setThreadPriority(QThread::LowPriority);
     connect(m_index, &PaperIndex::message, this, &ResearchStore::message);
@@ -1032,6 +1034,7 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
                     emit annotationFinished(false, "");
                     return;
                 }
+                recordAnnotation(anchor.id, {}, "");
                 emit highlightsChanged();
                 emit homeChanged();
                 emit highlightSaved(anchor.id, anchor.source);
@@ -1197,6 +1200,7 @@ bool ResearchStore::deleteCapture(const QString &id)
         return false;
     }
     reloadCaptures();
+    recordCapture(id, true);
     emit message(tr("Capture moved to local trash. The source PDF was kept."));
     return true;
 }
@@ -1258,6 +1262,7 @@ bool ResearchStore::restoreCapture(const QString &id)
     }
     // Only remove the deletion marker; original anchors, notes and workspace links stay intact.
     reloadCaptures();
+    recordCapture(id, false);
     emit message(tr("Capture restored with its note and workspace links."));
     return true;
 }

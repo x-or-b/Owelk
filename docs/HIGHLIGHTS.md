@@ -6,7 +6,7 @@
 - Highlight offers Blue, Yellow, Green, Pink and Purple. Line geometry follows the selection; marking the same character range again changes its color without duplicating the highlight or removing its comment.
 - Comment opens an explicit Save/Cancel editor, preserving the original quote separately. Click a comment marker to reopen it. Unsaved changes require confirmation before discarding.
 - Right-click the page or selected text for actions about that spot: Copy, Select All on Page, Add Comment, Highlight, Save Excerpt, AI (Explain, Translate, Summarize, Ask) and Capture a Region. Paper-wide actions (Find, Print, Export, Mark as Read, Paper Details) are in the toolbar ⋯. Menus are as wide as their longest label.
-- The 32px PDF toolbar centers zoom controls. On the right: annotation tools (Highlight, Draw, Comment, Text Box, Image), Capture a Region, then ⋯ (Find, Print, Export, Mark as Read, Paper Details). Panes narrower than 600px move the annotation tools into ⋯. AI is in the AI panel, the selection icons and the right-click menu, not the toolbar.
+- The 32px PDF toolbar centers zoom controls. On the right: annotation tools in the order Draw, Highlight (the two inks, each with its color bar), Comment, Text Box (writing), Image (inserting), then Capture a Region, Notes, then ⋯ (Find, Print, Export, Mark as Read, Paper Details). Panes narrower than 600px move the annotation tools into ⋯. AI is in the AI panel, the selection icons and the right-click menu, not the toolbar.
 - Highlight and Draw have separate colors, shown as a bar under each icon and remembered across restarts. Click the icon to use the current color (with a selection, Highlight applies it at once); right-click it to pick another color. Right-clicking a tool always shows its options. Comments and text boxes use the highlight color.
 - For page comments, text boxes and images, activate a tool then click or drag on the page. Images are copied into app storage; position and size can be edited as page percentages. Image editing applies only to app-added images, not embedded PDF content. Draw by dragging; Esc leaves the active tool.
 - Right-click an existing annotation to edit its comment/text, replace an added image, change color or remove it. Drawing geometry cannot yet be reshaped. Color is chosen by right-clicking Highlight or Draw, or from an existing annotation's context menu.
@@ -20,6 +20,18 @@
 - Added images are copied as PNG (at most 2048 pixels per side); decoding is limited to 25 megapixels. Comments/text are limited to 10,000 characters and strokes to 5,000 points. Replaced image assets are retained locally; automatic pruning is not implemented.
 - HEIC/HEIF is accepted, including uppercase extensions. macOS uses ImageIO for bounded, orientation-aware decoding in both asynchronous previews and saved PNGs. On Windows/Linux, HEIC requires an installed Qt-compatible decoder; otherwise a conversion message is shown. Original image files are kept unchanged.
 - Removal is soft deletion. Annotation trash/undo UI, multi-page selection and native editable PDF annotation export remain future work. Captures' trash does not restore annotations.
+
+## Notes beside the page
+
+- The Notes button (toolbar, after Capture) shows a column beside the page with the paper's comments and the highlights that have a note, in page order under page headings. The setting is remembered; the column appears when the pane is at least 560px wide.
+- A note is linked to a selection (its quote is shown with the ink) or to a spot on the page (+, then click the page). With the column open, adding a comment or clicking a comment marker on the page writes it in the column instead of a dialog. Cmd+Return saves, Esc cancels, leaving the field saves.
+- Hovering a note outlines its place on the page; clicking a note scrolls there. While reading, the column follows the current page. Right-click a note for Go to, Edit, Copy Note and Delete Note.
+- Notes are the same comment annotations as on the page: search, export (Markdown, annotated PDF), print markers and undo all include them.
+
+## Undo and redo
+
+- Cmd+Z / Cmd+Shift+Z (Ctrl+Z / Ctrl+Y or Ctrl+Shift+Z on Linux and Windows) undo and redo, per paper, the last changes of this session: new highlights, drawings, comments, text boxes and images, color and note edits, moves and resizes, removals, and new or deleted captures (a capture goes to or comes back from the trash). A focused text field keeps its own text undo.
+- Annotations are never erased by undo: they are soft-deleted, so redo brings back the same annotation.
 
 ## Printing
 

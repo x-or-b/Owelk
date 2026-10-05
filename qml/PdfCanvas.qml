@@ -37,6 +37,8 @@ Item {
     }
     property string documentFingerprint: ""
     property var editingMark: null
+    // A mark outlined on the page while its note is hovered in the margin.
+    property string focusedMark: ""
     property point markMenuPosition: Qt.point(0, 0)
     signal contextRequested(point position, int page)
     signal externalLinkRequested(url url)
@@ -769,6 +771,13 @@ Item {
                                 x: modelData.x * paper.width; y: modelData.y * paper.height
                                 width: modelData.width * paper.width; height: modelData.height * paper.height
                                 Rectangle { anchors.fill: parent; visible: persistentMark.modelData.kind === "highlight" || persistentMark.modelData.kind === "comment"; color: persistentMark.modelData.color || Theme.accent; opacity: persistentMark.modelData.kind === "comment" ? .12 : .28 }
+                                Rectangle {
+                                    objectName: "focusedMark-" + persistentMark.modelData.id
+                                    anchors.fill: parent; anchors.margins: -2
+                                    visible: root.focusedMark === persistentMark.modelData.id
+                                    color: "transparent"; radius: 2
+                                    border.width: 2; border.color: Theme.accent
+                                }
                                 Text { anchors.fill: parent; visible: persistentMark.modelData.kind === "text"; text: persistentMark.modelData.body || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: persistentMark.modelData.color; font.pixelSize: 14 * root.pageScale; clip: true }
                                 Image { anchors.fill: parent; visible: persistentMark.modelData.kind === "image"; source: visible ? persistentMark.modelData.image : ""; fillMode: Image.Stretch; asynchronous: true }
                                 Canvas {

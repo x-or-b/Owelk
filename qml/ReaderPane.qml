@@ -46,8 +46,14 @@ Rectangle {
     }
     function addComment() {
         if (!canvas.selectedAnchor) return
-        activated(); annotationEditor.begin(canvas, {kind:"comment",page:canvas.selectedAnchor.page}, canvas.selectedAnchor)
+        activated()
+        if (marginShown) margin.beginDraft({page: canvas.selectedAnchor.page, selection: canvas.selectedAnchor})
+        else annotationEditor.begin(canvas, {kind:"comment",page:canvas.selectedAnchor.page}, canvas.selectedAnchor)
     }
+    // Notes beside the page (remembered); shown when the pane has room for them.
+    property bool marginNotes: researchStore.setting("reader.marginNotes") === "1"
+    readonly property bool marginShown: marginNotes && canvas.ready && root.width >= 560
+    function setMarginNotes(on) { marginNotes = on; researchStore.setSetting("reader.marginNotes", on ? "1" : "0") }
     function printDocument() { researchStore.printDocument(canvas.source, canvas.documentFingerprint, canvas.pageCount) }
     signal activated()
     signal changed()
@@ -274,7 +280,7 @@ Rectangle {
                 anchors.centerIn: parent
                 IconButton { icon.name: "minus"; description:"Zoom out"; onClicked:{root.activated();canvas.zoom(1/1.2)} }
                 ToolButton {
-                    height:26; width:48; hoverEnabled:true
+                    height:Theme.controlHeightSmall; width:Math.max(implicitWidth, Theme.fontBody * 4.5); hoverEnabled:true
                     text: Math.round(canvas.zoomFactor * 100) + "%"
                     onClicked: { root.activated(); canvas.fitWidth() }
                     ToolTip.visible: hovered
@@ -290,14 +296,7 @@ Rectangle {
                 Row {
                     objectName: "annotationTools"
                     visible: readerToolbar.width >= 600
-                    // Right-click a tool for its options (here: the ink color).
-                    IconButton {
-                        id: highlightTool
-                        objectName:"highlightTool";icon.name: "highlight";swatch:canvas.markColor;checked:canvas.tool==="highlight"
-                        description: (canvas.selectedAnchor ? "Highlight the selection" : "Highlight · Drag over text") + " · Right-click for color"
-                        onClicked: root.useHighlight()
-                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.chooseInk(highlightTool, "highlight", !!canvas.selectedAnchor) }
-                    }
+                    // Inks first (pen, highlight: right-click for color), then writing (comment, text), then image.
                     IconButton {
                         id: drawTool
                         objectName:"drawTool";icon.name: "draw";swatch:canvas.drawColor;checked:canvas.tool==="draw"
@@ -305,12 +304,20 @@ Rectangle {
                         onClicked: root.setTool("draw")
                         TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.chooseInk(drawTool, "draw", false) }
                     }
+                    IconButton {
+                        id: highlightTool
+                        objectName:"highlightTool";icon.name: "highlight";swatch:canvas.markColor;checked:canvas.tool==="highlight"
+                        description: (canvas.selectedAnchor ? "Highlight the selection" : "Highlight · Drag over text") + " · Right-click for color"
+                        onClicked: root.useHighlight()
+                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.chooseInk(highlightTool, "highlight", !!canvas.selectedAnchor) }
+                    }
                     IconButton { objectName:"commentTool";icon.name: "comment";checked:canvas.tool==="comment";description:"Comment · Select text, or click a page";onClicked:root.setTool("comment") }
                     IconButton { objectName:"textTool";icon.name: "text";checked:canvas.tool==="text";description:"Text box · Click or drag on a page";onClicked:root.setTool("text") }
                     IconButton { objectName:"imageTool";icon.name: "image";checked:canvas.tool==="image";description:"Image · Drag an area; right-click added images to edit";onClicked:root.setTool("image") }
                 }
                 Rectangle { visible: readerToolbar.width >= 600; width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
                 IconButton { objectName:"readerCaptureButton";icon.name: "capture";description:"Capture a region · " + Platform.keys("Ctrl+Shift+C");checked:canvas.captureMode;onClicked:root.toggleCapture() }
+                IconButton { objectName:"marginNotesButton";icon.name: "margin";checked:root.marginNotes;description:"Notes beside the page";onClicked:root.setMarginNotes(!root.marginNotes) }
                 Rectangle { width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
                 IconButton { icon.name: "more";
                     objectName: "readerMoreButton"
@@ -320,8 +327,8 @@ Rectangle {
                         id: moreMenu
                         objectName: "readerMoreMenu"
                         // Narrow panes: the annotation tools move here.
-                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Highlight";onTriggered:root.useHighlight() }
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Draw";onTriggered:root.setTool("draw") }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Highlight";onTriggered:root.useHighlight() }
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Comment";onTriggered:root.setTool("comment") }
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Text Box";onTriggered:root.setTool("text") }
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Image";onTriggered:root.setTool("image") }
@@ -395,14 +402,21 @@ Rectangle {
                 id: canvas
                 objectName: "pdfCanvas" + root.paneIndex
                 anchors.fill: parent
+                anchors.rightMargin: root.marginShown ? margin.width : 0
                 onActivated: root.activated()
                 onExternalLinkRequested: function(url) { if (root.managed) root.linkRequested(url); else Qt.openUrlExternally(url) }
                 onContextRequested: function(position,page) { root.activated(); selectionMenu.page=page; selectionMenu.popup(canvas,position.x,position.y) }
-                onEditRequested: function(record,selection) { root.activated(); annotationEditor.begin(canvas,record,selection) }
+                onEditRequested: function(record,selection) {
+                    root.activated()
+                    // With the notes open, a comment or a highlight's note is written beside the page.
+                    if (root.marginShown && !selection && (record.kind === "comment" || record.kind === "highlight")) margin.edit(record.id)
+                    else annotationEditor.begin(canvas,record,selection)
+                }
                 onAnnotationPlaced: function(page,rectangle,points) {
                     const kind=canvas.tool
                     const spec={kind:kind,page:page,rectangles:[rectangle],color:kind==="draw"?canvas.drawColor:canvas.markColor,sha256:canvas.documentFingerprint,drawing:kind==="draw"?points:[]}
                     if(kind==="draw")researchStore.saveAnnotation(canvas.source,page,spec)
+                    else if(kind==="comment"&&root.marginShown){canvas.tool="";margin.beginDraft({page:page,rectangle:rectangle})}
                     else {canvas.tool="";annotationEditor.begin(canvas,spec,null)}
                 }
                 onPositionChanged: root.changed()
@@ -417,11 +431,20 @@ Rectangle {
                 }
             }
 
+            MarginNotes {
+                id: margin
+                visible: root.marginShown
+                anchors.right: parent.right
+                width: Math.min(300, Math.max(220, parent.width * .28)); height: parent.height
+                canvas: canvas
+                source: root.source
+                z: 4
+            }
             Rectangle {
                 objectName: "selectionToolbar"
                 z: 5
                 visible: canvas.selectedText.length > 0 && !canvas.selecting && canvas.selectionEnd.y >= 0 && canvas.selectionEnd.y <= canvas.height && !annotationEditor.visible && !selectionMenu.visible
-                x: Math.max(4,Math.min(parent.width-width-20,canvas.selectionEnd.x+8))
+                x: Math.max(4,Math.min(canvas.width-width-20,canvas.selectionEnd.x+8))
                 y: Math.max(4,canvas.selectionEnd.y+height+12>parent.height?canvas.selectionEnd.y-height-8:canvas.selectionEnd.y+8)
                 width: 140; height: 34
                 color: Theme.raised; border.color: Theme.border; radius: Theme.radiusLarge
@@ -514,6 +537,19 @@ Rectangle {
         sequences: [StandardKey.Copy]
         enabled: root.isActive && canvas.selectedText.length > 0 && !searchField.activeFocus && !pageField.activeFocus
         onActivated: canvas.copySelection()
+    }
+    // Undo and redo annotation and capture changes in this paper. A focused text field keeps its own.
+    Shortcut {
+        objectName: "undoShortcut"
+        sequences: [StandardKey.Undo]
+        enabled: root.isActive && canvas.ready && (researchStore.historyRevision, researchStore.canUndo(root.source))
+        onActivated: researchStore.undo(root.source)
+    }
+    Shortcut {
+        objectName: "redoShortcut"
+        sequences: [StandardKey.Redo]
+        enabled: root.isActive && canvas.ready && (researchStore.historyRevision, researchStore.canRedo(root.source))
+        onActivated: researchStore.redo(root.source)
     }
     Shortcut {
         objectName: "historyBackShortcut"
