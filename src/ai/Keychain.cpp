@@ -11,7 +11,11 @@
 #include <windows.h>
 #include <wincred.h>
 #elif defined(OWELK_HAVE_LIBSECRET)
+// glib names a struct member `signals`, which Qt defines as a keyword macro.
+#pragma push_macro("signals")
+#undef signals
 #include <libsecret/secret.h>
+#pragma pop_macro("signals")
 #endif
 
 namespace Keychain {

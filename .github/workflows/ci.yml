@@ -13,11 +13,14 @@ jobs:
         include:
           - os: ubuntu-24.04
             arch: linux_gcc_64
+          # Windows is not a main target yet: its result is shown but does not fail the run.
           - os: windows-2022
             arch: win64_msvc2022_64
+            optional: true
           - os: macos-14
             arch: clang_64
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional == true }}
     env:
       QTWEBENGINE_DISABLE_SANDBOX: 1
       QTWEBENGINE_CHROMIUM_FLAGS: --no-sandbox
@@ -55,3 +58,9 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure --timeout 600
+
+      # Only the failing checks, short enough to paste into a report.
+      - name: Failed checks
+        if: failure()
+        shell: bash
+        run: grep -hE "FAIL!|Loc:|QFATAL|Actual|Expected" build/Testing/Temporary/LastTest.log | head -100 || true

@@ -66,6 +66,7 @@ export file-down
 pause pause
 play play
 fast zap
+effort gauge
 key key-round
 settings settings
 locate file-search

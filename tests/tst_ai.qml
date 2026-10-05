@@ -226,6 +226,9 @@ Item {
                 const control = findChild(p, name)
                 verify(control && control.visible && control.width > 20, name)
             }
+            // Fast mode, when the model has it, is never pushed out of the panel.
+            const fast = findChild(p, "aiFastButton")
+            if (fast.visible) verify(fast.mapToItem(p, fast.width, 0).x <= p.width + 1, "Fast is inside the panel")
             // A provider without a key is offered for set-up instead of its models.
             verify(researchStore.ai.clearApiKey("claude"))
             mouseClick(findChild(p, "aiModelButton"))

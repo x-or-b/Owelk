@@ -16,6 +16,9 @@ Item {
     ItemDelegate { id: row; y: 240; width: 200; text: "Paper" }
     Label { id: cut; y: 290; width: 60; text: "A long paper title that cannot fit"; elide: Text.ElideRight }
     SignalSpy { id: accepted; target: dialog; signalName: "accepted" }
+    // An input with its own key handler (like the AI question box) still gets line delete.
+    TextArea { id: composer; y: 330; width: 300; property int returns: 0; Keys.onPressed: function(event) { if (event.key === Qt.Key_Return) { ++returns; event.accepted = true } } }
+    TextField { id: single; y: 400; width: 300 }
     TestCase {
         name: "OwelkStyle"
         when: windowShown
@@ -67,6 +70,23 @@ Item {
             verify(item.implicitWidth <= item.width + 1)
             menu.close()
             tryCompare(menu, "visible", false)
+        }
+        function test_deleteToLineStart() {
+            const mods = Qt.platform.os === "osx" ? Qt.ControlModifier : Qt.ControlModifier | Qt.ShiftModifier
+            composer.text = "first line\nsecond line"
+            composer.forceActiveFocus(); composer.cursorPosition = composer.length
+            keyClick(Qt.Key_Backspace, mods)
+            compare(composer.text, "first line\n")
+            keyClick(Qt.Key_Backspace, mods) // at a line start it joins with the line above
+            compare(composer.text, "first line")
+            keyClick(Qt.Key_Return)
+            compare(composer.returns, 1, "the box's own keys still work")
+            single.text = "a search query"
+            single.forceActiveFocus(); single.cursorPosition = 2
+            keyClick(Qt.Key_Delete, mods)
+            compare(single.text, "a ")
+            keyClick(Qt.Key_Backspace, mods)
+            compare(single.text, "")
         }
         function test_annotationInksMatchStoreValidation() {
             // UI swatches and C++ validation must accept exactly the same inks, in the same order.

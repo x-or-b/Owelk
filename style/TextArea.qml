@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls.impl
 import QtQuick.Templates as T
 import Owelk.Ui
+import "LineDelete.js" as LineDelete
 
 T.TextArea {
     id: control
@@ -14,6 +15,7 @@ T.TextArea {
     selectedTextColor: Theme.text
     placeholderTextColor: Theme.textTertiary
     selectByMouse: true
+    Keys.onPressed: function(event) { if (!event.accepted && LineDelete.handle(control, event, true)) event.accepted = true }
     PlaceholderText {
         id: placeholder
         x: control.leftPadding

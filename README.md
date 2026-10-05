@@ -87,6 +87,13 @@ Settings(`⌘,`) → Appearance에서 바꾸며 바로 적용됩니다.
 
 Settings는 Appearance·Web·Search·AI·Shortcuts·Data로 나뉩니다. 보이는 페이지만 만들어 가볍습니다.
 
+## 글 입력 칸의 줄 지우기
+
+모든 입력 칸(AI 질문, 노트, 검색, 주석 글)에서 커서 앞의 줄을 한 번에 지웁니다.
+- macOS: `⌘⌫` 줄 앞까지, `⌘⌦`(fn+⌘⌫) 줄 끝까지, `⌥⌫` 단어.
+- Linux·Windows: `Ctrl+Shift+Backspace` 줄 앞까지, `Ctrl+Shift+Delete` 줄 끝까지, `Ctrl+Backspace` 단어.
+- 줄 맨 앞에서 누르면 윗줄과 합칩니다. 긴 줄이 화면에서 접혀 있으면 보이는 한 줄만 지웁니다.
+
 ## 단축키 바꾸기
 
 - Settings → Shortcuts: 동작을 누르고 새 키를 누르면 바뀝니다(Esc 취소, Backspace 끄기, ↺ 기본값). 같은 키를 두 동작에 쓰면 빨갛게 표시합니다. `Reset All`로 모두 기본값으로 돌립니다.

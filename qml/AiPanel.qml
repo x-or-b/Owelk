@@ -227,15 +227,12 @@ Item {
                 }
             }
         }
-        // Composer bar: context, model, reasoning effort and fast mode wrap on the left; Send stays right.
+        // Composer bar, one row: context, model, reasoning effort, fast mode, Send. When the panel is
+        // narrow the model name is shortened first; every control stays visible.
         RowLayout {
-            Layout.fillWidth: true; Layout.minimumWidth: 0
-            spacing: 4
-        Flow {
             id: bar
             Layout.fillWidth: true; Layout.minimumWidth: 0
-            Layout.alignment: Qt.AlignBottom
-            spacing: 4
+            spacing: width < Theme.fontBody * 16 ? 2 : 4
             IconButton {
                 id: attachButton
                 objectName: "aiAttachButton"
@@ -256,7 +253,9 @@ Item {
             Chip {
                 id: modelButton
                 trailingIcon: "down"
-                width: Math.min(implicitWidth, bar.width)
+                Layout.fillWidth: true
+                Layout.minimumWidth: Theme.iconButton
+                Layout.maximumWidth: implicitWidth
                 objectName: "aiModelButton"
                 text: root.c ? root.c.modelLabel : ""
                 ToolTip.text: root.c ? root.c.providerInfo.name + " · " + (root.c.providerInfo.kind === "local" ? "stays on this computer" : "sent to " + (root.c.providerInfo.sends || "")) : ""
@@ -266,9 +265,13 @@ Item {
                 id: effortButton
                 trailingIcon: "down"
                 objectName: "aiEffortButton"
+                Layout.maximumWidth: Theme.fontBody * 7
                 visible: root.c && root.c.efforts.length > 0
+                // A narrow panel shows a gauge instead of the effort's name.
+                compact: bar.width < Theme.fontBody * 22
+                icon.name: "effort"
                 text: root.c ? root.c.effortName(root.c.effectiveEffort) : ""
-                ToolTip.text: "Reasoning effort: higher thinks longer and costs more"
+                ToolTip.text: (compact ? "Reasoning effort: " + text + " · " : "Reasoning effort · ") + "higher thinks longer and costs more"
                 onClicked: effortMenu.popup(effortButton, 0, -effortMenu.implicitHeight)
                 Menu {
                     id: effortMenu
@@ -296,7 +299,7 @@ Item {
                 description: "Fast mode · faster answers at a higher price"
                 onClicked: root.c.setFast(checked)
             }
-        }
+            Item { Layout.fillWidth: true; Layout.minimumWidth: 0 }
             IconButton {
                 id: sendButton
                 objectName: "aiSend"

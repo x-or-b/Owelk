@@ -53,6 +53,7 @@ var glyphs = {
     "pause": "\ue12e",
     "play": "\ue13c",
     "fast": "\ue1b4",
+    "effort": "\ue1bf",
     "key": "\ue4a3",
     "settings": "\ue154",
     "locate": "\ue0cb",
