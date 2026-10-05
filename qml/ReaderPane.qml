@@ -180,19 +180,10 @@ Rectangle {
         MenuSeparator {}
         UiControls.MenuItem { text:"Explain with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("explain", "selection") }
         UiControls.MenuItem { text:"Translate with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("translate", "selection") }
-        UiControls.MenuItem { text:"Ask AI about This Page…"; onTriggered:root.requestAi("ask", "page") }
+        UiControls.MenuItem { text:"Summarize with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("summarize", "selection") }
+        UiControls.MenuItem { text:canvas.selectedText ? "Ask AI about the Selection…" : "Ask AI about This Page…"; onTriggered:root.requestAi("ask", canvas.selectedText ? "selection" : "page") }
         MenuSeparator {}
-        UiControls.MenuItem { text:"Capture a Region"; onTriggered:{canvas.tool="";canvas.captureMode=true} }
-        UiControls.MenuItem { text:"Print…"; onTriggered:root.printDocument() }
-        UiControls.Menu {
-            objectName: "exportMenu"
-            title: "Export"
-            UiControls.MenuItem { objectName:"exportAnnotatedOption"; text:"Annotated PDF…"; visible:researchStore.canExportAnnotatedPdf(); height:visible ? implicitHeight : 0; enabled:canvas.ready && canvas.documentFingerprint.length > 0; onTriggered:annotatedFile.open() }
-            UiControls.MenuItem { objectName:"exportMarkdownOption"; text:"Highlights and Captures (Markdown)…"; enabled:root.source.toString().length > 0; onTriggered:markdownFolder.open() }
-        }
-        MenuSeparator {}
-        UiControls.MenuItem { text:"Mark Paper as Read"; enabled:root.source.toString().length > 0; onTriggered:researchStore.setReadingState(root.source, "read") }
-        UiControls.MenuItem { objectName:"paperDetailsOption"; text:"Paper Details…"; enabled:root.source.toString().length > 0; onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
+        UiControls.MenuItem { text:"Capture a Region"; onTriggered:root.startCapture() }
     }
     Loader { id: paperDetails; active: false; sourceComponent: PaperDetailsDialog {} }
     FileDialog {
@@ -299,14 +290,21 @@ Rectangle {
                 Row {
                     objectName: "annotationTools"
                     visible: readerToolbar.width >= 600
+                    // Right-click a tool for its options (here: the ink color).
                     ReaderIconButton {
+                        id: highlightTool
                         objectName:"highlightTool";kind:"highlight";swatch:canvas.markColor;checked:canvas.tool==="highlight"
-                        description: canvas.selectedAnchor ? "Highlight the selection" : "Highlight · Drag over text; Esc to finish"
+                        description: (canvas.selectedAnchor ? "Highlight the selection" : "Highlight · Drag over text") + " · Right-click for color"
                         onClicked: root.useHighlight()
+                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.chooseInk(highlightTool, "highlight", !!canvas.selectedAnchor) }
                     }
-                    ReaderIconButton { objectName:"highlightInk";kind:"chevron";implicitWidth:14;description:"Highlight color";onClicked:root.chooseInk(this,"highlight",!!canvas.selectedAnchor) }
-                    ReaderIconButton { objectName:"drawTool";kind:"draw";swatch:canvas.drawColor;checked:canvas.tool==="draw";description:"Draw · Drag on a page; Esc to finish";onClicked:root.setTool("draw") }
-                    ReaderIconButton { objectName:"drawInk";kind:"chevron";implicitWidth:14;description:"Drawing color";onClicked:root.chooseInk(this,"draw",false) }
+                    ReaderIconButton {
+                        id: drawTool
+                        objectName:"drawTool";kind:"draw";swatch:canvas.drawColor;checked:canvas.tool==="draw"
+                        description:"Draw · Drag on a page · Right-click for color"
+                        onClicked: root.setTool("draw")
+                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.chooseInk(drawTool, "draw", false) }
+                    }
                     ReaderIconButton { objectName:"commentTool";kind:"comment";checked:canvas.tool==="comment";description:"Comment · Select text, or click a page";onClicked:root.setTool("comment") }
                     ReaderIconButton { objectName:"textTool";kind:"text";checked:canvas.tool==="text";description:"Text box · Click or drag on a page";onClicked:root.setTool("text") }
                     ReaderIconButton { objectName:"imageTool";kind:"image";checked:canvas.tool==="image";description:"Image · Drag an area; right-click added images to edit";onClicked:root.setTool("image") }
@@ -330,11 +328,11 @@ Rectangle {
                         MenuSeparator { visible:readerToolbar.width<600;height:visible?implicitHeight:0 }
                         UiControls.MenuItem { text:"Find in Document · " + Platform.keys("Ctrl+F");onTriggered:root.find() }
                         UiControls.MenuItem { objectName:"printOption";text:"Print…";onTriggered:root.printDocument() }
-                        UiControls.MenuItem { text:"Export Annotated PDF…";visible:researchStore.canExportAnnotatedPdf();height:visible?implicitHeight:0;enabled:canvas.documentFingerprint.length>0;onTriggered:annotatedFile.open() }
-                        UiControls.MenuItem { text:"Export Highlights and Captures…";onTriggered:markdownFolder.open() }
+                        UiControls.MenuItem { objectName:"exportAnnotatedOption";text:"Export Annotated PDF…";visible:researchStore.canExportAnnotatedPdf();height:visible?implicitHeight:0;enabled:canvas.documentFingerprint.length>0;onTriggered:annotatedFile.open() }
+                        UiControls.MenuItem { objectName:"exportMarkdownOption";text:"Export Highlights and Captures…";onTriggered:markdownFolder.open() }
                         MenuSeparator {}
                         UiControls.MenuItem { text:"Mark Paper as Read";onTriggered:researchStore.setReadingState(root.source, "read") }
-                        UiControls.MenuItem { text:"Paper Details…";onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
+                        UiControls.MenuItem { objectName:"paperDetailsOption";text:"Paper Details…";onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
                     }
                 }
             }

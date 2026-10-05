@@ -206,10 +206,10 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 
 ## 내보내기
 
-- **논문 노트(Markdown)**: 리더 ⋯ → `Export Highlights and Captures…` 또는 우클릭 → Export → `Highlights and Captures (Markdown)…`. 제목·저자·연도·DOI, 페이지별 하이라이트·코멘트·텍스트 상자, 캡처(이미지는 옆 폴더에 복사, 캡션·메모), 이 논문에 연결된 노트 목록을 `.md` 하나로 씁니다.
+- **논문 노트(Markdown)**: 리더 상단바 ⋯ → `Export Highlights and Captures…`. 제목·저자·연도·DOI, 페이지별 하이라이트·코멘트·텍스트 상자, 캡처(이미지는 옆 폴더에 복사, 캡션·메모), 이 논문에 연결된 노트 목록을 `.md` 하나로 씁니다.
 - **모든 노트**: Settings → Data → `Export Notes…`. 노트마다 `.md` 파일이며 Owelk 전용 링크는 글자만 남깁니다.
 - **BibTeX**: Library의 `Export BibTeX…`(지금 보이는 논문들), 논문 우클릭 → `Copy BibTeX`. DOI가 있으면 `@article`, arXiv만 있으면 `@misc`(eprint)로, 키는 `성연도제목단어`이며 겹치면 a, b…를 붙입니다.
-- **주석 포함 PDF**: 리더 ⋯ 또는 우클릭 → Export → `Annotated PDF…`. 원본은 읽기만 하고 새 파일(`이름 (annotated).pdf`)에 하이라이트(Highlight, 코멘트는 그 메모), 영역 코멘트(Text 메모), 텍스트 상자(FreeText), 그리기(Ink), 이미지(Stamp)를 표준 PDF 주석으로 씁니다. 미리보기·Acrobat·Okular에서 보이고 고칠 수 있습니다. 텍스트 상자의 한글 등 라틴 문자 외 글자는 주석 내용(Contents)에 들어가고, 화면 표시는 뷰어에 따라 다릅니다. 이 기능은 qpdf 라이브러리로 빌드했을 때 켜집니다(macOS `brew install qpdf`, Linux `libqpdf-dev`, Windows vcpkg `qpdf`).
+- **주석 포함 PDF**: 리더 상단바 ⋯ → `Export Annotated PDF…`. 원본은 읽기만 하고 새 파일(`이름 (annotated).pdf`)에 하이라이트(Highlight, 코멘트는 그 메모), 영역 코멘트(Text 메모), 텍스트 상자(FreeText), 그리기(Ink), 이미지(Stamp)를 표준 PDF 주석으로 씁니다. 미리보기·Acrobat·Okular에서 보이고 고칠 수 있습니다. 텍스트 상자의 한글 등 라틴 문자 외 글자는 주석 내용(Contents)에 들어가고, 화면 표시는 뷰어에 따라 다릅니다. 이 기능은 qpdf 라이브러리로 빌드했을 때 켜집니다(macOS `brew install qpdf`, Linux `libqpdf-dev`, Windows vcpkg `qpdf`).
 - 내보내기는 고른 폴더에 새 파일만 만들고(같은 이름이면 번호를 붙임) 라이브러리는 바꾸지 않습니다.
 
 ## 원본 PDF 재연결
@@ -245,7 +245,7 @@ C++ 서식은 저장소의 `.clang-format`을 따릅니다: `xcrun clang-format 
 
 캡처 카드의 `Add note` / `Edit note`에서 원문과 별도로 메모를 작성하고 `Save`로 저장합니다. 노트도 Home/Cmd+K 검색에 포함되고, `Delete note`는 원문 캡처를 유지합니다. [노트 범위와 저장 방식](docs/CAPTURE_NOTES.md).
 
-문장 선택 끝점의 아이콘에서 5색 Highlight, Comment, Save Excerpt를 사용합니다. 우클릭으로 복사·페이지 전체 선택·주석 작업을 할 수 있습니다. 얇은 상단바 중앙은 배율, 우측은 주석 도구(형광펜·그리기·코멘트·텍스트 상자·이미지), 영역 캡처, ⋯(찾기·인쇄·내보내기·논문 정보)입니다. 형광펜과 그리기는 색을 따로 기억하며, 아이콘 옆 화살표로 색을 고릅니다. 주석은 재실행 후 유지되며 Cmd+K 검색과 우클릭 편집/삭제를 지원합니다. 원본 PDF는 변경하지 않습니다. 인쇄는 네이티브 대화상자를 사용하며 주석을 포함한 래스터 출력(최대 300dpi)입니다. 프린터가 하나도 설정되지 않았으면 인쇄용 PDF를 저장할 위치를 묻습니다. [주석 사용법과 제한](docs/HIGHLIGHTS.md).
+문장 선택 끝점의 아이콘에서 5색 Highlight, Comment, Save Excerpt를 사용합니다. 우클릭으로 복사·페이지 전체 선택·주석 작업을 할 수 있습니다. 얇은 상단바 중앙은 배율, 우측은 주석 도구(형광펜·그리기·코멘트·텍스트 상자·이미지), 영역 캡처, ⋯(찾기·인쇄·내보내기·논문 정보)입니다. 형광펜과 그리기는 색을 따로 기억하며, 아이콘을 우클릭해 색을 고릅니다. 페이지 우클릭 메뉴는 그 위치에 대한 동작(복사·주석·AI·영역 캡처)만 담습니다. 주석은 재실행 후 유지되며 Cmd+K 검색과 우클릭 편집/삭제를 지원합니다. 원본 PDF는 변경하지 않습니다. 인쇄는 네이티브 대화상자를 사용하며 주석을 포함한 래스터 출력(최대 300dpi)입니다. 프린터가 하나도 설정되지 않았으면 인쇄용 PDF를 저장할 위치를 묻습니다. [주석 사용법과 제한](docs/HIGHLIGHTS.md).
 
 외부로 나가는 요청은 웹 탭, 사용자가 누른 `Look up online`, 사용자가 동의하고 보낸 AI 요청뿐입니다. 암호가 걸린 PDF는 처음 열 때 암호를 물어보고(`Remember on this computer`를 켜면 시스템 키링에 저장), 그 암호로 본문 색인·캡처·주석·인쇄·AI도 같은 파일을 엽니다.
 

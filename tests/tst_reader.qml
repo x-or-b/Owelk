@@ -192,7 +192,8 @@ Item {
         function test_toolbarSeparateInksAndMenus() {
             verify(findChild(reader, "aiToolbarButton") === null, "AI lives in the panel and selection menu, not the toolbar")
             waitForPolish(reader)
-            mouseClick(findChild(reader, "drawInk"))
+            verify(findChild(reader, "drawInk") === null && findChild(reader, "highlightInk") === null)
+            mouseClick(findChild(reader, "drawTool"), 10, 10, Qt.RightButton)
             const colors = findChild(reader, "selectionColors")
             tryCompare(colors, "opened", true)
             waitForPolish(colors.contentItem)
@@ -208,6 +209,17 @@ Item {
             compare(canvas.markColor, highlight)
             mouseClick(findChild(reader, "highlightTool"))
             tryCompare(canvas, "tool", "")
+            // The page menu is about the spot: no print or export there (they are in ⋯).
+            const page = findChild(canvas, "paperPage0")
+            mouseClick(page, page.width * .8, 100, Qt.RightButton)
+            const context = findChild(reader, "selectionContextMenu")
+            tryCompare(context, "opened", true)
+            for (let i = 0; i < context.count; ++i) {
+                const entry = context.itemAt(i)
+                verify(!entry.text || !/Print|Export|Paper Details|Mark Paper/.test(entry.text), entry.text)
+            }
+            context.close()
+            tryCompare(context, "visible", false)
             // Menus grow to their longest label instead of cutting it.
             mouseClick(findChild(reader, "readerMoreButton"))
             const more = findChild(reader, "readerMoreMenu")
