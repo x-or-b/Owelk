@@ -71,6 +71,41 @@ Item {
             verify(researchStore.sameSource(activeTab().source, second))
             researchStore.deleteCollection(id)
         }
+        function test_unsortedMultiSelectAndBatchCollection() {
+            const one = testInput.copyFixture("topic one.pdf"), two = testInput.copyFixture("topic two.pdf")
+            verify(researchStore.rememberDocument(one)); verify(researchStore.rememberDocument(two))
+            const topic = researchStore.createCollection("Batch Topic")
+            workspace.documents.openLibrary({unsorted: true})
+            const view = library()
+            tryVerify(function() { return visualChild(view, "librarySidebar-unsorted-true") !== null })
+            tryVerify(function() { return view.rows.some(function(r) { return researchStore.sameSource(r.url, one) }) })
+            verify(view.rows.every(function(r) { return researchStore.documentOrganization(r.url).collections.length === 0 }), "only papers in no collection")
+            const first = view.rows.find(function(r) { return researchStore.sameSource(r.url, one) })
+            const second = view.rows.find(function(r) { return researchStore.sameSource(r.url, two) })
+            waitForPolish(view); wait(50)
+            // Cmd/Ctrl-click selects without opening; right-click acts on the whole selection.
+            const tabs = Tree.find(workspace.documents.tree, workspace.documents.activeGroup).tabs.length
+            mouseClick(visualChild(view, "libraryPaper-" + first.id), 60, 12, Qt.LeftButton, Qt.ControlModifier)
+            mouseClick(visualChild(view, "libraryPaper-" + second.id), 60, 12, Qt.LeftButton, Qt.ControlModifier)
+            compare(view.selection.length, 2)
+            compare(Tree.find(workspace.documents.tree, workspace.documents.activeGroup).tabs.length, tabs, "nothing opened")
+            verify(visualChild(view, "libraryPaper-" + first.id).highlighted)
+            mouseClick(visualChild(view, "libraryPaper-" + second.id), 60, 12, Qt.RightButton)
+            const batch = findChild(view, "libraryBatchMenu")
+            tryCompare(batch, "opened", true)
+            compare(batch.urls.length, 2)
+            const sub = findChild(view, "libraryBatchCollections")
+            let item = null
+            for (let i = 0; i < sub.count; ++i) if (sub.itemAt(i).text.trim() === "Batch Topic") item = sub.itemAt(i)
+            verify(item !== null)
+            item.triggered()
+            batch.close()
+            // Both papers left Unsorted together.
+            tryVerify(function() { return !view.rows.some(function(r) { return researchStore.sameSource(r.url, one) || researchStore.sameSource(r.url, two) }) })
+            compare(researchStore.libraryDocuments({collection: topic}).length, 2)
+            compare(view.selection.length, 0)
+            researchStore.deleteCollection(topic)
+        }
         function test_searchResultsOpenCollectionsAndScopeSearch() {
             const id = researchStore.createCollection("Zebra Collection")
             const found = researchStore.searchKnowledge("zebra coll").filter(function(r) { return r.kind === "collection" })

@@ -11,6 +11,8 @@ Item {
     property var paper: ({})
     // Recent-paper lists also offer "Remove from Recent Papers".
     property bool recent: false
+    // When the list is one collection, the menu can take the paper out of it.
+    property string collectionId: ""
     signal openRequested(url source, var position)
     readonly property alias menu: menu
     readonly property var removeDialog: remove.item
@@ -40,6 +42,12 @@ Item {
                 onObjectRemoved: function(index, object) { collections.removeItem(object) }
             }
             MenuItem { text: "New Collection…"; onTriggered: { collectionName.active = true; collectionName.item.open() } }
+        }
+        MenuItem {
+            objectName: "removeFromCollectionOption"
+            visible: root.collectionId.length > 0; height: visible ? implicitHeight : 0
+            text: "Remove from This Collection"
+            onTriggered: researchStore.setDocumentCollection(root.paper.url, root.collectionId, false)
         }
         MenuSeparator {}
         MenuItem {

@@ -385,6 +385,7 @@ bool ResearchStore::setFavorite(const QUrl &source, bool favorite)
 
 void ResearchStore::announceDocumentsChanged()
 {
+    m_suggestions.clear(); // Memberships or papers changed: suggestions are worked out again.
     // Startup extraction finishes many documents in a row; refresh lists once per burst.
     if (m_documentsChangePending) return;
     m_documentsChangePending = true;

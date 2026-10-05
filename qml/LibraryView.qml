@@ -15,6 +15,26 @@ Rectangle {
     property string query: ""
     property var rows: []
     property var collectionRows: []
+    property int unsortedCount: 0
+    // Papers chosen with Cmd/Ctrl-click or Shift-click (URLs as strings), for moving several at once.
+    property var selection: []
+    property int selectionAnchor: -1
+    function isSelected(url) { return selection.indexOf(url.toString()) >= 0 }
+    function rowClicked(index) {
+        const row = rows[index], url = row.url.toString(), mods = researchStore.keyboardModifiers()
+        if (mods & Qt.ShiftModifier && selectionAnchor >= 0) {
+            const a = Math.min(selectionAnchor, index), b = Math.max(selectionAnchor, index)
+            selection = rows.slice(a, b + 1).map(function(r) { return r.url.toString() })
+        } else if (mods & Qt.ControlModifier) {
+            selection = isSelected(url) ? selection.filter(function(u) { return u !== url }) : selection.concat([url])
+            selectionAnchor = index
+        } else {
+            selection = []; selectionAnchor = index
+            root.documentChosen(row.url, row.position)
+        }
+    }
+    // The papers an action applies to: the selection when the row is part of it, else that row.
+    function papersFor(row) { return isSelected(row.url) ? selection : [row.url.toString()] }
     property var tagRows: []
     property var noteRows: []
     readonly property bool showingNotes: !!(filter.notes || filter.notesTrash)
@@ -27,11 +47,14 @@ Rectangle {
         if (query.trim().length) f.text = query.trim()
         f.sort = sort
         rows = researchStore.libraryDocuments(f)
+        unsortedCount = researchStore.unsortedCount()
+        const present = rows.map(function(r) { return r.url.toString() })
+        selection = selection.filter(function(u) { return present.indexOf(u) >= 0 })
         collectionRows = researchStore.collections()
         tagRows = researchStore.tags()
         noteRows = showingNotes ? researchStore.notes(!!filter.notesTrash) : []
     }
-    function setFilter(next) { filter = next; filterEdited(next); refresh() }
+    function setFilter(next) { filter = next; selection = []; selectionAnchor = -1; filterEdited(next); refresh() }
     function selected(key, value) { return key === "all" ? Object.keys(filter).length === 0 : filter[key] === value }
     onQueryChanged: refreshTimer.restart()
     onSortChanged: refresh()
@@ -54,11 +77,17 @@ Rectangle {
         modal: true
         title: collectionId.length ? "Rename collection" : "New collection"
         standardButtons: Dialog.Save | Dialog.Cancel
-        function begin(id, name, parent) { collectionId = id; parentId = parent || ""; collectionName.text = name || ""; open(); collectionName.forceActiveFocus() }
+        // Papers to put in a new collection right away (New Collection… on a selection).
+        property var papers: []
+        function begin(id, name, parent) { beginFor(id, name, parent, []) }
+        function beginFor(id, name, parent, urls) { collectionId = id; parentId = parent || ""; papers = urls || []; collectionName.text = name || ""; open(); collectionName.forceActiveFocus() }
         TextField { id: collectionName; objectName: "collectionName"; width: parent.width; placeholderText: "Collection name"; onAccepted: collectionDialog.accept() }
         onAccepted: {
             if (collectionId.length) researchStore.renameCollection(collectionId, collectionName.text)
-            else researchStore.createCollection(collectionName.text, parentId)
+            else {
+                const id = researchStore.createCollection(collectionName.text, parentId)
+                if (id && papers.length) researchStore.setDocumentsCollection(papers, id, true)
+            }
         }
     }
     Menu {
@@ -81,8 +110,45 @@ Rectangle {
         MenuSeparator {}
         MenuItem { text: "Move Note to Trash"; palette.windowText: Theme.danger; onTriggered: researchStore.deleteNote(noteMenu.noteId) }
     }
+    // Several selected papers: what applies to all of them.
+    Menu {
+        id: batchMenu
+        objectName: "libraryBatchMenu"
+        property var urls: []
+        property var rows: []
+        onAboutToShow: rows = researchStore.collections()
+        MenuItem { enabled: false; text: batchMenu.urls.length + " papers" }
+        MenuSeparator {}
+        Menu {
+            id: batchCollections
+            objectName: "libraryBatchCollections"
+            title: "Add to Collection"
+            Instantiator {
+                model: batchMenu.rows
+                delegate: MenuItem {
+                    required property var modelData
+                    text: "    ".repeat(modelData.depth) + modelData.name
+                    onTriggered: researchStore.setDocumentsCollection(batchMenu.urls, modelData.id, true)
+                }
+                onObjectAdded: function(index, object) { batchCollections.insertItem(index, object) }
+                onObjectRemoved: function(index, object) { batchCollections.removeItem(object) }
+            }
+            MenuItem { text: "New Collection…"; onTriggered: collectionDialog.beginFor("", "", "", batchMenu.urls) }
+        }
+        MenuItem {
+            visible: !!root.filter.collection; height: visible ? implicitHeight : 0
+            text: "Remove from This Collection"
+            onTriggered: researchStore.setDocumentsCollection(batchMenu.urls, root.filter.collection, false)
+        }
+        MenuSeparator {}
+        MenuItem { text: "Mark as Read"; onTriggered: batchMenu.urls.forEach(function(u) { researchStore.setReadingState(u, "read") }) }
+        MenuItem { text: "Add to Favorites"; onTriggered: batchMenu.urls.forEach(function(u) { researchStore.setFavorite(u, true) }) }
+        MenuSeparator {}
+        MenuItem { text: "Copy BibTeX"; onTriggered: { researchStore.copyText(researchStore.bibtex(batchMenu.urls)); researchStore.notify("BibTeX copied.") } }
+    }
     PaperMenu {
         id: paperMenu
+        collectionId: root.filter.collection || ""
         onOpenRequested: function(source, position) { root.documentChosen(source, position) }
     }
     RowLayout {
@@ -97,7 +163,7 @@ Rectangle {
                 anchors.fill: parent; anchors.margins: 8
                 clip: true
                 spacing: 1
-                model: [{key: "all", label: "All Papers"}, {key: "favorite", value: true, label: "Favorites"},
+                model: [{key: "all", label: "All Papers"}, {key: "unsorted", value: true, label: "Unsorted", count: root.unsortedCount}, {key: "favorite", value: true, label: "Favorites"},
                         {key: "state", value: "unread", label: "Unread"}, {key: "state", value: "reading", label: "Reading"},
                         {key: "state", value: "read", label: "Read"}, {header: "Notes"}, {key: "notes", value: true, label: "All Notes"},
                         {key: "notesTrash", value: true, label: "Notes Trash"}, {header: "Collections", add: true}]
@@ -154,7 +220,7 @@ Rectangle {
                             anchors.fill: parent
                             enabled: entry.modelData.key === "collection"
                             keys: ["owelk/paper"]
-                            onDropped: function(drop) { researchStore.setDocumentCollection(drop.source.paperUrl, entry.modelData.value, true) }
+                            onDropped: function(drop) { researchStore.setDocumentsCollection(drop.source.paperUrls, entry.modelData.value, true) }
                             Rectangle { anchors.fill: parent; color: "transparent"; border.color: Theme.accent; radius: Theme.radius; visible: parent.containsDrag }
                         }
                     }
@@ -256,12 +322,24 @@ Rectangle {
                     id: paper
                     required property var modelData
                     readonly property url paperUrl: modelData.url
+                    // Dragging a selected paper drags the whole selection.
+                    readonly property var paperUrls: root.papersFor(modelData)
                     objectName: "libraryPaper-" + modelData.id
                     required property int index
                     width: papers.width
                     height: Theme.rowHeightTall
                     separator: index < papers.count - 1
-                    onClicked: root.documentChosen(modelData.url, modelData.position)
+                    highlighted: root.isSelected(modelData.url)
+                    onClicked: root.rowClicked(index)
+                    // Unsorted papers get up to two places they probably belong, from similar papers.
+                    property var suggestions: []
+                    property int suggestionRequest: -1
+                    Component.onCompleted: if (root.filter.unsorted) suggestionRequest = researchStore.suggestCollections(modelData.url)
+                    Connections {
+                        target: researchStore
+                        enabled: paper.suggestionRequest >= 0
+                        function onCollectionsSuggested(request, source, list) { if (request === paper.suggestionRequest) paper.suggestions = list }
+                    }
                     ToolTip.visible: hovered; ToolTip.delay: 600
                     ToolTip.text: modelData.fileName + (modelData.duplicate ? "\nSame file as another library entry" : "") + (modelData.excluded ? "\nExcluded from text search" : "")
                     Drag.active: dragHandler.active
@@ -269,7 +347,13 @@ Rectangle {
                     Drag.source: paper
                     Drag.hotSpot: Qt.point(20, 20)
                     DragHandler { id: dragHandler; target: null; onActiveChanged: if (!active) paper.Drag.drop() }
-                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: paperMenu.show(paper.modelData) }
+                    TapHandler {
+                        acceptedButtons: Qt.RightButton
+                        onTapped: {
+                            if (paper.paperUrls.length > 1) { batchMenu.urls = paper.paperUrls; batchMenu.popup() }
+                            else { root.selection = []; paperMenu.show(paper.modelData) }
+                        }
+                    }
                     contentItem: RowLayout {
                         spacing: 10
                         Rectangle {
@@ -288,6 +372,17 @@ Rectangle {
                             }
                         }
                         Label { visible: paper.modelData.duplicate; text: "duplicate"; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                        Repeater {
+                            model: paper.suggestions
+                            delegate: Chip {
+                                required property var modelData
+                                objectName: "suggestion-" + modelData.name
+                                text: "+ " + modelData.name
+                                Layout.maximumWidth: 140
+                                ToolTip.text: "Add to " + modelData.name + " · similar papers are there"
+                                onClicked: { const url = paper.modelData.url, id = modelData.id; Qt.callLater(function() { researchStore.setDocumentCollection(url, id, true) }) }
+                            }
+                        }
                         // The star shows on favorites; on hover it is the toggle.
                         IconButton {
                             objectName: "libraryFavorite-" + paper.modelData.id

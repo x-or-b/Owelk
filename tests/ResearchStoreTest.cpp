@@ -870,6 +870,50 @@ private slots:
         QCOMPARE(close[0].toMap()["id"].toString(), twin);
         QVERIFY(store.relatedNotes(unrelated).isEmpty());
     }
+    void unsortedPapersAndCollectionSuggestions()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        const auto radar = QStringLiteral("Radar odometry fuses doppler velocity with inertial gravity estimates. ");
+        const auto a = QUrl::fromLocalFile(directory.filePath("a.pdf")),
+                   b = QUrl::fromLocalFile(directory.filePath("b.pdf")),
+                   c = QUrl::fromLocalFile(directory.filePath("c.pdf"));
+        writeTextFixture(a.toLocalFile(), {radar.repeated(6), "Doppler radar odometry under gravity drift."});
+        writeTextFixture(
+            b.toLocalFile(), {"We study doppler radar odometry and inertial velocity. " + radar.repeated(3)});
+        writeTextFixture(
+            c.toLocalFile(), {QStringLiteral("Semantic segmentation of indoor furniture scenes. ").repeated(8)});
+        for (const auto &url : {a, b, c}) QVERIFY(store.rememberDocument(url));
+        QTRY_VERIFY_WITH_TIMEOUT(!qobject_cast<PaperIndex *>(store.paperIndex())->busy(), 20000);
+        QCOMPARE(store.unsortedCount(), 3);
+        // Several papers go into a collection at once.
+        const auto odometry = store.createCollection("Odometry"), scenes = store.createCollection("Scenes");
+        QVERIFY(store.setDocumentsCollection({b}, odometry, true));
+        QVERIFY(store.setDocumentsCollection({c}, scenes, true));
+        QCOMPARE(store.unsortedCount(), 1);
+        const auto unsorted = store.libraryDocuments({{"unsorted", true}});
+        QCOMPARE(unsorted.size(), 1);
+        QCOMPARE(unsorted[0].toMap()["url"].toUrl(), a);
+        // The radar paper is like the one in Odometry, not like the furniture one.
+        QSignalSpy suggested(&store, &ResearchStore::collectionsSuggested);
+        const int request = store.suggestCollections(a);
+        QTRY_COMPARE_WITH_TIMEOUT(suggested.size(), 1, 10000);
+        QCOMPARE(suggested[0][0].toInt(), request);
+        const auto list = suggested[0][2].toList();
+        QCOMPARE(list.size(), 1);
+        QCOMPARE(list[0].toMap()["id"].toString(), odometry);
+        QCOMPARE(list[0].toMap()["name"].toString(), QString("Odometry"));
+        // Once filed there, it is no longer suggested (and no longer unsorted).
+        QVERIFY(store.setDocumentsCollection({a}, odometry, true));
+        QTRY_COMPARE_WITH_TIMEOUT(store.unsortedCount(), 0, 2000);
+        store.suggestCollections(a);
+        QTRY_COMPARE_WITH_TIMEOUT(suggested.size(), 2, 10000);
+        QVERIFY(suggested[1][2].toList().isEmpty());
+        QVERIFY(store.setDocumentsCollection({a, b}, odometry, false));
+        QCOMPARE(store.unsortedCount(), 2);
+    }
     void lockedPdfsWorkOnceTheReaderGivesThePassword()
     {
         qputenv("OWELK_KEYCHAIN_SERVICE",

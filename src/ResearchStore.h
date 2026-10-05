@@ -98,6 +98,16 @@ public:
     Q_INVOKABLE QVariantList libraryDocuments(const QVariantMap &filter = {}) const;
     Q_INVOKABLE QStringList documentIdsInScope(const QVariantMap &filter) const;
     Q_INVOKABLE QVariantList collections() const;
+    // Papers in no collection (the Library's Unsorted view).
+    Q_INVOKABLE int unsortedCount() const;
+    // Modifier keys of the current input event (list rows: Cmd/Ctrl-click and Shift-click select).
+    Q_INVOKABLE int keyboardModifiers() const;
+    // Adds (or removes) several papers at once.
+    Q_INVOKABLE bool setDocumentsCollection(const QVariantList &sources, const QString &collectionId, bool member);
+    // Collections where similar papers already are, for a paper in none of them (or to add more):
+    // answered by collectionsSuggested(request, source, [{id, name}]). No AI; the related-papers
+    // search, cached until the library changes.
+    Q_INVOKABLE int suggestCollections(const QUrl &source);
     Q_INVOKABLE QString createCollection(const QString &name, const QString &parentId = QString());
     Q_INVOKABLE bool renameCollection(const QString &id, const QString &name);
     Q_INVOKABLE bool deleteCollection(const QString &id);
@@ -249,6 +259,7 @@ signals:
     void notesChanged();
     void linksChanged();
     void relatedFound(int request, const QVariantList &papers, const QVariantList &notes);
+    void collectionsSuggested(int request, const QUrl &source, const QVariantList &suggestions);
     void ocrChanged();
     void backingUpChanged();
     void backupFinished(bool ok, const QString &path, const QString &message);
@@ -337,6 +348,8 @@ private:
     void pushHistory(const QString &document, const HistoryStep &step);
     bool replay(const QUrl &source, bool forward);
     int m_relatedRequest = 0;
+    int m_suggestRequest = 0;
+    QHash<QString, QVariantList> m_suggestions;
     void configureOcr();
     void scheduleAutomaticBackup();
     void markRunning();

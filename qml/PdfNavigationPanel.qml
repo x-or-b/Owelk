@@ -28,12 +28,17 @@ Item {
     property var relatedNotes: []
     property int relatedRequest: -1
     property bool relatedLoading: false
+    // Collections this paper probably belongs in (from where similar papers are).
+    property var suggestedCollections: []
+    property int suggestRequest: -1
     readonly property string relatedSource: ready && mode === 3 ? reader.source.toString() : ""
     onRelatedSourceChanged: {
         relatedPapers = []; relatedNotes = []
         if (!relatedSource.length) { relatedRequest = -1; relatedLoading = false; return }
         relatedLoading = true
         relatedRequest = researchStore.relatedTo(reader.source)
+        suggestedCollections = []
+        suggestRequest = researchStore.suggestCollections(reader.source)
     }
     Connections {
         target: researchStore
@@ -41,6 +46,7 @@ Item {
             if (request !== root.relatedRequest) return
             root.relatedPapers = papers; root.relatedNotes = notes; root.relatedLoading = false
         }
+        function onCollectionsSuggested(request, source, list) { if (request === root.suggestRequest) root.suggestedCollections = list }
     }
     PdfDocument { id: emptyDocument }
     // A blank document also avoids passing null to an active Qt PDF image/model during tab removal.
@@ -87,6 +93,29 @@ Item {
                 id: relatedColumn
                 width: parent.width
                 spacing: 2
+                Label {
+                    visible: root.suggestedCollections.length > 0
+                    text: "Add to collection"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4
+                }
+                Flow {
+                    visible: root.suggestedCollections.length > 0
+                    Layout.fillWidth: true; Layout.bottomMargin: 6
+                    spacing: 4
+                    Repeater {
+                        model: root.suggestedCollections
+                        delegate: Chip {
+                            required property var modelData
+                            objectName: "suggestedCollection-" + modelData.name
+                            text: "+ " + modelData.name
+                            ToolTip.text: "Add this paper to " + modelData.name + " · similar papers are there"
+                            onClicked: {
+                                const url = root.reader.source, id = modelData.id
+                                root.suggestedCollections = root.suggestedCollections.filter(function(c) { return c.id !== id })
+                                researchStore.setDocumentCollection(url, id, true)
+                            }
+                        }
+                    }
+                }
                 Label { text: "Papers"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4 }
                 Repeater {
                     model: root.relatedPapers

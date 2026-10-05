@@ -2,6 +2,7 @@
 #include "PaperIndex.h"
 
 #include <QDateTime>
+#include <QGuiApplication>
 #include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -19,7 +20,8 @@ QString newId()
 }
 
 // Documents in scope of the library filters. Keys (all optional): text, state (unread|reading|read),
-// favorite (bool), collection (id), tag (id), workspace (id), yearFrom, yearTo, sort (opened|added|title|year).
+// favorite (bool), unsorted (bool: in no collection), collection (id), tag (id), workspace (id), yearFrom, yearTo, sort
+// (opened|added|title|year).
 QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
 {
     QStringList where{"d.url LIKE 'file:%'"};
@@ -35,6 +37,7 @@ QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
         args << filter.value("state").toString();
     }
     if (filter.value("favorite").toBool()) where << "d.favorite=1";
+    if (filter.value("unsorted").toBool()) where << "d.id NOT IN (SELECT document_id FROM collection_documents)";
     if (filter.contains("collection")) {
         // A collection includes the papers of its sub-collections.
         where << "d.id IN (WITH RECURSIVE tree(id) AS (SELECT ? UNION SELECT c.id FROM collections c JOIN tree ON "
@@ -278,4 +281,107 @@ QStringList ResearchStore::documentIdsInScope(const QVariantMap &filter) const
     QStringList ids;
     for (const auto &row : libraryDocuments(filter)) ids << row.toMap().value("id").toString();
     return ids;
+}
+
+int ResearchStore::unsortedCount() const
+{
+    QSqlQuery query(m_database);
+    query.exec("SELECT count(*) FROM documents WHERE url LIKE 'file:%' AND id NOT IN (SELECT document_id FROM "
+               "collection_documents)");
+    return query.next() ? query.value(0).toInt() : 0;
+}
+
+bool ResearchStore::setDocumentsCollection(const QVariantList &sources, const QString &collectionId, bool member)
+{
+    if (sources.isEmpty() || !m_database.transaction()) return false;
+    for (const auto &value : sources) {
+        const auto document = ensureDocument(value.toUrl());
+        if (document.isEmpty()) continue;
+        QSqlQuery query(m_database);
+        query.prepare(member ? "INSERT OR IGNORE INTO collection_documents SELECT ?,? WHERE EXISTS(SELECT 1 FROM "
+                               "collections WHERE id=?)"
+                             : "DELETE FROM collection_documents WHERE collection_id=? AND document_id=?");
+        query.addBindValue(collectionId);
+        query.addBindValue(document);
+        if (member) query.addBindValue(collectionId);
+        if (!query.exec()) {
+            m_database.rollback();
+            return false;
+        }
+    }
+    if (!m_database.commit()) return false;
+    announceDocumentsChanged();
+    return true;
+}
+
+int ResearchStore::suggestCollections(const QUrl &source)
+{
+    const int request = ++m_suggestRequest;
+    const auto document = findDocument(source);
+    const auto answer = [this, request, source](const QVariantList &list) {
+        QMetaObject::invokeMethod(
+            this, [=, this] { emit collectionsSuggested(request, source, list); }, Qt::QueuedConnection);
+    };
+    if (document.isEmpty()) {
+        answer({});
+        return request;
+    }
+    if (m_suggestions.contains(document)) {
+        answer(m_suggestions.value(document));
+        return request;
+    }
+    // Nothing to suggest without collections.
+    QSqlQuery any(m_database);
+    if (!any.exec("SELECT 1 FROM collections LIMIT 1") || !any.next()) {
+        answer({});
+        return request;
+    }
+    const int related = relatedTo(source);
+    auto connection = std::make_shared<QMetaObject::Connection>();
+    *connection = connect(this, &ResearchStore::relatedFound, this,
+        [this, related, request, source, document, connection](
+            int id, const QVariantList &papers, const QVariantList &) {
+            if (id != related) return;
+            disconnect(*connection);
+            QSet<QString> mine;
+            QSqlQuery own(m_database);
+            own.prepare("SELECT collection_id FROM collection_documents WHERE document_id=?");
+            own.addBindValue(document);
+            if (own.exec())
+                while (own.next()) mine.insert(own.value(0).toString());
+            // Each similar paper votes for its collections; closer papers count more.
+            QHash<QString, double> score;
+            QHash<QString, QString> names;
+            for (int i = 0; i < papers.size() && i < 10; ++i) {
+                const auto other = findDocument(papers[i].toMap().value("source").toUrl());
+                if (other.isEmpty() || other == document) continue;
+                QSqlQuery query(m_database);
+                query.prepare("SELECT c.id,c.name FROM collection_documents cd JOIN collections c ON "
+                              "c.id=cd.collection_id WHERE cd.document_id=?");
+                query.addBindValue(other);
+                if (!query.exec()) continue;
+                while (query.next()) {
+                    const auto collection = query.value(0).toString();
+                    if (mine.contains(collection)) continue;
+                    score[collection] += 1.0 / (1 + i);
+                    names[collection] = query.value(1).toString();
+                }
+            }
+            QList<QPair<double, QString>> ranked;
+            for (auto it = score.cbegin(); it != score.cend(); ++it)
+                if (it.value() >= .3) ranked.append({it.value(), it.key()});
+            std::sort(ranked.begin(), ranked.end(), [](const auto &a, const auto &b) { return a.first > b.first; });
+            QVariantList list;
+            for (const auto &entry : ranked)
+                if (list.size() < 2)
+                    list.append(QVariantMap{{"id", entry.second}, {"name", names.value(entry.second)}});
+            m_suggestions.insert(document, list);
+            emit collectionsSuggested(request, source, list);
+        });
+    return request;
+}
+
+int ResearchStore::keyboardModifiers() const
+{
+    return int(QGuiApplication::keyboardModifiers());
 }

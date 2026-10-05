@@ -183,6 +183,10 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 
 - 왼쪽에서 전체/즐겨찾기/Unread/Reading/Read, Collection, Tag로 거릅니다. 선택한 필터는 탭과 함께 저장됩니다.
 - Collection은 `+`로 만들고 우클릭으로 하위 Collection 추가·이름 변경·삭제합니다. 상위 Collection은 하위 Collection의 논문도 보여 줍니다. 논문을 Collection으로 끌어 놓거나 논문 우클릭 → Collections에서 추가합니다. 삭제는 묶음만 지우며 논문과 파일은 그대로입니다.
+- **주제별 정리(Collection = 책장)**:
+  - **Unsorted**: 어느 Collection에도 없는 논문만 개수와 함께 보여 줍니다. 정리할 목록입니다.
+  - **여러 개 한꺼번에**: `⌘`(Linux·Windows `Ctrl`)+클릭으로 하나씩, `Shift`+클릭으로 범위를 고릅니다. 고른 논문을 사이드바 Collection으로 끌어 놓거나, 우클릭 → `Add to Collection`(새 Collection 만들기 포함)·`Remove from This Collection`·읽음·즐겨찾기·BibTeX 복사를 한 번에 합니다. 그냥 클릭은 지금처럼 논문을 엽니다.
+  - **넣을 곳 제안**: Unsorted의 각 논문 옆과 리더 Document 패널의 Related 탭에 `+ SLAM`처럼 이미 비슷한 논문이 들어 있는 Collection을 최대 2개 제안합니다. AI 없이 관련 논문 계산을 쓰고, 그 목록을 볼 때만 계산합니다(라이브러리가 바뀌기 전까지 캐시).
 - 논문 우클릭 → Tags…에 쉼표로 태그를 입력합니다(대소문자 무시, 쓰지 않는 태그는 자동 정리).
 - 논문 우클릭 → Exclude from Text Search는 그 논문의 본문을 검색 인덱스에서 지웁니다. 다시 포함하면 새로 색인합니다.
 - Cmd+K/Home 검색은 Collection·Tag 이름도 찾고, 누르면 그 Collection·Tag로 거른 라이브러리를 엽니다. 검색어에 `tag:` `collection:` `state:` `year:` `workspace:`를 적으면 본문 검색과 저장 항목 검색이 그 논문들로 한정됩니다.

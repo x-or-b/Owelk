@@ -23,6 +23,11 @@
 - 웹 탭 전환 시 페이지 상태 유지, Reader Mode.
 - 테스트 중 리더가 닫힌 뒤 실행되는 지연 호출 경고(`PdfCanvas.qml` `refreshHighlights`) 정리.
 
+## 3-1. 주제별 정리 다음 단계
+
+- AI로 정리: Unsorted나 Collection에서 `Suggest Collections…` → 주제 트리 제안 → 미리 보기·수정 → Apply(의미 검색이 켜져 있으면 묶기는 이 컴퓨터에서, AI에는 이름만).
+- Smart Collection(조건 저장), 디스크 폴더 구조를 Collection으로 가져오기.
+
 ## 4. 연구 지능 (v0.6)
 
 - 여러 논문 비교·워크스페이스 요약, 인용 그래프, 라이브러리 전체에 묻기(의미 검색 결과를 근거로).
