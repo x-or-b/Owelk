@@ -15,6 +15,8 @@ TestCase {
         // No clashes among the defaults on any platform.
         compare(Object.keys(Shortcuts.conflicts({}, "osx")).length, 0)
         compare(Object.keys(Shortcuts.conflicts({}, "linux")).length, 0)
+        // Ctrl+1…9 belong to tab switching.
+        compare(Shortcuts.conflicts({library: "Ctrl+9"}, "osx")["Ctrl+9"].length, 2)
         const mine = {newTab: "Ctrl+K", closeTab: ""}
         compare(Shortcuts.keys("newTab", mine, "linux"), "Ctrl+K")
         compare(Shortcuts.keys("closeTab", mine, "linux"), "")

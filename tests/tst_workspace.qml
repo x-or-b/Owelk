@@ -311,6 +311,10 @@ Item {
             verify(d.selectTabAt(1)); compare(d.tree.activeTab, tabs[1])
             verify(d.selectTabAt(-1)); compare(d.tree.activeTab, tabs[2])
             verify(!d.selectTabAt(7))
+            // Cmd/Ctrl+9 is the last tab and nothing else claims it.
+            verify(d.selectTabAt(0))
+            keyClick(Qt.Key_9, Qt.ControlModifier)
+            tryCompare(d.tree, "activeTab", tabs[2])
             compare(canvas().currentPage, 3) // Switching tabs keeps each tab's own reading position.
             findChild(workspace, "previousTabAction").trigger()
             compare(d.tree.activeTab, tabs[1])

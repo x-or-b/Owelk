@@ -341,8 +341,8 @@ ApplicationWindow {
             Action { text: "Find"; shortcut: StandardKey.Find; onTriggered: window.findInView() }
             Action { text: "Zoom in"; shortcut: StandardKey.ZoomIn; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1.2) }
             Action { text: "Zoom out"; shortcut: StandardKey.ZoomOut; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1 / 1.2) }
-            Action { objectName: "fitWidthAction"; text: "Fit Width"; shortcut: window.keys("fitWidth"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitWidth() }
-            Action { objectName: "fitPageAction"; text: "Fit Page"; shortcut: window.keys("fitPage"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitPage() }
+            Action { objectName: "fitWidthAction"; text: "Fit Width"; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitWidth() }
+            Action { objectName: "fitPageAction"; text: "Fit Page"; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitPage() }
             Action { text: "Capture region"; shortcut: window.keys("capture"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.toggleCapture() }
             MenuSeparator {}
             Action { objectName: "splitRightAction"; text: "Duplicate to Right Split"; shortcut: window.keys("splitRight"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("right") }
