@@ -514,6 +514,14 @@ private slots:
         QCOMPARE(thread[2].toMap()["display"].toString(), QString("And the method?"));
         QCOMPARE(thread[0].toMap()["display"].toString(), QString("Summarize"));
         QCOMPARE(store.searchKnowledge("the method").value(0).toMap()["id"].toString(), threadId);
+        // A fresh turn (one page translated) goes alone, with its own label, and still joins the thread.
+        ai->ask({{"provider", "claude"}, {"threadId", threadId}, {"action", "translate"}, {"scope", "page"},
+            {"source", QUrl::fromLocalFile(pdf)}, {"page", 0}, {"fresh", true}, {"label", "Translate page 1"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 3, 10000);
+        QCOMPARE(server.seen.last().body["messages"].toArray().size(), 1);
+        QCOMPARE(store.aiThread(threadId)["messages"].toList().size(), 6);
+        QCOMPARE(store.aiThread(threadId)["messages"].toList()[4].toMap()["display"].toString(),
+            QString("Translate page 1"));
         // The AI filter returns threads only; other targets leave them out.
         const auto aiOnly = store.searchKnowledge("Page", QUrl(), "ai");
         QVERIFY(!aiOnly.isEmpty());
@@ -527,14 +535,14 @@ private slots:
         QVERIFY(big.save(photo, "JPG"));
         ai->ask({{"provider", "claude"}, {"threadId", threadId}, {"action", "ask"}, {"question", "What is this?"},
             {"imageFiles", QVariantList{QUrl::fromLocalFile(photo).toString()}}});
-        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 3, 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 4, 10000);
         const auto withImage = server.seen.last().body["messages"].toArray().last().toObject()["content"].toArray();
         QCOMPARE(withImage[0].toObject()["type"].toString(), QString("image"));
         const auto png
             = QByteArray::fromBase64(withImage[0].toObject()["source"].toObject()["data"].toString().toLatin1());
         QCOMPARE(QImage::fromData(png, "PNG").size(), QSize(1568, 784));
         QVERIFY(store.aiThread(threadId)["messages"]
-                .toList()[4]
+                .toList()[6]
                 .toMap()["context"]
                 .toMap()["attachments"]
                 .toStringList()

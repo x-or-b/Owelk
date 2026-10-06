@@ -165,6 +165,15 @@ Item {
                     text: root.c ? root.c.error : ""; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; textFormat: Text.PlainText
                     color: Theme.danger; font.pixelSize: Theme.fontSmall
                 }
+                // A paper translated a page at a time: the next page, in the same thread.
+                Button {
+                    objectName: "aiTranslateNext"
+                    visible: root.c && root.c.canTranslateNext
+                    Layout.topMargin: 4
+                    text: root.c ? "Translate Page " + (root.c.translatePage + 2) : ""
+                    icon.name: "forward"
+                    onClicked: root.c.translateNext()
+                }
                 Button {
                     objectName: "aiOpenSettings"
                     visible: root.c && root.c.error.indexOf("Settings") >= 0

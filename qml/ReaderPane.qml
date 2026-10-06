@@ -113,9 +113,12 @@ Rectangle {
     function requestAi(action, scope) {
         activated()
         const anchor = canvas.selectedAnchor
-        aiRequested({action: action, scope: scope, source: source,
-                     page: scope === "selection" && anchor ? (anchor.segments ? anchor.segments[0].page : anchor.page) : canvas.currentPage,
-                     selection: scope === "selection" ? canvas.selectedText : ""})
+        const spec = {action: action, scope: scope, source: source,
+                      page: scope === "selection" && anchor ? (anchor.segments ? anchor.segments[0].page : anchor.page) : canvas.currentPage,
+                      selection: scope === "selection" ? canvas.selectedText : ""}
+        // A page translation stands alone (the next page follows from the AI panel).
+        if (action === "translate" && scope === "page") { spec.fresh = true; spec.label = "Translate page " + (spec.page + 1) }
+        aiRequested(spec)
     }
     function copySelection() { canvas.copySelection() }
     function captureSelection() { canvas.captureSelection() }
@@ -186,9 +189,11 @@ Rectangle {
         MenuItem { text:"Highlight Selection…"; enabled:!!canvas.selectedAnchor; onTriggered:root.chooseHighlightColor(pageField,true) }
         MenuItem { text:"Save Excerpt"; enabled:!!canvas.selectedAnchor; onTriggered:canvas.captureSelection() }
         MenuSeparator {}
-        MenuItem { text:"Explain with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("explain", "selection") }
-        MenuItem { text:"Translate with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("translate", "selection") }
-        MenuItem { text:"Summarize with AI"; enabled:!!canvas.selectedText; onTriggered:root.requestAi("summarize", "selection") }
+        // With a selection they act on it; without one: a new thread to ask in, this page translated
+        // (then the next, from the AI panel), the whole paper summarized.
+        MenuItem { objectName:"menuExplainAi"; text:canvas.selectedText ? "Explain with AI" : "Explain with AI…"; onTriggered:canvas.selectedText ? root.requestAi("explain", "selection") : root.requestAi("ask", "none") }
+        MenuItem { objectName:"menuTranslateAi"; text:canvas.selectedText ? "Translate with AI" : "Translate This Page with AI"; onTriggered:root.requestAi("translate", canvas.selectedText ? "selection" : "page") }
+        MenuItem { objectName:"menuSummarizeAi"; text:canvas.selectedText ? "Summarize with AI" : "Summarize Paper with AI"; onTriggered:root.requestAi("summarize", canvas.selectedText ? "selection" : "paper") }
         MenuItem { text:canvas.selectedText ? "Ask AI about the Selection…" : "Ask AI about This Page…"; onTriggered:root.requestAi("ask", canvas.selectedText ? "selection" : "page") }
         MenuSeparator {}
         MenuItem { text:"Capture a Region"; onTriggered:root.startCapture() }

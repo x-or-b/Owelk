@@ -326,10 +326,12 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
 {
     const auto threadId = spec.value("threadId").toString();
     QList<AiTurn> history;
-    for (const auto &value : m_store->aiThread(threadId).value("messages").toList()) {
-        const auto message = value.toMap();
-        history.append({message.value("role").toString(), message.value("content").toString()});
-    }
+    // A fresh turn (a page translation) stands alone: earlier turns are kept in the thread, not resent.
+    if (!spec.value("fresh").toBool())
+        for (const auto &value : m_store->aiThread(threadId).value("messages").toList()) {
+            const auto message = value.toMap();
+            history.append({message.value("role").toString(), message.value("content").toString()});
+        }
     AiMaterials materials;
     // The paper's details introduce the first turn; later turns already carry them.
     if (history.isEmpty()) {
@@ -385,6 +387,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
             static const QHash<QString, QString> labels{{"explain", "Explain"}, {"translate", "Translate"},
                 {"summarize", "Summarize"}, {"figure", "Explain figure"}};
             auto display = spec.value("question").toString().trimmed();
+            if (display.isEmpty()) display = spec.value("label").toString();
             if (display.isEmpty()) display = labels.value(spec.value("action").toString(), "Ask");
             QStringList attachments;
             if (!attached.selection.isEmpty()) attachments << "selection";

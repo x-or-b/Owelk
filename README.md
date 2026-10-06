@@ -251,7 +251,7 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 ## AI 읽기 보조
 
 - Settings → AI에서 제공자를 고릅니다: **Claude API**(기본 모델 `claude-opus-5-5`), **OpenAI API**, **ChatGPT 계정(Codex)**, **Ollama(이 Mac에서만 실행)**. API 키는 macOS Keychain에 저장합니다. ChatGPT 계정은 설치된 Codex CLI의 공식 로그인(브라우저)을 사용합니다. Claude.ai 계정 로그인은 Anthropic이 제삼자 앱에 허용하지 않아 제공하지 않습니다.
-- 문장 선택 → ✦ 아이콘(또는 우클릭)에서 Explain / Translate / Summarize / Ask…, 패널의 `+` 또는 우클릭 → `Ask AI about This Page…`로 이 페이지·이 논문에 대해 묻기·요약, 캡처 카드 우클릭 → Explain with AI(그림은 이미지로 보냄)를 사용합니다. **선호 언어**(Settings → AI, 기본 한국어, 한·영·일·중·독·불·서 또는 논문 언어)는 버튼으로 실행하는 동작의 답변 언어와 Translate의 대상 언어입니다. 직접 입력한 질문은 그 질문의 언어로 답합니다.
+- 문장 선택 → ✦ 아이콘(또는 우클릭)에서 Explain / Translate / Summarize / Ask…, 패널의 `+` 또는 우클릭 → `Ask AI about This Page…`로 이 페이지·이 논문에 대해 묻기·요약, 캡처 카드 우클릭 → Explain with AI(그림은 이미지로 보냄)를 사용합니다. 문장을 선택하지 않고 페이지를 우클릭하면 `Explain with AI…`는 새 대화를 열고 입력창에 커서를 두며(아무것도 보내지 않음), `Translate This Page with AI`는 지금 쪽을 번역하고 답변 아래 `Translate Page N`으로 다음 쪽을 이어서 번역합니다(쪽마다 따로 보내 비용이 쌓이지 않음), `Summarize Paper with AI`는 논문 전체를 요약합니다. **선호 언어**(Settings → AI, 기본 한국어, 한·영·일·중·독·불·서 또는 논문 언어)는 버튼으로 실행하는 동작의 답변 언어와 Translate의 대상 언어입니다. 직접 입력한 질문은 그 질문의 언어로 답합니다.
 - 처음 쓰는 제공자는 보낼 내용(논문 제목, 선택 문장, 페이지/논문 본문, 캡처 이미지)을 보여 주고 동의를 받습니다. PDF 파일 자체나 다른 라이브러리 자료는 보내지 않습니다. 긴 본문은 잘라서 보내고 그 사실을 표시합니다.
 - AI는 독 패널(기본 오른쪽)에서 엽니다. 상태바 AI 아이콘을 누르면 열고 닫고, 우클릭 → Left/Right Dock으로 위치를 바꿉니다. 리더·캡처의 AI 동작은 패널을 열고 새 Thread를 시작합니다.
 - 모든 대화는 **Thread**로 저장됩니다. 패널에서 이어 묻기(Return 전송, Shift+Return 줄바꿈)를 하면 이전 대화가 함께 전송됩니다. ← 버튼으로 Thread 목록을 보고, 우클릭으로 이름 변경·삭제합니다. `+`는 새 Thread, `+ Context`는 현재 페이지·선택·논문 전체를 붙입니다. Thread는 Cmd+K 검색과 `owelk://ai/…` 링크로 다시 엽니다.

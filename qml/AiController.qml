@@ -16,6 +16,16 @@ Item {
     readonly property var messages: thread.messages || []
     // What the next request carries (source, scope, page, selection, captureId, action).
     property var spec: ({})
+    // The page last translated on its own, so the panel can offer the next one (-1: none).
+    property int translatePage: -1
+    readonly property bool canTranslateNext: translatePage >= 0 && !streaming && !!reader && reader.pdfReady
+                                             && translatePage + 1 < reader.pageCount && !!spec.source
+    function translateNext() {
+        if (!canTranslateNext) return false
+        const page = translatePage + 1
+        spec = {action: "translate", scope: "page", page: page, source: spec.source, fresh: true, label: "Translate page " + (page + 1)}
+        return send("")
+    }
     property int request: -1
     property string pendingQuestion: ""
     property string answer: ""
@@ -174,7 +184,8 @@ Item {
         }
         if (!spec.action && !question.trim().length) return false
         if (!ai.consented(provider)) { consent.question = question; consent.open(); return false }
-        pendingQuestion = question.trim().length ? question.trim() : (actions[spec.action] || "Ask")
+        pendingQuestion = question.trim().length ? question.trim() : (spec.label || actions[spec.action] || "Ask")
+        translatePage = !question.trim().length && spec.action === "translate" && spec.scope === "page" ? Number(spec.page) : -1
         answer = ""; streaming = true
         const choice = {provider: provider, model: model, question: question, threadId: threadId, action: spec.action || "ask",
                         imageFiles: images.map(function(i) { return i.url })}

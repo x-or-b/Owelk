@@ -428,5 +428,44 @@ Item {
             compare(fromTabs.papers.length, 1)
             fromTabs.close()
         }
+        function test_9zzzz_rightClickWithoutASelection() {
+            verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
+            researchStore.ai.provider = "claude"
+            researchStore.ai.giveConsent("claude")
+            workspace.documents.restore({})
+            workspace.openDocument(fixtureSource)
+            const c = canvas()
+            c.clearSelection()
+            const ai = findChild(workspace, "aiController"), reader = workspace.currentReader
+            // Explain: a new thread to ask in, the composer ready, nothing sent.
+            const explain = findChild(reader, "menuExplainAi")
+            compare(explain.text, "Explain with AI…")
+            explain.triggered()
+            tryCompare(workspace, "aiVisible", true)
+            const p = panel()
+            compare(ai.threadId, "")
+            compare(ai.messages.length, 0)
+            verify(!ai.streaming)
+            tryVerify(function() { return findChild(p, "aiQuestion").activeFocus || findChild(p, "aiQuestion").focus })
+            // Translate: this page, then the next from the panel, each on its own.
+            c.jump(0, 0, 0); tryCompare(c, "restoring", false)
+            findChild(reader, "menuTranslateAi").triggered()
+            tryVerify(function() { return !ai.streaming && ai.messages.length === 2 }, 10000)
+            compare(ai.messages[0].display, "Translate page 1")
+            verify(ai.messages[0].content.indexOf("Research finding 1.1") >= 0)
+            const next = findChild(p, "aiTranslateNext")
+            tryCompare(next, "visible", true)
+            compare(next.text, "Translate Page 2")
+            mouseClick(next)
+            tryVerify(function() { return !ai.streaming && ai.messages.length === 4 }, 10000)
+            compare(ai.messages[2].display, "Translate page 2")
+            verify(ai.messages[2].content.indexOf("Research finding 2.1") >= 0)
+            // Asking something else ends the page-by-page offer.
+            findChild(reader, "menuSummarizeAi").triggered()
+            tryVerify(function() { return !ai.streaming && ai.messages.length === 2 }, 10000)
+            compare(ai.messages[0].display, "Summarize")
+            verify(ai.messages[0].context.attachments.indexOf("paper") >= 0)
+            verify(!findChild(p, "aiTranslateNext").visible)
+        }
     }
 }
