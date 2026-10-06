@@ -26,8 +26,6 @@ Dialog {
     property int request: -1
     property bool asking: false
     property string error: ""
-    // Edits change objects inside suggestions; this counter lets bindings see them.
-    property int revision: 0
     function begin(urls, parentId) {
         parentCollection = parentId || ""
         existing = researchStore.collections()
@@ -55,10 +53,10 @@ Dialog {
         request = ai.organizePapers(papers, names)
     }
     function apply() {
-        suggestions.filter(function(g) { return g.keep && g.name.trim().length }).forEach(function(g) {
+        suggestions.filter(function(g) { return g.keep && g.name.trim().length && g.ids.length }).forEach(function(g) {
             const found = match(g.name)
             const id = found ? found.id : researchStore.createCollection(g.name.trim(), parentCollection)
-            if (id) researchStore.setDocumentsCollection(g.paperIds, id, true)
+            if (id) researchStore.setDocumentsCollection(g.ids, id, true)
         })
         close()
     }
@@ -68,7 +66,7 @@ Dialog {
             if (id !== root.request) return
             root.asking = false
             root.error = error
-            root.suggestions = groups.map(function(g) { return Object.assign({keep: true}, g) })
+            root.suggestions = groups.map(function(g) { return {name: g.name, keep: true, ids: g.paperIds.slice()} })
         }
     }
     footer: DialogButtonBox {
@@ -82,7 +80,7 @@ Dialog {
             objectName: "organizePapersApply"
             text: "Apply"
             highlighted: true
-            enabled: (root.revision, root.suggestions.some(function(g) { return g.keep && g.name.trim().length }))
+            enabled: (editor.revision, root.suggestions.some(function(g) { return g.keep && g.name.trim().length && g.ids.length }))
             onClicked: root.apply()
         }
         Button { text: "Cancel"; onClicked: root.close() }
@@ -102,58 +100,21 @@ Dialog {
             Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.danger; font.pixelSize: Theme.fontSmall
             text: root.error
         }
-        ListView {
+        // Rename, skip or regroup before applying: uncheck a paper, move it, or start a new collection.
+        GroupEditor {
+            id: editor
             objectName: "organizePapersSuggestions"
             Layout.fillWidth: true; Layout.fillHeight: true
-            clip: true
-            spacing: 10
-            model: root.suggestions
-            ScrollBar.vertical: ScrollBar {}
-            delegate: ColumnLayout {
-                id: suggestion
-                required property var modelData
-                required property int index
-                readonly property var found: (root.revision, root.match(root.suggestions[index].name))
-                width: ListView.view.width
-                spacing: 2
-                RowLayout {
-                    Layout.fillWidth: true
-                    CheckBox {
-                        objectName: "organizePapersKeep-" + suggestion.index
-                        checked: suggestion.modelData.keep
-                        onToggled: { root.suggestions[suggestion.index].keep = checked; root.revision++ }
-                    }
-                    TextField {
-                        objectName: "organizePapersName-" + suggestion.index
-                        Layout.fillWidth: true
-                        text: suggestion.modelData.name
-                        maximumLength: 120
-                        onTextEdited: { root.suggestions[suggestion.index].name = text; root.revision++ }
-                    }
-                    // Whether Apply adds to a collection you have or makes a new one.
-                    Label {
-                        objectName: "organizePapersKind-" + suggestion.index
-                        text: suggestion.found ? "Existing" : "New"
-                        font.pixelSize: Theme.fontCaption
-                        color: suggestion.found ? Theme.textTertiary : Theme.accent
-                    }
-                }
-                Repeater {
-                    model: suggestion.modelData.paperIds
-                    delegate: Label {
-                        required property string modelData
-                        Layout.fillWidth: true; Layout.leftMargin: 34
-                        elide: Text.ElideRight; font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
-                        text: (root.papers.find(function(p) { return p.id === modelData }) || {title: ""}).title
-                    }
-                }
-            }
-            Label {
-                anchors.centerIn: parent
-                visible: root.asking
-                text: "Asking " + (root.providerInfo.name || "AI") + "…"
-                color: Theme.textTertiary
-            }
+            groups: root.suggestions
+            items: root.papers
+            // Whether Apply adds to a collection you have or makes a new one.
+            badge: function(name) { return root.match(name) ? {text: "Existing"} : {text: "New", emphasis: true} }
+        }
+        Label {
+            Layout.alignment: Qt.AlignHCenter
+            visible: root.asking
+            text: "Asking " + (root.providerInfo.name || "AI") + "…"
+            color: Theme.textTertiary
         }
     }
 }

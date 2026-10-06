@@ -122,7 +122,7 @@ Settings → Appearance → Tabs에서 `Horizontal`(기본) / `Vertical`을 고�
 - 탭 우클릭 → `Add to New Group`(이름 칸이 열림), `Add to "이름"`, `Remove from Group`도 됩니다.
 - 그룹의 탭은 항상 붙어 있습니다. 그룹 밖의 탭을 그룹 탭 사이로 끌면 가까운 쪽 그룹 앞·뒤에 놓이고, 그룹 안의 탭을 그룹 밖으로 끌어내면 그 그룹에서 빠집니다.
 - 그룹은 세션·워크스페이스에 함께 저장됩니다. 탭을 다른 분할로 옮기면 그 탭은 그룹에서 빠집니다.
-- **AI로 정리**: 탭 우클릭 → `Organize Tabs with AI…` 또는 명령 `/organize tabs`. 보낼 내용(탭 제목, 웹 주소, 논문 저자·연도·앞부분 400자)을 보여 주고, `Ask`를 누르면 선택한 AI가 그룹을 제안합니다. 이름을 고치거나 체크를 끈 뒤 `Apply`를 눌러야만 탭이 바뀝니다.
+- **AI로 정리**: 탭 우클릭 → `Organize Tabs with AI…` 또는 명령 `/organize tabs`. 보낼 내용(탭 제목, 웹 주소, 논문 저자·연도·앞부분 400자)을 보여 주고, `Ask`를 누르면 선택한 AI가 그룹을 제안합니다. `Apply`를 눌러야만 탭이 바뀝니다. 제안은 `Apply` 전에 자세히 고칠 수 있습니다: 그룹 이름 바꾸기·그룹 체크 끄기, 항목 체크를 꺼서 빼기, 항목 옆 ▾(또는 우클릭) → 다른 그룹으로 옮기기·`New Group`·`Leave Out`, 아래 `Not grouped`(AI가 뺐거나 직접 뺀 항목)에서 + 로 원하는 그룹에 넣기, `New Group` 버튼으로 빈 그룹 추가.
 
 ## 목록 제거·캡처 삭제
 
@@ -207,7 +207,7 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
   - **Unsorted**: 어느 Collection에도 없는 논문만 개수와 함께 보여 줍니다. 정리할 목록입니다.
   - **여러 개 한꺼번에**: `⌘`(Linux·Windows `Ctrl`)+클릭으로 하나씩, `Shift`+클릭으로 범위를 고릅니다. 고른 논문을 사이드바 Collection으로 끌어 놓거나, 우클릭 → `Add to Collection`(새 Collection 만들기 포함)·`Remove from This Collection`·읽음·즐겨찾기·BibTeX 복사를 한 번에 합니다. 그냥 클릭은 지금처럼 논문을 엽니다.
   - **넣을 곳 제안**: Unsorted의 각 논문 옆과 리더 Document 패널의 Related 탭에 `+ SLAM`처럼 이미 비슷한 논문이 들어 있는 Collection을 최대 2개 제안합니다. AI 없이 관련 논문 계산을 쓰고, 그 목록을 볼 때만 계산합니다(라이브러리가 바뀌기 전까지 캐시).
-  - **AI로 주제별 정리**: Library 목록 위의 ✦ 버튼(선택한 논문이 있으면 그 논문들, 없으면 지금 보이는 논문 최대 80편) 또는 여러 논문 우클릭 → `Organize into Collections with AI…`. 보낼 내용(제목·저자·연도·앞부분 300자, 기존 Collection 이름)을 보여 주고 `Ask`를 누르면 AI가 주제별 Collection을 제안합니다. 기존 Collection과 이름이 같으면 `Existing`(거기에 추가), 아니면 `New`(보고 있는 Collection 안에 새로 만듦)로 표시됩니다. 이름을 고치거나 체크를 끈 뒤 `Apply`를 눌러야만 바뀌고, 논문을 다른 Collection에서 빼거나 지우지는 않습니다.
+  - **AI로 주제별 정리**: Library 목록 위의 ✦ 버튼(선택한 논문이 있으면 그 논문들, 없으면 지금 보이는 논문 최대 80편) 또는 여러 논문 우클릭 → `Organize into Collections with AI…`. 보낼 내용(제목·저자·연도·앞부분 300자, 기존 Collection 이름)을 보여 주고 `Ask`를 누르면 AI가 주제별 Collection을 제안합니다. 기존 Collection과 이름이 같으면 `Existing`(거기에 추가), 아니면 `New`(보고 있는 Collection 안에 새로 만듦)로 표시됩니다. `Apply`를 눌러야만 바뀌고(편집 방법은 탭 정리와 같음), 논문을 다른 Collection에서 빼거나 지우지는 않습니다.
 - **폴더 한 번에 추가**: Library의 `+` → `Add Folder…`로 폴더를 고르면 하위 폴더까지 PDF를 배경에서 찾아 추가합니다(숨김 폴더·바로가기 제외, 최대 1만 개). "Make a collection of the folder…"를 켜 두면 폴더와 하위 폴더가 Collection 트리가 되고, 같은 이름의 Collection은 다시 씁니다. 다시 가져와도 중복으로 들어가지 않으며, 파일은 옮기지 않습니다.
 - **PDF 가져오기**: Library의 `+` → `Add PDFs…`로 여러 PDF를 고르거나, Finder에서 PDF를 목록·Library 패널의 Collection 위로 끌어 놓습니다. Collection을 보고 있으면 그 Collection에 바로 들어갑니다. 가져온 논문은 열지 않으며(최근 목록에 안 들어감), 제목과 본문은 배경에서 읽습니다.
 - **지우기**: 논문 우클릭(여러 개 선택 가능) → `Remove from Library…`는 목록·Collection·태그·본문 색인에서만 빼고 PDF 파일·주석·캡처는 남깁니다(그 파일을 다시 열면 돌아옴). `Move PDF to Trash…`는 파일을 시스템 휴지통으로 보내고 Library에서도 뺍니다(휴지통에서 되살릴 수 있음). 둘 다 확인 후 실행되며, Owelk는 파일을 영구 삭제하지 않습니다.

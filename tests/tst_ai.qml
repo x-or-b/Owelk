@@ -329,14 +329,29 @@ Item {
             tryVerify(function() { return dialog.suggestions.length === 1 }, 10000)
             compare(dialog.suggestions[0].name, "Fixture papers")
             verify(Tree.leaves(d.tree)[0].labels === undefined) // Nothing changes before Apply.
+            // The second tab moves to a group of its own, renamed, before applying.
+            const second = dialog.suggestions[0].ids[1]
+            let move = null
+            tryVerify(function() { move = visualChild(dialog.contentItem, "groupMemberMove-0-1"); return move !== null && move.visible })
+            mouseClick(move)
+            const menu = findChild(dialog, "groupMoveMenu")
+            tryCompare(menu, "opened", true)
+            mouseClick(findChild(menu, "groupMoveNew"))
+            tryVerify(function() { return dialog.suggestions.length === 2 && dialog.suggestions[1].ids[0] === second })
+            // The new group's name is ready to type.
+            tryCompare(menu, "opened", false)
+            let name = null
+            tryVerify(function() { name = visualChild(dialog.contentItem, "groupName-1"); return name !== null && name.visible && name.focus })
+            keyClick(Qt.Key_Backspace); "Second".split("").forEach(function(ch) { keyClick(ch) })
+            compare(dialog.suggestions[1].name, "Second")
             const apply = findChild(dialog, "organizeApply")
             verify(apply.enabled)
             mouseClick(apply)
             tryCompare(dialog, "opened", false)
-            const labels = Tree.leaves(d.tree)[0].labels
-            compare(labels.length, 1)
-            compare(labels[0].name, "Fixture papers")
-            verify(Tree.leaves(d.tree)[0].tabs.every(function(t) { return t.label === labels[0].id }))
+            const leaf = Tree.leaves(d.tree)[0], labels = leaf.labels
+            compare(labels.length, 2)
+            compare(labels.map(function(l) { return l.name }).sort(), ["Fixture papers", "Second"])
+            compare(leaf.tabs.find(function(t) { return t.id === second }).label, labels.find(function(l) { return l.name === "Second" }).id)
         }
         function test_9zz_organizePapersIntoCollectionsOnApply() {
             verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
@@ -354,20 +369,27 @@ Item {
             compare(dialog.papers.length, 2)
             mouseClick(findChild(dialog, "organizePapersAsk"))
             tryVerify(function() { return dialog.suggestions.length === 1 }, 10000)
-            compare(dialog.suggestions[0].paperIds.length, 2)
+            compare(dialog.suggestions[0].ids.length, 2)
             // The answer reuses the existing collection (names match regardless of case).
-            tryVerify(function() { const kind = visualChild(dialog.contentItem, "organizePapersKind-0"); return kind && kind.text === "Existing" })
+            tryVerify(function() { const kind = visualChild(dialog.contentItem, "groupKind-0"); return kind && kind.text === "Existing" })
             compare(researchStore.libraryDocuments({collection: existing}).length, 0, "nothing changes before Apply")
             // Renamed to a new name, Apply makes that collection instead.
-            const name = visualChild(dialog.contentItem, "organizePapersName-0")
+            const name = visualChild(dialog.contentItem, "groupName-0")
             name.selectAll(); name.forceActiveFocus()
             keyClick(Qt.Key_Backspace); "Depth cues".split("").forEach(function(ch) { keyClick(ch) })
-            tryCompare(visualChild(dialog.contentItem, "organizePapersKind-0"), "text", "New")
+            tryCompare(visualChild(dialog.contentItem, "groupKind-0"), "text", "New")
+            // Unchecking one paper leaves it out; it waits under Not grouped.
+            const left = dialog.suggestions[0].ids[1]
+            mouseClick(visualChild(dialog.contentItem, "groupMemberCheck-0-1"))
+            tryVerify(function() { return dialog.suggestions[0].ids.length === 1 })
+            tryVerify(function() { return visualChild(dialog.contentItem, "ungroupedAdd-0") !== null })
             mouseClick(findChild(dialog, "organizePapersApply"))
             tryCompare(dialog, "opened", false)
             const made = researchStore.collections().find(function(c) { return c.name === "Depth cues" })
             verify(made !== undefined)
-            compare(researchStore.libraryDocuments({collection: made.id}).length, 2)
+            const members = researchStore.libraryDocuments({collection: made.id})
+            compare(members.length, 1)
+            verify(!researchStore.sameSource(members[0].url, left))
             compare(researchStore.libraryDocuments({collection: existing}).length, 0)
             researchStore.deleteCollection(made.id); researchStore.deleteCollection(existing)
         }

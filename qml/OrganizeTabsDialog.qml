@@ -24,8 +24,6 @@ Dialog {
     property int request: -1
     property bool asking: false
     property string error: ""
-    // Edits change objects inside suggestions; this counter lets bindings see them.
-    property int revision: 0
     function begin(groupId) {
         stripId = groupId
         const strip = Tree.find(controller.tree, groupId)
@@ -47,7 +45,8 @@ Dialog {
         request = ai.organizeTabs(tabs)
     }
     function apply() {
-        const chosen = suggestions.filter(function(g) { return g.keep }).map(function(g) { return {name: g.name, tabIds: g.tabIds} })
+        const chosen = suggestions.filter(function(g) { return g.keep && g.name.trim().length && g.ids.length })
+            .map(function(g) { return {name: g.name.trim(), tabIds: g.ids} })
         controller.applyTabGroups(stripId, chosen)
         close()
     }
@@ -57,7 +56,7 @@ Dialog {
             if (id !== root.request) return
             root.asking = false
             root.error = error
-            root.suggestions = groups.map(function(g) { return Object.assign({keep: true}, g) })
+            root.suggestions = groups.map(function(g) { return {name: g.name, keep: true, ids: g.tabIds.slice()} })
         }
     }
     footer: DialogButtonBox {
@@ -71,7 +70,7 @@ Dialog {
             objectName: "organizeApply"
             text: "Apply"
             highlighted: true
-            enabled: (root.revision, root.suggestions.some(function(g) { return g.keep && g.name.trim().length }))
+            enabled: (editor.revision, root.suggestions.some(function(g) { return g.keep && g.name.trim().length && g.ids.length }))
             onClicked: root.apply()
         }
         Button { text: "Cancel"; onClicked: root.close() }
@@ -91,49 +90,19 @@ Dialog {
             Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.danger; font.pixelSize: Theme.fontSmall
             text: root.error
         }
-        ListView {
+        // Rename, skip or regroup before applying: uncheck a tab, move it, or start a new group.
+        GroupEditor {
+            id: editor
             objectName: "organizeSuggestions"
             Layout.fillWidth: true; Layout.fillHeight: true
-            clip: true
-            spacing: 10
-            model: root.suggestions
-            delegate: ColumnLayout {
-                id: suggestion
-                required property var modelData
-                required property int index
-                width: ListView.view.width
-                spacing: 2
-                RowLayout {
-                    Layout.fillWidth: true
-                    CheckBox {
-                        objectName: "organizeKeep-" + suggestion.index
-                        checked: suggestion.modelData.keep
-                        onToggled: { root.suggestions[suggestion.index].keep = checked; root.revision++ }
-                    }
-                    TextField {
-                        objectName: "organizeName-" + suggestion.index
-                        Layout.fillWidth: true
-                        text: suggestion.modelData.name
-                        maximumLength: 120
-                        onTextEdited: { root.suggestions[suggestion.index].name = text; root.revision++ }
-                    }
-                }
-                Repeater {
-                    model: suggestion.modelData.tabIds
-                    delegate: Label {
-                        required property string modelData
-                        Layout.fillWidth: true; Layout.leftMargin: 34
-                        elide: Text.ElideRight; font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
-                        text: (root.tabs.find(function(t) { return t.id === modelData }) || {title: ""}).title
-                    }
-                }
-            }
-            Label {
-                anchors.centerIn: parent
-                visible: root.asking
-                text: "Asking " + (root.providerInfo.name || "AI") + "…"
-                color: Theme.textTertiary
-            }
+            groups: root.suggestions
+            items: root.tabs
+        }
+        Label {
+            Layout.alignment: Qt.AlignHCenter
+            visible: root.asking
+            text: "Asking " + (root.providerInfo.name || "AI") + "…"
+            color: Theme.textTertiary
         }
     }
 }
