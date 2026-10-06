@@ -83,8 +83,10 @@ Item {
             workspace.documents.restore({})
             workspace.openDocument(fixtureSource)
             tryVerify(function() { return workspace.currentReader && workspace.currentReader.pdfReady }, 10000)
-            const panel = findChild(workspace, "libraryPanel")
-            verify(panel !== null)
+            // Other test files leave other panels in this dock; show the Library panel.
+            findChild(workspace, "leftDock").activePanel = "files"
+            let panel = null
+            tryVerify(function() { panel = findChild(workspace, "libraryPanel"); return panel !== null })
             tryVerify(function() { return visibleChild(panel, "panelCollection-Panel Topic") !== null })
             waitForPolish(workspace); wait(50)
             // Drag the open paper's tab onto the collection: it is filed there and stays open.
