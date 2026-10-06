@@ -133,38 +133,9 @@ Item {
     signal activated()
     signal regionSelected(int page, rect normalizedRegion)
 
-    // Browser-style reading history within this PDF: places left by link, outline, page and source jumps.
-    property var backStack: []
-    property var forwardStack: []
-    readonly property bool canGoBack: backStack.length > 0
-    readonly property bool canGoForward: forwardStack.length > 0
-    // Where the reader last stopped scrolling. A scroll that ends two or more pages away also leaves a
-    // place in the history (as browsers and Preview do), so Back returns after a long scroll too.
-    property var settledPlace: null
-    function rememberPlace() {
-        if (!ready) return // position() reports the settled place while a jump is still restoring.
-        backStack = backStack.concat([position()]).slice(-50)
-        forwardStack = []
-        settledPlace = null // The jump itself is already in the history.
-    }
-    function goBack() {
-        if (!backStack.length) return false
-        const place = backStack[backStack.length - 1]
-        forwardStack = forwardStack.concat([position()])
-        backStack = backStack.slice(0, -1)
-        settledPlace = null
-        jump(place.page, place.y, place.x)
-        return true
-    }
-    function goForward() {
-        if (!forwardStack.length) return false
-        const place = forwardStack[forwardStack.length - 1]
-        backStack = backStack.concat([position()])
-        forwardStack = forwardStack.slice(0, -1)
-        settledPlace = null
-        jump(place.page, place.y, place.x)
-        return true
-    }
+    // Previous and next page (Cmd+[ / Cmd+], the toolbar arrows and the mouse's side buttons).
+    function previousPage() { if (ready && currentPage > 0) jump(currentPage - 1, 0, 0) }
+    function nextPage() { if (ready && currentPage < pageCount - 1) jump(currentPage + 1, 0, 0) }
     // A password given before (this session, or remembered) is tried first, once per opening.
     function tryKnownPassword() {
         const known = researchStore.pdfPassword(source)
@@ -176,7 +147,6 @@ Item {
     function openFile(url, position) {
         const otherFile = !researchStore.sameSource(source, url)
         if (otherFile) {
-            backStack = []; forwardStack = []; settledPlace = null
             // A password belongs to one file: unload the locked file first, so clearing the password
             // does not reload it, and the next file opens without it.
             if (pdfDocument.password.length) {
@@ -222,13 +192,6 @@ Item {
     function updatePosition() {
         if (!ready || restoring) return
         lastPosition = position()
-        if (settledPlace && Math.abs(lastPosition.page - settledPlace.page) >= 2) {
-            const last = backStack[backStack.length - 1]
-            if (!last || last.page !== settledPlace.page || Math.abs(last.y - settledPlace.y) > .05)
-                backStack = backStack.concat([settledPlace]).slice(-50)
-            forwardStack = []
-        }
-        settledPlace = lastPosition
         currentPage = lastPosition.page
         positionChanged()
     }
@@ -336,7 +299,6 @@ Item {
     }
 
     function showSource(page, rect) {
-        rememberPlace()
         stopSourceMotion()
         spotlight.stop()
         clearSelection()
@@ -925,7 +887,6 @@ Item {
                         onTapped: function(link) {
                             root.activated()
                             if (link.page >= 0) {
-                                root.rememberPlace()
                                 const size = pdfDocument.pagePointSize(link.page)
                                 root.jump(link.page, link.location.y / size.height, 0)
                             } else if (/^https?:\/\//i.test(url.toString())) {
@@ -1080,10 +1041,10 @@ Item {
         }
         onRejected: passwordField.clear()
     }
-    // Mouse side buttons follow the same history as Cmd+[ / Cmd+].
+    // Mouse side buttons turn pages, like Cmd+[ / Cmd+].
     // A handler, not a MouseArea, so text and link cursors underneath are unaffected.
     TapHandler {
         acceptedButtons: Qt.BackButton | Qt.ForwardButton
-        onTapped: function(point, button) { if (button === Qt.BackButton) root.goBack(); else root.goForward() }
+        onTapped: function(point, button) { if (button === Qt.BackButton) root.previousPage(); else root.nextPage() }
     }
 }

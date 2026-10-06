@@ -101,7 +101,7 @@ Rectangle {
     }
     function zoom(multiplier) { canvas.zoom(multiplier) }
     function fitWidth() { canvas.fitWidth() }
-    function jumpToPage(page, y) { activated(); canvas.rememberPlace(); canvas.jump(page, y || 0, 0) }
+    function jumpToPage(page, y) { activated(); canvas.jump(page, y || 0, 0) }
     // Web links in a PDF open in an app tab when the pane belongs to a workspace.
     signal linkRequested(url url)
     // AI help about the selection, the current page or the whole paper; the composer is shared app-wide.
@@ -113,8 +113,6 @@ Rectangle {
                      page: scope === "selection" && anchor ? (anchor.segments ? anchor.segments[0].page : anchor.page) : canvas.currentPage,
                      selection: scope === "selection" ? canvas.selectedText : ""})
     }
-    function goBack() { return canvas.goBack() }
-    function goForward() { return canvas.goForward() }
     function copySelection() { canvas.copySelection() }
     function captureSelection() { canvas.captureSelection() }
     function highlightSelection() { canvas.highlightSelection() }
@@ -252,14 +250,14 @@ Rectangle {
                 anchors.left: parent.left; anchors.leftMargin: 4; anchors.verticalCenter: parent.verticalCenter
                 spacing: 3
                 IconButton {
-                    objectName: "historyBack"; icon.name: "back"; implicitWidth: 24
-                    description: "Back to previous place · " + Platform.keys("Ctrl+["); enabled: canvas.canGoBack
-                    onClicked: { root.activated(); canvas.goBack() }
+                    objectName: "previousPage"; icon.name: "back"; implicitWidth: 24
+                    description: "Previous page · " + Platform.keys("Ctrl+["); enabled: canvas.currentPage > 0
+                    onClicked: { root.activated(); canvas.previousPage() }
                 }
                 IconButton {
-                    objectName: "historyForward"; icon.name: "forward"; implicitWidth: 24
-                    description: "Forward · " + Platform.keys("Ctrl+]"); enabled: canvas.canGoForward
-                    onClicked: { root.activated(); canvas.goForward() }
+                    objectName: "nextPage"; icon.name: "forward"; implicitWidth: 24
+                    description: "Next page · " + Platform.keys("Ctrl+]"); enabled: canvas.currentPage < canvas.pageCount - 1
+                    onClicked: { root.activated(); canvas.nextPage() }
                 }
                 TextField {
                     id: pageField
@@ -269,7 +267,6 @@ Rectangle {
                     onActiveFocusChanged: if (activeFocus) root.activated()
                     validator: IntValidator { bottom: 1; top: Math.max(1, canvas.pageCount) }
                     onAccepted: {
-                        canvas.rememberPlace()
                         canvas.jump(Number(text) - 1, 0, 0)
                         focus = false
                     }
@@ -552,16 +549,16 @@ Rectangle {
         onActivated: researchStore.redo(root.source)
     }
     Shortcut {
-        objectName: "historyBackShortcut"
+        objectName: "previousPageShortcut"
         sequence: "Ctrl+["
-        enabled: root.isActive && canvas.canGoBack
-        onActivated: canvas.goBack()
+        enabled: root.isActive && canvas.ready
+        onActivated: canvas.previousPage()
     }
     Shortcut {
-        objectName: "historyForwardShortcut"
+        objectName: "nextPageShortcut"
         sequence: "Ctrl+]"
-        enabled: root.isActive && canvas.canGoForward
-        onActivated: canvas.goForward()
+        enabled: root.isActive && canvas.ready
+        onActivated: canvas.nextPage()
     }
     Shortcut {
         sequence: "Escape"

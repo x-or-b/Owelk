@@ -317,13 +317,13 @@ Item {
             compare(canvas().currentPage, 2)
             findChild(workspace, "nextTabAction").trigger()
             compare(d.tree.activeTab, tabs[2])
-            // Cmd+Shift+[ / ] as key events cycle tabs without touching reader history (Cmd+[ / ]).
-            const reader = canvas()
+            // Cmd+Shift+[ / ] as key events cycle tabs without turning the reader's pages (Cmd+[ / ]).
+            const reader = canvas(), page = reader.currentPage
             testInput.keyClick(workspace.contentItem, Qt.Key_BracketLeft, Qt.ControlModifier | Qt.ShiftModifier)
             compare(d.tree.activeTab, tabs[1])
             testInput.keyClick(workspace.contentItem, Qt.Key_BracketRight, Qt.ControlModifier | Qt.ShiftModifier)
             compare(d.tree.activeTab, tabs[2])
-            verify(!canvas().canGoBack)
+            compare(reader.currentPage, page)
         }
         function test_splitShortcuts() {
             const d = workspace.documents

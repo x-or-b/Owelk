@@ -82,54 +82,33 @@ Item {
             canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000)
         }
-        function test_linkHistoryBackAndForward() {
+        function test_previousAndNextPage() {
+            canvas.openFile(longSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            const back = findChild(reader, "previousPage"), next = findChild(reader, "nextPage")
+            verify(!back.enabled, "no page before the first")
+            // The arrow, Cmd+] and Cmd+[ turn one page at a time.
+            mouseClick(next)
+            tryCompare(canvas, "currentPage", 1)
+            testInput.keyClick(canvas, Qt.Key_BracketRight, Qt.ControlModifier)
+            tryCompare(canvas, "currentPage", 2)
+            verify(canvas.position().y < .05, "a new page starts at its top")
+            testInput.keyClick(canvas, Qt.Key_BracketLeft, Qt.ControlModifier)
+            tryCompare(canvas, "currentPage", 1)
+            mouseClick(back)
+            tryCompare(canvas, "currentPage", 0)
+            // On the last page there is no next one.
+            canvas.jump(canvas.pageCount - 1, 0, 0); tryCompare(canvas, "restoring", false)
+            verify(!next.enabled)
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+        }
+        function test_internalLinkJumps() {
             canvas.openFile(linkSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
-            verify(!canvas.canGoBack)
             const link = tryFindLink()
             mouseClick(link, link.width / 2, link.height / 2)
             tryCompare(canvas, "currentPage", 2)
-            verify(canvas.canGoBack)
-            const target = canvas.position().y
-            // Cmd+[ returns to the page with the citation; Cmd+] goes forward again.
-            testInput.keyClick(canvas, Qt.Key_BracketLeft, Qt.ControlModifier)
-            tryCompare(canvas, "currentPage", 0)
-            verify(canvas.canGoForward)
-            mouseClick(findChild(reader, "historyForward"))
-            tryCompare(canvas, "currentPage", 2)
-            verify(Math.abs(canvas.position().y - target) < .03)
-            mouseClick(findChild(reader, "historyBack"))
-            tryCompare(canvas, "currentPage", 0)
-            // A new jump clears forward history, as in a browser.
-            reader.jumpToPage(1, 0)
-            tryCompare(canvas, "currentPage", 1)
-            verify(!canvas.canGoForward)
-            verify(canvas.goBack()); tryCompare(canvas, "currentPage", 0)
-            // Opening another PDF starts a fresh history.
-            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
-            tryCompare(canvas, "ready", true, 10000)
-            verify(!canvas.canGoBack && !canvas.canGoForward)
-        }
-        function test_longScrollLeavesAPlaceInHistory() {
-            canvas.openFile(longSource, {page: 0, y: 0, x: 0, zoom: 1})
-            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
-            wait(300)
-            verify(!canvas.canGoBack)
-            // Reading on a page or to the next one is not a jump.
-            mouseWheel(canvas, canvas.width / 2, canvas.height / 2, 0, -120)
-            wait(400)
-            verify(!canvas.canGoBack, "a short scroll leaves no place")
-            // A long scroll does: Back returns to where it started.
-            // (Moving the list as the scroll bar or a fast flick does.)
-            const list = findChild(canvas, "pageList")
-            list.contentY += 5 * findChild(canvas, "paperPage0").height
-            tryVerify(function() { return canvas.currentPage >= 4 })
-            tryVerify(function() { return canvas.canGoBack }, 2000)
-            testInput.keyClick(canvas, Qt.Key_BracketLeft, Qt.ControlModifier)
-            tryVerify(function() { return canvas.currentPage <= 1 }, 3000)
-            verify(canvas.canGoForward)
-            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
-            tryCompare(canvas, "ready", true, 10000)
         }
         function tryFindLink() {
             let link = null
