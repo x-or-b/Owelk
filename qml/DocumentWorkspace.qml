@@ -75,6 +75,10 @@ Flickable {
     }
     function sync() {
         if (syncing) return
+        if (Tree.tidyTabs(tree, activeGroup)) {
+            tree = Tree.prune(tree) || Tree.group([])
+            if (!Tree.find(tree, activeGroup)) activeGroup = Tree.leaves(tree)[0].id
+        }
         Tree.tidyLabels(tree)
         syncing = true
         const minimum = Tree.minimum(tree)
@@ -269,10 +273,13 @@ Flickable {
     signal aiResponseRequested(string id)
     signal aiRequested(var spec)
     // One library tab per group: reuse it (or the Home tab in front) and apply the filter.
+    // One Library tab in the window: opening it again shows that tab (wherever it is) with the filter.
     function openLibrary(filter) {
         prepare()
-        const g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]
-        let t = g.tabs.find(function(tab) { return tab.kind === "library" })
+        const isLibrary = function(tab) { return tab.kind === "library" }
+        let g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]
+        let t = g.tabs.find(isLibrary)
+        if (!t) Tree.leaves(tree).forEach(function(leaf) { const found = leaf.tabs.find(isLibrary); if (found && !t) { t = found; g = leaf } })
         if (t) t.filter = Tree.clone(filter || {})
         else {
             const home = g.tabs.find(function(tab) { return tab.id === g.activeTab && tab.kind === "home" })
@@ -524,7 +531,8 @@ Flickable {
         if (!g || !g.activeTab) return
         prepare()
         const original = g.tabs.find(function(t) { return t.id === g.activeTab })
-        if (original.kind === "note") return // One editor per note avoids conflicting saves.
+        // One editor per note avoids conflicting saves; the Library is one tab in the window.
+        if (original.kind === "note" || original.kind === "library") return
         const added = Tree.group([original.kind === "home" ? Tree.homeTab()
             : original.kind === "library" ? Tree.libraryTab(original.filter)
             : original.kind === "web" ? Tree.webTab(original.source, original.title) : Tree.tab(original.source, original.position)])

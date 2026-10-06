@@ -339,6 +339,35 @@ Item {
             compare(d.groupCount, 1)
             compare(d.tree.tabs.length, 3)
         }
+        function test_idleHomeTabsCloseAndOneLibrary() {
+            const d = workspace.documents
+            d.restore({})
+            workspace.openDocument(fixtureSource); canvas()
+            const paper = d.tree.activeTab
+            // New tabs left unused do not pile up.
+            d.newHomeTab(); d.newHomeTab(); d.newHomeTab()
+            const homes = function() { return Tree.leaves(d.tree).reduce(function(n, g) { return n + g.tabs.filter(function(t) { return t.kind === "home" }).length }, 0) }
+            compare(homes(), 1)
+            d.activateTab(paper)
+            compare(homes(), 0)
+            // A Home tab used to open something becomes that tab.
+            d.newHomeTab()
+            d.openDocument(fixtureSource, {page: 3, y: 0, x: 0, zoom: 1}, true); canvas()
+            compare(homes(), 0)
+            // The Library opens once in the window, even from another split.
+            d.openLibrary({})
+            const library = d.tree.activeTab
+            d.duplicateSplit("right") // not for the Library
+            compare(d.groupCount, 1)
+            d.activateTab(paper)
+            d.moveActiveTabToSplit("right")
+            compare(d.groupCount, 2)
+            d.openLibrary({favorite: true})
+            const libraries = Tree.leaves(d.tree).reduce(function(n, g) { return n + g.tabs.filter(function(t) { return t.kind === "library" }).length }, 0)
+            compare(libraries, 1)
+            compare(Tree.find(d.tree, d.activeGroup).activeTab, library)
+            compare(Tree.owner(d.tree, library).tabs.find(function(t) { return t.id === library }).filter.favorite, true)
+        }
         function test_tabCyclingAndNumberedTabs() {
             const d = workspace.documents
             d.openDocument(fixtureSource, {page: 1, y: 0, x: 0, zoom: 1}, true); canvas()

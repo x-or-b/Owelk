@@ -38,6 +38,30 @@ function arxivPdf(url) {
 // A standalone note; the note itself lives in the store, the tab only names it.
 function noteTab(noteId, title) { return {id: id("tab"), kind: "note", source: "", noteId: noteId, title: title || "", position: {page: 0, y: 0, x: 0, zoom: 1}} }
 function libraryTab(filter) { return {id: id("tab"), kind: "library", source: "", filter: clone(filter || {}), position: {page: 0, y: 0, x: 0, zoom: 1}} }
+// Tabs that would only pile up: a Home tab left without being used closes (it stays while it is its
+// strip's shown tab), and the Library is one tab in the whole window (the one in view is kept).
+// Changes the tree in place; true when a tab was removed (empty strips are then pruned by the caller).
+function tidyTabs(tree, activeGroupId) {
+    const list = leaves(tree)
+    const libraries = []
+    list.forEach(function(g) { g.tabs.forEach(function(t) { if (t.kind === "library") libraries.push({group: g, tab: t}) }) })
+    const shown = function(e) { return e.group.activeTab === e.tab.id }
+    const keep = libraries.length > 1
+        ? (libraries.find(function(e) { return e.group.id === activeGroupId && shown(e) }) || libraries.find(shown) || libraries[0]).tab
+        : null
+    let removed = false
+    list.forEach(function(g) {
+        const before = g.tabs.length
+        g.tabs = g.tabs.filter(function(t) {
+            if (t.kind === "home") return t.id === g.activeTab
+            return t.kind !== "library" || !keep || t === keep
+        })
+        if (g.tabs.length === before) return
+        removed = true
+        if (!g.tabs.some(function(t) { return t.id === g.activeTab })) g.activeTab = g.tabs.length ? g.tabs[g.tabs.length - 1].id : ""
+    })
+    return removed
+}
 function homeTab() { return {id: id("tab"), kind: "home", source: "", position: {page: 0, y: 0, x: 0, zoom: 1}} }
 // Named tab groups inside one tab strip. Tabs of a group are kept next to each other.
 function addLabel(groupNode, name, color) {

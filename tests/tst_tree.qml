@@ -44,6 +44,24 @@ TestCase {
                 "https://scholar.google.com/scholar?q=" + encodeURIComponent("A. Vaswani et al. Attention is all you need. 2017."))
         compare(Tree.referenceUrl("", scholar), "")
     }
+    function test_tidyTabs() {
+        // Home tabs not in view go; one in view, or alone in its strip, stays.
+        const paper = Tree.tab("file:///a.pdf"), idle = Tree.homeTab(), shownHome = Tree.homeTab()
+        const left = Tree.group([idle, paper]); left.activeTab = paper.id
+        const right = Tree.group([shownHome])
+        let tree = Tree.split(left, left.id, right, "right")
+        verify(Tree.tidyTabs(tree, left.id))
+        compare(Tree.find(tree, left.id).tabs.map(function(t) { return t.id }), [paper.id])
+        compare(Tree.find(tree, right.id).tabs.length, 1)
+        verify(!Tree.tidyTabs(tree, left.id))
+        // One Library: the one in view in the active strip is kept.
+        const libA = Tree.libraryTab({}), libB = Tree.libraryTab({tag: "x"})
+        Tree.find(tree, left.id).tabs.push(libA)
+        const r = Tree.find(tree, right.id); r.tabs.push(libB); r.activeTab = libB.id
+        verify(Tree.tidyTabs(tree, right.id))
+        verify(!Tree.find(tree, left.id).tabs.some(function(t) { return t.id === libA.id }))
+        compare(Tree.find(tree, right.id).tabs.map(function(t) { return t.id }), [libB.id]) // its idle Home went too
+    }
     function test_namedTabGroups() {
         const strip = Tree.group([Tree.tab("file:///a.pdf"), Tree.webTab("https://x.org"), Tree.tab("file:///b.pdf")])
         const [a, web, b] = strip.tabs
