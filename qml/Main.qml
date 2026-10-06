@@ -138,6 +138,13 @@ ApplicationWindow {
             onActivated: documents.selectTabAt(index === 8 ? -1 : index)
         }
     }
+    // Cmd/Ctrl+W, as in browsers: the tab in front; Home shown over open tabs goes back to them;
+    // with nothing left to close, the window itself.
+    function closeTabOrWindow() {
+        if (!documents.hasTabs || restoreFailed) window.close()
+        else if (homeVisible) homeVisible = false
+        else documents.closeActiveTab()
+    }
     function showHome() { persist(); homeVisible = true; Qt.callLater(function() { homeView.focusSearch() }) }
     // Cmd+L: the address bar of the current web tab, or a new web tab when a paper or Home is in front.
     function openWebAddress() {
@@ -324,7 +331,7 @@ ApplicationWindow {
             Action { objectName: "openWebAction"; text: "Open Web Page…"; shortcut: window.keys("openWeb"); enabled: !window.restoreFailed; onTriggered: window.openWebAddress() }
             Action { objectName: "settingsAction"; text: "Settings…"; shortcut: Qt.platform.os === "osx" ? StandardKey.Preferences : "Ctrl+,"; onTriggered: settingsDialog.open() }
             Action { objectName: "newTabAction"; text: "New Tab"; shortcut: window.keys("newTab"); enabled: !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.newHomeTab() }
-            Action { objectName: "closeTabAction"; text: "Close Tab"; shortcut: window.keys("closeTab"); enabled: !window.homeVisible && !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.closeActiveTab() }
+            Action { objectName: "closeTabAction"; text: documents.hasTabs ? "Close Tab" : "Close Window"; shortcut: window.keys("closeTab"); enabled: !(!window.homeVisible && window.currentReader && window.currentReader.annotationDirty); onTriggered: window.closeTabOrWindow() }
             Action { text: "Reopen Closed Tab"; shortcut: window.keys("reopenTab"); enabled: documents.closedTabs.length > 0 && !window.restoreFailed; onTriggered: documents.reopenClosedTab() }
             Action { objectName: "nextTabAction"; text: "Next Tab"; shortcut: window.keys("nextTab"); enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(1) }
             Action { objectName: "previousTabAction"; text: "Previous Tab"; shortcut: window.keys("previousTab"); enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(-1) }

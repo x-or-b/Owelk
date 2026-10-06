@@ -9,6 +9,7 @@ Item {
     width: 1440; height: 930
     App.Main { id: workspace }
     Component { id: restoredWindow; App.Main { visible: false } }
+    SignalSpy { id: closingSpy; target: workspace; signalName: "closing" }
     TestCase {
         name: "WorkspacePanels"
         when: windowShown
@@ -35,6 +36,26 @@ Item {
             workspace.filesSide = "left"; workspace.capturesSide = "right"
             workspace.documentVisible = false; workspace.documentSide = "left"; workspace.navigationMode = 0
             workspace.homeVisible = true
+        }
+        function test_closeShortcutEndsWithTheWindow() {
+            const d = workspace.documents
+            workspace.openDocument(fixtureSource); canvas()
+            const action = findChild(workspace, "closeTabAction")
+            // Home shown over open tabs: Close goes back to them.
+            workspace.homeVisible = true
+            action.trigger()
+            compare(workspace.homeVisible, false)
+            verify(d.hasTabs)
+            for (let i = 0; i < 10 && d.hasTabs; ++i) action.trigger()
+            verify(!d.hasTabs)
+            // Nothing left to close: the window closes, as in other Mac apps.
+            compare(action.text, "Close Window")
+            closingSpy.clear()
+            action.trigger()
+            compare(closingSpy.count, 1)
+            tryCompare(workspace, "visible", false)
+            workspace.visible = true
+            waitForRendering(workspace.contentItem)
         }
         function test_noPanelCloseButton() {
             compare(findChild(findChild(workspace, "rightDock"), "closePanel"), null)
