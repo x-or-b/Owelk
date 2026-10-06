@@ -22,7 +22,7 @@ Item {
         function page() { return findChild(settings, "settingsPageLoader").item }
         function cleanup() {
             settings.close(); tryCompare(settings, "visible", false)
-            Theme.theme = "neutral"; Theme.accentName = "blue"; Theme.textSize = 13; Theme.invertPages = false
+            Theme.theme = "neutral"; Theme.accentName = "blue"; Theme.textSize = 13; Theme.invertPages = false; Theme.appIcon = "paper"
             researchStore.setSetting("appearance.custom", "")
         }
         function test_categoriesLoadOneAtATime() {
@@ -49,6 +49,22 @@ Item {
             slider.value = 15; slider.moved()
             compare(Theme.textSize, 15)
             compare(Theme.fontBody, 15)
+        }
+        function test_appIconChoice() {
+            settings.openPage("appearance"); tryCompare(settings, "opened", true)
+            let navy = null
+            tryVerify(function() { navy = visualChild(settings.contentItem, "appIcon-navy"); return navy !== null })
+            compare(Theme.appIcons.length, 3)
+            // Scroll the page to the choice before clicking it.
+            let flick = navy.parent
+            while (flick && flick.contentItem === undefined) flick = flick.parent
+            if (flick) flick.contentY = Math.max(0, navy.mapToItem(flick.contentItem, 0, 0).y - 40)
+            waitForPolish(settings.contentItem); wait(50)
+            mouseClick(navy)
+            compare(Theme.appIcon, "navy")
+            compare(researchStore.setting("appearance.appIcon"), "navy")
+            Theme.appIcon = "unknown"
+            compare(Theme.appIcon, "paper")
         }
         function test_customThemeStartsFromTheCurrentOne() {
             Theme.theme = "paper"

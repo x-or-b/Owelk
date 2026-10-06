@@ -102,6 +102,32 @@ ColumnLayout {
         }
     }
     SettingsGroup {
+        title: "App icon"
+        note: Qt.platform.os === "osx" ? "Changes the icon in the Dock and on the app in Finder. If the Dock keeps the old one, it updates after Owelk restarts."
+                                       : "Changes the icon in the taskbar and title bars."
+        SettingsRow {
+            label: (Theme.appIcons.find(function(i) { return i.id === Theme.appIcon }) || {name: ""}).name
+            Repeater {
+                model: Theme.appIcons
+                delegate: Rectangle {
+                    id: choice
+                    required property var modelData
+                    objectName: "appIcon-" + modelData.id
+                    width: 52; height: 52; radius: Theme.radius
+                    color: "transparent"
+                    border.width: 2
+                    border.color: Theme.appIcon === modelData.id ? Theme.accent : choiceHover.hovered ? Theme.border : "transparent"
+                    Image { anchors.fill: parent; anchors.margins: 3; source: choice.modelData.source; sourceSize: Qt.size(96, 96); smooth: true; mipmap: true }
+                    HoverHandler { id: choiceHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: Theme.appIcon = choice.modelData.id }
+                    ToolTip.visible: choiceHover.hovered; ToolTip.delay: 500; ToolTip.text: modelData.name
+                    Accessible.role: Accessible.RadioButton
+                    Accessible.name: modelData.name + " icon"
+                }
+            }
+        }
+    }
+    SettingsGroup {
         title: "Tabs"
         note: "Vertical tabs list every tab beside the window, with full titles; the panel opens and closes from its button at the top left (" + Platform.keys("Ctrl+Shift+B") + ")."
         SettingsRow {

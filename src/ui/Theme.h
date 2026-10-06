@@ -20,6 +20,9 @@ class Theme : public QObject {
     Q_PROPERTY(bool invertPages READ invertPages WRITE setInvertPages NOTIFY changed)
     // Tabs listed beside the window instead of a bar above each split.
     Q_PROPERTY(bool verticalTabs READ verticalTabs WRITE setVerticalTabs NOTIFY changed)
+    // The app's icon in the Dock and taskbar (and, on macOS, in Finder): paper, white or navy.
+    Q_PROPERTY(QString appIcon READ appIcon WRITE setAppIcon NOTIFY changed)
+    Q_PROPERTY(QVariantList appIcons READ appIcons CONSTANT)
     Q_PROPERTY(bool dark READ dark NOTIFY changed)
     // Whether this build can invert PDF pages (compiled with Qt ShaderTools).
     Q_PROPERTY(bool canInvertPages READ canInvertPages CONSTANT)
@@ -104,6 +107,11 @@ public:
     void setTextSize(int size);
     bool invertPages() const { return m_invertPages; }
     bool verticalTabs() const { return m_verticalTabs; }
+    QString appIcon() const { return m_appIcon; }
+    void setAppIcon(const QString &id);
+    QVariantList appIcons() const;
+    // The image for an icon choice (a resource path).
+    static QString appIconPath(const QString &id);
     void setVerticalTabs(bool on);
     void setInvertPages(bool on);
     bool dark() const { return m_dark; }
@@ -157,6 +165,8 @@ private:
     QString m_theme = "neutral", m_accentName = "blue";
     int m_textSize = 13;
     bool m_invertPages = false, m_dark = false, m_verticalTabs = false;
+    QString m_appIcon = "paper";
+    void showAppIcon(bool finderToo);
     QColor m_window, m_sidebar, m_content, m_raised, m_field, m_control, m_pdfBackdrop, m_paper{Qt::white},
         m_paperInverted{"#121212"};
     QColor m_text, m_textSecondary, m_textTertiary, m_textDisabled, m_icon, m_onAccent;

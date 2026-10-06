@@ -10,7 +10,7 @@
 //   iconutil -c icns resources/app/owelk.iconset -o resources/app/owelk.icns && rm -r resources/app/owelk.iconset
 //
 // Writes owelk.iconset/ (macOS), owelk.ico (Windows, PNG entries), owelk.png (512 px, Linux and the
-// window icon).
+// window icon) and owelk-<palette>.png for the other icon choices.
 #include <QBuffer>
 #include <QDir>
 #include <QFile>
@@ -21,16 +21,16 @@
 #include <QtEndian>
 #include <cstdio>
 
-// Colours: the stroke and the tile (top to bottom).
+// Colours: the stroke and the tile (top to bottom). The first is the app's own icon; the others can
+// be chosen in Settings → Appearance (owelk-<id>.png).
 struct Palette {
-    QString name;
+    QString id, name;
     QColor stroke, top, bottom;
 };
 static const QList<Palette> palettes{
-    {"Ink on paper", QColor("#1d3a5c"), QColor("#fbf8f2"), QColor("#f1ebdf")},
-    {"Navy on white", QColor("#0b2f55"), QColor("#ffffff"), QColor("#f2f4f7")},
-    {"Accent blue", QColor("#355e8c"), QColor("#ffffff"), QColor("#eef2f7")},
-    {"Paper on navy", QColor("#f4efe4"), QColor("#24476e"), QColor("#183353")},
+    {"paper", "Ink on paper", QColor("#1d3a5c"), QColor("#fbf8f2"), QColor("#f1ebdf")},
+    {"white", "Navy on white", QColor("#0b2f55"), QColor("#ffffff"), QColor("#f2f4f7")},
+    {"navy", "Paper on navy", QColor("#f4efe4"), QColor("#24476e"), QColor("#183353")},
 };
 
 // The mark's pixels grown by `radius` (drawn at offsets over a disk).
@@ -82,8 +82,8 @@ static QImage prepare(const QImage &source, const QColor &stroke)
     grown.fill(Qt::transparent);
     {
         QPainter p(&grown);
-        p.drawImage(0, 0, dilate(ring, 4 * unit));
-        p.drawImage(0, 0, dilate(smile, 2 * unit));
+        p.drawImage(0, 0, dilate(ring, 12 * unit));
+        p.drawImage(0, 0, dilate(smile, 3 * unit));
         p.setCompositionMode(QPainter::CompositionMode_SourceIn);
         p.fillRect(grown.rect(), stroke);
     }
@@ -124,7 +124,7 @@ static QImage render(const QImage &mark, int size, const Palette &palette)
     const qreal markSize = tile * (small ? .80 : .72) / .87;
     const QRectF target(box.center().x() - markSize / 2, box.center().y() - markSize / 2, markSize, markSize);
     const QImage scaled = mark.scaled(qCeil(markSize), qCeil(markSize), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    const qreal thicken = small ? qMax(.35, size / 64.0) : 0;
+    const qreal thicken = small ? qMax(.2, size / 128.0) : 0;
     const int steps = thicken > 0 ? 8 : 1;
     for (int i = 0; i < steps; ++i) {
         const qreal angle = i * 2 * M_PI / steps;
@@ -180,6 +180,8 @@ int main(int argc, char **argv)
         render(mark, base * 2, palette).save(out.filePath(QString("owelk.iconset/icon_%1x%1@2x.png").arg(base)));
     }
     render(mark, 512, palette).save(out.filePath("owelk.png"));
+    for (qsizetype i = 1; i < palettes.size(); ++i)
+        render(prepare(source, palettes[i].stroke), 512, palettes[i]).save(out.filePath("owelk-" + palettes[i].id + ".png"));
     // ICO with PNG entries (Windows Vista and later).
     const QList<int> sizes{16, 24, 32, 48, 64, 128, 256};
     QList<QByteArray> images;

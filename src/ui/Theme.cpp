@@ -1,7 +1,11 @@
 #include "Theme.h"
 #include "ResearchStore.h"
+#include "AppIcon.h"
+#include <QCoreApplication>
+#include <QFile>
 #include <QFontDatabase>
-#include <QFontDatabase>
+#include <QGuiApplication>
+#include <QIcon>
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -61,8 +65,45 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
         m_textSize = qBound(11, m_store->setting("appearance.textSize", "13").toInt(), 17);
         m_invertPages = m_store->setting("appearance.invertPages") == "1";
         m_verticalTabs = m_store->setting("appearance.verticalTabs") == "1";
+        const auto icon = m_store->setting("appearance.appIcon", "paper");
+        if (icon == "white" || icon == "navy") m_appIcon = icon;
     }
     apply();
+    showAppIcon(false);
+}
+
+QVariantList Theme::appIcons() const
+{
+    return {QVariantMap{{"id", "paper"}, {"name", "Ink on paper"}, {"source", "qrc" + appIconPath("paper")}},
+        QVariantMap{{"id", "white"}, {"name", "Navy on white"}, {"source", "qrc" + appIconPath("white")}},
+        QVariantMap{{"id", "navy"}, {"name", "Paper on navy"}, {"source", "qrc" + appIconPath("navy")}}};
+}
+
+QString Theme::appIconPath(const QString &id)
+{
+    return id == "white" || id == "navy" ? ":/owelk/app/owelk-" + id + ".png" : QStringLiteral(":/owelk/app/owelk.png");
+}
+
+void Theme::setAppIcon(const QString &id)
+{
+    const auto next = id == "white" || id == "navy" ? id : QStringLiteral("paper");
+    if (next == m_appIcon) return;
+    m_appIcon = next;
+    save("appearance.appIcon", next);
+    showAppIcon(true);
+    emit changed();
+}
+
+// The running app's icon (Dock, taskbar, title bars). In a macOS bundle the chosen icon is also set
+// on the app in Finder, and cleared again for the default; at startup only if it went missing.
+void Theme::showAppIcon(bool finderToo)
+{
+    if (qobject_cast<QGuiApplication *>(QCoreApplication::instance()))
+        QGuiApplication::setWindowIcon(QIcon(appIconPath(m_appIcon)));
+    const auto bundle = AppIcon::bundlePath();
+    if (bundle.isEmpty()) return;
+    if (finderToo || (m_appIcon != "paper" && !AppIcon::hasCustomIcon(bundle)))
+        AppIcon::setBundleIcon(bundle, m_appIcon == "paper" ? QString() : appIconPath(m_appIcon));
 }
 
 Theme::Seeds Theme::preset(const QString &id)

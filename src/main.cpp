@@ -7,7 +7,6 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QApplication>
-#include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -28,8 +27,7 @@ int main(int argc, char *argv[])
     app.setOrganizationName("Owelk");
     app.setApplicationName("Owelk");
     app.setApplicationVersion("0.1.0");
-    // Title bars and taskbars on Linux and Windows; the macOS bundle uses owelk.icns.
-    app.setWindowIcon(QIcon(":/owelk/app/owelk.png"));
+    // The window and Dock icon follow Settings → Appearance (Theme); the macOS bundle has owelk.icns.
     app.setDesktopFileName("owelk");
     QQuickStyle::setStyle("OwelkStyle");
 
