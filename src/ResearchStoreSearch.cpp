@@ -141,7 +141,8 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
         };
         QSqlQuery papers(db);
         papers.exec("SELECT d.url,d.authors,d.year,d.doi,d.arxiv,d.favorite,d.reading_state FROM documents d "
-                    "LEFT JOIN recent_documents r ON r.document_id=d.id ORDER BY r.opened_at IS NULL,r.opened_at DESC");
+                    "LEFT JOIN recent_documents r ON r.document_id=d.id WHERE d.removed_at IS NULL "
+                    "ORDER BY r.opened_at IS NULL,r.opened_at DESC");
         while (papers.next() && count < 20) {
             // Recently opened, favorite and in-progress papers come a little earlier.
             const int boost = (rank++ < 10 ? 5 : 0) + (papers.value(5).toBool() ? 3 : 0)

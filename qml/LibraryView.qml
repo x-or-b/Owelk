@@ -152,6 +152,33 @@ Rectangle {
         MenuItem { text: "Add to Favorites"; onTriggered: batchMenu.urls.forEach(function(u) { researchStore.setFavorite(u, true) }) }
         MenuSeparator {}
         MenuItem { text: "Copy BibTeX"; onTriggered: { researchStore.copyText(researchStore.bibtex(batchMenu.urls)); researchStore.notify("BibTeX copied.") } }
+        MenuSeparator {}
+        MenuItem { objectName: "batchRemoveFromLibrary"; text: "Remove from Library…"; palette.windowText: Theme.danger; onTriggered: { batchConfirm.mode = "library"; batchConfirm.urls = batchMenu.urls; batchConfirm.open() } }
+        MenuItem { text: "Move PDFs to Trash…"; palette.windowText: Theme.danger; onTriggered: { batchConfirm.mode = "trash"; batchConfirm.urls = batchMenu.urls; batchConfirm.open() } }
+    }
+    ConfirmDialog {
+        id: batchConfirm
+        objectName: "libraryBatchConfirm"
+        property string mode: "library"
+        property var urls: []
+        title: mode === "trash" ? "Move " + urls.length + " PDFs to the Trash?" : "Remove " + urls.length + " papers from the Library?"
+        message: mode === "trash"
+            ? "The files go to the system Trash, where you can put them back. Their annotations and captures are kept."
+            : "They leave the Library, collections and tags. The PDF files, annotations and captures are kept."
+        actionText: mode === "trash" ? "Move to Trash" : "Remove"
+        onConfirmed: {
+            const list = urls, trash = mode === "trash"
+            root.selection = []
+            Qt.callLater(function() { if (trash) researchStore.movePdfsToTrash(list); else researchStore.removeFromLibrary(list) })
+        }
+    }
+    // PDFs chosen or dropped here join the Library, and the collection being shown.
+    Native.FileDialog {
+        id: addDialog
+        title: root.filter.collection ? "Add PDFs to this collection" : "Add PDFs to the Library"
+        fileMode: Native.FileDialog.OpenFiles
+        nameFilters: ["PDF documents (*.pdf)"]
+        onAccepted: researchStore.addDocuments(selectedFiles, root.filter.collection || "")
     }
     PaperMenu {
         id: paperMenu
@@ -302,6 +329,12 @@ Rectangle {
                 visible: !root.showingNotes
                 Label { objectName: "libraryCount"; Layout.fillWidth: true; text: root.rows.length + (root.rows.length === 1 ? " paper" : " papers"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
                 IconButton {
+                    objectName: "libraryAddPdfs"
+                    icon.name: "add"
+                    description: root.filter.collection ? "Add PDFs… · to this collection" : "Add PDFs to the Library…"
+                    onClicked: addDialog.open()
+                }
+                IconButton {
                     objectName: "exportBibtex"
                     icon.name: "export"
                     enabled: root.rows.length > 0
@@ -401,10 +434,19 @@ Rectangle {
                         }
                     }
                 }
+                DropArea {
+                    anchors.fill: parent
+                    keys: ["text/uri-list"]
+                    onDropped: function(drop) {
+                        const pdfs = drop.urls.filter(function(u) { return /\.pdf$/i.test(u.toString()) })
+                        if (pdfs.length) { researchStore.addDocuments(pdfs, root.filter.collection || ""); drop.acceptProposedAction() }
+                    }
+                    Rectangle { anchors.fill: parent; visible: parent.containsDrag; color: "transparent"; radius: Theme.radius; border.width: 2; border.color: Theme.accent }
+                }
                 Label {
                     anchors.centerIn: parent
                     visible: papers.count === 0
-                    text: root.query.length || Object.keys(root.filter).length ? "No papers match." : "Papers you open appear here."
+                    text: root.filter.collection ? "No papers here yet. Add PDFs with +, or drop them here." : root.query.length || Object.keys(root.filter).length ? "No papers match." : "Papers you open or add with + appear here."
                     color: Theme.textTertiary
                 }
             }

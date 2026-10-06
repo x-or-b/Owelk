@@ -130,6 +130,20 @@ Item {
         }
     }
     FolderDialog { id: folderDialog; title: "Open paper folder"; onAccepted: root.folderChosen(selectedFolder) }
+    Menu {
+        id: shelfMenu
+        objectName: "panelCollectionMenu"
+        property var collection: ({})
+        MenuItem { text: "Open in Library"; onTriggered: root.libraryFilterRequested({collection: shelfMenu.collection.id}) }
+        MenuItem { objectName: "panelAddPdfs"; text: "Add PDFs…"; onTriggered: addFiles.open() }
+    }
+    FileDialog {
+        id: addFiles
+        title: "Add PDFs to " + (shelfMenu.collection.name || "the collection")
+        fileMode: FileDialog.OpenFiles
+        nameFilters: ["PDF documents (*.pdf)"]
+        onAccepted: researchStore.addDocuments(selectedFiles, shelfMenu.collection.id)
+    }
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 8
@@ -168,9 +182,14 @@ Item {
                     id: drop
                     anchors.fill: parent
                     enabled: !shelfRow.modelData.unsorted
-                    keys: ["owelk/paper"]
-                    onDropped: function(event) { researchStore.setDocumentsCollection(event.source.paperUrls, shelfRow.modelData.id, true) }
+                    keys: ["owelk/paper", "text/uri-list"]
+                    // A Library paper is filed here; PDF files from the desktop are added to the Library and filed.
+                    onDropped: function(event) {
+                        if (event.source && event.source.paperUrls) researchStore.setDocumentsCollection(event.source.paperUrls, shelfRow.modelData.id, true)
+                        else researchStore.addDocuments(event.urls.filter(function(u) { return /\.pdf$/i.test(u.toString()) }), shelfRow.modelData.id)
+                    }
                 }
+                TapHandler { acceptedButtons: Qt.RightButton; enabled: !shelfRow.modelData.unsorted; onTapped: { shelfMenu.collection = shelfRow.modelData; shelfMenu.popup() } }
             }
         }
         Label {

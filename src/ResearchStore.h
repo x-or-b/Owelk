@@ -104,6 +104,14 @@ public:
     Q_INVOKABLE int keyboardModifiers() const;
     // Adds (or removes) several papers at once.
     Q_INVOKABLE bool setDocumentsCollection(const QVariantList &sources, const QString &collectionId, bool member);
+    // Adds PDFs to the Library (and to a collection, if given) without opening them; their details and
+    // text are read in the background. Returns how many were added.
+    Q_INVOKABLE int addDocuments(const QVariantList &sources, const QString &collectionId = QString());
+    // Takes papers out of the Library: lists, recent papers, collections, tags and the text index.
+    // The PDF file, annotations and captures stay; opening the file again brings the paper back.
+    Q_INVOKABLE int removeFromLibrary(const QVariantList &sources);
+    // Moves the PDF files to the system Trash (recoverable there) and removes the papers from the Library.
+    Q_INVOKABLE int movePdfsToTrash(const QVariantList &sources);
     // Collections where similar papers already are, for a paper in none of them (or to add more):
     // answered by collectionsSuggested(request, source, [{id, name}]). No AI; the related-papers
     // search, cached until the library changes.

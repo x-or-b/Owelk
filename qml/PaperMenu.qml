@@ -66,7 +66,7 @@ Item {
             onTriggered: researchStore.setExcludedFromIndex(root.paper.url, !root.paper.excluded)
         }
         MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(root.paper.url) }
-        MenuSeparator { visible: root.recent; height: visible ? implicitHeight : 0 }
+        MenuSeparator {}
         MenuItem {
             objectName: "removeRecentOption"
             visible: root.recent; height: visible ? implicitHeight : 0
@@ -74,8 +74,34 @@ Item {
             palette.windowText: Theme.danger
             onTriggered: { remove.active = true; remove.item.open() }
         }
+        MenuItem {
+            objectName: "removeFromLibraryOption"
+            text: "Remove from Library…"
+            palette.windowText: Theme.danger
+            onTriggered: { confirm.mode = "library"; confirm.open() }
+        }
+        MenuItem {
+            objectName: "movePdfToTrashOption"
+            text: "Move PDF to Trash…"
+            palette.windowText: Theme.danger
+            onTriggered: { confirm.mode = "trash"; confirm.open() }
+        }
     }
     Loader { id: details; active: false; sourceComponent: PaperDetailsDialog {} }
+    ConfirmDialog {
+        id: confirm
+        objectName: "paperConfirm"
+        property string mode: "library"
+        title: mode === "trash" ? "Move this PDF to the Trash?" : "Remove this paper from the Library?"
+        message: mode === "trash"
+            ? "The file goes to the system Trash, where you can put it back. The paper leaves the Library; its annotations and captures are kept."
+            : "It leaves the Library, recent papers, collections and tags. The PDF file, annotations and captures are kept; opening the file again brings it back."
+        actionText: mode === "trash" ? "Move to Trash" : "Remove"
+        onConfirmed: {
+            const source = root.paper.url, trash = mode === "trash"
+            Qt.callLater(function() { if (trash) researchStore.movePdfsToTrash([source]); else researchStore.removeFromLibrary([source]) })
+        }
+    }
     Loader {
         id: tags
         active: false

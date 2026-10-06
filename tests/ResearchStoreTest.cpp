@@ -870,6 +870,36 @@ private slots:
         QCOMPARE(close[0].toMap()["id"].toString(), twin);
         QVERIFY(store.relatedNotes(unrelated).isEmpty());
     }
+    void addRemoveAndRestoreLibraryPapers()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        const auto a = QUrl::fromLocalFile(directory.filePath("a.pdf")),
+                   b = QUrl::fromLocalFile(directory.filePath("b.pdf"));
+        writeFixture(a.toLocalFile(), "Paper A");
+        writeFixture(b.toLocalFile(), "Paper B");
+        QFile notes(directory.filePath("notes.txt"));
+        QVERIFY(notes.open(QIODevice::WriteOnly));
+        notes.write("x");
+        notes.close();
+        // Added straight into a collection, without opening (not "recent"); other files are skipped.
+        const auto topic = store.createCollection("Imported");
+        QCOMPARE(store.addDocuments({a, b, QUrl::fromLocalFile(directory.filePath("notes.txt"))}, topic), 2);
+        QCOMPARE(store.libraryDocuments({{"collection", topic}}).size(), 2);
+        QVERIFY(store.recentDocuments().isEmpty());
+        // Removing hides the paper everywhere but keeps the file; opening it again restores it.
+        QCOMPARE(store.removeFromLibrary({a}), 1);
+        QCOMPARE(store.libraryDocuments({}).size(), 1);
+        QCOMPARE(store.libraryDocuments({{"collection", topic}}).size(), 1);
+        QVERIFY(QFile::exists(a.toLocalFile()));
+        QVERIFY(store.rememberDocument(a));
+        QTRY_COMPARE_WITH_TIMEOUT(store.libraryDocuments({}).size(), 2, 2000);
+        // A file that is not there is not "moved to the Trash", and nothing changes.
+        QCOMPARE(store.movePdfsToTrash({QUrl::fromLocalFile(directory.filePath("missing.pdf"))}), 0);
+        QCOMPARE(store.libraryDocuments({}).size(), 2);
+    }
     void deletedWorkspacesCanBeForgotten()
     {
         QTemporaryDir directory;

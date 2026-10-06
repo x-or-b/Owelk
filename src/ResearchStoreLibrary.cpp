@@ -2,6 +2,8 @@
 #include "PaperIndex.h"
 
 #include <QDateTime>
+#include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QSet>
 #include <QSqlError>
@@ -24,7 +26,7 @@ QString newId()
 // (opened|added|title|year).
 QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
 {
-    QStringList where{"d.url LIKE 'file:%'"};
+    QStringList where{"d.url LIKE 'file:%'", "d.removed_at IS NULL"};
     QVariantList args;
     const auto text = filter.value("text").toString().trimmed();
     if (!text.isEmpty()) {
@@ -286,8 +288,8 @@ QStringList ResearchStore::documentIdsInScope(const QVariantMap &filter) const
 int ResearchStore::unsortedCount() const
 {
     QSqlQuery query(m_database);
-    query.exec("SELECT count(*) FROM documents WHERE url LIKE 'file:%' AND id NOT IN (SELECT document_id FROM "
-               "collection_documents)");
+    query.exec("SELECT count(*) FROM documents WHERE url LIKE 'file:%' AND removed_at IS NULL AND id NOT IN (SELECT "
+               "document_id FROM collection_documents)");
     return query.next() ? query.value(0).toInt() : 0;
 }
 
@@ -384,4 +386,95 @@ int ResearchStore::suggestCollections(const QUrl &source)
 int ResearchStore::keyboardModifiers() const
 {
     return int(QGuiApplication::keyboardModifiers());
+}
+
+int ResearchStore::addDocuments(const QVariantList &sources, const QString &collectionId)
+{
+    QVariantList added;
+    for (const auto &value : sources) {
+        const auto url = value.toUrl();
+        const QFileInfo info(url.toLocalFile());
+        if (!url.isLocalFile() || !info.isFile() || !info.isReadable()
+            || info.suffix().compare("pdf", Qt::CaseInsensitive))
+            continue;
+        const auto document = ensureDocument(url);
+        if (document.isEmpty()) continue;
+        QSqlQuery restore(m_database);
+        restore.prepare("UPDATE documents SET removed_at=NULL WHERE id=?");
+        restore.addBindValue(document);
+        restore.exec();
+        refreshMetadata(document, resolvedSource(url), false, true);
+        m_index->enqueue(url);
+        added.append(url);
+    }
+    if (!collectionId.isEmpty() && !added.isEmpty()) setDocumentsCollection(added, collectionId, true);
+    announceDocumentsChanged();
+    emit homeChanged();
+    if (!added.isEmpty())
+        emit message(added.size() == 1 ? QStringLiteral("Added 1 PDF to the Library.")
+                                       : QString("Added %1 PDFs to the Library.").arg(added.size()));
+    else
+        emit message("No PDFs were added. Choose PDF files.");
+    return int(added.size());
+}
+
+int ResearchStore::removeFromLibrary(const QVariantList &sources)
+{
+    int removed = 0;
+    const auto now = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    for (const auto &value : sources) {
+        const auto url = value.toUrl();
+        const auto document = findDocument(url);
+        if (document.isEmpty()) continue;
+        QSqlQuery hide(m_database);
+        hide.prepare("UPDATE documents SET removed_at=? WHERE id=? AND removed_at IS NULL");
+        hide.addBindValue(now);
+        hide.addBindValue(document);
+        if (!hide.exec() || hide.numRowsAffected() != 1) continue;
+        for (const auto *sql :
+            {"DELETE FROM recent_documents WHERE document_id=?", "DELETE FROM collection_documents WHERE document_id=?",
+                "DELETE FROM document_tags WHERE document_id=?"}) {
+            QSqlQuery query(m_database);
+            query.prepare(sql);
+            query.addBindValue(document);
+            query.exec();
+        }
+        m_index->remove(resolvedSource(url));
+        ++removed;
+    }
+    if (!removed) return 0;
+    announceDocumentsChanged();
+    emit recentDocumentsChanged();
+    emit homeChanged();
+    emit message(removed == 1 ? QStringLiteral("Removed from the Library. The PDF file was kept.")
+                              : QString("Removed %1 papers from the Library. The PDF files were kept.").arg(removed));
+    return removed;
+}
+
+int ResearchStore::movePdfsToTrash(const QVariantList &sources)
+{
+    QVariantList moved;
+    QStringList failed;
+    for (const auto &value : sources) {
+        const auto url = resolvedSource(value.toUrl());
+        const auto path = url.toLocalFile();
+        if (!url.isLocalFile() || !QFileInfo(path).isFile()) {
+            failed << QFileInfo(path).fileName();
+            continue;
+        }
+        // To the system Trash only: the file can be put back from there.
+        if (QFile::moveToTrash(path))
+            moved.append(value);
+        else
+            failed << QFileInfo(path).fileName();
+    }
+    if (!moved.isEmpty()) removeFromLibrary(moved);
+    if (!failed.isEmpty())
+        emit message(
+            "Could not move to the Trash: " + failed.join(", ") + ". Nothing else was changed for those files.");
+    else if (!moved.isEmpty())
+        emit message(moved.size() == 1
+                ? QStringLiteral("Moved the PDF to the Trash and removed it from the Library.")
+                : QString("Moved %1 PDFs to the Trash and removed them from the Library.").arg(moved.size()));
+    return int(moved.size());
 }

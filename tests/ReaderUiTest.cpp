@@ -41,6 +41,7 @@ class ReaderSetup : public QObject {
     Q_OBJECT
 public:
     // A byte-identical copy of fixture.pdf under a new name, for duplicate detection.
+    Q_INVOKABLE bool fileExists(const QUrl &url) const { return QFile::exists(url.toLocalFile()); }
     Q_INVOKABLE QUrl copyFixture(const QString &name)
     {
         const auto path = m_directory.filePath(name);

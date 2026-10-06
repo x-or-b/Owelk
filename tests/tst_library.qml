@@ -113,6 +113,27 @@ Item {
             tryCompare(panel, "collectionsOpen", true)
             researchStore.deleteCollection(topic)
         }
+        function test_removeFromLibraryKeepsTheFile() {
+            const copy = testInput.copyFixture("to remove.pdf")
+            verify(researchStore.addDocuments([copy], "") === 1)
+            workspace.documents.openLibrary({})
+            const view = library()
+            tryVerify(function() { return view.rows.some(function(r) { return researchStore.sameSource(r.url, copy) }) })
+            const row = view.rows.find(function(r) { return researchStore.sameSource(r.url, copy) })
+            waitForPolish(view); wait(50)
+            mouseClick(visualChild(view, "libraryPaper-" + row.id), 60, 12, Qt.RightButton)
+            const menu = findChild(view, "paperMenu")
+            tryCompare(menu, "opened", true)
+            findChild(menu, "removeFromLibraryOption").triggered()
+            const confirm = findChild(view, "paperConfirm")
+            tryCompare(confirm, "opened", true)
+            confirm.accept()
+            tryVerify(function() { return !view.rows.some(function(r) { return researchStore.sameSource(r.url, copy) }) })
+            verify(testInput.fileExists(copy), "the PDF file is kept")
+            // Opening it again brings it back.
+            verify(researchStore.rememberDocument(copy))
+            tryVerify(function() { return view.rows.some(function(r) { return researchStore.sameSource(r.url, copy) }) })
+        }
         function test_newCollectionButton() {
             workspace.documents.openLibrary({})
             const view = library()

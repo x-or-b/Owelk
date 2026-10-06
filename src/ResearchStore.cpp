@@ -265,6 +265,9 @@ bool ResearchStore::initialize(QString *error)
                 "INSERT INTO ai_messages SELECT id || '-a',id,'assistant',answer,'','{}',model,"
                 "strftime('%Y-%m-%dT%H:%M:%f',created_at,'+0.001 seconds') || 'Z' FROM ai_responses"},
             {}, true},
+        // Papers removed from the Library are hidden, not deleted: opening the file again restores them
+        // with their annotations and captures.
+        {10, {"ALTER TABLE documents ADD COLUMN removed_at TEXT"}},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     loadDocumentNames();
@@ -291,7 +294,7 @@ bool ResearchStore::initialize(QString *error)
     for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)
         m_index->relocateSource(QUrl(it.key()), resolvedSource(QUrl(it.value())));
     QSqlQuery known(m_database);
-    known.exec("SELECT id,url,metadata_origin FROM documents");
+    known.exec("SELECT id,url,metadata_origin FROM documents WHERE removed_at IS NULL");
     while (known.next()) {
         const QUrl url(known.value(1).toString());
         m_index->enqueue(url);
@@ -375,6 +378,10 @@ bool ResearchStore::rememberDocument(const QUrl &url)
         emit message(tr("Cannot record this document: %1").arg(query.lastError().text()));
         return false;
     }
+    QSqlQuery restore(m_database);
+    restore.prepare("UPDATE documents SET removed_at=NULL WHERE id=? AND removed_at IS NOT NULL");
+    restore.addBindValue(document);
+    if (restore.exec() && restore.numRowsAffected() > 0) announceDocumentsChanged();
     QSqlQuery reading(m_database);
     reading.prepare("UPDATE documents SET reading_state='reading' WHERE id=? AND reading_state='unread'");
     reading.addBindValue(document);

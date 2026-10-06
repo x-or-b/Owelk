@@ -109,6 +109,8 @@ Settings → Appearance → Tabs에서 `Horizontal`(기본) / `Vertical`을 고�
 - **Vertical**: 분할마다 위에 있던 탭 줄이 사라지고, 창 왼쪽 끝 패널에 모든 탭이 전체 제목으로 나열됩니다. 분할이 여럿이면 "Split 1, 2…"로 나뉘고 지금 작업 중인 분할의 탭이 강조됩니다. 탭 그룹은 색 있는 줄(누르면 접기, 두 번 누르면 이름 바꾸기, 우클릭 메뉴)이고, 그룹의 탭 왼쪽에 같은 색 막대가 있습니다.
 - 끌어서 순서 바꾸기·다른 분할로 옮기기·페이지 가장자리에 놓아 분할 만들기·다른 탭 위에 잠깐 두어 그룹 만들기는 가로 탭과 같습니다.
 - 패널 왼쪽 위 아이콘이나 `⌘⇧B`(Linux·Windows `Ctrl+Shift+B`)로 닫으면 탭 아이콘만 있는 얇은 줄이 남습니다(호버하면 제목). 열고 닫은 상태는 기억됩니다.
+- 패널 오른쪽 경계를 끌어 폭을 180–420px로 조절합니다(기억됨).
+- **탭 영역의 빈 곳 우클릭**(가로 탭 줄·세로 탭 목록 모두): New Tab, Reopen Closed Tab, Sort Tabs by Title/Type(그룹은 한 덩어리로), Close Duplicate Tabs(같은 논문·웹 주소·노트 탭, 현재 탭은 남김), Organize Tabs with AI…, Tab Layout(Horizontal/Vertical).
 
 ## 탭 그룹
 
@@ -203,6 +205,8 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
   - **Unsorted**: 어느 Collection에도 없는 논문만 개수와 함께 보여 줍니다. 정리할 목록입니다.
   - **여러 개 한꺼번에**: `⌘`(Linux·Windows `Ctrl`)+클릭으로 하나씩, `Shift`+클릭으로 범위를 고릅니다. 고른 논문을 사이드바 Collection으로 끌어 놓거나, 우클릭 → `Add to Collection`(새 Collection 만들기 포함)·`Remove from This Collection`·읽음·즐겨찾기·BibTeX 복사를 한 번에 합니다. 그냥 클릭은 지금처럼 논문을 엽니다.
   - **넣을 곳 제안**: Unsorted의 각 논문 옆과 리더 Document 패널의 Related 탭에 `+ SLAM`처럼 이미 비슷한 논문이 들어 있는 Collection을 최대 2개 제안합니다. AI 없이 관련 논문 계산을 쓰고, 그 목록을 볼 때만 계산합니다(라이브러리가 바뀌기 전까지 캐시).
+- **PDF 가져오기**: Library의 `+`(Add PDFs…)로 여러 PDF를 고르거나, Finder에서 PDF를 목록·Library 패널의 Collection 위로 끌어 놓습니다. Collection을 보고 있으면 그 Collection에 바로 들어갑니다. 가져온 논문은 열지 않으며(최근 목록에 안 들어감), 제목과 본문은 배경에서 읽습니다.
+- **지우기**: 논문 우클릭(여러 개 선택 가능) → `Remove from Library…`는 목록·Collection·태그·본문 색인에서만 빼고 PDF 파일·주석·캡처는 남깁니다(그 파일을 다시 열면 돌아옴). `Move PDF to Trash…`는 파일을 시스템 휴지통으로 보내고 Library에서도 뺍니다(휴지통에서 되살릴 수 있음). 둘 다 확인 후 실행되며, Owelk는 파일을 영구 삭제하지 않습니다.
 - 논문 우클릭 → Tags…에 쉼표로 태그를 입력합니다(대소문자 무시, 쓰지 않는 태그는 자동 정리).
 - 논문 우클릭 → Exclude from Text Search는 그 논문의 본문을 검색 인덱스에서 지웁니다. 다시 포함하면 새로 색인합니다.
 - Cmd+K/Home 검색은 Collection·Tag 이름도 찾고, 누르면 그 Collection·Tag로 거른 라이브러리를 엽니다. 검색어에 `tag:` `collection:` `state:` `year:` `workspace:`를 적으면 본문 검색과 저장 항목 검색이 그 논문들로 한정됩니다. `tag:sl`처럼 치는 중에는 맞는 태그·Collection·워크스페이스·읽기 상태 이름이 목록으로 나오고, 고르면 조건이 완성됩니다(공백이 있으면 따옴표로 묶임). 조건만 쓰면 해당 논문 목록이 나옵니다.
