@@ -232,7 +232,8 @@ private slots:
         QCOMPARE(store.backlinks("document", paper).size(), 1);
         // Search, link candidates and trash.
         QCOMPARE(store.searchKnowledge("no links now").value(0).toMap()["kind"].toString(), QString("standalone-note"));
-        QVERIFY(std::any_of(store.linkCandidates("Linked").cbegin(), store.linkCandidates("Linked").cend(),
+        const auto linkedCandidates = store.linkCandidates("Linked");
+        QVERIFY(std::any_of(linkedCandidates.cbegin(), linkedCandidates.cend(),
             [](const QVariant &r) { return r.toMap()["kind"] == "document"; }));
         QVERIFY(!store.purgeNote(other)); // Only trashed notes can be purged.
         QVERIFY(store.deleteNote(other));
@@ -292,7 +293,8 @@ private slots:
         QCOMPARE(store.libraryDocuments({{"yearFrom", 2020}, {"yearTo", 2024}}).size(), 1);
         QCOMPARE(store.libraryDocuments({{"sort", "title"}})[0].toMap()["name"].toString(), titles[0]);
         // Search finds collections and tags, and library scope limits saved-item search.
-        QVERIFY(std::any_of(store.searchKnowledge("visual").cbegin(), store.searchKnowledge("visual").cend(),
+        const auto visualHits = store.searchKnowledge("visual");
+        QVERIFY(std::any_of(visualHits.cbegin(), visualHits.cend(),
             [](const QVariant &r) { return r.toMap()["kind"] == "collection"; }));
         const QVariantList scope{papers[1]};
         QCOMPARE(store.searchKnowledge("study", {}, "filename", scope).size(), 0);

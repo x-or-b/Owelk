@@ -208,7 +208,19 @@ public slots:
             connect(&m_web, &QTcpServer::newConnection, this, [this] {
                 auto *socket = m_web.nextPendingConnection();
                 connect(socket, &QTcpSocket::readyRead, socket, [this, socket] {
-                    const auto request = socket->readAll();
+                    auto request = socket->property("requestBuffer").toByteArray();
+                    request += socket->readAll();
+                    socket->setProperty("requestBuffer", request);
+                    const auto headerEnd = request.indexOf("\r\n\r\n");
+                    if (headerEnd < 0) return;
+                    int contentLength = 0;
+                    const auto headers = QString::fromUtf8(request.left(headerEnd)).split("\r\n");
+                    for (const auto &line : headers)
+                        if (line.startsWith("Content-Length:", Qt::CaseInsensitive)) {
+                            contentLength = line.section(':', 1).trimmed().toInt();
+                            break;
+                        }
+                    if (request.size() < headerEnd + 4 + contentLength) return;
                     const auto head = QString::fromUtf8(request).section("\r\n", 0, 0);
                     QByteArray body, type = "text/html";
                     if (head.contains("POST /api/embed")) {
