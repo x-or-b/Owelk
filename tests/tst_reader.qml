@@ -185,6 +185,37 @@ Item {
             canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000)
         }
+        function test_figureAndTablePreviewsShowTheFloatAndScroll() {
+            canvas.openFile(referenceSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            const card = findChild(canvas, "linkPreview"), paper = findChild(canvas, "paperPage0")
+            function rest(rect) {
+                const at = Qt.point((rect.x + rect.width / 2) * canvas.pageScale, (rect.y + rect.height / 2) * canvas.pageScale)
+                mouseMove(paper, at.x - 5, at.y); mouseMove(paper, at.x, at.y)
+                tryCompare(card, "visible", true, 5000)
+                const flick = findChild(card, "linkPreviewFlick")
+                tryVerify(function() { return flick.contentHeight > flick.height })
+                wait(50)
+                return {flick: flick, target: findChild(card, "linkPreviewTarget").mapToItem(card, 0, 0).y}
+            }
+            // A figure's caption sits at the bottom of the card, with the figure above it.
+            let shown = rest(referenceFigure)
+            compare(canvas.linkPreview.kind, "figure")
+            verify(shown.target > card.height * .55, "caption low in the card: " + shown.target + " / " + card.height)
+            // The card scrolls on its own; the page behind it does not move.
+            const before = shown.flick.contentY, pageY = findChild(canvas, "pageList").contentY
+            shown.flick.flick(0, -1500)
+            tryVerify(function() { return shown.flick.contentY !== before })
+            compare(findChild(canvas, "pageList").contentY, pageY)
+            mouseMove(canvas, 4, canvas.height - 4)
+            tryCompare(card, "visible", false, 3000)
+            // A table's caption sits at the top, with the table below it.
+            shown = rest(referenceTable)
+            compare(canvas.linkPreview.kind, "table")
+            verify(shown.target < card.height * .25, "caption high in the card: " + shown.target)
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+        }
         function test_referencesWithoutLinksPreviewFromTheText() {
             canvas.openFile(referenceSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)

@@ -1157,7 +1157,7 @@ Item {
             const half = 8 * root.pageScale
             previewShow.stop(); previewHide.stop()
             root.previewContentY = pages.contentY
-            root.linkPreview = {page: target.page, y: target.top, x: spot.viewX, top: spot.viewY - half, bottom: spot.viewY + half,
+            root.linkPreview = {page: target.page, y: target.top, x: spot.viewX, kind: target.kind, top: spot.viewY - half, bottom: spot.viewY + half,
                                 rect: Qt.rect(target.x, target.y, target.width, target.height), label: target.label,
                                 fromText: true, anchorX: spot.viewX, anchorY: spot.viewY}
         }
@@ -1169,8 +1169,10 @@ Item {
         visible: root.linkPreview !== null
         z: 60
         readonly property var spec: root.linkPreview || ({page: 0, y: 0, x: 0, top: 0, bottom: 0})
+        // Figures and tables get a taller card, zoomed to their column.
+        readonly property bool showsFloat: spec.kind === "figure" || spec.kind === "table"
         width: Math.min(560, root.width - 32)
-        height: Math.min(240, root.height * .45)
+        height: showsFloat ? Math.min(420, root.height * .62) : Math.min(240, root.height * .45)
         // Below the reference when there is room, otherwise above it.
         x: Math.max(8, Math.min(root.width - width - 8, spec.x - 40))
         y: spec.bottom + height + 12 < root.height ? spec.bottom + 6 : Math.max(8, spec.top - height - 6)
@@ -1178,36 +1180,69 @@ Item {
         color: root.invertPages ? Theme.paperInverted : Theme.paper
         border.color: Theme.border
         clip: true
-        // Created only while shown, so references cost nothing until hovered.
+        // Created only while shown, so references cost nothing until hovered. The page scrolls inside
+        // the card (wheel, trackpad or drag) to see more around the target.
         Loader {
             active: previewCard.visible
-            width: previewCard.width
-            sourceComponent: PdfPageImage {
-                objectName: "linkPreviewPage"
+            anchors.fill: parent
+            sourceComponent: Flickable {
+                id: previewFlick
+                objectName: "linkPreviewFlick"
                 readonly property size points: pdfDocument.pagePointSize(previewCard.spec.page)
-                document: pdfDocument
-                currentFrame: previewCard.spec.page
-                width: previewCard.width
-                height: points.width > 0 ? width * points.height / points.width : width
-                // The target line sits a little below the top of the card, with a few lines of context above.
-                y: Math.min(0, Math.max(previewCard.height - height, 28 - previewCard.spec.y * height))
-                sourceSize.width: Math.ceil(width * Screen.devicePixelRatio)
-                asynchronous: true
-                fillMode: Image.PreserveAspectFit
-                layer.enabled: root.invertPages
-                layer.effect: ShaderEffect { fragmentShader: "qrc:/owelk/shaders/invert.frag.qsb" }
-                // The found entry, caption or equation, outlined.
-                Rectangle {
-                    objectName: "linkPreviewTarget"
-                    readonly property real scale: parent.width / Math.max(1, parent.points.width)
-                    readonly property rect area: previewCard.spec.rect || Qt.rect(0, 0, 0, 0)
-                    visible: area.width > 0
-                    x: area.x * scale - 3; y: area.y * scale - 2
-                    width: area.width * scale + 6; height: area.height * scale + 4
-                    radius: Theme.radiusSmall
-                    color: "transparent"
-                    border.color: Theme.accent
-                    border.width: 1.5
+                readonly property rect area: previewCard.spec.rect || Qt.rect(0, 0, 0, 0)
+                // A caption line is about as wide as its column: zoom so that column fills the card.
+                readonly property real zoom: previewCard.showsFloat && area.width > 0 && points.width > 0
+                    ? Math.max(1, Math.min(2.2, points.width / (Math.max(area.width, points.width * .42) + 28))) : 1
+                readonly property real scale: width * zoom / Math.max(1, points.width)
+                contentWidth: page.width; contentHeight: page.height
+                boundsBehavior: Flickable.StopAtBounds
+                clip: true
+                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                // Figures: caption at the bottom, the figure above it. Tables: caption at the top, the
+                // table below. Anything else: the target a little below the top, with context above.
+                function place() {
+                    const s = scale, a = area
+                    let x = previewCard.showsFloat && a.width > 0 ? a.x * s - 14 : 0
+                    let y = previewCard.spec.kind === "figure" && a.height > 0 ? (a.y + a.height) * s + 18 - height
+                          : previewCard.spec.kind === "table" && a.height > 0 ? a.y * s - 14
+                          : previewCard.spec.y * page.height - 28
+                    contentX = Math.max(0, Math.min(contentWidth - width, x))
+                    contentY = Math.max(0, Math.min(contentHeight - height, y))
+                }
+                Component.onCompleted: place()
+                Connections { target: previewCard; function onSpecChanged() { Qt.callLater(previewFlick.place) } }
+                PdfPageImage {
+                    id: page
+                    objectName: "linkPreviewPage"
+                    document: pdfDocument
+                    currentFrame: previewCard.spec.page
+                    width: previewFlick.width * previewFlick.zoom
+                    height: previewFlick.points.width > 0 ? width * previewFlick.points.height / previewFlick.points.width : width
+                    sourceSize.width: Math.ceil(width * Screen.devicePixelRatio)
+                    asynchronous: true
+                    fillMode: Image.PreserveAspectFit
+                    layer.enabled: root.invertPages
+                    layer.effect: ShaderEffect { fragmentShader: "qrc:/owelk/shaders/invert.frag.qsb" }
+                    // The found entry, caption or equation, outlined.
+                    Rectangle {
+                        objectName: "linkPreviewTarget"
+                        readonly property rect area: previewFlick.area
+                        visible: area.width > 0
+                        x: area.x * previewFlick.scale - 3; y: area.y * previewFlick.scale - 2
+                        width: area.width * previewFlick.scale + 6; height: area.height * previewFlick.scale + 4
+                        radius: Theme.radiusSmall
+                        color: "transparent"
+                        border.color: Theme.accent
+                        border.width: 1.5
+                    }
+                    // Click: go to what the card shows.
+                    TapHandler {
+                        onTapped: {
+                            const page = previewCard.spec.page, top = previewFlick.contentY / Math.max(1, previewFlick.contentHeight)
+                            root.closeLinkPreview()
+                            root.jump(page, Math.max(0, top), 0)
+                        }
+                    }
                 }
             }
         }
@@ -1219,13 +1254,6 @@ Item {
             Label { id: goLabel; anchors.centerIn: parent; text: (previewCard.spec.label ? previewCard.spec.label + " · " : "") + "p. " + (previewCard.spec.page + 1) + " · click to go"; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
         }
         HoverHandler { id: previewHover; onHoveredChanged: if (!hovered) previewHide.restart() }
-        TapHandler {
-            onTapped: {
-                const target = previewCard.spec
-                root.closeLinkPreview()
-                root.jump(target.page, target.y, 0)
-            }
-        }
     }
     // Mouse side buttons turn pages, like Cmd+[ / Cmd+].
     // A handler, not a MouseArea, so text and link cursors underneath are unaffected.
