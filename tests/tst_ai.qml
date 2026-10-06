@@ -393,5 +393,40 @@ Item {
             compare(researchStore.libraryDocuments({collection: existing}).length, 0)
             researchStore.deleteCollection(made.id); researchStore.deleteCollection(existing)
         }
+        function test_9zzz_comparePapersMakesATableAndANote() {
+            verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
+            researchStore.ai.provider = "claude"
+            const one = testInput.copyFixture("compare one.pdf"), two = testInput.copyFixture("compare two.pdf")
+            verify(researchStore.rememberDocument(one)); verify(researchStore.rememberDocument(two))
+            workspace.documents.openLibrary({})
+            let view = null
+            tryVerify(function() { view = findChild(workspace.documents.groupView(workspace.documents.activeGroup), "libraryView"); return view !== null && view.width > 0 })
+            view.compareWithAi([one.toString(), two.toString()])
+            const dialog = findChild(view, "comparePapersDialog")
+            tryCompare(dialog, "opened", true)
+            compare(dialog.papers.length, 2)
+            verify(!findChild(dialog, "compareSave").enabled, "nothing to save before asking")
+            mouseClick(findChild(dialog, "compareAsk"))
+            tryVerify(function() { return !dialog.asking && dialog.answer.indexOf("occlusion") >= 0 }, 10000)
+            compare(dialog.error, "")
+            const before = researchStore.notes().length
+            mouseClick(findChild(dialog, "compareSave"))
+            tryCompare(dialog, "opened", false)
+            const notes = researchStore.notes()
+            compare(notes.length, before + 1)
+            const note = researchStore.note(notes.find(function(n) { return n.title.indexOf("Comparison: ") === 0 }).id)
+            verify(note.body.indexOf("owelk://document/") >= 0, "links each paper")
+            verify(note.body.indexOf("| One 2020 | occlusion |") >= 0)
+            // The PDFs open in a tab strip, each once, can be compared too.
+            const d = workspace.documents
+            d.restore({})
+            workspace.openDocument(fixtureSource); canvas()
+            d.openDocument(fixtureSource, null, true); canvas()
+            workspace.comparePapersIn(Tree.leaves(d.tree)[0].id)
+            const fromTabs = findChild(workspace, "comparePapersDialog")
+            tryCompare(fromTabs, "opened", true)
+            compare(fromTabs.papers.length, 1)
+            fromTabs.close()
+        }
     }
 }

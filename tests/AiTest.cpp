@@ -352,6 +352,49 @@ private slots:
         QCOMPARE(server.seen.size(), requests);
         QVERIFY(ai->clearApiKey("claude"));
     }
+    void comparePapersSendsExcerptsAndAspects()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        MockServer server;
+        const auto answer = QStringLiteral("| Paper | Method |\n|---|---|\n| A 2020 | radar |");
+        server.chunks
+            = {MockServer::sse("content_block_delta",
+                   {{"type", "content_block_delta"}, {"delta", QJsonObject{{"type", "text_delta"}, {"text", answer}}}}),
+                MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        store.setSetting("ai.baseUrl.claude", server.base().toString());
+        store.setSetting("aiLanguage", "en");
+        ai->setProvider("claude");
+        QVERIFY(ai->setApiKey("claude", "sk-ant-test-key"));
+        QSignalSpy compared(ai, &AiService::papersCompared);
+        QSignalSpy streamed(ai, &AiService::comparisonDelta);
+        const QVariantList papers{QVariantMap{{"title", "Radar odometry"}, {"year", "2020"},
+                                      {"opening", "We fuse doppler"}, {"closing", "Radar wins"}},
+            QVariantMap{{"title", "Lidar odometry"}, {"opening", "We match scans"}}};
+        ai->comparePapers(papers, {"Method", " Data ", ""});
+        QTRY_COMPARE_WITH_TIMEOUT(compared.size(), 1, 10000);
+        QCOMPARE(compared[0][2].toString(), QString());
+        QCOMPARE(compared[0][1].toString(), answer);
+        QVERIFY(!streamed.isEmpty());
+        const auto body = server.seen.last().body;
+        const auto sent
+            = body["messages"].toArray().last().toObject()["content"].toArray().last().toObject()["text"].toString();
+        QVERIFY(sent.startsWith("Aspects: Method, Data\n"));
+        QVERIFY(sent.contains("<paper n=\"1\">\nTitle: Radar odometry"));
+        QVERIFY(sent.contains("Conclusion:\nRadar wins"));
+        QVERIFY(sent.contains("Beginning:\nWe match scans"));
+        QVERIFY(body["system"].toString().contains("Write in English"));
+        // One paper: nothing to compare, nothing sent.
+        const auto requests = server.seen.size();
+        ai->comparePapers({papers[0]}, {});
+        QTRY_COMPARE_WITH_TIMEOUT(compared.size(), 2, 5000);
+        QVERIFY(!compared[1][2].toString().isEmpty());
+        QCOMPARE(server.seen.size(), requests);
+        QVERIFY(ai->clearApiKey("claude"));
+    }
     void organizePapersSuggestsCollectionsWithoutApplying()
     {
         QTemporaryDir directory;

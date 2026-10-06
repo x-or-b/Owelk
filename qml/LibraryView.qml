@@ -55,6 +55,11 @@ Rectangle {
         noteRows = showingNotes ? researchStore.notes(!!filter.notesTrash) : []
     }
     Loader { id: organizer; active: false; sourceComponent: OrganizePapersDialog {} }
+    Loader { id: comparer; active: false; sourceComponent: ComparePapersDialog { onNoteCreated: function(id) { root.noteChosen(id) } } }
+    function compareWithAi(urls) {
+        comparer.active = true
+        comparer.item.begin(urls)
+    }
     function organizeWithAi(urls) {
         organizer.active = true
         organizer.item.begin(urls, root.filter.collection || "")
@@ -152,6 +157,7 @@ Rectangle {
             text: "Remove from This Collection"
             onTriggered: researchStore.setDocumentsCollection(batchMenu.urls, root.filter.collection, false)
         }
+        MenuItem { objectName: "batchCompare"; text: "Compare with AI…"; onTriggered: root.compareWithAi(batchMenu.urls) }
         MenuItem { objectName: "batchOrganize"; text: "Organize into Collections with AI…"; onTriggered: root.organizeWithAi(batchMenu.urls) }
         MenuSeparator {}
         MenuItem { text: "Mark as Read"; onTriggered: batchMenu.urls.forEach(function(u) { researchStore.setReadingState(u, "read") }) }

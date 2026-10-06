@@ -52,6 +52,10 @@ public:
     // names already in use, which the answer may reuse. Answered by papersOrganized(request,
     // groups [{name, paperIds}], error). Nothing is changed here.
     Q_INVOKABLE int organizePapers(const QVariantList &papers, const QStringList &collections);
+    // A comparison table of papers. papers: [{title, authors, year, opening, closing}] (the start and the
+    // conclusion of each); aspects: the table's columns. Streams comparisonDelta(request, text) and ends
+    // with papersCompared(request, markdown, error).
+    Q_INVOKABLE int comparePapers(const QVariantList &papers, const QStringList &aspects);
     // Codex app server: account status, ChatGPT sign-in (opens the browser) and sign-out.
     Q_INVOKABLE void refreshCodexAccount();
     Q_INVOKABLE void codexSignIn();
@@ -71,6 +75,8 @@ signals:
     void connectionTested(const QString &provider, bool ok, const QString &detail);
     void tabsOrganized(int request, const QVariantList &groups, const QString &error);
     void papersOrganized(int request, const QVariantList &groups, const QString &error);
+    void comparisonDelta(int request, const QString &text);
+    void papersCompared(int request, const QString &markdown, const QString &error);
     void codexAccountChanged(const QVariantMap &account);
     void ollamaModelsLoaded(const QStringList &models);
     // models: [{id, name}]

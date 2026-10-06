@@ -752,6 +752,29 @@ QString PaperIndex::openingText(const QString &documentId, int characters) const
     return text.left(characters).trimmed();
 }
 
+QString PaperIndex::closingText(const QString &documentId, int characters) const
+{
+    QSqlQuery query(m_database);
+    query.prepare("SELECT text FROM pages WHERE document_id=? ORDER BY page DESC LIMIT 6");
+    query.addBindValue(documentId);
+    QStringList pages;
+    if (query.exec())
+        while (query.next()) pages.prepend(query.value(0).toString());
+    const auto text = pages.join('\n');
+    static const QRegularExpression heading(
+        R"((?:^|\n)\s*(?:[IVX\d]+\.?\s*)?(?:Conclusions?|CONCLUSIONS?|C ONCLUSION)\b)");
+    qsizetype start = -1;
+    for (auto it = heading.globalMatch(text); it.hasNext();) start = it.next().capturedStart();
+    if (start < 0) return {};
+    auto closing = text.mid(start, characters * 2);
+    // The reference list starts with its heading and the first entry ("References [1] …").
+    static const QRegularExpression references(
+        R"(\s(?:References|REFERENCES|R EFERENCES|Bibliography|BIBLIOGRAPHY)\s*(?:\n|\[1\]|1\.\s|[A-Z][a-z]+,))");
+    const auto end = references.match(closing);
+    if (end.hasMatch()) closing = closing.left(end.capturedStart());
+    return closing.simplified().left(characters);
+}
+
 int PaperIndex::related(const QString &documentId, int limit)
 {
     const int request = ++m_request;

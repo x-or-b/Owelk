@@ -61,6 +61,8 @@ public:
     // Shared with other background work that must also yield to the reader.
     std::shared_ptr<std::atomic_bool> readerBusyFlag() const { return m_readerBusy; }
     QString databasePath() const { return m_path; }
+    // From the last "Conclusion(s)" heading, before the references; empty when there is none.
+    QString closingText(const QString &documentId, int characters) const;
 signals:
     void changed();
     void contentsChanged();

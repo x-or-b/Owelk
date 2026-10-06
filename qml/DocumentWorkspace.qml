@@ -42,6 +42,7 @@ Flickable {
     signal homeWorkspaceCreated(string name)
     // The tab menu's "Organize Tabs with AI…", handled by the window (needs the AI and a dialog).
     signal organizeRequested(string groupId)
+    signal compareRequested(string groupId)
     // A group was just made (by dragging or the tab menu): its label opens for the name.
     signal tabGroupCreated(string stripId, string labelId)
     ScrollBar.horizontal: ScrollBar {}

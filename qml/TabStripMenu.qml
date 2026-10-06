@@ -18,6 +18,7 @@ Menu {
     MenuItem { text: "Sort Tabs by Type"; onTriggered: root.controller.sortTabs(root.stripId, "kind") }
     MenuItem { objectName: "stripCloseDuplicates"; text: "Close Duplicate Tabs"; onTriggered: root.controller.closeDuplicateTabs(root.stripId) }
     MenuItem { text: "Organize Tabs with AI…"; onTriggered: root.controller.organizeRequested(root.stripId) }
+    MenuItem { objectName: "stripCompare"; text: "Compare Open Papers with AI…"; onTriggered: root.controller.compareRequested(root.stripId) }
     MenuSeparator {}
     Menu {
         title: "Tab Layout"

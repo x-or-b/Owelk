@@ -449,6 +449,14 @@ QString ResearchStore::paperOpening(const QUrl &source, int characters)
     return document.isEmpty() ? QString() : m_index->openingText(document, qBound(0, characters, 2000));
 }
 
+QVariantMap ResearchStore::paperExcerpt(const QUrl &source, int opening, int closing)
+{
+    const auto document = documentLinkId(source);
+    if (document.isEmpty()) return {};
+    return {{"opening", m_index->openingText(document, qBound(0, opening, 8000))},
+        {"closing", m_index->closingText(document, qBound(0, closing, 4000))}};
+}
+
 // --- OCR (Tesseract) -----------------------------------------------------------------------
 
 namespace {

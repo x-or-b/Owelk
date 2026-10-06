@@ -5,6 +5,7 @@ import QtQuick.Dialogs as Native
 import Owelk.Ui
 import "Platform.js" as Platform
 import "Shortcuts.js" as Shortcuts
+import "WorkspaceTree.js" as Tree
 
 ApplicationWindow {
     id: window
@@ -378,6 +379,20 @@ ApplicationWindow {
     SettingsDialog { id: settingsDialog }
     // Created on first use: the AI tab organizer.
     Loader { id: organizeTabs; active: false; sourceComponent: OrganizeTabsDialog { controller: documents } }
+    // Created on first use: the AI paper comparison, for the PDFs open in a tab strip.
+    Loader { id: comparePapers; active: false; sourceComponent: ComparePapersDialog { onNoteCreated: function(id) { documents.openNote(id) } } }
+    function comparePapersIn(groupId) {
+        if (window.restoreFailed) return
+        const strip = Tree.find(documents.tree, groupId || documents.activeGroup)
+        const seen = {}
+        const urls = (strip ? strip.tabs : []).filter(function(t) {
+            if (t.kind || seen[t.source]) return false
+            seen[t.source] = true
+            return true
+        }).map(function(t) { return t.source })
+        comparePapers.active = true
+        comparePapers.item.begin(urls)
+    }
     function organizeTabsIn(groupId) {
         if (restoreFailed || homeVisible) return
         organizeTabs.active = true
@@ -528,6 +543,7 @@ ApplicationWindow {
             onHomeWorkspaceChosen: function(id) { window.openWorkspace(id) }
             onHomeWorkspaceManageRequested: function(id) { window.manageWorkspace(id) }
             onOrganizeRequested: function(groupId) { window.organizeTabsIn(groupId) }
+            onCompareRequested: function(groupId) { window.comparePapersIn(groupId) }
             onHomeWorkspaceCreated: function(name) { if (!window.restoreFailed) { const id = researchStore.createWorkspace(name); if (id.length) window.openWorkspace(id) } }
         }
         Rectangle {

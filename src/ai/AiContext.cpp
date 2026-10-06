@@ -2,15 +2,16 @@
 
 #include <QHash>
 
-namespace {
 // The reader's preferred language (Settings → AI). "source" keeps the paper's language.
-QString languageName(const QString &language)
+QString aiLanguageName(const QString &language)
 {
     static const QHash<QString, QString> names{{"ko", "Korean"}, {"en", "English"}, {"ja", "Japanese"},
         {"zh", "Simplified Chinese"}, {"de", "German"}, {"fr", "French"}, {"es", "Spanish"}};
     if (language == "source") return {};
     return names.value(language, "Korean");
 }
+
+namespace {
 
 QString clip(const QString &text, int &budget, bool &truncated)
 {
@@ -33,7 +34,7 @@ AiPrompt buildAiPrompt(
     const QString &action, const QString &language, const QString &question, const AiMaterials &materials, int budget)
 {
     AiPrompt prompt;
-    const auto target = languageName(language);
+    const auto target = aiLanguageName(language);
     prompt.system = QStringLiteral(
         "You are a research reading assistant inside Owelk, a paper reader. Help the reader understand the paper "
         "from the material provided. Ground answers in that material; when it does not contain the answer, say so "

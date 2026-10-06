@@ -19,6 +19,9 @@ struct AiPrompt {
     bool truncated = false;
 };
 
+// "Korean" for "ko" and so on; empty for "source" (the paper's own language).
+QString aiLanguageName(const QString &language);
+
 // action: explain | translate | summarize | ask | figure. language: ko | en | source.
 // Long material is cut to the character budget (page and paper text first) with a visible marker.
 AiPrompt buildAiPrompt(const QString &action, const QString &language, const QString &question,

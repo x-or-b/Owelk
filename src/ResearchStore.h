@@ -153,6 +153,8 @@ public:
     Q_INVOKABLE int relatedTo(const QUrl &source);
     // The opening of a paper's indexed text (for tab organization); empty when not indexed yet.
     Q_INVOKABLE QString paperOpening(const QUrl &source, int characters = 400);
+    // From the paper's text index: its start (abstract, introduction) and its conclusion.
+    Q_INVOKABLE QVariantMap paperExcerpt(const QUrl &source, int opening = 5000, int closing = 2500);
     // Encrypted PDFs: the viewer hands over a password that worked, so indexing, captures, printing
     // and AI can open the file too. keep: also store it in the system keyring.
     Q_INVOKABLE void rememberPdfPassword(const QUrl &source, const QString &password, bool keep);

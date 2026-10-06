@@ -538,6 +538,74 @@ int AiService::organizePapers(const QVariantList &papers, const QStringList &col
         text, &AiService::papersOrganized);
 }
 
+int AiService::comparePapers(const QVariantList &papers, const QStringList &aspects)
+{
+    const int request = ++m_nextRequest;
+    const auto id = provider();
+    QString error;
+    auto *provider = papers.size() < 2 ? nullptr : createProvider(id, &error);
+    if (!provider) {
+        if (error.isEmpty()) error = "Choose at least two papers to compare.";
+        QMetaObject::invokeMethod(
+            this, [this, request, error] { emit papersCompared(request, {}, error); }, Qt::QueuedConnection);
+        return request;
+    }
+    QStringList parts;
+    for (qsizetype i = 0; i < papers.size() && i < 8; ++i) {
+        const auto paper = papers[i].toMap();
+        QStringList lines{"Title: " + paper.value("title").toString().left(300)};
+        if (!paper.value("authors").toString().isEmpty())
+            lines << "Authors: " + paper.value("authors").toString().left(200);
+        if (!paper.value("year").toString().isEmpty()) lines << "Year: " + paper.value("year").toString();
+        lines << "Beginning:\n" + paper.value("opening").toString().left(5000);
+        if (!paper.value("closing").toString().isEmpty())
+            lines << "Conclusion:\n" + paper.value("closing").toString().left(2500);
+        parts << QString("<paper n=\"%1\">\n%2\n</paper>").arg(i + 1).arg(lines.join('\n'));
+    }
+    QStringList columns;
+    for (const auto &aspect : aspects)
+        if (!aspect.trimmed().isEmpty()) columns << aspect.trimmed().left(60);
+    if (columns.isEmpty()) columns = QStringList{"Problem", "Method", "Data", "Results", "Limitations"};
+    const auto language = aiLanguageName(m_store->setting("aiLanguage", "ko"));
+    AiRequest call;
+    call.system
+        = QStringLiteral(
+              "You compare research papers for a researcher, using only the text given for each paper. Write a "
+              "Markdown "
+              "table with one row per paper, in the order given: the first column names the paper (a short title and "
+              "the year), then one column per requested aspect. Keep each cell short (at most about 25 words) and "
+              "exact about numbers, datasets and terms; write \"not stated\" when the given text does not say. After "
+              "the "
+              "table, add 3-5 bullet points on the main differences and when each paper is the better choice. Output "
+              "only the table and the bullets.")
+        + (language.isEmpty()
+                ? QStringLiteral(" Write in the language of the papers.")
+                : QStringLiteral(" Write in %1; keep technical terms in their original form.").arg(language));
+    call.text = "Aspects: " + columns.join(", ") + "\n\n" + parts.join("\n\n");
+    call.model = model(id);
+    call.maxTokens = 6000;
+    m_running.insert(request, provider);
+    emit busyChanged();
+    const auto done = [this, request, provider] {
+        m_running.remove(request);
+        provider->deleteLater();
+        emit busyChanged();
+    };
+    connect(provider, &AiProvider::delta, this,
+        [this, request](const QString &text) { emit comparisonDelta(request, text); });
+    connect(provider, &AiProvider::finished, this, [this, request, done](const QString &text, const QString &) {
+        done();
+        emit papersCompared(
+            request, text.trimmed(), text.trimmed().isEmpty() ? QStringLiteral("No comparison came back.") : QString());
+    });
+    connect(provider, &AiProvider::failed, this, [this, request, done](const QString &message) {
+        done();
+        emit papersCompared(request, {}, message);
+    });
+    provider->start(call);
+    return request;
+}
+
 void AiService::testConnection(const QString &id)
 {
     QString error;

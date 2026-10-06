@@ -239,12 +239,15 @@ public slots:
                         // Tab organization prompts get groups back; everything else a fixed answer.
                         const bool grouping = request.contains("Group these tabs");
                         const bool sorting = request.contains("Group these papers");
+                        const bool comparing = request.contains("Aspects: ");
                         const QList<QByteArray> pieces = grouping
                             ? QList<QByteArray>{"{\\\"groups\\\": [{\\\"name\\\": \\\"Fixture papers\\\", ",
                                   "\\\"tabs\\\": [\\\"t1\\\", \\\"t2\\\"]}]}"}
                             : sorting
                             ? QList<QByteArray>{"{\\\"groups\\\": [{\\\"name\\\": \\\"Occlusion studies\\\", ",
                                   "\\\"papers\\\": [\\\"p1\\\", \\\"p2\\\"]}]}"}
+                            : comparing
+                            ? QList<QByteArray>{"| Paper | Method |\\n|---|---|\\n", "| One 2020 | occlusion |"}
                             : QList<QByteArray>{"Mock ", "answer about **occlusion**."};
                         for (const auto &piece : pieces)
                             body += QByteArray(

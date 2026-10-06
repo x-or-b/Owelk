@@ -36,6 +36,29 @@ QVariantList find(PaperIndex &index, const QString &query)
 class PaperIndexTest : public QObject {
     Q_OBJECT
 private slots:
+    void openingAndConclusionForComparisons()
+    {
+        QTemporaryDir dir;
+        const auto a = QUrl::fromLocalFile(dir.filePath("a.pdf"));
+        textFixture(a.toLocalFile(),
+            {"Abstract\nWe study uniqueopening occlusion.", "Method details",
+                "5. Conclusion\nOcclusion helps uniqueclosing.\nReferences\n[1] A. Author. Work."});
+        PaperIndex index(dir.path());
+        QString error;
+        QVERIFY2(index.initialize(&error), qPrintable(error));
+        index.enqueue(a);
+        QTRY_VERIFY_WITH_TIMEOUT(!index.busy(), 10000);
+        const auto rows = find(index, "uniqueopening");
+        QCOMPARE(rows.size(), 1);
+        const auto id = rows[0].toMap()["documentId"].toString();
+        QVERIFY(index.openingText(id, 500).contains("uniqueopening"));
+        // From the conclusion heading up to the references.
+        const auto closing = index.closingText(id, 500);
+        QVERIFY(closing.startsWith("5. Conclusion"));
+        QVERIFY(closing.contains("uniqueclosing"));
+        QVERIFY(!closing.contains("A. Author"));
+        QCOMPARE(index.closingText("missing", 500), QString());
+    }
     void fingerprintCacheDetectsRewriteWithRestoredTime()
     {
         QTemporaryDir dir;
