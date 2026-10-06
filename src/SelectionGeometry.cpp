@@ -14,9 +14,12 @@ QVariantList SelectionGeometry::stableRectangles(const QList<QPolygonF> &selecti
             const auto line = lineValue.toRectF();
             if (line.right() <= rect.left() || line.left() >= rect.right()) continue;
             if (line.bottom() <= rect.top() || line.top() >= rect.bottom()) continue;
-            // Only borrow a line's height when it is the same text line, not a tall neighbour.
+            // Only borrow a line's height when it is the same text line: some PDFs report page text
+            // in blocks that span two lines (or both columns), which would double the highlight.
+            // Such a block's centre sits half a line away from the selected line's.
             if (line.height() > rect.height() * 2.5) continue;
             const qreal delta = std::abs(line.center().y() - rect.center().y());
+            if (delta > rect.height() * .35) continue;
             if (delta < distance) {
                 best = line;
                 distance = delta;

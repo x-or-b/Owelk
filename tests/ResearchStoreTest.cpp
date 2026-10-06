@@ -157,7 +157,8 @@ private slots:
         const QString list = "References\r\n[1] A. One. 2001.\r\n[2] B. Two, a long\r\ntitle. 2002.\r\n[3] C. Three.";
         auto entry = ReferenceFinder::entryAround(list, list.indexOf("title"));
         QCOMPARE(entry["label"].toString(), QString("[2]"));
-        QCOMPARE(list.mid(entry["start"].toInt(), entry["length"].toInt()).trimmed(), QString("[2] B. Two, a long\r\ntitle. 2002."));
+        QCOMPARE(list.mid(entry["start"].toInt(), entry["length"].toInt()).trimmed(),
+            QString("[2] B. Two, a long\r\ntitle. 2002."));
         QVERIFY(ReferenceFinder::entryAround("No list here.", 3).isEmpty());
     }
     void bundledIconFontAndShaders()
@@ -1528,6 +1529,24 @@ private slots:
         QVERIFY(a.top() < 10);
         QVERIFY(a.bottom() > 22);
         QCOMPARE(a.width(), 5);
+    }
+    void textBlocksSpanningTwoLinesDoNotDoubleTheHighlight()
+    {
+        // Some PDFs (GaRLIO, p.2) report page text in blocks spanning two lines; a selected line must keep
+        // its own height instead of borrowing the block's.
+        SelectionGeometry geometry;
+        const QVariantList pageLines{
+            QRectF(54, 483, 245, 27), QRectF(54, 483.5, 245, 13.5), QRectF(54, 497.5, 245, 22)};
+        const auto selected
+            = geometry.stableRectangles({QPolygonF(QRectF(54, 486, 245, 9)), QPolygonF(QRectF(54, 498, 245, 9)),
+                                            QPolygonF(QRectF(54, 510, 245, 9))},
+                pageLines);
+        QCOMPARE(selected.size(), 3);
+        for (qsizetype i = 0; i < selected.size(); ++i) {
+            const auto rect = selected[i].toRectF();
+            QVERIFY2(rect.height() < 14.5, qPrintable(QString::number(rect.height())));
+            if (i) QVERIFY(rect.top() >= selected[i - 1].toRectF().bottom() - 1);
+        }
     }
     void marginStampDoesNotMergeLines()
     {
