@@ -80,7 +80,11 @@ Item {
             const dialog = findChild(home, "deletedWorkspacesDialog")
             tryCompare(dialog, "opened", true)
             tryVerify(function() { return visualChild(dialog.contentItem, "restoreWorkspace-" + id) !== null })
-            mouseClick(visualChild(dialog.contentItem, "restoreWorkspace-" + id))
+            // The sheet centres itself as its rows lay out; click once the row stops moving.
+            const restore = visualChild(dialog.contentItem, "restoreWorkspace-" + id)
+            let last = null
+            tryVerify(function() { const at = restore.mapToItem(null, 0, 0), still = last && at.y === last.y; last = at; return still })
+            mouseClick(restore)
             tryVerify(function() { return researchStore.recentWorkspaces.some(function(w) { return w.id === id }) })
             dialog.close()
             researchStore.deleteWorkspace(id)

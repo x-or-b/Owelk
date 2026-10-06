@@ -51,9 +51,17 @@ Rectangle {
             width: parent.width
             spacing: 8
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary; text: "A deleted workspace is only hidden. Restore brings back its papers, captures and layout; Delete removes the workspace itself. Papers, captures and notes are never deleted." }
-            ListGroup {
+            // Many deleted workspaces scroll inside the sheet instead of growing past the window.
+            ScrollView {
+                id: deletedScroll
                 Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(deletedRows.implicitHeight, Math.max(120, root.height * .5))
                 visible: root.deletedWorkspaces.length > 0
+                contentWidth: availableWidth
+                clip: true
+            ListGroup {
+                id: deletedRows
+                width: deletedScroll.availableWidth
                 Repeater {
                     model: root.deletedWorkspaces
                     delegate: ItemDelegate {
@@ -85,6 +93,7 @@ Rectangle {
                         }
                     }
                 }
+            }
             }
         }
     }

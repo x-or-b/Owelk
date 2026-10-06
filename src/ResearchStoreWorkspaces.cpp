@@ -148,7 +148,7 @@ QVariantList ResearchStore::deletedWorkspaces() const
     QVariantList rows;
     QSqlQuery query(m_database);
     query.exec("SELECT w.id,w.name,d.deleted_at,(SELECT count(*) FROM workspace_documents x WHERE x.workspace_id=w.id) "
-               "FROM workspaces w JOIN deleted_workspaces d ON d.id=w.id ORDER BY d.deleted_at DESC");
+               "FROM workspaces w JOIN deleted_workspaces d ON d.id=w.id ORDER BY d.deleted_at DESC, d.rowid DESC");
     while (query.next())
         rows.append(QVariantMap{{"id", query.value(0)}, {"name", query.value(1)}, {"deletedAt", query.value(2)},
             {"papers", query.value(3)}});
