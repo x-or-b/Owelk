@@ -1,5 +1,6 @@
 #include "ResearchStore.h"
 #include "PaperIndex.h"
+#include "ReferenceFinder.h"
 #include "SelectionGeometry.h"
 #include "PdfFixture.h"
 #include "PaperMetadata.h"
@@ -24,6 +25,68 @@
 class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void referencesWithoutLinksPointToTheirTargets()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("paper.pdf");
+        writeReferenceFixture(path);
+        QPdfDocument pdf;
+        QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+        // The middle of a character of `needle` (offset into it) on a page, in PDF points.
+        const auto spot = [&pdf](int page, const QString &needle, int offset = 0) {
+            const auto text = pdf.getAllText(page).text();
+            const auto index = text.indexOf(needle);
+            return index < 0 ? QPointF(-1, -1)
+                             : pdf.getSelectionAtIndex(page, index + offset, 1).boundingRectangle().center();
+        };
+        const auto lineTop = [&pdf](int page, const QString &needle) {
+            const auto text = pdf.getAllText(page).text();
+            return pdf.getSelectionAtIndex(page, text.indexOf(needle), needle.size()).boundingRectangle().top();
+        };
+        ReferenceFinder finder(std::make_shared<std::atomic_bool>(false));
+        QSignalSpy resolved(&finder, &ReferenceFinder::resolved);
+        const auto resolve = [&](int page, const QPointF &point) {
+            const int request = finder.resolve(QUrl::fromLocalFile(path), page, point);
+            for (int i = 0; i < 100; ++i) {
+                for (const auto &call : resolved)
+                    if (call[0].toInt() == request) return call[1].toMap();
+                resolved.wait(100);
+            }
+            return QVariantMap{{"timeout", true}};
+        };
+        // A numbered citation goes to its entry; in a list, to the number under the pointer.
+        auto target = resolve(0, spot(0, "[2]", 1));
+        QCOMPARE(target["label"].toString(), QString("[2]"));
+        QCOMPARE(target["page"].toInt(), 2);
+        QVERIFY(qAbs(target["y"].toDouble() - lineTop(2, "[2] A. Vaswani")) < 3);
+        target = resolve(0, spot(0, "[1, 3]", 4));
+        QCOMPARE(target["label"].toString(), QString("[3]"));
+        QVERIFY(qAbs(target["y"].toDouble() - lineTop(2, "[3] S. Hochreiter")) < 3);
+        // Figures and tables go to their captions (Table 1 is TABLE I), equations to their number.
+        target = resolve(0, spot(0, "Fig. 2", 2));
+        QCOMPARE(target["kind"].toString(), QString("figure"));
+        QCOMPARE(target["page"].toInt(), 1);
+        QVERIFY(qAbs(target["y"].toDouble() - lineTop(1, "Fig. 2. Overview")) < 3);
+        target = resolve(0, spot(0, "Table 1", 6));
+        QCOMPARE(target["page"].toInt(), 1);
+        QVERIFY(qAbs(target["y"].toDouble() - lineTop(1, "TABLE I")) < 3);
+        target = resolve(0, spot(0, "Eq. (3)", 5));
+        QCOMPARE(target["kind"].toString(), QString("equation"));
+        QCOMPARE(target["page"].toInt(), 1);
+        QVERIFY(qAbs(target["y"].toDouble() - lineTop(1, "(3)")) < 3);
+        // Author and year find the entry with that name and year.
+        target = resolve(0, spot(0, "Vaswani et al.", 2));
+        QCOMPARE(target["kind"].toString(), QString("author"));
+        QCOMPARE(target["page"].toInt(), 2);
+        QVERIFY(qAbs(target["y"].toDouble() - lineTop(2, "[2] A. Vaswani")) < 3);
+        // Plain words and a caption itself are not references.
+        QVERIFY(resolve(0, spot(0, "Plain words", 2)).isEmpty());
+        QVERIFY(resolve(1, spot(1, "Fig. 2. Overview", 2)).isEmpty());
+        // Text-only steps.
+        QCOMPARE(ReferenceFinder::referenceAt("see [12] here", 5)["key"].toString(), QString("12"));
+        QVERIFY(ReferenceFinder::referenceAt("Figure 3: A caption", 2).isEmpty());
+        QCOMPARE(ReferenceFinder::referenceAt("in Figure 3 we", 5)["key"].toString(), QString("3"));
+    }
     void bundledIconFontAndShaders()
     {
         // The icon font and, when built with Qt ShaderTools, the dark-pages shader are compiled in.

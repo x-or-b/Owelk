@@ -172,6 +172,44 @@ Item {
             findChild(canvas, "pageList").contentY += 200
             tryCompare(card, "visible", false)
         }
+        function test_aLinkWithALostTargetPreviewsFromItsText() {
+            canvas.openFile(lostLinkSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            // Qt drops a link whose named destination is gone; the text "[3]" still leads to its entry.
+            const paper = findChild(canvas, "paperPage0"), card = findChild(canvas, "linkPreview")
+            const y = (792 - 610 - 6) * canvas.pageScale
+            for (let x = 200; x <= 240 && !card.visible; x += 8) { mouseMove(paper, x * canvas.pageScale, y); wait(500) }
+            tryCompare(card, "visible", true, 5000)
+            compare(canvas.linkPreview.label, "[3]")
+            compare(canvas.linkPreview.page, 2)
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+        }
+        function test_referencesWithoutLinksPreviewFromTheText() {
+            canvas.openFile(referenceSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            const card = findChild(canvas, "linkPreview"), paper = findChild(canvas, "paperPage0")
+            const at = Qt.point((referenceCitation.x + referenceCitation.width / 2) * canvas.pageScale,
+                                (referenceCitation.y + referenceCitation.height / 2) * canvas.pageScale)
+            // Resting on "[2]" shows its entry under References, outlined, without moving.
+            mouseMove(paper, at.x - 6, at.y)
+            mouseMove(paper, at.x, at.y)
+            tryCompare(card, "visible", true, 5000)
+            compare(findChild(card, "linkPreviewPage").currentFrame, 2)
+            verify(findChild(card, "linkPreviewTarget").visible)
+            compare(canvas.linkPreview.label, "[2]")
+            compare(canvas.currentPage, 0)
+            // Moving away along the text lets it go; clicking it goes there.
+            mouseMove(paper, at.x + 200, at.y)
+            tryCompare(card, "visible", false, 3000)
+            mouseMove(paper, at.x - 6, at.y)
+            mouseMove(paper, at.x, at.y)
+            tryCompare(card, "visible", true, 5000)
+            mouseClick(card, card.width / 2, card.height / 2)
+            tryCompare(canvas, "currentPage", 2)
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+        }
         function tryFindLink() {
             let link = null
             tryVerify(function() { link = findChild(canvas, "pdfLink-0-0"); return link !== null && link.width > 0 }, 5000)

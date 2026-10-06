@@ -89,7 +89,9 @@ inline bool writeOutlineFixture(const QString &path)
 }
 
 // Three pages; page 1 has an internal link (60,600)-(300,640) in PDF points that jumps to page 3 at y=400.
-inline bool writeLinkFixture(const QString &path)
+// With lostTarget the link names a destination the file no longer has (as tools that strip /Names leave
+// it), and page 3 lists the reference instead.
+inline bool writeLinkFixture(const QString &path, bool lostTarget = false)
 {
     QList<QByteArray> objects;
     objects << "<< /Type /Catalog /Pages 2 0 R >>"
@@ -98,13 +100,18 @@ inline bool writeLinkFixture(const QString &path)
         objects << QByteArray("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R "
                               ">> >> /Contents ")
                 + QByteArray::number(4 + page * 2) + " 0 R" + (page == 0 ? " /Annots [10 0 R]" : "") + " >>";
-        const auto content
-            = QByteArray("BT /F1 20 Tf 60 610 Td (") + (page == 0 ? "See reference [3]" : "Link page") + ") Tj ET";
+        const auto content = page == 2 && lostTarget
+            ? QByteArray(
+                  "BT /F1 20 Tf 60 700 Td (References) Tj 0 -300 Td ([3] A. Author. The cited paper. 2020.) Tj ET")
+            : QByteArray("BT /F1 20 Tf 60 610 Td (") + (page == 0 ? "See reference [3]" : "Link page") + ") Tj ET";
         objects << QByteArray("<< /Length ") + QByteArray::number(content.size()) + " >>\nstream\n" + content
                 + "\nendstream";
     }
     objects << "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
-            << "<< /Type /Annot /Subtype /Link /Rect [60 600 300 640] /Border [0 0 0] /Dest [7 0 R /XYZ 0 400 0] >>";
+            << (lostTarget ? QByteArray("<< /Type /Annot /Subtype /Link /Rect [60 600 300 640] /Border [0 0 0] /A << "
+                                        "/S /GoTo /D (cite.lost) >> >>")
+                           : QByteArray("<< /Type /Annot /Subtype /Link /Rect [60 600 300 640] /Border [0 0 0] /Dest "
+                                        "[7 0 R /XYZ 0 400 0] >>"));
     QByteArray pdf("%PDF-1.4\n");
     QList<qsizetype> offsets;
     for (qsizetype i = 0; i < objects.size(); ++i) {
@@ -118,4 +125,31 @@ inline bool writeLinkFixture(const QString &path)
         + QByteArray::number(start) + "\n%%EOF\n";
     QFile file(path);
     return file.open(QIODevice::WriteOnly) && file.write(pdf) == pdf.size();
+}
+
+// A small paper without links: references in the body, the caption, table and equation they point to,
+// and a numbered reference list on the last page.
+inline void writeReferenceFixture(const QString &path)
+{
+    QPdfWriter writer(path);
+    writer.setPageSize(QPageSize(QPageSize::A4));
+    writer.setResolution(72);
+    QPainter painter(&writer);
+    painter.setFont(QFont("Helvetica", 11));
+    painter.drawText(60, 100, "Attention models [2] and recurrent nets [1, 3] were compared.");
+    painter.drawText(60, 130, "The pipeline is shown in Fig. 2 and the scores in Table 1.");
+    painter.drawText(60, 160, "The loss follows Eq. (3) as introduced by Vaswani et al. (2017) before.");
+    painter.drawText(60, 190, "Plain words are not references.");
+    writer.newPage();
+    painter.drawText(60, 100, "Some body text on the second page.");
+    painter.drawText(60, 300, "Fig. 2. Overview of the pipeline.");
+    painter.drawText(60, 400, "TABLE I");
+    painter.drawText(60, 415, "Scores on the benchmark");
+    painter.drawText(60, 500, "x = y + z");
+    painter.drawText(480, 500, "(3)");
+    writer.newPage();
+    painter.drawText(60, 60, "References");
+    painter.drawText(60, 90, "[1] A. Graves. Speech recognition with deep recurrent networks. 2013.");
+    painter.drawText(60, 110, "[2] A. Vaswani et al. Attention is all you need. 2017.");
+    painter.drawText(60, 130, "[3] S. Hochreiter. Long short-term memory. 1997.");
 }

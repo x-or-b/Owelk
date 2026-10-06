@@ -77,7 +77,7 @@ Item {
     onReadyChanged: refreshHighlights()
     onSourceChanged: {
         savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null; documentFingerprint = ""; tool = ""
-        closeLinkPreview()
+        closeLinkPreview(); overWorkingLink = false; restSpot = null
         // PdfDocument may become Ready synchronously before this handler resets the request.
         Qt.callLater(refreshHighlights)
     }
@@ -777,6 +777,12 @@ Item {
                     anchors.fill: parent
                     hoverEnabled: true
                     onEntered: pageHolder.ensureMetrics()
+                    onPositionChanged: function(mouse) {
+                        const x = mouse.x / root.pageScale, y = mouse.y / root.pageScale
+                        if (pageHolder.overText(x, y)) root.restOn(pageHolder.index, Qt.point(x, y), mapToItem(root, mouse.x, mouse.y))
+                        else root.leaveRest()
+                    }
+                    onExited: root.leaveRest()
                     acceptedButtons: Qt.RightButton
                     cursorShape: !root.captureMode && (!root.tool.length || root.tool === "highlight")
                         && containsMouse && pageHolder.overText(mouseX / root.pageScale, mouseY / root.pageScale)
@@ -947,10 +953,14 @@ Item {
                             }
                         }
                         // Hovering a reference ([12], Fig. 3, Eq. 2) shows where it points, in place.
+                        // A link scrolled away or closed while under the pointer never reports leaving.
+                        Component.onDestruction: if (workingLinkHover.hovered) root.overWorkingLink = false
                         HoverHandler {
+                            id: workingLinkHover
                             enabled: parent.page >= 0 && !root.captureMode && root.tool === ""
                             onHoveredChanged: {
                                 const linkItem = parent
+                                root.overWorkingLink = hovered
                                 if (hovered) {
                                     const size = pdfDocument.pagePointSize(linkItem.page)
                                     const at = linkItem.mapToItem(root, 0, 0)
@@ -1116,6 +1126,42 @@ Item {
     function leaveLinkPreview() { previewShow.stop(); if (!previewHover.hovered) previewHide.restart() }
     function closeLinkPreview() { previewShow.stop(); previewHide.stop(); linkPreview = null; pendingPreview = null }
     Timer { id: previewShow; interval: 350; onTriggered: root.linkPreview = root.pendingPreview }
+    // Papers without working links (most publisher PDFs): resting the pointer on "[12]", "Fig. 3",
+    // "Table II" or "Eq. (4)" finds the target from the text (ReferenceFinder). Nothing runs until the
+    // pointer rests on text.
+    property var restSpot: null
+    property int referenceRequest: -1
+    property bool overWorkingLink: false
+    function restOn(page, point, viewPoint) {
+        if (!ready || captureMode || tool.length || selecting || pinching || overWorkingLink) { referenceRest.stop(); return }
+        // Moving off the reference that opened the card lets it go (unless the pointer goes into the card).
+        if (linkPreview && linkPreview.fromText && Math.abs(viewPoint.x - linkPreview.anchorX) + Math.abs(viewPoint.y - linkPreview.anchorY) > 18) leaveLinkPreview()
+        restSpot = {page: page, x: point.x, y: point.y, viewX: viewPoint.x, viewY: viewPoint.y}
+        referenceRest.restart()
+    }
+    function leaveRest() {
+        referenceRest.stop()
+        restSpot = null
+        if (linkPreview && linkPreview.fromText) leaveLinkPreview()
+    }
+    function resolveReference(spot) {
+        referenceRequest = researchStore.references.resolve(source, spot.page, Qt.point(spot.x, spot.y))
+    }
+    Timer { id: referenceRest; interval: 350; onTriggered: if (root.restSpot) root.resolveReference(root.restSpot) }
+    Connections {
+        target: researchStore.references
+        function onResolved(request, target) {
+            if (request !== root.referenceRequest || !root.restSpot) return
+            const spot = root.restSpot
+            if (target.page === undefined) return
+            const half = 8 * root.pageScale
+            previewShow.stop(); previewHide.stop()
+            root.previewContentY = pages.contentY
+            root.linkPreview = {page: target.page, y: target.top, x: spot.viewX, top: spot.viewY - half, bottom: spot.viewY + half,
+                                rect: Qt.rect(target.x, target.y, target.width, target.height), label: target.label,
+                                fromText: true, anchorX: spot.viewX, anchorY: spot.viewY}
+        }
+    }
     Timer { id: previewHide; interval: 250; onTriggered: if (!previewHover.hovered) root.linkPreview = null }
     Rectangle {
         id: previewCard
@@ -1150,6 +1196,19 @@ Item {
                 fillMode: Image.PreserveAspectFit
                 layer.enabled: root.invertPages
                 layer.effect: ShaderEffect { fragmentShader: "qrc:/owelk/shaders/invert.frag.qsb" }
+                // The found entry, caption or equation, outlined.
+                Rectangle {
+                    objectName: "linkPreviewTarget"
+                    readonly property real scale: parent.width / Math.max(1, parent.points.width)
+                    readonly property rect area: previewCard.spec.rect || Qt.rect(0, 0, 0, 0)
+                    visible: area.width > 0
+                    x: area.x * scale - 3; y: area.y * scale - 2
+                    width: area.width * scale + 6; height: area.height * scale + 4
+                    radius: Theme.radiusSmall
+                    color: "transparent"
+                    border.color: Theme.accent
+                    border.width: 1.5
+                }
             }
         }
         Rectangle {
@@ -1157,7 +1216,7 @@ Item {
             width: goLabel.implicitWidth + 12; height: goLabel.implicitHeight + 6
             radius: Theme.radiusSmall
             color: Theme.raised; border.color: Theme.separator
-            Label { id: goLabel; anchors.centerIn: parent; text: "p. " + (previewCard.spec.page + 1) + " · click to go"; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
+            Label { id: goLabel; anchors.centerIn: parent; text: (previewCard.spec.label ? previewCard.spec.label + " · " : "") + "p. " + (previewCard.spec.page + 1) + " · click to go"; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
         }
         HoverHandler { id: previewHover; onHoveredChanged: if (!hovered) previewHide.restart() }
         TapHandler {

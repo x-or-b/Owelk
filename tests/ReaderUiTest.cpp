@@ -125,6 +125,8 @@ public slots:
         writeFixture(m_directory.filePath("long.pdf"), "Long PDF benchmark", 120);
         if (!writeOutlineFixture(m_directory.filePath("outline.pdf"))) qFatal("Cannot create outline fixture");
         if (!writeLinkFixture(m_directory.filePath("links.pdf"))) qFatal("Cannot create link fixture");
+        writeReferenceFixture(m_directory.filePath("references.pdf"));
+        if (!writeLinkFixture(m_directory.filePath("lost-links.pdf"), true)) qFatal("Cannot create link fixture");
         QDir().mkpath(m_directory.filePath("library/Group"));
         QFile::copy(m_directory.filePath("fixture.pdf"), m_directory.filePath("library/root.pdf"));
         QFile::copy(m_directory.filePath("fixture.pdf"), m_directory.filePath("library/Group/inside.pdf"));
@@ -151,6 +153,18 @@ public slots:
             "outlineSource", QUrl::fromLocalFile(m_directory.filePath("outline.pdf")));
         engine->rootContext()->setContextProperty("linkSource", QUrl::fromLocalFile(m_directory.filePath("links.pdf")));
         engine->rootContext()->setContextProperty("longSource", QUrl::fromLocalFile(m_directory.filePath("long.pdf")));
+        engine->rootContext()->setContextProperty(
+            "lostLinkSource", QUrl::fromLocalFile(m_directory.filePath("lost-links.pdf")));
+        engine->rootContext()->setContextProperty(
+            "referenceSource", QUrl::fromLocalFile(m_directory.filePath("references.pdf")));
+        {
+            // Where "[2]" sits on the first page of the reference fixture, in PDF points.
+            QPdfDocument references;
+            references.load(m_directory.filePath("references.pdf"));
+            const auto text = references.getAllText(0).text();
+            engine->rootContext()->setContextProperty(
+                "referenceCitation", references.getSelectionAtIndex(0, text.indexOf("[2]"), 3).boundingRectangle());
+        }
         QPdfDocument pdf;
         pdf.load(m_directory.filePath("fixture.pdf"));
         const auto text = pdf.getAllText(0).text();
@@ -210,9 +224,10 @@ public slots:
                         const QList<QByteArray> pieces = grouping
                             ? QList<QByteArray>{"{\\\"groups\\\": [{\\\"name\\\": \\\"Fixture papers\\\", ",
                                   "\\\"tabs\\\": [\\\"t1\\\", \\\"t2\\\"]}]}"}
-                            : sorting ? QList<QByteArray>{"{\\\"groups\\\": [{\\\"name\\\": \\\"Occlusion studies\\\", ",
-                                            "\\\"papers\\\": [\\\"p1\\\", \\\"p2\\\"]}]}"}
-                                      : QList<QByteArray>{"Mock ", "answer about **occlusion**."};
+                            : sorting
+                            ? QList<QByteArray>{"{\\\"groups\\\": [{\\\"name\\\": \\\"Occlusion studies\\\", ",
+                                  "\\\"papers\\\": [\\\"p1\\\", \\\"p2\\\"]}]}"}
+                            : QList<QByteArray>{"Mock ", "answer about **occlusion**."};
                         for (const auto &piece : pieces)
                             body += QByteArray(
                                         "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":"

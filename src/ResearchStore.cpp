@@ -4,6 +4,7 @@
 #include "FileFingerprint.h"
 #include "SchemaMigration.h"
 #include "PaperIndex.h"
+#include "ReferenceFinder.h"
 #include "MetadataLookup.h"
 #include "AiService.h"
 #include "SelectionGeometry.h"
@@ -85,7 +86,8 @@ struct TextCaptureResult {
 
 ResearchStore::ResearchStore(const QString &directory, QObject *parent)
     : QObject(parent), m_directory(directory), m_connection(QUuid::createUuid().toString()),
-      m_index(new PaperIndex(directory, this)), m_lookup(new MetadataLookup(this)), m_ai(new AiService(this, this))
+      m_index(new PaperIndex(directory, this)), m_references(new ReferenceFinder(m_index->readerBusyFlag(), this)),
+      m_lookup(new MetadataLookup(this)), m_ai(new AiService(this, this))
 {
     m_workers.setMaxThreadCount(1);
     m_verifiers.setMaxThreadCount(2);
@@ -104,6 +106,11 @@ QObject *ResearchStore::semantic() const
 QObject *ResearchStore::paperIndex() const
 {
     return m_index;
+}
+
+QObject *ResearchStore::references() const
+{
+    return m_references;
 }
 
 QStringList ResearchStore::annotationColors()

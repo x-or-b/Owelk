@@ -13,6 +13,7 @@
 #include <QVariantMap>
 
 class PaperIndex;
+class ReferenceFinder;
 class QPdfDocument;
 
 class ResearchStore final : public QObject {
@@ -29,6 +30,8 @@ class ResearchStore final : public QObject {
     Q_PROPERTY(QVariantList recentWorkspaces READ recentWorkspaces NOTIFY homeChanged)
     Q_PROPERTY(QVariantMap continueReading READ continueReading NOTIFY homeChanged)
     Q_PROPERTY(QObject *paperIndex READ paperIndex CONSTANT)
+    // Where "[12]", "Fig. 3" and the like point, for papers without working links (ReferenceFinder).
+    Q_PROPERTY(QObject *references READ references CONSTANT)
     // Online details lookup, used only from the Paper Details dialog's button.
     Q_PROPERTY(QObject *metadataLookup READ metadataLookup CONSTANT)
     Q_PROPERTY(QObject *ai READ ai CONSTANT)
@@ -58,6 +61,7 @@ public:
     bool printing() const { return m_printing; }
     QString dataDirectory() const { return m_directory; }
     QObject *paperIndex() const;
+    QObject *references() const;
     QObject *metadataLookup() const { return m_lookup; }
     QObject *ai() const { return m_ai; }
     QObject *semantic() const;
@@ -380,6 +384,7 @@ private:
     QVariantList notesSharing(const QStringList &terms, const QString &exceptNote) const;
     bool readPrintMarks(const QUrl &source, const QString &hash, QVariantList *marks);
     PaperIndex *m_index;
+    ReferenceFinder *m_references;
     QObject *m_lookup;
     QObject *m_ai;
     class SemanticIndex *m_semantic = nullptr;
