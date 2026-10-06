@@ -172,6 +172,40 @@ Rectangle {
             Qt.callLater(function() { if (trash) researchStore.movePdfsToTrash(list); else researchStore.removeFromLibrary(list) })
         }
     }
+    // A whole folder: every PDF under it, optionally as a collection tree.
+    Native.FolderDialog {
+        id: folderDialog
+        title: "Add a folder of PDFs"
+        onAccepted: { importOptions.folder = selectedFolder; importOptions.open() }
+    }
+    Dialog {
+        id: importOptions
+        objectName: "importFolderDialog"
+        property url folder
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: 420
+        modal: true
+        title: "Add \u201c" + researchStore.fileName(folder) + "\u201d to the Library"
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        Column {
+            width: parent.width
+            spacing: 8
+            CheckBox {
+                id: asCollections
+                objectName: "importAsCollections"
+                width: parent.width
+                checked: true
+                text: "Make a collection of the folder, with its subfolders as sub-collections"
+            }
+            Label {
+                width: parent.width; wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+                text: (root.filter.collection ? "Inside the collection shown. " : "") + "The PDFs stay where they are; titles and text are read in the background. Hidden folders are skipped."
+            }
+        }
+        onAccepted: researchStore.importFolder(folder, root.filter.collection || "", asCollections.checked)
+    }
     // PDFs chosen or dropped here join the Library, and the collection being shown.
     Native.FileDialog {
         id: addDialog
@@ -329,10 +363,17 @@ Rectangle {
                 visible: !root.showingNotes
                 Label { objectName: "libraryCount"; Layout.fillWidth: true; text: root.rows.length + (root.rows.length === 1 ? " paper" : " papers"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
                 IconButton {
+                    id: addButton
                     objectName: "libraryAddPdfs"
                     icon.name: "add"
-                    description: root.filter.collection ? "Add PDFs… · to this collection" : "Add PDFs to the Library…"
-                    onClicked: addDialog.open()
+                    description: root.filter.collection ? "Add PDFs or a folder · to this collection" : "Add PDFs or a folder to the Library"
+                    onClicked: addMenu.popup(addButton, 0, addButton.height)
+                    Menu {
+                        id: addMenu
+                        objectName: "libraryAddMenu"
+                        MenuItem { text: "Add PDFs…"; onTriggered: addDialog.open() }
+                        MenuItem { objectName: "libraryAddFolder"; text: "Add Folder…"; onTriggered: folderDialog.open() }
+                    }
                 }
                 IconButton {
                     objectName: "exportBibtex"

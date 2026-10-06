@@ -110,6 +110,11 @@ public:
     // Takes papers out of the Library: lists, recent papers, collections, tags and the text index.
     // The PDF file, annotations and captures stay; opening the file again brings the paper back.
     Q_INVOKABLE int removeFromLibrary(const QVariantList &sources);
+    // Adds every PDF under a folder (subfolders included; hidden files and links skipped), found in
+    // the background. With foldersAsCollections, the folder and its subfolders become a collection
+    // tree (existing ones with the same name are reused) under parentCollection. Files are not moved.
+    // Answered by folderImported(request, added, collections, error).
+    Q_INVOKABLE int importFolder(const QUrl &folder, const QString &parentCollection, bool foldersAsCollections);
     // Moves the PDF files to the system Trash (recoverable there) and removes the papers from the Library.
     Q_INVOKABLE int movePdfsToTrash(const QVariantList &sources);
     // Collections where similar papers already are, for a paper in none of them (or to add more):
@@ -271,6 +276,7 @@ signals:
     void linksChanged();
     void relatedFound(int request, const QVariantList &papers, const QVariantList &notes);
     void collectionsSuggested(int request, const QUrl &source, const QVariantList &suggestions);
+    void folderImported(int request, int added, int collections, const QString &error);
     void ocrChanged();
     void backingUpChanged();
     void backupFinished(bool ok, const QString &path, const QString &message);
@@ -360,6 +366,8 @@ private:
     bool replay(const QUrl &source, bool forward);
     int m_relatedRequest = 0;
     int m_suggestRequest = 0;
+    int m_importRequest = 0;
+    bool m_quietAdd = false;
     QHash<QString, QVariantList> m_suggestions;
     void configureOcr();
     void scheduleAutomaticBackup();

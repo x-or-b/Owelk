@@ -900,6 +900,42 @@ private slots:
         QCOMPARE(store.movePdfsToTrash({QUrl::fromLocalFile(directory.filePath("missing.pdf"))}), 0);
         QCOMPARE(store.libraryDocuments({}).size(), 2);
     }
+    void importAFolderAsCollections()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        QDir root(directory.filePath("Papers"));
+        QVERIFY(root.mkpath("SLAM/LiDAR") && root.mkpath(".hidden"));
+        writeFixture(root.filePath("survey.pdf"), "Survey");
+        writeFixture(root.filePath("SLAM/loop.pdf"), "Loop");
+        writeFixture(root.filePath("SLAM/LiDAR/lio.pdf"), "LIO");
+        writeFixture(root.filePath(".hidden/skip.pdf"), "Skip");
+        QFile text(root.filePath("SLAM/readme.txt"));
+        QVERIFY(text.open(QIODevice::WriteOnly));
+        text.close();
+        QSignalSpy done(&store, &ResearchStore::folderImported);
+        const int request = store.importFolder(QUrl::fromLocalFile(root.absolutePath()), QString(), true);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+        QCOMPARE(done[0][0].toInt(), request);
+        QCOMPARE(done[0][1].toInt(), 3); // hidden folders and other files are skipped
+        QCOMPARE(done[0][2].toInt(), 3); // Papers, Papers/SLAM, Papers/SLAM/LiDAR
+        const auto byName = [&](const QString &name) {
+            for (const auto &c : store.collections())
+                if (c.toMap()["name"] == name) return c.toMap();
+            return QVariantMap{};
+        };
+        QCOMPARE(byName("LiDAR")["parentId"], byName("SLAM")["id"]);
+        QCOMPARE(byName("SLAM")["parentId"], byName("Papers")["id"]);
+        QCOMPARE(store.libraryDocuments({{"collection", byName("Papers")["id"]}}).size(), 3); // incl. sub-collections
+        QCOMPARE(store.libraryDocuments({{"collection", byName("LiDAR")["id"]}}).size(), 1);
+        // Importing again reuses the same collections and adds nothing twice.
+        store.importFolder(QUrl::fromLocalFile(root.absolutePath()), QString(), true);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 2, 10000);
+        QCOMPARE(done[1][2].toInt(), 0);
+        QCOMPARE(store.libraryDocuments({}).size(), 3);
+    }
     void deletedWorkspacesCanBeForgotten()
     {
         QTemporaryDir directory;

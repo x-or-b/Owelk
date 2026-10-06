@@ -2,7 +2,10 @@
 #include "PaperIndex.h"
 
 #include <QDateTime>
+#include <QDirIterator>
 #include <QFile>
+#include <QFutureWatcher>
+#include <QtConcurrent>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QSet>
@@ -410,6 +413,7 @@ int ResearchStore::addDocuments(const QVariantList &sources, const QString &coll
     if (!collectionId.isEmpty() && !added.isEmpty()) setDocumentsCollection(added, collectionId, true);
     announceDocumentsChanged();
     emit homeChanged();
+    if (m_quietAdd) return int(added.size());
     if (!added.isEmpty())
         emit message(added.size() == 1 ? QStringLiteral("Added 1 PDF to the Library.")
                                        : QString("Added %1 PDFs to the Library.").arg(added.size()));
@@ -477,4 +481,70 @@ int ResearchStore::movePdfsToTrash(const QVariantList &sources)
                 ? QStringLiteral("Moved the PDF to the Trash and removed it from the Library.")
                 : QString("Moved %1 PDFs to the Trash and removed them from the Library.").arg(moved.size()));
     return int(moved.size());
+}
+
+int ResearchStore::importFolder(const QUrl &folder, const QString &parentCollection, bool foldersAsCollections)
+{
+    const int request = ++m_importRequest;
+    const auto root = folder.toLocalFile();
+    if (!folder.isLocalFile() || !QFileInfo(root).isDir()) {
+        QMetaObject::invokeMethod(
+            this, [=, this] { emit folderImported(request, 0, 0, "Choose a folder."); }, Qt::QueuedConnection);
+        return request;
+    }
+    struct Found {
+        QString path, relativeDir;
+    };
+    emit message("Looking for PDFs in " + QFileInfo(root).fileName() + "…");
+    auto *watcher = new QFutureWatcher<QList<Found>>(this);
+    connect(watcher, &QFutureWatcher<QList<Found>>::finished, this, [=, this] {
+        const auto found = watcher->result();
+        watcher->deleteLater();
+        // Files by folder; each folder is filed into its collection (created on first use).
+        QMap<QString, QVariantList> byFolder;
+        for (const auto &f : found) byFolder[f.relativeDir].append(QUrl::fromLocalFile(f.path));
+        int added = 0, made = 0;
+        const auto childNamed = [&](const QString &parent, const QString &name) {
+            for (const auto &value : collections()) {
+                const auto c = value.toMap();
+                if (c["parentId"].toString() == parent && c["name"].toString().compare(name, Qt::CaseInsensitive) == 0)
+                    return c["id"].toString();
+            }
+            ++made;
+            return createCollection(name, parent);
+        };
+        for (auto it = byFolder.cbegin(); it != byFolder.cend(); ++it) {
+            QString target = parentCollection;
+            if (foldersAsCollections) {
+                target = childNamed(parentCollection, QFileInfo(root).fileName());
+                for (const auto &part : it.key().split('/', Qt::SkipEmptyParts)) target = childNamed(target, part);
+            }
+            m_quietAdd = true; // One summary at the end, not one message per folder.
+            added += addDocuments(it.value(), target);
+            m_quietAdd = false;
+        }
+        const auto message = found.isEmpty() ? QStringLiteral("No PDFs in that folder.") : QString();
+        emit folderImported(request, added, made, message);
+        if (!found.isEmpty())
+            emit this->message(QString("Added %1 PDFs from %2%3.")
+                    .arg(added)
+                    .arg(QFileInfo(root).fileName())
+                    .arg(made ? QString(" into %1 new collections").arg(made) : QString()));
+    });
+    watcher->setFuture(QtConcurrent::run(&m_metadataWorkers, [root] {
+        QList<Found> found;
+        QDirIterator it(
+            root, {"*.pdf", "*.PDF"}, QDir::Files | QDir::Readable | QDir::NoSymLinks, QDirIterator::Subdirectories);
+        const QDir base(root);
+        while (it.hasNext() && found.size() < 10000) {
+            const auto path = it.next();
+            const QFileInfo info(path);
+            if (info.isHidden() || path.contains("/.")) continue;
+            found.append({path,
+                base.relativeFilePath(info.absolutePath()) == "." ? QString()
+                                                                  : base.relativeFilePath(info.absolutePath())});
+        }
+        return found;
+    }));
+    return request;
 }
