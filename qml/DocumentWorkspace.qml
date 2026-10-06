@@ -297,6 +297,50 @@ Flickable {
         sync(); changed(); opened()
         Qt.callLater(function() { const view = root.groupView(g.id); if (view) view.focusHome() })
     }
+    // Sort a strip's tabs: each group is one block (sorted inside), placed by its name.
+    function sortTabs(stripId, by) {
+        const g = Tree.find(tree, stripId)
+        if (!g || g.kind !== "group") return
+        prepare()
+        const titleOf = function(t) { return Tree.tabTitle(t, researchStore.displayName).toLowerCase() }
+        const kindOrder = function(t) { return ["home", "library", undefined, "note", "web"].indexOf(t.kind) }
+        const compare = function(a, b) {
+            if (by === "kind" && kindOrder(a) !== kindOrder(b)) return kindOrder(a) - kindOrder(b)
+            return titleOf(a).localeCompare(titleOf(b))
+        }
+        const names = {}
+        ;(g.labels || []).forEach(function(l) { names[l.id] = l.name.toLowerCase() })
+        const blocks = []
+        g.tabs.forEach(function(t) {
+            const last = blocks[blocks.length - 1]
+            if (t.label && last && last.label === t.label) last.tabs.push(t)
+            else blocks.push({label: t.label || "", tabs: [t]})
+        })
+        blocks.forEach(function(b) { b.tabs.sort(compare) })
+        blocks.sort(function(a, b) {
+            if (a.label && b.label) return names[a.label].localeCompare(names[b.label])
+            if (a.label || b.label) return by === "kind" ? (a.label ? -1 : 1) : (a.label ? names[a.label] : titleOf(a.tabs[0])).localeCompare(b.label ? names[b.label] : titleOf(b.tabs[0]))
+            return compare(a.tabs[0], b.tabs[0])
+        })
+        g.tabs = blocks.reduce(function(all, b) { return all.concat(b.tabs) }, [])
+        sync(); changed()
+    }
+    // Close tabs that show the same paper, page or note as an earlier tab (the active one is kept).
+    function closeDuplicateTabs(stripId) {
+        const g = Tree.find(tree, stripId)
+        if (!g || g.kind !== "group") return 0
+        const seen = {}, closing = []
+        const key = function(t) { return (t.kind || "pdf") + "|" + (t.kind === "note" ? t.noteId : t.source) }
+        const active = g.tabs.find(function(t) { return t.id === g.activeTab })
+        if (active && active.kind !== "home" && active.kind !== "library") seen[key(active)] = true
+        g.tabs.forEach(function(t) {
+            if (t === active || t.kind === "home" || t.kind === "library") return
+            if (seen[key(t)]) closing.push(t.id); else seen[key(t)] = true
+        })
+        closing.forEach(function(id) { root.closeTab(id) })
+        researchStore.notify(closing.length ? (closing.length === 1 ? "Closed 1 duplicate tab." : "Closed " + closing.length + " duplicate tabs.") : "No duplicate tabs.")
+        return closing.length
+    }
     function closeOtherTabs(id) {
         const g = Tree.owner(tree, id)
         if (!g) return

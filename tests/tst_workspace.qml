@@ -562,6 +562,49 @@ Item {
             verify(d.tabLabel(group.id, other).color !== d.tabLabel(group.id, group.labels[0].id).color)
             view.editingLabel = ""
         }
+        function test_tabStripMenuSortsClosesDuplicatesAndSwitchesLayout() {
+            workspace.documents.restore({})
+            const d = workspace.documents
+            d.openDocument(outlineSource, null, true); canvas()
+            d.openDocument(fixtureSource, null, true); canvas()
+            d.openDocument(outlineSource, null, true); canvas()
+            const strip = Tree.leaves(d.tree)[0], view = d.groupView(strip.id)
+            // Right-click on the bar's empty space.
+            waitForPolish(workspace); wait(50)
+            const bar = visualChild(view, "tabBar")
+            mouseClick(bar, bar.width - 20, bar.height / 2, Qt.RightButton)
+            const menu = findChild(view, "tabStripMenu")
+            tryCompare(menu, "opened", true)
+            findChild(menu, "stripCloseDuplicates").triggered()
+            tryCompare(Tree.leaves(d.tree)[0].tabs, "length", 2)
+            findChild(menu, "stripSortTitle").triggered()
+            tryVerify(function() {
+                const titles = Tree.leaves(d.tree)[0].tabs.map(function(t) { return Tree.tabTitle(t, researchStore.displayName) })
+                return titles[0].toLowerCase() <= titles[1].toLowerCase()
+            })
+            menu.close()
+            // The layout can be switched from there too.
+            findChild(menu, "stripVertical").triggered()
+            compare(Theme.verticalTabs, true)
+            findChild(menu, "stripHorizontal").triggered()
+            compare(Theme.verticalTabs, false)
+        }
+        function test_verticalTabsPanelResizes() {
+            Theme.verticalTabs = true
+            workspace.setTabsPanel(true)
+            const panel = findChild(workspace, "tabsPanel")
+            tryCompare(panel, "visible", true)
+            waitForPolish(workspace); wait(50)
+            const handle = findChild(panel, "tabsPanelResize")
+            const before = panel.width
+            mouseDrag(handle, 3, 200, 80, 0)
+            tryVerify(function() { return panel.width > before + 40 })
+            compare(Number(researchStore.setting("tabs.panelWidth")), Math.round(panel.openWidth))
+            mouseDrag(handle, 3, 200, -1000, 0)
+            tryCompare(panel, "openWidth", 180)
+            researchStore.setSetting("tabs.panelWidth", "240"); panel.openWidth = 240
+            Theme.verticalTabs = false
+        }
         function test_verticalTabs() {
             workspace.documents.restore({})
             const d = workspace.documents
@@ -744,7 +787,9 @@ Item {
             tryCompare(menu, "opened", true)
             verify(findChild(menu, "paperOpenOption") !== null && findChild(menu, "copyBibtex") !== null)
             const remove = findChild(menu, "removeRecentOption")
-            compare(menu.itemAt(menu.count - 1), remove, "the destructive item is last")
+            // Destructive items come last: Remove from Recent Papers, Remove from Library, Move PDF to Trash.
+            compare(menu.itemAt(menu.count - 3), remove)
+            compare(menu.itemAt(menu.count - 1), findChild(menu, "movePdfToTrashOption"))
             remove.triggered()
             tryVerify(function() { return findChild(findChild(workspace, "homeView"), "recentPaperMenu").removeDialog !== null })
             const dialog = findChild(findChild(workspace, "homeView"), "recentPaperMenu").removeDialog

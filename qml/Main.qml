@@ -427,6 +427,8 @@ ApplicationWindow {
             visible: Theme.verticalTabs && !window.restoreFailed
             controller: documents
             open: window.tabsPanelOpen
+            openWidth: Number(researchStore.setting("tabs.panelWidth", "240")) || 240
+            onWidthChosen: function(width) { researchStore.setSetting("tabs.panelWidth", String(Math.round(width))) }
             onToggleRequested: window.setTabsPanel(!window.tabsPanelOpen)
             onTabChosen: window.homeVisible = false
             Layout.preferredWidth: implicitWidth; Layout.fillHeight: true

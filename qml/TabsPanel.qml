@@ -27,7 +27,10 @@ Rectangle {
         })
         return list
     }
-    implicitWidth: open ? 240 : Theme.iconButton + 12
+    // The open width is set by dragging the right edge (180–420 px, remembered).
+    property real openWidth: 240
+    signal widthChosen(real width)
+    implicitWidth: open ? openWidth : Theme.iconButton + 12
     color: Theme.sidebar
     Component.onCompleted: controller.addDropHandler(root)
     Component.onDestruction: controller.removeDropHandler(root)
@@ -87,6 +90,7 @@ Rectangle {
         function onTabGroupCreated(stripId, labelId) { root.editingLabel = labelId }
     }
 
+    TabStripMenu { id: stripMenu; controller: root.controller }
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -125,6 +129,8 @@ Rectangle {
             clip: true
             model: root.rows
             ScrollBar.vertical: ScrollBar {}
+            // Right-click on the list's empty space: the same menu as the tab bar, for the active split.
+            TapHandler { acceptedButtons: Qt.RightButton; onTapped: stripMenu.show(root.controller.activeGroup) }
             delegate: Item {
                 id: row
                 required property var modelData
@@ -307,5 +313,22 @@ Rectangle {
             }
         }
     }
-    Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.separator }
+    Rectangle {
+        anchors.right: parent.right; width: 1; height: parent.height
+        color: resize.containsMouse || resize.pressed ? Theme.border : Theme.separator
+    }
+    MouseArea {
+        id: resize
+        objectName: "tabsPanelResize"
+        visible: root.open
+        anchors.right: parent.right; anchors.rightMargin: -3
+        width: 6; height: parent.height
+        hoverEnabled: true; cursorShape: Qt.SplitHCursor
+        preventStealing: true
+        property real origin
+        property real initial
+        onPressed: function(mouse) { origin = mapToItem(null, mouse.x, mouse.y).x; initial = root.openWidth }
+        onPositionChanged: function(mouse) { if (pressed) root.openWidth = Math.max(180, Math.min(420, initial + mapToItem(null, mouse.x, mouse.y).x - origin)) }
+        onReleased: root.widthChosen(root.openWidth)
+    }
 }

@@ -158,6 +158,8 @@ Rectangle {
             clip: true
             model: root.strip
             ScrollBar.horizontal: ScrollBar { height: 4 }
+            // Right-click on the bar's empty space: new tab, sorting, AI, layout.
+            TapHandler { acceptedButtons: Qt.RightButton; onTapped: stripMenu.show(root.groupId) }
             delegate: Item {
                 id: tabItem
                 required property var modelData
@@ -432,6 +434,7 @@ Rectangle {
             onTriggered: { const id = root.menuTabData.noteId; if (researchStore.deleteNote(id)) root.controller.closeNoteTabs(id) }
         }
     }
+    TabStripMenu { id: stripMenu; controller: root.controller }
     Menu {
         id: groupMenu
         objectName: "tabGroupMenu"
