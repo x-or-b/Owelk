@@ -110,6 +110,27 @@ Item {
             tryCompare(canvas, "ready", true, 10000)
             verify(!canvas.canGoBack && !canvas.canGoForward)
         }
+        function test_longScrollLeavesAPlaceInHistory() {
+            canvas.openFile(longSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            wait(300)
+            verify(!canvas.canGoBack)
+            // Reading on a page or to the next one is not a jump.
+            mouseWheel(canvas, canvas.width / 2, canvas.height / 2, 0, -120)
+            wait(400)
+            verify(!canvas.canGoBack, "a short scroll leaves no place")
+            // A long scroll does: Back returns to where it started.
+            // (Moving the list as the scroll bar or a fast flick does.)
+            const list = findChild(canvas, "pageList")
+            list.contentY += 5 * findChild(canvas, "paperPage0").height
+            tryVerify(function() { return canvas.currentPage >= 4 })
+            tryVerify(function() { return canvas.canGoBack }, 2000)
+            testInput.keyClick(canvas, Qt.Key_BracketLeft, Qt.ControlModifier)
+            tryVerify(function() { return canvas.currentPage <= 1 }, 3000)
+            verify(canvas.canGoForward)
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+        }
         function tryFindLink() {
             let link = null
             tryVerify(function() { link = findChild(canvas, "pdfLink-0-0"); return link !== null && link.width > 0 }, 5000)
