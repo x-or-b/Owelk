@@ -68,6 +68,7 @@ var glyphs = {
     "alert": "\ue077",
     "ok": "\ue226",
     "filter": "\ue460",
-    "history": "\ue1f5"
+    "history": "\ue1f5",
+    "citations": "\ue542"
 }
 function glyph(name) { return glyphs[name] || "" }

@@ -82,6 +82,7 @@ alert circle-alert
 ok circle-check
 filter list-filter
 history history
+citations waypoints
 """
 
 def main(package: pathlib.Path) -> None:

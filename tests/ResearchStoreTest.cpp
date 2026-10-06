@@ -398,6 +398,92 @@ private slots:
         QVERIFY(QFileInfo::exists(path));
         QCOMPARE(store.emptyCaptureTrash(), 0);
     }
+    void citationsComeFromSemanticScholarAndMatchTheLibrary()
+    {
+        // A local stand-in for Semantic Scholar: answers by path and records what was asked.
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        QStringList requests;
+        connect(&server, &QTcpServer::newConnection, &server, [&] {
+            auto *socket = server.nextPendingConnection();
+            connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
+                const auto head = QString::fromUtf8(socket->readAll()).section("\r\n", 0, 0);
+                requests.append(head);
+                QByteArray body, status = "200 OK";
+                if (head.contains("/search/match"))
+                    body = R"({"data":[{"paperId":"m1","title":"Untitled match"}]})";
+                else if (head.contains("missing"))
+                    status = "404 Not Found";
+                else if (head.contains("/references"))
+                    body
+                        = R"({"data":[{"citedPaper":{"paperId":"r1","title":"Known Cited Paper","year":2019,"authors":[{"name":"Ann Lee"},{"name":"Bo Kim"}],"externalIds":{},"citationCount":5}},
+                                      {"citedPaper":{"paperId":"r2","title":"Other Paper","externalIds":{"ArXiv":"2001.00001"}}},
+                                      {"citedPaper":{"paperId":null,"title":null}}]})";
+                else if (head.contains("/citations"))
+                    body = R"({"data":[{"citingPaper":{"paperId":"c1","title":"Low","citationCount":1}},
+                                      {"citingPaper":{"paperId":"c2","title":"High","citationCount":50,"externalIds":{"DOI":"10.2/x"}}}]})";
+                socket->write("HTTP/1.1 " + status
+                    + "\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: "
+                    + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+                socket->disconnectFromHost();
+            });
+        });
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        store.setSetting("citations.baseUrl", QStringLiteral("http://127.0.0.1:%1/graph/v1").arg(server.serverPort()));
+        const auto paper = QUrl::fromLocalFile(directory.filePath("paper.pdf")),
+                   cited = QUrl::fromLocalFile(directory.filePath("cited.pdf"));
+        writeFixture(paper.toLocalFile(), "Citing Paper");
+        writeFixture(cited.toLocalFile(), "Known Cited Paper");
+        QVERIFY(store.rememberDocument(paper));
+        QVERIFY(store.rememberDocument(cited));
+        QVERIFY(store.updateDocumentDetails(paper, {{"title", "Citing Paper"}, {"doi", "10.1/abc"}}));
+        QVERIFY(store.updateDocumentDetails(cited, {{"title", "Known Cited Paper"}}));
+        QSignalSpy loaded(&store, &ResearchStore::citationsLoaded);
+        const auto load = [&](const QUrl &source, bool refresh) {
+            const int request = store.loadCitations(source, refresh);
+            for (int i = 0; i < 100; ++i) {
+                for (const auto &call : loaded)
+                    if (call[0].toInt() == request) return call[2].toMap();
+                loaded.wait(100);
+            }
+            return QVariantMap{{"error", "timeout"}};
+        };
+        auto result = load(paper, false);
+        QVERIFY2(result["error"].toString().isEmpty(), qPrintable(result["error"].toString()));
+        QVERIFY(requests.join(' ').contains("/graph/v1/paper/DOI:10.1/abc/references?"));
+        const auto references = result["references"].toList();
+        QCOMPARE(references.size(), 2); // Rows without a title are dropped.
+        auto first = references[0].toMap();
+        QCOMPARE(first["authors"].toString(), QString("Ann Lee et al."));
+        QCOMPARE(first["year"].toString(), QString("2019"));
+        QCOMPARE(first["inLibrary"].toUrl(), cited); // Same title as a Library paper.
+        QCOMPARE(first["url"].toString(), QString("https://www.semanticscholar.org/paper/r1"));
+        QCOMPARE(references[1].toMap()["url"].toString(), QString("https://arxiv.org/abs/2001.00001"));
+        // Most cited first.
+        const auto citedBy = result["citedBy"].toList();
+        QCOMPARE(citedBy[0].toMap()["title"].toString(), QString("High"));
+        QCOMPARE(citedBy[0].toMap()["url"].toString(), QString("https://doi.org/10.2/x"));
+        // Asked again: from the cache, without the network; Refresh asks again.
+        const auto asked = requests.size();
+        result = load(paper, false);
+        QVERIFY(result["cached"].toBool());
+        QCOMPARE(requests.size(), asked);
+        QCOMPARE(result["references"].toList()[0].toMap()["inLibrary"].toUrl(), cited);
+        load(paper, true);
+        QCOMPARE(requests.size(), asked + 2);
+        // No DOI or arXiv ID: found by title first.
+        result = load(cited, false);
+        QVERIFY(result["error"].toString().isEmpty());
+        QVERIFY(requests.join(' ').contains("/paper/search/match?query=Known"));
+        QVERIFY(requests.join(' ').contains("/paper/m1/references"));
+        // Unknown to Semantic Scholar.
+        QVERIFY(store.updateDocumentDetails(paper, {{"title", "Citing Paper"}, {"doi", ""}, {"arxiv", "missing"}}));
+        result = load(paper, true);
+        QVERIFY(!result["error"].toString().isEmpty());
+    }
     void onlineLookupParsesArxivAndCrossref()
     {
         // A local stand-in for arXiv and Crossref: answers by path and records what was asked.

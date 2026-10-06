@@ -255,6 +255,12 @@ public slots:
                                         "{\"type\":\"text_delta\",\"text\":\"")
                                 + piece + "\"}}\n\n";
                         body += "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+                    } else if (head.contains("/graph/v1/paper/")) {
+                        // Semantic Scholar: one reference and two citing papers.
+                        type = "application/json";
+                        body = head.contains("/references")
+                            ? R"({"data":[{"citedPaper":{"paperId":"r1","title":"Cited Work","year":2018,"externalIds":{"ArXiv":"1801.00001"},"citationCount":3}}]})"
+                            : R"({"data":[{"citingPaper":{"paperId":"c1","title":"Later Work","year":2024,"citationCount":9}},{"citingPaper":{"paperId":"c2","title":"Another Work","year":2025}}]})";
                     } else if (head.contains("/slow.pdf")) {
                         // A large PDF sent in pieces with its size up front, for download progress.
                         QFile pdf(m_directory.filePath("fixture.pdf"));

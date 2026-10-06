@@ -66,6 +66,10 @@ open -n /Users/gyu/Documents/Owelk/build/owelk.app --args --data-dir /Users/gyu/
 - Thumbnails에서 페이지 미리보기를 눌러 이동합니다. 현재 페이지를 테두리로 표시하며, 보이는 범위 주변의 저해상도 미리보기만 생성합니다.
 - 패널은 현재 활성 탭·분할을 따라갑니다. 리더와 PDF 문서 객체를 공유합니다. Home에서는 문서를 열라는 안내가 나옵니다.
 
+
+## 인용 관계(Citations)
+
+Document 패널의 마지막 탭(경유지 아이콘)에서 이 논문이 인용한 논문(`Cites`)과 이 논문을 인용한 논문(`Cited by`, 많이 인용된 순)을 Semantic Scholar에서 가져옵니다. `Find Citations`를 누를 때만 이 논문의 DOI·arXiv 번호(없으면 제목)를 보내고, 결과는 한 달 동안 저장해 다시 열 때 인터넷 없이 보입니다(↻로 새로 받기). Library에 이미 있는 논문은 `In Library`로 표시되어 누르면 바로 열리고, 없는 논문은 DOI·arXiv·Semantic Scholar 페이지를 웹 탭으로 엽니다. 우클릭으로 Find Paper(검색)·Copy Title.
 ## 문서 탭·분할
 
 - 분할이 화면보다 넓을 때 탭을 끌어 작업 영역 가장자리(32px 이내)에 두면 그 방향으로 자동 스크롤합니다.

@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Pdf
+import "WorkspaceTree.js" as Tree
 
 Item {
     id: root
@@ -48,6 +49,33 @@ Item {
         }
         function onCollectionsSuggested(request, source, list) { if (request === root.suggestRequest) root.suggestedCollections = list }
     }
+    // Citations (Semantic Scholar): shown from the cache when the tab opens; fetched only on request.
+    property var citations: null
+    property int citationsRequest: -1
+    property bool citationsLoading: false
+    property int citationsSide: 0
+    readonly property string citationsSource: ready && mode === 4 ? reader.source.toString() : ""
+    onCitationsSourceChanged: {
+        citations = null; citationsLoading = false; citationsRequest = -1
+        if (citationsSource.length) citationsRequest = researchStore.loadCitations(reader.source, false, true)
+    }
+    function fetchCitations(refresh) {
+        citationsLoading = true
+        citationsRequest = researchStore.loadCitations(reader.source, refresh, false)
+    }
+    readonly property var citationRows: citations ? (citationsSide === 0 ? citations.references || [] : citations.citedBy || []) : []
+    function openCitation(row) {
+        if (row.inLibrary) root.linkActivated("owelk://document/" + researchStore.documentLinkId(row.inLibrary))
+        else if (row.url) root.linkActivated(row.url)
+    }
+    Connections {
+        target: researchStore
+        function onCitationsLoaded(request, source, result) {
+            if (request !== root.citationsRequest) return
+            root.citationsLoading = false
+            root.citations = result
+        }
+    }
     PdfDocument { id: emptyDocument }
     // A blank document also avoids passing null to an active Qt PDF image/model during tab removal.
     readonly property var navigationDocument: reader && reader.pdfDocument ? reader.pdfDocument : emptyDocument
@@ -81,6 +109,7 @@ Item {
                 onClicked: root.modeChosen(2)
             }
             TabButton { id: relatedTab; objectName: "relatedTab"; icon.name: "related"; ToolTip.text: "Related papers and notes"; onClicked: root.modeChosen(3) }
+            TabButton { id: citationsTab; objectName: "citationsTab"; icon.name: "citations"; ToolTip.text: "Citations: what this paper cites and what cites it"; onClicked: root.modeChosen(4) }
         }
         Flickable {
             objectName: "relatedView"
@@ -151,6 +180,110 @@ Item {
                     Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                     text: "No notes share this paper's key words."
                 }
+            }
+        }
+        ColumnLayout {
+            objectName: "citationsView"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.mode === 4 && root.ready
+            spacing: 6
+            readonly property bool loaded: !!root.citations && !root.citations.notLoaded && !root.citations.error
+            // Before anything is fetched: what the button sends.
+            Label {
+                visible: !parent.loaded && !root.citationsLoading
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall
+                color: root.citations && root.citations.error ? Theme.danger : Theme.textTertiary
+                text: root.citations && root.citations.error ? root.citations.error
+                    : "Papers this one cites and papers citing it, from Semantic Scholar. Sends this paper's DOI, arXiv ID or title."
+            }
+            Button {
+                objectName: "findCitations"
+                visible: !parent.loaded && !root.citationsLoading
+                text: root.citations && root.citations.error ? "Try Again" : "Find Citations"
+                onClicked: root.fetchCitations(!!(root.citations && root.citations.error))
+            }
+            Label {
+                visible: root.citationsLoading
+                text: "Asking Semantic Scholar…"; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+            }
+            RowLayout {
+                visible: parent.loaded
+                Layout.fillWidth: true
+                TabBar {
+                    objectName: "citationsSide"
+                    Layout.fillWidth: true
+                    currentIndex: root.citationsSide
+                    TabButton { objectName: "citesTab"; text: "Cites " + (root.citations && root.citations.references ? root.citations.references.length : 0); onClicked: root.citationsSide = 0 }
+                    TabButton { objectName: "citedByTab"; text: "Cited by " + (root.citations && root.citations.citedBy ? root.citations.citedBy.length : 0); onClicked: root.citationsSide = 1 }
+                }
+                IconButton {
+                    objectName: "refreshCitations"
+                    icon.name: "reload"
+                    description: "Ask Semantic Scholar again" + (root.citations && root.citations.cached ? " · showing saved results" : "")
+                    onClicked: root.fetchCitations(true)
+                }
+            }
+            ListView {
+                id: citationList
+                objectName: "citationList"
+                visible: parent.loaded
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                model: root.citationRows
+                ScrollBar.vertical: ScrollBar {}
+                delegate: ItemDelegate {
+                    id: citation
+                    required property var modelData
+                    required property int index
+                    objectName: "citation-" + index
+                    width: ListView.view.width
+                    height: Theme.rowHeightTall
+                    separator: index < citationList.count - 1
+                    onClicked: root.openCitation(modelData)
+                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: { citationMenu.row = citation.modelData; citationMenu.popup() } }
+                    ToolTip.visible: hovered; ToolTip.delay: 600
+                    ToolTip.text: modelData.inLibrary ? "In your Library · click to open" : "Open " + modelData.url
+                    contentItem: ColumnLayout {
+                        spacing: 1
+                        Label {
+                            Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText
+                            text: citation.modelData.title; font.pixelSize: Theme.fontSmall; color: Theme.text
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 6
+                            Label {
+                                Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText
+                                font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                text: [citation.modelData.authors, citation.modelData.year,
+                                       citation.modelData.citations ? citation.modelData.citations + " citations" : ""].filter(function(t) { return !!t }).join(" · ")
+                            }
+                            Label {
+                                visible: !!citation.modelData.inLibrary
+                                text: "In Library"; font.pixelSize: Theme.fontCaption; color: Theme.accent
+                            }
+                        }
+                    }
+                }
+                Label {
+                    anchors.centerIn: parent; width: parent.width - 16
+                    visible: parent.count === 0
+                    horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
+                    text: root.citationsSide === 0 ? "Semantic Scholar lists no references for this paper." : "No citing papers are known yet."
+                }
+            }
+            Menu {
+                id: citationMenu
+                property var row: ({})
+                MenuItem { text: citationMenu.row.inLibrary ? "Open" : "Open Page"; onTriggered: root.openCitation(citationMenu.row) }
+                MenuItem {
+                    text: "Find Paper"
+                    onTriggered: root.linkActivated(Tree.referenceUrl([citationMenu.row.authors, citationMenu.row.title, citationMenu.row.year].join(" "),
+                                                                     researchStore.setting("searchEngine", "https://scholar.google.com/scholar?q=%s")))
+                }
+                MenuItem { text: "Copy Title"; onTriggered: researchStore.copyText(citationMenu.row.title) }
             }
         }
         ListView {

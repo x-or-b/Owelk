@@ -8,6 +8,7 @@ Item {
     width: 1000; height: 760
     App.ReaderPane { id: reader; x: 240; width: 760; height: 760; isActive: true }
     App.PdfNavigationPanel { id: panel; width: 230; height: 760; reader: reader; onModeChosen: function(mode) { panel.mode = mode } }
+    Component { id: linkSpyComponent; SignalSpy { target: panel; signalName: "linkActivated" } }
     TestCase {
         name: "PdfNavigation"
         when: windowShown
@@ -16,6 +17,39 @@ Item {
             reader.openFile(outlineSource)
             tryCompare(reader, "pdfReady", true)
             tryCompare(findChild(reader, "pdfCanvas0"), "restoring", false)
+        }
+        function test_citationsAreFetchedOnRequestAndKept() {
+            verify(researchStore.rememberDocument(outlineSource))
+            verify(researchStore.updateDocumentDetails(outlineSource, {title: "Outline Fixture", doi: "10.1/outline"}))
+            researchStore.setSetting("citations.baseUrl", testInput.webFixture("/graph/v1").toString())
+            const spy = createTemporaryObject(linkSpyComponent, panel)
+            mouseClick(findChild(panel, "citationsTab"))
+            compare(panel.mode, 4)
+            // Nothing is sent until asked.
+            const find = findChild(panel, "findCitations")
+            tryCompare(find, "visible", true)
+            mouseClick(find)
+            const list = findChild(panel, "citationList")
+            function row(i) { let item = null; tryVerify(function() { list.forceLayout(); item = list.itemAtIndex(i); return item !== null }); return item }
+            tryCompare(list, "count", 1, 5000)
+            compare(row(0).modelData.title, "Cited Work")
+            mouseClick(findChild(panel, "citedByTab"))
+            tryCompare(list, "count", 2)
+            tryCompare(row(0).modelData, "title", "Later Work") // Most cited first.
+            // A paper outside the Library opens its page.
+            mouseClick(findChild(panel, "citesTab"))
+            tryCompare(list, "count", 1)
+            tryVerify(function() { return row(0).modelData.title === "Cited Work" })
+            mouseClick(row(0))
+            compare(spy.count, 1)
+            compare(spy.signalArguments[0][0], "https://arxiv.org/abs/1801.00001")
+            // Coming back shows the saved results without asking again.
+            mouseClick(findChild(panel, "outlineTab"))
+            mouseClick(findChild(panel, "citationsTab"))
+            tryCompare(list, "count", 1)
+            verify(panel.citations.cached)
+            verify(!find.visible)
+            mouseClick(findChild(panel, "outlineTab"))
         }
         function test_nestedOutlineAndDestination() {
             const tree = findChild(panel, "pdfOutline")

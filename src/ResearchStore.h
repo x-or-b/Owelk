@@ -14,6 +14,7 @@
 
 class PaperIndex;
 class ReferenceFinder;
+class QNetworkAccessManager;
 class QPdfDocument;
 
 class ResearchStore final : public QObject {
@@ -154,6 +155,11 @@ public:
     // The opening of a paper's indexed text (for tab organization); empty when not indexed yet.
     Q_INVOKABLE QString paperOpening(const QUrl &source, int characters = 400);
     // From the paper's text index: its start (abstract, introduction) and its conclusion.
+    // Papers this one cites and papers citing it, from Semantic Scholar (only when asked; a month's cache).
+    // Answered by citationsLoaded(request, source, {references, citedBy, cached, error}); each row has
+    // title, year, authors, doi, arxiv, citations, url and inLibrary (the file, when it is in the Library).
+    // cachedOnly answers from the cache or with {notLoaded: true}, never touching the network.
+    Q_INVOKABLE int loadCitations(const QUrl &source, bool refresh = false, bool cachedOnly = false);
     Q_INVOKABLE QVariantMap paperExcerpt(const QUrl &source, int opening = 5000, int closing = 2500);
     // Encrypted PDFs: the viewer hands over a password that worked, so indexing, captures, printing
     // and AI can open the file too. keep: also store it in the system keyring.
@@ -283,6 +289,7 @@ signals:
     void relatedFound(int request, const QVariantList &papers, const QVariantList &notes);
     void collectionsSuggested(int request, const QUrl &source, const QVariantList &suggestions);
     void folderImported(int request, int added, int collections, const QString &error);
+    void citationsLoaded(int request, const QUrl &source, const QVariantMap &result);
     void ocrChanged();
     void backingUpChanged();
     void backupFinished(bool ok, const QString &path, const QString &message);
@@ -387,6 +394,9 @@ private:
     bool readPrintMarks(const QUrl &source, const QString &hash, QVariantList *marks);
     PaperIndex *m_index;
     ReferenceFinder *m_references;
+    QNetworkAccessManager *m_citationNetwork = nullptr;
+    int m_citationRequest = 0;
+    QVariantMap withLibraryMatches(QVariantMap result) const;
     QObject *m_lookup;
     QObject *m_ai;
     class SemanticIndex *m_semantic = nullptr;
