@@ -54,6 +54,11 @@ Rectangle {
         tagRows = researchStore.tags()
         noteRows = showingNotes ? researchStore.notes(!!filter.notesTrash) : []
     }
+    Loader { id: organizer; active: false; sourceComponent: OrganizePapersDialog {} }
+    function organizeWithAi(urls) {
+        organizer.active = true
+        organizer.item.begin(urls, root.filter.collection || "")
+    }
     function setFilter(next) { filter = next; selection = []; selectionAnchor = -1; filterEdited(next); refresh() }
     function selected(key, value) { return key === "all" ? Object.keys(filter).length === 0 : filter[key] === value }
     onQueryChanged: refreshTimer.restart()
@@ -147,6 +152,7 @@ Rectangle {
             text: "Remove from This Collection"
             onTriggered: researchStore.setDocumentsCollection(batchMenu.urls, root.filter.collection, false)
         }
+        MenuItem { objectName: "batchOrganize"; text: "Organize into Collections with AI…"; onTriggered: root.organizeWithAi(batchMenu.urls) }
         MenuSeparator {}
         MenuItem { text: "Mark as Read"; onTriggered: batchMenu.urls.forEach(function(u) { researchStore.setReadingState(u, "read") }) }
         MenuItem { text: "Add to Favorites"; onTriggered: batchMenu.urls.forEach(function(u) { researchStore.setFavorite(u, true) }) }
@@ -374,6 +380,14 @@ Rectangle {
                         MenuItem { text: "Add PDFs…"; onTriggered: addDialog.open() }
                         MenuItem { objectName: "libraryAddFolder"; text: "Add Folder…"; onTriggered: folderDialog.open() }
                     }
+                }
+                // AI topic collections for the selection, or for the papers listed (Unsorted is the usual place).
+                IconButton {
+                    objectName: "libraryOrganize"
+                    icon.name: "ai"
+                    enabled: (root.selection.length || root.rows.length) >= 2
+                    description: "Organize into collections with AI… · " + (root.selection.length ? "the selected papers" : "the papers listed here")
+                    onClicked: root.organizeWithAi(root.selection.length ? root.selection : root.rows.map(function(r) { return r.url.toString() }))
                 }
                 IconButton {
                     objectName: "exportBibtex"

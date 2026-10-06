@@ -352,6 +352,49 @@ private slots:
         QCOMPARE(server.seen.size(), requests);
         QVERIFY(ai->clearApiKey("claude"));
     }
+    void organizePapersSuggestsCollectionsWithoutApplying()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        MockServer server;
+        // An existing collection is reused by name; papers are named p1…pN.
+        const auto answer = QStringLiteral("{\"groups\": [{\"name\": \"Radar\", \"papers\": [\"p2\", \"p1\"]}, "
+                                           "{\"name\": \"Scenes\", \"papers\": [\"p3\", \"t1\"]}]}");
+        server.chunks
+            = {MockServer::sse("content_block_delta",
+                   {{"type", "content_block_delta"}, {"delta", QJsonObject{{"type", "text_delta"}, {"text", answer}}}}),
+                MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        store.setSetting("ai.baseUrl.claude", server.base().toString());
+        ai->setProvider("claude");
+        QVERIFY(ai->setApiKey("claude", "sk-ant-test-key"));
+        QSignalSpy organized(ai, &AiService::papersOrganized);
+        const QVariantList papers{QVariantMap{{"id", "file:///a.pdf"}, {"title", "Radar odometry"}},
+            QVariantMap{{"id", "file:///b.pdf"}, {"title", "Doppler inertial odometry"}, {"year", "2025"}},
+            QVariantMap{{"id", "file:///c.pdf"}, {"title", "Indoor scenes"}, {"opening", "We render rooms…"}}};
+        ai->organizePapers(papers, {"Radar", "Reading list"});
+        QTRY_COMPARE_WITH_TIMEOUT(organized.size(), 1, 10000);
+        QCOMPARE(organized[0][2].toString(), QString());
+        const auto groups = organized[0][1].toList();
+        QCOMPARE(groups.size(), 2);
+        QCOMPARE(groups[0].toMap()["paperIds"].toStringList(), QStringList({"file:///b.pdf", "file:///a.pdf"}));
+        QCOMPARE(groups[1].toMap()["paperIds"].toStringList(), QStringList({"file:///c.pdf"}));
+        const auto sent = server.seen.last()
+                              .body["messages"]
+                              .toArray()
+                              .last()
+                              .toObject()["content"]
+                              .toArray()
+                              .last()
+                              .toObject()["text"]
+                              .toString();
+        QVERIFY(sent.contains("- Reading list"));
+        QVERIFY(sent.contains("p3: Indoor scenes"));
+        QVERIFY(!sent.contains("file:///"));
+        QVERIFY(ai->clearApiKey("claude"));
+    }
     void serviceRequiresConsentKeyAndSavesAnswers()
     {
         QTemporaryDir directory;

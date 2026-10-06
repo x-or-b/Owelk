@@ -426,8 +426,9 @@ void AiService::cancel(int request)
     }
 }
 
-// Tabs are named t1…tN in the prompt (short, and no paths or URLs needed in the answer).
-static QVariantList parseTabGroups(const QString &answer, const QHash<QString, QString> &ids)
+// Items are named t1…tN (tabs) or p1…pN (papers) in the prompt: short, and no paths or URLs needed in the answer.
+static QVariantList parseGroups(
+    const QString &answer, const QHash<QString, QString> &ids, const QString &memberKey, const QString &idsKey)
 {
     const auto start = answer.indexOf('{'), end = answer.lastIndexOf('}');
     if (start < 0 || end <= start) return {};
@@ -438,53 +439,57 @@ static QVariantList parseTabGroups(const QString &answer, const QHash<QString, Q
     for (const auto &value : groups) {
         const auto entry = value.toObject();
         const auto name = entry.value("name").toString().simplified().left(80);
-        QStringList tabs;
-        for (const auto &tab : entry.value("tabs").toArray()) {
-            const auto id = ids.value(tab.toString());
-            // Unknown names are ignored; a tab joins only the first group that claims it.
+        QStringList members;
+        for (const auto &member : entry.value(memberKey).toArray()) {
+            const auto id = ids.value(member.toString());
+            // Unknown names are ignored; an item joins only the first group that claims it.
             if (!id.isEmpty() && !used.contains(id)) {
-                tabs << id;
+                members << id;
                 used.insert(id);
             }
         }
-        if (!name.isEmpty() && !tabs.isEmpty()) result.append(QVariantMap{{"name", name}, {"tabIds", tabs}});
+        if (!name.isEmpty() && !members.isEmpty()) result.append(QVariantMap{{"name", name}, {idsKey, members}});
     }
     return result;
 }
 
-int AiService::organizeTabs(const QVariantList &tabs)
+static QString describeItem(const QString &name, const QVariantMap &item)
+{
+    QStringList parts{name + ": " + item.value("title").toString().left(200)};
+    if (!item.value("authors").toString().isEmpty() || !item.value("year").toString().isEmpty())
+        parts << "  by " + item.value("authors").toString().left(120) + " " + item.value("year").toString();
+    if (!item.value("url").toString().isEmpty()) parts << "  address: " + item.value("url").toString().left(200);
+    if (!item.value("opening").toString().isEmpty()) parts << "  begins: " + item.value("opening").toString().left(400);
+    return parts.join('\n');
+}
+
+int AiService::suggestGroups(const QVariantList &items, const QString &prefix, const QString &memberKey,
+    const QString &idsKey, const QString &system, const QString &text, GroupReply reply)
 {
     const int request = ++m_nextRequest;
     const auto id = provider();
     QString error;
-    auto *provider = tabs.size() < 2 ? nullptr : createProvider(id, &error);
+    auto *provider = items.size() < 2 ? nullptr : createProvider(id, &error);
     if (!provider) {
-        if (error.isEmpty()) error = "Open at least two tabs to organize.";
+        if (error.isEmpty())
+            error = prefix == "t" ? "Open at least two tabs to organize." : "Choose at least two papers.";
         QMetaObject::invokeMethod(
-            this, [this, request, error] { emit tabsOrganized(request, {}, error); }, Qt::QueuedConnection);
+            this, [this, request, error, reply] { emit(this->*reply)(request, {}, error); }, Qt::QueuedConnection);
         return request;
     }
     QHash<QString, QString> ids;
     QStringList lines;
-    for (qsizetype i = 0; i < tabs.size() && i < 60; ++i) {
-        const auto tab = tabs[i].toMap();
-        const auto name = QStringLiteral("t%1").arg(i + 1);
-        ids.insert(name, tab.value("id").toString());
-        QStringList parts{name + ": " + tab.value("title").toString().left(200)};
-        if (!tab.value("authors").toString().isEmpty() || !tab.value("year").toString().isEmpty())
-            parts << "  by " + tab.value("authors").toString().left(120) + " " + tab.value("year").toString();
-        if (!tab.value("url").toString().isEmpty()) parts << "  address: " + tab.value("url").toString().left(200);
-        if (!tab.value("opening").toString().isEmpty())
-            parts << "  begins: " + tab.value("opening").toString().left(400);
-        lines << parts.join('\n');
+    for (qsizetype i = 0; i < items.size() && i < 80; ++i) {
+        const auto item = items[i].toMap();
+        const auto name = prefix + QString::number(i + 1);
+        ids.insert(name, item.value("id").toString());
+        lines << describeItem(name, item);
     }
     AiRequest call;
-    call.system = "You organize a researcher's open tabs into a few named groups by topic. Use short, specific group "
-                  "names (2-5 words) in the language of the tab titles. Leave a tab out when it fits no group. Reply "
-                  "with JSON only: {\"groups\": [{\"name\": \"…\", \"tabs\": [\"t1\", \"t2\"]}]}.";
-    call.text = "Group these tabs:\n\n" + lines.join("\n\n");
+    call.system = system;
+    call.text = text + "\n\n" + lines.join("\n\n");
     call.model = model(id);
-    call.maxTokens = 2000;
+    call.maxTokens = 3000;
     m_running.insert(request, provider);
     emit busyChanged();
     const auto done = [this, request, provider] {
@@ -492,17 +497,45 @@ int AiService::organizeTabs(const QVariantList &tabs)
         provider->deleteLater();
         emit busyChanged();
     };
-    connect(provider, &AiProvider::finished, this, [this, request, ids, done](const QString &text, const QString &) {
+    connect(provider, &AiProvider::finished, this,
+        [this, request, ids, done, memberKey, idsKey, reply](const QString &answer, const QString &) {
+            done();
+            const auto groups = parseGroups(answer, ids, memberKey, idsKey);
+            emit(this->*reply)(
+                request, groups, groups.isEmpty() ? QStringLiteral("No groups were suggested.") : QString());
+        });
+    connect(provider, &AiProvider::failed, this, [this, request, done, reply](const QString &message) {
         done();
-        const auto groups = parseTabGroups(text, ids);
-        emit tabsOrganized(request, groups, groups.isEmpty() ? QStringLiteral("No groups were suggested.") : QString());
-    });
-    connect(provider, &AiProvider::failed, this, [this, request, done](const QString &message) {
-        done();
-        emit tabsOrganized(request, {}, message);
+        emit(this->*reply)(request, {}, message);
     });
     provider->start(call);
     return request;
+}
+
+int AiService::organizeTabs(const QVariantList &tabs)
+{
+    return suggestGroups(tabs, "t", "tabs", "tabIds",
+        "You organize a researcher's open tabs into a few named groups by topic. Use short, specific group "
+        "names (2-5 words) in the language of the tab titles. Leave a tab out when it fits no group. Reply "
+        "with JSON only: {\"groups\": [{\"name\": \"…\", \"tabs\": [\"t1\", \"t2\"]}]}.",
+        "Group these tabs:", &AiService::tabsOrganized);
+}
+
+int AiService::organizePapers(const QVariantList &papers, const QStringList &collections)
+{
+    QString text = "Group these papers:";
+    if (!collections.isEmpty()) {
+        QStringList names;
+        for (const auto &name : collections.mid(0, 60)) names << "- " + name.left(80);
+        text = "Collections that already exist:\n" + names.join('\n') + "\n\n" + text;
+    }
+    return suggestGroups(papers, "p", "papers", "paperIds",
+        "You sort a researcher's papers into a few topic collections. Use short, specific names (2-5 words) "
+        "in the language of the paper titles. When papers fit a collection that already exists, use its exact "
+        "name. Leave a paper out when it fits no group, and do not make a group for a single paper unless it "
+        "fits an existing collection. Reply with JSON only: "
+        "{\"groups\": [{\"name\": \"…\", \"papers\": [\"p1\", \"p2\"]}]}.",
+        text, &AiService::papersOrganized);
 }
 
 void AiService::testConnection(const QString &id)

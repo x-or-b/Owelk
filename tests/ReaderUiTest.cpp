@@ -196,10 +196,13 @@ public slots:
                         type = "text/event-stream";
                         // Tab organization prompts get groups back; everything else a fixed answer.
                         const bool grouping = request.contains("Group these tabs");
+                        const bool sorting = request.contains("Group these papers");
                         const QList<QByteArray> pieces = grouping
                             ? QList<QByteArray>{"{\\\"groups\\\": [{\\\"name\\\": \\\"Fixture papers\\\", ",
                                   "\\\"tabs\\\": [\\\"t1\\\", \\\"t2\\\"]}]}"}
-                            : QList<QByteArray>{"Mock ", "answer about **occlusion**."};
+                            : sorting ? QList<QByteArray>{"{\\\"groups\\\": [{\\\"name\\\": \\\"Occlusion studies\\\", ",
+                                            "\\\"papers\\\": [\\\"p1\\\", \\\"p2\\\"]}]}"}
+                                      : QList<QByteArray>{"Mock ", "answer about **occlusion**."};
                         for (const auto &piece : pieces)
                             body += QByteArray(
                                         "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":"

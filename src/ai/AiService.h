@@ -48,6 +48,10 @@ public:
     // Suggest named groups for open tabs. tabs: [{id, title, url, kind, authors, year, opening}].
     // Answered by tabsOrganized(request, groups [{name, tabIds}], error). Nothing is changed here.
     Q_INVOKABLE int organizeTabs(const QVariantList &tabs);
+    // Suggest topic collections for papers. papers: [{id, title, authors, year, opening}]; collections:
+    // names already in use, which the answer may reuse. Answered by papersOrganized(request,
+    // groups [{name, paperIds}], error). Nothing is changed here.
+    Q_INVOKABLE int organizePapers(const QVariantList &papers, const QStringList &collections);
     // Codex app server: account status, ChatGPT sign-in (opens the browser) and sign-out.
     Q_INVOKABLE void refreshCodexAccount();
     Q_INVOKABLE void codexSignIn();
@@ -66,6 +70,7 @@ signals:
     void failed(int request, const QString &error);
     void connectionTested(const QString &provider, bool ok, const QString &detail);
     void tabsOrganized(int request, const QVariantList &groups, const QString &error);
+    void papersOrganized(int request, const QVariantList &groups, const QString &error);
     void codexAccountChanged(const QVariantMap &account);
     void ollamaModelsLoaded(const QStringList &models);
     // models: [{id, name}]
@@ -77,6 +82,11 @@ private:
     AiProvider *createProvider(const QString &provider, QString *error);
     QString attachmentDirectory() const;
     void run(int request, const QString &provider, const QVariantMap &spec, const QVariantMap &prepared);
+    // Shared by tab and paper organization: items are named <prefix>1…N in the prompt, and the
+    // answer's groups list them under memberKey. reply(request, groups [{name, ids}], error).
+    using GroupReply = void (AiService::*)(int, const QVariantList &, const QString &);
+    int suggestGroups(const QVariantList &items, const QString &prefix, const QString &memberKey, const QString &idsKey,
+        const QString &system, const QString &text, GroupReply reply);
     ResearchStore *m_store;
     QNetworkAccessManager *m_network;
     CodexBridge *m_codex;

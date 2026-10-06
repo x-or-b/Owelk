@@ -338,5 +338,38 @@ Item {
             compare(labels[0].name, "Fixture papers")
             verify(Tree.leaves(d.tree)[0].tabs.every(function(t) { return t.label === labels[0].id }))
         }
+        function test_9zz_organizePapersIntoCollectionsOnApply() {
+            verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
+            researchStore.ai.provider = "claude"
+            const one = testInput.copyFixture("occlusion one.pdf"), two = testInput.copyFixture("occlusion two.pdf")
+            verify(researchStore.rememberDocument(one)); verify(researchStore.rememberDocument(two))
+            const existing = researchStore.createCollection("Occlusion Studies")
+            workspace.documents.openLibrary({})
+            let view = null
+            tryVerify(function() { view = findChild(workspace.documents.groupView(workspace.documents.activeGroup), "libraryView"); return view !== null && view.width > 0 })
+            verify(visualChild(view, "libraryOrganize").enabled)
+            view.organizeWithAi([one.toString(), two.toString()])
+            const dialog = findChild(view, "organizePapersDialog")
+            tryCompare(dialog, "opened", true)
+            compare(dialog.papers.length, 2)
+            mouseClick(findChild(dialog, "organizePapersAsk"))
+            tryVerify(function() { return dialog.suggestions.length === 1 }, 10000)
+            compare(dialog.suggestions[0].paperIds.length, 2)
+            // The answer reuses the existing collection (names match regardless of case).
+            tryVerify(function() { const kind = visualChild(dialog.contentItem, "organizePapersKind-0"); return kind && kind.text === "Existing" })
+            compare(researchStore.libraryDocuments({collection: existing}).length, 0, "nothing changes before Apply")
+            // Renamed to a new name, Apply makes that collection instead.
+            const name = visualChild(dialog.contentItem, "organizePapersName-0")
+            name.selectAll(); name.forceActiveFocus()
+            keyClick(Qt.Key_Backspace); "Depth cues".split("").forEach(function(ch) { keyClick(ch) })
+            tryCompare(visualChild(dialog.contentItem, "organizePapersKind-0"), "text", "New")
+            mouseClick(findChild(dialog, "organizePapersApply"))
+            tryCompare(dialog, "opened", false)
+            const made = researchStore.collections().find(function(c) { return c.name === "Depth cues" })
+            verify(made !== undefined)
+            compare(researchStore.libraryDocuments({collection: made.id}).length, 2)
+            compare(researchStore.libraryDocuments({collection: existing}).length, 0)
+            researchStore.deleteCollection(made.id); researchStore.deleteCollection(existing)
+        }
     }
 }
