@@ -16,6 +16,8 @@ const actions = [
     {id: "previousTab", name: "Previous Tab", mac: "Ctrl+Alt+Left", other: "Ctrl+PgUp"},
     {id: "newNote", name: "New Note", mac: "Ctrl+Shift+N", other: "Ctrl+Shift+N"},
     {id: "openWeb", name: "Open Web Page", mac: "Ctrl+L", other: "Ctrl+L"},
+    {id: "jumpBack", name: "Back to Previous Spot", mac: "Alt+Left", other: "Alt+Left"},
+    {id: "jumpForward", name: "Forward to Next Spot", mac: "Alt+Right", other: "Alt+Right"},
     {id: "capture", name: "Capture Region", mac: "Ctrl+Shift+C", other: "Ctrl+Shift+C"},
     {id: "splitRight", name: "Duplicate to Right Split", mac: "Ctrl+\\", other: "Ctrl+\\"},
     {id: "splitDown", name: "Duplicate to Bottom Split", mac: "Ctrl+Alt+\\", other: "Ctrl+Shift+\\"},

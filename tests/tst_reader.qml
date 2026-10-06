@@ -138,6 +138,33 @@ Item {
             canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000)
         }
+        function test_backToWhereYouWereReading() {
+            canvas.openFile(linkSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            const pill = findChild(canvas, "jumpBackPill")
+            verify(!pill.visible)
+            const link = tryFindLink()
+            mouseClick(link, link.width / 2, link.height / 2)
+            tryCompare(canvas, "currentPage", 2)
+            // The spot left is offered; Back returns to it, Forward goes again.
+            tryCompare(pill, "visible", true)
+            compare(findChild(pill, "jumpBackButton").text, "Back to p. 1")
+            mouseClick(findChild(pill, "jumpBackButton"))
+            tryCompare(canvas, "currentPage", 0)
+            tryCompare(pill, "visible", false)
+            tryCompare(canvas, "restoring", false)
+            verify(canvas.goForward())
+            tryCompare(canvas, "currentPage", 2)
+            tryCompare(pill, "visible", true)
+            // Coming back by scrolling hides it; dismissing forgets it.
+            canvas.jump(0, 0, 0); tryCompare(canvas, "restoring", false)
+            tryCompare(pill, "visible", false)
+            canvas.jump(2, 0, 0); tryCompare(canvas, "restoring", false)
+            tryCompare(pill, "visible", true)
+            mouseClick(findChild(pill, "jumpBackDismiss"))
+            tryCompare(pill, "visible", false)
+            verify(!canvas.goBack())
+        }
         function test_internalLinkJumps() {
             canvas.openFile(linkSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)

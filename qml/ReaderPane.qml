@@ -102,7 +102,10 @@ Rectangle {
     function zoom(multiplier) { canvas.zoom(multiplier) }
     function fitWidth() { canvas.fitWidth() }
     function fitPage() { canvas.fitPage() }
-    function jumpToPage(page, y) { activated(); canvas.jump(page, y || 0, 0) }
+    // From the outline, thumbnails and the like: Back returns to where the reader was.
+    function jumpToPage(page, y) { activated(); canvas.jumpRemembering(page, y || 0, 0) }
+    function goBack() { return canvas.goBack() }
+    function goForward() { return canvas.goForward() }
     // Web links in a PDF open in an app tab when the pane belongs to a workspace.
     signal linkRequested(url url)
     // AI help about the selection, the current page or the whole paper; the composer is shared app-wide.

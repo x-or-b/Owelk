@@ -44,6 +44,18 @@ Item {
             tryVerify(function() { return Tree.leaves(workspace.documents.tree).some(function(g) { return g.tabs.some(function(t) { return researchStore.sameSource(t.source, paper) }) }) })
             compare(workspace.homeVisible, false)
         }
+        function test_backAndForwardShortcuts() {
+            workspace.openDocument(fixtureSource); const c = canvas()
+            workspace.homeVisible = false
+            c.jump(1, 0, 0); tryCompare(c, "restoring", false); wait(250)
+            c.jumpRemembering(5, 0, 0); tryCompare(c, "restoring", false)
+            compare(c.currentPage, 5)
+            testInput.keyClick(workspace.contentItem, Qt.Key_Left, Qt.AltModifier)
+            tryCompare(c, "currentPage", 1)
+            tryCompare(c, "restoring", false)
+            testInput.keyClick(workspace.contentItem, Qt.Key_Right, Qt.AltModifier)
+            tryCompare(c, "currentPage", 5)
+        }
         function test_closeShortcutEndsWithTheWindow() {
             const d = workspace.documents
             workspace.openDocument(fixtureSource); canvas()

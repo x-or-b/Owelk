@@ -5,6 +5,7 @@ import QtQuick.Shapes
 import Owelk.Ui
 import "StrokePath.js" as Stroke
 import "WorkspaceTree.js" as Tree
+import "Platform.js" as Platform
 
 Item {
     id: root
@@ -78,6 +79,7 @@ Item {
     onReadyChanged: refreshHighlights()
     onSourceChanged: {
         savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null; documentFingerprint = ""; tool = ""
+        backStack = []; forwardStack = []
         closeLinkPreview(); hoveredLink = null; restSpot = null
         // PdfDocument may become Ready synchronously before this handler resets the request.
         Qt.callLater(refreshHighlights)
@@ -948,7 +950,7 @@ Item {
                             root.activated()
                             if (link.page >= 0) {
                                 const size = pdfDocument.pagePointSize(link.page)
-                                root.jump(link.page, link.location.y / size.height, 0)
+                                root.jumpRemembering(link.page, link.location.y / size.height, 0)
                             } else if (/^https?:\/\//i.test(url.toString())) {
                                 root.externalLinkRequested(url)
                             }
@@ -1139,7 +1141,68 @@ Item {
     function goToEntry(entry) {
         const page = entry.page, top = Math.max(0, entry.top - .03)
         closeLinkPreview()
-        jump(page, top, 0)
+        jumpRemembering(page, top, 0)
+    }
+    // --- Back to where you were ----------------------------------------------------------------
+    // Following a link, a preview or the outline remembers the spot left; Back (the pill, or Alt+Left)
+    // returns there and Forward goes again. Scrolling and page turns are not remembered.
+    property var backStack: []
+    property var forwardStack: []
+    function jumpRemembering(page, y, x) {
+        if (!ready) return
+        backStack = backStack.concat([position()]).slice(-20)
+        forwardStack = []
+        jump(page, y, x || 0)
+    }
+    function goBack() {
+        if (!backStack.length) return false
+        const target = backStack[backStack.length - 1]
+        forwardStack = forwardStack.concat([position()]).slice(-20)
+        backStack = backStack.slice(0, -1)
+        jump(target.page, target.y, target.x)
+        return true
+    }
+    function goForward() {
+        if (!forwardStack.length) return false
+        const target = forwardStack[forwardStack.length - 1]
+        backStack = backStack.concat([position()]).slice(-20)
+        forwardStack = forwardStack.slice(0, -1)
+        jump(target.page, target.y, target.x)
+        return true
+    }
+    // The spot Back returns to, while the reader is more than half a page away from it.
+    readonly property var backTarget: backStack.length ? backStack[backStack.length - 1] : null
+    readonly property bool awayFromBack: !!backTarget && Math.abs(lastPosition.page + lastPosition.y - backTarget.page - backTarget.y) > .5
+    Rectangle {
+        id: backPill
+        objectName: "jumpBackPill"
+        visible: root.awayFromBack && !root.captureMode
+        z: 55
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom; anchors.bottomMargin: 26
+        width: backRow.implicitWidth + 8; height: Theme.controlHeight + 4
+        radius: height / 2
+        color: Theme.raised
+        border.color: Theme.border
+        Row {
+            id: backRow
+            anchors.centerIn: parent
+            spacing: 2
+            ToolButton {
+                objectName: "jumpBackButton"
+                height: Theme.controlHeight
+                icon.name: "back"
+                text: "Back to p. " + (root.backTarget ? root.backTarget.page + 1 : "")
+                ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: "Back to where you were reading · " + Platform.keys("Alt+Left")
+                onClicked: root.goBack()
+            }
+            IconButton {
+                objectName: "jumpBackDismiss"
+                anchors.verticalCenter: parent.verticalCenter
+                icon.name: "close"; description: "Forget this spot"
+                onClicked: root.backStack = []
+            }
+        }
     }
     // A cited paper: look it up (its DOI or arXiv page, or a search for the entry), in a web tab.
     function findPaper(entry) {
