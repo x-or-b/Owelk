@@ -1127,6 +1127,17 @@ Item {
     function leaveLinkPreview() { previewShow.stop(); if (!previewHover.hovered) previewHide.restart() }
     function closeLinkPreview() { previewShow.stop(); previewHide.stop(); linkPreview = null; pendingPreview = null }
     Timer { id: previewShow; interval: 350; onTriggered: root.linkPreview = root.pendingPreview }
+    function goToEntry(entry) {
+        const page = entry.page, top = Math.max(0, entry.top - .03)
+        closeLinkPreview()
+        jump(page, top, 0)
+    }
+    // A cited paper: look it up (its DOI or arXiv page, or a search for the entry), in a web tab.
+    function findPaper(entry) {
+        const url = Tree.referenceUrl(entry, researchStore.setting("searchEngine", "https://scholar.google.com/scholar?q=%s"))
+        closeLinkPreview()
+        if (url.length) externalLinkRequested(url)
+    }
     // Papers without working links (most publisher PDFs): resting the pointer on "[12]", "Fig. 3",
     // "Table II" or "Eq. (4)" finds the target from the text (ReferenceFinder). Nothing runs until the
     // pointer rests on text.
@@ -1159,7 +1170,7 @@ Item {
             previewShow.stop(); previewHide.stop()
             root.previewContentY = pages.contentY
             root.linkPreview = {page: target.page, y: target.top, x: spot.viewX, kind: target.kind, top: spot.viewY - half, bottom: spot.viewY + half,
-                                rect: Qt.rect(target.x, target.y, target.width, target.height), label: target.label, text: target.text || "",
+                                rect: Qt.rect(target.x, target.y, target.width, target.height), label: target.label, text: target.text || "", entries: target.entries || [],
                                 fromText: true, anchorX: spot.viewX, anchorY: spot.viewY}
         }
     }
@@ -1172,8 +1183,11 @@ Item {
         readonly property var spec: root.linkPreview || ({page: 0, y: 0, x: 0, top: 0, bottom: 0})
         // Figures and tables get a taller card, zoomed to their column.
         readonly property bool showsFloat: spec.kind === "figure" || spec.kind === "table"
+        // Several papers cited together ([3, 5], [12–14]): a list of their entries instead of the page.
+        readonly property bool showsList: !!spec.entries && spec.entries.length > 1
         width: Math.min(560, root.width - 32)
-        height: showsFloat ? Math.min(420, root.height * .62) : Math.min(240, root.height * .45)
+        height: showsList ? Math.min(entryList.contentHeight + 12, root.height * .45)
+              : showsFloat ? Math.min(420, root.height * .62) : Math.min(240, root.height * .45)
         // Below the reference when there is room, otherwise above it.
         x: Math.max(8, Math.min(root.width - width - 8, spec.x - 40))
         y: spec.bottom + height + 12 < root.height ? spec.bottom + 6 : Math.max(8, spec.top - height - 6)
@@ -1184,7 +1198,7 @@ Item {
         // Created only while shown, so references cost nothing until hovered. The page scrolls inside
         // the card (wheel, trackpad or drag) to see more around the target.
         Loader {
-            active: previewCard.visible
+            active: previewCard.visible && !previewCard.showsList
             anchors.fill: parent
             sourceComponent: Flickable {
                 id: previewFlick
@@ -1238,16 +1252,56 @@ Item {
                     }
                     // Click: go to what the card shows.
                     TapHandler {
-                        onTapped: {
-                            const page = previewCard.spec.page, top = previewFlick.contentY / Math.max(1, previewFlick.contentHeight)
-                            root.closeLinkPreview()
-                            root.jump(page, Math.max(0, top), 0)
-                        }
+                        onTapped: root.goToEntry({page: previewCard.spec.page, top: previewFlick.contentY / Math.max(1, previewFlick.contentHeight) + .03})
                     }
                 }
             }
         }
+        ListView {
+            id: entryList
+            objectName: "linkPreviewList"
+            visible: previewCard.showsList
+            anchors.fill: parent; anchors.margins: 6
+            clip: true
+            spacing: 2
+            model: previewCard.showsList ? previewCard.spec.entries : []
+            ScrollBar.vertical: ScrollBar {}
+            delegate: Rectangle {
+                id: entryRow
+                required property var modelData
+                required property int index
+                objectName: "linkPreviewEntry-" + index
+                width: ListView.view.width
+                height: entryText.implicitHeight + 12
+                radius: Theme.radiusSmall
+                color: entryHover.hovered ? Theme.hover : modelData.current ? Theme.selected : "transparent"
+                HoverHandler { id: entryHover }
+                // Click: go to that entry.
+                TapHandler {
+                    // Closing the card removes this row, so go there first.
+                    onTapped: root.goToEntry(entryRow.modelData)
+                }
+                Label {
+                    id: entryText
+                    x: 8; y: 6
+                    width: parent.width - 16 - findEntry.width
+                    text: "<b>" + entryRow.modelData.label + "</b> " + entryRow.modelData.text.replace(/^\s*\[\d+\]\s*/, "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                    textFormat: Text.StyledText
+                    wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight
+                    font.pixelSize: Theme.fontSmall; color: Theme.text
+                }
+                IconButton {
+                    id: findEntry
+                    objectName: "findPaperEntry-" + entryRow.index
+                    anchors.right: parent.right; anchors.rightMargin: 4; anchors.verticalCenter: parent.verticalCenter
+                    icon.name: "search"
+                    description: "Find this paper · its DOI or arXiv page, or a search"
+                    onClicked: root.findPaper(entryRow.modelData.text)
+                }
+            }
+        }
         Rectangle {
+            visible: !previewCard.showsList
             anchors.bottom: parent.bottom; anchors.right: parent.right; anchors.margins: 6
             width: goLabel.implicitWidth + 12; height: goLabel.implicitHeight + 6
             radius: Theme.radiusSmall
@@ -1257,17 +1311,13 @@ Item {
         // A cited paper: look it up (its DOI or arXiv page, or a search for the entry), in a web tab.
         Button {
             objectName: "findPaperButton"
-            visible: (previewCard.spec.kind === "citation" || previewCard.spec.kind === "author") && !!previewCard.spec.text
+            visible: !previewCard.showsList && (previewCard.spec.kind === "citation" || previewCard.spec.kind === "author") && !!previewCard.spec.text
             anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 6
             text: "Find Paper"
             icon.name: "search"
             ToolTip.visible: hovered; ToolTip.delay: 500
             ToolTip.text: "Open its DOI or arXiv page, or search for it · then download the PDF into the Library"
-            onClicked: {
-                const url = Tree.referenceUrl(previewCard.spec.text, researchStore.setting("searchEngine", "https://scholar.google.com/scholar?q=%s"))
-                root.closeLinkPreview()
-                if (url.length) root.externalLinkRequested(url)
-            }
+            onClicked: root.findPaper(previewCard.spec.text)
         }
         HoverHandler { id: previewHover; onHoveredChanged: if (!hovered) previewHide.restart() }
     }

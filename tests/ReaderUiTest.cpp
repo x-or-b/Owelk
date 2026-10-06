@@ -178,6 +178,8 @@ public slots:
             const auto text = references.getAllText(0).text();
             engine->rootContext()->setContextProperty(
                 "referenceCitation", references.getSelectionAtIndex(0, text.indexOf("[2]"), 3).boundingRectangle());
+            engine->rootContext()->setContextProperty("referenceRange",
+                references.getSelectionAtIndex(0, text.indexOf(QString::fromUtf8("[1\u20133]")), 5).boundingRectangle());
             engine->rootContext()->setContextProperty(
                 "referenceFigure", references.getSelectionAtIndex(0, text.indexOf("Fig. 2"), 6).boundingRectangle());
             engine->rootContext()->setContextProperty(

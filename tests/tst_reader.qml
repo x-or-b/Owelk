@@ -186,6 +186,36 @@ Item {
             canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000)
         }
+        function test_citedTogetherListsEveryEntry() {
+            canvas.openFile(referenceSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            const card = findChild(canvas, "linkPreview"), paper = findChild(canvas, "paperPage0")
+            const at = Qt.point((referenceRange.x + referenceRange.width / 2) * canvas.pageScale, (referenceRange.y + referenceRange.height / 2) * canvas.pageScale)
+            mouseMove(paper, at.x - 5, at.y); mouseMove(paper, at.x, at.y)
+            tryCompare(card, "visible", true, 5000)
+            const list = findChild(card, "linkPreviewList")
+            verify(list.visible)
+            tryCompare(list, "count", 3)
+            verify(!findChild(card, "findPaperButton").visible)
+            // Each entry can be looked up on its own.
+            reader.managed = true
+            linkSpy.clear()
+            let find = null
+            tryVerify(function() { find = findChild(card, "findPaperEntry-2"); return find !== null && find.visible })
+            mouseClick(find)
+            compare(linkSpy.count, 1)
+            verify(decodeURIComponent(linkSpy.signalArguments[0][0].toString()).indexOf("Hochreiter") >= 0)
+            reader.managed = false
+            // Clicking an entry goes there.
+            mouseMove(paper, at.x - 5, at.y); mouseMove(paper, at.x, at.y)
+            tryCompare(card, "visible", true, 5000)
+            let row = null
+            tryVerify(function() { row = findChild(card, "linkPreviewEntry-1"); return row !== null && row.visible && row.height > 0 })
+            mouseClick(row, 20, row.height / 2)
+            tryCompare(canvas, "currentPage", 2)
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+        }
         function test_figureAndTablePreviewsShowTheFloatAndScroll() {
             canvas.openFile(referenceSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)

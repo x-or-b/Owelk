@@ -40,6 +40,7 @@ signals:
 private:
     QVariantMap find(const QString &path, int page, const QPointF &point, int request);
     QStringList pageTexts(QPdfDocument &pdf, const QString &path, int request);
+    static QVariantMap describe(QPdfDocument &pdf, const QStringList &texts, const QVariantMap &target);
     std::shared_ptr<std::atomic_bool> m_readerBusy;
     std::atomic_int m_latest{0};
     int m_next = 0;

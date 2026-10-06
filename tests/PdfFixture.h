@@ -140,6 +140,7 @@ inline void writeReferenceFixture(const QString &path)
     painter.drawText(60, 130, "The pipeline is shown in Fig. 2 and the scores in Table 1.");
     painter.drawText(60, 160, "The loss follows Eq. (3) as introduced by Vaswani et al. (2017) before.");
     painter.drawText(60, 190, "Plain words are not references.");
+    painter.drawText(60, 220, QString::fromUtf8("Earlier work [1\u20133] and also [1]\u2013[3] covered this."));
     writer.newPage();
     painter.drawText(60, 100, "Some body text on the second page.");
     painter.drawText(60, 300, "Fig. 2. Overview of the pipeline.");

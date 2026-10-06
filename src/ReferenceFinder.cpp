@@ -91,19 +91,41 @@ QVariantMap ReferenceFinder::find(const QString &path, int page, const QPointF &
     if (page >= texts.size()) return {};
     const auto reference = referenceAt(texts[page], hit.startIndex() + hit.text().size() / 2);
     if (reference.isEmpty()) return {};
-    const auto target = locate(texts, reference, page, reference["start"].toLongLong());
+    auto found = describe(pdf, texts, locate(texts, reference, page, reference["start"].toLongLong()));
+    if (found.isEmpty()) return {};
+    found.insert("kind", reference["kind"]);
+    found.insert("label", reference["label"]);
+    // Several papers cited together ([3, 5], [12–14]): each one's entry, in order.
+    const auto numbers = reference["numbers"].toStringList();
+    if (numbers.size() > 1) {
+        QVariantList entries;
+        for (const auto &number : numbers) {
+            auto one = reference;
+            one.insert("key", number);
+            auto entry = describe(pdf, texts, locate(texts, one, page, reference["start"].toLongLong()));
+            if (entry.isEmpty()) continue;
+            entry.insert("label", "[" + number + "]");
+            entry.insert("current", number == reference["key"].toString());
+            entries << entry;
+        }
+        if (entries.size() > 1) found.insert("entries", entries);
+    }
+    return found;
+}
+
+// Where a located target is on its page, and its text (line breaks and hyphenation undone).
+QVariantMap ReferenceFinder::describe(QPdfDocument &pdf, const QStringList &texts, const QVariantMap &target)
+{
     if (target.isEmpty()) return {};
-    const int targetPage = target["page"].toInt();
+    const int page = target["page"].toInt();
     const auto box
-        = pdf.getSelectionAtIndex(targetPage, target["start"].toInt(), target["length"].toInt()).boundingRectangle();
-    const auto size = pdf.pagePointSize(targetPage);
+        = pdf.getSelectionAtIndex(page, target["start"].toInt(), target["length"].toInt()).boundingRectangle();
+    const auto size = pdf.pagePointSize(page);
     if (box.isEmpty() || size.height() <= 0) return {};
-    // The entry itself, for finding the cited paper (line breaks and hyphenation undone).
-    auto entry = texts[targetPage].mid(target["start"].toInt(), target["length"].toInt());
-    entry.replace(QRegularExpression("-\\s*[\\r\\n]+\\s*"), "").replace(QRegularExpression("\\s+"), " ");
-    return {{"kind", reference["kind"]}, {"label", reference["label"]}, {"text", entry.trimmed()}, {"page", targetPage},
-        {"x", box.x()}, {"y", box.y()}, {"width", box.width()}, {"height", box.height()},
-        {"top", box.y() / size.height()}};
+    auto text = texts[page].mid(target["start"].toInt(), target["length"].toInt());
+    text.replace(QRegularExpression("-\\s*[\\r\\n]+\\s*"), "").replace(QRegularExpression("\\s+"), " ");
+    return {{"text", text.trimmed()}, {"page", page}, {"x", box.x()}, {"y", box.y()}, {"width", box.width()},
+        {"height", box.height()}, {"top", box.y() / size.height()}};
 }
 
 QStringList ReferenceFinder::pageTexts(QPdfDocument &pdf, const QString &path, int)
@@ -139,20 +161,46 @@ QVariantMap ReferenceFinder::referenceAt(const QString &text, qsizetype index)
     const auto result = [from](const QString &kind, const QString &key, const QString &label, qsizetype start) {
         return QVariantMap{{"kind", kind}, {"key", key}, {"label", label}, {"start", from + start}};
     };
-    // [12], [3, 5], [2–4]: the number under the pointer, else the first.
-    static const QRegularExpression cite(R"(\[(\s*\d{1,3}(?:\s*[,;–\-]\s*\d{1,3})*\s*)\])");
-    static const QRegularExpression number(R"(\d+)");
-    for (auto it = cite.globalMatch(window); it.hasNext();) {
+    // [12], [3, 5], [2–4], and IEEE's [3]–[5]: every number cited (ranges spelled out, at most 8);
+    // the key is the number under the pointer, else the first.
+    static const QRegularExpression bracketRange(R"(\[(\d{1,3})\]\s*[–—‒\-]\s*\[(\d{1,3})\])");
+    static const QRegularExpression cite(R"(\[(\s*\d{1,3}(?:\s*[,;–—‒\-]\s*\d{1,3})*\s*)\])");
+    static const QRegularExpression item(R"((\d{1,3})(?:\s*[–—‒\-]\s*(\d{1,3}))?)");
+    const auto citation = [&](const QRegularExpressionMatch &m, const QString &numbersText, qsizetype numbersStart) {
+        QString key;
+        QStringList numbers;
+        for (auto n = item.globalMatch(numbersText); n.hasNext();) {
+            const auto x = n.next();
+            const int first = x.captured(1).toInt(), last = x.captured(2).isEmpty() ? first : x.captured(2).toInt();
+            for (int value = first; value <= last && value - first < 20 && numbers.size() < 8; ++value)
+                numbers << QString::number(value);
+            // The number under the pointer (a range's ends count as themselves).
+            for (const int group : {1, 2}) {
+                const auto start = numbersStart + x.capturedStart(group);
+                if (x.capturedStart(group) >= 0 && start <= at && at < start + x.capturedLength(group))
+                    key = x.captured(group);
+            }
+        }
+        if (numbers.isEmpty()) return QVariantMap();
+        if (key.isEmpty()) key = numbers.first();
+        auto found = result("citation", key, "[" + key + "]", m.capturedStart());
+        found.insert("numbers", numbers);
+        return found;
+    };
+    for (auto it = bracketRange.globalMatch(window); it.hasNext();) {
         const auto m = it.next();
         if (!covers(m)) continue;
-        QString key;
-        for (auto n = number.globalMatch(m.captured(1)); n.hasNext();) {
-            const auto x = n.next();
-            const auto start = m.capturedStart(1) + x.capturedStart();
-            if (key.isEmpty() || (start <= at && at < start + x.capturedLength())) key = x.captured();
-            if (start <= at && at < start + x.capturedLength()) break;
-        }
-        return result("citation", key, "[" + key + "]", m.capturedStart());
+        auto found = citation(m, m.captured(1) + "-" + m.captured(2), -window.size());
+        if (found.isEmpty()) return {};
+        // The key is whichever bracket the pointer is on.
+        const auto key = at < m.capturedStart(2) - 1 ? m.captured(1) : m.captured(2);
+        found.insert("key", key);
+        found.insert("label", "[" + key + "]");
+        return found;
+    }
+    for (auto it = cite.globalMatch(window); it.hasNext();) {
+        const auto m = it.next();
+        if (covers(m)) return citation(m, m.captured(1), m.capturedStart(1));
     }
     // A caption is the target itself, not a reference to follow.
     const auto caption = [&window](const QRegularExpressionMatch &m) {

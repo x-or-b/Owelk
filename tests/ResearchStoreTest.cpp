@@ -133,10 +133,26 @@ private slots:
         // Plain words and a caption itself are not references.
         QVERIFY(resolve(0, spot(0, "Plain words", 2)).isEmpty());
         QVERIFY(resolve(1, spot(1, "Fig. 2. Overview", 2)).isEmpty());
+        // Several papers cited together: each entry, in order, the hovered one marked.
+        target = resolve(0, spot(0, "[1, 3]", 1));
+        auto entries = target["entries"].toList();
+        QCOMPARE(entries.size(), 2);
+        QCOMPARE(entries[0].toMap()["label"].toString(), QString("[1]"));
+        QVERIFY(entries[0].toMap()["current"].toBool());
+        QVERIFY(entries[1].toMap()["text"].toString().contains("Hochreiter"));
+        target = resolve(0, spot(0, QString::fromUtf8("[1\u20133]"), 1));
+        QCOMPARE(target["entries"].toList().size(), 3);
+        QVERIFY(target["entries"].toList()[1].toMap()["text"].toString().contains("Vaswani"));
+        target = resolve(0, spot(0, QString::fromUtf8("[1]\u2013[3]"), 5));
+        QCOMPARE(target["entries"].toList().size(), 3);
+        QCOMPARE(target["label"].toString(), QString("[3]"));
         // Text-only steps.
         QCOMPARE(ReferenceFinder::referenceAt("see [12] here", 5)["key"].toString(), QString("12"));
         QVERIFY(ReferenceFinder::referenceAt("Figure 3: A caption", 2).isEmpty());
         QCOMPARE(ReferenceFinder::referenceAt("in Figure 3 we", 5)["key"].toString(), QString("3"));
+        QCOMPARE(ReferenceFinder::referenceAt(QString::fromUtf8("see [12\u201314] here"), 6)["numbers"].toStringList(),
+            QStringList({"12", "13", "14"}));
+        QCOMPARE(ReferenceFinder::referenceAt("see [1-30]", 6)["numbers"].toStringList().size(), 8);
     }
     void bundledIconFontAndShaders()
     {
