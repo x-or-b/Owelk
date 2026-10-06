@@ -359,20 +359,23 @@ Item {
         }
         function test_splitShortcuts() {
             const d = workspace.documents
+            const mac = Qt.platform.os === "osx"
             workspace.homeVisible = false
             d.openDocument(fixtureSource, {page: 2, y: 0, x: 0, zoom: 1}, true); canvas()
             d.openDocument(fixtureSource, {page: 5, y: 0, x: 0, zoom: 1}, true); canvas()
             const moved = d.tree.activeTab
-            // Cmd+Shift+Opt+Right moves the active tab into a new split on the right.
-            testInput.keyClick(workspace.contentItem, Qt.Key_Right, Qt.ControlModifier | Qt.ShiftModifier | Qt.AltModifier)
+            // Move to right split (mac: Cmd+Shift+Opt+Right, others: Ctrl+Shift+Alt+.).
+            testInput.keyClick(workspace.contentItem, mac ? Qt.Key_Right : Qt.Key_Period,
+                Qt.ControlModifier | Qt.ShiftModifier | Qt.AltModifier)
             tryCompare(d, "groupCount", 2)
             compare(Tree.find(d.tree, d.activeGroup).activeTab, moved)
             compare(canvas().currentPage, 5)
             const right = d.activeGroup
-            // Cmd+Opt+Up / Down move focus between splits.
-            testInput.keyClick(workspace.contentItem, Qt.Key_Up, Qt.ControlModifier | Qt.AltModifier)
+            // Move focus between splits (mac: Cmd+Opt+Up/Down, others: Ctrl+Alt+,/.).
+            testInput.keyClick(workspace.contentItem, mac ? Qt.Key_Up : Qt.Key_Comma, Qt.ControlModifier | Qt.AltModifier)
             verify(d.activeGroup !== right)
-            testInput.keyClick(workspace.contentItem, Qt.Key_Down, Qt.ControlModifier | Qt.AltModifier)
+            testInput.keyClick(
+                workspace.contentItem, mac ? Qt.Key_Down : Qt.Key_Period, Qt.ControlModifier | Qt.AltModifier)
             compare(d.activeGroup, right)
             // Cmd+\ duplicates the active tab to the right; Cmd+Opt+\ below.
             testInput.keyClick(workspace.contentItem, Qt.Key_Backslash, Qt.ControlModifier)
@@ -382,10 +385,11 @@ Item {
             compare(canvas().currentPage, 5)
             // A single-tab group cannot be moved out of itself.
             verify(!d.moveActiveTabToSplit("right"))
-            // Cmd+Opt+Right cycles tabs as a key event too.
+            // Next-tab shortcut as a key event too (mac: Cmd+Opt+Right, others: Ctrl+PgDown).
             d.joinAll()
             const before = d.tree.activeTab
-            testInput.keyClick(workspace.contentItem, Qt.Key_Right, Qt.ControlModifier | Qt.AltModifier)
+            testInput.keyClick(workspace.contentItem, mac ? Qt.Key_Right : Qt.Key_PageDown,
+                mac ? (Qt.ControlModifier | Qt.AltModifier) : Qt.ControlModifier)
             verify(d.tree.activeTab !== before)
         }
         function test_duplicateCopyOffersExisting() {
