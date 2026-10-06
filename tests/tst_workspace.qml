@@ -389,10 +389,10 @@ Item {
             testInput.keyClick(
                 workspace.contentItem, mac ? Qt.Key_Down : Qt.Key_Period, Qt.ControlModifier | Qt.AltModifier)
             compare(d.activeGroup, right)
-            // Cmd+\ duplicates the active tab to the right; Cmd+Opt+\ below.
+            // Cmd+\ duplicates the active tab to the right; below: Cmd+Opt+\ (others: Ctrl+Shift+\).
             testInput.keyClick(workspace.contentItem, Qt.Key_Backslash, Qt.ControlModifier)
             tryCompare(d, "groupCount", 3)
-            testInput.keyClick(workspace.contentItem, Qt.Key_Backslash, Qt.ControlModifier | Qt.AltModifier)
+            testInput.keyClick(workspace.contentItem, Qt.Key_Backslash, Qt.ControlModifier | (mac ? Qt.AltModifier : Qt.ShiftModifier))
             tryCompare(d, "groupCount", 4)
             compare(canvas().currentPage, 5)
             // A single-tab group cannot be moved out of itself.

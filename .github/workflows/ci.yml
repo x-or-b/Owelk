@@ -17,6 +17,8 @@ jobs:
           - os: windows-2022
             arch: win64_msvc2022_64
             optional: true
+            # 6.11.3's Windows packages are incomplete on the Qt mirrors (no Updates.xml).
+            qt: '6.11.2'
           - os: macos-14
             arch: clang_64
     runs-on: ${{ matrix.os }}
@@ -48,7 +50,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           setup-python: false
-          version: '6.11.*'
+          version: ${{ matrix.qt || '6.11.*' }}
           arch: ${{ matrix.arch }}
           modules: 'qtpdf qtwebengine qtwebchannel qtpositioning qtimageformats qtshadertools'
           cache: true
