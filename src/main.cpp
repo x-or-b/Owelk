@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "AppInstance.h"
 #include "AnnotationImageProvider.h"
 #include "SelectionGeometry.h"
 #include "Theme.h"
@@ -43,6 +44,12 @@ int main(int argc, char *argv[])
     const QString dataDir = parser.isSet("data-dir")
         ? QDir(parser.value("data-dir")).absolutePath()
         : QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    // A second launch hands its files to the Owelk already running (Linux, Windows, command line).
+    AppInstance instance(dataDir);
+    if (!parser.isSet("smoke-test") && instance.forward(parser.positionalArguments())) return 0;
+    instance.listen();
+    // Finder: Open With and double-click arrive as file-open events.
+    app.installEventFilter(&instance);
     ResearchStore store(dataDir);
     QString error;
     if (!store.initialize(&error)) {
@@ -62,6 +69,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("selectionGeometry", &selectionGeometry);
     engine.rootContext()->setContextProperty("researchStore", &store);
     engine.rootContext()->setContextProperty("initialFiles", initialFiles);
+    engine.rootContext()->setContextProperty("appInstance", &instance);
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
         Qt::QueuedConnection);

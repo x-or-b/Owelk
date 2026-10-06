@@ -2,6 +2,8 @@
 #include "AnnotationImageProvider.h"
 #include "SelectionGeometry.h"
 #include "Theme.h"
+#include "AppInstance.h"
+#include <QFileOpenEvent>
 #include "PdfFixture.h"
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -42,6 +44,12 @@ class ReaderSetup : public QObject {
 public:
     // A byte-identical copy of fixture.pdf under a new name, for duplicate detection.
     Q_INVOKABLE bool fileExists(const QUrl &url) const { return QFile::exists(url.toLocalFile()); }
+    // What Finder sends when a PDF is opened with Owelk.
+    Q_INVOKABLE void finderOpen(const QUrl &url)
+    {
+        QFileOpenEvent event(url);
+        QCoreApplication::sendEvent(QGuiApplication::instance(), &event);
+    }
     // A heavier real PDF for measurements, if OWELK_PERF_PDF names one (copied, never opened in place).
     Q_INVOKABLE QUrl perfFixture(const QString &name)
     {
@@ -145,6 +153,12 @@ public slots:
         engine->rootContext()->setContextProperty("selectionGeometry", &m_geometry);
         engine->rootContext()->setContextProperty("testInput", this);
         engine->rootContext()->setContextProperty("researchStore", m_store);
+        if (!m_instance) {
+            // Finder's file-open events, as the app receives them (no local server needed here).
+            m_instance = new AppInstance(m_directory.filePath("data"), this);
+            QGuiApplication::instance()->installEventFilter(m_instance);
+        }
+        engine->rootContext()->setContextProperty("appInstance", m_instance);
         engine->rootContext()->setContextProperty(
             "fixtureSource", QUrl::fromLocalFile(m_directory.filePath("fixture.pdf")));
         engine->rootContext()->setContextProperty(
@@ -303,6 +317,7 @@ private:
     quint64 m_timestamp = 1000;
     QTemporaryDir m_directory;
     ResearchStore *m_store = nullptr;
+    AppInstance *m_instance = nullptr;
     Theme *m_theme = nullptr;
 };
 

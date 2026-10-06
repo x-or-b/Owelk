@@ -1,6 +1,8 @@
 #include "ResearchStore.h"
 #include "PaperIndex.h"
 #include "ReferenceFinder.h"
+#include "AppInstance.h"
+#include <QFileOpenEvent>
 #include "SelectionGeometry.h"
 #include "PdfFixture.h"
 #include "PaperMetadata.h"
@@ -25,6 +27,55 @@
 class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void aSecondLaunchHandsItsFilesToTheRunningOne()
+    {
+        QTemporaryDir directory;
+        // The running Owelk answers on its own thread here (in real use, it is another process).
+        QThread thread;
+        auto *running = new AppInstance(directory.filePath("data"));
+        running->moveToThread(&thread);
+        thread.start();
+        bool listening = false;
+        QMetaObject::invokeMethod(
+            running,
+            [&] {
+                listening = running->listen();
+                running->takePending();
+            },
+            Qt::BlockingQueuedConnection);
+        QVERIFY(listening);
+        QVariantList urls;
+        QMutex mutex;
+        connect(
+            running, &AppInstance::filesRequested, running,
+            [&](const QVariantList &list) {
+                QMutexLocker lock(&mutex);
+                urls = list;
+            },
+            Qt::DirectConnection);
+        // Same data folder: the files go to the running one, which answers.
+        AppInstance second(directory.filePath("data"));
+        QCOMPARE(second.serverName(), running->serverName());
+        QVERIFY(second.forward({directory.filePath("a.pdf"), directory.filePath("b c.pdf")}));
+        QTRY_VERIFY([&] {
+            QMutexLocker lock(&mutex);
+            return urls.size() == 2;
+        }());
+        QMetaObject::invokeMethod(running, [running] { delete running; }, Qt::BlockingQueuedConnection);
+        thread.quit();
+        thread.wait();
+        QCOMPARE(urls.size(), 2);
+        QCOMPARE(urls[1].toUrl(), QUrl::fromLocalFile(directory.filePath("b c.pdf")));
+        // Another data folder is another Owelk; with nobody running, nothing is forwarded.
+        QVERIFY(!AppInstance(directory.filePath("other")).forward({}, 300));
+        // Finder's file-open event, before the window asked: kept until then.
+        AppInstance finder(directory.filePath("finder"));
+        QFileOpenEvent pdf(QUrl::fromLocalFile(directory.filePath("paper.pdf")));
+        QVERIFY(finder.eventFilter(nullptr, &pdf));
+        QFileOpenEvent other(QUrl::fromLocalFile(directory.filePath("notes.txt")));
+        QVERIFY(!finder.eventFilter(nullptr, &other));
+        QCOMPARE(finder.takePending(), QVariantList{QUrl::fromLocalFile(directory.filePath("paper.pdf"))});
+    }
     void referencesWithoutLinksPointToTheirTargets()
     {
         QTemporaryDir directory;

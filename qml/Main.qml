@@ -227,12 +227,25 @@ ApplicationWindow {
         try { documents.restore(state) }
         catch (error) { restoreFailed = true; notification = error.message }
         initialized = true
-        if (!restoreFailed) for (let i = 0; i < initialFiles.length; ++i) documents.openDocument(initialFiles[i])
-        homeVisible = true
+        // Files from the command line, Finder or a second launch made before the window was ready.
+        const external = initialFiles.concat(typeof appInstance !== "undefined" ? appInstance.takePending() : [])
+        if (!restoreFailed) for (let i = 0; i < external.length; ++i) documents.openDocument(external[i])
+        homeVisible = restoreFailed || external.length === 0
         if (!restoreFailed) persist()
         // After a restore or an unexpected exit, say what happened.
         if (!restoreFailed && researchStore.startupMessage.length) notify(researchStore.startupMessage)
         else if (!restoreFailed && researchStore.recoveredFromCrash) notify("Owelk closed unexpectedly last time. Your tabs are back; unsaved notes are offered when you reopen them.")
+    }
+    // PDFs opened from Finder or handed over by another launch while this window is open.
+    Connections {
+        target: typeof appInstance !== "undefined" ? appInstance : null
+        function onFilesRequested(urls) {
+            if (!window.visible) window.show()
+            window.raise(); window.requestActivate()
+            if (window.restoreFailed || !urls.length) return
+            urls.forEach(function(url) { window.openDocument(url) })
+            window.homeVisible = false
+        }
     }
     // Logging out or quitting from the dock can skip the window's close handler.
     Connections { target: Qt.application; function onAboutToQuit() { window.persist() } }

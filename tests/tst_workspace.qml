@@ -37,6 +37,13 @@ Item {
             workspace.documentVisible = false; workspace.documentSide = "left"; workspace.navigationMode = 0
             workspace.homeVisible = true
         }
+        function test_pdfOpenedFromFinderOpensInATab() {
+            const paper = testInput.copyFixture("from finder.pdf")
+            workspace.homeVisible = true
+            testInput.finderOpen(paper)
+            tryVerify(function() { return Tree.leaves(workspace.documents.tree).some(function(g) { return g.tabs.some(function(t) { return researchStore.sameSource(t.source, paper) }) }) })
+            compare(workspace.homeVisible, false)
+        }
         function test_closeShortcutEndsWithTheWindow() {
             const d = workspace.documents
             workspace.openDocument(fixtureSource); canvas()
