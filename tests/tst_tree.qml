@@ -36,6 +36,14 @@ TestCase {
             compare(Platform.keys("Ctrl+Shift+L"), "Ctrl+Shift+L")
         }
     }
+    function test_referenceUrl() {
+        const scholar = "https://scholar.google.com/scholar?q=%s"
+        compare(Tree.referenceUrl("[4] A. B. Paper. IEEE T-RO, 2020, doi: 10.1109/TRO.2020.123456.", scholar), "https://doi.org/10.1109/TRO.2020.123456")
+        compare(Tree.referenceUrl("[7] J. Ba. Layer norm. arXiv preprint arXiv:1607.06450, 2016.", scholar), "https://arxiv.org/abs/1607.06450")
+        compare(Tree.referenceUrl("[2] A. Vaswani et al. Attention is all you need. 2017.", scholar),
+                "https://scholar.google.com/scholar?q=" + encodeURIComponent("A. Vaswani et al. Attention is all you need. 2017."))
+        compare(Tree.referenceUrl("", scholar), "")
+    }
     function test_namedTabGroups() {
         const strip = Tree.group([Tree.tab("file:///a.pdf"), Tree.webTab("https://x.org"), Tree.tab("file:///b.pdf")])
         const [a, web, b] = strip.tabs

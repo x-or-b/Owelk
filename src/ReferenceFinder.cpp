@@ -98,8 +98,12 @@ QVariantMap ReferenceFinder::find(const QString &path, int page, const QPointF &
         = pdf.getSelectionAtIndex(targetPage, target["start"].toInt(), target["length"].toInt()).boundingRectangle();
     const auto size = pdf.pagePointSize(targetPage);
     if (box.isEmpty() || size.height() <= 0) return {};
-    return {{"kind", reference["kind"]}, {"label", reference["label"]}, {"page", targetPage}, {"x", box.x()},
-        {"y", box.y()}, {"width", box.width()}, {"height", box.height()}, {"top", box.y() / size.height()}};
+    // The entry itself, for finding the cited paper (line breaks and hyphenation undone).
+    auto entry = texts[targetPage].mid(target["start"].toInt(), target["length"].toInt());
+    entry.replace(QRegularExpression("-\\s*[\\r\\n]+\\s*"), "").replace(QRegularExpression("\\s+"), " ");
+    return {{"kind", reference["kind"]}, {"label", reference["label"]}, {"text", entry.trimmed()}, {"page", targetPage},
+        {"x", box.x()}, {"y", box.y()}, {"width", box.width()}, {"height", box.height()},
+        {"top", box.y() / size.height()}};
 }
 
 QStringList ReferenceFinder::pageTexts(QPdfDocument &pdf, const QString &path, int)

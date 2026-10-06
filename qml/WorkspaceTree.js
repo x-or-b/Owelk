@@ -18,6 +18,17 @@ function addressToUrl(text, searchTemplate) {
     if (/^arxiv:\s*\d{4}\.\d{4,5}/i.test(value)) return "https://arxiv.org/abs/" + value.replace(/^arxiv:\s*/i, "")
     return searchTemplate.replace("%s", encodeURIComponent(value))
 }
+// Where to look for a paper from its reference-list entry: its DOI or arXiv page when the entry
+// names one, otherwise a search (Google Scholar by default) for the entry without its number.
+function referenceUrl(entry, searchTemplate) {
+    const text = String(entry || "").replace(/\s+/g, " ").trim()
+    const doi = /\b(10\.\d{4,9}\/[^\s"<>]+)/.exec(text)
+    if (doi) return "https://doi.org/" + doi[1].replace(/[.,;:)\]]+$/, "")
+    const arxiv = /arxiv(?:\.org\/abs\/|:\s*|\s+preprint\s+arxiv:\s*)(\d{4}\.\d{4,5})/i.exec(text)
+    if (arxiv) return "https://arxiv.org/abs/" + arxiv[1]
+    const query = text.replace(/^\s*(\[\d{1,3}\]|\d{1,3}\.)\s*/, "").slice(0, 300)
+    return query.length ? searchTemplate.replace("%s", encodeURIComponent(query)) : ""
+}
 // arxiv.org/abs/<id> → its PDF address; empty for other pages.
 function arxivPdf(url) {
     const match = /^https?:\/\/(www\.)?arxiv\.org\/abs\/([^?#]+)/i.exec(url.toString())

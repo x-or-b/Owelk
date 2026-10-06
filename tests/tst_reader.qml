@@ -14,6 +14,7 @@ Item {
         isActive: true
     }
     SignalSpy { id: captureSpy; target: researchStore; signalName: "captureSaved" }
+    SignalSpy { id: linkSpy; target: reader; signalName: "linkRequested" }
     SignalSpy { id: messageSpy; target: researchStore; signalName: "message" }
 
     TestCase {
@@ -230,6 +231,19 @@ Item {
             verify(findChild(card, "linkPreviewTarget").visible)
             compare(canvas.linkPreview.label, "[2]")
             compare(canvas.currentPage, 0)
+            // Find Paper looks the entry up (a web tab when the reader is in the workspace).
+            reader.managed = true
+            linkSpy.clear()
+            const find = findChild(card, "findPaperButton")
+            verify(find.visible)
+            mouseClick(find)
+            compare(linkSpy.count, 1)
+            compare(decodeURIComponent(linkSpy.signalArguments[0][0].toString()), "https://scholar.google.com/scholar?q=A. Vaswani et al. Attention is all you need. 2017.")
+            reader.managed = false
+            verify(!card.visible)
+            mouseMove(paper, at.x - 6, at.y)
+            mouseMove(paper, at.x, at.y)
+            tryCompare(card, "visible", true, 5000)
             // Moving away along the text lets it go; clicking it goes there.
             mouseMove(paper, at.x + 200, at.y)
             tryCompare(card, "visible", false, 3000)

@@ -24,7 +24,8 @@ public:
     ReferenceFinder(std::shared_ptr<std::atomic_bool> readerBusy, QObject *parent = nullptr);
     ~ReferenceFinder() override;
     // point is in PDF points on that page. Answered by resolved(request, target) with
-    // {kind, label, page, x, y, width, height (PDF points), top (0..1 of the page)}, or {} for no reference.
+    // {kind, label, text (the target's text), page, x, y, width, height (PDF points), top (0..1 of the
+    // page)}, or {} for no reference.
     Q_INVOKABLE int resolve(const QUrl &source, int page, const QPointF &point);
 
     // The text-only steps, also used by tests. referenceAt: {kind, key, label, start} for the reference

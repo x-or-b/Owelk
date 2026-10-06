@@ -4,6 +4,7 @@ import QtQuick.Pdf
 import QtQuick.Shapes
 import Owelk.Ui
 import "StrokePath.js" as Stroke
+import "WorkspaceTree.js" as Tree
 
 Item {
     id: root
@@ -1158,7 +1159,7 @@ Item {
             previewShow.stop(); previewHide.stop()
             root.previewContentY = pages.contentY
             root.linkPreview = {page: target.page, y: target.top, x: spot.viewX, kind: target.kind, top: spot.viewY - half, bottom: spot.viewY + half,
-                                rect: Qt.rect(target.x, target.y, target.width, target.height), label: target.label,
+                                rect: Qt.rect(target.x, target.y, target.width, target.height), label: target.label, text: target.text || "",
                                 fromText: true, anchorX: spot.viewX, anchorY: spot.viewY}
         }
     }
@@ -1252,6 +1253,21 @@ Item {
             radius: Theme.radiusSmall
             color: Theme.raised; border.color: Theme.separator
             Label { id: goLabel; anchors.centerIn: parent; text: (previewCard.spec.label ? previewCard.spec.label + " · " : "") + "p. " + (previewCard.spec.page + 1) + " · click to go"; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
+        }
+        // A cited paper: look it up (its DOI or arXiv page, or a search for the entry), in a web tab.
+        Button {
+            objectName: "findPaperButton"
+            visible: (previewCard.spec.kind === "citation" || previewCard.spec.kind === "author") && !!previewCard.spec.text
+            anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 6
+            text: "Find Paper"
+            icon.name: "search"
+            ToolTip.visible: hovered; ToolTip.delay: 500
+            ToolTip.text: "Open its DOI or arXiv page, or search for it · then download the PDF into the Library"
+            onClicked: {
+                const url = Tree.referenceUrl(previewCard.spec.text, researchStore.setting("searchEngine", "https://scholar.google.com/scholar?q=%s"))
+                root.closeLinkPreview()
+                if (url.length) root.externalLinkRequested(url)
+            }
         }
         HoverHandler { id: previewHover; onHoveredChanged: if (!hovered) previewHide.restart() }
     }
