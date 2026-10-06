@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Owelk
+Comment=A local research reader for papers, captures and notes
+Exec=owelk %F
+Icon=owelk
+Terminal=false
+Categories=Office;Education;Viewer;
+MimeType=application/pdf;

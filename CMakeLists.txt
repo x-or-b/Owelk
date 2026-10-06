@@ -20,7 +20,7 @@ else()
 endif()
 target_sources(owelk_core PRIVATE src/AnnotationImage.cpp src/AnnotationImage.h)
 # The icon font (a Lucide subset, see tools/icons.py), loaded once by Theme.
-qt_add_resources(owelk_core "icons" PREFIX "/owelk" BASE resources FILES resources/icons/lucide.ttf)
+qt_add_resources(owelk_core "icons" PREFIX "/owelk" BASE resources FILES resources/icons/lucide.ttf resources/app/owelk.png)
 # Optional: dark (inverted) PDF pages need a compiled shader (Qt ShaderTools at build time only).
 find_package(Qt6 QUIET COMPONENTS ShaderTools)
 if(TARGET Qt6::ShaderTools)
@@ -47,7 +47,15 @@ endif()
 
 add_subdirectory(style)
 
-qt_add_executable(owelk MACOSX_BUNDLE src/main.cpp)
+# The app icon (tools/app_icon.cpp makes these from resources/app/owelk-mark.png).
+set(owelk_icon_sources)
+if(APPLE)
+    set(owelk_icon_sources resources/app/owelk.icns)
+    set_source_files_properties(resources/app/owelk.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+elseif(WIN32)
+    set(owelk_icon_sources resources/app/owelk.rc)
+endif()
+qt_add_executable(owelk MACOSX_BUNDLE src/main.cpp ${owelk_icon_sources})
 qt_add_qml_module(owelk
     URI Owelk VERSION 1.0
     QML_FILES qml/SearchFilters.qml qml/CaptureNoteDialog.qml qml/WorkspaceManager.qml qml/AnnotationColors.qml qml/AnnotationEditor.qml
@@ -59,6 +67,7 @@ set_target_properties(owelk PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER org.owelk.reader
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+    MACOSX_BUNDLE_ICON_FILE owelk.icns
     WIN32_EXECUTABLE TRUE
 )
 
@@ -67,6 +76,10 @@ include(GNUInstallDirs)
 install(TARGETS owelk BUNDLE DESTINATION . RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 qt_generate_deploy_qml_app_script(TARGET owelk OUTPUT_SCRIPT owelk_deploy_script NO_UNSUPPORTED_PLATFORM_ERROR)
 install(SCRIPT ${owelk_deploy_script})
+if(UNIX AND NOT APPLE)
+    install(FILES resources/app/owelk.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+    install(FILES resources/app/owelk.png DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/512x512/apps)
+endif()
 
 include(CTest)
 if(BUILD_TESTING)

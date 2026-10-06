@@ -93,6 +93,8 @@ private slots:
         QFile font(":/owelk/icons/lucide.ttf");
         QVERIFY(font.open(QIODevice::ReadOnly));
         QVERIFY(font.size() > 10000 && font.size() < 100000);
+        // The window icon (Linux and Windows title bars).
+        QCOMPARE(QImage(":/owelk/app/owelk.png").size(), QSize(512, 512));
 #ifdef OWELK_HAVE_SHADERS
         QFile shader(":/owelk/shaders/invert.frag.qsb");
         QVERIFY(shader.open(QIODevice::ReadOnly));
