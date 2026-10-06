@@ -71,6 +71,25 @@ Item {
             verify(researchStore.sameSource(activeTab().source, second))
             researchStore.deleteCollection(id)
         }
+        function visibleChild(item, name) {
+            if (!item || !item.visible) return null
+            if (item.objectName === name) return item
+            for (let i = 0; i < item.children.length; ++i) { const f = visibleChild(item.children[i], name); if (f) return f }
+            return null
+        }
+        function test_newCollectionButton() {
+            workspace.documents.openLibrary({})
+            const view = library()
+            tryVerify(function() { return visibleChild(view, "newCollectionButton") !== null })
+            waitForPolish(view); wait(50)
+            mouseClick(visibleChild(view, "newCollectionButton"))
+            const dialog = findChild(view, "collectionDialog")
+            tryCompare(dialog, "opened", true)
+            findChild(dialog, "collectionName").text = "From the plus button"
+            dialog.accept()
+            tryVerify(function() { return researchStore.collections().some(function(c) { return c.name === "From the plus button" }) })
+            researchStore.deleteCollection(researchStore.collections().find(function(c) { return c.name === "From the plus button" }).id)
+        }
         function test_unsortedMultiSelectAndBatchCollection() {
             const one = testInput.copyFixture("topic one.pdf"), two = testInput.copyFixture("topic two.pdf")
             verify(researchStore.rememberDocument(one)); verify(researchStore.rememberDocument(two))

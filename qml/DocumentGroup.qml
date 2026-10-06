@@ -84,7 +84,21 @@ Rectangle {
         if (entry.type === "header") return {index: groupData.tabs.findIndex(function(t) { return t.label === entry.label.id }), over: ""}
         const at = groupData.tabs.indexOf(entry.tab), part = item ? (local - item.x) / item.width : 0
         if (entry.tab.id !== dragged && part > .3 && part < .7) return {index: at + 1, over: entry.tab.id}
-        return {index: part < .5 ? at : at + 1, over: ""}
+        return {index: snapToGroupEdge(part < .5 ? at : at + 1, dragged), over: ""}
+    }
+    // A tab cannot land between two tabs of a group it is not in: it goes before or after the group,
+    // whichever is nearer. (Tabs of the same group reorder freely inside it.)
+    function snapToGroupEdge(index, dragged) {
+        const tabs = groupData.tabs
+        const own = tabs.find(function(t) { return t.id === dragged })
+        let p = index - 1, n = index
+        while (p >= 0 && tabs[p].id === dragged) --p
+        while (n < tabs.length && tabs[n].id === dragged) ++n
+        const label = p >= 0 && n < tabs.length && tabs[p].label && tabs[p].label === tabs[n].label ? tabs[p].label : ""
+        if (!label || (own && own.label === label)) return index
+        let first = -1, last = -1
+        tabs.forEach(function(t, i) { if (t.label === label) { if (first < 0) first = i; last = i } })
+        return index - first <= last + 1 - index ? first : last + 1
     }
     function visualIndex(tabIndex) {
         if (tabIndex >= groupData.tabs.length) return strip.length

@@ -55,6 +55,27 @@ function pruneLabels(groupNode) {
     groupNode.labels = groupNode.labels.filter(function(l) { return groupNode.tabs.some(function(t) { return t.label === l.id }) })
     if (!groupNode.labels.length) delete groupNode.labels
 }
+// A group's tabs stay together. After a tab moved inside a strip: a tab that landed inside another
+// group goes to that group's end; a grouped tab that landed away from its group leaves it.
+function keepGroupsTogether(groupNode, movedId) {
+    const tabs = groupNode.tabs
+    let at = tabs.findIndex(function(t) { return t.id === movedId })
+    if (at < 0) return
+    const moved = tabs[at], prev = tabs[at - 1], next = tabs[at + 1]
+    if (prev && next && prev.label && prev.label === next.label && moved.label !== prev.label) {
+        tabs.splice(at, 1)
+        let last = -1
+        for (let i = 0; i < tabs.length; ++i) if (tabs[i].label === prev.label) last = i
+        tabs.splice(last + 1, 0, moved)
+        at = last + 1
+    }
+    if (moved.label) {
+        const before = tabs[at - 1], after = tabs[at + 1]
+        const others = tabs.some(function(t) { return t !== moved && t.label === moved.label })
+        if (others && !(before && before.label === moved.label) && !(after && after.label === moved.label)) delete moved.label
+    }
+    pruneLabels(groupNode)
+}
 // After tabs move between strips: drop labels a strip does not have, and empty labels.
 function tidyLabels(node) {
     leaves(node).forEach(function(g) {

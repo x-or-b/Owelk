@@ -65,7 +65,8 @@ Item {
             findChild(palette, "searchPaletteQuery").text = "hidden view"
             tryVerify(function() { return palette.results.some(function(r) { return r.kind === "section" }) }, 10000)
             tryVerify(function() { return !palette.searchController.waiting }, 10000)
-            wait(200)
+            // Library changes from earlier tests can refresh the list once more; read it when settled.
+            tryVerify(function() { return !palette.searchController.waiting && palette.results.some(function(r) { return r.kind === "section" }) }, 10000)
             const at = palette.results.findIndex(function(r) { return r.kind === "section" })
             compare(palette.results[at].title, "Similar meaning")
             verify(palette.results[at + 1].semantic)
@@ -81,6 +82,28 @@ Item {
             palette.close()
             semantic.configure("", "")
             semantic.clear()
+        }
+        function test_conditionsCompleteAsYouType() {
+            verify(researchStore.setDocumentTags(fixtureSource, ["Occlusion Study"]))
+            const shelf = researchStore.createCollection("Completion Shelf")
+            const palette = findChild(workspace, "searchPalette")
+            palette.open(); tryCompare(palette, "opened", true)
+            const field = findChild(palette, "searchPaletteQuery"), controller = palette.searchController
+            // Half a tag offers the matching tags; choosing one completes the condition.
+            field.text = "tag:occ"
+            tryVerify(function() { return controller.results.length > 0 && controller.results[0].kind === "complete" })
+            compare(controller.results[0].title, "Occlusion Study")
+            palette.choose(0)
+            compare(field.text, 'tag:"Occlusion Study" ')
+            compare(palette.visible, true, "completing keeps the search open")
+            tryVerify(function() { return controller.results.some(function(r) { return r.kind === "paper" }) })
+            // Collections and workspaces complete the same way.
+            field.text = "collection:compl"
+            tryVerify(function() { return controller.results.length > 0 && controller.results[0].title === "Completion Shelf" })
+            field.text = "workspace:"
+            tryVerify(function() { return controller.results.every(function(r) { return r.kind === "complete" && r.key === "workspace" }) })
+            palette.close(); tryCompare(palette, "visible", false)
+            researchStore.deleteCollection(shelf)
         }
         function test_scopeChipsAndTypedLibraryConditions() {
             const palette = findChild(workspace, "searchPalette")

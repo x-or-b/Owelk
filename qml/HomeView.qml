@@ -11,7 +11,7 @@ Rectangle {
     color: Theme.sidebar
     property alias results: searchModel.results
     property alias searchController: searchModel
-    ResearchSearch { id: searchModel; query: searchInput.text; active: root.visible }
+    ResearchSearch { id: searchModel; query: searchInput.text; active: root.visible; onRewrite: function(text) { searchInput.text = text; searchInput.cursorPosition = text.length; searchInput.forceActiveFocus() } }
     readonly property var continuation: researchStore.continueReading
     signal openRequested()
     signal libraryRequested()
@@ -143,7 +143,7 @@ Rectangle {
                     objectName: "homeSearch"
                     Layout.fillWidth: true
                     implicitHeight: 40
-                    placeholderText: "Find PDF text, papers, captures or workspaces"
+                    placeholderText: "Find PDF text, papers, captures or workspaces  ·  tag: collection: workspace:"
                     selectByMouse: true
                     onAccepted: {
                         let chosenIndex = searchResults.currentIndex

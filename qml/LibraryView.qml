@@ -79,8 +79,15 @@ Rectangle {
         standardButtons: Dialog.Save | Dialog.Cancel
         // Papers to put in a new collection right away (New Collection… on a selection).
         property var papers: []
-        function begin(id, name, parent) { beginFor(id, name, parent, []) }
-        function beginFor(id, name, parent, urls) { collectionId = id; parentId = parent || ""; papers = urls || []; collectionName.text = name || ""; open(); collectionName.forceActiveFocus() }
+        function begin(collection, name, parentCollection) { beginFor(collection, name, parentCollection, []) }
+        function beginFor(collection, name, parentCollection, urls) {
+            collectionDialog.collectionId = collection || ""
+            collectionDialog.parentId = parentCollection || ""
+            collectionDialog.papers = urls || []
+            collectionName.text = name || ""
+            open()
+            collectionName.forceActiveFocus()
+        }
         TextField { id: collectionName; objectName: "collectionName"; width: parent.width; placeholderText: "Collection name"; onAccepted: collectionDialog.accept() }
         onAccepted: {
             if (collectionId.length) researchStore.renameCollection(collectionId, collectionName.text)

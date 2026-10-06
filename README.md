@@ -105,6 +105,7 @@ Settings는 Appearance·Web·Search·AI·Shortcuts·Data로 나뉩니다. 보이
 - **끌어서 그룹 만들기**: 탭을 다른 탭 한가운데에 잠깐(약 0.5초) 올려 두면 그 탭에 파란 테두리와 "Group"이 표시됩니다. 놓으면 둘이 새 그룹이 되고, 그룹 이름 칸이 바로 열려 이름을 쓰고 Enter를 누릅니다. 이미 그룹에 있는 탭 위에 놓으면 그 그룹에 들어갑니다.
 - 그룹은 Edge처럼 **색 있는 이름표 + 그 그룹의 탭**(탭 아래에 같은 색 선)으로 보입니다. 이름표를 누르면 접고 펼치며(접으면 이름과 개수만, 활성 탭은 항상 보임), 두 번 누르면 이름을 바꿉니다. 이름표 우클릭: Rename, Color, Save as Workspace, Save Papers as Collection, Ungroup, Close Group's Tabs. 새 그룹은 이 탭 줄에서 아직 쓰지 않은 색을 받습니다.
 - 탭 우클릭 → `Add to New Group`(이름 칸이 열림), `Add to "이름"`, `Remove from Group`도 됩니다.
+- 그룹의 탭은 항상 붙어 있습니다. 그룹 밖의 탭을 그룹 탭 사이로 끌면 가까운 쪽 그룹 앞·뒤에 놓이고, 그룹 안의 탭을 그룹 밖으로 끌어내면 그 그룹에서 빠집니다.
 - 그룹은 세션·워크스페이스에 함께 저장됩니다. 탭을 다른 분할로 옮기면 그 탭은 그룹에서 빠집니다.
 - **AI로 정리**: 탭 우클릭 → `Organize Tabs with AI…` 또는 명령 `/organize tabs`. 보낼 내용(탭 제목, 웹 주소, 논문 저자·연도·앞부분 400자)을 보여 주고, `Ask`를 누르면 선택한 AI가 그룹을 제안합니다. 이름을 고치거나 체크를 끈 뒤 `Apply`를 눌러야만 탭이 바뀝니다.
 
@@ -193,7 +194,7 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
   - **넣을 곳 제안**: Unsorted의 각 논문 옆과 리더 Document 패널의 Related 탭에 `+ SLAM`처럼 이미 비슷한 논문이 들어 있는 Collection을 최대 2개 제안합니다. AI 없이 관련 논문 계산을 쓰고, 그 목록을 볼 때만 계산합니다(라이브러리가 바뀌기 전까지 캐시).
 - 논문 우클릭 → Tags…에 쉼표로 태그를 입력합니다(대소문자 무시, 쓰지 않는 태그는 자동 정리).
 - 논문 우클릭 → Exclude from Text Search는 그 논문의 본문을 검색 인덱스에서 지웁니다. 다시 포함하면 새로 색인합니다.
-- Cmd+K/Home 검색은 Collection·Tag 이름도 찾고, 누르면 그 Collection·Tag로 거른 라이브러리를 엽니다. 검색어에 `tag:` `collection:` `state:` `year:` `workspace:`를 적으면 본문 검색과 저장 항목 검색이 그 논문들로 한정됩니다.
+- Cmd+K/Home 검색은 Collection·Tag 이름도 찾고, 누르면 그 Collection·Tag로 거른 라이브러리를 엽니다. 검색어에 `tag:` `collection:` `state:` `year:` `workspace:`를 적으면 본문 검색과 저장 항목 검색이 그 논문들로 한정됩니다. `tag:sl`처럼 치는 중에는 맞는 태그·Collection·워크스페이스·읽기 상태 이름이 목록으로 나오고, 고르면 조건이 완성됩니다(공백이 있으면 따옴표로 묶임). 조건만 쓰면 해당 논문 목록이 나옵니다.
 
 ## 웹 탭
 

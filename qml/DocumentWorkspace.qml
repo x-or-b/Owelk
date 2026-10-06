@@ -521,6 +521,9 @@ Flickable {
             let at = index === undefined ? target.tabs.length : index
             if (source === target && at > oldIndex) at--
             target.tabs.splice(Math.max(0, Math.min(target.tabs.length, at)), 0, t)
+            // A tab from another strip never brings a label that strip does not have.
+            if (source !== target && t.label !== undefined && !(target.labels || []).some(function(l) { return l.id === t.label })) delete t.label
+            Tree.keepGroupsTogether(target, id)
             target.activeTab = id; activeGroup = target.id
         } else {
             const added = Tree.group([t])

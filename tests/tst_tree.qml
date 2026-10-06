@@ -63,6 +63,26 @@ TestCase {
         // Bad label data is rejected rather than half-restored.
         verify(!Tree.validate({kind: "group", id: "g", activeTab: "", tabs: [], labels: [{id: "", name: "x"}]}, {}, 0))
     }
+    function test_groupsStayTogether() {
+        const strip = Tree.group([Tree.tab("file:///a.pdf"), Tree.tab("file:///b.pdf"), Tree.tab("file:///c.pdf"), Tree.tab("file:///d.pdf")])
+        const [a, b, c, d] = strip.tabs.map(function(t) { return t.id })
+        const g = Tree.addLabel(strip, "G")
+        Tree.setTabLabel(strip, a, g.id); Tree.setTabLabel(strip, b, g.id)
+        const order = function() { return strip.tabs.map(function(t) { return t.id }) }
+        compare(order(), [a, b, c, d])
+        // An outside tab dropped between a and b goes after the group.
+        const moved = strip.tabs.splice(2, 1)[0]; strip.tabs.splice(1, 0, moved)
+        Tree.keepGroupsTogether(strip, c)
+        compare(order(), [a, b, c, d])
+        verify(strip.tabs[2].label === undefined)
+        // A grouped tab moved away from its group leaves it.
+        const away = strip.tabs.splice(0, 1)[0]; strip.tabs.push(away)
+        Tree.keepGroupsTogether(strip, a)
+        compare(order(), [b, c, d, a])
+        verify(strip.tabs[3].label === undefined)
+        compare(strip.tabs[0].label, g.id)
+        verify(Tree.validate(strip, {}, 0))
+    }
     function test_migrateLegacy() {
         const state = {version: 1, left: {source: "file:///a.pdf", position: {page: 3, zoom: 1.4}},
             right: {source: "file:///a.pdf", position: {page: 7, zoom: 1}}, split: true, active: 1}

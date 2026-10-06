@@ -543,6 +543,20 @@ Item {
             waitForPolish(workspace); wait(50)
             mouseClick(visualChild(visualChild(view, "tabGroupHeader-Methods"), "tabGroupLabel"))
             tryVerify(function() { return !d.tabLabel(group.id, group.labels[0].id).collapsed })
+            // An outside tab dropped between two grouped tabs lands after the group, not inside it.
+            const grouped = Tree.leaves(d.tree)[0]
+            const members = grouped.tabs.filter(function(t) { return t.label === grouped.labels[0].id }).map(function(t) { return t.id })
+            const outsider = grouped.tabs.find(function(t) { return !t.label }).id
+            waitForPolish(workspace); wait(50)
+            const second = visualChild(view, "tab-" + members[1])
+            const between = second.mapToItem(null, 4, second.height / 2)
+            d.dragTitle = "dragged"
+            d.dragTab(outsider, between.x, between.y)
+            d.finishDrag(false)
+            tryVerify(function() {
+                const ids = Tree.leaves(d.tree)[0].tabs.map(function(t) { return t.id })
+                return Math.abs(ids.indexOf(members[0]) - ids.indexOf(members[1])) === 1
+            })
             // A second group gets another color.
             const other = d.newTabGroup([a])
             verify(d.tabLabel(group.id, other).color !== d.tabLabel(group.id, group.labels[0].id).color)

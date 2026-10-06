@@ -51,6 +51,28 @@ QtObject {
         }).replace(/\s+/g, " ").trim()
         return {needle: needle, filter: filter, labels: labels}
     }
+    // While a condition is being typed ("tag:sl"), its known names are offered; choosing one
+    // completes the condition in the query (rewrite tells the search field).
+    signal rewrite(string text)
+    readonly property var completing: {
+        const m = query.match(/(^|\s)(tag|collection|workspace|state):("?)([^"\s]*)$/i)
+        return m ? {key: m[2].toLowerCase(), partial: m[4], start: m.index + m[1].length} : null
+    }
+    function completions() {
+        const c = completing
+        if (!c) return []
+        const source = c.key === "tag" ? researchStore.tags() : c.key === "collection" ? researchStore.collections()
+            : c.key === "workspace" ? researchStore.recentWorkspaces : [{name: "unread"}, {name: "reading"}, {name: "read"}]
+        const partial = c.partial.toLowerCase()
+        const hits = source.filter(function(item) { return item.name.toLowerCase().indexOf(partial) >= 0 })
+        // A finished condition (an exact name) needs no completion.
+        if (hits.length === 1 && hits[0].name.toLowerCase() === partial) return []
+        return hits.slice(0, 12).map(function(item) {
+            const value = /\s/.test(item.name) ? '"' + item.name + '"' : item.name
+            return {kind: "complete", key: c.key, title: item.name, count: item.count !== undefined ? item.count : item.papers,
+                    token: c.key + ":" + value}
+        })
+    }
     property int offset: 0
     property var history: []
     property bool changing: false
@@ -67,6 +89,11 @@ QtObject {
     onTargetFilterChanged: filtersChanged()
     function choose(result) {
         if (result.kind === "section") return true
+        if (result.kind === "complete") {
+            const c = completing
+            if (c) rewrite(query.slice(0, c.start) + result.token + " ")
+            return true
+        }
         if (["paperGroup", "moreInPaper", "nextResults"].indexOf(result.kind) < 0) return false
         if (result.kind === "paperGroup" && researchStore.sameSource(sourceFilter, result.source)) return true
         history = history.concat([{source: sourceFilter.toString(), target: targetFilter, offset: offset, index: results.indexOf(result)}])
@@ -106,6 +133,9 @@ QtObject {
         delay.stop()
         invalidate()
         if (!active) return
+        // Completing a condition: only its names (the half-typed condition would match nothing).
+        const offered = completions()
+        if (offered.length) { results = offered; return }
         const needle = parsed.needle
         // Library filters narrow both searches to the same set of papers.
         const scope = libraryScoped ? researchStore.libraryDocuments(libraryFilter) : null

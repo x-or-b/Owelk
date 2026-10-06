@@ -16,7 +16,7 @@ Popup {
     property alias results: search.results
     property alias searchController: search
     property url currentSource: ""
-    ResearchSearch { id: search; query: searchInput.text; active: root.visible; showRecent: true }
+    ResearchSearch { id: search; query: searchInput.text; active: root.visible; showRecent: true; onRewrite: function(text) { searchInput.text = text; searchInput.cursorPosition = text.length; searchInput.forceActiveFocus() } }
     signal resultChosen(var result)
     function refresh() {
         search.refresh()
@@ -48,7 +48,7 @@ Popup {
             id: searchInput
             objectName: "searchPaletteQuery"
             Layout.fillWidth: true
-            placeholderText: "Search PDF text, papers, captures, AI  ·  narrow with tag: state: year:"
+            placeholderText: "Search PDF text, papers, captures, AI  ·  narrow with tag: collection: workspace: state: year:"
             selectByMouse: true
             onAccepted: {
                 let at = list.currentIndex
