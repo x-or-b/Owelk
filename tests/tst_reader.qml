@@ -110,6 +110,29 @@ Item {
             mouseClick(link, link.width / 2, link.height / 2)
             tryCompare(canvas, "currentPage", 2)
         }
+        function test_hoveringAReferencePreviewsItsTarget() {
+            canvas.openFile(linkSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            const link = tryFindLink(), card = findChild(canvas, "linkPreview")
+            verify(!card.visible)
+            // Resting on the reference shows its target page in place, without moving the reading position.
+            mouseMove(link, link.width / 2, link.height / 2)
+            tryCompare(card, "visible", true, 3000)
+            compare(findChild(card, "linkPreviewPage").currentFrame, 2)
+            compare(canvas.currentPage, 0)
+            // Clicking the preview goes there.
+            mouseClick(card, card.width / 2, card.height / 2)
+            tryCompare(canvas, "currentPage", 2)
+            verify(!card.visible)
+            // Leaving the reference without entering the preview hides it.
+            canvas.jump(0, 0, 0); tryCompare(canvas, "restoring", false)
+            const again = tryFindLink()
+            mouseMove(canvas, 4, canvas.height - 4)
+            mouseMove(again, again.width / 2, again.height / 2)
+            tryCompare(card, "visible", true, 3000)
+            mouseMove(canvas, 4, canvas.height - 4)
+            tryCompare(card, "visible", false, 3000)
+        }
         function tryFindLink() {
             let link = null
             tryVerify(function() { link = findChild(canvas, "pdfLink-0-0"); return link !== null && link.width > 0 }, 5000)

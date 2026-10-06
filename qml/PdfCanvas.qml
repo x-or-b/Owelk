@@ -67,6 +67,7 @@ Item {
     onReadyChanged: refreshHighlights()
     onSourceChanged: {
         savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null; documentFingerprint = ""; tool = ""
+        closeLinkPreview()
         // PdfDocument may become Ready synchronously before this handler resets the request.
         Qt.callLater(refreshHighlights)
     }
@@ -540,7 +541,7 @@ Item {
         flickableDirection: Flickable.AutoFlickDirection
         boundsBehavior: Flickable.StopAtBounds
         cacheBuffer: Math.max(0, height * 0.5)
-        onContentYChanged: if (!root.restoring) positionTimer.restart()
+        onContentYChanged: { if (!root.restoring) positionTimer.restart(); if (root.linkPreview || previewShow.running) root.closeLinkPreview() }
         onContentXChanged: if (!root.restoring) positionTimer.restart()
         onMovementEnded: root.updatePosition()
         onMovementStarted: root.stopSourceMotion()
@@ -885,12 +886,26 @@ Item {
                         height: rectangle.height * root.pageScale
                         enabled: !root.captureMode
                         onTapped: function(link) {
+                            root.closeLinkPreview()
                             root.activated()
                             if (link.page >= 0) {
                                 const size = pdfDocument.pagePointSize(link.page)
                                 root.jump(link.page, link.location.y / size.height, 0)
                             } else if (/^https?:\/\//i.test(url.toString())) {
                                 root.externalLinkRequested(url)
+                            }
+                        }
+                        // Hovering a reference ([12], Fig. 3, Eq. 2) shows where it points, in place.
+                        HoverHandler {
+                            enabled: parent.page >= 0 && !root.captureMode && root.tool === ""
+                            onHoveredChanged: {
+                                const linkItem = parent
+                                if (hovered) {
+                                    const size = pdfDocument.pagePointSize(linkItem.page)
+                                    const at = linkItem.mapToItem(root, 0, 0)
+                                    root.requestLinkPreview({page: linkItem.page, y: size.height > 0 ? linkItem.location.y / size.height : 0,
+                                                             x: at.x, top: at.y, bottom: at.y + linkItem.height})
+                                } else root.leaveLinkPreview()
                             }
                         }
                     }
@@ -1040,6 +1055,65 @@ Item {
             passwordField.clear()
         }
         onRejected: passwordField.clear()
+    }
+    // --- Reference previews -------------------------------------------------------------------
+    property var linkPreview: null
+    property var pendingPreview: null
+    function requestLinkPreview(spec) { pendingPreview = spec; previewHide.stop(); previewShow.restart() }
+    function leaveLinkPreview() { previewShow.stop(); if (!previewHover.hovered) previewHide.restart() }
+    function closeLinkPreview() { previewShow.stop(); previewHide.stop(); linkPreview = null; pendingPreview = null }
+    Timer { id: previewShow; interval: 350; onTriggered: root.linkPreview = root.pendingPreview }
+    Timer { id: previewHide; interval: 250; onTriggered: if (!previewHover.hovered) root.linkPreview = null }
+    Rectangle {
+        id: previewCard
+        objectName: "linkPreview"
+        visible: root.linkPreview !== null
+        z: 60
+        readonly property var spec: root.linkPreview || ({page: 0, y: 0, x: 0, top: 0, bottom: 0})
+        width: Math.min(560, root.width - 32)
+        height: Math.min(240, root.height * .45)
+        // Below the reference when there is room, otherwise above it.
+        x: Math.max(8, Math.min(root.width - width - 8, spec.x - 40))
+        y: spec.bottom + height + 12 < root.height ? spec.bottom + 6 : Math.max(8, spec.top - height - 6)
+        radius: Theme.radiusLarge
+        color: root.invertPages ? Theme.paperInverted : Theme.paper
+        border.color: Theme.border
+        clip: true
+        // Created only while shown, so references cost nothing until hovered.
+        Loader {
+            active: previewCard.visible
+            width: previewCard.width
+            sourceComponent: PdfPageImage {
+                objectName: "linkPreviewPage"
+                readonly property size points: pdfDocument.pagePointSize(previewCard.spec.page)
+                document: pdfDocument
+                currentFrame: previewCard.spec.page
+                width: previewCard.width
+                height: points.width > 0 ? width * points.height / points.width : width
+                // The target line sits a little below the top of the card, with a few lines of context above.
+                y: Math.min(0, Math.max(previewCard.height - height, 28 - previewCard.spec.y * height))
+                sourceSize.width: Math.ceil(width * Screen.devicePixelRatio)
+                asynchronous: true
+                fillMode: Image.PreserveAspectFit
+                layer.enabled: root.invertPages
+                layer.effect: ShaderEffect { fragmentShader: "qrc:/owelk/shaders/invert.frag.qsb" }
+            }
+        }
+        Rectangle {
+            anchors.bottom: parent.bottom; anchors.right: parent.right; anchors.margins: 6
+            width: goLabel.implicitWidth + 12; height: goLabel.implicitHeight + 6
+            radius: Theme.radiusSmall
+            color: Theme.raised; border.color: Theme.separator
+            Label { id: goLabel; anchors.centerIn: parent; text: "p. " + (previewCard.spec.page + 1) + " · click to go"; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
+        }
+        HoverHandler { id: previewHover; onHoveredChanged: if (!hovered) previewHide.restart() }
+        TapHandler {
+            onTapped: {
+                const target = previewCard.spec
+                root.closeLinkPreview()
+                root.jump(target.page, target.y, 0)
+            }
+        }
     }
     // Mouse side buttons turn pages, like Cmd+[ / Cmd+].
     // A handler, not a MouseArea, so text and link cursors underneath are unaffected.
