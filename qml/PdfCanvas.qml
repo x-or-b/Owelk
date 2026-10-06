@@ -564,7 +564,7 @@ Item {
         flickableDirection: Flickable.AutoFlickDirection
         boundsBehavior: Flickable.StopAtBounds
         cacheBuffer: Math.max(0, height * 0.5)
-        onContentYChanged: { if (!root.restoring) positionTimer.restart(); if (root.linkPreview || previewShow.running) root.closeLinkPreview() }
+        onContentYChanged: { if (!root.restoring) positionTimer.restart(); if ((root.linkPreview || previewShow.running) && !root.restoring && Math.abs(contentY - root.previewContentY) > 24) root.closeLinkPreview() }
         onContentXChanged: if (!root.restoring) positionTimer.restart()
         onMovementEnded: root.updatePosition()
         onMovementStarted: root.stopSourceMotion()
@@ -1082,7 +1082,9 @@ Item {
     // --- Reference previews -------------------------------------------------------------------
     property var linkPreview: null
     property var pendingPreview: null
-    function requestLinkPreview(spec) { pendingPreview = spec; previewHide.stop(); previewShow.restart() }
+    // Where the pages were scrolled when the preview was asked for: reading on (not layout settling) closes it.
+    property real previewContentY: 0
+    function requestLinkPreview(spec) { pendingPreview = spec; previewContentY = pages.contentY; previewHide.stop(); previewShow.restart() }
     function leaveLinkPreview() { previewShow.stop(); if (!previewHover.hovered) previewHide.restart() }
     function closeLinkPreview() { previewShow.stop(); previewHide.stop(); linkPreview = null; pendingPreview = null }
     Timer { id: previewShow; interval: 350; onTriggered: root.linkPreview = root.pendingPreview }

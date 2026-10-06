@@ -166,6 +166,11 @@ Item {
             tryCompare(card, "visible", true, 3000)
             mouseMove(canvas, 4, canvas.height - 4)
             tryCompare(card, "visible", false, 3000)
+            // Reading on (scrolling) closes it too.
+            mouseMove(again, again.width / 2, again.height / 2)
+            tryCompare(card, "visible", true, 3000)
+            findChild(canvas, "pageList").contentY += 200
+            tryCompare(card, "visible", false)
         }
         function tryFindLink() {
             let link = null
