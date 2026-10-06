@@ -562,6 +562,63 @@ Item {
             verify(d.tabLabel(group.id, other).color !== d.tabLabel(group.id, group.labels[0].id).color)
             view.editingLabel = ""
         }
+        function test_verticalTabs() {
+            workspace.documents.restore({})
+            const d = workspace.documents
+            d.openDocument(fixtureSource, null, true); canvas()
+            d.openDocument(outlineSource, null, true); canvas()
+            d.openDocument(longSource, null, true); canvas()
+            Theme.verticalTabs = true
+            workspace.setTabsPanel(true)
+            const panel = findChild(workspace, "tabsPanel")
+            tryCompare(panel, "visible", true)
+            const strip = Tree.leaves(d.tree)[0], view = d.groupView(strip.id)
+            compare(view.stripHeight, 0, "the bar above the split is gone")
+            const [a, b, c] = strip.tabs.map(function(t) { return t.id })
+            tryVerify(function() { return visualChild(panel, "verticalTab-" + a) !== null })
+            waitForPolish(workspace); wait(50)
+            // Clicking a row switches to that tab.
+            mouseClick(visualChild(panel, "verticalTab-" + a), 60, 10)
+            tryCompare(Tree.leaves(d.tree)[0], "activeTab", a)
+            // Dragging a row below another moves the tab; the rows step aside meanwhile.
+            const rowC = visualChild(panel, "verticalTab-" + c)
+            const below = rowC.mapToItem(null, 60, rowC.height * .9)
+            d.dragTitle = "dragged"
+            d.dragTab(a, below.x, below.y)
+            compare(d.dropTarget.index, 3)
+            verify(panel.shiftFor(panel.rows.findIndex(function(r) { return r.type === "tab" && r.tab.id === c })) < 0)
+            d.finishDrag(false)
+            tryVerify(function() { return Tree.leaves(d.tree)[0].tabs[2].id === a })
+            // Holding a row over the middle of another makes a group, named in the list.
+            waitForPolish(workspace); wait(50)
+            const rowB = visualChild(panel, "verticalTab-" + b)
+            const middle = rowB.mapToItem(null, 60, rowB.height / 2)
+            d.dragTitle = "dragged"
+            d.dragTab(c, middle.x, middle.y)
+            compare(d.dropTarget.over, b)
+            wait(600)
+            d.dragTab(c, middle.x, middle.y + 1)
+            d.finishDrag(false)
+            tryVerify(function() { return (Tree.leaves(d.tree)[0].labels || []).length === 1 })
+            const label = Tree.leaves(d.tree)[0].labels[0]
+            tryCompare(panel, "editingLabel", label.id)
+            const field = visualChild(panel, "verticalGroupNameField")
+            tryVerify(function() { return field && field.visible })
+            field.text = "Odometry"; field.accepted()
+            tryCompare(d.tabLabel(strip.id, label.id), "name", "Odometry")
+            // The group's row folds it.
+            tryVerify(function() { return visualChild(panel, "verticalGroup-Odometry") !== null })
+            waitForPolish(workspace); wait(50)
+            mouseClick(visualChild(visualChild(panel, "verticalGroup-Odometry"), "verticalGroupLabel"))
+            tryVerify(function() { return d.tabLabel(strip.id, label.id).collapsed })
+            // Closed, the panel is a thin rail.
+            workspace.setTabsPanel(false)
+            tryVerify(function() { return panel.width < 60 })
+            workspace.setTabsPanel(true)
+            Theme.verticalTabs = false
+            tryCompare(panel, "visible", false)
+            compare(view.stripHeight, Theme.barHeight)
+        }
         function test_tabGroupsCollapsePersistAndSave() {
             workspace.documents.restore({})
             workspace.openDocument(fixtureSource); canvas()

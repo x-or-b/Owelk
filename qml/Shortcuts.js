@@ -8,6 +8,7 @@ const actions = [
     {id: "commands", name: "Command Palette", mac: "Ctrl+Shift+P", other: "Ctrl+Shift+P"},
     {id: "home", name: "Home", mac: "Ctrl+Shift+H", other: "Ctrl+Shift+H"},
     {id: "library", name: "Library", mac: "Ctrl+Shift+L", other: "Ctrl+Shift+L"},
+    {id: "tabsPanel", name: "Show or Hide Vertical Tabs", mac: "Ctrl+Shift+B", other: "Ctrl+Shift+B"},
     {id: "newTab", name: "New Tab", mac: "Ctrl+T", other: "Ctrl+T"},
     {id: "closeTab", name: "Close Tab", mac: "Ctrl+W", other: "Ctrl+W"},
     {id: "reopenTab", name: "Reopen Closed Tab", mac: "Ctrl+Shift+T", other: "Ctrl+Shift+T"},

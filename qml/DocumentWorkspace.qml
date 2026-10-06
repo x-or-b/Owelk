@@ -555,8 +555,24 @@ Flickable {
             root.dragTab(root.draggedTab, root.dragPointer.x, root.dragPointer.y)
         }
     }
+    // Other places a dragged tab can go (the vertical tab list, the Library panel's collections).
+    // A handler's claimDrop(id, x, y) returns a target or null; a target with a `handler` is
+    // finished by handler.dropTab(id, target).
+    property var dropHandlers: []
+    function addDropHandler(handler) { if (dropHandlers.indexOf(handler) < 0) dropHandlers = dropHandlers.concat([handler]) }
+    function removeDropHandler(handler) { dropHandlers = dropHandlers.filter(function(h) { return h !== handler }) }
+    function setDropTarget(target) {
+        const over = target.over || ""
+        if (over !== joinCandidate) { joinCandidate = over; joinReady = false; if (over.length) joinTimer.restart(); else joinTimer.stop() }
+        target.join = over.length && joinReady ? over : ""
+        dropTarget = target
+    }
     function dragTab(id, x, y) {
         draggedTab = id; dropTarget = null; dragPointer = Qt.point(x, y)
+        for (let h = 0; h < dropHandlers.length; ++h) {
+            const claimed = dropHandlers[h].claimDrop(id, x, y)
+            if (claimed) { setDropTarget(claimed); return }
+        }
         const local = mapFromItem(null, x, y)
         if (local.x < 0 || local.y < 0 || local.x > width || local.y > height) return
         for (let i = 0; i < groups.count; ++i) {
@@ -564,7 +580,7 @@ Flickable {
             if (p.x < 0 || p.y < 0 || p.x > view.width || p.y > view.height) continue
             let edge = "center", at = undefined, over = ""
             const owner = Tree.owner(tree, id)
-            if (p.y < Theme.barHeight) { const info = view.dropInfo(p.x, id); at = info.index; over = info.over }
+            if (p.y < view.stripHeight) { const info = view.dropInfo(p.x, id); at = info.index; over = info.over }
             else if (p.x < view.width * .22) edge = "left"
             else if (p.x > view.width * .78) edge = "right"
             else if (p.y < view.height * .25) edge = "top"
@@ -573,8 +589,7 @@ Flickable {
             else if (owner && owner.id === view.groupId) break
             else at = view.groupData.tabs.length
             if (owner && owner.id === view.groupId && owner.tabs.length === 1 && edge !== "center") return
-            if (over !== joinCandidate) { joinCandidate = over; joinReady = false; if (over.length) joinTimer.restart(); else joinTimer.stop() }
-            dropTarget = {group: view.groupId, edge: edge, index: at, over: over, join: over.length && joinReady ? over : ""}
+            setDropTarget({group: view.groupId, edge: edge, index: at, over: over})
             break
         }
     }
@@ -583,7 +598,8 @@ Flickable {
         draggedTab = ""; dropTarget = null; dragPointer = null; dragTitle = ""
         joinTimer.stop(); joinCandidate = ""; joinReady = false
         if (cancelled || !target) return
-        if (target.join) Qt.callLater(function() { root.joinTabs(id, target.join) })
+        if (target.handler) Qt.callLater(function() { target.handler.dropTab(id, target) })
+        else if (target.join) Qt.callLater(function() { root.joinTabs(id, target.join) })
         else Qt.callLater(function() { root.moveTab(id, target.group, target.edge, target.index) })
     }
     // The dragged tab follows the pointer, above everything.

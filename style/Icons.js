@@ -55,6 +55,7 @@ var glyphs = {
     "fast": "\ue1b4",
     "effort": "\ue1bf",
     "margin": "\ue431",
+    "sidebar": "\ue12a",
     "key": "\ue4a3",
     "settings": "\ue154",
     "locate": "\ue0cb",

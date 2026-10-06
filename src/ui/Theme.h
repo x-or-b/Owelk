@@ -18,6 +18,8 @@ class Theme : public QObject {
     Q_PROPERTY(QString accentName READ accentName WRITE setAccentName NOTIFY changed)
     Q_PROPERTY(int textSize READ textSize WRITE setTextSize NOTIFY changed)
     Q_PROPERTY(bool invertPages READ invertPages WRITE setInvertPages NOTIFY changed)
+    // Tabs listed beside the window instead of a bar above each split.
+    Q_PROPERTY(bool verticalTabs READ verticalTabs WRITE setVerticalTabs NOTIFY changed)
     Q_PROPERTY(bool dark READ dark NOTIFY changed)
     // Whether this build can invert PDF pages (compiled with Qt ShaderTools).
     Q_PROPERTY(bool canInvertPages READ canInvertPages CONSTANT)
@@ -101,6 +103,8 @@ public:
     int textSize() const { return m_textSize; }
     void setTextSize(int size);
     bool invertPages() const { return m_invertPages; }
+    bool verticalTabs() const { return m_verticalTabs; }
+    void setVerticalTabs(bool on);
     void setInvertPages(bool on);
     bool dark() const { return m_dark; }
     bool canInvertPages() const
@@ -152,7 +156,7 @@ private:
     ResearchStore *m_store = nullptr;
     QString m_theme = "neutral", m_accentName = "blue";
     int m_textSize = 13;
-    bool m_invertPages = false, m_dark = false;
+    bool m_invertPages = false, m_dark = false, m_verticalTabs = false;
     QColor m_window, m_sidebar, m_content, m_raised, m_field, m_control, m_pdfBackdrop, m_paper{Qt::white},
         m_paperInverted{"#121212"};
     QColor m_text, m_textSecondary, m_textTertiary, m_textDisabled, m_icon, m_onAccent;

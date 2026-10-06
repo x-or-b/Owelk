@@ -37,6 +37,9 @@ ApplicationWindow {
     palette.toolTipBase: Theme.raised
     palette.toolTipText: Theme.text
     palette.brightText: Theme.onAccent
+    // Vertical tabs (Settings → Appearance): the list beside the window is open or a thin rail.
+    property bool tabsPanelOpen: researchStore.setting("tabs.panelOpen", "1") === "1"
+    function setTabsPanel(open) { tabsPanelOpen = open; researchStore.setSetting("tabs.panelOpen", open ? "1" : "0") }
     property bool shelfVisible: true
     property bool filesVisible: true
     property string filesSide: "left"
@@ -331,6 +334,7 @@ ApplicationWindow {
             title: "View"
             Action { text: "Home"; shortcut: window.keys("home"); onTriggered: window.showHome() }
             Action { objectName: "libraryAction"; text: "Library"; shortcut: window.keys("library"); enabled: !window.restoreFailed; onTriggered: documents.openLibrary({}) }
+            Action { objectName: "tabsPanelAction"; text: window.tabsPanelOpen ? "Hide Vertical Tabs" : "Show Vertical Tabs"; shortcut: window.keys("tabsPanel"); enabled: Theme.verticalTabs; onTriggered: window.setTabsPanel(!window.tabsPanelOpen) }
             Action { text: "Search Research"; shortcut: window.keys("search"); onTriggered: { commandPalette.close(); searchPalette.open() } }
             Action { text: "Command Palette"; shortcut: window.keys("commands"); onTriggered: { searchPalette.close(); commandPalette.open() } }
             Action { text: "Find"; shortcut: StandardKey.Find; onTriggered: window.findInView() }
@@ -418,6 +422,15 @@ ApplicationWindow {
     RowLayout {
         anchors.fill: parent
         spacing: 1
+        TabsPanel {
+            id: tabsPanel
+            visible: Theme.verticalTabs && !window.restoreFailed
+            controller: documents
+            open: window.tabsPanelOpen
+            onToggleRequested: window.setTabsPanel(!window.tabsPanelOpen)
+            onTabChosen: window.homeVisible = false
+            Layout.preferredWidth: implicitWidth; Layout.fillHeight: true
+        }
         DockSidebar {
             id: leftDock
             objectName: "leftDock"

@@ -57,19 +57,11 @@ Rectangle {
     // The strip: each group's label, then its tabs (a folded group shows only its label and the
     // active tab). Tabs of a group are always next to each other.
     readonly property int tabWidth: 160
-    readonly property var strip: {
-        const byId = {}, list = []
-        labels.forEach(function(l) { byId[l.id] = l })
-        let previous = ""
-        groupData.tabs.forEach(function(t) {
-            const label = t.label && byId[t.label] ? byId[t.label] : null
-            if (label && label.id !== previous)
-                list.push({type: "header", label: label, size: groupData.tabs.filter(function(x) { return x.label === label.id }).length})
-            previous = label ? label.id : ""
-            if (!label || !label.collapsed || t.id === groupData.activeTab) list.push({type: "tab", tab: t, label: label})
-        })
-        return list
-    }
+    readonly property var strip: Tree.stripItems(groupData)
+    // With vertical tabs the strip is hidden; tabs are listed beside the window instead.
+    readonly property real stripHeight: Theme.verticalTabs ? 0 : Theme.barHeight
+    function showTabMenu(tabId) { menuTab = tabId; tabMenu.popup() }
+    function showGroupMenu(labelId) { menuLabel = labelId; groupMenu.popup() }
     function groupColor(label) {
         const accent = Theme.accents.find(function(a) { return a.id === label.color }) || Theme.accents[0]
         return Theme.dark ? accent.dark : accent.light
@@ -153,7 +145,8 @@ Rectangle {
         // over another tab makes a group of the two.
         RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: Theme.barHeight
+            Layout.preferredHeight: root.stripHeight
+            visible: !Theme.verticalTabs
             spacing: 0
         ListView {
             id: tabs
@@ -176,7 +169,7 @@ Rectangle {
                 readonly property bool current: !isHeader && tabData.id === root.groupData.activeTab
                 readonly property bool dragged: !isHeader && root.controller.draggedTab === tabData.id
                 readonly property bool joinTarget: !isHeader && !!root.controller.dropTarget && root.controller.dropTarget.join === tabData.id
-                readonly property string title: isHeader ? "" : tabData.kind === "home" ? "Home" : tabData.kind === "library" ? "Library" : tabData.kind === "note" ? (tabData.title || "Untitled note") : tabData.kind === "web" ? (tabData.title || tabData.source.replace(/^https?:\/\/(www\.)?/, "")) : (researchStore.documentsRevision, researchStore.displayName(tabData.source))
+                readonly property string title: isHeader ? "" : (researchStore.documentsRevision, Tree.tabTitle(tabData, researchStore.displayName))
                 width: isHeader ? header.width + 6 : root.tabWidth
                 height: Theme.barHeight
                 objectName: isHeader ? "tabGroupHeader-" + labelData.name : "tab-" + tabData.id

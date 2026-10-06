@@ -68,6 +68,7 @@ play play
 fast zap
 effort gauge
 margin panel-right
+sidebar panel-left
 key key-round
 settings settings
 locate file-search

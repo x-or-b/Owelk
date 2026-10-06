@@ -91,6 +91,26 @@ function visibleTabs(groupNode) {
     ;(groupNode.labels || []).forEach(function(l) { if (l.collapsed) collapsed[l.id] = true })
     return groupNode.tabs.filter(function(t) { return !t.label || !collapsed[t.label] || t.id === groupNode.activeTab })
 }
+// What a strip lists, in order: each group's label, then its tabs (a folded group lists only its
+// label and the active tab). Shared by the horizontal tab bar and the vertical tab list.
+function stripItems(groupNode) {
+    const byId = {}, list = []
+    ;(groupNode.labels || []).forEach(function(l) { byId[l.id] = l })
+    let previous = ""
+    groupNode.tabs.forEach(function(t) {
+        const label = t.label && byId[t.label] ? byId[t.label] : null
+        if (label && label.id !== previous)
+            list.push({type: "header", label: label, size: groupNode.tabs.filter(function(x) { return x.label === label.id }).length})
+        previous = label ? label.id : ""
+        if (!label || !label.collapsed || t.id === groupNode.activeTab) list.push({type: "tab", tab: t, label: label})
+    })
+    return list
+}
+// A tab's title as tab lists show it.
+function tabTitle(t, displayName) {
+    return t.kind === "home" ? "Home" : t.kind === "library" ? "Library" : t.kind === "note" ? (t.title || "Untitled note")
+        : t.kind === "web" ? (t.title || t.source.replace(/^https?:\/\/(www\.)?/, "")) : displayName(t.source)
+}
 function leaves(node) { return node.kind === "group" ? [node] : leaves(node.first).concat(leaves(node.second)) }
 function find(node, key) { if (node.id === key) return node; return node.kind === "split" ? find(node.first, key) || find(node.second, key) : null }
 function owner(node, tabId) { return leaves(node).find(function(g) { return g.tabs.some(function(t) { return t.id === tabId }) }) }

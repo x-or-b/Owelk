@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs as Native
 import Owelk.Ui
+import "Platform.js" as Platform
 
 ColumnLayout {
     id: root
@@ -97,6 +98,19 @@ ColumnLayout {
                     TapHandler { onTapped: Theme.accentName = dot.modelData.id }
                     ToolTip.visible: dotHover.hovered; ToolTip.delay: 500; ToolTip.text: modelData.name
                 }
+            }
+        }
+    }
+    SettingsGroup {
+        title: "Tabs"
+        note: "Vertical tabs list every tab beside the window, with full titles; the panel opens and closes from its button at the top left (" + Platform.keys("Ctrl+Shift+B") + ")."
+        SettingsRow {
+            label: "Tab layout"
+            TabBar {
+                objectName: "tabLayout"
+                currentIndex: Theme.verticalTabs ? 1 : 0
+                TabButton { text: "Horizontal"; width: 96; onClicked: Theme.verticalTabs = false }
+                TabButton { objectName: "verticalTabsOption"; text: "Vertical"; width: 96; onClicked: Theme.verticalTabs = true }
             }
         }
     }

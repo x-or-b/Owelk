@@ -60,6 +60,7 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
         m_accentName = accentFor(m_store->setting("appearance.accent")).id;
         m_textSize = qBound(11, m_store->setting("appearance.textSize", "13").toInt(), 17);
         m_invertPages = m_store->setting("appearance.invertPages") == "1";
+        m_verticalTabs = m_store->setting("appearance.verticalTabs") == "1";
     }
     apply();
 }
@@ -172,6 +173,14 @@ void Theme::setInvertPages(bool on)
     if (on == m_invertPages) return;
     m_invertPages = on;
     save("appearance.invertPages", on ? "1" : "0");
+    emit changed();
+}
+
+void Theme::setVerticalTabs(bool on)
+{
+    if (on == m_verticalTabs) return;
+    m_verticalTabs = on;
+    save("appearance.verticalTabs", on ? "1" : "0");
     emit changed();
 }
 
