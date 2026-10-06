@@ -10,6 +10,8 @@ Item {
     property url source
     property alias document: pdfDocument
     property real zoomFactor: 1
+    // "width" (the default: zoom 1 fills the width), "page" (a whole page fits) or "" after a manual zoom.
+    property string fitMode: "width"
     property bool pinching: false
     property bool selecting: false
     readonly property bool interacting: pinching || selecting || sourceScroll.running
@@ -187,7 +189,7 @@ Item {
         const item = pages.itemAtIndex(index)
         if (!item) return lastPosition
         return {page: index, y: Math.max(0, (pages.contentY - item.y) / Math.max(1, item.height)),
-                x: Math.max(0, pages.contentX / Math.max(1, pages.contentWidth)), zoom: zoomFactor}
+                x: Math.max(0, pages.contentX / Math.max(1, pages.contentWidth)), zoom: zoomFactor, fit: fitMode}
     }
 
     function updatePosition() {
@@ -222,11 +224,28 @@ Item {
         const saved = position()
         restoring = true
         zoomFactor = Math.max(0.5, Math.min(4, zoomFactor * multiplier))
+        fitMode = ""
         Qt.callLater(function() { jump(saved.page, saved.y, saved.x) })
     }
 
     function fitWidth() {
         zoom(1 / zoomFactor)
+        fitMode = "width"
+    }
+    // The zoom at which the current page is wholly visible (never wider than the width).
+    function fitPageZoom(page) {
+        const size = pdfDocument.pagePointSize(page === undefined ? currentPage : page), widthScale = Math.max(0.1, (width - 56) / Math.max(1, firstPageWidth))
+        return size.height > 0 ? Math.max(0.5, Math.min(1, (pages.height - 24) / (size.height * widthScale))) : 1
+    }
+    // Shows a whole page at a time; turning pages (Cmd+] / Cmd+[) then reads like a book.
+    function fitPage() {
+        if (!ready) return
+        if (pinching) endPinch()
+        restoring = true
+        zoomFactor = fitPageZoom()
+        fitMode = "page"
+        const page = currentPage
+        Qt.callLater(function() { jump(page, 0, 0) })
     }
 
     function anchorAt(point) {
@@ -275,6 +294,7 @@ Item {
     function endPinch() {
         if (!pinching) return
         pinching = false
+        if (zoomFactor !== pinchStartZoom) fitMode = ""
         pinchAnchor = null
         restoring = false
         updatePosition()
@@ -460,6 +480,8 @@ Item {
         researchStore.highlightText(source, selectedAnchor.page, selectedAnchor.from, selectedAnchor.to, selectedAnchor.text, markColor)
     }
 
+    // A whole page stays fitted when the window or split changes height.
+    onHeightChanged: if (fitMode === "page" && ready && !restoring) { pendingPosition = lastPosition; restoring = true; restoreTimer.restart() }
     onWidthChanged: {
         stopSourceMotion()
         if (pinching) cancelPinch()
@@ -477,7 +499,8 @@ Item {
         onTriggered: {
             if (!root.ready) return
             const saved = root.pendingPosition || root.lastPosition
-            root.zoomFactor = Math.max(0.5, Math.min(4, saved.zoom || 1))
+            root.fitMode = saved.fit !== undefined ? saved.fit : ((saved.zoom || 1) === 1 ? "width" : "")
+            root.zoomFactor = root.fitMode === "page" ? root.fitPageZoom(saved.page || 0) : root.fitMode === "width" ? 1 : Math.max(0.5, Math.min(4, saved.zoom || 1))
             root.pendingPosition = null
             Qt.callLater(function() { root.jump(saved.page || 0, saved.y || 0, saved.x || 0) })
         }

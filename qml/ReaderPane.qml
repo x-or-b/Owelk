@@ -101,6 +101,7 @@ Rectangle {
     }
     function zoom(multiplier) { canvas.zoom(multiplier) }
     function fitWidth() { canvas.fitWidth() }
+    function fitPage() { canvas.fitPage() }
     function jumpToPage(page, y) { activated(); canvas.jump(page, y || 0, 0) }
     // Web links in a PDF open in an app tab when the pane belongs to a workspace.
     signal linkRequested(url url)
@@ -276,12 +277,21 @@ Rectangle {
             Row {
                 anchors.centerIn: parent
                 IconButton { icon.name: "minus"; description:"Zoom out"; onClicked:{root.activated();canvas.zoom(1/1.2)} }
+                // The zoom readout chooses how pages fit: the whole width or a whole page.
                 ToolButton {
+                    id: zoomReadout
+                    objectName: "zoomReadout"
                     height:Theme.controlHeightSmall; width:Math.max(implicitWidth, Theme.fontBody * 4.5); hoverEnabled:true
-                    text: Math.round(canvas.zoomFactor * 100) + "%"
-                    onClicked: { root.activated(); canvas.fitWidth() }
-                    ToolTip.visible: hovered
-                    ToolTip.text: "Click to fit width · Ctrl+wheel to zoom"
+                    text: canvas.fitMode === "page" ? "Page" : Math.round(canvas.zoomFactor * 100) + "%"
+                    onClicked: { root.activated(); fitMenu.popup(zoomReadout, 0, zoomReadout.height) }
+                    ToolTip.visible: hovered && !fitMenu.visible
+                    ToolTip.text: "View · Ctrl+wheel to zoom"
+                    Menu {
+                        id: fitMenu
+                        objectName: "fitMenu"
+                        MenuItem { objectName: "fitWidthItem"; text: "Fit Width"; checkable: true; checked: canvas.fitMode === "width"; onTriggered: canvas.fitWidth() }
+                        MenuItem { objectName: "fitPageItem"; text: "Fit Page"; checkable: true; checked: canvas.fitMode === "page"; onTriggered: canvas.fitPage() }
+                    }
                 }
                 IconButton { icon.name: "add"; description:"Zoom in"; onClicked:{root.activated();canvas.zoom(1.2)} }
             }

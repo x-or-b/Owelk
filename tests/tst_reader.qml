@@ -103,6 +103,40 @@ Item {
             canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000)
         }
+        function test_fitPageShowsWholePagesAndIsKept() {
+            canvas.openFile(longSource, {page: 1, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            compare(canvas.fitMode, "width")
+            // The zoom readout offers both fits; Fit Page shows the whole page.
+            mouseClick(findChild(reader, "zoomReadout"))
+            const menu = findChild(reader, "fitMenu")
+            tryCompare(menu, "opened", true)
+            mouseClick(findChild(menu, "fitPageItem"))
+            tryCompare(canvas, "fitMode", "page"); tryCompare(canvas, "restoring", false)
+            compare(canvas.currentPage, 1)
+            const page = findChild(canvas, "paperPage1")
+            verify(page.height <= canvas.height, "the whole page fits: " + page.height + " vs " + canvas.height)
+            compare(canvas.position().fit, "page")
+            // Turning the page keeps a whole page in view; a manual zoom leaves the fit.
+            testInput.keyClick(canvas, Qt.Key_BracketRight, Qt.ControlModifier)
+            tryCompare(canvas, "currentPage", 2)
+            compare(canvas.fitMode, "page")
+            canvas.zoom(1.2); tryCompare(canvas, "restoring", false)
+            compare(canvas.fitMode, "")
+            // Reopening restores the fit, not a stale zoom.
+            canvas.fitPage(); tryCompare(canvas, "restoring", false)
+            const saved = canvas.position()
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            compare(canvas.fitMode, "width")
+            canvas.openFile(longSource, saved)
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            compare(canvas.fitMode, "page")
+            canvas.fitWidth(); tryCompare(canvas, "restoring", false)
+            compare(canvas.zoomFactor, 1)
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+        }
         function test_internalLinkJumps() {
             canvas.openFile(linkSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)

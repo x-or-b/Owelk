@@ -43,7 +43,8 @@ Popup {
         {command: "/capture", title: "Capture: Select a Region", enabled: hasDocument},
         {command: "/capture text", title: "Capture: Save Selected Text", enabled: hasDocument && hasSelection},
         {command: "/highlight", title: "PDF: Highlight Selected Text", enabled: hasDocument && hasSelection},
-        {command: "/fit width", title: "PDF: Fit Page Width", enabled: hasDocument}
+        {command: "/fit width", title: "PDF: Fit Width", enabled: hasDocument},
+        {command: "/fit page", title: "PDF: Fit Page", enabled: hasDocument}
     ]
     readonly property var results: commands.filter(function(c) { return Match.matches(c.title, query.text) })
     signal commandChosen(string command)
