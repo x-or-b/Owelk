@@ -45,7 +45,8 @@ open -n /Users/gyu/Documents/Owelk/build/owelk.app --args --data-dir /Users/gyu/
 - 닫힌 패널도 위치를 변경할 수 있고 닫힌 상태를 유지합니다. 여러 패널이 같은 쪽이면 아이콘이나 제목 탭으로 전환하고, 활성 패널의 아이콘을 다시 누르면 닫힙니다.
 - `Library` 패널(이전의 Files)은 읽는 옆에 둔 책장입니다. 구획은 눌러서 접고 펴며, 접힌 상태를 기억합니다.
   - **Collections**: Unsorted와 Collection(하위 포함, 논문 수). 누르면 그 Collection으로 거른 Library 탭이 열립니다. 리더의 PDF 탭이나 Library 목록의 논문을 끌어다 Collection 위에 놓으면 그 Collection에 들어갑니다(탭은 그대로 열려 있음).
-  - **Workspaces**: 최근 워크스페이스. 누르면 전환하고, 우클릭으로 Manage Links…를 엽니다.
+  - Collections 옆 `+`로 새 Collection을, Collection 우클릭으로 Add PDFs…·New Sub-collection…·Rename…·Delete Collection…을 합니다.
+  - **Workspaces**: 최근 워크스페이스. 누르면 전환하고, 우클릭으로 Manage Links…를 엽니다. PDF 탭을 워크스페이스 위에 끌어 놓으면 그 워크스페이스에 연결됩니다.
   - **Tags**: 태그 칩. 누르면 그 태그로 거른 Library가 열립니다.
   - **Folder / Recent files**: 처음에는 최근 PDF를, 폴더 아이콘으로 폴더를 고르면 하위 폴더와 PDF 목록을 보여 줍니다. ↻로 새로 고칩니다.
 - 원본 파일은 변경하지 않으며, 숨김 파일·심볼릭 링크는 목록에서 제외합니다. 파일 생성·이동·삭제 기능과 폴더 전체 본문 검색은 아직 없습니다.

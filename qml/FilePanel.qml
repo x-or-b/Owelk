@@ -33,19 +33,28 @@ Item {
     }
     // Tabs dragged over a collection are filed there (PDF tabs only); the tab stays open.
     function claimDrop(id, x, y) {
-        if (!visible || !collectionsOpen || !workspace) return null
+        if (!visible || !workspace) return null
+        const strip = Tree.owner(workspace.tree, id)
+        const tab = strip ? strip.tabs.find(function(t) { return t.id === id }) : null
+        if (!tab || tab.kind) return null
+        // A workspace row: the paper is linked to that workspace.
+        for (let w = 0; w < workspaceRows.count; ++w) {
+            const item = workspaceRows.itemAt(w), q = item ? item.mapFromItem(null, x, y) : null
+            if (q && q.x >= 0 && q.y >= 0 && q.x <= item.width && q.y <= item.height)
+                return {handler: root, workspace: item.modelData.id, name: item.modelData.name, source: tab.source}
+        }
+        if (!collectionsOpen) return null
         const p = shelf.mapFromItem(null, x, y)
         if (p.x < 0 || p.y < 0 || p.x > shelf.width || p.y > shelf.height) return null
         const i = shelf.indexAt(p.x, p.y + shelf.contentY)
         const row = i >= 0 ? shelf.model[i] : null
         if (!row || row.unsorted) return null
-        const strip = Tree.owner(workspace.tree, id)
-        const tab = strip ? strip.tabs.find(function(t) { return t.id === id }) : null
-        if (!tab || tab.kind) return null
         return {handler: root, collection: row.id, name: row.name, source: tab.source}
     }
     function dropTab(id, target) {
-        if (researchStore.setDocumentCollection(target.source, target.collection, true)) researchStore.notify("Added to " + target.name + ".")
+        if (target.workspace) {
+            if (researchStore.setWorkspaceDocument(target.workspace, target.source, true)) researchStore.notify("Linked to " + target.name + ".")
+        } else if (researchStore.setDocumentCollection(target.source, target.collection, true)) researchStore.notify("Added to " + target.name + ".")
     }
     Component.onDestruction: if (workspace) workspace.removeDropHandler(root)
     // A section heading: a chevron and a name; click folds it.
@@ -136,6 +145,39 @@ Item {
         property var collection: ({})
         MenuItem { text: "Open in Library"; onTriggered: root.libraryFilterRequested({collection: shelfMenu.collection.id}) }
         MenuItem { objectName: "panelAddPdfs"; text: "Add PDFs…"; onTriggered: addFiles.open() }
+        MenuSeparator {}
+        MenuItem { text: "New Sub-collection…"; onTriggered: nameDialog.begin("new", "", shelfMenu.collection.id) }
+        MenuItem { objectName: "panelRenameCollection"; text: "Rename…"; onTriggered: nameDialog.begin("rename", shelfMenu.collection.name, shelfMenu.collection.id) }
+        MenuSeparator {}
+        MenuItem { text: "Delete Collection…"; palette.windowText: Theme.danger; onTriggered: deleteConfirm.open() }
+    }
+    // A collection's name, new or changed.
+    Dialog {
+        id: nameDialog
+        objectName: "panelCollectionName"
+        property string mode: "new"
+        property string target: ""
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: 340
+        modal: true
+        title: mode === "rename" ? "Rename collection" : target.length ? "New sub-collection" : "New collection"
+        standardButtons: Dialog.Save | Dialog.Cancel
+        function begin(how, name, collection) { mode = how; target = collection || ""; nameField.text = name || ""; open(); nameField.forceActiveFocus() }
+        TextField { id: nameField; objectName: "panelCollectionNameField"; width: parent.width; placeholderText: "Collection name"; onAccepted: nameDialog.accept() }
+        onAccepted: {
+            if (!nameField.text.trim().length) return
+            if (mode === "rename") researchStore.renameCollection(target, nameField.text)
+            else researchStore.createCollection(nameField.text, target)
+            root.refreshShelf()
+        }
+    }
+    ConfirmDialog {
+        id: deleteConfirm
+        title: "Delete \u201c" + (shelfMenu.collection.name || "") + "\u201d?"
+        message: "Only the collection goes (and its sub-collections). The papers stay in the Library."
+        actionText: "Delete"
+        onConfirmed: { researchStore.deleteCollection(shelfMenu.collection.id); root.refreshShelf() }
     }
     FileDialog {
         id: addFiles
@@ -153,6 +195,7 @@ Item {
             objectName: "collectionsSection"
             title: "Collections"; open: root.collectionsOpen
             onToggled: { root.collectionsOpen = !root.collectionsOpen; root.setSection("collections", root.collectionsOpen) }
+            IconButton { objectName: "panelNewCollection"; icon.name: "add"; description: "New collection"; width: 22; height: 22; glyphSize: Theme.fontBody; onClicked: nameDialog.begin("new", "", "") }
         }
         ListView {
             id: shelf
@@ -204,6 +247,7 @@ Item {
             onToggled: { root.workspacesOpen = !root.workspacesOpen; root.setSection("workspaces", root.workspacesOpen) }
         }
         Repeater {
+            id: workspaceRows
             model: root.workspacesOpen ? researchStore.recentWorkspaces.slice(0, 8) : []
             delegate: ItemDelegate {
                 id: workspaceRow
@@ -214,6 +258,7 @@ Item {
                 leftPadding: 26
                 text: modelData.name
                 onClicked: root.workspaceChosen(modelData.id)
+                highlighted: !!root.workspace && !!root.workspace.dropTarget && root.workspace.dropTarget.handler === root && root.workspace.dropTarget.workspace === modelData.id
                 Icon { x: 6; anchors.verticalCenter: parent.verticalCenter; name: "workspace"; size: Theme.fontBody; color: Theme.textTertiary }
                 TapHandler { acceptedButtons: Qt.RightButton; onTapped: workspaceMenu.popup() }
                 Menu {
