@@ -14,7 +14,15 @@ Item {
     property string fitMode: "width"
     property bool pinching: false
     property bool selecting: false
-    readonly property bool interacting: pinching || selecting || sourceScroll.running
+    // Background PDF work (text index, paper details) waits while the reader is busy, including the
+    // redraw after a zoom: both use one PDF lock, and the redraw is what the reader is looking at.
+    readonly property bool interacting: pinching || selecting || sourceScroll.running || (redrawing && (loadingPages > 0 || redrawGrace.running))
+    property int loadingPages: 0
+    property bool redrawing: false
+    function holdForRedraw() { redrawing = true; redrawGrace.restart(); redrawCap.restart() }
+    Timer { id: redrawGrace; interval: 150 }
+    Timer { id: redrawCap; interval: 1500; onTriggered: root.redrawing = false }
+    onLoadingPagesChanged: if (loadingPages === 0 && !redrawGrace.running) redrawing = false
     onInteractingChanged: researchStore.paperIndex.setReaderInteracting(root, interacting)
     property real pinchStartZoom: 1
     property var pinchAnchor: null
@@ -225,6 +233,7 @@ Item {
         restoring = true
         zoomFactor = Math.max(0.5, Math.min(4, zoomFactor * multiplier))
         fitMode = ""
+        holdForRedraw()
         Qt.callLater(function() { jump(saved.page, saved.y, saved.x) })
     }
 
@@ -244,6 +253,7 @@ Item {
         restoring = true
         zoomFactor = fitPageZoom()
         fitMode = "page"
+        holdForRedraw()
         const page = currentPage
         Qt.callLater(function() { jump(page, 0, 0) })
     }
@@ -293,8 +303,8 @@ Item {
     }
     function endPinch() {
         if (!pinching) return
+        if (zoomFactor !== pinchStartZoom) { fitMode = ""; holdForRedraw() }
         pinching = false
-        if (zoomFactor !== pinchStartZoom) fitMode = ""
         pinchAnchor = null
         restoring = false
         updatePosition()
@@ -698,14 +708,32 @@ Item {
                     cache: false
                     sourceSize.width: Math.min(4096, Math.ceil(pageHolder.pointSize.width * root.rasterScale * Screen.devicePixelRatio))
                     fillMode: Image.PreserveAspectFit
+                    // Counted while drawing, so background work can wait for the pages on screen.
+                    property bool counted: false
+                    onStatusChanged: {
+                        const loading = status === Image.Loading
+                        if (loading !== counted) { counted = loading; root.loadingPages += loading ? 1 : -1 }
+                    }
+                    Component.onDestruction: if (counted) root.loadingPages--
                     // Dark pages (Settings → Appearance): only while the option is on, so it costs nothing otherwise.
                     layer.enabled: root.invertPages
                     layer.effect: ShaderEffect { objectName: "invertEffect"; fragmentShader: "qrc:/owelk/shaders/invert.frag.qsb" }
                 }
 
+                // Only for a page with nothing on it yet, and only when it is slow: a redraw after a zoom
+                // keeps showing the previous image instead.
+                Timer {
+                    id: slowPage
+                    property bool slow: false
+                    interval: 300
+                    running: pageImage.status === Image.Loading && pageImage.paintedWidth === 0
+                    onRunningChanged: if (running) slow = false
+                    onTriggered: slow = true
+                }
                 BusyIndicator {
+                    objectName: "pageBusy" + pageHolder.index
                     anchors.centerIn: parent
-                    running: pageImage.status === Image.Loading
+                    running: slowPage.slow && pageImage.status === Image.Loading && pageImage.paintedWidth === 0
                     visible: running
                 }
 

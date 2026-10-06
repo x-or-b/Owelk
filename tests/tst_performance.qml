@@ -35,6 +35,39 @@ Item {
             tryCompare(findChild(canvas, "pageImage" + page), "status", Image.Ready, 10000)
             return canvas
         }
+        // After a pinch the visible pages are drawn again at the new size. Measures how long that takes
+        // alone and while papers are being added in the background (metadata and text index).
+        function test_pinchRedraw() {
+            root.readerCount = 1
+            const reader = readers.itemAt(0)
+            const source = testInput.perfFixture("pinch.pdf")
+            reader.openFile(source)
+            const canvas = ready(reader, 0)
+            function redraw(scale) {
+                const point = Qt.point(canvas.width / 2, 200)
+                verify(canvas.beginPinch(point))
+                for (let i = 1; i <= 20; ++i) { canvas.updatePinch(1 + (scale - 1) * i / 20, point); wait(8) }
+                canvas.endPinch()
+                const start = Date.now()
+                let spinners = 0
+                tryVerify(function() {
+                    const shown = images(canvas).filter(function(image) { return image.visible })
+                    for (let i = 0; i < 40; ++i) { const busy = findChild(canvas, "pageBusy" + i); if (busy && busy.running) spinners++ }
+                    return shown.length > 0 && !shown.some(function(image) { return image.status === Image.Loading })
+                }, 20000)
+                // The redraw keeps the previous image on screen: no spinner over a page that has one.
+                compare(spinners, 0)
+                return {ms: Date.now() - start, paused: canvas.interacting}
+            }
+            const idle = [redraw(1.3), redraw(0.8), redraw(1.25)]
+            const copies = []
+            for (let i = 0; i < 16; ++i) copies.push(testInput.perfFixture("pinch copy " + i + ".pdf"))
+            researchStore.addDocuments(copies, "")
+            wait(50)
+            const busy = [redraw(1.3), redraw(0.8), redraw(1.25)]
+            console.log("PERF pinch redraw " + JSON.stringify({source: source.toString().split("/").pop(), idle: idle, whileAdding: busy}))
+            researchStore.removeFromLibrary(copies)
+        }
         function test_baseline() {
             const start = Date.now()
             readers.itemAt(0).openFile(longSource)

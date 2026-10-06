@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include "FileFingerprint.h"
+#include "PaperIndex.h"
 #include "PaperMetadata.h"
 
 #include <QDateTime>
@@ -14,6 +15,7 @@
 #include <QTimer>
 #include <QUuid>
 #include <QtConcurrent>
+#include <QThread>
 
 namespace {
 bool run(QSqlDatabase &db, const QString &sql, QString *error)
@@ -308,15 +310,18 @@ void ResearchStore::refreshMetadata(const QString &id, const QUrl &url, bool for
         }
         if (duplicateCheck) reportDuplicate(id, url, result.hash);
     });
-    watcher->setFuture(QtConcurrent::run(&m_metadataWorkers, [url, known, userDetails] {
-        Result result;
-        result.hash = FileFingerprint::sha256(url.toLocalFile());
-        // Same bytes as last time, or details the user owns: keep them without reopening the PDF.
-        if (result.hash.isEmpty() || userDetails || result.hash == known) return result;
-        result.metadata = extractPaperMetadata(url.toLocalFile());
-        result.extracted = true;
-        return result;
-    }));
+    watcher->setFuture(
+        QtConcurrent::run(&m_metadataWorkers, [url, known, userDetails, busy = m_index->readerBusyFlag()] {
+            // Reading comes first: PDF work shares one lock with the viewer, so wait while it zooms or redraws.
+            for (int waited = 0; busy->load() && waited < 250; ++waited) QThread::msleep(20);
+            Result result;
+            result.hash = FileFingerprint::sha256(url.toLocalFile());
+            // Same bytes as last time, or details the user owns: keep them without reopening the PDF.
+            if (result.hash.isEmpty() || userDetails || result.hash == known) return result;
+            result.metadata = extractPaperMetadata(url.toLocalFile());
+            result.extracted = true;
+            return result;
+        }));
 }
 
 void ResearchStore::reportDuplicate(const QString &id, const QUrl &url, const QString &hash)

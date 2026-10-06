@@ -42,6 +42,16 @@ class ReaderSetup : public QObject {
 public:
     // A byte-identical copy of fixture.pdf under a new name, for duplicate detection.
     Q_INVOKABLE bool fileExists(const QUrl &url) const { return QFile::exists(url.toLocalFile()); }
+    // A heavier real PDF for measurements, if OWELK_PERF_PDF names one (copied, never opened in place).
+    Q_INVOKABLE QUrl perfFixture(const QString &name)
+    {
+        const auto from = qEnvironmentVariable("OWELK_PERF_PDF");
+        if (from.isEmpty() || !QFile::exists(from)) return QUrl::fromLocalFile(m_directory.filePath("long.pdf"));
+        const auto path = m_directory.filePath(name);
+        QFile::remove(path);
+        QFile::copy(from, path);
+        return QUrl::fromLocalFile(path);
+    }
     Q_INVOKABLE QUrl copyFixture(const QString &name)
     {
         const auto path = m_directory.filePath(name);
