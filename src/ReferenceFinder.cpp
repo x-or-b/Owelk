@@ -77,6 +77,61 @@ int ReferenceFinder::resolve(const QUrl &source, int page, const QPointF &point)
     return request;
 }
 
+int ReferenceFinder::entryAt(const QUrl &source, int page, const QPointF &point)
+{
+    const int request = ++m_next;
+    m_latest = request;
+    const auto path = source.toLocalFile();
+    m_pool.start([this, request, path, page, point] {
+        const auto target = request < m_latest ? QVariantMap() : findEntry(path, page, point, request);
+        QMetaObject::invokeMethod(
+            this, [this, request, target] { emit resolved(request, target); }, Qt::QueuedConnection);
+    });
+    return request;
+}
+
+// An entry starts a line with "[n]" or "n."; it runs to the next one (or 400 characters).
+QVariantMap ReferenceFinder::entryAround(const QString &text, qsizetype index)
+{
+    static const QRegularExpression entryStart(R"((?:^|[\r\n])[ \t]*(\[(\d{1,3})\]|(\d{1,3})\.[ \t]))");
+    qsizetype start = -1;
+    QString number;
+    for (auto it = entryStart.globalMatch(text); it.hasNext();) {
+        const auto m = it.next();
+        if (m.capturedStart(1) > index + 2) break;
+        start = m.capturedStart(1);
+        number = m.captured(2).isEmpty() ? m.captured(3) : m.captured(2);
+    }
+    // Too far back to be the entry the point is on.
+    if (start < 0 || index - start > 400) return {};
+    const auto next = entryStart.match(text, start + 2);
+    const auto end = next.hasMatch() ? next.capturedStart(1) : text.size();
+    return {{"start", start}, {"length", std::clamp<qsizetype>(end - start, 1, 400)}, {"label", "[" + number + "]"}};
+}
+
+QVariantMap ReferenceFinder::findEntry(const QString &path, int page, const QPointF &point, int request)
+{
+    QPdfDocument pdf;
+    if (path.isEmpty() || PdfAccess::load(pdf, path) != QPdfDocument::Error::None) return {};
+    if (page < 0 || page >= pdf.pageCount()) return {};
+    // Destinations point at the line's start or the margin: probe along the line for its first character.
+    const auto width = pdf.pagePointSize(page).width();
+    const qreal y = point.y() + 4;
+    auto hit = pdf.getSelection(page, QPointF(point.x() + 2, y), QPointF(point.x() + 5, y));
+    for (qreal x = 2; hit.text().isEmpty() && x < width; x += 10)
+        hit = pdf.getSelection(page, QPointF(x, y), QPointF(x + 3, y));
+    if (hit.text().isEmpty()) return {};
+    const auto texts = pageTexts(pdf, path, request);
+    if (page >= texts.size()) return {};
+    const auto entry = entryAround(texts[page], hit.startIndex());
+    if (entry.isEmpty()) return {};
+    auto found = describe(pdf, texts, {{"page", page}, {"start", entry["start"]}, {"length", entry["length"]}});
+    if (found.isEmpty()) return {};
+    found.insert("kind", "citation");
+    found.insert("label", entry["label"]);
+    return found;
+}
+
 QVariantMap ReferenceFinder::find(const QString &path, int page, const QPointF &point, int request)
 {
     QPdfDocument pdf;

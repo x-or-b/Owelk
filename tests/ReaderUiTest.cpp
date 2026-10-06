@@ -135,6 +135,8 @@ public slots:
         if (!writeLinkFixture(m_directory.filePath("links.pdf"))) qFatal("Cannot create link fixture");
         writeReferenceFixture(m_directory.filePath("references.pdf"));
         if (!writeLinkFixture(m_directory.filePath("lost-links.pdf"), true)) qFatal("Cannot create link fixture");
+        if (!writeLinkFixture(m_directory.filePath("reference-links.pdf"), false, true))
+            qFatal("Cannot create link fixture");
         QDir().mkpath(m_directory.filePath("library/Group"));
         QFile::copy(m_directory.filePath("fixture.pdf"), m_directory.filePath("library/root.pdf"));
         QFile::copy(m_directory.filePath("fixture.pdf"), m_directory.filePath("library/Group/inside.pdf"));
@@ -168,6 +170,8 @@ public slots:
         engine->rootContext()->setContextProperty("linkSource", QUrl::fromLocalFile(m_directory.filePath("links.pdf")));
         engine->rootContext()->setContextProperty("longSource", QUrl::fromLocalFile(m_directory.filePath("long.pdf")));
         engine->rootContext()->setContextProperty(
+            "referenceLinkSource", QUrl::fromLocalFile(m_directory.filePath("reference-links.pdf")));
+        engine->rootContext()->setContextProperty(
             "lostLinkSource", QUrl::fromLocalFile(m_directory.filePath("lost-links.pdf")));
         engine->rootContext()->setContextProperty(
             "referenceSource", QUrl::fromLocalFile(m_directory.filePath("references.pdf")));
@@ -179,7 +183,8 @@ public slots:
             engine->rootContext()->setContextProperty(
                 "referenceCitation", references.getSelectionAtIndex(0, text.indexOf("[2]"), 3).boundingRectangle());
             engine->rootContext()->setContextProperty("referenceRange",
-                references.getSelectionAtIndex(0, text.indexOf(QString::fromUtf8("[1\u20133]")), 5).boundingRectangle());
+                references.getSelectionAtIndex(0, text.indexOf(QString::fromUtf8("[1\u20133]")), 5)
+                    .boundingRectangle());
             engine->rootContext()->setContextProperty(
                 "referenceFigure", references.getSelectionAtIndex(0, text.indexOf("Fig. 2"), 6).boundingRectangle());
             engine->rootContext()->setContextProperty(

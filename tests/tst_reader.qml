@@ -173,6 +173,28 @@ Item {
             findChild(canvas, "pageList").contentY += 200
             tryCompare(card, "visible", false)
         }
+        function test_workingLinksToReferencesOfferFindPaper() {
+            canvas.openFile(referenceLinkSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            const link = tryFindLink(), card = findChild(canvas, "linkPreview"), find = findChild(card, "findPaperButton")
+            compare(link.page, 2)
+            // On "[3]": found from the text, with the entry for Find Paper.
+            const y = link.height / 2
+            for (let x = link.width - 40; x <= link.width - 8 && !find.visible; x += 6) { mouseMove(link, x, y); wait(450) }
+            tryVerify(function() { return card.visible && find.visible }, 5000)
+            verify(canvas.linkPreview.text.indexOf("The cited paper") >= 0)
+            mouseMove(canvas, 4, canvas.height - 4)
+            tryCompare(card, "visible", false, 3000)
+            // On "See": not a reference by its text; the entry at the link's destination is used.
+            mouseMove(link, 6, y); mouseMove(link, 10, y)
+            tryVerify(function() { return card.visible && find.visible }, 5000)
+            compare(canvas.linkPreview.label, "[3]")
+            compare(canvas.linkPreview.page, 2)
+            verify(canvas.linkPreview.text.indexOf("A. Author") >= 0)
+            mouseMove(canvas, 4, canvas.height - 4)
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+        }
         function test_aLinkWithALostTargetPreviewsFromItsText() {
             canvas.openFile(lostLinkSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)

@@ -153,6 +153,12 @@ private slots:
         QCOMPARE(ReferenceFinder::referenceAt(QString::fromUtf8("see [12\u201314] here"), 6)["numbers"].toStringList(),
             QStringList({"12", "13", "14"}));
         QCOMPARE(ReferenceFinder::referenceAt("see [1-30]", 6)["numbers"].toStringList().size(), 8);
+        // The entry around a point in a reference list (a link's destination).
+        const QString list = "References\r\n[1] A. One. 2001.\r\n[2] B. Two, a long\r\ntitle. 2002.\r\n[3] C. Three.";
+        auto entry = ReferenceFinder::entryAround(list, list.indexOf("title"));
+        QCOMPARE(entry["label"].toString(), QString("[2]"));
+        QCOMPARE(list.mid(entry["start"].toInt(), entry["length"].toInt()).trimmed(), QString("[2] B. Two, a long\r\ntitle. 2002."));
+        QVERIFY(ReferenceFinder::entryAround("No list here.", 3).isEmpty());
     }
     void bundledIconFontAndShaders()
     {

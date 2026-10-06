@@ -90,8 +90,9 @@ inline bool writeOutlineFixture(const QString &path)
 
 // Three pages; page 1 has an internal link (60,600)-(300,640) in PDF points that jumps to page 3 at y=400.
 // With lostTarget the link names a destination the file no longer has (as tools that strip /Names leave
-// it), and page 3 lists the reference instead.
-inline bool writeLinkFixture(const QString &path, bool lostTarget = false)
+// it), and page 3 lists the reference instead. With referencesPage the link works and leads to that
+// list's entry.
+inline bool writeLinkFixture(const QString &path, bool lostTarget = false, bool referencesPage = false)
 {
     QList<QByteArray> objects;
     objects << "<< /Type /Catalog /Pages 2 0 R >>"
@@ -100,7 +101,7 @@ inline bool writeLinkFixture(const QString &path, bool lostTarget = false)
         objects << QByteArray("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R "
                               ">> >> /Contents ")
                 + QByteArray::number(4 + page * 2) + " 0 R" + (page == 0 ? " /Annots [10 0 R]" : "") + " >>";
-        const auto content = page == 2 && lostTarget
+        const auto content = page == 2 && (lostTarget || referencesPage)
             ? QByteArray(
                   "BT /F1 20 Tf 60 700 Td (References) Tj 0 -300 Td ([3] A. Author. The cited paper. 2020.) Tj ET")
             : QByteArray("BT /F1 20 Tf 60 610 Td (") + (page == 0 ? "See reference [3]" : "Link page") + ") Tj ET";
@@ -111,7 +112,8 @@ inline bool writeLinkFixture(const QString &path, bool lostTarget = false)
             << (lostTarget ? QByteArray("<< /Type /Annot /Subtype /Link /Rect [60 600 300 640] /Border [0 0 0] /A << "
                                         "/S /GoTo /D (cite.lost) >> >>")
                            : QByteArray("<< /Type /Annot /Subtype /Link /Rect [60 600 300 640] /Border [0 0 0] /Dest "
-                                        "[7 0 R /XYZ 0 400 0] >>"));
+                                        "[7 0 R /XYZ ")
+                           + (referencesPage ? "60 410" : "0 400") + " 0] >>");
     QByteArray pdf("%PDF-1.4\n");
     QList<qsizetype> offsets;
     for (qsizetype i = 0; i < objects.size(); ++i) {

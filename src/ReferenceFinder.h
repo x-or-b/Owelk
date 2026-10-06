@@ -27,6 +27,10 @@ public:
     // {kind, label, text (the target's text), page, x, y, width, height (PDF points), top (0..1 of the
     // page)}, or {} for no reference.
     Q_INVOKABLE int resolve(const QUrl &source, int page, const QPointF &point);
+    // The reference-list entry at a point (a link's destination): {kind: "citation", label, text, page, x,
+    // y, width, height, top}, or {} when no entry ("[n] …" or "n. …") starts around there.
+    Q_INVOKABLE int entryAt(const QUrl &source, int page, const QPointF &point);
+    static QVariantMap entryAround(const QString &text, qsizetype index);
 
     // The text-only steps, also used by tests. referenceAt: {kind, key, label, start} for the reference
     // covering index in text, or {}. locate: {page, start, length} of its target among the pages, or {}.
@@ -39,6 +43,7 @@ signals:
 
 private:
     QVariantMap find(const QString &path, int page, const QPointF &point, int request);
+    QVariantMap findEntry(const QString &path, int page, const QPointF &point, int request);
     QStringList pageTexts(QPdfDocument &pdf, const QString &path, int request);
     static QVariantMap describe(QPdfDocument &pdf, const QStringList &texts, const QVariantMap &target);
     std::shared_ptr<std::atomic_bool> m_readerBusy;

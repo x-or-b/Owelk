@@ -78,7 +78,7 @@ Item {
     onReadyChanged: refreshHighlights()
     onSourceChanged: {
         savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null; documentFingerprint = ""; tool = ""
-        closeLinkPreview(); overWorkingLink = false; restSpot = null
+        closeLinkPreview(); hoveredLink = null; restSpot = null
         // PdfDocument may become Ready synchronously before this handler resets the request.
         Qt.callLater(refreshHighlights)
     }
@@ -955,19 +955,28 @@ Item {
                         }
                         // Hovering a reference ([12], Fig. 3, Eq. 2) shows where it points, in place.
                         // A link scrolled away or closed while under the pointer never reports leaving.
-                        Component.onDestruction: if (workingLinkHover.hovered) root.overWorkingLink = false
+                        Component.onDestruction: if (workingLinkHover.hovered) root.hoveredLink = null
                         HoverHandler {
                             id: workingLinkHover
                             enabled: parent.page >= 0 && !root.captureMode && root.tool === ""
                             onHoveredChanged: {
                                 const linkItem = parent
-                                root.overWorkingLink = hovered
+                                // Its destination, for reading the reference entry there when the link's own
+                                // text is not a recognisable reference (an author name, say).
+                                root.hoveredLink = hovered ? {page: linkItem.page, location: linkItem.location} : null
                                 if (hovered) {
                                     const size = pdfDocument.pagePointSize(linkItem.page)
                                     const at = linkItem.mapToItem(root, 0, 0)
                                     root.requestLinkPreview({page: linkItem.page, y: size.height > 0 ? linkItem.location.y / size.height : 0,
                                                              x: at.x, top: at.y, bottom: at.y + linkItem.height})
                                 } else root.leaveLinkPreview()
+                            }
+                            // The link takes the hover from the text below, so it passes the pointer on for
+                            // the text lookup ([12] → its reference entry) itself.
+                            onPointChanged: if (hovered) {
+                                const linkItem = parent, p = point.position
+                                root.restOn(pageHolder.index, Qt.point((linkItem.x + p.x) / root.pageScale, (linkItem.y + p.y) / root.pageScale),
+                                            linkItem.mapToItem(root, p.x, p.y))
                             }
                         }
                     }
@@ -1143,9 +1152,11 @@ Item {
     // pointer rests on text.
     property var restSpot: null
     property int referenceRequest: -1
-    property bool overWorkingLink: false
+    // A working link under the pointer: {page, location} of its destination.
+    property var hoveredLink: null
+    property bool referenceFallback: false
     function restOn(page, point, viewPoint) {
-        if (!ready || captureMode || tool.length || selecting || pinching || overWorkingLink) { referenceRest.stop(); return }
+        if (!ready || captureMode || tool.length || selecting || pinching) { referenceRest.stop(); return }
         // Moving off the reference that opened the card lets it go (unless the pointer goes into the card).
         if (linkPreview && linkPreview.fromText && Math.abs(viewPoint.x - linkPreview.anchorX) + Math.abs(viewPoint.y - linkPreview.anchorY) > 18) leaveLinkPreview()
         restSpot = {page: page, x: point.x, y: point.y, viewX: viewPoint.x, viewY: viewPoint.y}
@@ -1157,6 +1168,7 @@ Item {
         if (linkPreview && linkPreview.fromText) leaveLinkPreview()
     }
     function resolveReference(spot) {
+        referenceFallback = false
         referenceRequest = researchStore.references.resolve(source, spot.page, Qt.point(spot.x, spot.y))
     }
     Timer { id: referenceRest; interval: 350; onTriggered: if (root.restSpot) root.resolveReference(root.restSpot) }
@@ -1165,7 +1177,25 @@ Item {
         function onResolved(request, target) {
             if (request !== root.referenceRequest || !root.restSpot) return
             const spot = root.restSpot
-            if (target.page === undefined) return
+            const fallback = root.referenceFallback
+            root.referenceFallback = false
+            if (target.page === undefined) {
+                // A link whose text is no reference: the entry at its destination, if it is one.
+                if (!fallback && root.hoveredLink) {
+                    root.referenceFallback = true
+                    root.referenceRequest = researchStore.references.entryAt(root.source, root.hoveredLink.page, root.hoveredLink.location)
+                }
+                return
+            }
+            if (fallback) {
+                // Keep the link's own destination; add what the entry says (for Find Paper and the outline).
+                const shown = root.linkPreview || root.pendingPreview
+                if (!shown || !root.hoveredLink) return
+                previewShow.stop(); previewHide.stop()
+                root.linkPreview = Object.assign({}, shown, {kind: target.kind, label: target.label, text: target.text || "",
+                                                             rect: Qt.rect(target.x, target.y, target.width, target.height)})
+                return
+            }
             const half = 8 * root.pageScale
             previewShow.stop(); previewHide.stop()
             root.previewContentY = pages.contentY
