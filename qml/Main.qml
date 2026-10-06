@@ -79,7 +79,7 @@ ApplicationWindow {
     readonly property var dockPanels: ["files", "captures", "document", "ai"]
     function panelSide(panel) { return panel === "files" ? filesSide : panel === "captures" ? capturesSide : panel === "ai" ? aiSide : documentSide }
     function panelShown(panel) { return panel === "files" ? filesVisible : panel === "captures" ? shelfVisible : panel === "ai" ? aiVisible : documentVisible }
-    function panelName(panel) { return panel === "files" ? "Files" : panel === "captures" ? "Captures" : panel === "ai" ? "AI threads" : "Document outline and thumbnails" }
+    function panelName(panel) { return panel === "files" ? "Library" : panel === "captures" ? "Captures" : panel === "ai" ? "AI threads" : "Document outline and thumbnails" }
     function setPanelShown(panel, shown) {
         if (panel === "files") filesVisible = shown
         else if (panel === "captures") shelfVisible = shown
@@ -447,6 +447,10 @@ ApplicationWindow {
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
             onFolderChosen: function(folder) { window.paperFolder = folder }
             onDocumentChosen: function(source) { window.openDocument(source) }
+            workspace: documents
+            onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary(filter) } }
+            onWorkspaceChosen: function(id) { window.openWorkspace(id) }
+            onWorkspaceManageRequested: function(id) { window.manageWorkspace(id) }
             onNoteRequested: function(id) { captureNote.begin(id) }
             onActivePanelChanged: window.scheduleSave()
         }
@@ -535,6 +539,10 @@ ApplicationWindow {
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
             onFolderChosen: function(folder) { window.paperFolder = folder }
             onDocumentChosen: function(source) { window.openDocument(source) }
+            workspace: documents
+            onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary(filter) } }
+            onWorkspaceChosen: function(id) { window.openWorkspace(id) }
+            onWorkspaceManageRequested: function(id) { window.manageWorkspace(id) }
             onNoteRequested: function(id) { captureNote.begin(id) }
             onActivePanelChanged: window.scheduleSave()
         }

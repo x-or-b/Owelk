@@ -10,7 +10,7 @@ IconButton {
     property string dockSide: ""
     signal triggered()
     signal dockSideChosen(string side)
-    icon.name: ({files: "folder", captures: "capture", document: "document", ai: "ai", split: "split", search: "search"})[kind] || kind
+    icon.name: ({files: "library", captures: "capture", document: "document", ai: "ai", split: "split", search: "search"})[kind] || kind
     checked: selected
     checkable: false
     onClicked: triggered()

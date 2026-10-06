@@ -77,6 +77,40 @@ Item {
             for (let i = 0; i < item.children.length; ++i) { const f = visibleChild(item.children[i], name); if (f) return f }
             return null
         }
+        function test_libraryPanelFilesTabsIntoCollections() {
+            const topic = researchStore.createCollection("Panel Topic")
+            workspace.filesVisible = true; workspace.filesSide = "left"
+            workspace.documents.restore({})
+            workspace.openDocument(fixtureSource)
+            tryVerify(function() { return workspace.currentReader && workspace.currentReader.pdfReady }, 10000)
+            const panel = findChild(workspace, "libraryPanel")
+            verify(panel !== null)
+            tryVerify(function() { return visibleChild(panel, "panelCollection-Panel Topic") !== null })
+            waitForPolish(workspace); wait(50)
+            // Drag the open paper's tab onto the collection: it is filed there and stays open.
+            const d = workspace.documents
+            const tab = Tree.leaves(d.tree)[0].activeTab
+            const row = visibleChild(panel, "panelCollection-Panel Topic")
+            const point = row.mapToItem(null, row.width / 2, row.height / 2)
+            d.dragTitle = "dragged"
+            d.dragTab(tab, point.x, point.y)
+            compare(d.dropTarget.collection, topic)
+            verify(row.highlighted)
+            d.finishDrag(false)
+            tryVerify(function() { return researchStore.libraryDocuments({collection: topic}).length === 1 })
+            verify(Tree.owner(d.tree, tab) !== null, "the tab stays open")
+            // Clicking the collection opens the Library filtered to it.
+            mouseClick(visibleChild(panel, "panelCollection-Panel Topic"))
+            const view = library()
+            tryVerify(function() { return view.filter.collection === topic })
+            // Sections fold, and stay folded.
+            mouseClick(visibleChild(panel, "collectionsSection"))
+            tryCompare(panel, "collectionsOpen", false)
+            compare(researchStore.setting("library.section.collections"), "0")
+            mouseClick(visibleChild(panel, "collectionsSection"))
+            tryCompare(panel, "collectionsOpen", true)
+            researchStore.deleteCollection(topic)
+        }
         function test_newCollectionButton() {
             workspace.documents.openLibrary({})
             const view = library()

@@ -3,10 +3,68 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import Owelk.Ui
+import "WorkspaceTree.js" as Tree
 
+// The Library panel: the bookshelf beside the reader. Collections (drop a tab or a paper on one to
+// file it), workspaces, tags, and the paper folder. Sections fold; the folder takes the rest.
 Item {
     id: root
+    objectName: "libraryPanel"
     property url folder
+    // The document workspace, for tabs dropped on a collection.
+    property var workspace: null
+    signal libraryFilterRequested(var filter)
+    signal workspaceChosen(string id)
+    signal workspaceManageRequested(string id)
+    property var collections: []
+    property var tags: []
+    property int unsorted: 0
+    function refreshShelf() { collections = researchStore.collections(); tags = researchStore.tags(); unsorted = researchStore.unsortedCount() }
+    function sectionOpen(name, fallback) { return researchStore.setting("library.section." + name, fallback ? "1" : "0") === "1" }
+    property bool collectionsOpen: sectionOpen("collections", true)
+    property bool workspacesOpen: sectionOpen("workspaces", true)
+    property bool tagsOpen: sectionOpen("tags", false)
+    property bool folderOpen: sectionOpen("folder", true)
+    function setSection(name, open) { researchStore.setSetting("library.section." + name, open ? "1" : "0") }
+    Connections {
+        target: researchStore
+        function onDocumentsChanged() { root.refreshShelf() }
+        function onHomeChanged() { root.refreshShelf() }
+    }
+    // Tabs dragged over a collection are filed there (PDF tabs only); the tab stays open.
+    function claimDrop(id, x, y) {
+        if (!visible || !collectionsOpen || !workspace) return null
+        const p = shelf.mapFromItem(null, x, y)
+        if (p.x < 0 || p.y < 0 || p.x > shelf.width || p.y > shelf.height) return null
+        const i = shelf.indexAt(p.x, p.y + shelf.contentY)
+        const row = i >= 0 ? shelf.model[i] : null
+        if (!row || row.unsorted) return null
+        const strip = Tree.owner(workspace.tree, id)
+        const tab = strip ? strip.tabs.find(function(t) { return t.id === id }) : null
+        if (!tab || tab.kind) return null
+        return {handler: root, collection: row.id, name: row.name, source: tab.source}
+    }
+    function dropTab(id, target) {
+        if (researchStore.setDocumentCollection(target.source, target.collection, true)) researchStore.notify("Added to " + target.name + ".")
+    }
+    Component.onDestruction: if (workspace) workspace.removeDropHandler(root)
+    // A section heading: a chevron and a name; click folds it.
+    component SectionHeader: Item {
+        id: heading
+        property string title
+        property bool open
+        signal toggled()
+        default property alias actions: actionRow.data
+        Layout.fillWidth: true
+        implicitHeight: Theme.rowHeight
+        Icon { id: chevron; x: 2; anchors.verticalCenter: parent.verticalCenter; name: heading.open ? "down" : "right"; size: Theme.fontSmall; color: Theme.textTertiary }
+        Label {
+            anchors.left: chevron.right; anchors.leftMargin: 4; anchors.verticalCenter: parent.verticalCenter
+            text: heading.title; font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textSecondary
+        }
+        TapHandler { onTapped: heading.toggled() }
+        Row { id: actionRow; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; spacing: 2 }
+    }
     property var pending: ({})
     property var latestRequests: ({})
     property bool initialized: false
@@ -42,7 +100,7 @@ Item {
         }
     }
     onFolderChanged: if (initialized) refresh()
-    Component.onCompleted: { initialized = true; refresh() }
+    Component.onCompleted: { initialized = true; refresh(); refreshShelf(); if (workspace) workspace.addDropHandler(root) }
     ListModel { id: rows }
     Connections {
         target: researchStore
@@ -75,28 +133,111 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 8
-        spacing: 6
-        RowLayout {
+        spacing: 2
+        // --- Collections ----------------------------------------------------------------------
+        SectionHeader {
+            objectName: "collectionsSection"
+            title: "Collections"; open: root.collectionsOpen
+            onToggled: { root.collectionsOpen = !root.collectionsOpen; root.setSection("collections", root.collectionsOpen) }
+        }
+        ListView {
+            id: shelf
+            objectName: "panelCollections"
+            visible: root.collectionsOpen
             Layout.fillWidth: true
-            IconButton { icon.name: "open"; description: "Open a folder…"; onClicked: folderDialog.open() }
-            Item { Layout.fillWidth: true }
-            IconButton { icon.name: "reload"; description: "Refresh folder"; enabled: root.folder.toString().length > 0; onClicked: root.refresh() }
+            Layout.preferredHeight: Math.min(contentHeight, root.height * .35)
+            clip: true
+            interactive: contentHeight > height
+            model: (root.unsorted > 0 ? [{unsorted: true, name: "Unsorted", count: root.unsorted, depth: 0}] : []).concat(root.collections)
+            delegate: ItemDelegate {
+                id: shelfRow
+                required property var modelData
+                objectName: "panelCollection-" + modelData.name
+                width: ListView.view.width
+                height: Theme.rowHeight
+                leftPadding: 26 + 12 * (modelData.depth || 0)
+                rightPadding: 34
+                text: modelData.name
+                readonly property bool tabOver: !!root.workspace && !!root.workspace.dropTarget && root.workspace.dropTarget.handler === root && root.workspace.dropTarget.collection === modelData.id
+                highlighted: tabOver || drop.containsDrag
+                onClicked: root.libraryFilterRequested(modelData.unsorted ? {unsorted: true} : {collection: modelData.id})
+                Icon { x: 6 + 12 * (shelfRow.modelData.depth || 0); anchors.verticalCenter: parent.verticalCenter; name: shelfRow.modelData.unsorted ? "filter" : "folder"; size: Theme.fontBody; color: Theme.textTertiary }
+                Label { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: shelfRow.modelData.count; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                // Papers dragged from the Library list are filed here too.
+                DropArea {
+                    id: drop
+                    anchors.fill: parent
+                    enabled: !shelfRow.modelData.unsorted
+                    keys: ["owelk/paper"]
+                    onDropped: function(event) { researchStore.setDocumentsCollection(event.source.paperUrls, shelfRow.modelData.id, true) }
+                }
+            }
         }
         Label {
-            Layout.fillWidth: true
-            text: root.folder.toString().length ? researchStore.fileName(root.folder) : "Recent files"
-            elide: Text.ElideMiddle
-            font.bold: true
-            ToolTip.visible: folderHover.hovered
-            ToolTip.text: root.folder.toString()
-            HoverHandler { id: folderHover }
+            visible: root.collectionsOpen && !shelf.count
+            Layout.fillWidth: true; leftPadding: 8; wrapMode: Text.Wrap
+            text: "Create collections in the Library to file papers by topic."
+            font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
         }
-        Label { Layout.fillWidth: true; visible: root.status.length > 0; text: root.status; wrapMode: Text.Wrap; color: Theme.textTertiary }
+        // --- Workspaces -----------------------------------------------------------------------
+        SectionHeader {
+            title: "Workspaces"; open: root.workspacesOpen
+            onToggled: { root.workspacesOpen = !root.workspacesOpen; root.setSection("workspaces", root.workspacesOpen) }
+        }
+        Repeater {
+            model: root.workspacesOpen ? researchStore.recentWorkspaces.slice(0, 8) : []
+            delegate: ItemDelegate {
+                id: workspaceRow
+                required property var modelData
+                objectName: "panelWorkspace-" + modelData.name
+                Layout.fillWidth: true
+                implicitHeight: Theme.rowHeight
+                leftPadding: 26
+                text: modelData.name
+                onClicked: root.workspaceChosen(modelData.id)
+                Icon { x: 6; anchors.verticalCenter: parent.verticalCenter; name: "workspace"; size: Theme.fontBody; color: Theme.textTertiary }
+                TapHandler { acceptedButtons: Qt.RightButton; onTapped: workspaceMenu.popup() }
+                Menu {
+                    id: workspaceMenu
+                    MenuItem { text: "Open"; onTriggered: root.workspaceChosen(workspaceRow.modelData.id) }
+                    MenuItem { text: "Manage Links…"; onTriggered: root.workspaceManageRequested(workspaceRow.modelData.id) }
+                }
+            }
+        }
+        // --- Tags -----------------------------------------------------------------------------
+        SectionHeader {
+            title: "Tags"; open: root.tagsOpen
+            visible: root.tags.length > 0
+            onToggled: { root.tagsOpen = !root.tagsOpen; root.setSection("tags", root.tagsOpen) }
+        }
+        Flow {
+            visible: root.tagsOpen && root.tags.length > 0
+            Layout.fillWidth: true; Layout.leftMargin: 6; Layout.bottomMargin: 4
+            spacing: 4
+            Repeater {
+                model: root.tagsOpen ? root.tags : []
+                delegate: Chip {
+                    required property var modelData
+                    text: "# " + modelData.name
+                    onClicked: root.libraryFilterRequested({tag: modelData.id})
+                }
+            }
+        }
+        // --- Folder ---------------------------------------------------------------------------
+        SectionHeader {
+            title: root.folder.toString().length ? "Folder · " + researchStore.fileName(root.folder) : "Recent files"
+            open: root.folderOpen
+            onToggled: { root.folderOpen = !root.folderOpen; root.setSection("folder", root.folderOpen) }
+            IconButton { icon.name: "open"; description: "Open a folder…"; width: 22; height: 22; glyphSize: Theme.fontBody; onClicked: folderDialog.open() }
+            IconButton { icon.name: "reload"; description: "Refresh folder"; width: 22; height: 22; glyphSize: Theme.fontBody; enabled: root.folder.toString().length > 0; onClicked: root.refresh() }
+        }
+        Label { Layout.fillWidth: true; visible: root.folderOpen && root.status.length > 0; text: root.status; wrapMode: Text.Wrap; color: Theme.textTertiary }
+        Item { Layout.fillHeight: true; visible: !root.folderOpen }
         ListView {
             objectName: "folderTree"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.folder.toString().length > 0
+            visible: root.folderOpen && root.folder.toString().length > 0
             model: rows
             clip: true
             ScrollBar.vertical: ScrollBar {}
@@ -130,7 +271,7 @@ Item {
         ListView {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: !root.folder.toString().length
+            visible: root.folderOpen && !root.folder.toString().length
             model: researchStore.recentDocuments
             clip: true
             ScrollBar.vertical: ScrollBar {}

@@ -19,7 +19,12 @@ Rectangle {
     signal linkActivated(string link)
     signal aiRequested(var spec)
     signal settingsRequested()
-    function panelName(panel) { return panel === "files" ? "Files" : panel === "captures" ? "Captures" : panel === "ai" ? "AI" : panel === "document" ? "Document" : "" }
+    // The Library panel's shelf: open the Library filtered, or a workspace.
+    property var workspace: null
+    signal libraryFilterRequested(var filter)
+    signal workspaceChosen(string id)
+    signal workspaceManageRequested(string id)
+    function panelName(panel) { return panel === "files" ? "Library" : panel === "captures" ? "Captures" : panel === "ai" ? "AI" : panel === "document" ? "Document" : "" }
     color: Theme.sidebar
     border.color: Theme.separator
     radius: Theme.radius
@@ -52,7 +57,7 @@ Rectangle {
                 delegate: TabButton {
                     required property string modelData
                     objectName: "dockTab-" + modelData
-                    icon.name: ({files: "folder", captures: "capture", document: "document", ai: "ai"})[modelData]
+                    icon.name: ({files: "library", captures: "capture", document: "document", ai: "ai"})[modelData]
                     ToolTip.text: root.panelName(modelData)
                     onClicked: root.activePanel = modelData
                 }
@@ -68,8 +73,12 @@ Rectangle {
         id: files
         FilePanel {
             folder: root.folder
+            workspace: root.workspace
             onDocumentChosen: function(source) { root.documentChosen(source) }
             onFolderChosen: function(folder) { root.folderChosen(folder) }
+            onLibraryFilterRequested: function(filter) { root.libraryFilterRequested(filter) }
+            onWorkspaceChosen: function(id) { root.workspaceChosen(id) }
+            onWorkspaceManageRequested: function(id) { root.workspaceManageRequested(id) }
         }
     }
     Component { id: captures; CaptureShelf { onNoteRequested: function(id) { root.noteRequested(id) }; onAiRequested: function(spec) { root.aiRequested(spec) } } }
