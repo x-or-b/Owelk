@@ -13,8 +13,8 @@
 | 11. 정리 | 워크스페이스, 라이브러리(Collection·Tag·읽기 상태·중복·색인 제외), 관련 논문·노트 | Smart Collection |
 | 12–16. 검색·커맨드 | FTS5 본문(+OCR), 단어 순서 무관·점수 순위, 범위 칩·검색어 조건, 선택적 의미 검색(Ollama·OpenAI), 명령 팔레트 | — |
 | 17–21. 캡처·연결 | 영역·텍스트·웹 캡처, 휴지통, 5색 주석·코멘트, 노트 링크·역링크, 주석 포함 PDF 내보내기(표준 주석) | 객체(Figure 자동) 캡처 |
-| 22–27. 노트·AI | Markdown 노트, AI 4종(Claude API, OpenAI API, ChatGPT 계정, Ollama), 모델·추론 강도·Fast, 이미지·영역 캡처 첨부, Thread, 선호 언어 | 여러 논문 비교(v0.6) |
-| 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, SQLite(라이브러리 스키마 10, 색인 4, 업그레이드 전 백업), 백업·복원, Markdown·BibTeX 내보내기, 단축키 변경, macOS·Linux·Windows 키 저장소, 자동 테스트 8묶음 | Linux/Windows 실기기, 설치 패키지 |
+| 22–27. 노트·AI | Markdown 노트, AI 4종(Claude API, OpenAI API, ChatGPT 계정, Ollama), 모델·추론 강도·Fast, 이미지·영역 캡처 첨부, Thread, 선호 언어, 논문 비교표, 쪽별 번역·논문 요약, 탭·Collection AI 정리 | 워크스페이스 요약, 라이브러리 전체에 묻기(v0.6) |
+| 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, SQLite(라이브러리 스키마 10, 색인 4, 업그레이드 전 백업), 백업·복원, Markdown·BibTeX 내보내기, 단축키 변경, macOS·Linux·Windows 키 저장소, 로컬 설치 스크립트, 자동 테스트 7묶음 | Linux/Windows 실기기, 배포 패키지 |
 
 ## 우선순위
 
