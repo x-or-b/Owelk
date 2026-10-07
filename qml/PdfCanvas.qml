@@ -86,7 +86,7 @@ Item {
     onReadyChanged: refreshHighlights()
     onSourceChanged: {
         savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null; documentFingerprint = ""; tool = ""
-        backStack = []; forwardStack = []
+        backStack = []; forwardStack = []; selectedMarkId = ""; markEdit = null
         closeLinkPreview(); hoveredLink = null; restSpot = null
         // PdfDocument may become Ready synchronously before this handler resets the request.
         Qt.callLater(refreshHighlights)
@@ -410,7 +410,8 @@ Item {
 
     TapHandler {
         enabled: root.ready && !root.captureMode && !root.pinching && (!root.tool.length || root.tool === "highlight")
-        onTapped: { root.activated(); root.clearSelection() }
+        // A click on empty page also lets go of a selected text box, picture or stroke.
+        onTapped: { root.activated(); root.clearSelection(); if (!root.markPressed) root.selectedMarkId = "" }
     }
 
     // Selections across pages: the page where the drag started (origin) keeps its press point; pages up to
@@ -811,8 +812,10 @@ Item {
                                 required property var modelData
                                 required property int index
                                 objectName: "savedHighlight-" + persistentMark.modelData.id
-                                x: modelData.x * paper.width; y: modelData.y * paper.height
-                                width: modelData.width * paper.width; height: modelData.height * paper.height
+                                // While its frame is dragged, the mark follows the new box (single-box marks).
+                                readonly property var shown: index === 0 && root.markEdit && root.markEdit.id === persistentMark.modelData.id ? root.markEdit.rect : modelData
+                                x: shown.x * paper.width; y: shown.y * paper.height
+                                width: shown.width * paper.width; height: shown.height * paper.height
                                 // Highlights tint the text; comments (and notes beside the page) only outline their place.
                                 Rectangle {
                                     objectName: "markShape-" + persistentMark.modelData.id
@@ -851,8 +854,9 @@ Item {
                                     // line width are never cut at the box edge.
                                     readonly property real pad: root.pageScale + 3
                                     readonly property var points: persistentMark.modelData.drawing || []
-                                    function mapX(p) { return (p.x - parent.modelData.x) * paper.width + pad }
-                                    function mapY(p) { return (p.y - parent.modelData.y) * paper.height + pad }
+                                    // Stored points are scaled into the shown box, so a resized stroke follows live.
+                                    function mapX(p) { const r = parent.modelData, b = parent.shown; return (p.x - r.x) / Math.max(1e-6, r.width) * b.width * paper.width + pad }
+                                    function mapY(p) { const r = parent.modelData, b = parent.shown; return (p.y - r.y) / Math.max(1e-6, r.height) * b.height * paper.height + pad }
                                     x: -pad; y: -pad; width: parent.width + 2 * pad; height: parent.height + 2 * pad
                                     visible: persistentMark.modelData.kind === "draw"
                                     onWidthChanged: requestPaint(); onHeightChanged: requestPaint()
@@ -864,17 +868,28 @@ Item {
                                     }
                                 }
                                 MouseArea {
+                                    objectName: "markArea-" + persistentMark.modelData.id
+                                    readonly property bool selectable: root.adjustable(persistentMark.modelData) && !root.tool.length
                                     anchors.fill: persistentMark.modelData.kind === "draw" ? savedStroke : parent
-                                    acceptedButtons: Qt.RightButton
+                                    // Right: its menu. Left: selects marks that can be moved and resized; text
+                                    // marks let a left press through so text can still be selected under them.
+                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
                                     enabled: !root.captureMode
-                                    cursorShape: persistentMark.modelData.text ? Qt.IBeamCursor : Qt.ArrowCursor
+                                    cursorShape: persistentMark.modelData.text ? Qt.IBeamCursor : selectable ? Qt.PointingHandCursor : Qt.ArrowCursor
                                     // Only the ink is a drawing's hit area; empty space inside its box keeps text actions.
                                     onPressed: function(mouse) {
+                                        if (mouse.button === Qt.LeftButton && !selectable) { mouse.accepted = false; return }
+                                        if (mouse.button === Qt.LeftButton) root.markPressed = true
                                         if (persistentMark.modelData.kind === "draw"
                                             && Stroke.distance(savedStroke.points, mouse.x, mouse.y, savedStroke.mapX, savedStroke.mapY)
                                                > Math.max(6, 2 * root.pageScale)) mouse.accepted = false
                                     }
+                                    onReleased: root.markReleased()
+                                    onDoubleClicked: function(mouse) {
+                                        if (mouse.button === Qt.LeftButton && persistentMark.modelData.kind !== "draw") root.editRequested(persistentMark.modelData, null)
+                                    }
                                     onClicked: function(mouse) {
+                                        if (mouse.button === Qt.LeftButton) { root.activated(); root.selectedMarkId = persistentMark.modelData.id; return }
                                         root.removingHighlight = persistentMark.modelData.id
                                         root.editingMark = persistentMark.modelData
                                         root.markMenuPosition = mapToItem(root, mouse.x, mouse.y)
@@ -893,6 +908,67 @@ Item {
                     }
                 }
 
+                // A selected text box, picture, pen stroke or spot comment (left click on it): corner handles
+                // resize it (text reflows live, pictures keep their shape, strokes scale), the frame moves it, a
+                // double click edits it. Highlights and comments on a sentence stay with their text.
+                Item {
+                    id: markFrame
+                    objectName: "markFrame" + pageHolder.index
+                    readonly property var record: root.selectedMark && root.selectedMark.page === pageHolder.index ? root.selectedMark : null
+                    readonly property var box: !record ? null : root.markEdit && root.markEdit.id === record.id ? root.markEdit.rect : record.rectangles[0]
+                    visible: !!box && !root.captureMode
+                    z: 40
+                    x: box ? box.x * paper.width - 3 : 0; y: box ? box.y * paper.height - 3 : 0
+                    width: box ? box.width * paper.width + 6 : 0; height: box ? box.height * paper.height + 6 : 0
+                    Rectangle { anchors.fill: parent; color: "transparent"; border.color: Theme.accent; border.width: 1.5; radius: 2 }
+                    // Dragging the frame moves the mark.
+                    MouseArea {
+                        objectName: "markMove" + pageHolder.index
+                        anchors.fill: parent; anchors.margins: 6
+                        cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                        // The page list must not take the drag over halfway.
+                        preventStealing: true
+                        onCanceled: root.markEdit = null
+                        property point origin
+                        onPressed: function(mouse) { origin = mapToItem(paper, mouse.x, mouse.y); root.beginMarkEdit(markFrame.record) }
+                        onPositionChanged: function(mouse) {
+                            if (!pressed || !root.markEdit) return
+                            const p = mapToItem(paper, mouse.x, mouse.y), start = root.markEdit.original
+                            const dx = (p.x - origin.x) / paper.width, dy = (p.y - origin.y) / paper.height
+                            root.updateMarkEdit({x: Math.max(0, Math.min(1 - start.width, start.x + dx)), y: Math.max(0, Math.min(1 - start.height, start.y + dy)),
+                                                 width: start.width, height: start.height})
+                        }
+                        onReleased: root.commitMarkEdit(paper)
+                        onDoubleClicked: if (markFrame.record.kind !== "draw") root.editRequested(markFrame.record, null)
+                    }
+                    Repeater {
+                        model: ["topLeft", "topRight", "bottomLeft", "bottomRight"]
+                        delegate: Rectangle {
+                            id: handle
+                            required property string modelData
+                            objectName: "markHandle-" + modelData
+                            readonly property bool atRight: modelData.indexOf("Right") > 0
+                            readonly property bool atBottom: modelData.indexOf("bottom") === 0
+                            width: 10; height: 10; radius: 2
+                            x: atRight ? parent.width - width / 2 - 1 : -width / 2 + 1
+                            y: atBottom ? parent.height - height / 2 - 1 : -height / 2 + 1
+                            color: Theme.content; border.color: Theme.accent; border.width: 1.5
+                            MouseArea {
+                                anchors.fill: parent; anchors.margins: -4
+                                cursorShape: handle.atRight === handle.atBottom ? Qt.SizeFDiagCursor : Qt.SizeBDiagCursor
+                                preventStealing: true
+                                onCanceled: root.markEdit = null
+                                onPressed: root.beginMarkEdit(markFrame.record)
+                                onPositionChanged: function(mouse) {
+                                    if (!pressed || !root.markEdit) return
+                                    const p = mapToItem(paper, mouse.x, mouse.y)
+                                    root.resizeMarkEdit(handle.atRight, handle.atBottom, p.x / paper.width, p.y / paper.height, paper)
+                                }
+                                onReleased: root.commitMarkEdit(paper)
+                            }
+                        }
+                    }
+                }
                 Item {
                     objectName: "selectionOverlay" + pageHolder.index
                     anchors.fill: parent
@@ -1177,6 +1253,93 @@ Item {
         const page = entry.page, top = Math.max(0, entry.top - .03)
         closeLinkPreview()
         jumpRemembering(page, top, 0)
+    }
+    // --- Adjusting a mark (text box, picture, pen stroke, spot comment) ---------------------------
+    property string selectedMarkId: ""
+    // A left press on a mark: the page's own tap (clear on empty space) leaves its selection alone.
+    property bool markPressed: false
+    function markReleased() { Qt.callLater(function() { markPressed = false }) }
+    readonly property var selectedMark: selectedMarkId.length ? (savedHighlights.find(function(m) { return m.id === root.selectedMarkId }) || null) : null
+    // While a frame is dragged: {id, kind, rect (shown), original (stored)}.
+    property var markEdit: null
+    onToolChanged: selectedMarkId = ""
+    onCaptureModeChanged: selectedMarkId = ""
+    // Saving reloads the marks (briefly none): the selection stays, its frame returns with the mark.
+    onSavedHighlightsChanged: markEdit = null
+    function adjustable(mark) {
+        return mark.kind === "text" || mark.kind === "image" || mark.kind === "draw" || (mark.kind === "comment" && !mark.text)
+    }
+    // The adjustable mark under a point (page fractions), topmost first; a stroke only near its ink.
+    function markAt(page, fx, fy, paperItem) {
+        const marks = savedHighlights.filter(function(m) { return m.page === page && root.adjustable(m) && m.rectangles.length === 1 })
+        for (let i = marks.length - 1; i >= 0; --i) {
+            const m = marks[i], r = m.rectangles[0]
+            if (m.kind === "draw") {
+                const near = Stroke.distance(m.drawing || [], fx * paperItem.width, fy * paperItem.height,
+                                             function(p) { return p.x * paperItem.width }, function(p) { return p.y * paperItem.height })
+                if (near <= Math.max(6, 3 * root.pageScale)) return m
+            } else if (fx >= r.x && fx <= r.x + r.width && fy >= r.y && fy <= r.y + r.height) return m
+        }
+        return null
+    }
+    function beginMarkEdit(mark) {
+        if (!mark || researchStore.busy) return
+        const r = mark.rectangles[0]
+        markEdit = {id: mark.id, kind: mark.kind, rect: Object.assign({}, r), original: Object.assign({}, r)}
+    }
+    function updateMarkEdit(rect) { if (markEdit) markEdit = Object.assign({}, markEdit, {rect: rect}) }
+    // A corner dragged to (fx, fy): the opposite corner stays. Pictures keep their shape; a text box is
+    // never shorter than its text at the new width.
+    function resizeMarkEdit(right, bottom, fx, fy, paperItem) {
+        if (!markEdit) return
+        // A text box keeps room for a few characters.
+        const o = markEdit.original, minimum = markEdit.kind === "text" ? .04 : .01
+        let left = right ? o.x : Math.min(fx, o.x + o.width - minimum), rightEdge = right ? Math.max(fx, o.x + minimum) : o.x + o.width
+        let top = bottom ? o.y : Math.min(fy, o.y + o.height - minimum), bottomEdge = bottom ? Math.max(fy, o.y + minimum) : o.y + o.height
+        left = Math.max(0, left); top = Math.max(0, top); rightEdge = Math.min(1, rightEdge); bottomEdge = Math.min(1, bottomEdge)
+        let width = rightEdge - left, height = bottomEdge - top
+        if (markEdit.kind === "image") {
+            // Same shape as before, in page points.
+            const aspect = (o.height * paperItem.height) / Math.max(1e-6, o.width * paperItem.width)
+            height = width * paperItem.width * aspect / paperItem.height
+            if (!bottom) top = o.y + o.height - height
+            if (top < 0 || top + height > 1) return
+        }
+        if (markEdit.kind === "text") {
+            const mark = selectedMark
+            textMeasure.width = width * paperItem.width
+            textMeasure.font.pixelSize = Math.max(1, (mark && mark.fontSize ? mark.fontSize : 14) * pageScale)
+            textMeasure.text = mark ? mark.body || "" : ""
+            const needed = textMeasure.contentHeight / paperItem.height
+            if (height < needed) { height = Math.min(needed, 1 - top); if (!bottom) top = Math.max(0, o.y + o.height - height) }
+        }
+        updateMarkEdit({x: left, y: top, width: width, height: height})
+    }
+    Text { id: textMeasure; visible: false; wrapMode: Text.Wrap; textFormat: Text.PlainText }
+    function commitMarkEdit(paperItem) {
+        if (!markEdit) return
+        const mark = savedHighlights.find(function(m) { return m.id === root.markEdit.id })
+        const r = markEdit.rect, o = markEdit.original
+        if (!mark || (Math.abs(r.x - o.x) + Math.abs(r.y - o.y) + Math.abs(r.width - o.width) + Math.abs(r.height - o.height)) < 1e-4) { markEdit = null; return }
+        const spec = Object.assign({}, mark, {rectangles: [r], imageSource: ""})
+        // A stroke's points move and scale with its box.
+        if (mark.kind === "draw")
+            spec.drawing = (mark.drawing || []).map(function(p) {
+                return {x: Math.max(0, Math.min(1, r.x + (p.x - o.x) / Math.max(1e-6, o.width) * r.width)),
+                        y: Math.max(0, Math.min(1, r.y + (p.y - o.y) / Math.max(1e-6, o.height) * r.height))}
+            })
+        researchStore.saveAnnotation(source, mark.page, spec)
+    }
+    Connections {
+        target: researchStore
+        function onAnnotationFinished(success, id) { if (!success && root.markEdit) root.markEdit = null }
+    }
+    function removeSelectedMark() {
+        if (!selectedMarkId.length) return false
+        const id = selectedMarkId
+        selectedMarkId = ""
+        researchStore.removeHighlight(id)
+        return true
     }
     // --- Back to where you were ----------------------------------------------------------------
     // Following a link, a preview or the outline remembers the spot left; Back (the pill, or Alt+Left)

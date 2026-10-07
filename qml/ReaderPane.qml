@@ -580,7 +580,14 @@ Rectangle {
     }
     Shortcut {
         sequence: "Escape"
-        enabled: root.isActive && (canvas.captureMode || canvas.tool.length > 0)
-        onActivated: {canvas.captureMode = false;canvas.tool=""}
+        enabled: root.isActive && (canvas.captureMode || canvas.tool.length > 0 || canvas.selectedMarkId.length > 0)
+        onActivated: {canvas.captureMode = false;canvas.tool="";canvas.selectedMarkId=""}
+    }
+    // A selected text box, picture, stroke or spot comment is removed with Delete (undo brings it back).
+    Shortcut {
+        objectName: "deleteSelectedMark"
+        sequences: [StandardKey.Delete, "Backspace"]
+        enabled: root.isActive && canvas.selectedMarkId.length > 0
+        onActivated: canvas.removeSelectedMark()
     }
 }

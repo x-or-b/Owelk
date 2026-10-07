@@ -29,6 +29,13 @@ Rectangle {
             return root.sortMode === "type" ? root.kinds.indexOf(a.kind) - root.kinds.indexOf(b.kind) || byPlace : byPlace
         })
     color: Theme.sidebar
+    // Comments go straight into the list (on the selection, or a place clicked next); other kinds use their
+    // page tool: click or drag on the page, as with the toolbar.
+    function newAnnotation(kind) {
+        if (kind === "comment" && canvas.selectedAnchor) { beginDraft({page: canvas.selectedAnchor.page, selection: canvas.selectedAnchor}); return }
+        canvas.captureMode = false
+        canvas.tool = kind
+    }
     function beginDraft(spec) {
         draft = spec
         editingId = ""
@@ -74,13 +81,24 @@ Rectangle {
                 TabButton { objectName: "annotationSortPage"; text: "Page"; width: 48; onClicked: root.setSortMode("page"); ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: "Top to bottom through the paper" }
                 TabButton { objectName: "annotationSortType"; text: "Type"; width: 48; onClicked: root.setSortMode("type"); ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: "Pen, highlights, comments, text, pictures" }
             }
+            // New annotation of any kind: a comment is written here; the others are placed on the page.
             IconButton {
+                id: addButton
                 objectName: "newMarginNote"
                 icon.name: "add"
-                description: root.canvas.selectedAnchor ? "Note on the selection" : "New note · then click a place on the page"
-                onClicked: {
-                    if (root.canvas.selectedAnchor) root.beginDraft({page: root.canvas.selectedAnchor.page, selection: root.canvas.selectedAnchor})
-                    else { root.canvas.captureMode = false; root.canvas.tool = "comment" }
+                description: "New annotation · comment, text box, picture or pen"
+                onClicked: addMenu.popup(addButton, 0, addButton.height)
+                Menu {
+                    id: addMenu
+                    objectName: "newAnnotationMenu"
+                    MenuItem {
+                        objectName: "newCommentItem"
+                        text: root.canvas.selectedAnchor ? "Comment on Selection" : "Comment…"
+                        onTriggered: root.newAnnotation("comment")
+                    }
+                    MenuItem { objectName: "newTextItem"; text: "Text Box"; onTriggered: root.newAnnotation("text") }
+                    MenuItem { objectName: "newImageItem"; text: "Picture"; onTriggered: root.newAnnotation("image") }
+                    MenuItem { objectName: "newPenItem"; text: "Pen"; onTriggered: root.newAnnotation("draw") }
                 }
             }
         }

@@ -526,11 +526,101 @@ Item {
             canvas.tool = ""; canvas.forceActiveFocus()
             keyClick(Qt.Key_Z, Qt.ControlModifier)
             tryVerify(function() { return !canvas.savedHighlights.some(function(m) { return m.kind === "draw" }) }, 10000)
+            // + offers every kind: a text box, picture or pen uses its page tool.
+            mouseClick(findChild(margin, "newMarginNote"))
+            const addMenu = findChild(margin, "newAnnotationMenu")
+            tryCompare(addMenu, "opened", true)
+            mouseClick(findChild(addMenu, "newTextItem"))
+            compare(canvas.tool, "text")
+            canvas.tool = ""
             // Pen comes first among the tools.
             const tools = findChild(reader, "annotationTools")
             compare(tools.children[0].objectName, "drawTool")
             compare(tools.children[1].objectName, "highlightTool")
             reader.setMarginNotes(false)
+            for (const m of canvas.savedHighlights) researchStore.removeHighlight(m.id)
+        }
+        function test_textBoxesPicturesAndStrokesMoveAndResize() {
+            const unique = testInput.relinkFixture(true).candidate
+            canvas.openFile(unique, {page:0,zoom:1})
+            tryCompare(canvas,"ready",true); tryCompare(canvas,"restoring",false)
+            tryVerify(function(){return canvas.documentFingerprint.length>0})
+            const editor=findChild(reader,"annotationEditor"), paper=findChild(canvas,"paperPage0")
+            function make(spec) {
+                const before=canvas.savedHighlights.length
+                editor.begin(canvas,Object.assign({page:0,sha256:canvas.documentFingerprint},spec),null)
+                tryCompare(editor,"opened",true)
+                if(spec.kind==="text") findChild(editor,"annotationBody").text="One two three four five six seven eight"
+                mouseClick(findChild(editor,"saveAnnotation"))
+                tryCompare(editor,"visible",false)
+                tryVerify(function(){return canvas.savedHighlights.length===before+1},10000)
+                return canvas.savedHighlights[canvas.savedHighlights.length-1]
+            }
+            function mark(id){return canvas.savedHighlights.find(function(m){return m.id===id})}
+            function centre(r){return Qt.point((r.x+r.width/2)*paper.width,(r.y+r.height/2)*paper.height)}
+            // Drag a handle by (dx, dy) page pixels; the handle moves with the frame, so moves are given on the page.
+            function drag(handle,dx,dy,check){
+                const p=handle.mapToItem(paper,handle.width/2,handle.height/2)
+                mousePress(handle,handle.width/2,handle.height/2)
+                mouseMove(paper,p.x+dx/2,p.y+dy/2); mouseMove(paper,p.x+dx,p.y+dy)
+                if(check) check()
+                mouseRelease(paper,p.x+dx,p.y+dy)
+            }
+            // A click selects a text box and shows its frame.
+            const text=make({kind:"text",color:canvas.textColor,rectangles:[{x:.1,y:.12,width:.4,height:.05}]})
+            const lines=function(){return findChild(canvas,"textBox-"+text.id).lineCount}
+            tryVerify(function(){const t=findChild(canvas,"textBox-"+text.id);return t!==null&&t.visible})
+            const wide=lines()
+            let at=centre(mark(text.id).rectangles[0]); mouseClick(paper,at.x,at.y)
+            compare(canvas.selectedMarkId,text.id)
+            const frame=findChild(canvas,"markFrame0")
+            verify(frame.visible)
+            // Narrowing it by its corner reflows the text and grows the box so nothing is cut.
+            const corner=findChild(frame,"markHandle-bottomRight")
+            drag(corner,-paper.width*.25,0,function(){verify(lines()>wide,"reflowed live: "+lines()+" lines")})
+            tryVerify(function(){return mark(text.id).rectangles[0].width<.2},10000)
+            const shown=findChild(canvas,"textBox-"+text.id)
+            verify(shown.contentHeight<=shown.height+1)
+            // The frame moves it.
+            const x=mark(text.id).rectangles[0].x
+            const move=findChild(frame,"markMove0")
+            drag(move,60,2)
+            tryVerify(function(){return mark(text.id).rectangles[0].x>x+.02},10000)
+            // A picture keeps its shape.
+            const picture=make({kind:"image",imageSource:fixtureImage.toString(),rectangles:[{x:.55,y:.3,width:.2,height:.1}]})
+            const shape=function(r){return (r.height*paper.height)/(r.width*paper.width)}
+            const ratio=shape(picture.rectangles[0])
+            at=centre(picture.rectangles[0]); mouseClick(paper,at.x,at.y)
+            compare(canvas.selectedMarkId,picture.id)
+            const pc=findChild(frame,"markHandle-bottomRight")
+            drag(pc,40,0)
+            tryVerify(function(){return mark(picture.id).rectangles[0].width>.2},10000)
+            verify(Math.abs(shape(mark(picture.id).rectangles[0])-ratio)<.02)
+            // A stroke is picked by its ink and scales with its box.
+            reader.setTool("draw"); waitForPolish(reader)
+            const area=findChild(canvas,"annotationArea0")
+            const start=area.mapToItem(canvas,area.width*.2,area.height*.3)
+            testInput.pointerDrag(canvas,start,Qt.point(start.x+60,start.y+30),false)
+            tryVerify(function(){return canvas.savedHighlights.some(function(m){return m.kind==="draw"})},10000)
+            canvas.tool=""
+            const stroke=canvas.savedHighlights.filter(function(m){return m.kind==="draw"})[0]
+            const p0=stroke.drawing[Math.floor(stroke.drawing.length/2)]
+            mouseClick(paper,p0.x*paper.width,p0.y*paper.height)
+            compare(canvas.selectedMarkId,stroke.id)
+            const sc=findChild(frame,"markHandle-bottomRight")
+            drag(sc,60,40)
+            tryVerify(function(){return mark(stroke.id).rectangles[0].width>stroke.rectangles[0].width*1.3},10000)
+            const r=mark(stroke.id).rectangles[0]
+            verify(mark(stroke.id).drawing.every(function(p){return p.x>=r.x-.001&&p.x<=r.x+r.width+.001&&p.y>=r.y-.001&&p.y<=r.y+r.height+.001}))
+            // Delete removes the selected mark; undo brings it back. Esc lets go.
+            canvas.forceActiveFocus()
+            keyClick(Qt.Key_Delete)
+            tryVerify(function(){return !mark(stroke.id)},10000)
+            keyClick(Qt.Key_Z,Qt.ControlModifier)
+            tryVerify(function(){return !!mark(stroke.id)},10000)
+            at=centre(mark(picture.id).rectangles[0]); mouseClick(paper,at.x,at.y)
+            keyClick(Qt.Key_Escape)
+            compare(canvas.selectedMarkId,"")
             for (const m of canvas.savedHighlights) researchStore.removeHighlight(m.id)
         }
         function test_selectionToolbarCommentsAndPageAnnotations() {
