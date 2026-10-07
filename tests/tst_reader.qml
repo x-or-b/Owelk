@@ -554,6 +554,9 @@ Item {
             compare(canvas.savedHighlights[0].kind,"comment")
             compare(canvas.savedHighlights[0].text,quote)
             const id=canvas.savedHighlights[0].id
+            // A comment outlines its place instead of tinting it.
+            const shape=findChild(canvas,"markShape-"+id)
+            verify(shape.visible); compare(shape.color.a,0); verify(shape.border.width>0)
             const marker=findChild(canvas,"commentMarker-"+id+"-0")
             verify(marker!==null);mouseClick(marker)
             tryCompare(editor,"opened",true)

@@ -806,7 +806,18 @@ Item {
                                 objectName: "savedHighlight-" + persistentMark.modelData.id
                                 x: modelData.x * paper.width; y: modelData.y * paper.height
                                 width: modelData.width * paper.width; height: modelData.height * paper.height
-                                Rectangle { anchors.fill: parent; visible: persistentMark.modelData.kind === "highlight" || persistentMark.modelData.kind === "comment"; color: persistentMark.modelData.color || Theme.accent; opacity: persistentMark.modelData.kind === "comment" ? .12 : .28 }
+                                // Highlights tint the text; comments (and notes beside the page) only outline their place.
+                                Rectangle {
+                                    objectName: "markShape-" + persistentMark.modelData.id
+                                    readonly property bool outline: persistentMark.modelData.kind === "comment"
+                                    readonly property color ink: persistentMark.modelData.color || Theme.accent
+                                    anchors.fill: parent
+                                    visible: persistentMark.modelData.kind === "highlight" || outline
+                                    radius: outline ? 2 : 0
+                                    color: outline ? "transparent" : Qt.rgba(ink.r, ink.g, ink.b, .28)
+                                    border.width: outline ? 1.5 : 0
+                                    border.color: ink
+                                }
                                 Rectangle {
                                     objectName: "focusedMark-" + persistentMark.modelData.id
                                     anchors.fill: parent; anchors.margins: -2
