@@ -203,7 +203,8 @@ Item {
         function test_workingLinksToReferencesOfferFindPaper() {
             canvas.openFile(referenceLinkSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
-            const link = tryFindLink(), card = findChild(canvas, "linkPreview"), find = findChild(card, "findPaperButton")
+            const link = tryFindLink(), card = findChild(canvas, "linkPreview")
+            const find = { get visible() { const row = findChild(card, "findPaperEntry-0"); return card.visible && row !== null && row.visible } }
             compare(link.page, 2)
             // On "[3]": found from the text, with the entry for Find Paper.
             const y = link.height / 2
@@ -281,6 +282,7 @@ Item {
             // A figure's caption sits at the bottom of the card, with the figure above it.
             let shown = rest(referenceFigure)
             compare(canvas.linkPreview.kind, "figure")
+            verify(!findChild(card, "linkPreviewList").visible, "figures keep the page view")
             verify(shown.target > card.height * .55, "caption low in the card: " + shown.target + " / " + card.height)
             // The card scrolls on its own; the page behind it does not move.
             const before = shown.flick.contentY, pageY = findChild(canvas, "pageList").contentY
@@ -306,15 +308,18 @@ Item {
             mouseMove(paper, at.x - 6, at.y)
             mouseMove(paper, at.x, at.y)
             tryCompare(card, "visible", true, 5000)
-            compare(findChild(card, "linkPreviewPage").currentFrame, 2)
-            verify(findChild(card, "linkPreviewTarget").visible)
+            // One cited paper is a one-line list, like [1–3].
+            const list = findChild(card, "linkPreviewList")
+            verify(list.visible)
+            tryCompare(list, "count", 1)
+            verify(!findChild(card, "findPaperButton").visible)
             compare(canvas.linkPreview.label, "[2]")
             compare(canvas.currentPage, 0)
             // Find Paper looks the entry up (a web tab when the reader is in the workspace).
             reader.managed = true
             linkSpy.clear()
-            const find = findChild(card, "findPaperButton")
-            verify(find.visible)
+            let find = null
+            tryVerify(function() { find = findChild(card, "findPaperEntry-0"); return find !== null && find.visible })
             mouseClick(find)
             compare(linkSpy.count, 1)
             compare(decodeURIComponent(linkSpy.signalArguments[0][0].toString()), "https://scholar.google.com/scholar?q=A. Vaswani et al. Attention is all you need. 2017.")
@@ -329,7 +334,9 @@ Item {
             mouseMove(paper, at.x - 6, at.y)
             mouseMove(paper, at.x, at.y)
             tryCompare(card, "visible", true, 5000)
-            mouseClick(card, card.width / 2, card.height / 2)
+            let row = null
+            tryVerify(function() { row = findChild(card, "linkPreviewEntry-0"); return row !== null && row.visible && row.height > 0 })
+            mouseClick(row, 20, row.height / 2)
             tryCompare(canvas, "currentPage", 2)
             canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000)

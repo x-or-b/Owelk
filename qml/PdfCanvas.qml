@@ -1138,6 +1138,13 @@ Item {
     function leaveLinkPreview() { previewShow.stop(); if (!previewHover.hovered) previewHide.restart() }
     function closeLinkPreview() { previewShow.stop(); previewHide.stop(); linkPreview = null; pendingPreview = null }
     Timer { id: previewShow; interval: 350; onTriggered: root.linkPreview = root.pendingPreview }
+    // A citation shows its reference entries as a list (one or several); figures, tables and
+    // equations keep the page view.
+    function citedEntries(target) {
+        if (target.entries && target.entries.length) return target.entries
+        if ((target.kind !== "citation" && target.kind !== "author") || !target.text) return []
+        return [{label: target.label, text: target.text, page: target.page, top: target.top, current: false}]
+    }
     function goToEntry(entry) {
         const page = entry.page, top = Math.max(0, entry.top - .03)
         closeLinkPreview()
@@ -1255,7 +1262,7 @@ Item {
                 const shown = root.linkPreview || root.pendingPreview
                 if (!shown || !root.hoveredLink) return
                 previewShow.stop(); previewHide.stop()
-                root.linkPreview = Object.assign({}, shown, {kind: target.kind, label: target.label, text: target.text || "",
+                root.linkPreview = Object.assign({}, shown, {kind: target.kind, label: target.label, text: target.text || "", entries: root.citedEntries(target),
                                                              rect: Qt.rect(target.x, target.y, target.width, target.height)})
                 return
             }
@@ -1263,7 +1270,7 @@ Item {
             previewShow.stop(); previewHide.stop()
             root.previewContentY = pages.contentY
             root.linkPreview = {page: target.page, y: target.top, x: spot.viewX, kind: target.kind, top: spot.viewY - half, bottom: spot.viewY + half,
-                                rect: Qt.rect(target.x, target.y, target.width, target.height), label: target.label, text: target.text || "", entries: target.entries || [],
+                                rect: Qt.rect(target.x, target.y, target.width, target.height), label: target.label, text: target.text || "", entries: root.citedEntries(target),
                                 fromText: true, anchorX: spot.viewX, anchorY: spot.viewY}
         }
     }
@@ -1276,8 +1283,8 @@ Item {
         readonly property var spec: root.linkPreview || ({page: 0, y: 0, x: 0, top: 0, bottom: 0})
         // Figures and tables get a taller card, zoomed to their column.
         readonly property bool showsFloat: spec.kind === "figure" || spec.kind === "table"
-        // Several papers cited together ([3, 5], [12–14]): a list of their entries instead of the page.
-        readonly property bool showsList: !!spec.entries && spec.entries.length > 1
+        // A citation ([5], [3, 5], [12–14], Vaswani et al.): its reference entries as a list instead of the page.
+        readonly property bool showsList: !!spec.entries && spec.entries.length > 0
         width: Math.min(560, root.width - 32)
         height: showsList ? Math.min(entryList.contentHeight + 12, root.height * .45)
               : showsFloat ? Math.min(420, root.height * .62) : Math.min(240, root.height * .45)
@@ -1378,7 +1385,7 @@ Item {
                     id: entryText
                     x: 8; y: 6
                     width: parent.width - 16 - findEntry.width
-                    text: "<b>" + entryRow.modelData.label + "</b> " + entryRow.modelData.text.replace(/^\s*\[\d+\]\s*/, "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                    text: "<b>" + entryRow.modelData.label + "</b> " + entryRow.modelData.text.replace(/^\s*(\[\d+\]|\d{1,3}\.)\s*/, "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
                     textFormat: Text.StyledText
                     wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight
                     font.pixelSize: Theme.fontSmall; color: Theme.text
