@@ -203,9 +203,25 @@ private slots:
         const auto textId = done.last()[1].toString();
         mark["id"] = textId;
         mark["body"] = "Edited annotation";
+        mark["fontSize"] = 11.5;
         store.saveAnnotation(source, 0, mark);
         QTRY_COMPARE_WITH_TIMEOUT(done.size(), 2, 10000);
         QVERIFY(done.last()[0].toBool());
+        // The text box keeps its font size; undo brings back the earlier one.
+        store.loadHighlights(source);
+        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 2, 10000);
+        QCOMPARE(loaded.last()[2].toList()[0].toMap()["fontSize"].toDouble(), 11.5);
+        QVERIFY(store.undo(source));
+        store.loadHighlights(source);
+        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 3, 10000);
+        QCOMPARE(loaded.last()[2].toList()[0].toMap()["fontSize"].toDouble(), 0.0);
+        QVERIFY(store.redo(source));
+        mark["fontSize"] = 200; // Out of range.
+        store.saveAnnotation(source, 0, mark);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 3, 10000);
+        QVERIFY(!done.last()[0].toBool());
+        mark["fontSize"] = 11.5;
+        done.removeLast();
         QCOMPARE(store.searchKnowledge("Edited annotation").size(), 1);
         mark.remove("id");
         mark["kind"] = "image";
@@ -233,7 +249,7 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(done.size(), 5, 10000);
         QVERIFY(done.last()[0].toBool());
         store.loadHighlights(source);
-        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 2, 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 4, 10000);
         const auto rows = loaded.last()[2].toList();
         QCOMPARE(rows.size(), 4);
         bool copied = false, comment = false;

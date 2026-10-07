@@ -21,20 +21,23 @@ QString kindName(const QString &kind)
 QVariantMap ResearchStore::annotationState(const QString &id) const
 {
     QSqlQuery query(m_database);
-    query.prepare("SELECT document_id,kind,rectangles,body,color,image,drawing,deleted_at FROM highlights WHERE id=?");
+    query.prepare(
+        "SELECT document_id,kind,rectangles,body,color,image,drawing,deleted_at,font_size FROM highlights WHERE id=?");
     query.addBindValue(id);
     if (!query.exec() || !query.next()) return {};
     return {{"document", query.value(0)}, {"kind", query.value(1)}, {"rectangles", query.value(2)},
         {"body", query.value(3)}, {"color", query.value(4)}, {"image", query.value(5)}, {"drawing", query.value(6)},
-        {"deleted", query.value(7)}};
+        {"deleted", query.value(7)}, {"fontSize", query.value(8)}};
 }
 
 bool ResearchStore::applyAnnotationState(const QString &id, const QVariantMap &state)
 {
     QSqlQuery query(m_database);
-    query.prepare("UPDATE highlights SET rectangles=?,body=?,color=?,image=?,drawing=?,deleted_at=? WHERE id=?");
+    query.prepare(
+        "UPDATE highlights SET rectangles=?,body=?,color=?,image=?,drawing=?,font_size=?,deleted_at=? WHERE id=?");
     for (const auto *key : {"rectangles", "body", "color", "image", "drawing"})
         query.addBindValue(state.value(key).toString());
+    query.addBindValue(state.value("fontSize").toDouble());
     const auto deleted = state.value("deleted").toString();
     query.addBindValue(deleted.isEmpty() ? QVariant(QMetaType(QMetaType::QString)) : QVariant(deleted));
     query.addBindValue(id);

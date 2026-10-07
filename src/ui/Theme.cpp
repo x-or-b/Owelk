@@ -24,8 +24,8 @@ constexpr Accent accentList[] = {{"blue", "Blue", "#426b9a", "#4d84c4"}, {"teal"
     {"green", "Green", "#3f7d4f", "#4b9461"}, {"orange", "Orange", "#b5651d", "#c77a33"},
     {"pink", "Pink", "#b44a7a", "#c45b8c"}, {"purple", "Purple", "#6b55a8", "#8167c4"},
     {"graphite", "Graphite", "#5f6670", "#7a818b"}};
-constexpr Named inks[]
-    = {{"#426b9a", "Blue"}, {"#e0b83f", "Yellow"}, {"#54a878", "Green"}, {"#d87797", "Pink"}, {"#9274c3", "Purple"}};
+constexpr Named inks[] = {{"#426b9a", "Blue"}, {"#e0b83f", "Yellow"}, {"#54a878", "Green"}, {"#d87797", "Pink"},
+    {"#9274c3", "Purple"}, {"#1d3a5c", "Navy"}};
 
 QColor alpha(QColor color, qreal a)
 {

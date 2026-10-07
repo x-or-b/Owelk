@@ -429,7 +429,7 @@ Rectangle {
                 }
                 onAnnotationPlaced: function(page,rectangle,points) {
                     const kind=canvas.tool
-                    const spec={kind:kind,page:page,rectangles:[rectangle],color:kind==="draw"?canvas.drawColor:canvas.markColor,sha256:canvas.documentFingerprint,drawing:kind==="draw"?points:[]}
+                    const spec={kind:kind,page:page,rectangles:[rectangle],color:kind==="draw"?canvas.drawColor:kind==="text"?canvas.textColor:canvas.markColor,sha256:canvas.documentFingerprint,drawing:kind==="draw"?points:[]}
                     if(kind==="draw")researchStore.saveAnnotation(canvas.source,page,spec)
                     else if(kind==="comment"&&root.marginShown){canvas.tool="";margin.beginDraft({page:page,rectangle:rectangle})}
                     else {canvas.tool="";annotationEditor.begin(canvas,spec,null)}

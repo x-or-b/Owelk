@@ -191,7 +191,9 @@ QString write(const QString &source, const QString &target, const QVariantList &
                             + " 16 16 re B Q"));
             } else if (kind == "text") {
                 annot = baseAnnotation("/FreeText", all, color, body);
-                annot.replaceKey("/DA", Handle::newString("/Helv 11 Tf " + rgb(color) + " rg"));
+                // The size the box was drawn at (older boxes: 14 pt, as on screen).
+                const double size = mark.value("fontSize").toDouble() > 0 ? mark.value("fontSize").toDouble() : 14;
+                annot.replaceKey("/DA", Handle::newString("/Helv " + number(size) + " Tf " + rgb(color) + " rg"));
                 auto fonts = Handle::newDictionary();
                 auto helvetica = Handle::newDictionary();
                 helvetica.replaceKey("/Type", Handle::newName("/Font"));
@@ -201,8 +203,8 @@ QString write(const QString &source, const QString &target, const QVariantList &
                 fonts.replaceKey("/Helv", helvetica);
                 auto resources = Handle::newDictionary();
                 resources.replaceKey("/Font", fonts);
-                std::string content = "q " + rgb(color) + " rg BT /Helv 11 Tf 13 TL " + number(all[0] + 2) + " "
-                    + number(all[3] - 12) + " Td\n";
+                std::string content = "q " + rgb(color) + " rg BT /Helv " + number(size) + " Tf " + number(size * 1.2)
+                    + " TL " + number(all[0] + 2) + " " + number(all[3] - size * 1.05) + " Td\n";
                 // Scripts Helvetica cannot show stay readable in /Contents (editors show it).
                 if (showable(body))
                     for (const auto &line : body.split('\n')) content += "(" + latin(line) + ") Tj T*\n";

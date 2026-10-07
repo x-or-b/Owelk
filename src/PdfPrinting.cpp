@@ -38,10 +38,16 @@ void paintPdfAnnotations(QImage &page, const QVariantList &marks, qreal scale)
             const QRectF box(r["x"].toDouble() * page.width(), r["y"].toDouble() * page.height(),
                 r["width"].toDouble() * page.width(), r["height"].toDouble() * page.height());
             p.save();
-            if (kind == "highlight" || kind == "comment") {
+            if (kind == "highlight") {
                 QColor tint = color;
-                tint.setAlphaF(kind == "comment" ? .12 : .28);
+                tint.setAlphaF(.28);
                 p.fillRect(box, tint);
+            }
+            // A comment outlines its place, as on screen.
+            if (kind == "comment") {
+                p.setPen(QPen(color, std::max(1.0, 1.5 * scale)));
+                p.setBrush(Qt::NoBrush);
+                p.drawRoundedRect(box, 2 * scale, 2 * scale);
             }
             if (kind == "comment" || (!mark["body"].toString().isEmpty() && kind == "highlight")) {
                 p.setBrush(color);
@@ -52,9 +58,9 @@ void paintPdfAnnotations(QImage &page, const QVariantList &marks, qreal scale)
             if (kind == "text") {
                 p.setPen(color);
                 QFont f;
-                f.setPixelSize(qRound(14 * scale));
+                const double size = mark["fontSize"].toDouble() > 0 ? mark["fontSize"].toDouble() : 14;
+                f.setPixelSize(std::max(1, qRound(size * scale)));
                 p.setFont(f);
-                p.setClipRect(box);
                 p.drawText(box, Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop, mark["body"].toString());
             }
             if (kind == "image") {
@@ -222,7 +228,8 @@ bool ResearchStore::readPrintMarks(const QUrl &source, const QString &hash, QVar
 {
     QSqlQuery query(m_database);
     query.prepare(
-        "SELECT page,rectangles,color,kind,body,image,drawing,text FROM highlights WHERE document_id=? AND sha256=? "
+        "SELECT page,rectangles,color,kind,body,image,drawing,text,font_size FROM highlights WHERE document_id=? AND "
+        "sha256=? "
         "AND deleted_at IS NULL");
     query.addBindValue(findDocument(source));
     query.addBindValue(hash);
@@ -232,7 +239,8 @@ bool ResearchStore::readPrintMarks(const QUrl &source, const QString &hash, QVar
             {"rectangles", QJsonDocument::fromJson(query.value(1).toByteArray()).toVariant()},
             {"color", query.value(2)}, {"kind", query.value(3)}, {"body", query.value(4)},
             {"image", QUrl::fromLocalFile(m_directory + "/annotations/" + query.value(5).toString())},
-            {"drawing", QJsonDocument::fromJson(query.value(6).toByteArray()).toVariant()}, {"text", query.value(7)}});
+            {"drawing", QJsonDocument::fromJson(query.value(6).toByteArray()).toVariant()}, {"text", query.value(7)},
+            {"fontSize", query.value(8).toDouble()}});
     return true;
 }
 

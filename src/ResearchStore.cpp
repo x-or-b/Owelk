@@ -115,7 +115,7 @@ QObject *ResearchStore::references() const
 
 QStringList ResearchStore::annotationColors()
 {
-    return {"#426b9a", "#e0b83f", "#54a878", "#d87797", "#9274c3"};
+    return {"#426b9a", "#e0b83f", "#54a878", "#d87797", "#9274c3", "#1d3a5c"};
 }
 
 ResearchStore::~ResearchStore()
@@ -275,6 +275,8 @@ bool ResearchStore::initialize(QString *error)
         // Papers removed from the Library are hidden, not deleted: opening the file again restores them
         // with their annotations and captures.
         {10, {"ALTER TABLE documents ADD COLUMN removed_at TEXT"}},
+        // A text box's font size in PDF points (0: older boxes, drawn at the former 14 pt).
+        {11, {"ALTER TABLE highlights ADD COLUMN font_size REAL NOT NULL DEFAULT 0"}},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     loadDocumentNames();

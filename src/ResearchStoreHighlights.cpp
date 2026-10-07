@@ -28,9 +28,9 @@ int ResearchStore::loadHighlights(const QUrl &source)
     const int request = ++m_highlightRequest;
     QVariantList rows;
     QSqlQuery query(m_database);
-    query.prepare(
-        "SELECT id,page,text,rectangles,sha256,color,kind,body,image,drawing FROM highlights WHERE document_id=? "
-        "AND deleted_at IS NULL ORDER BY created_at,id");
+    query.prepare("SELECT id,page,text,rectangles,sha256,color,kind,body,image,drawing,font_size FROM highlights WHERE "
+                  "document_id=? "
+                  "AND deleted_at IS NULL ORDER BY created_at,id");
     query.addBindValue(findDocument(source));
     const bool queried = query.exec();
     while (queried && query.next())
@@ -42,7 +42,8 @@ int ResearchStore::loadHighlights(const QUrl &source)
                         || QFileInfo(query.value(8).toString()).fileName() != query.value(8).toString()
                     ? QUrl()
                     : QUrl::fromLocalFile(m_directory + "/annotations/" + query.value(8).toString())},
-            {"drawing", QJsonDocument::fromJson(query.value(9).toByteArray()).toVariant()}});
+            {"drawing", QJsonDocument::fromJson(query.value(9).toByteArray()).toVariant()},
+            {"fontSize", query.value(10).toDouble()}});
     auto *watcher = new QFutureWatcher<QString>(this);
     connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, source, request, rows, queried] {
         const auto hash = watcher->result();
@@ -114,6 +115,12 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
         fail("Annotation coordinates must stay inside the page.");
         return;
     }
+    // A text box's font size in PDF points; 0 keeps the default.
+    const double fontSize = input.value("fontSize").toDouble();
+    if (!std::isfinite(fontSize) || fontSize < 0 || fontSize > 96) {
+        fail("Choose a font size up to 96 pt.");
+        return;
+    }
     const auto points = input.value("drawing").toList();
     if (kind == "draw" && (points.size() < 2 || points.size() > 5000)) {
         fail("Draw a stroke of up to 5,000 points.");
@@ -179,18 +186,19 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
         QSqlQuery save(m_database);
         if (editing)
             save.prepare(
-                "UPDATE highlights SET rectangles=?,body=?,color=?,image=?,drawing=? WHERE id=? AND document_id=? "
-                "AND deleted_at IS NULL");
+                "UPDATE highlights SET rectangles=?,body=?,color=?,image=?,drawing=?,font_size=? WHERE id=? AND "
+                "document_id=? AND deleted_at IS NULL");
         else
             save.prepare(
                 "INSERT INTO "
-                "highlights(rectangles,body,color,image,drawing,id,document_id,sha256,page,kind,text,start_index,"
-                "end_index,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,'',-1,-1,?)");
+                "highlights(rectangles,body,color,image,drawing,font_size,id,document_id,sha256,page,kind,text,"
+                "start_index,end_index,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,'',-1,-1,?)");
         save.addBindValue(QString::fromUtf8(QJsonDocument::fromVariant(rects).toJson(QJsonDocument::Compact)));
         save.addBindValue(body.isNull() ? QStringLiteral("") : body);
         save.addBindValue(color);
         save.addBindValue(result.asset.isNull() ? QStringLiteral("") : result.asset);
         save.addBindValue(QString::fromUtf8(QJsonDocument::fromVariant(points).toJson(QJsonDocument::Compact)));
+        save.addBindValue(fontSize);
         save.addBindValue(id);
         save.addBindValue(document);
         if (!editing) {

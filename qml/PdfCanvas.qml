@@ -35,18 +35,25 @@ Item {
     property var activeSelection: null
     property var selectedAnchor: null
     property string tool: ""
-    // Highlight (also comments and text boxes) and drawing inks are separate and remembered.
+    // Highlight (also comments), drawing and text-box inks are separate and remembered; text starts navy.
     readonly property bool invertPages: Theme.invertPages && Theme.canInvertPages
+    readonly property string defaultTextColor: "#1d3a5c"
     property string markColor: savedInk("highlightColor")
     property string drawColor: savedInk("drawColor")
-    function savedInk(key) {
+    property string textColor: savedInk("textColor", defaultTextColor)
+    function savedInk(key, fallback) {
         const value = researchStore.setting(key)
-        return Theme.annotationInks.some(function(ink) { return ink.value === value }) ? value : Theme.defaultInk
+        return Theme.annotationInks.some(function(ink) { return ink.value === value }) ? value : (fallback || Theme.defaultInk)
     }
     Connections {
         target: researchStore
-        function onSettingsChanged() { root.markColor = root.savedInk("highlightColor"); root.drawColor = root.savedInk("drawColor") }
+        function onSettingsChanged() {
+            root.markColor = root.savedInk("highlightColor"); root.drawColor = root.savedInk("drawColor")
+            root.textColor = root.savedInk("textColor", root.defaultTextColor)
+        }
     }
+    // A page's size in PDF points (text boxes fit their font to it).
+    function pagePoints(page) { return pdfDocument.pagePointSize(page) }
     property string documentFingerprint: ""
     property var editingMark: null
     // A mark outlined on the page while its note is hovered in the margin.
@@ -825,7 +832,17 @@ Item {
                                     color: "transparent"; radius: 2
                                     border.width: 2; border.color: Theme.accent
                                 }
-                                Text { anchors.fill: parent; visible: persistentMark.modelData.kind === "text"; text: persistentMark.modelData.body || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: persistentMark.modelData.color; font.pixelSize: 14 * root.pageScale; clip: true }
+                                // A text box at its own size (PDF points; older boxes 14 pt). The editor grows the box to
+                                // fit, so nothing is clipped.
+                                Text {
+                                    objectName: "textBox-" + persistentMark.modelData.id
+                                    anchors.fill: parent
+                                    visible: persistentMark.modelData.kind === "text"
+                                    text: persistentMark.modelData.body || ""
+                                    textFormat: Text.PlainText; wrapMode: Text.Wrap
+                                    color: persistentMark.modelData.color
+                                    font.pixelSize: Math.max(1, (persistentMark.modelData.fontSize || 14) * root.pageScale)
+                                }
                                 Image { anchors.fill: parent; visible: persistentMark.modelData.kind === "image"; source: visible ? persistentMark.modelData.image : ""; fillMode: Image.Stretch; asynchronous: true }
                                 Canvas {
                                     id: savedStroke

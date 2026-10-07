@@ -570,6 +570,35 @@ Item {
             mouseClick(findChild(editor,"saveAnnotation"))
             tryCompare(editor,"visible",false)
             tryVerify(function(){return canvas.savedHighlights.some(function(m){return m.kind==="text"})})
+            // A new text box starts navy and fits its font to the box (8–24 pt); nothing is clipped.
+            const box=canvas.savedHighlights.filter(function(m){return m.kind==="text"})[0]
+            compare(box.color,"#1d3a5c")
+            verify(box.fontSize>=8&&box.fontSize<=24,"fitted size "+box.fontSize)
+            const shown=findChild(canvas,"textBox-"+box.id)
+            tryVerify(function(){return shown!==null&&shown.visible})
+            verify(shown.contentHeight<=shown.height+1,"text fits: "+shown.contentHeight+" / "+shown.height)
+            // Too much text for a small box at the minimum size: the box grows instead of cutting it.
+            canvas.tool=""
+            editor.begin(canvas,{kind:"text",page:0,color:canvas.textColor,sha256:canvas.documentFingerprint,rectangles:[{x:.1,y:.05,width:.12,height:.02}]},null)
+            tryCompare(editor,"opened",true)
+            findChild(editor,"annotationBody").text="aaa long text that cannot fit in so small a box at all"
+            mouseClick(findChild(editor,"saveAnnotation"))
+            tryCompare(editor,"visible",false)
+            tryVerify(function(){return canvas.savedHighlights.filter(function(m){return m.kind==="text"}).length===2})
+            const grown=canvas.savedHighlights.filter(function(m){return m.kind==="text"&&m.body.indexOf("aaa")===0})[0]
+            compare(grown.fontSize,8)
+            verify(grown.rectangles[0].height>.02,"grew to "+grown.rectangles[0].height)
+            const grownText=findChild(canvas,"textBox-"+grown.id)
+            tryVerify(function(){return grownText!==null&&grownText.visible})
+            verify(grownText.contentHeight<=grownText.height+1)
+            // A saved box keeps its size unless told to fit; a chosen size is kept.
+            editor.begin(canvas,grown,null)
+            tryCompare(editor,"opened",true)
+            verify(!findChild(editor,"textFitBox").checked)
+            const size=findChild(editor,"textFontSize"); size.value=12; size.valueModified()
+            mouseClick(findChild(editor,"saveAnnotation"))
+            tryCompare(editor,"visible",false)
+            tryVerify(function(){return canvas.savedHighlights.some(function(m){return m.id===grown.id&&m.fontSize===12})})
             reader.setTool("draw");waitForPolish(reader)
             const start=area.mapToItem(canvas,area.width*.6,area.height*.5)
             testInput.pointerDrag(canvas,start,Qt.point(start.x+60,start.y+30),false)
