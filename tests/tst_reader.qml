@@ -513,6 +513,16 @@ Item {
             const start = area.mapToItem(canvas, area.width * .6, area.height * .5)
             testInput.pointerDrag(canvas, start, Qt.point(start.x + 50, start.y + 20), false)
             tryVerify(function() { return canvas.savedHighlights.some(function(m) { return m.kind === "draw" }) }, 10000)
+            // Every kind of mark is listed beside the page: by place, or by kind (pen first).
+            tryVerify(function() { return margin.notes.length === 2 })
+            compare(margin.notes[0].kind, "comment") // higher on the page
+            mouseClick(findChild(margin, "annotationSortType"))
+            compare(margin.sortMode, "type")
+            compare(margin.notes[0].kind, "draw")
+            compare(researchStore.setting("annotations.sort"), "type")
+            tryVerify(function() { const d = findChild(margin, "marginDrawing-" + margin.notes[0].id); return d !== null && d.visible })
+            mouseClick(findChild(margin, "annotationSortPage"))
+            compare(margin.notes[0].kind, "comment")
             canvas.tool = ""; canvas.forceActiveFocus()
             keyClick(Qt.Key_Z, Qt.ControlModifier)
             tryVerify(function() { return !canvas.savedHighlights.some(function(m) { return m.kind === "draw" }) }, 10000)

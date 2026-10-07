@@ -3,11 +3,12 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Owelk.Ui
 import "Platform.js" as Platform
+import "StrokePath.js" as Stroke
 
-// Notes beside the page: the paper's comments (on a selection or a spot) and highlights with a
-// note, in page order. Hover a note to outline its place on the page, click to go there, write
-// and edit in place. They are the same annotations as on the page, so export, search and undo
-// work on them too.
+// Annotations beside the page: every mark on the paper — pen, highlights, comments, text boxes and
+// pictures — in page order (top to bottom) or grouped by kind. Hover one to outline its place on the
+// page, click to go there; comments and highlight notes are written and edited in place, text boxes in
+// their editor. They are the same annotations as on the page, so export, search and undo work on them.
 Rectangle {
     id: root
     objectName: "marginNotes"
@@ -16,9 +17,17 @@ Rectangle {
     // The note being written for a new place: {page, selection} or {page, rectangle}.
     property var draft: null
     property string editingId: ""
+    // "page": top to bottom through the paper; "type": pen, highlights, comments, text, pictures.
+    property string sortMode: researchStore.setting("annotations.sort", "page") === "type" ? "type" : "page"
+    function setSortMode(mode) { sortMode = mode; researchStore.setSetting("annotations.sort", mode) }
+    readonly property var kinds: ["draw", "highlight", "comment", "text", "image"]
+    readonly property var kindNames: ({draw: "Pen", highlight: "Highlights", comment: "Comments", text: "Text", image: "Pictures"})
     readonly property var notes: canvas.savedHighlights
-        .filter(function(h) { return h.kind === "comment" || (h.kind === "highlight" && !!h.body) })
-        .sort(function(a, b) { return a.page - b.page || ((a.rectangles[0] || {}).y || 0) - ((b.rectangles[0] || {}).y || 0) })
+        .filter(function(h) { return root.kinds.indexOf(h.kind) >= 0 })
+        .sort(function(a, b) {
+            const byPlace = a.page - b.page || ((a.rectangles[0] || {}).y || 0) - ((b.rectangles[0] || {}).y || 0)
+            return root.sortMode === "type" ? root.kinds.indexOf(a.kind) - root.kinds.indexOf(b.kind) || byPlace : byPlace
+        })
     color: Theme.sidebar
     function beginDraft(spec) {
         draft = spec
@@ -55,8 +64,15 @@ Rectangle {
             Layout.leftMargin: 12; Layout.rightMargin: 6
             Label {
                 Layout.fillWidth: true
-                text: "Notes" + (root.notes.length ? "  " + root.notes.length : "")
+                text: "Annotations" + (root.notes.length ? "  " + root.notes.length : "")
+                elide: Text.ElideRight
                 font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold; color: Theme.textSecondary
+            }
+            TabBar {
+                objectName: "annotationSort"
+                currentIndex: root.sortMode === "type" ? 1 : 0
+                TabButton { objectName: "annotationSortPage"; text: "Page"; width: 48; onClicked: root.setSortMode("page"); ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: "Top to bottom through the paper" }
+                TabButton { objectName: "annotationSortType"; text: "Type"; width: 48; onClicked: root.setSortMode("type"); ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: "Pen, highlights, comments, text, pictures" }
             }
             IconButton {
                 objectName: "newMarginNote"
@@ -100,17 +116,26 @@ Rectangle {
                 width: list.width
                 objectName: "marginNote-" + modelData.id
                 noteId: modelData.id
+                kind: modelData.kind
+                record: modelData
                 page: modelData.page
                 quote: modelData.text || ""
                 body: modelData.body || ""
                 ink: modelData.color
-                // A page heading above the first note of each page.
-                pageHeading: index === 0 || root.notes[index - 1].page !== modelData.page
+                headingIsPage: root.sortMode === "page"
+                // A heading above the first of each page (or of each kind, sorted by type).
+                heading: root.sortMode === "type"
+                    ? (index === 0 || root.notes[index - 1].kind !== modelData.kind ? root.kindNames[modelData.kind] : "")
+                    : (index === 0 || root.notes[index - 1].page !== modelData.page ? "Page " + (modelData.page + 1) : "")
                 current: root.canvas.currentPage === modelData.page
                 editing: root.editingId === modelData.id
                 onHoveredChanged: root.canvas.focusedMark = hovered ? modelData.id : (root.canvas.focusedMark === modelData.id ? "" : root.canvas.focusedMark)
                 onOpened: root.canvas.showSource(modelData.page, modelData.rectangles[0])
-                onEditRequested: root.edit(modelData.id)
+                // Text boxes are edited in their editor (it fits the font to the box); pen and pictures have no text.
+                onEditRequested: {
+                    if (modelData.kind === "text") root.canvas.editRequested(modelData, null)
+                    else if (modelData.kind === "highlight" || modelData.kind === "comment") root.edit(modelData.id)
+                }
                 onCommitted: function(text) {
                     root.editingId = ""
                     if (text.trim().length && text !== (modelData.body || "")) researchStore.updateHighlight(modelData.id, modelData.color, text)
@@ -134,7 +159,7 @@ Rectangle {
                 visible: root.notes.length === 0 && !root.draft
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
-                text: "Select text and add a note, or use + and click a place on the page."
+                text: "Pen, highlights, comments, text boxes and pictures on this paper appear here. Select text and add a note, or use + and click a place on the page."
                 color: Theme.textTertiary
                 font.pixelSize: Theme.fontSmall
             }
@@ -145,11 +170,15 @@ Rectangle {
     component NoteCard: Item {
         id: card
         property string noteId: ""
+        property string kind: "comment"
+        property var record: ({})
+        property string heading: ""
+        // A page heading follows the page being read; kind headings stay quiet.
+        property bool headingIsPage: true
         property int page: 0
         property string quote: ""
         property string body: ""
         property color ink: Theme.accent
-        property bool pageHeading: false
         property bool current: true
         property bool editing: false
         property alias field: editor
@@ -166,11 +195,11 @@ Rectangle {
             width: parent.width
             spacing: 4
             Label {
-                visible: card.pageHeading
+                visible: card.heading.length > 0
                 Layout.leftMargin: 14; Layout.topMargin: 6
-                text: "Page " + (card.page + 1)
+                text: card.heading
                 font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold
-                color: card.current ? Theme.text : Theme.textTertiary
+                color: card.current && card.headingIsPage ? Theme.text : Theme.textTertiary
             }
             Rectangle {
                 Layout.fillWidth: true
@@ -186,10 +215,10 @@ Rectangle {
                 Menu {
                     id: noteMenu
                     MenuItem { text: "Go to"; onTriggered: card.opened() }
-                    MenuItem { text: "Edit"; onTriggered: card.editRequested() }
-                    MenuItem { text: "Copy Note"; onTriggered: researchStore.copyText(card.body) }
+                    MenuItem { visible: card.kind !== "draw" && card.kind !== "image"; height: visible ? implicitHeight : 0; text: "Edit"; onTriggered: card.editRequested() }
+                    MenuItem { visible: card.body.length > 0; height: visible ? implicitHeight : 0; text: "Copy Text"; onTriggered: researchStore.copyText(card.body) }
                     MenuSeparator {}
-                    MenuItem { objectName: "removeMarginNote"; text: "Delete Note"; palette.windowText: Theme.danger; onTriggered: card.removeRequested() }
+                    MenuItem { objectName: "removeMarginNote"; text: "Delete"; palette.windowText: Theme.danger; onTriggered: card.removeRequested() }
                 }
                 ColumnLayout {
                     id: inner
@@ -210,8 +239,52 @@ Rectangle {
                             font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
                         }
                     }
+                    // What the mark is, for pen and pictures (and empty highlights); a small picture of it.
+                    RowLayout {
+                        visible: card.kind === "draw" || card.kind === "image" || card.kind === "text" || (card.kind === "highlight" && !card.body && !card.quote)
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Icon { name: ({draw: "draw", image: "image", text: "text", highlight: "highlight"})[card.kind] || "comment"; color: card.ink; size: Theme.fontBody }
+                        Label {
+                            Layout.fillWidth: true
+                            text: ({draw: "Drawing", image: "Picture", text: "Text box", highlight: "Highlight"})[card.kind] || ""
+                            font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                        }
+                    }
+                    Image {
+                        objectName: "marginPicture-" + card.noteId
+                        visible: card.kind === "image" && status === Image.Ready
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: visible ? Math.min(90, implicitHeight) : 0
+                        source: card.kind === "image" ? (card.record.image || "") : ""
+                        sourceSize.height: 180
+                        fillMode: Image.PreserveAspectFit
+                        horizontalAlignment: Image.AlignLeft
+                        asynchronous: true
+                    }
+                    Canvas {
+                        objectName: "marginDrawing-" + card.noteId
+                        visible: card.kind === "draw"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: visible ? 44 : 0
+                        readonly property var points: card.kind === "draw" ? (card.record.drawing || []) : []
+                        onPointsChanged: requestPaint()
+                        onWidthChanged: requestPaint()
+                        onPaint: {
+                            const c = getContext("2d"); c.reset()
+                            if (points.length < 2) return
+                            // The stroke scaled into the strip, keeping its proportions.
+                            const xs = points.map(function(p) { return p.x }), ys = points.map(function(p) { return p.y })
+                            const x0 = Math.min.apply(null, xs), y0 = Math.min.apply(null, ys)
+                            const w = Math.max(.001, Math.max.apply(null, xs) - x0), h = Math.max(.001, Math.max.apply(null, ys) - y0)
+                            const scale = Math.min((width - 8) / w, (height - 8) / (h * 1.3))
+                            c.strokeStyle = card.ink; c.lineWidth = 2; c.lineCap = "round"; c.lineJoin = "round"; c.beginPath()
+                            Stroke.trace(c, points, function(p) { return 4 + (p.x - x0) * scale }, function(p) { return 4 + (p.y - y0) * scale * 1.3 })
+                            c.stroke()
+                        }
+                    }
                     Label {
-                        visible: !card.editing
+                        visible: !card.editing && card.body.length > 0
                         Layout.fillWidth: true
                         text: card.body
                         textFormat: Text.PlainText

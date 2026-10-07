@@ -332,7 +332,7 @@ Rectangle {
                 }
                 Rectangle { visible: readerToolbar.width >= 600; width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
                 IconButton { objectName:"readerCaptureButton";icon.name: "capture";description:"Capture a region · " + Platform.keys("Ctrl+Shift+C");checked:canvas.captureMode;onClicked:root.toggleCapture() }
-                IconButton { objectName:"marginNotesButton";icon.name: "margin";checked:root.marginNotes;description:"Notes beside the page";onClicked:root.setMarginNotes(!root.marginNotes) }
+                IconButton { objectName:"marginNotesButton";icon.name: "margin";checked:root.marginNotes;description:"Annotations beside the page";onClicked:root.setMarginNotes(!root.marginNotes) }
                 Rectangle { width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
                 IconButton { icon.name: "more";
                     objectName: "readerMoreButton"
