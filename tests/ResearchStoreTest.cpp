@@ -1285,7 +1285,7 @@ private slots:
     }
     void keptPdfsFollowTheirFolder()
     {
-        // PDFs kept in the data folder move when the PDF folder changes (the move to Documents/Owelk);
+        // PDFs kept in the data folder move when the PDF folder changes (the move to Documents/Owelk Library/Papers);
         // each paper keeps its ID and the old path still finds it.
         QTemporaryDir directory;
         const auto original = directory.filePath("paper.pdf");
@@ -1299,14 +1299,14 @@ private slots:
             QVERIFY(kept.toLocalFile().startsWith(directory.filePath("data/papers/")));
             QVERIFY(store.rememberDocument(kept));
             id = store.documentLinkId(kept);
-            QVERIFY(store.setSetting("library.folder", directory.filePath("Documents/Owelk")));
+            QVERIFY(store.setSetting("library.folder", directory.filePath("Documents/Owelk/Papers")));
             QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
         }
         ResearchStore store(directory.filePath("data"));
         QVERIFY2(store.initialize(&error), qPrintable(error));
-        QCOMPARE(store.papersFolder(), directory.filePath("Documents/Owelk"));
+        QCOMPARE(store.papersFolder(), directory.filePath("Documents/Owelk/Papers"));
         const auto moved = store.resolvedSource(kept);
-        QCOMPARE(moved, QUrl::fromLocalFile(directory.filePath("Documents/Owelk/paper.pdf")));
+        QCOMPARE(moved, QUrl::fromLocalFile(directory.filePath("Documents/Owelk/Papers/paper.pdf")));
         QVERIFY(QFileInfo::exists(moved.toLocalFile()));
         QVERIFY(!QFileInfo::exists(kept.toLocalFile()));
         QVERIFY(QFileInfo::exists(original));

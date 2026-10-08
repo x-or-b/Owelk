@@ -85,28 +85,30 @@ QString ResearchStore::papersFolder() const
     return m_papers;
 }
 
-// The usual data folder keeps PDFs in Documents/Owelk, where people look for files; a data folder
+// The usual data folder keeps PDFs in Documents/Owelk Library/Papers, where people look for files
+// (not Documents/Owelk, a common place for a project checkout); a data folder
 // given on the command line (development, tests) keeps them inside itself.
 QString ResearchStore::defaultPapersFolder(const QString &directory)
 {
     const auto documents = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
     if (directory == QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) && !documents.isEmpty())
-        return documents + "/Owelk";
+        return documents + "/Owelk Library/Papers";
     return directory + "/papers";
 }
 
-// PDFs kept before the folder moved to Documents/Owelk follow it: each file moves, then its paper
-// switches over the same way Locate Original PDF does (the old path still finds it).
+// PDFs kept in the data folder's papers/ (before the PDF folder moved to Documents) follow it: each
+// file moves, then its paper switches over the way Locate Original PDF does (the old path still
+// finds it). Only files directly in the old folder move.
 void ResearchStore::relocatePapers()
 {
-    const auto old = m_directory + "/papers";
-    if (old == m_papers || !QFileInfo(old).isDir()) return;
+    const QStringList olds{m_directory + "/papers"};
+    if (olds.contains(m_papers) || !QFileInfo(olds.first()).isDir()) return;
     QSqlQuery query(m_database);
     QList<QPair<QString, QString>> papers;
     if (!query.exec("SELECT url,sha256 FROM documents WHERE url LIKE 'file:%'")) return;
     while (query.next()) {
         const auto path = QUrl(query.value(0).toString()).toLocalFile();
-        if (path.startsWith(old + "/")) papers.append({path, query.value(1).toString()});
+        if (olds.contains(QFileInfo(path).absolutePath())) papers.append({path, query.value(1).toString()});
     }
     query.finish();
     int moved = 0;
@@ -130,7 +132,7 @@ void ResearchStore::relocatePapers()
         pending.exec();
         ++moved;
     }
-    QDir().rmdir(old); // Only when nothing else is left in it.
+    QDir().rmdir(m_directory + "/papers"); // Only when nothing else is left in it.
     if (moved) m_startupMessage = QString("Owelk's PDFs now live in %1.").arg(QDir::toNativeSeparators(m_papers));
 }
 

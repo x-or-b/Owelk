@@ -241,7 +241,7 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 
 ## PDF 보관(Owelk가 직접 보관)
 
-노트 앱처럼 Owelk가 PDF를 직접 보관합니다(Settings → Data → Library → `Keep PDFs in Owelk`, 기본 켜짐). 열거나 추가하거나 가져온 PDF는 `문서/Owelk` 폴더(macOS `~/Documents/Owelk`, Linux `~/Documents/Owelk`, Windows `문서\Owelk`)에 원래 이름으로 복사되고, 웹에서 받은 PDF는 처음부터 그곳에 저장됩니다(PDF가 아닌 파일은 Settings → Web의 다운로드 폴더로). 원래 파일은 옮기거나 지우지 않으니 필요 없으면 직접 지우면 됩니다. 같은 내용(바이트)의 PDF를 다시 열거나 여러 개를 한꺼번에 추가해도 이미 보관된 논문이 열리고 두 번 보관하지 않습니다. 예전 버전이 데이터 폴더 안(`papers/`)에 보관한 PDF는 다음 실행 때 이 폴더로 옮겨지고 주석·읽기 위치는 그대로입니다.
+노트 앱처럼 Owelk가 PDF를 직접 보관합니다(Settings → Data → Library → `Keep PDFs in Owelk`, 기본 켜짐). 열거나 추가하거나 가져온 PDF는 `문서/Owelk Library/Papers` 폴더(macOS·Linux `~/Documents/Owelk Library/Papers`, Windows `문서\Owelk Library\Papers`)에 원래 이름으로 복사되고, 웹에서 받은 PDF는 처음부터 그곳에 저장됩니다(PDF가 아닌 파일은 Settings → Web의 다운로드 폴더로). 원래 파일은 옮기거나 지우지 않으니 필요 없으면 직접 지우면 됩니다. 같은 내용(바이트)의 PDF를 다시 열거나 여러 개를 한꺼번에 추가해도 이미 보관된 논문이 열리고 두 번 보관하지 않습니다. 예전 버전이 데이터 폴더 안(`papers/`)에 보관한 PDF는 다음 실행 때 이 폴더로 옮겨지고 주석·읽기 위치는 그대로입니다.
 
 이 기능을 켜기 전에 추가한 논문은 같은 화면의 `Copy Into Owelk`로 한 번에 옮겨 담습니다. 사본이 원본과 바이트 단위로 같을 때만 연결을 바꾸며(재연결과 같은 방식), 주석·읽기 위치는 그대로입니다. `Show Folder`로 보관 폴더를 열 수 있습니다.
 
