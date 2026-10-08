@@ -13,6 +13,8 @@ Rectangle {
     required property var controller
     property string tabId: ""
     property bool isActive: false
+    // Hidden behind another tab: the page keeps its state but stops running.
+    property bool frozen: false
     // The address this tab was opened with; a PDF fetched from it replaces the tab instead of opening beside it.
     property string openedUrl: ""
     readonly property alias view: view
@@ -196,7 +198,7 @@ Rectangle {
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 4
                 spacing: 8
-                BusyIndicator { visible: !fill.known; running: visible && downloadBar.visible; implicitWidth: 16; implicitHeight: 16 }
+                BusyIndicator { visible: !fill.known; running: !fill.known && downloadBar.visible; implicitWidth: 16; implicitHeight: 16 }
                 Label {
                     objectName: "webDownloadLabel"
                     Layout.fillWidth: true; Layout.minimumWidth: 0
@@ -237,6 +239,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             profile: root.controller.webProfile
+            lifecycleState: root.frozen && !root.visible ? WebEngineView.LifecycleState.Frozen : WebEngineView.LifecycleState.Active
             // PDFs go to the reader rather than Chromium's viewer, unless this tab shows them in place.
             settings.pdfViewerEnabled: root.browserPdf && !root.fetchPdf
             // Chromium's PDF viewer is a built-in plugin.

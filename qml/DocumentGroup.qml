@@ -18,11 +18,44 @@ Rectangle {
     function focusNoteTitle() { if (noteLoader.item) noteLoader.item.focusTitle() }
     readonly property bool isLibrary: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "library" })
     readonly property var activeTabData: groupData.tabs.find(function(t) { return t.id === groupData.activeTab }) || null
-    readonly property var webPane: webLoader.item
+    // Web tabs keep their page (scroll, forms, back history) when you switch away and back: the most
+    // recent few in this strip stay alive, frozen while hidden so they use no CPU. Older ones reload.
+    readonly property int keptWebPages: 3
+    property var webOrder: []
+    property int webRevision: 0
+    ListModel { id: webPages }
+    function keepWebPage(tabId) {
+        webOrder = [tabId].concat(webOrder.filter(function(id) { return id !== tabId }))
+        let present = false
+        for (let i = 0; i < webPages.count; ++i) if (webPages.get(i).tabId === tabId) present = true
+        if (!present) webPages.append({tabId: tabId})
+        while (webOrder.length > keptWebPages) dropWebPage(webOrder[webOrder.length - 1])
+    }
+    function dropWebPage(tabId) {
+        webOrder = webOrder.filter(function(id) { return id !== tabId })
+        for (let i = webPages.count - 1; i >= 0; --i) if (webPages.get(i).tabId === tabId) webPages.remove(i)
+    }
+    // Pages of tabs that were closed or moved to another strip go.
+    function pruneWebPages() {
+        const ids = groupData.tabs.filter(function(t) { return t.kind === "web" }).map(function(t) { return t.id })
+        webOrder.slice().forEach(function(id) { if (ids.indexOf(id) < 0) root.dropWebPage(id) })
+    }
+    readonly property var webPane: {
+        const revision = webRevision
+        for (let i = 0; i < webPanes.count; ++i) {
+            const page = webPanes.itemAt(i)
+            if (page && page.tabId === groupData.activeTab) return page
+        }
+        return null
+    }
+    Connections {
+        target: root.controller
+        function onSuspendedChanged() { if (root.controller.suspended) { webPages.clear(); root.webOrder = [] } }
+    }
     // Cmd+L on a new web tab: focus the address bar once the page has loaded its pane.
     property bool focusAddressWhenReady: false
     function focusAddress() {
-        if (webLoader.item) webLoader.item.focusAddress()
+        if (webPane) webPane.focusAddress()
         else focusAddressWhenReady = true
     }
     property alias reader: pane
@@ -41,14 +74,15 @@ Rectangle {
         const t = groupData.tabs.find(function(t) { return t.id === groupData.activeTab })
         if (loadedTab === groupData.activeTab && loadedSource === (t ? t.source : "")) return
         if (!loadedTab.length && controller.suspended) return
+        pruneWebPages()
         const switched = loadedTab !== groupData.activeTab
         loadedTab = groupData.activeTab
         loadedSource = t ? t.source : ""
         if (t && t.kind === "library") return
         if (t && t.kind === "note") return
         if (t && t.kind === "web") {
-            // The page itself reports navigation; only a tab switch loads a new address.
-            if (switched) Qt.callLater(function() { if (webLoader.item) { webLoader.item.tabId = t.id; webLoader.item.open(t.source) } })
+            // Its own page, kept or created (the page reports its navigation itself).
+            if (!controller.suspended) keepWebPage(t.id)
             return
         }
         pane.restore(t && t.kind !== "home" ? t : {})
@@ -348,19 +382,27 @@ Rectangle {
                 TapHandler { onPressedChanged: if (pressed) root.controller.activateGroup(root.groupId) }
             }
         }
-        Loader {
-            id: webLoader
-            Layout.fillWidth: true; Layout.fillHeight: true
-            visible: root.isWeb; active: root.isWeb && !root.controller.suspended
-            sourceComponent: WebPane {
+        Repeater {
+            id: webPanes
+            model: webPages
+            delegate: WebPane {
+                id: page
+                required property var model
+                tabId: model.tabId
+                readonly property bool shown: root.isWeb && root.groupData.activeTab === tabId && !root.controller.suspended
+                visible: shown
+                frozen: !shown
+                Layout.fillWidth: true; Layout.fillHeight: true
                 controller: root.controller
-                isActive: root.isWeb && !root.controller.suspended && root.controller.activeGroup === root.groupId
+                isActive: shown && root.controller.activeGroup === root.groupId
                 onActivated: root.controller.activateGroup(root.groupId)
-            }
-            onLoaded: {
-                const t = root.groupData.tabs.find(function(tab) { return tab.id === root.groupData.activeTab })
-                if (t && t.kind === "web") { item.tabId = t.id; item.open(t.source) }
-                if (root.focusAddressWhenReady) { root.focusAddressWhenReady = false; item.focusAddress() }
+                Component.onCompleted: {
+                    const t = root.groupData.tabs.find(function(tab) { return tab.id === page.tabId })
+                    if (t) open(t.source)
+                    root.webRevision++
+                    if (shown && root.focusAddressWhenReady) { root.focusAddressWhenReady = false; focusAddress() }
+                }
+                Component.onDestruction: root.webRevision++
             }
         }
         ReaderPane {
