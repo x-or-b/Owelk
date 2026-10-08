@@ -38,6 +38,8 @@ Item {
     // Whether the panel shows a conversation (open thread or a new one) rather than the thread list.
     property bool conversationOpen: false
     signal focusRequested()
+    // An answer came in: the thread, its title and the answer's opening words (plain text).
+    signal answered(string threadId, string title, string preview)
     readonly property var providerInfo: ai.providers.find(function(p) { return p.id === ai.provider }) || ({})
     // The model choice for the next turn: provider and model are the service's; effort and fast
     // mode are remembered per provider and offered only where the model supports them.
@@ -256,6 +258,8 @@ Item {
             root.streaming = false; root.usedModel = details.model
             root.thread = researchStore.aiThread(root.threadId)
             root.answer = ""; root.pendingQuestion = ""
+            root.answered(root.threadId, root.thread.title || "AI",
+                          text.replace(/\]\([^)]*\)/g, "]").replace(/[#*_`>|]/g, "").replace(/\s+/g, " ").trim().slice(0, 160))
             // The material went with this turn; follow-ups reuse it through the thread.
             root.spec = root.spec.scope === "library" ? {scope: "library", collection: root.spec.collection || "", collectionName: root.spec.collectionName || ""}
                       : root.spec.source ? {source: root.spec.source, scope: "none"} : ({})

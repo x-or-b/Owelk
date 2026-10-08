@@ -91,6 +91,11 @@ ApplicationWindow {
     function showAi() { setPanelShown("ai", true); movePanel("ai", aiSide) }
     function askAi(spec) { showAi(); aiController.begin(spec) }
     function openAiThread(id) { if (aiController.openThread(id)) showAi() }
+    // The AI panel shows this thread right now (panel open and in front in its dock).
+    function aiThreadInView(id) {
+        const dock = aiSide === "left" ? leftDock : rightDock
+        return aiVisible && dock.activePanel === "ai" && aiController.conversationOpen && aiController.threadId === id
+    }
     function togglePanel(panel) {
         const side = panelSide(panel)
         const dock = side === "left" ? leftDock : rightDock
@@ -379,6 +384,22 @@ ApplicationWindow {
         }
     }
     CaptureNoteDialog { id: captureNote }
+    // An answer arrived while its thread is not in view: a card at the bottom right (Open / Dismiss),
+    // and while another app is in front, the Dock icon bounces once (the taskbar flashes on Linux).
+    AiNotice {
+        id: aiNotice
+        parent: window.contentItem
+        anchors.right: parent.right; anchors.bottom: parent.bottom
+        anchors.rightMargin: 16; anchors.bottomMargin: 40
+        onOpenRequested: function(id) { window.requestActivate(); window.openAiThread(id) }
+    }
+    Connections {
+        target: aiController
+        function onAnswered(id, title, preview) {
+            if (!window.active) window.alert(0)
+            if (!window.active || !window.aiThreadInView(id)) aiNotice.show(id, title, preview)
+        }
+    }
     SettingsDialog { id: settingsDialog }
     // Created on first use: the AI tab organizer.
     Loader { id: organizeTabs; active: false; sourceComponent: OrganizeTabsDialog { controller: documents } }
