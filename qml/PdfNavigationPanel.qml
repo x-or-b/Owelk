@@ -274,6 +274,8 @@ Item {
                     text: root.citationsSide === 0 ? "Semantic Scholar lists no references for this paper." : "No citing papers are known yet."
                 }
             }
+            // Before the list exists, this takes the rest of the height so the panel keeps its layout.
+            Item { Layout.fillHeight: true; Layout.fillWidth: true; visible: !parent.loaded }
             Menu {
                 id: citationMenu
                 property var row: ({})

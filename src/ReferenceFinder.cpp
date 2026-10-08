@@ -178,7 +178,12 @@ QVariantMap ReferenceFinder::describe(QPdfDocument &pdf, const QStringList &text
     const auto size = pdf.pagePointSize(page);
     if (box.isEmpty() || size.height() <= 0) return {};
     auto text = texts[page].mid(target["start"].toInt(), target["length"].toInt());
-    text.replace(QRegularExpression("-\\s*[\\r\\n]+\\s*"), "").replace(QRegularExpression("\\s+"), " ");
+    // Words broken at a line end: PDF text marks the break with a hyphen or a hidden character (U+0002,
+    // a soft hyphen, U+FFFE) that fonts cannot show; join the word, then drop any other control character.
+    text.replace(QRegularExpression("[-\\x{0002}\\x{00AD}\\x{FFFE}]\\s*[\\r\\n]+\\s*"), "")
+        .remove(
+            QRegularExpression("[\\x{0000}-\\x{0008}\\x{000B}\\x{000C}\\x{000E}-\\x{001F}\\x{00AD}\\x{FFFE}\\x{FFFF}]"))
+        .replace(QRegularExpression("\\s+"), " ");
     return {{"text", text.trimmed()}, {"page", page}, {"x", box.x()}, {"y", box.y()}, {"width", box.width()},
         {"height", box.height()}, {"top", box.y() / size.height()}};
 }
