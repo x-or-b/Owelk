@@ -1009,7 +1009,9 @@ Item {
                 DragHandler {
                     id: selectionDrag
                     target: null
+                    // Off while a mark is pressed or its frame dragged, so it cannot take that drag over.
                     enabled: !root.captureMode && !root.pinching && (!root.tool.length || root.tool === "highlight")
+                             && !root.markEdit && !root.markPressed
                     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad | PointerDevice.Stylus
                     onCentroidChanged: {
                         if (active) root.trackSelectionDrag(pageHolder, selection.mapToItem(root, centroid.position.x, centroid.position.y), centroid.pressPosition)
@@ -1265,7 +1267,7 @@ Item {
     onToolChanged: selectedMarkId = ""
     onCaptureModeChanged: selectedMarkId = ""
     // Saving reloads the marks (briefly none): the selection stays, its frame returns with the mark.
-    onSavedHighlightsChanged: markEdit = null
+    onSavedHighlightsChanged: if (!pendingMarkSave) markEdit = null
     function adjustable(mark) {
         return mark.kind === "text" || mark.kind === "image" || mark.kind === "draw" || (mark.kind === "comment" && !mark.text)
     }
@@ -1283,8 +1285,9 @@ Item {
         return null
     }
     function beginMarkEdit(mark) {
-        if (!mark || researchStore.busy) return
-        const r = mark.rectangles[0]
+        if (!mark) return
+        // A change still being saved continues from where it was left, not from the stored box.
+        const r = markEdit && markEdit.id === mark.id ? markEdit.rect : mark.rectangles[0]
         markEdit = {id: mark.id, kind: mark.kind, rect: Object.assign({}, r), original: Object.assign({}, r)}
     }
     function updateMarkEdit(rect) { if (markEdit) markEdit = Object.assign({}, markEdit, {rect: rect}) }
@@ -1319,8 +1322,10 @@ Item {
     function commitMarkEdit(paperItem) {
         if (!markEdit) return
         const mark = savedHighlights.find(function(m) { return m.id === root.markEdit.id })
-        const r = markEdit.rect, o = markEdit.original
-        if (!mark || (Math.abs(r.x - o.x) + Math.abs(r.y - o.y) + Math.abs(r.width - o.width) + Math.abs(r.height - o.height)) < 1e-4) { markEdit = null; return }
+        if (!mark) { markEdit = null; return }
+        // Measured against the stored box (a stroke's points are stored for it).
+        const r = markEdit.rect, o = mark.rectangles[0]
+        if ((Math.abs(r.x - o.x) + Math.abs(r.y - o.y) + Math.abs(r.width - o.width) + Math.abs(r.height - o.height)) < 1e-4) { if (!pendingMarkSave && !researchStore.busy) markEdit = null; return }
         const spec = Object.assign({}, mark, {rectangles: [r], imageSource: ""})
         // A stroke's points move and scale with its box.
         if (mark.kind === "draw")
@@ -1328,7 +1333,19 @@ Item {
                 return {x: Math.max(0, Math.min(1, r.x + (p.x - o.x) / Math.max(1e-6, o.width) * r.width)),
                         y: Math.max(0, Math.min(1, r.y + (p.y - o.y) / Math.max(1e-6, o.height) * r.height))}
             })
-        researchStore.saveAnnotation(source, mark.page, spec)
+        // Still saving the previous change: this one follows as soon as that is done.
+        if (researchStore.busy) pendingMarkSave = {page: mark.page, spec: spec}
+        else researchStore.saveAnnotation(source, mark.page, spec)
+    }
+    property var pendingMarkSave: null
+    Connections {
+        target: researchStore
+        function onBusyChanged() {
+            if (researchStore.busy || !root.pendingMarkSave) return
+            const next = root.pendingMarkSave
+            root.pendingMarkSave = null
+            researchStore.saveAnnotation(root.source, next.page, next.spec)
+        }
     }
     Connections {
         target: researchStore
