@@ -7,6 +7,8 @@ import Owelk.Ui
 // Destructive buttons set palette.buttonText: Theme.danger.
 T.Button {
     id: control
+    // Text being composed (Korean and the like) is committed before the button acts on it.
+    onPressed: Qt.inputMethod.commit()
     property bool primary: false
     readonly property bool accented: primary || highlighted
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset, implicitContentWidth + leftPadding + rightPadding)

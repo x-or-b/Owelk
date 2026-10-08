@@ -6,6 +6,8 @@ import Owelk.Ui
 // Flat button for toolbars: no fill until hovered; checked uses the selection color.
 T.ToolButton {
     id: control
+    // Text being composed (Korean and the like) is committed before the button acts on it.
+    onPressed: Qt.inputMethod.commit()
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset, implicitContentWidth + leftPadding + rightPadding)
     implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset, implicitContentHeight + topPadding + bottomPadding)
     padding: 3

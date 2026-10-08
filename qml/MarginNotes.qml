@@ -320,7 +320,8 @@ Rectangle {
                         onVisibleChanged: if (visible) { text = card.body; forceActiveFocus(); cursorPosition = length }
                         // Cmd+Return saves, Esc cancels, leaving the field saves.
                         Keys.onPressed: function(event) {
-                            if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && (event.modifiers & Qt.ControlModifier)) { event.accepted = true; card.committed(text) }
+                            // Commit a character still being composed (Korean and the like) before saving.
+                            if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && (event.modifiers & Qt.ControlModifier)) { event.accepted = true; Qt.inputMethod.commit(); card.committed(text) }
                             else if (event.key === Qt.Key_Escape) { event.accepted = true; card.cancelled() }
                         }
                         onActiveFocusChanged: if (!activeFocus && card.editing) card.committed(text)

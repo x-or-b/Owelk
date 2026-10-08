@@ -320,8 +320,9 @@ Item {
                 description: stopping ? "Stop" : "Send · Return"
                 enabled: stopping || question.text.trim().length > 0 || (root.c && root.c.attachments.length > 0)
                 onClicked: {
-                    if (root.c.streaming) root.c.stop()
-                    else if (root.c.send(question.text)) question.text = ""
+                    if (root.c.streaming) { root.c.stop(); return }
+                    Qt.inputMethod.commit() // the last Korean character may still be composing
+                    if (root.c.send(question.text)) question.text = ""
                 }
             }
         }

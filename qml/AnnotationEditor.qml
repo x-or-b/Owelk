@@ -85,6 +85,8 @@ Dialog {
             close();
     }
     function save() {
+        // Korean/Japanese/Chinese input keeps the last character in composition until it is committed.
+        Qt.inputMethod.commit();
         if (saving || researchStore.busy)
             return;
         if (record.kind !== "image" && !body.text.trim().length)
