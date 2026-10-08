@@ -18,7 +18,7 @@ ColumnLayout {
     SettingsGroup {
         title: "Sync"
         note: root.syncProblem.length ? root.syncProblem
-            : "Keeps this library the same on your other computers through a folder that Google Drive, Dropbox or Syncthing keeps in step. Choose the same folder on each computer; on Ubuntu, reach Google Drive with rclone or Insync. Papers, annotations, notes, captures, collections, reading state and AI threads travel. When one item changes on two computers, the later change wins."
+            : "Keeps this library the same on your other computers. Choose a folder inside Google Drive, Dropbox or Syncthing (for example My Drive) on each computer; Owelk works in an Owelk folder there and copies the Library's PDFs into it, so there is nothing to move by hand. On Ubuntu, reach Google Drive with rclone or Insync. Papers, annotations, notes, captures, collections, reading state and AI threads travel; when one item changes on two computers, the later change wins."
         noteColor: root.syncProblem.length ? Theme.danger : Theme.textTertiary
         SettingsRow {
             label: "Sync folder"

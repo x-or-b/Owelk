@@ -40,8 +40,8 @@ public:
     bool running() const { return m_running; }
     QString status() const { return m_status; }
     QStringList computers() const { return m_computers; }
-    // Starts syncing with a folder; returns an error to show, or empty. A folder holding other files
-    // gets an "Owelk" folder inside it, so choosing the drive's top folder works on every computer.
+    // Starts syncing with a folder; returns an error to show, or empty. Owelk's files go to an "Owelk"
+    // folder inside it (unless it is that folder), so the drive's top folder works on every computer.
     Q_INVOKABLE QString setFolder(const QUrl &folder);
     Q_INVOKABLE void turnOff();
     Q_INVOKABLE void syncNow();

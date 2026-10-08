@@ -786,11 +786,9 @@ QString LibrarySync::setFolder(const QUrl &chosen)
     auto path = chosen.isLocalFile() ? chosen.toLocalFile() : chosen.toString();
     if (path.isEmpty() || !QFileInfo(path).isDir()) return "Choose a folder.";
     path = QDir(path).absolutePath();
-    // The drive's top folder (or any folder with other files) gets an Owelk folder of its own.
-    if (!QFileInfo::exists(path + "/" + markerName)
-        && (QFileInfo::exists(path + "/Owelk/" + markerName)
-            || !QDir(path).isEmpty(QDir::AllEntries | QDir::NoDotAndDotDot)))
-        path += "/Owelk";
+    // Owelk always keeps its files in an "Owelk" folder inside the chosen one (choosing that folder
+    // itself, or an existing sync folder, works too), so any drive folder gives the same place.
+    if (!QFileInfo::exists(path + "/" + markerName) && QFileInfo(path).fileName() != "Owelk") path += "/Owelk";
     if (!QDir().mkpath(path)) return "Owelk cannot write to this folder.";
     auto library = readJson(path + "/" + markerName).value("library").toString();
     if (library.isEmpty()) {

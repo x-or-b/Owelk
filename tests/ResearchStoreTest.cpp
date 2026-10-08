@@ -268,7 +268,7 @@ private slots:
         auto *macSync = mac.librarySync();
         QCOMPARE(macSync->setFolder(QUrl::fromLocalFile(drive)), QString());
         QVERIFY2(macSync->syncBlocking().error.isEmpty(), qPrintable(macSync->status()));
-        QVERIFY(QFileInfo::exists(drive + "/Papers/" + sha + ".pdf"));
+        QVERIFY(QFileInfo::exists(drive + "/Owelk/Papers/" + sha + ".pdf"));
 
         // A second computer choosing the same folder gets everything, the PDF and images included.
         ResearchStore ubuntu(directory.filePath("ubuntu"));
