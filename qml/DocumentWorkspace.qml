@@ -177,6 +177,9 @@ Flickable {
         cachePath: researchStore.dataDirectory + "/web/cache"
         httpCacheType: WebEngineProfile.DiskHttpCache
         persistentCookiesPolicy: WebEngineProfile.AllowPersistentCookies
+        // Present as plain Chrome: publisher sites (IEEE and the like) slow down or challenge browsers
+        // whose name carries "QtWebEngine".
+        Component.onCompleted: httpUserAgent = httpUserAgent.replace(/\s*QtWebEngine\/[\d.]+/, "")
     }
     signal webTabUpdated()
     // Route an address to the right surface: local PDFs open in the reader, web addresses in a web tab
