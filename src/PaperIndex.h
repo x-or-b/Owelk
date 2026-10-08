@@ -64,7 +64,8 @@ public:
     // From the last "Conclusion(s)" heading, before the references; empty when there is none.
     QString closingText(const QString &documentId, int characters) const;
     // Pages matching any of the terms, best first: [{documentId, page, text}].
-    QVariantList matchingPages(const QStringList &terms, int limit) const;
+    // Only these papers when given (a collection's).
+    QVariantList matchingPages(const QStringList &terms, int limit, const QStringList &documents = {}) const;
 signals:
     void changed();
     void contentsChanged();

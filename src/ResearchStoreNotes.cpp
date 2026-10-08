@@ -449,11 +449,22 @@ QString ResearchStore::paperOpening(const QUrl &source, int characters)
     return document.isEmpty() ? QString() : m_index->openingText(document, qBound(0, characters, 2000));
 }
 
-QVariantList ResearchStore::libraryPassages(const QStringList &terms, int limit)
+QVariantList ResearchStore::libraryPassages(const QStringList &terms, int limit, const QString &collection)
 {
+    QStringList documents;
+    if (!collection.isEmpty()) {
+        QSqlQuery members(m_database);
+        members.prepare("WITH RECURSIVE tree(id) AS (SELECT ? UNION SELECT c.id FROM collections c JOIN tree ON "
+                        "c.parent_id=tree.id) SELECT DISTINCT document_id FROM collection_documents WHERE "
+                        "collection_id IN tree");
+        members.addBindValue(collection);
+        if (members.exec())
+            while (members.next()) documents << members.value(0).toString();
+        if (documents.isEmpty()) return {};
+    }
     QVariantList passages;
     QHash<QString, int> perPaper;
-    for (const auto &value : m_index->matchingPages(terms, limit * 6)) {
+    for (const auto &value : m_index->matchingPages(terms, limit * 6, documents)) {
         const auto row = value.toMap();
         const auto document = row["documentId"].toString();
         if (perPaper.value(document) >= 2) continue;

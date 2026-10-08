@@ -357,13 +357,15 @@ void AiService::retrieveLibrary(int request, const QString &id, QVariantMap spec
             // The question's own longer words help too (English questions, names, acronyms).
             for (const auto &word : question.split(QRegularExpression("[^\\w-]+"), Qt::SkipEmptyParts))
                 if (word.size() >= 4 && !terms.contains(word, Qt::CaseInsensitive)) terms << word;
-            const auto passages = m_store->libraryPassages(terms.mid(0, 20), 8);
+            const auto collection = spec.value("collection").toString();
+            const auto passages = m_store->libraryPassages(terms.mid(0, 20), 8, collection);
             if (passages.isEmpty()) {
                 m_running.remove(request);
                 emit busyChanged();
                 emit failed(request,
-                    "No passage in your library matches this question. Only papers whose text is "
-                    "indexed are searched; try other words.");
+                    QString("No passage in %1 matches this question. Only papers whose text is indexed are "
+                            "searched; try other words.")
+                        .arg(collection.isEmpty() ? "your library" : "this collection"));
                 return;
             }
             QStringList blocks;

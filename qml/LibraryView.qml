@@ -40,7 +40,8 @@ Rectangle {
     readonly property bool showingNotes: !!(filter.notes || filter.notesTrash)
     signal noteChosen(string id)
     signal newNoteRequested()
-    signal askLibraryRequested()
+    // collection: "" for the whole library.
+    signal askLibraryRequested(string collection, string collectionName)
     signal documentChosen(url source, var position)
     signal filterEdited(var filter)
     function refresh() {
@@ -388,17 +389,18 @@ Rectangle {
                         MenuItem { objectName: "libraryAddFolder"; text: "Add Folder…"; onTriggered: folderDialog.open() }
                     }
                 }
-                // A question to the whole library, answered from its papers with their pages linked.
+                // A question to the library (or the collection shown), answered from its papers with the pages linked.
                 IconButton {
                     objectName: "libraryAsk"
-                    icon.name: "search"
-                    description: "Ask your library with AI · answers cite the papers and pages they come from"
-                    onClicked: root.askLibraryRequested()
+                    icon.name: "ai"
+                    readonly property var shownCollection: root.filter.collection ? root.collectionRows.find(function(c) { return c.id === root.filter.collection }) || null : null
+                    description: (shownCollection ? "Ask this collection with AI" : "Ask your library with AI") + " · answers cite the papers and pages they come from"
+                    onClicked: root.askLibraryRequested(shownCollection ? shownCollection.id : "", shownCollection ? shownCollection.name : "")
                 }
                 // AI topic collections for the selection, or for the papers listed (Unsorted is the usual place).
                 IconButton {
                     objectName: "libraryOrganize"
-                    icon.name: "ai"
+                    icon.name: "organize"
                     enabled: (root.selection.length || root.rows.length) >= 2
                     description: "Organize into collections with AI… · " + (root.selection.length ? "the selected papers" : "the papers listed here")
                     onClicked: root.organizeWithAi(root.selection.length ? root.selection : root.rows.map(function(r) { return r.url.toString() }))

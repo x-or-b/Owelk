@@ -775,7 +775,7 @@ QString PaperIndex::closingText(const QString &documentId, int characters) const
     return closing.simplified().left(characters);
 }
 
-QVariantList PaperIndex::matchingPages(const QStringList &terms, int limit) const
+QVariantList PaperIndex::matchingPages(const QStringList &terms, int limit, const QStringList &documents) const
 {
     QStringList phrases;
     for (const auto &term : terms) {
@@ -784,8 +784,13 @@ QVariantList PaperIndex::matchingPages(const QStringList &terms, int limit) cons
     }
     if (phrases.isEmpty()) return {};
     QSqlQuery query(m_database);
-    query.prepare("SELECT document_id,page,text FROM pages WHERE pages MATCH ? ORDER BY bm25(pages) LIMIT ?");
+    QStringList marks;
+    for (qsizetype i = 0; i < documents.size(); ++i) marks << "?";
+    query.prepare("SELECT document_id,page,text FROM pages WHERE pages MATCH ?"
+        + (documents.isEmpty() ? QString() : " AND document_id IN (" + marks.join(',') + ")")
+        + " ORDER BY bm25(pages) LIMIT ?");
     query.addBindValue(phrases.join(" OR "));
+    for (const auto &document : documents) query.addBindValue(document);
     query.addBindValue(limit);
     QVariantList rows;
     if (query.exec())

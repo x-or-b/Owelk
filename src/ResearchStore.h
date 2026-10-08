@@ -162,7 +162,8 @@ public:
     Q_INVOKABLE int loadCitations(const QUrl &source, bool refresh = false, bool cachedOnly = false);
     // Passages from the Library for a question: the best pages for the terms (at most two per paper),
     // each as {n, documentId, source, title, year, page (0-based), excerpt}.
-    QVariantList libraryPassages(const QStringList &terms, int limit);
+    // With a collection, only its papers (and those of its sub-collections).
+    QVariantList libraryPassages(const QStringList &terms, int limit, const QString &collection = QString());
     Q_INVOKABLE QVariantMap paperExcerpt(const QUrl &source, int opening = 5000, int closing = 2500);
     // Encrypted PDFs: the viewer hands over a password that worked, so indexing, captures, printing
     // and AI can open the file too. keep: also store it in the system keyring.

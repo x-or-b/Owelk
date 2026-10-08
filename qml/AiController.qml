@@ -118,7 +118,7 @@ Item {
         }
         if (s.scope === "page") list.push({kind: "page", label: "Page " + (Number(s.page) + 1) + " text"})
         if (s.scope === "paper") list.push({kind: "paperText", label: "Full paper text"})
-        if (s.scope === "library") list.push({kind: "library", label: "Whole library · passages that answer the question"})
+        if (s.scope === "library") list.push({kind: "library", label: (s.collection ? "Collection · " + s.collectionName : "Whole library") + " · passages that answer the question"})
         if (s.captureId) list.push({kind: "capture", label: s.action === "figure" ? "Figure image" : "Excerpt"})
         images.forEach(function(image, index) { list.push({kind: "image", index: index, label: image.name, url: image.url}) })
         return list
@@ -257,7 +257,8 @@ Item {
             root.thread = researchStore.aiThread(root.threadId)
             root.answer = ""; root.pendingQuestion = ""
             // The material went with this turn; follow-ups reuse it through the thread.
-            root.spec = root.spec.scope === "library" ? {scope: "library"} : root.spec.source ? {source: root.spec.source, scope: "none"} : ({})
+            root.spec = root.spec.scope === "library" ? {scope: "library", collection: root.spec.collection || "", collectionName: root.spec.collectionName || ""}
+                      : root.spec.source ? {source: root.spec.source, scope: "none"} : ({})
         }
         function onFailed(id, message) {
             if (id !== root.request) return

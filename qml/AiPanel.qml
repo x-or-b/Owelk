@@ -223,7 +223,7 @@ Item {
             Layout.minimumWidth: 0
             Layout.fillWidth: true
             Layout.preferredHeight: Math.min(140, Math.max(56, implicitHeight))
-            placeholderText: root.c && root.c.spec.scope === "library" ? "Ask your library…" : root.c && root.c.threadId.length ? "Ask a follow-up…" : "Ask about the paper…"
+            placeholderText: root.c && root.c.spec.scope === "library" ? (root.c.spec.collection ? "Ask this collection…" : "Ask your library…") : root.c && root.c.threadId.length ? "Ask a follow-up…" : "Ask about the paper…"
             wrapMode: TextEdit.Wrap
             font.pixelSize: Theme.fontSmall
             // Return sends, Shift+Return adds a line; pasting an image attaches it.

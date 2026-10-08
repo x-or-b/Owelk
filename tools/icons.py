@@ -83,6 +83,7 @@ ok circle-check
 filter list-filter
 history history
 citations waypoints
+organize folder-tree
 """
 
 def main(package: pathlib.Path) -> None:
