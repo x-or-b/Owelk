@@ -8,6 +8,7 @@
 #include "MetadataLookup.h"
 #include "AiService.h"
 #include "SelectionGeometry.h"
+#include "LibrarySync.h"
 
 #include <QClipboard>
 #include <QDateTime>
@@ -87,8 +88,9 @@ struct TextCaptureResult {
 ResearchStore::ResearchStore(const QString &directory, QObject *parent)
     : QObject(parent), m_directory(directory), m_connection(QUuid::createUuid().toString()),
       m_index(new PaperIndex(directory, this)), m_references(new ReferenceFinder(m_index->readerBusyFlag(), this)),
-      m_lookup(new MetadataLookup(this)), m_ai(new AiService(this, this))
+      m_lookup(new MetadataLookup(this)), m_ai(new AiService(this, this)), m_sync(new LibrarySync(directory, this))
 {
+    connect(m_sync, &LibrarySync::received, this, &ResearchStore::syncReceived);
     m_workers.setMaxThreadCount(1);
     m_verifiers.setMaxThreadCount(2);
     // A new capture can be undone (it moves to the trash).
@@ -101,6 +103,11 @@ ResearchStore::ResearchStore(const QString &directory, QObject *parent)
 QObject *ResearchStore::semantic() const
 {
     return m_semantic;
+}
+
+QObject *ResearchStore::sync() const
+{
+    return m_sync;
 }
 
 QObject *ResearchStore::paperIndex() const
@@ -120,6 +127,7 @@ QStringList ResearchStore::annotationColors()
 
 ResearchStore::~ResearchStore()
 {
+    m_sync->finish();
     if (m_database.isOpen()) markStopped();
     m_workers.waitForDone();
     m_verifiers.waitForDone();
@@ -299,6 +307,7 @@ bool ResearchStore::initialize(QString *error)
     configureOcr();
     markRunning();
     scheduleAutomaticBackup();
+    m_sync->start();
     // Durable redirects also replay any search-cache update interrupted by process exit.
     for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)
         m_index->relocateSource(QUrl(it.key()), resolvedSource(QUrl(it.value())));
@@ -461,6 +470,23 @@ void ResearchStore::reloadCaptures()
     m_trashedCaptures = readCaptures(true);
     emit capturesChanged();
     emit homeChanged();
+}
+
+// Rows from another computer: in-memory lists are read again and the views told.
+void ResearchStore::syncReceived(const QSet<QString> &tables, const QStringList &sources)
+{
+    loadDocumentNames();
+    for (const auto &source : sources) m_index->enqueue(QUrl(source));
+    announceDocumentsChanged(); // Captures, recent papers and Home too.
+    const auto touched = [&](std::initializer_list<const char *> names) {
+        return std::any_of(names.begin(), names.end(), [&](const char *name) { return tables.contains(name); });
+    };
+    if (touched({"highlights"})) emit highlightsChanged();
+    if (touched({"notes", "links"})) {
+        emit notesChanged();
+        emit linksChanged();
+    }
+    if (touched({"ai_threads", "ai_messages", "ai_responses"})) emit aiThreadsChanged();
 }
 
 bool ResearchStore::saveCaptureNote(const QString &id, const QString &body)

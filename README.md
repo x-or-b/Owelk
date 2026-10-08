@@ -267,6 +267,10 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 - `+` → `Capture a Region`은 리더에서 영역을 드래그해 캡처하고, 그 이미지를 다음 질문에 붙입니다(캡처는 Captures에도 저장, Esc로 취소). 리더 툴바에도 영역 캡처 버튼이 있습니다(Ctrl+Shift+C).
 - 답변은 스트리밍으로 보이고 `Stop`으로 멈춥니다. 각 답변의 `Save as Note`는 Thread·논문 링크가 달린 노트로 저장합니다.
 
+## 컴퓨터 간 동기화
+
+Settings → Data → Sync → `Choose Folder…`에서 Google Drive·Dropbox·Syncthing 등이 맞춰 주는 폴더를 각 컴퓨터에서 고르면, 논문(PDF 포함)·주석·캡처·노트·Collection·Tag·워크스페이스·읽기 위치·AI 대화가 오갑니다. 같은 항목을 양쪽에서 고치면 나중 변경이 남습니다. 설정과 Ubuntu에서 Google Drive 쓰는 법은 [동기화 안내](docs/SYNC.md)에 있습니다.
+
 ## 백업·복원·비정상 종료
 
 - Settings → Data → `Back Up Now…`: 고른 폴더에 `Owelk backup 날짜` 폴더를 만들어 라이브러리 DB(VACUUM INTO 사본), `captures/`, `annotations/`, 설명 파일을 넣습니다. PDF 원본과 다시 만들 수 있는 검색 색인·의미 벡터는 복사하지 않습니다.

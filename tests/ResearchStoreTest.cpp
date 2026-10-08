@@ -1,4 +1,6 @@
 #include "ResearchStore.h"
+#include "LibrarySync.h"
+#include "WorkerConnection.h"
 #include "PaperIndex.h"
 #include "ReferenceFinder.h"
 #include "AppInstance.h"
@@ -222,6 +224,128 @@ private slots:
         QVERIFY(store.deletedWorkspaces().isEmpty());
         QVERIFY(!store.restoreWorkspace(id));
         QVERIFY(!store.loadWorkspace(id).isEmpty());
+    }
+    void syncKeepsLibrariesTheSameThroughAFolder()
+    {
+        QTemporaryDir directory;
+        const auto drive = directory.filePath("Drive");
+        QVERIFY(QDir().mkpath(drive));
+        const auto path = directory.filePath("shared.pdf");
+        writeFixture(path, "Shared Paper");
+        const auto source = QUrl::fromLocalFile(path);
+        const auto scalar = [](const ResearchStore &store, const QString &sql) {
+            WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3", true);
+            QSqlQuery query(db.db);
+            return query.exec(sql) && query.next() ? query.value(0) : QVariant();
+        };
+        const auto annotate = [](ResearchStore &store, const QUrl &paper, const QString &body) {
+            QSignalSpy loaded(&store, &ResearchStore::highlightsLoaded),
+                done(&store, &ResearchStore::annotationFinished);
+            store.loadHighlights(paper);
+            QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
+            store.saveAnnotation(paper, 1,
+                {{"kind", "text"}, {"body", body}, {"sha256", loaded.last()[4]},
+                    {"rectangles", QVariantList{QVariantMap{{"x", .1}, {"y", .2}, {"width", .3}, {"height", .1}}}}});
+            QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+            QVERIFY(done.last()[0].toBool());
+        };
+        QString error;
+        ResearchStore mac(directory.filePath("mac"));
+        QVERIFY2(mac.initialize(&error), qPrintable(error));
+        QVERIFY(mac.rememberDocument(source));
+        QTRY_COMPARE_WITH_TIMEOUT(mac.displayName(source), QString("Shared Paper"), 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(!scalar(mac, "SELECT sha256 FROM documents").toString().isEmpty(), 10000);
+        const auto sha = scalar(mac, "SELECT sha256 FROM documents").toString();
+        annotate(mac, source, "Check the drift term");
+        QSignalSpy captured(&mac, &ResearchStore::captureSaved);
+        mac.captureRegion(source, 0, QRectF(.1, .1, .3, .2));
+        QTRY_COMPARE_WITH_TIMEOUT(captured.size(), 1, 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(!mac.busy(), 10000);
+        const auto note = mac.createNote("Idea", "Radar drift");
+        const auto robots = mac.createCollection("Robots");
+        QVERIFY(mac.setDocumentCollection(source, robots, true));
+        QVERIFY(mac.setReadingState(source, "read"));
+        auto *macSync = mac.librarySync();
+        QCOMPARE(macSync->setFolder(QUrl::fromLocalFile(drive)), QString());
+        QVERIFY2(macSync->syncBlocking().error.isEmpty(), qPrintable(macSync->status()));
+        QVERIFY(QFileInfo::exists(drive + "/Papers/" + sha + ".pdf"));
+
+        // A second computer choosing the same folder gets everything, the PDF and images included.
+        ResearchStore ubuntu(directory.filePath("ubuntu"));
+        QVERIFY2(ubuntu.initialize(&error), qPrintable(error));
+        auto *ubuntuSync = ubuntu.librarySync();
+        QCOMPARE(ubuntuSync->setFolder(QUrl::fromLocalFile(drive)), QString());
+        const auto outcome = ubuntuSync->syncBlocking();
+        QVERIFY2(outcome.error.isEmpty(), qPrintable(outcome.error));
+        QCOMPARE(outcome.waiting, 0);
+        const auto papers = ubuntu.libraryDocuments();
+        QCOMPARE(papers.size(), 1);
+        const auto copy = papers[0].toMap()["url"].toUrl();
+        QVERIFY(copy.toLocalFile().startsWith(ubuntu.dataDirectory() + "/papers/"));
+        QVERIFY(QFileInfo::exists(copy.toLocalFile()));
+        QCOMPARE(ubuntu.displayName(copy), QString("Shared Paper"));
+        QCOMPARE(papers[0].toMap()["readingState"].toString(), QString("read"));
+        QCOMPARE(ubuntu.note(note)["title"].toString(), QString("Idea"));
+        QCOMPARE(ubuntu.collections().size(), 1);
+        QCOMPARE(scalar(ubuntu, "SELECT body FROM highlights WHERE kind='text'").toString(),
+            QString("Check the drift term"));
+        QTRY_COMPARE_WITH_TIMEOUT(ubuntu.captures().size(), 1, 5000);
+        QVERIFY(QFileInfo::exists(ubuntu.captures()[0].toMap()["image"].toUrl().toLocalFile()));
+
+        // Edits travel back, and of two edits to the same note the later one wins on both.
+        QVERIFY(ubuntu.saveNote(note, "Idea from Ubuntu", "Radar drift"));
+        QVERIFY(ubuntuSync->syncBlocking().error.isEmpty());
+        QVERIFY(macSync->syncBlocking().error.isEmpty());
+        QCOMPARE(mac.note(note)["title"].toString(), QString("Idea from Ubuntu"));
+        QVERIFY(mac.saveNote(note, "Older", "x"));
+        QTest::qWait(5);
+        QVERIFY(ubuntu.saveNote(note, "Newer", "y"));
+        for (auto *sync : {macSync, ubuntuSync, macSync}) QVERIFY(sync->syncBlocking().error.isEmpty());
+        QCOMPARE(mac.note(note)["title"].toString(), QString("Newer"));
+        QCOMPARE(ubuntu.note(note)["title"].toString(), QString("Newer"));
+        // Removals travel too; the Mac's own PDF stays where it was.
+        QVERIFY(ubuntu.deleteCollection(robots));
+        QVERIFY(ubuntuSync->syncBlocking().error.isEmpty());
+        QVERIFY(macSync->syncBlocking().error.isEmpty());
+        QCOMPARE(mac.collections().size(), 0);
+        QCOMPARE(mac.libraryDocuments()[0].toMap()["url"].toUrl(), source);
+
+        // A computer that already had the same PDF ends with one paper holding everybody's notes.
+        const auto own = directory.filePath("own copy.pdf");
+        QVERIFY(QFile::copy(path, own));
+        ResearchStore laptop(directory.filePath("laptop"));
+        QVERIFY2(laptop.initialize(&error), qPrintable(error));
+        QVERIFY(laptop.rememberDocument(QUrl::fromLocalFile(own)));
+        QTRY_VERIFY_WITH_TIMEOUT(!scalar(laptop, "SELECT sha256 FROM documents").toString().isEmpty(), 10000);
+        annotate(laptop, QUrl::fromLocalFile(own), "Laptop remark");
+        QCOMPARE(laptop.librarySync()->setFolder(QUrl::fromLocalFile(drive)), QString());
+        QVERIFY(laptop.librarySync()->syncBlocking().error.isEmpty());
+        for (auto *store : {&laptop, &mac}) {
+            if (store == &mac) QVERIFY(macSync->syncBlocking().error.isEmpty());
+            QCOMPARE(store->libraryDocuments().size(), 1);
+            QCOMPARE(scalar(*store, "SELECT count(*) FROM documents").toInt(), 1);
+            QCOMPARE(scalar(*store, "SELECT count(*) FROM highlights WHERE deleted_at IS NULL").toInt(), 2);
+            QCOMPARE(
+                scalar(*store, "SELECT count(*) FROM highlights h JOIN documents d ON d.id=h.document_id").toInt(), 2);
+        }
+        QCOMPARE(laptop.libraryDocuments()[0].toMap()["url"].toUrl(), QUrl::fromLocalFile(own));
+        QCOMPARE(scalar(laptop, "SELECT id FROM documents"), scalar(mac, "SELECT id FROM documents"));
+        // A capture moved to the trash moves there on the others too.
+        QVERIFY(mac.deleteCapture(captured[0][0].toString()));
+        QVERIFY(macSync->syncBlocking().error.isEmpty());
+        QVERIFY(ubuntuSync->syncBlocking().error.isEmpty());
+        QTRY_COMPARE_WITH_TIMEOUT(ubuntu.trashedCaptures().size(), 1, 5000);
+        QVERIFY(QFileInfo::exists(ubuntu.trashedCaptures()[0].toMap()["image"].toUrl().toLocalFile()));
+        // Once everything has gone round, a pass neither sends nor receives anything.
+        for (int round = 0; round < 2; ++round)
+            for (auto *sync : {macSync, ubuntuSync, laptop.librarySync()})
+                QVERIFY(sync->syncBlocking().error.isEmpty());
+        for (auto *sync : {macSync, ubuntuSync, laptop.librarySync()}) {
+            const auto quiet = sync->syncBlocking();
+            QCOMPARE(quiet.sent, 0);
+            QCOMPARE(quiet.received, 0);
+        }
+        QCOMPARE(scalar(ubuntu, "SELECT count(*) FROM documents").toInt(), 1);
     }
     void notesLinksBacklinksAndTrash()
     {

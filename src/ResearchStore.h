@@ -12,6 +12,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
+class LibrarySync;
 class PaperIndex;
 class ReferenceFinder;
 class QNetworkAccessManager;
@@ -37,6 +38,8 @@ class ResearchStore final : public QObject {
     Q_PROPERTY(QObject *metadataLookup READ metadataLookup CONSTANT)
     Q_PROPERTY(QObject *ai READ ai CONSTANT)
     Q_PROPERTY(QObject *semantic READ semantic CONSTANT)
+    // Keeping this library the same on other computers through a shared folder (LibrarySync.h).
+    Q_PROPERTY(QObject *sync READ sync CONSTANT)
     Q_PROPERTY(bool backingUp READ backingUp NOTIFY backingUpChanged)
     Q_PROPERTY(bool recoveredFromCrash READ recoveredFromCrash CONSTANT)
     Q_PROPERTY(QString startupMessage READ startupMessage CONSTANT)
@@ -66,6 +69,8 @@ public:
     QObject *metadataLookup() const { return m_lookup; }
     QObject *ai() const { return m_ai; }
     QObject *semantic() const;
+    QObject *sync() const;
+    LibrarySync *librarySync() const { return m_sync; }
     bool relinking() const { return m_relinking; }
     Q_INVOKABLE QUrl resolvedSource(const QUrl &source) const;
     Q_INVOKABLE void requestRelink(const QUrl &source);
@@ -404,4 +409,6 @@ private:
     QObject *m_lookup;
     QObject *m_ai;
     class SemanticIndex *m_semantic = nullptr;
+    LibrarySync *m_sync;
+    void syncReceived(const QSet<QString> &tables, const QStringList &sources);
 };

@@ -35,6 +35,7 @@ Item {
             // Only the shown page exists.
             verify(visualChild(settings.contentItem, "themeTile-dark") === null)
             verify(visualChild(settings.contentItem, "backUpNow") !== null)
+            verify(visualChild(settings.contentItem, "syncFolder") !== null)
         }
         function test_themeAccentAndTextSizeApplyAtOnce() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)

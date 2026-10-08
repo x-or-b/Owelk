@@ -4,13 +4,40 @@ import QtQuick.Layouts
 import QtQuick.Dialogs as Native
 import Owelk.Ui
 
-// Backups: a folder with the library database and images; restore is applied on next start.
+// Sync through a shared folder (LibrarySync.h), backups (a folder with the library database and
+// images; restore is applied on next start) and exports.
 ColumnLayout {
     id: root
     objectName: "dataSettings"
     spacing: 22
     property string result: ""
+    property string syncProblem: ""
+    readonly property var sync: researchStore.sync
+    readonly property bool syncing: sync.folder.length > 0
     Connections { target: researchStore; function onBackupFinished(ok, path, message) { root.result = message } }
+    SettingsGroup {
+        title: "Sync"
+        note: root.syncProblem.length ? root.syncProblem
+            : "Keeps this library the same on your other computers through a folder that Google Drive, Dropbox or Syncthing keeps in step. Choose the same folder on each computer; on Ubuntu, reach Google Drive with rclone or Insync. Papers, annotations, notes, captures, collections, reading state and AI threads travel. When one item changes on two computers, the later change wins."
+        noteColor: root.syncProblem.length ? Theme.danger : Theme.textTertiary
+        SettingsRow {
+            label: "Sync folder"
+            detail: root.syncing ? root.sync.folder : "Off"
+            Button { objectName: "syncOff"; visible: root.syncing; text: "Turn Off"; onClicked: root.sync.turnOff() }
+            Button { objectName: "syncFolder"; text: "Choose Folder…"; onClicked: syncFolderDialog.open() }
+        }
+        SettingsRow {
+            visible: root.syncing
+            label: root.sync.status.length ? root.sync.status : "Waiting to sync"
+            detail: root.sync.computers.length ? "With " + root.sync.computers.join(", ") : "No other computer has synced yet"
+            Button {
+                objectName: "syncNow"
+                text: root.sync.running ? "Syncing…" : "Sync Now"
+                enabled: !root.sync.running
+                onClicked: root.sync.syncNow()
+            }
+        }
+    }
     SettingsGroup {
         title: "Backup"
         note: root.result.length ? root.result
@@ -47,6 +74,11 @@ ColumnLayout {
         }
     }
     Label { objectName: "backupResult"; visible: false; text: root.result }
+    Native.FolderDialog {
+        id: syncFolderDialog
+        title: "Choose the shared folder to sync with"
+        onAccepted: root.syncProblem = root.sync.setFolder(selectedFolder)
+    }
     Native.FolderDialog {
         id: backupFolderDialog
         title: "Choose where to put the backup"
