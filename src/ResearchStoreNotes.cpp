@@ -449,6 +449,44 @@ QString ResearchStore::paperOpening(const QUrl &source, int characters)
     return document.isEmpty() ? QString() : m_index->openingText(document, qBound(0, characters, 2000));
 }
 
+QVariantList ResearchStore::libraryPassages(const QStringList &terms, int limit)
+{
+    QVariantList passages;
+    QHash<QString, int> perPaper;
+    for (const auto &value : m_index->matchingPages(terms, limit * 6)) {
+        const auto row = value.toMap();
+        const auto document = row["documentId"].toString();
+        if (perPaper.value(document) >= 2) continue;
+        // Papers removed from the Library are not asked.
+        QSqlQuery query(m_database);
+        query.prepare("SELECT url FROM documents WHERE id=? AND removed_at IS NULL");
+        query.addBindValue(document);
+        if (!query.exec() || !query.next()) continue;
+        const QUrl source(query.value(0).toString());
+        // About 1,400 characters around the first term found on the page.
+        const auto text = row["text"].toString().simplified();
+        qsizetype at = -1;
+        for (const auto &term : terms) {
+            const auto found = text.indexOf(term.simplified(), 0, Qt::CaseInsensitive);
+            if (found >= 0 && (at < 0 || found < at)) at = found;
+        }
+        qsizetype start = std::max<qsizetype>(0, (at < 0 ? 0 : at) - 500);
+        if (start > 0) {
+            const auto space = text.indexOf(' ', start);
+            if (space > 0 && space - start < 40) start = space + 1;
+        }
+        auto excerpt = text.mid(start, 1400);
+        if (start > 0) excerpt.prepend("… ");
+        if (start + 1400 < text.size()) excerpt += " …";
+        perPaper[document] += 1;
+        passages.append(QVariantMap{{"n", passages.size() + 1}, {"documentId", document}, {"source", source},
+            {"title", displayName(source)}, {"year", documentDetails(source).value("year")}, {"page", row["page"]},
+            {"excerpt", excerpt}});
+        if (passages.size() >= limit) break;
+    }
+    return passages;
+}
+
 QVariantMap ResearchStore::paperExcerpt(const QUrl &source, int opening, int closing)
 {
     const auto document = documentLinkId(source);

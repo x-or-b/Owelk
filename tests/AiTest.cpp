@@ -1,6 +1,7 @@
 #include "AiContext.h"
 #include "AiProviders.h"
 #include "AiService.h"
+#include "PaperIndex.h"
 #include "Keychain.h"
 #include "PdfFixture.h"
 #include "ResearchStore.h"
@@ -393,6 +394,55 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(compared.size(), 2, 5000);
         QVERIFY(!compared[1][2].toString().isEmpty());
         QCOMPARE(server.seen.size(), requests);
+        QVERIFY(ai->clearApiKey("claude"));
+    }
+    void askingTheLibraryCitesPagesFromPassages()
+    {
+        QTemporaryDir directory;
+        const auto pdf = directory.filePath("occlusion.pdf");
+        writeFixture(pdf, "Occlusion Paper");
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QVERIFY(store.rememberDocument(QUrl::fromLocalFile(pdf)));
+        auto *index = qobject_cast<PaperIndex *>(store.paperIndex());
+        index->enqueue(QUrl::fromLocalFile(pdf));
+        QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 10000);
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        MockServer server;
+        // Both requests get this answer: as search terms it finds the fixture's pages; as the answer, [1] cites one.
+        const auto answer = QStringLiteral("occlusion, context [1]");
+        server.chunks
+            = {MockServer::sse("content_block_delta",
+                   {{"type", "content_block_delta"}, {"delta", QJsonObject{{"type", "text_delta"}, {"text", answer}}}}),
+                MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        store.setSetting("ai.baseUrl.claude", server.base().toString());
+        ai->setProvider("claude");
+        QVERIFY(ai->setApiKey("claude", "sk-ant-test-key"));
+        ai->giveConsent("claude");
+        QSignalSpy finished(ai, &AiService::finished), failed(ai, &AiService::failed);
+        ai->ask(
+            {{"provider", "claude"}, {"action", "ask"}, {"scope", "library"}, {"question", "가려짐은 어떻게 다루나?"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size() + failed.size(), 1, 10000);
+        QVERIFY2(failed.isEmpty(), failed.isEmpty() ? "" : qPrintable(failed[0][1].toString()));
+        // Two requests: search terms, then the answer from passages marked [n].
+        QCOMPARE(server.seen.size(), 2);
+        const auto sent = server.seen.last()
+                              .body["messages"]
+                              .toArray()
+                              .last()
+                              .toObject()["content"]
+                              .toArray()
+                              .last()
+                              .toObject()["text"]
+                              .toString();
+        QVERIFY(sent.contains("<library_passages>"));
+        QVERIFY(sent.contains("[1] Occlusion Paper"));
+        // The saved answer links [1] to the paper's page and lists the sources.
+        const auto text = finished[0][1].toString();
+        QVERIFY2(text.contains("[[1]](owelk://document/"), qPrintable(text));
+        QVERIFY(text.contains("#page="));
+        QVERIFY(text.contains("**Sources**"));
         QVERIFY(ai->clearApiKey("claude"));
     }
     void organizePapersSuggestsCollectionsWithoutApplying()

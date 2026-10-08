@@ -262,6 +262,12 @@ Flickable {
     // owelk://<kind>/<id> links from notes and backlink lists.
     function openLink(link) {
         const match = /^owelk:\/\/(note|capture|highlight|document|ai)\/([A-Za-z0-9-]+)/.exec(link.toString())
+        // A source in a library answer: that paper at that page.
+        const page = /#page=(\d+)/.exec(link.toString())
+        if (match && match[1] === "document" && page) {
+            const found = researchStore.linkTarget("document", match[2])
+            if (found.source) { openAtPage(found.source, Number(page[1]) - 1); return true }
+        }
         if (!match) return Tree.isWebAddress(link.toString()) ? openWeb(link.toString(), true) : false
         if (match[1] === "note") return openNote(match[2], true)
         if (match[1] === "capture") { researchStore.openCapture(match[2]); return true }

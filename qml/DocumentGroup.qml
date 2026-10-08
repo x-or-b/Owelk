@@ -379,6 +379,7 @@ Rectangle {
                 onDocumentChosen: function(source, position) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source, position, true) }
                 onNoteChosen: function(id) { root.controller.activateGroup(root.groupId); root.controller.openNote(id, true) }
                 onNewNoteRequested: { root.controller.activateGroup(root.groupId); root.controller.newNote() }
+                onAskLibraryRequested: root.controller.aiRequested({action: "ask", scope: "library"})
                 TapHandler { onPressedChanged: if (pressed) root.controller.activateGroup(root.groupId) }
             }
         }

@@ -40,6 +40,7 @@ Rectangle {
     readonly property bool showingNotes: !!(filter.notes || filter.notesTrash)
     signal noteChosen(string id)
     signal newNoteRequested()
+    signal askLibraryRequested()
     signal documentChosen(url source, var position)
     signal filterEdited(var filter)
     function refresh() {
@@ -386,6 +387,13 @@ Rectangle {
                         MenuItem { text: "Add PDFs…"; onTriggered: addDialog.open() }
                         MenuItem { objectName: "libraryAddFolder"; text: "Add Folder…"; onTriggered: folderDialog.open() }
                     }
+                }
+                // A question to the whole library, answered from its papers with their pages linked.
+                IconButton {
+                    objectName: "libraryAsk"
+                    icon.name: "search"
+                    description: "Ask your library with AI · answers cite the papers and pages they come from"
+                    onClicked: root.askLibraryRequested()
                 }
                 // AI topic collections for the selection, or for the papers listed (Unsorted is the usual place).
                 IconButton {

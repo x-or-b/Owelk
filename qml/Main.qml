@@ -313,6 +313,7 @@ ApplicationWindow {
             case "/new note": documents.newNote(); break
             case "/settings": settingsDialog.open(); break
             case "/organize tabs": window.organizeTabsIn(""); break
+            case "/ask library": window.askAi({action: "ask", scope: "library"}); break
             case "/move right": documents.moveActiveTabToSplit("right"); break
             case "/move down": documents.moveActiveTabToSplit("bottom"); break
             case "/next split": documents.focusGroup(1); break

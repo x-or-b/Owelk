@@ -70,6 +70,8 @@ AiPrompt buildAiPrompt(
                 + clip(materials.pageText, remaining, cut) + "\n</page>";
     if (!materials.paperText.isEmpty())
         parts << "<paper_text>\n" + clip(materials.paperText, remaining, cut) + "\n</paper_text>";
+    if (!materials.libraryText.isEmpty())
+        parts << "<library_passages>\n" + clip(materials.libraryText, remaining, cut) + "\n</library_passages>";
     prompt.truncated = cut;
 
     // Translation needs a target: the preferred language, or English when that is "same as paper".
@@ -87,12 +89,19 @@ AiPrompt buildAiPrompt(
         task = materials.selection.isEmpty()
             ? QStringLiteral("Summarize this material: the main claims, method and results, in a few bullet points.")
             : QStringLiteral("Summarize the selected passage in a few bullet points.");
+    else if (action == "library")
+        task = "Answer from the passages of the reader's library above. Put the source marker, such as [2], right "
+               "after each claim it supports; combine sources where they agree and say where they differ. If the "
+               "passages do not answer the question, say so plainly and do not fill the gap from general knowledge "
+               "without saying that you are doing so.\n\nQuestion: "
+            + question.trimmed();
     else if (action == "figure")
         task = "Explain the attached figure or table: what it shows, how to read it, and what it implies for the "
                "paper's argument.";
     else
         task = question.trimmed().isEmpty() ? QStringLiteral("Help me understand this material.") : question.trimmed();
-    if (action != "ask" && !question.trimmed().isEmpty()) task += "\n\nAdditional request: " + question.trimmed();
+    if (action != "ask" && action != "library" && !question.trimmed().isEmpty())
+        task += "\n\nAdditional request: " + question.trimmed();
     if (materials.hasImage && action != "figure") task += "\n\nAn image from the paper is attached.";
     if (cut) task += "\n\n(Some material was shortened to fit; mention it if the answer depends on the missing part.)";
     parts << task;

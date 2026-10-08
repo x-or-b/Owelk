@@ -32,6 +32,7 @@ Popup {
         {command: "/files", title: "Panel: Toggle Files", enabled: true},
         {command: "/captures", title: "Panel: Toggle Captures", enabled: true},
         {command: "/organize tabs", title: "Tabs: Organize with AI…", enabled: hasDocument},
+        {command: "/ask library", title: "AI: Ask Your Library…", enabled: true},
         {command: "/document", title: "Panel: Toggle Document Outline and Thumbnails", enabled: true},
         {command: "/split right", title: "Split: Duplicate Tab Right", enabled: hasDocument},
         {command: "/split down", title: "Split: Duplicate Tab Below", enabled: hasDocument},

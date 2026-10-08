@@ -88,6 +88,8 @@ private:
     AiProvider *createProvider(const QString &provider, QString *error);
     QString attachmentDirectory() const;
     void run(int request, const QString &provider, const QVariantMap &spec, const QVariantMap &prepared);
+    // "Ask your library": search terms from the question (one short request), then the matching passages.
+    void retrieveLibrary(int request, const QString &provider, QVariantMap spec, QVariantMap prepared);
     // Shared by tab and paper organization: items are named <prefix>1…N in the prompt, and the
     // answer's groups list them under memberKey. reply(request, groups [{name, ids}], error).
     using GroupReply = void (AiService::*)(int, const QVariantList &, const QString &);

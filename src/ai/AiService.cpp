@@ -273,7 +273,10 @@ int AiService::ask(const QVariantMap &input)
         for (qsizetype i = 0; i < material.images.size(); ++i)
             images.append(QVariantMap{{"data", material.images[i]}, {"path", material.paths.value(i)}});
         next.insert("images", images);
-        run(request, id, spec, next);
+        if (spec.value("scope").toString() == "library")
+            retrieveLibrary(request, id, spec, next);
+        else
+            run(request, id, spec, next);
     });
     watcher->setFuture(QtConcurrent::run([pdfSource, scope, page, imagePaths, userImages, attachments] {
         Material material;
@@ -322,6 +325,105 @@ int AiService::ask(const QVariantMap &input)
     return request;
 }
 
+void AiService::retrieveLibrary(int request, const QString &id, QVariantMap spec, QVariantMap prepared)
+{
+    const auto question = spec.value("question").toString().simplified();
+    QString error;
+    auto *provider = question.isEmpty() ? nullptr : createProvider(id, &error);
+    if (!provider) {
+        m_running.remove(request);
+        emit busyChanged();
+        emit failed(request, question.isEmpty() ? QStringLiteral("Type a question for your library.") : error);
+        return;
+    }
+    // Papers are mostly in English while the question may not be: ask for search terms first.
+    AiRequest call;
+    call.system = "You turn a researcher's question into full-text search terms for their paper library. Reply with "
+                  "6 to 12 terms only, comma-separated, in English (and also in the question's language when it is "
+                  "not English): key technical words and short phrases, abbreviations spelled both ways.";
+    call.text = question;
+    call.model = model(id);
+    call.maxTokens = 300;
+    m_running.insert(request, provider);
+    connect(provider, &AiProvider::finished, this,
+        [this, request, id, spec, prepared, provider, question](const QString &text, const QString &) mutable {
+            provider->deleteLater();
+            if (!m_running.contains(request)) return; // Stopped.
+            QStringList terms;
+            for (auto term : text.split(QRegularExpression("[,\\n;]"))) {
+                term = term.remove(QRegularExpression("[\"'*`]")).simplified();
+                if (term.size() >= 2 && term.size() <= 60 && !terms.contains(term, Qt::CaseInsensitive)) terms << term;
+            }
+            // The question's own longer words help too (English questions, names, acronyms).
+            for (const auto &word : question.split(QRegularExpression("[^\\w-]+"), Qt::SkipEmptyParts))
+                if (word.size() >= 4 && !terms.contains(word, Qt::CaseInsensitive)) terms << word;
+            const auto passages = m_store->libraryPassages(terms.mid(0, 20), 8);
+            if (passages.isEmpty()) {
+                m_running.remove(request);
+                emit busyChanged();
+                emit failed(request,
+                    "No passage in your library matches this question. Only papers whose text is "
+                    "indexed are searched; try other words.");
+                return;
+            }
+            QStringList blocks;
+            QVariantList sources;
+            for (const auto &value : passages) {
+                const auto p = value.toMap();
+                const auto year = p["year"].toString();
+                blocks << QStringLiteral("[%1] %2%3, page %4\n%5")
+                              .arg(p["n"].toInt())
+                              .arg(p["title"].toString(), year.isEmpty() ? QString() : " (" + year + ")")
+                              .arg(p["page"].toInt() + 1)
+                              .arg(p["excerpt"].toString());
+                sources << p;
+            }
+            prepared.insert("libraryText", blocks.join("\n\n"));
+            spec.insert("sources", sources);
+            m_running.insert(request, nullptr);
+            run(request, id, spec, prepared);
+        });
+    connect(provider, &AiProvider::failed, this, [this, request, provider](const QString &message) {
+        provider->deleteLater();
+        if (!m_running.contains(request)) return;
+        m_running.remove(request);
+        emit busyChanged();
+        emit failed(request, message);
+    });
+    provider->start(call);
+}
+
+// "[2]" in a library answer becomes a link to that paper's page, and the sources are listed below it.
+static QString withSourceLinks(const QString &answer, const QVariantList &sources)
+{
+    QHash<int, QString> links;
+    QStringList list;
+    for (const auto &value : sources) {
+        const auto p = value.toMap();
+        const auto link
+            = QStringLiteral("owelk://document/%1#page=%2").arg(p["documentId"].toString()).arg(p["page"].toInt() + 1);
+        links.insert(p["n"].toInt(), link);
+        list << QStringLiteral("- [%1] [%2, p. %3](%4)")
+                    .arg(p["n"].toInt())
+                    .arg(p["title"].toString())
+                    .arg(p["page"].toInt() + 1)
+                    .arg(link);
+    }
+    QString text = answer;
+    static const QRegularExpression marker(R"(\[(\d{1,2})\](?!\())");
+    QString linked;
+    qsizetype last = 0;
+    for (auto it = marker.globalMatch(text); it.hasNext();) {
+        const auto m = it.next();
+        linked += text.mid(last, m.capturedStart() - last);
+        const auto link = links.value(m.captured(1).toInt());
+        linked += link.isEmpty() ? m.captured() : "[[" + m.captured(1) + "]](" + link + ")";
+        last = m.capturedEnd();
+    }
+    linked += text.mid(last);
+    return linked.trimmed() + "\n\n**Sources**\n" + list.join('\n');
+}
+
 void AiService::run(int request, const QString &id, const QVariantMap &spec, const QVariantMap &prepared)
 {
     const auto threadId = spec.value("threadId").toString();
@@ -342,11 +444,13 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     materials.selection = spec.value("selection").toString();
     materials.pageText = prepared.value("pageText").toString();
     materials.paperText = prepared.value("paperText").toString();
+    materials.libraryText = prepared.value("libraryText").toString();
     materials.notes = prepared.value("notes").toStringList();
     materials.pageNumber = spec.value("scope").toString() == "page" ? spec.value("page").toInt() + 1 : 0;
     const auto images = prepared.value("images").toList();
     materials.hasImage = !images.isEmpty();
-    const auto action = spec.value("action").toString();
+    const auto action
+        = spec.value("scope").toString() == "library" ? QStringLiteral("library") : spec.value("action").toString();
     const auto prompt = buildAiPrompt(action.isEmpty() ? QStringLiteral("ask") : action,
         m_store->setting("aiLanguage", "ko"), spec.value("question").toString(), materials);
     QString error;
@@ -380,8 +484,10 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     connect(provider, &AiProvider::delta, this, [this, request](const QString &text) { emit delta(request, text); });
     connect(provider, &AiProvider::finished, this,
         [this, request, id, prompt, spec, done, threadId, attached = materials](
-            const QString &text, const QString &used) {
+            const QString &answer, const QString &used) {
             done();
+            const auto text
+                = spec.contains("sources") ? withSourceLinks(answer, spec.value("sources").toList()) : answer;
             // A turn is stored only when it completed, so a thread always alternates question and answer.
             const auto usedModel = used.isEmpty() ? model(id) : used;
             static const QHash<QString, QString> labels{{"explain", "Explain"}, {"translate", "Translate"},
@@ -394,6 +500,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
             if (!attached.pageText.isEmpty()) attachments << QStringLiteral("page %1").arg(attached.pageNumber);
             if (!attached.paperText.isEmpty()) attachments << "paper";
             if (attached.hasImage) attachments << "image";
+            if (!attached.libraryText.isEmpty()) attachments << "library";
             m_store->appendAiMessage(threadId,
                 {{"role", "user"}, {"content", prompt.text}, {"display", display}, {"provider", id},
                     {"model", usedModel},

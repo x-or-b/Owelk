@@ -9,6 +9,7 @@ struct AiMaterials {
     QString selection; // Selected text or an excerpt.
     QString pageText; // The current page.
     QString paperText; // Leading pages of the paper (for "Ask about paper").
+    QString libraryText; // Passages from several papers, each marked [n] (for "Ask your library").
     QStringList notes;
     int pageNumber = 0; // 1-based; 0 when unknown.
     bool hasImage = false;

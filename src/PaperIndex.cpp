@@ -775,6 +775,26 @@ QString PaperIndex::closingText(const QString &documentId, int characters) const
     return closing.simplified().left(characters);
 }
 
+QVariantList PaperIndex::matchingPages(const QStringList &terms, int limit) const
+{
+    QStringList phrases;
+    for (const auto &term : terms) {
+        const auto clean = term.simplified();
+        if (clean.size() >= 2) phrases << "\"" + QString(clean).replace('"', "\"\"") + "\"";
+    }
+    if (phrases.isEmpty()) return {};
+    QSqlQuery query(m_database);
+    query.prepare("SELECT document_id,page,text FROM pages WHERE pages MATCH ? ORDER BY bm25(pages) LIMIT ?");
+    query.addBindValue(phrases.join(" OR "));
+    query.addBindValue(limit);
+    QVariantList rows;
+    if (query.exec())
+        while (query.next())
+            rows.append(
+                QVariantMap{{"documentId", query.value(0)}, {"page", query.value(1)}, {"text", query.value(2)}});
+    return rows;
+}
+
 int PaperIndex::related(const QString &documentId, int limit)
 {
     const int request = ++m_request;

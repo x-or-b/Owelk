@@ -118,6 +118,7 @@ Item {
         }
         if (s.scope === "page") list.push({kind: "page", label: "Page " + (Number(s.page) + 1) + " text"})
         if (s.scope === "paper") list.push({kind: "paperText", label: "Full paper text"})
+        if (s.scope === "library") list.push({kind: "library", label: "Whole library · passages that answer the question"})
         if (s.captureId) list.push({kind: "capture", label: s.action === "figure" ? "Figure image" : "Excerpt"})
         images.forEach(function(image, index) { list.push({kind: "image", index: index, label: image.name, url: image.url}) })
         return list
@@ -159,6 +160,8 @@ Item {
         return true
     }
     function attach(kind) {
+        // The whole library instead of one paper: passages are found for each question.
+        if (kind === "library") { spec = {scope: "library"}; return }
         if (!reader) return
         const next = Object.assign({}, spec, {source: reader.source})
         if (kind === "page") { next.scope = "page"; next.page = reader.currentPage || 0 }
@@ -170,6 +173,7 @@ Item {
         if (kind === "image") { images = images.filter(function(_, i) { return i !== index }); return }
         const next = Object.assign({}, spec)
         if (kind === "paper") return
+        if (kind === "library") { spec = reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "none"} : ({}); return }
         if (kind === "selection") next.selection = ""
         if (kind === "page" || kind === "paperText") next.scope = "none"
         if (kind === "capture") delete next.captureId
@@ -253,7 +257,7 @@ Item {
             root.thread = researchStore.aiThread(root.threadId)
             root.answer = ""; root.pendingQuestion = ""
             // The material went with this turn; follow-ups reuse it through the thread.
-            root.spec = root.spec.source ? {source: root.spec.source, scope: "none"} : ({})
+            root.spec = root.spec.scope === "library" ? {scope: "library"} : root.spec.source ? {source: root.spec.source, scope: "none"} : ({})
         }
         function onFailed(id, message) {
             if (id !== root.request) return

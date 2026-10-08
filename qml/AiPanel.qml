@@ -223,7 +223,7 @@ Item {
             Layout.minimumWidth: 0
             Layout.fillWidth: true
             Layout.preferredHeight: Math.min(140, Math.max(56, implicitHeight))
-            placeholderText: root.c && root.c.threadId.length ? "Ask a follow-up…" : "Ask about the paper…"
+            placeholderText: root.c && root.c.spec.scope === "library" ? "Ask your library…" : root.c && root.c.threadId.length ? "Ask a follow-up…" : "Ask about the paper…"
             wrapMode: TextEdit.Wrap
             font.pixelSize: Theme.fontSmall
             // Return sends, Shift+Return adds a line; pasting an image attaches it.
@@ -253,6 +253,7 @@ Item {
                     MenuItem { objectName: "aiAttachPage"; text: "Current Page"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.attach("page") }
                     MenuItem { text: "Selection"; enabled: root.c && root.c.reader && root.c.reader.selectedText.length > 0; onTriggered: root.c.attach("selection") }
                     MenuItem { text: "Whole Paper"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.attach("paper") }
+                    MenuItem { objectName: "aiAttachLibrary"; text: "Whole Library"; onTriggered: root.c.attach("library") }
                     MenuSeparator {}
                     MenuItem { objectName: "aiAttachCapture"; text: "Capture a Region"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.captureRegion() }
                     MenuItem { objectName: "aiAttachImage"; text: "Image…"; onTriggered: imageDialog.open() }
