@@ -287,6 +287,8 @@ bool ResearchStore::initialize(QString *error)
         {10, {"ALTER TABLE documents ADD COLUMN removed_at TEXT"}},
         // A text box's font size in PDF points (0: older boxes, drawn at the former 14 pt).
         {11, {"ALTER TABLE highlights ADD COLUMN font_size REAL NOT NULL DEFAULT 0"}},
+        // Papers in Owelk's Trash (also hidden like removed papers until restored or deleted for good).
+        {12, {"ALTER TABLE documents ADD COLUMN trashed_at TEXT"}},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     loadDocumentNames();
@@ -314,6 +316,8 @@ bool ResearchStore::initialize(QString *error)
     markRunning();
     scheduleAutomaticBackup();
     m_sync->start();
+    // Papers past their days in the Trash go a little after start, not while the window opens.
+    QTimer::singleShot(20000, this, &ResearchStore::purgeExpiredPapers);
     // Durable redirects also replay any search-cache update interrupted by process exit.
     for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)
         m_index->relocateSource(QUrl(it.key()), resolvedSource(QUrl(it.value())));
@@ -403,7 +407,7 @@ bool ResearchStore::rememberDocument(const QUrl &url)
         return false;
     }
     QSqlQuery restore(m_database);
-    restore.prepare("UPDATE documents SET removed_at=NULL WHERE id=? AND removed_at IS NOT NULL");
+    restore.prepare("UPDATE documents SET removed_at=NULL,trashed_at=NULL WHERE id=? AND removed_at IS NOT NULL");
     restore.addBindValue(document);
     if (restore.exec() && restore.numRowsAffected() > 0) announceDocumentsChanged();
     QSqlQuery reading(m_database);

@@ -3,6 +3,7 @@
 #include "ResearchStore.h"
 #include "WorkerConnection.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -245,4 +246,181 @@ void ResearchStore::copyPdfsIntoLibrary()
         }
         return moves;
     }));
+}
+
+// Owelk's paper Trash. Delete Paper hides a paper (with its notes, collections and tags kept) and
+// marks when; Restore brings it all back. Deleting for good, by hand or after the chosen number of
+// days, removes the paper with its annotations and captures, and sends a PDF Owelk keeps to the
+// system Trash (a file outside Owelk's folder is left alone). Opening the PDF again also restores.
+int ResearchStore::deletePapers(const QVariantList &sources)
+{
+    const auto now = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    QVariantList deleted;
+    for (const auto &value : sources) {
+        const auto url = value.toUrl();
+        const auto document = findDocument(url);
+        if (document.isEmpty()) continue;
+        QSqlQuery query(m_database);
+        query.prepare("UPDATE documents SET removed_at=?,trashed_at=? WHERE id=? AND trashed_at IS NULL");
+        query.addBindValue(now);
+        query.addBindValue(now);
+        query.addBindValue(document);
+        if (!query.exec() || query.numRowsAffected() != 1) continue;
+        query.prepare("DELETE FROM recent_documents WHERE document_id=?");
+        query.addBindValue(document);
+        query.exec();
+        m_index->remove(resolvedSource(url));
+        deleted << resolvedSource(url);
+    }
+    if (deleted.isEmpty()) return 0;
+    announceDocumentsChanged();
+    emit papersDeleted(deleted);
+    const auto days = trashDays();
+    emit message((deleted.size() == 1 ? QStringLiteral("Moved the paper to the Trash.")
+                                      : QString("Moved %1 papers to the Trash.").arg(deleted.size()))
+        + (days > 0 ? QString(" It is deleted for good after %1 days.").arg(days) : QString()));
+    return int(deleted.size());
+}
+
+int ResearchStore::trashDays() const
+{
+    return setting("trash.days", "30").toInt();
+}
+
+QVariantList ResearchStore::trashedPapers() const
+{
+    QVariantList rows;
+    QSqlQuery query(m_database);
+    if (!query.exec("SELECT id,url,trashed_at FROM documents WHERE trashed_at IS NOT NULL ORDER BY trashed_at DESC"))
+        return rows;
+    const auto days = trashDays();
+    while (query.next()) {
+        const QUrl url(query.value(1).toString());
+        const auto trashed = QDateTime::fromString(query.value(2).toString(), Qt::ISODateWithMs);
+        rows.append(QVariantMap{{"id", query.value(0)}, {"url", url}, {"name", displayName(url)},
+            {"fileName", fileName(url)}, {"trashedAt", trashed},
+            {"daysLeft", days > 0 ? qMax(0, days - int(trashed.daysTo(QDateTime::currentDateTimeUtc()))) : -1}});
+    }
+    return rows;
+}
+
+int ResearchStore::trashedPaperCount() const
+{
+    QSqlQuery query(m_database);
+    return query.exec("SELECT count(*) FROM documents WHERE trashed_at IS NOT NULL") && query.next()
+        ? query.value(0).toInt()
+        : 0;
+}
+
+int ResearchStore::restorePapers(const QVariantList &sources)
+{
+    int restored = 0;
+    for (const auto &value : sources) {
+        const auto document = findDocument(value.toUrl());
+        QSqlQuery query(m_database);
+        query.prepare("UPDATE documents SET removed_at=NULL,trashed_at=NULL WHERE id=? AND trashed_at IS NOT NULL");
+        query.addBindValue(document);
+        if (document.isEmpty() || !query.exec() || query.numRowsAffected() != 1) continue;
+        m_index->enqueue(resolvedSource(value.toUrl()));
+        ++restored;
+    }
+    if (restored) announceDocumentsChanged();
+    return restored;
+}
+
+int ResearchStore::purgePapers(const QVariantList &sources)
+{
+    int purged = 0;
+    QStringList captureImages, annotationImages;
+    QList<QUrl> files;
+    for (const auto &value : sources) {
+        const auto url = resolvedSource(value.toUrl());
+        const auto document = findDocument(url);
+        if (document.isEmpty()) continue;
+        const auto rows = [&](const QString &sql) {
+            QStringList values;
+            QSqlQuery query(m_database);
+            query.prepare(sql);
+            query.addBindValue(document);
+            if (query.exec())
+                while (query.next()) values << query.value(0).toString();
+            return values;
+        };
+        const auto captures = rows("SELECT id FROM captures WHERE document_id=?");
+        const auto highlights = rows("SELECT id FROM highlights WHERE document_id=?");
+        captureImages += rows("SELECT image FROM captures WHERE document_id=? AND image<>''");
+        annotationImages += rows("SELECT image FROM highlights WHERE document_id=? AND image<>''");
+        if (!m_database.transaction()) continue;
+        bool ok = true;
+        const auto run = [&](const QString &sql, const QVariantList &args) {
+            QSqlQuery query(m_database);
+            query.prepare(sql);
+            for (const auto &arg : args) query.addBindValue(arg);
+            ok = ok && query.exec();
+        };
+        for (const auto &id : captures) {
+            for (const auto *table : {"text_captures", "capture_notes", "workspace_captures"})
+                run(QStringLiteral("DELETE FROM %1 WHERE capture_id=?").arg(table), {id});
+            run("DELETE FROM deleted_captures WHERE id=?", {id});
+            run("DELETE FROM links WHERE (from_kind='capture' AND from_id=?) OR (to_kind='capture' AND to_id=?)",
+                {id, id});
+        }
+        for (const auto &id : highlights)
+            run("DELETE FROM links WHERE (from_kind='highlight' AND from_id=?) OR (to_kind='highlight' AND to_id=?)",
+                {id, id});
+        for (const auto *table : {"captures", "highlights", "recent_documents", "reading_positions",
+                 "workspace_documents", "workspace_document_exclusions", "collection_documents", "document_tags"})
+            run(QStringLiteral("DELETE FROM %1 WHERE document_id=?").arg(table), {document});
+        run("DELETE FROM links WHERE (from_kind='document' AND from_id=?) OR (to_kind='document' AND to_id=?)",
+            {document, document});
+        run("DELETE FROM documents WHERE id=?", {document});
+        if (!ok || !m_database.commit()) {
+            m_database.rollback();
+            continue;
+        }
+        m_index->remove(url);
+        files << url;
+        ++purged;
+    }
+    if (!purged) return 0;
+    // Files go only after the rows: at worst an unused file stays behind, never a paper without its file.
+    for (const auto &url : std::as_const(files))
+        if (url.toLocalFile().startsWith(papersFolder() + "/")) QFile::moveToTrash(url.toLocalFile());
+    for (const auto &image : std::as_const(captureImages)) {
+        QFile::remove(m_directory + "/captures/" + image);
+        QFile::remove(m_directory + "/captures/trash/" + image);
+    }
+    for (const auto &image : std::as_const(annotationImages)) {
+        QSqlQuery used(m_database);
+        used.prepare("SELECT 1 FROM highlights WHERE image=?");
+        used.addBindValue(image);
+        if (used.exec() && !used.next()) QFile::remove(m_directory + "/annotations/" + image);
+    }
+    reloadCaptures();
+    announceDocumentsChanged();
+    emit highlightsChanged();
+    emit linksChanged();
+    return purged;
+}
+
+int ResearchStore::emptyPaperTrash()
+{
+    QVariantList urls;
+    for (const auto &row : trashedPapers()) urls << row.toMap().value("url");
+    return purgePapers(urls);
+}
+
+void ResearchStore::purgeExpiredPapers()
+{
+    const auto days = trashDays();
+    if (days <= 0) return;
+    const auto cutoff = QDateTime::currentDateTimeUtc().addDays(-days).toString(Qt::ISODateWithMs);
+    QSqlQuery query(m_database);
+    query.prepare("SELECT url FROM documents WHERE trashed_at IS NOT NULL AND trashed_at<?");
+    query.addBindValue(cutoff);
+    QVariantList urls;
+    if (query.exec())
+        while (query.next()) urls << QUrl(query.value(0).toString());
+    query.finish();
+    if (!urls.isEmpty()) purgePapers(urls);
 }

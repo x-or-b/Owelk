@@ -864,9 +864,9 @@ Item {
             tryCompare(menu, "opened", true)
             verify(findChild(menu, "paperOpenOption") !== null && findChild(menu, "copyBibtex") !== null)
             const remove = findChild(menu, "removeRecentOption")
-            // Destructive items come last: Remove from Recent Papers, Remove from Library, Move PDF to Trash.
-            compare(menu.itemAt(menu.count - 3), remove)
-            compare(menu.itemAt(menu.count - 1), findChild(menu, "movePdfToTrashOption"))
+            // Destructive items come last: Remove from Recent Papers, then Delete Paper.
+            compare(menu.itemAt(menu.count - 2), remove)
+            compare(menu.itemAt(menu.count - 1), findChild(menu, "deletePaperOption"))
             remove.triggered()
             tryVerify(function() { return findChild(findChild(workspace, "homeView"), "recentPaperMenu").removeDialog !== null })
             const dialog = findChild(findChild(workspace, "homeView"), "recentPaperMenu").removeDialog

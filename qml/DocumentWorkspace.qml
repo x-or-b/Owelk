@@ -360,6 +360,14 @@ Flickable {
         researchStore.notify(closing.length ? (closing.length === 1 ? "Closed 1 duplicate tab." : "Closed " + closing.length + " duplicate tabs.") : "No duplicate tabs.")
         return closing.length
     }
+    // Papers moved to the Trash close wherever they are open.
+    function closeSources(sources) {
+        const ids = []
+        Tree.leaves(tree).forEach(function(g) {
+            g.tabs.forEach(function(t) { if (sources.some(function(s) { return researchStore.sameSource(t.source, s) })) ids.push(t.id) })
+        })
+        ids.forEach(function(id) { root.closeTab(id) })
+    }
     function closeOtherTabs(id) {
         const g = Tree.owner(tree, id)
         if (!g) return

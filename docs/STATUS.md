@@ -30,7 +30,7 @@
 
 - 탭: 세로 탭(너비 조절, 그룹 접기·이름), 탭 영역 빈 곳 우클릭(새 탭·정렬·중복 닫기·AI 정리·가로/세로 전환), Edge식 그룹.
 - Library 패널(Collections·Workspaces·Tags·Folder)과 Collection 만들기·이름 바꾸기·삭제, 끌어 놓기, Unsorted·넣을 곳 제안·여러 논문 선택.
-- 논문 추가: Collection 안에 바로 추가, 폴더 한 번에(하위 폴더를 Collection 트리로). 삭제는 `Remove from Library`(파일 유지)와 `Move PDF to Trash`(시스템 휴지통, 되살리기 가능) 두 가지.
+- 논문 추가: Collection 안에 바로 추가, 폴더 한 번에(하위 폴더를 Collection 트리로). 삭제는 `Delete Paper` 하나(Library › Trash에서 되살리기, 7·30일 뒤 자동 비우기 또는 직접 비우기).
 - AI 주제별 정리(기존 Collection 재사용·새로 만들기, Apply 전에는 아무것도 안 바뀜).
 - 읽기: 인용·그림·표·수식 참조에 포인터를 올리면 대상 미리보기(링크가 없거나 깨진 출판사 PDF는 본문 글자에서 찾음), Fit Page 보기, `⌘[`/`⌘]` 쪽 넘김, 페이지 옆 노트, 주석 실행 취소.
 - AI 정리 제안(탭·Collection)은 Apply 전에 항목 단위로 고칠 수 있습니다(빼기·옮기기·새 그룹).

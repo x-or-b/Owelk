@@ -1314,6 +1314,59 @@ private slots:
         QCOMPARE(store.libraryDocuments().size(), 1);
         QCOMPARE(store.libraryDocuments()[0].toMap()["url"].toUrl(), moved);
     }
+    void deletedPapersWaitInTheTrash()
+    {
+        QTemporaryDir directory;
+        const auto a = QUrl::fromLocalFile(directory.filePath("a.pdf")),
+                   b = QUrl::fromLocalFile(directory.filePath("b.pdf"));
+        writeFixture(a.toLocalFile(), "Paper A");
+        writeFixture(b.toLocalFile(), "Paper B");
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QVERIFY(store.setSetting("library.keepPdfs", "0")); // Files outside Owelk's folder are never touched.
+        const auto topic = store.createCollection("Topic");
+        QCOMPARE(store.addDocuments({a, b}, topic), 2);
+        QSignalSpy captured(&store, &ResearchStore::captureSaved);
+        store.captureRegion(a, 0, QRectF(.1, .1, .3, .2));
+        QTRY_COMPARE_WITH_TIMEOUT(captured.size(), 1, 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+        const auto image = store.captures()[0].toMap()["image"].toUrl().toLocalFile();
+        QSignalSpy deleted(&store, &ResearchStore::papersDeleted);
+        // Deleted: out of the Library, still whole in the Trash, back with its collection on Restore.
+        QCOMPARE(store.deletePapers({a, b}), 2);
+        QCOMPARE(deleted.size(), 1);
+        QCOMPARE(store.libraryDocuments().size(), 0);
+        QCOMPARE(store.trashedPaperCount(), 2);
+        QCOMPARE(store.collections()[0].toMap()["count"].toInt(), 0);
+        QCOMPARE(store.restorePapers({b}), 1);
+        QCOMPARE(store.libraryDocuments({{"collection", topic}}).size(), 1);
+        // Opening a deleted paper's file brings it back too.
+        QVERIFY(store.deletePapers({b}) == 1 && store.rememberDocument(b));
+        QCOMPARE(store.trashedPaperCount(), 1);
+        // Deleting for good removes the paper with its captures; its own file outside Owelk stays.
+        QCOMPARE(store.purgePapers({a}), 1);
+        QCOMPARE(store.trashedPaperCount(), 0);
+        QTRY_COMPARE_WITH_TIMEOUT(store.captures().size(), 0, 5000);
+        QVERIFY(!QFileInfo::exists(image));
+        QVERIFY(QFileInfo::exists(a.toLocalFile()));
+        QCOMPARE(store.libraryDocuments().size(), 1);
+        // After the chosen days the Trash empties itself; "Never" keeps papers.
+        QCOMPARE(store.deletePapers({b}), 1);
+        {
+            WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3");
+            QSqlQuery old(db.db);
+            QVERIFY(
+                old.exec("UPDATE documents SET trashed_at='2020-01-01T00:00:00.000Z' WHERE trashed_at IS NOT NULL"));
+        }
+        QVERIFY(store.setSetting("trash.days", "0"));
+        store.purgeExpiredPapers();
+        QCOMPARE(store.trashedPaperCount(), 1);
+        QVERIFY(store.setSetting("trash.days", "30"));
+        store.purgeExpiredPapers();
+        QCOMPARE(store.trashedPaperCount(), 0);
+        QVERIFY(QFileInfo::exists(b.toLocalFile()));
+    }
     void addRemoveAndRestoreLibraryPapers()
     {
         QTemporaryDir directory;

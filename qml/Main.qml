@@ -284,6 +284,7 @@ ApplicationWindow {
         function onWebSourceRequested(page) { if (!window.restoreFailed) documents.openWeb(page.toString(), true) }
         function onRelinkRequested(source) { if (!window.restoreFailed && !researchStore.relinking && window.persist()) relinkDialog.begin(source) }
         function onSourceRelinked(source, candidate) { documents.relinkSource(source, candidate) }
+        function onPapersDeleted(sources) { documents.closeSources(sources) }
         function onRelinkFinished(success, detail) { if (success) window.notify(detail) }
         function onCaptureSaved(id) {
             // A capture asked for by the AI panel joins the question; others open the shelf.

@@ -41,6 +41,18 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            label: "Empty the Trash"
+            detail: "Deleted papers wait in Library › Trash until then"
+            ComboBox {
+                objectName: "trashDaysBox"
+                Layout.preferredWidth: 160
+                readonly property var days: [7, 30, 0]
+                model: ["After 7 days", "After 30 days", "Never"]
+                currentIndex: Math.max(0, days.indexOf(researchStore.trashDays()))
+                onActivated: function(index) { researchStore.setSetting("trash.days", String(days[index])) }
+            }
+        }
+        SettingsRow {
             label: "PDF folder"
             Button { objectName: "showPapersFolder"; text: "Show Folder"; onClicked: Qt.openUrlExternally(researchStore.papersFolderUrl()) }
         }

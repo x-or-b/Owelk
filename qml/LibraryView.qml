@@ -38,6 +38,9 @@ Rectangle {
     property var tagRows: []
     property var noteRows: []
     readonly property bool showingNotes: !!(filter.notes || filter.notesTrash)
+    readonly property bool showingTrash: !!filter.papersTrash
+    property int trashCount: 0
+    property var trashRows: []
     signal noteChosen(string id)
     signal newNoteRequested()
     // collection: "" for the whole library.
@@ -55,6 +58,8 @@ Rectangle {
         collectionRows = researchStore.collections()
         tagRows = researchStore.tags()
         noteRows = showingNotes ? researchStore.notes(!!filter.notesTrash) : []
+        trashCount = researchStore.trashedPaperCount()
+        trashRows = showingTrash ? researchStore.trashedPapers() : []
     }
     Loader { id: organizer; active: false; sourceComponent: OrganizePapersDialog {} }
     Loader { id: comparer; active: false; sourceComponent: ComparePapersDialog { onNoteCreated: function(id) { root.noteChosen(id) } } }
@@ -167,23 +172,9 @@ Rectangle {
         MenuSeparator {}
         MenuItem { text: "Copy BibTeX"; onTriggered: { researchStore.copyText(researchStore.bibtex(batchMenu.urls)); researchStore.notify("BibTeX copied.") } }
         MenuSeparator {}
-        MenuItem { objectName: "batchRemoveFromLibrary"; text: "Remove from Library…"; palette.windowText: Theme.danger; onTriggered: { batchConfirm.mode = "library"; batchConfirm.urls = batchMenu.urls; batchConfirm.open() } }
-        MenuItem { text: "Move PDFs to Trash…"; palette.windowText: Theme.danger; onTriggered: { batchConfirm.mode = "trash"; batchConfirm.urls = batchMenu.urls; batchConfirm.open() } }
-    }
-    ConfirmDialog {
-        id: batchConfirm
-        objectName: "libraryBatchConfirm"
-        property string mode: "library"
-        property var urls: []
-        title: mode === "trash" ? "Move " + urls.length + " PDFs to the Trash?" : "Remove " + urls.length + " papers from the Library?"
-        message: mode === "trash"
-            ? "The files go to the system Trash, where you can put them back. Their annotations and captures are kept."
-            : "They leave the Library, collections and tags. The PDF files, annotations and captures are kept."
-        actionText: mode === "trash" ? "Move to Trash" : "Remove"
-        onConfirmed: {
-            const list = urls, trash = mode === "trash"
-            root.selection = []
-            Qt.callLater(function() { if (trash) researchStore.movePdfsToTrash(list); else researchStore.removeFromLibrary(list) })
+        MenuItem {
+            objectName: "batchDeletePapers"; text: "Delete Papers"; palette.windowText: Theme.danger
+            onTriggered: { const list = batchMenu.urls; root.selection = []; Qt.callLater(function() { researchStore.deletePapers(list) }) }
         }
     }
     // A whole folder: every PDF under it, optionally as a collection tree.
@@ -247,7 +238,7 @@ Rectangle {
                 spacing: 1
                 model: [{key: "all", label: "All Papers"}, {key: "unsorted", value: true, label: "Unsorted", count: root.unsortedCount}, {key: "favorite", value: true, label: "Favorites"},
                         {key: "state", value: "unread", label: "Unread"}, {key: "state", value: "reading", label: "Reading"},
-                        {key: "state", value: "read", label: "Read"}, {header: "Notes"}, {key: "notes", value: true, label: "All Notes"},
+                        {key: "state", value: "read", label: "Read"}, {key: "papersTrash", value: true, label: "Trash", count: root.trashCount}, {header: "Notes"}, {key: "notes", value: true, label: "All Notes"},
                         {key: "notesTrash", value: true, label: "Notes Trash"}, {header: "Collections", add: true}]
                     .concat(root.collectionRows.map(function(c) { return {key: "collection", value: c.id, label: c.name, depth: c.depth, count: c.count, row: c} }))
                     .concat(root.tagRows.length ? [{header: "Tags"}] : [])
@@ -314,6 +305,69 @@ Rectangle {
             Layout.fillWidth: true; Layout.fillHeight: true
             Layout.margins: 12
             spacing: 8
+            // Owelk's paper Trash: restore, delete for good, or empty it.
+            RowLayout {
+                Layout.fillWidth: true
+                visible: root.showingTrash
+                ColumnLayout {
+                    Layout.fillWidth: true; spacing: 2
+                    Label { text: "Trash"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
+                    Label {
+                        Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+                        text: (researchStore.trashDays() > 0 ? "Papers are deleted for good after " + researchStore.trashDays() + " days" : "Papers stay until you empty the Trash")
+                            + " (Settings › Data). Deleting for good removes their annotations and captures and sends a PDF Owelk keeps to the system Trash."
+                    }
+                }
+                Button {
+                    objectName: "emptyPaperTrash"; text: "Empty Trash"; enabled: root.trashRows.length > 0
+                    onClicked: emptyTrashConfirm.open()
+                }
+            }
+            ListView {
+                id: trashList
+                objectName: "libraryTrash"
+                visible: root.showingTrash
+                Layout.fillWidth: true; Layout.fillHeight: true
+                clip: true
+                model: root.trashRows
+                delegate: ItemDelegate {
+                    id: trashItem
+                    required property var modelData
+                    required property int index
+                    objectName: "trashedPaper-" + modelData.id
+                    width: trashList.width; height: Theme.rowHeightTall
+                    separator: index < trashList.count - 1
+                    contentItem: RowLayout {
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 2
+                            Label { Layout.fillWidth: true; text: trashItem.modelData.name; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                            Label {
+                                Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                text: trashItem.modelData.fileName + (trashItem.modelData.daysLeft >= 0 ? " · deleted in " + trashItem.modelData.daysLeft + (trashItem.modelData.daysLeft === 1 ? " day" : " days") : "")
+                            }
+                        }
+                        IconButton {
+                            objectName: "restorePaper-" + trashItem.modelData.id
+                            icon.name: "restore"; description: "Restore paper"
+                            onClicked: { researchStore.restorePapers([trashItem.modelData.url]); root.refresh() }
+                        }
+                        IconButton {
+                            objectName: "purgePaper-" + trashItem.modelData.id
+                            icon.name: "trash"; tint: Theme.danger; description: "Delete for good"
+                            onClicked: { researchStore.purgePapers([trashItem.modelData.url]); root.refresh() }
+                        }
+                    }
+                }
+                Label { anchors.centerIn: parent; visible: trashList.count === 0; text: "Trash is empty."; color: Theme.textTertiary }
+            }
+            ConfirmDialog {
+                id: emptyTrashConfirm
+                objectName: "emptyPaperTrashConfirm"
+                title: "Delete " + root.trashRows.length + (root.trashRows.length === 1 ? " paper" : " papers") + " for good?"
+                message: "Their annotations and captures are deleted. PDFs Owelk keeps go to the system Trash."
+                actionText: "Empty Trash"
+                onConfirmed: Qt.callLater(function() { researchStore.emptyPaperTrash(); root.refresh() })
+            }
             RowLayout {
                 Layout.fillWidth: true
                 visible: root.showingNotes
@@ -357,7 +411,7 @@ Rectangle {
             }
             RowLayout {
                 Layout.fillWidth: true
-                visible: !root.showingNotes
+                visible: !root.showingNotes && !root.showingTrash
                 TextField {
                     objectName: "libraryQuery"
                     Layout.fillWidth: true
@@ -374,7 +428,7 @@ Rectangle {
             }
             RowLayout {
                 Layout.fillWidth: true
-                visible: !root.showingNotes
+                visible: !root.showingNotes && !root.showingTrash
                 Label { objectName: "libraryCount"; Layout.fillWidth: true; text: root.rows.length + (root.rows.length === 1 ? " paper" : " papers"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
                 IconButton {
                     id: addButton
@@ -424,7 +478,7 @@ Rectangle {
             ListView {
                 id: papers
                 objectName: "libraryList"
-                visible: !root.showingNotes
+                visible: !root.showingNotes && !root.showingTrash
                 Layout.fillWidth: true; Layout.fillHeight: true
                 clip: true
                 model: root.rows

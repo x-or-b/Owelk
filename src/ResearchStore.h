@@ -86,6 +86,16 @@ public:
     // only after its copy matched byte for byte, like Locate Original PDF).
     Q_INVOKABLE int outsidePdfCount() const;
     Q_INVOKABLE void copyPdfsIntoLibrary();
+    // The paper Trash (ResearchStorePapers.cpp): Delete Paper, Restore, delete for good (by hand or after
+    // trash.days, default 30; 0 keeps them). Rows: {id, url, name, fileName, trashedAt, daysLeft}.
+    Q_INVOKABLE int deletePapers(const QVariantList &sources);
+    Q_INVOKABLE QVariantList trashedPapers() const;
+    Q_INVOKABLE int trashedPaperCount() const;
+    Q_INVOKABLE int restorePapers(const QVariantList &sources);
+    Q_INVOKABLE int purgePapers(const QVariantList &sources);
+    Q_INVOKABLE int emptyPaperTrash();
+    Q_INVOKABLE int trashDays() const;
+    void purgeExpiredPapers();
     Q_INVOKABLE QUrl resolvedSource(const QUrl &source) const;
     Q_INVOKABLE void requestRelink(const QUrl &source);
     Q_INVOKABLE void relinkSource(const QUrl &source, const QUrl &candidate);
@@ -342,6 +352,8 @@ signals:
     void workspaceDeleted(const QString &id);
     void relinkingChanged();
     void copyingPdfsChanged();
+    // Papers moved to the Trash: their open tabs close.
+    void papersDeleted(const QVariantList &sources);
     void relinkRequested(const QUrl &source);
     void sourceRelinked(const QUrl &source, const QUrl &candidate);
     void relinkFinished(bool success, const QString &detail);

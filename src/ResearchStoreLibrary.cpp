@@ -96,7 +96,8 @@ QVariantList ResearchStore::collections() const
     QVariantList rows;
     QSqlQuery query(m_database);
     query.exec("SELECT c.id,c.name,coalesce(c.parent_id,''),(SELECT count(*) FROM collection_documents cd "
-               "WHERE cd.collection_id=c.id) FROM collections c ORDER BY c.name COLLATE NOCASE");
+               "JOIN documents d ON d.id=cd.document_id WHERE cd.collection_id=c.id AND d.removed_at IS NULL) FROM "
+               "collections c ORDER BY c.name COLLATE NOCASE");
     QList<QVariantMap> all;
     while (query.next())
         all.append({{"id", query.value(0)}, {"name", query.value(1)}, {"parentId", query.value(2)},
@@ -195,7 +196,8 @@ QVariantList ResearchStore::tags() const
 {
     QVariantList rows;
     QSqlQuery query(m_database);
-    query.exec("SELECT t.id,t.name,count(dt.document_id) FROM tags t LEFT JOIN document_tags dt ON dt.tag_id=t.id "
+    query.exec("SELECT t.id,t.name,count(d.id) FROM tags t LEFT JOIN document_tags dt ON dt.tag_id=t.id "
+               "LEFT JOIN documents d ON d.id=dt.document_id AND d.removed_at IS NULL "
                "GROUP BY t.id ORDER BY t.name COLLATE NOCASE");
     while (query.next())
         rows.append(QVariantMap{{"id", query.value(0)}, {"name", query.value(1)}, {"count", query.value(2)}});
@@ -404,7 +406,7 @@ int ResearchStore::addDocuments(const QVariantList &sources, const QString &coll
         const auto document = ensureDocument(url);
         if (document.isEmpty()) continue;
         QSqlQuery restore(m_database);
-        restore.prepare("UPDATE documents SET removed_at=NULL WHERE id=?");
+        restore.prepare("UPDATE documents SET removed_at=NULL,trashed_at=NULL WHERE id=?");
         restore.addBindValue(document);
         restore.exec();
         refreshMetadata(document, resolvedSource(url), false, true);

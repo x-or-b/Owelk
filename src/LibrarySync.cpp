@@ -239,7 +239,7 @@ private:
     QHash<QString, QStringList> m_columns;
     QHash<QString, QHash<QString, QString>> m_aliases;
     QSet<QString> m_moveCaptures;
-    QStringList m_removedImages;
+    QStringList m_removedImages, m_removedPapers;
 };
 
 bool Pass::importChanges()
@@ -278,6 +278,7 @@ bool Pass::applyFile(const QString &device, const QString &file, qint64 size, co
 {
     m_moveCaptures.clear();
     m_removedImages.clear();
+    m_removedPapers.clear();
     if (!m_db.transaction()) {
         outcome.error = m_db.lastError().text();
         return false;
@@ -302,6 +303,7 @@ bool Pass::applyFile(const QString &device, const QString &file, qint64 size, co
         return abort();
     }
     placeCaptureImages();
+    for (const auto &path : std::as_const(m_removedPapers)) QFile::moveToTrash(path);
     return true;
 }
 
@@ -363,6 +365,14 @@ bool Pass::applyChange(const QJsonObject &change)
     }
     version.finish();
     if (removal) {
+        if (table == "documents") {
+            // A paper deleted for good elsewhere: the copy Owelk keeps here goes to the system Trash too.
+            QSqlQuery url(m_db);
+            if (run(url, "SELECT url FROM documents WHERE id=?", keyValues) && url.next()) {
+                const auto path = QUrl(url.value(0).toString()).toLocalFile();
+                if (path.startsWith(m_papers + "/")) m_removedPapers << path;
+            }
+        }
         if (table == "captures") {
             QSqlQuery image(m_db);
             if (run(image, "SELECT image FROM captures WHERE id=?", keyValues) && image.next())

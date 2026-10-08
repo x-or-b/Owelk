@@ -135,8 +135,8 @@ Item {
             tryCompare(panel, "collectionsOpen", true)
             researchStore.deleteCollection(topic)
         }
-        function test_removeFromLibraryKeepsTheFile() {
-            const copy = testInput.copyFixture("to remove.pdf")
+        function test_deletedPaperWaitsInTheTrash() {
+            const copy = testInput.copyFixture("to delete.pdf")
             verify(researchStore.addDocuments([copy], "") === 1)
             workspace.documents.openLibrary({})
             const view = library()
@@ -146,15 +146,17 @@ Item {
             mouseClick(visualChild(view, "libraryPaper-" + row.id), 60, 12, Qt.RightButton)
             const menu = findChild(view, "paperMenu")
             tryCompare(menu, "opened", true)
-            findChild(menu, "removeFromLibraryOption").triggered()
-            const confirm = findChild(view, "paperConfirm")
-            tryCompare(confirm, "opened", true)
-            confirm.accept()
+            findChild(menu, "deletePaperOption").triggered()
             tryVerify(function() { return !view.rows.some(function(r) { return researchStore.sameSource(r.url, copy) }) })
-            verify(testInput.fileExists(copy), "the PDF file is kept")
-            // Opening it again brings it back.
-            verify(researchStore.rememberDocument(copy))
+            verify(testInput.fileExists(copy), "the PDF file waits with the paper")
+            // In the Trash until restored.
+            view.setFilter({papersTrash: true})
+            tryVerify(function() { return view.trashRows.some(function(r) { return r.id === row.id }) })
+            tryVerify(function() { return findChild(view, "restorePaper-" + row.id) !== null })
+            findChild(view, "restorePaper-" + row.id).clicked()
+            view.setFilter({})
             tryVerify(function() { return view.rows.some(function(r) { return researchStore.sameSource(r.url, copy) }) })
+            compare(view.trashCount, 0)
         }
         function test_newCollectionButton() {
             workspace.documents.openLibrary({})
