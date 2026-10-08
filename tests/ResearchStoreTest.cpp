@@ -1223,12 +1223,66 @@ private slots:
         QCOMPARE(close[0].toMap()["id"].toString(), twin);
         QVERIFY(store.relatedNotes(unrelated).isEmpty());
     }
+    void keptPdfsAreCopiedIntoTheLibrary()
+    {
+        QTemporaryDir directory;
+        QVERIFY(QDir().mkpath(directory.filePath("Downloads")));
+        const auto path = directory.filePath("Downloads/paper.pdf");
+        writeFixture(path, "Kept Paper");
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        // A PDF from elsewhere opens as Owelk's own copy, under its name; the original stays.
+        const auto kept = store.adoptPdf(QUrl::fromLocalFile(path));
+        QVERIFY(kept.toLocalFile().startsWith(store.papersFolder() + "/"));
+        QCOMPARE(QFileInfo(kept.toLocalFile()).fileName(), QString("paper.pdf"));
+        QVERIFY(QFileInfo::exists(path));
+        QVERIFY(store.rememberDocument(kept));
+        QCOMPARE(store.adoptPdf(kept), kept);
+        QTRY_COMPARE_WITH_TIMEOUT(store.displayName(kept), QString("Kept Paper"), 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(!store.libraryDocuments().isEmpty(), 5000);
+        // The same bytes again open the same paper; a repeated download is not kept twice.
+        const auto again = directory.filePath("Downloads/paper (1).pdf");
+        QVERIFY(QFile::copy(path, again));
+        QTRY_COMPARE_WITH_TIMEOUT(store.adoptPdf(QUrl::fromLocalFile(again)), kept, 10000);
+        const auto download = store.downloadTarget("paper.pdf", true)["url"].toUrl();
+        QVERIFY(download.toLocalFile().startsWith(store.papersFolder() + "/"));
+        QVERIFY(download != kept);
+        QVERIFY(QFile::copy(path, download.toLocalFile()));
+        QCOMPARE(store.adoptPdf(download), kept);
+        QVERIFY(!QFileInfo::exists(download.toLocalFile()));
+        QCOMPARE(QDir(store.papersFolder()).entryList(QDir::Files).size(), 1);
+        // Other downloads still go to the download folder.
+        QVERIFY(!store.downloadTarget("data.zip", false)["url"].toUrl().toLocalFile().startsWith(store.papersFolder()));
+
+        // A paper added while PDFs were not kept is copied in on request and keeps its ID; the old
+        // path still finds it and the original file is untouched.
+        QVERIFY(store.setSetting("library.keepPdfs", "0"));
+        const auto old = QUrl::fromLocalFile(directory.filePath("old.pdf"));
+        writeFixture(old.toLocalFile(), "Old Paper");
+        QCOMPARE(store.addDocuments({old}), 1);
+        const auto id = store.documentLinkId(old);
+        QVERIFY(store.setSetting("library.keepPdfs", "1"));
+        QCOMPARE(store.outsidePdfCount(), 1);
+        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+        store.copyPdfsIntoLibrary();
+        QVERIFY(store.copyingPdfs());
+        QTRY_VERIFY_WITH_TIMEOUT(!store.copyingPdfs(), 10000);
+        QCOMPARE(store.outsidePdfCount(), 0);
+        QVERIFY(QFileInfo::exists(old.toLocalFile()));
+        const auto moved = store.resolvedSource(old);
+        QVERIFY(moved.toLocalFile().startsWith(store.papersFolder() + "/"));
+        QCOMPARE(store.documentLinkId(moved), id);
+        QCOMPARE(store.documentLinkId(old), id);
+        QCOMPARE(store.libraryDocuments().size(), 2);
+    }
     void addRemoveAndRestoreLibraryPapers()
     {
         QTemporaryDir directory;
         ResearchStore store(directory.filePath("data"));
         QString error;
         QVERIFY(store.initialize(&error));
+        QVERIFY(store.setSetting("library.keepPdfs", "0")); // Papers read from where they are.
         const auto a = QUrl::fromLocalFile(directory.filePath("a.pdf")),
                    b = QUrl::fromLocalFile(directory.filePath("b.pdf"));
         writeFixture(a.toLocalFile(), "Paper A");

@@ -143,6 +143,8 @@ public slots:
         m_store = new ResearchStore(m_directory.filePath("data"), this);
         QString error;
         if (!m_store->initialize(&error)) qFatal("%s", qPrintable(error));
+        // Fixtures open from where they are (keeping copies is covered by the store tests).
+        m_store->setSetting("library.keepPdfs", "0");
         m_theme = new Theme(m_store, this);
         qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "Theme", m_theme);
     }

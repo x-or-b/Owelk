@@ -44,6 +44,8 @@ class ResearchStore final : public QObject {
     Q_PROPERTY(bool recoveredFromCrash READ recoveredFromCrash CONSTANT)
     Q_PROPERTY(QString startupMessage READ startupMessage CONSTANT)
     Q_PROPERTY(bool relinking READ relinking NOTIFY relinkingChanged)
+    // Copying the Library's outside PDFs into papers/ (ResearchStorePapers.cpp).
+    Q_PROPERTY(bool copyingPdfs READ copyingPdfs NOTIFY copyingPdfsChanged)
     Q_PROPERTY(QStringList annotationColors READ annotationColors CONSTANT)
     // Bumped when paper titles or details change; bind to it next to displayName() calls.
     Q_PROPERTY(int documentsRevision READ documentsRevision NOTIFY documentsChanged)
@@ -72,6 +74,18 @@ public:
     QObject *sync() const;
     LibrarySync *librarySync() const { return m_sync; }
     bool relinking() const { return m_relinking; }
+    bool copyingPdfs() const { return m_copyingPdfs; }
+    // "Keep PDFs in Owelk" (setting library.keepPdfs, on by default): PDFs that are opened, added or
+    // downloaded are copied into the data folder's papers/; originals stay untouched.
+    bool keepsPdfs() const;
+    QString papersFolder() const;
+    Q_INVOKABLE QUrl papersFolderUrl() const;
+    // The URL to open for a PDF: the Library's own copy (made now if needed) while PDFs are kept.
+    Q_INVOKABLE QUrl adoptPdf(const QUrl &source);
+    // Library papers whose file is still outside papers/, and copying them in (one by one, each
+    // only after its copy matched byte for byte, like Locate Original PDF).
+    Q_INVOKABLE int outsidePdfCount() const;
+    Q_INVOKABLE void copyPdfsIntoLibrary();
     Q_INVOKABLE QUrl resolvedSource(const QUrl &source) const;
     Q_INVOKABLE void requestRelink(const QUrl &source);
     Q_INVOKABLE void relinkSource(const QUrl &source, const QUrl &candidate);
@@ -266,7 +280,8 @@ public:
     Q_INVOKABLE bool setSetting(const QString &key, const QString &value);
     // Where a web download should be saved: the chosen folder (default ~/Downloads) and a name that
     // never overwrites an existing file. Returns directory, fileName and url.
-    Q_INVOKABLE QVariantMap downloadTarget(const QString &suggestedName) const;
+    // PDFs go to papers/ while PDFs are kept in Owelk.
+    Q_INVOKABLE QVariantMap downloadTarget(const QString &suggestedName, bool pdf = false) const;
     // scopeUrls: optional list of paper URLs (library filters); null searches everything.
     Q_INVOKABLE QVariantList searchKnowledge(const QString &query, const QUrl &source = QUrl(),
         const QString &target = "all", const QVariant &scopeUrls = QVariant()) const;
@@ -326,6 +341,7 @@ signals:
     void workspaceRenamed(const QString &id, const QString &name);
     void workspaceDeleted(const QString &id);
     void relinkingChanged();
+    void copyingPdfsChanged();
     void relinkRequested(const QUrl &source);
     void sourceRelinked(const QUrl &source, const QUrl &candidate);
     void relinkFinished(bool success, const QString &detail);
@@ -352,6 +368,9 @@ private:
     bool applyRelink(const QUrl &source, const QUrl &candidate, const QString &hash, QString *error);
     QHash<QString, QString> m_relinks;
     bool m_relinking = false;
+    bool m_copyingPdfs = false;
+    static QStringList adoptPdfFiles(
+        const QString &directory, const QHash<QString, QString> &relinks, const QStringList &paths);
     QString m_directory;
     QString m_connection;
     QSqlDatabase m_database;

@@ -232,12 +232,18 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
   - **라이브러리 전체에 묻기**: Library 위쪽 ✦ 버튼(Collection을 보고 있으면 그 Collection 안에서만, 하위 Collection 포함), AI 패널 📎 → `Whole Library`, 또는 명령 `AI: Ask Your Library…`. 질문을 보내면 먼저 AI가 검색어(영어 포함)를 만들고, 그 말로 본문 색인에서 맞는 쪽을 찾아(논문당 최대 2쪽, 모두 8곳) 그 부분만 AI에 보냅니다. 답에는 근거 표시 `[1]`이 붙고, 답이 끝나면 `[1]`이 그 논문의 그 쪽으로 가는 링크가 되며 아래에 출처 목록이 붙습니다. 본문이 색인된 논문만 찾을 수 있습니다(스캔 PDF는 OCR 후). 같은 대화에서 이어 물으면 질문마다 다시 찾습니다.
   - **AI로 논문 비교**: Library에서 논문 여러 편 선택 → 우클릭 → `Compare with AI…`, 또는 탭 영역 빈 곳 우클릭 → `Compare Open Papers with AI…`(그 탭 줄의 PDF, 최대 8편). `Compare by`에 표의 열(기본 Problem, Method, Data, Results, Limitations; 쉼표로 구분, 기억됨)을 정하고 `Ask`를 누르면 논문마다 한 줄인 비교표와 주요 차이 3–5개가 옵니다. 보내는 것은 제목·저자·연도와 본문 색인의 앞부분(초록·서론, 5000자)·결론(2500자)이며, 본문에 없는 내용은 `not stated`로 적게 합니다. `Copy` 또는 `Save as Note`(각 논문 링크 포함)로 남깁니다.
   - **AI로 주제별 정리**: Library 목록 위의 폴더 트리 버튼(선택한 논문이 있으면 그 논문들, 없으면 지금 보이는 논문 최대 80편) 또는 여러 논문 우클릭 → `Organize into Collections with AI…`. 보낼 내용(제목·저자·연도·앞부분 300자, 기존 Collection 이름)을 보여 주고 `Ask`를 누르면 AI가 주제별 Collection을 제안합니다. 기존 Collection과 이름이 같으면 `Existing`(거기에 추가), 아니면 `New`(보고 있는 Collection 안에 새로 만듦)로 표시됩니다. `Apply`를 눌러야만 바뀌고(편집 방법은 탭 정리와 같음), 논문을 다른 Collection에서 빼거나 지우지는 않습니다.
-- **폴더 한 번에 추가**: Library의 `+` → `Add Folder…`로 폴더를 고르면 하위 폴더까지 PDF를 배경에서 찾아 추가합니다(숨김 폴더·바로가기 제외, 최대 1만 개). "Make a collection of the folder…"를 켜 두면 폴더와 하위 폴더가 Collection 트리가 되고, 같은 이름의 Collection은 다시 씁니다. 다시 가져와도 중복으로 들어가지 않으며, 파일은 옮기지 않습니다.
+- **폴더 한 번에 추가**: Library의 `+` → `Add Folder…`로 폴더를 고르면 하위 폴더까지 PDF를 배경에서 찾아 추가합니다(숨김 폴더·바로가기 제외, 최대 1만 개). "Make a collection of the folder…"를 켜 두면 폴더와 하위 폴더가 Collection 트리가 되고, 같은 이름의 Collection은 다시 씁니다. 다시 가져와도 중복으로 들어가지 않으며, 원래 파일은 옮기거나 지우지 않습니다.
 - **PDF 가져오기**: Library의 `+` → `Add PDFs…`로 여러 PDF를 고르거나, Finder에서 PDF를 목록·Library 패널의 Collection 위로 끌어 놓습니다. Collection을 보고 있으면 그 Collection에 바로 들어갑니다. 가져온 논문은 열지 않으며(최근 목록에 안 들어감), 제목과 본문은 배경에서 읽습니다.
 - **지우기**: 논문 우클릭(여러 개 선택 가능) → `Remove from Library…`는 목록·Collection·태그·본문 색인에서만 빼고 PDF 파일·주석·캡처는 남깁니다(그 파일을 다시 열면 돌아옴). `Move PDF to Trash…`는 파일을 시스템 휴지통으로 보내고 Library에서도 뺍니다(휴지통에서 되살릴 수 있음). 둘 다 확인 후 실행되며, Owelk는 파일을 영구 삭제하지 않습니다.
 - 논문 우클릭 → Tags…에 쉼표로 태그를 입력합니다(대소문자 무시, 쓰지 않는 태그는 자동 정리).
 - 논문 우클릭 → Exclude from Text Search는 그 논문의 본문을 검색 인덱스에서 지웁니다. 다시 포함하면 새로 색인합니다.
 - Cmd+K/Home 검색은 Collection·Tag 이름도 찾고, 누르면 그 Collection·Tag로 거른 라이브러리를 엽니다. 검색어에 `tag:` `collection:` `state:` `year:` `workspace:`를 적으면 본문 검색과 저장 항목 검색이 그 논문들로 한정됩니다. `tag:sl`처럼 치는 중에는 맞는 태그·Collection·워크스페이스·읽기 상태 이름이 목록으로 나오고, 고르면 조건이 완성됩니다(공백이 있으면 따옴표로 묶임). 조건만 쓰면 해당 논문 목록이 나옵니다.
+
+## PDF 보관(Owelk가 직접 보관)
+
+노트 앱처럼 Owelk가 PDF를 직접 보관합니다(Settings → Data → Library → `Keep PDFs in Owelk`, 기본 켜짐). 열거나 추가하거나 가져온 PDF는 데이터 폴더의 `papers/`에 원래 이름으로 복사되고, 웹에서 받은 PDF는 처음부터 그곳에 저장됩니다(PDF가 아닌 파일은 Settings → Web의 다운로드 폴더로). 원래 파일은 옮기거나 지우지 않으니 필요 없으면 직접 지우면 됩니다. 같은 내용(바이트)의 PDF를 다시 열면 이미 보관된 논문이 열리고 두 번 보관하지 않습니다.
+
+이 기능을 켜기 전에 추가한 논문은 같은 화면의 `Copy Into Owelk`로 한 번에 옮겨 담습니다. 사본이 원본과 바이트 단위로 같을 때만 연결을 바꾸며(재연결과 같은 방식), 주석·읽기 위치는 그대로입니다. `Show Folder`로 보관 폴더를 열 수 있습니다.
 
 ## 웹 탭
 

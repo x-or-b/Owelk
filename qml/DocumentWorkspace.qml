@@ -151,6 +151,8 @@ Flickable {
         prepare(); g.activeTab = id; activeGroup = g.id; sync(); changed(); opened()
     }
     function openDocument(source, position, forceNew) {
+        // A PDF from elsewhere opens as the Library's own copy while PDFs are kept in Owelk.
+        source = researchStore.adoptPdf(source)
         if (!researchStore.rememberDocument(source)) return false
         prepare()
         const g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]

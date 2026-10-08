@@ -14,7 +14,37 @@ ColumnLayout {
     property string syncProblem: ""
     readonly property var sync: researchStore.sync
     readonly property bool syncing: sync.folder.length > 0
+    property bool keepPdfs: researchStore.setting("library.keepPdfs", "1") === "1"
+    // Read again after copying or when papers change.
+    readonly property int outside: researchStore.documentsRevision >= 0 && !researchStore.copyingPdfs ? researchStore.outsidePdfCount() : 0
     Connections { target: researchStore; function onBackupFinished(ok, path, message) { root.result = message } }
+    SettingsGroup {
+        title: "Library"
+        note: "Like a note app, Owelk keeps its own copy of every PDF you open, add or download, in its data folder. The original files are never moved or deleted; you can remove them yourself."
+        SettingsRow {
+            label: "Keep PDFs in Owelk"
+            Switch {
+                objectName: "keepPdfs"
+                checked: root.keepPdfs
+                onToggled: { researchStore.setSetting("library.keepPdfs", checked ? "1" : "0"); root.keepPdfs = checked }
+            }
+        }
+        SettingsRow {
+            visible: root.keepPdfs && (root.outside > 0 || researchStore.copyingPdfs)
+            label: researchStore.copyingPdfs ? "Copying PDFs…" : root.outside + (root.outside === 1 ? " paper still reads its PDF from elsewhere" : " papers still read their PDFs from elsewhere")
+            detail: "Each copy is checked byte for byte before the paper uses it."
+            Button {
+                objectName: "copyPdfsIn"
+                text: "Copy Into Owelk"
+                enabled: !researchStore.copyingPdfs
+                onClicked: researchStore.copyPdfsIntoLibrary()
+            }
+        }
+        SettingsRow {
+            label: "PDF folder"
+            Button { objectName: "showPapersFolder"; text: "Show Folder"; onClicked: Qt.openUrlExternally(researchStore.papersFolderUrl()) }
+        }
+    }
     SettingsGroup {
         title: "Sync"
         note: root.syncProblem.length ? root.syncProblem

@@ -1330,11 +1330,12 @@ bool ResearchStore::setSetting(const QString &key, const QString &value)
     return true;
 }
 
-QVariantMap ResearchStore::downloadTarget(const QString &suggestedName) const
+QVariantMap ResearchStore::downloadTarget(const QString &suggestedName, bool pdf) const
 {
     auto directory = setting("downloadFolder");
     if (directory.isEmpty() || !QFileInfo(directory).isDir())
         directory = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    if (pdf && keepsPdfs() && QDir().mkpath(papersFolder())) directory = papersFolder();
     // Keep only a plain file name; never let a server choose the folder.
     auto name = QFileInfo(suggestedName).fileName().remove(QRegularExpression("[\\x00-\\x1f/\\\\:]")).trimmed();
     if (name.isEmpty() || name.startsWith('.')) name = "download.pdf";

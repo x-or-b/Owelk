@@ -73,7 +73,7 @@ Rectangle {
             if (download.view !== undefined && download.view !== null && download.view !== view) return
             if ((download.view === undefined || download.view === null) && !root.isActive) return
             const pdf = root.isPdf(download)
-            const target = researchStore.downloadTarget(download.suggestedFileName || (pdf ? "download.pdf" : "download"))
+            const target = researchStore.downloadTarget(download.suggestedFileName || (pdf ? "download.pdf" : "download"), pdf)
             download.downloadDirectory = target.directory
             download.downloadFileName = target.fileName
             const replace = !view.canGoBack && download.url.toString() === root.openedUrl

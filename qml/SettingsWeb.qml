@@ -14,6 +14,7 @@ ColumnLayout {
         {name: "DuckDuckGo", template: "https://duckduckgo.com/?q=%s"},
         {name: "arXiv", template: "https://arxiv.org/search/?query=%s&searchtype=all"}
     ]
+    readonly property bool keepsPdfs: researchStore.setting("library.keepPdfs", "1") === "1"
     function folder() { const f = researchStore.setting("downloadFolder"); return f.length ? f : researchStore.downloadTarget("x").directory }
     Native.FolderDialog {
         id: folderDialog
@@ -22,9 +23,10 @@ ColumnLayout {
     }
     SettingsGroup {
         title: "PDFs"
-        note: "Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where highlights, captures and notes work."
+        note: (root.keepsPdfs ? "Downloaded PDFs go to Owelk's own PDF folder (Settings › Data); other files go to the folder above. " : "")
+            + "Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where highlights, captures and notes work."
         SettingsRow {
-            label: "Download to"
+            label: root.keepsPdfs ? "Other downloads to" : "Download to"
             wide: true
             TextField { id: folderField; objectName: "downloadFolderField"; Layout.fillWidth: true; readOnly: true; text: root.folder() }
             IconButton { icon.name: "open"; description: "Choose a folder…"; onClicked: folderDialog.open() }

@@ -395,11 +395,11 @@ int ResearchStore::addDocuments(const QVariantList &sources, const QString &coll
 {
     QVariantList added;
     for (const auto &value : sources) {
-        const auto url = value.toUrl();
-        const QFileInfo info(url.toLocalFile());
-        if (!url.isLocalFile() || !info.isFile() || !info.isReadable()
+        const QFileInfo info(value.toUrl().toLocalFile());
+        if (!value.toUrl().isLocalFile() || !info.isFile() || !info.isReadable()
             || info.suffix().compare("pdf", Qt::CaseInsensitive))
             continue;
+        const auto url = adoptPdf(value.toUrl());
         const auto document = ensureDocument(url);
         if (document.isEmpty()) continue;
         QSqlQuery restore(m_database);
@@ -531,20 +531,29 @@ int ResearchStore::importFolder(const QUrl &folder, const QString &parentCollect
                     .arg(QFileInfo(root).fileName())
                     .arg(made ? QString(" into %1 new collections").arg(made) : QString()));
     });
-    watcher->setFuture(QtConcurrent::run(&m_metadataWorkers, [root] {
-        QList<Found> found;
-        QDirIterator it(
-            root, {"*.pdf", "*.PDF"}, QDir::Files | QDir::Readable | QDir::NoSymLinks, QDirIterator::Subdirectories);
-        const QDir base(root);
-        while (it.hasNext() && found.size() < 10000) {
-            const auto path = it.next();
-            const QFileInfo info(path);
-            if (info.isHidden() || path.contains("/.")) continue;
-            found.append({path,
-                base.relativeFilePath(info.absolutePath()) == "." ? QString()
-                                                                  : base.relativeFilePath(info.absolutePath())});
-        }
-        return found;
-    }));
+    const bool keep = keepsPdfs();
+    watcher->setFuture(
+        QtConcurrent::run(&m_metadataWorkers, [root, keep, directory = m_directory, relinks = m_relinks] {
+            QList<Found> found;
+            QDirIterator it(root, {"*.pdf", "*.PDF"}, QDir::Files | QDir::Readable | QDir::NoSymLinks,
+                QDirIterator::Subdirectories);
+            const QDir base(root);
+            while (it.hasNext() && found.size() < 10000) {
+                const auto path = it.next();
+                const QFileInfo info(path);
+                if (info.isHidden() || path.contains("/.")) continue;
+                found.append({path,
+                    base.relativeFilePath(info.absolutePath()) == "." ? QString()
+                                                                      : base.relativeFilePath(info.absolutePath())});
+            }
+            // Kept PDFs are copied here, off the UI thread; the folder's own files stay where they are.
+            if (keep) {
+                QStringList paths;
+                for (const auto &f : found) paths << f.path;
+                const auto adopted = adoptPdfFiles(directory, relinks, paths);
+                for (int i = 0; i < found.size(); ++i) found[i].path = adopted[i];
+            }
+            return found;
+        }));
     return request;
 }
