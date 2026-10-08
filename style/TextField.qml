@@ -19,6 +19,20 @@ T.TextField {
     verticalAlignment: TextInput.AlignVCenter
     selectByMouse: true
     Keys.onPressed: function(event) { if (!event.accepted && LineDelete.handle(control, event, false)) event.accepted = true }
+    // Right-click: Undo, Cut, Copy, Paste… (TextMenu.qml). Outside the selection it moves the caret first.
+    TapHandler {
+        property var menu: null
+        acceptedButtons: Qt.RightButton
+        onTapped: function(point) {
+            const at = control.positionAt(point.position.x, point.position.y)
+            control.forceActiveFocus()
+            if (control.selectionStart === control.selectionEnd || at < control.selectionStart || at > control.selectionEnd)
+                control.cursorPosition = at
+            if (!menu) menu = textMenu.createObject(control, { target: control })
+            menu.show(point.position.x, point.position.y)
+        }
+    }
+    Component { id: textMenu; TextMenu {} }
     PlaceholderText {
         id: placeholder
         x: control.leftPadding

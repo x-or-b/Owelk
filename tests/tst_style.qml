@@ -88,6 +88,29 @@ Item {
             keyClick(Qt.Key_Backspace, mods)
             compare(single.text, "")
         }
+        function test_rightClickTextMenuOffersOnlyWhatWorks() {
+            single.text = "alpha beta"
+            mouseClick(single, single.width - 20, single.height / 2, Qt.RightButton)
+            let menu = null
+            tryVerify(function() { menu = findChild(single, "textMenuCopy"); return menu !== null && menu.visible })
+            verify(!findChild(single, "textMenuCut").enabled) // Nothing selected.
+            verify(findChild(single, "textMenuSelectAll").enabled)
+            findChild(single, "textMenuSelectAll").triggered()
+            keyClick(Qt.Key_Escape)
+            compare(single.selectedText, "alpha beta")
+            // The selection survives the menu, so Cut works on it.
+            mouseClick(single, 20, single.height / 2, Qt.RightButton)
+            tryVerify(function() { return findChild(single, "textMenuCut").enabled })
+            findChild(single, "textMenuCut").triggered()
+            compare(single.text, "")
+            keyClick(Qt.Key_Escape)
+            single.readOnly = true
+            mouseClick(single, 20, single.height / 2, Qt.RightButton)
+            tryVerify(function() { return findChild(single, "textMenuPaste") !== null })
+            verify(!findChild(single, "textMenuPaste").enabled)
+            keyClick(Qt.Key_Escape)
+            single.readOnly = false
+        }
         function test_annotationInksMatchStoreValidation() {
             // UI swatches and C++ validation must accept exactly the same inks, in the same order.
             compare(Theme.annotationInks.map(function(ink) { return ink.value }), researchStore.annotationColors)
