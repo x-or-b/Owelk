@@ -8,6 +8,7 @@
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QRegularExpression>
+#include <QStandardPaths>
 #include <QSqlQuery>
 #include <QtConcurrent>
 
@@ -81,7 +82,56 @@ bool ResearchStore::keepsPdfs() const
 
 QString ResearchStore::papersFolder() const
 {
-    return m_directory + "/papers";
+    return m_papers;
+}
+
+// The usual data folder keeps PDFs in Documents/Owelk, where people look for files; a data folder
+// given on the command line (development, tests) keeps them inside itself.
+QString ResearchStore::defaultPapersFolder(const QString &directory)
+{
+    const auto documents = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    if (directory == QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) && !documents.isEmpty())
+        return documents + "/Owelk";
+    return directory + "/papers";
+}
+
+// PDFs kept before the folder moved to Documents/Owelk follow it: each file moves, then its paper
+// switches over the same way Locate Original PDF does (the old path still finds it).
+void ResearchStore::relocatePapers()
+{
+    const auto old = m_directory + "/papers";
+    if (old == m_papers || !QFileInfo(old).isDir()) return;
+    QSqlQuery query(m_database);
+    QList<QPair<QString, QString>> papers;
+    if (!query.exec("SELECT url,sha256 FROM documents WHERE url LIKE 'file:%'")) return;
+    while (query.next()) {
+        const auto path = QUrl(query.value(0).toString()).toLocalFile();
+        if (path.startsWith(old + "/")) papers.append({path, query.value(1).toString()});
+    }
+    query.finish();
+    int moved = 0;
+    for (const auto &[path, hash] : std::as_const(papers)) {
+        const auto target = uniqueFile(m_papers, QFileInfo(path).fileName());
+        const bool present = QFileInfo::exists(path);
+        if (present && (!QDir().mkpath(m_papers) || !QFile::rename(path, target))) continue;
+        const auto from = QUrl::fromLocalFile(path), to = QUrl::fromLocalFile(target);
+        QString error;
+        if (!applyRelink(from, to, hash, &error)) {
+            if (present) QFile::rename(target, path);
+            continue;
+        }
+        m_relinks.insert(from.toString(), to.toString());
+        m_index->relocateSource(from, to);
+        // A paper still arriving through sync lands in the new place.
+        QSqlQuery pending(m_database);
+        pending.prepare("UPDATE sync_files SET local=? WHERE local=?");
+        pending.addBindValue(target);
+        pending.addBindValue(path);
+        pending.exec();
+        ++moved;
+    }
+    QDir().rmdir(old); // Only when nothing else is left in it.
+    if (moved) m_startupMessage = QString("Owelk's PDFs now live in %1.").arg(QDir::toNativeSeparators(m_papers));
 }
 
 QUrl ResearchStore::papersFolderUrl() const
@@ -92,12 +142,17 @@ QUrl ResearchStore::papersFolderUrl() const
 
 QUrl ResearchStore::adoptPdf(const QUrl &source)
 {
+    return adoptPdf(source, nullptr);
+}
+
+QUrl ResearchStore::adoptPdf(const QUrl &source, QHash<QString, QUrl> *batch)
+{
     const auto url = resolvedSource(source);
-    return keepsPdfs() ? adoptFile(m_database, papersFolder(), url, nullptr) : url;
+    return keepsPdfs() ? adoptFile(m_database, papersFolder(), url, batch) : url;
 }
 
 QStringList ResearchStore::adoptPdfFiles(
-    const QString &directory, const QHash<QString, QString> &relinks, const QStringList &paths)
+    const QString &directory, const QString &papers, const QHash<QString, QString> &relinks, const QStringList &paths)
 {
     // Runs on a worker: its own read-only connection; relinked paths resolve like resolvedSource.
     WorkerConnection db(directory + "/owelk.sqlite3", true);
@@ -106,7 +161,7 @@ QStringList ResearchStore::adoptPdfFiles(
     for (const auto &path : paths) {
         auto url = QUrl::fromLocalFile(path).toString();
         for (int hop = 0; hop < 16 && relinks.contains(url); ++hop) url = relinks.value(url);
-        adopted << adoptFile(db.db, directory + "/papers", QUrl(url), &batch).toLocalFile();
+        adopted << adoptFile(db.db, papers, QUrl(url), &batch).toLocalFile();
     }
     return adopted;
 }

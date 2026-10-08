@@ -276,7 +276,7 @@ Rectangle {
                         leftPadding: 8 + 14 * (entry.modelData.depth || 0)
                         highlighted: !entry.modelData.header && root.selected(entry.modelData.key, entry.modelData.value)
                         text: entry.modelData.label || ""
-                        contentItem: Text {
+                        contentItem: Label {
                             leftPadding: 0; rightPadding: 28
                             text: item.text; font: item.font; elide: Text.ElideRight; textFormat: Text.PlainText
                             color: item.highlighted ? Theme.selectedText : Theme.text

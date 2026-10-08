@@ -90,6 +90,8 @@ ResearchStore::ResearchStore(const QString &directory, QObject *parent)
       m_index(new PaperIndex(directory, this)), m_references(new ReferenceFinder(m_index->readerBusyFlag(), this)),
       m_lookup(new MetadataLookup(this)), m_ai(new AiService(this, this)), m_sync(new LibrarySync(directory, this))
 {
+    m_papers = defaultPapersFolder(directory);
+    m_sync->setPapersFolder(m_papers);
     connect(m_sync, &LibrarySync::received, this, &ResearchStore::syncReceived);
     m_workers.setMaxThreadCount(1);
     m_verifiers.setMaxThreadCount(2);
@@ -297,6 +299,10 @@ bool ResearchStore::initialize(QString *error)
     m_index->setExclusionCheck([this](const QUrl &url) { return excludedFromIndex(url); });
     PdfAccess::setKeyDirectory(m_directory);
     if (!m_index->initialize(error)) return false;
+    // A folder chosen in the settings table wins over the default (tests use it too).
+    if (const auto chosen = setting("library.folder"); !chosen.isEmpty()) m_papers = QDir(chosen).absolutePath();
+    m_sync->setPapersFolder(m_papers);
+    relocatePapers();
     // Meaning search follows changes to indexed text and saved items, only while it is turned on.
     m_semantic = new SemanticIndex(this, m_index, m_directory, this);
     for (const auto signal : {&ResearchStore::notesChanged, &ResearchStore::highlightsChanged,

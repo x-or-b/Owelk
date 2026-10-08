@@ -34,6 +34,10 @@ T.TabButton {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
+            HoverHandler { id: cutHover; enabled: label.truncated }
+            T.ToolTip.visible: cutHover.hovered && label.truncated
+            T.ToolTip.delay: 500
+            T.ToolTip.text: label.text
         }
     }
     background: Rectangle {

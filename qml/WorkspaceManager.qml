@@ -77,12 +77,12 @@ Dialog {
                 Layout.fillWidth: true
                 textRole: "label"
                 model: root.availableCaptures.map(function(c) { return {id: c.id, label: c.name + " · p. " + (Number(c.page) + 1) + " · " + (c.text || c.note || "Region capture").slice(0, 90)} })
-                contentItem: Text { text: capturePicker.displayText; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
+                contentItem: Label { text: capturePicker.displayText; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
                 delegate: ItemDelegate {
                     required property var modelData
                     required property int index
                     width: capturePicker.width; highlighted: capturePicker.highlightedIndex === index
-                    contentItem: Text { text: modelData.label; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideMiddle; verticalAlignment: Text.AlignVCenter }
+                    contentItem: Label { text: modelData.label; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideMiddle; verticalAlignment: Text.AlignVCenter }
                 }
             }
             Button { objectName: "linkCaptureButton"; text: "Link capture"; enabled: capturePicker.currentIndex >= 0 && root.availableCaptures.length > 0; onClicked: root.linkCapture(root.availableCaptures[capturePicker.currentIndex].id, true) }

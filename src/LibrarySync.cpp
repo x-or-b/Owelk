@@ -170,9 +170,9 @@ bool markEverything(QSqlDatabase &db, QString *error)
 // One sync pass over a database connection on the current thread.
 class Pass {
 public:
-    Pass(QSqlDatabase &db, const QString &data, const QString &folder, const QString &device,
+    Pass(QSqlDatabase &db, const QString &data, const QString &papers, const QString &folder, const QString &device,
         std::shared_ptr<std::atomic_bool> cancel)
-        : m_db(db), m_data(data), m_folder(folder), m_device(device), m_cancel(std::move(cancel))
+        : m_db(db), m_data(data), m_papers(papers), m_folder(folder), m_device(device), m_cancel(std::move(cancel))
     {
     }
     LibrarySync::Outcome outcome;
@@ -234,7 +234,7 @@ private:
     void placeCaptureImages();
 
     QSqlDatabase &m_db;
-    QString m_data, m_folder, m_device;
+    QString m_data, m_papers, m_folder, m_device;
     std::shared_ptr<std::atomic_bool> m_cancel;
     QHash<QString, QStringList> m_columns;
     QHash<QString, QHash<QString, QString>> m_aliases;
@@ -463,7 +463,7 @@ bool Pass::upsert(const QString &table, QVariantMap row, const QStringList &keys
             QSqlQuery url(m_db);
             if (!run(url, "SELECT url FROM documents WHERE " + where(keys), keyValues)) return false;
             const auto path = url.next() ? QUrl(url.value(0).toString()).toLocalFile() : QString();
-            if (path.startsWith(m_data + "/papers/") && !QFileInfo::exists(path)
+            if (path.startsWith(m_papers + "/") && !QFileInfo::exists(path)
                 && !run("INSERT OR IGNORE INTO sync_files(local,remote,outgoing) VALUES(?,?,0)",
                     {path, "Papers/" + row.value("sha256").toString() + ".pdf"}))
                 return false;
@@ -493,14 +493,14 @@ bool Pass::upsert(const QString &table, QVariantMap row, const QStringList &keys
     return run("INSERT INTO " + table + "(" + fields.join(',') + ") VALUES(" + marks.join(',') + ")", values);
 }
 
-// Papers from other computers are copied into the data folder's papers/, under their file name.
+// Papers from other computers are copied into the store's PDF folder, under their file name.
 QString Pass::localPaperPath(const QVariantMap &row)
 {
     const auto sha = row.value("sha256").toString();
     auto name = QUrl(row.value("url").toString()).fileName();
     if (name.isEmpty() || name.startsWith('.'))
         name = (sha.isEmpty() ? row.value("id").toString() : sha.left(16)) + ".pdf";
-    const auto folder = m_data + "/papers/";
+    const auto folder = m_papers + "/";
     const auto taken = [&](const QString &path) {
         QSqlQuery query(m_db);
         return QFileInfo::exists(path)
@@ -732,8 +732,8 @@ bool markerMatches(const QString &folder, const QString &library)
     return !library.isEmpty() && readJson(folder + "/" + markerName).value("library").toString() == library;
 }
 
-LibrarySync::Outcome runPass(const QString &data, const QString &folder, const QString &device, const QString &library,
-    std::shared_ptr<std::atomic_bool> cancel, bool exportOnly)
+LibrarySync::Outcome runPass(const QString &data, const QString &papers, const QString &folder, const QString &device,
+    const QString &library, std::shared_ptr<std::atomic_bool> cancel, bool exportOnly)
 {
     if (!markerMatches(folder, library)) {
         LibrarySync::Outcome outcome;
@@ -742,7 +742,7 @@ LibrarySync::Outcome runPass(const QString &data, const QString &folder, const Q
         return outcome;
     }
     WorkerConnection connection(data + "/owelk.sqlite3");
-    Pass pass(connection.db, data, folder, device, std::move(cancel));
+    Pass pass(connection.db, data, papers, folder, device, std::move(cancel));
     if (!connection.db.isOpen()) {
         pass.outcome.error = connection.db.lastError().text();
         return pass.outcome;
@@ -855,7 +855,7 @@ void LibrarySync::syncNow()
         finished(watcher->result());
     });
     watcher->setFuture(
-        QtConcurrent::run(&m_pool, runPass, m_directory, m_folder, m_device, m_library, m_cancel, false));
+        QtConcurrent::run(&m_pool, runPass, m_directory, m_papers, m_folder, m_device, m_library, m_cancel, false));
 }
 
 LibrarySync::Outcome LibrarySync::syncBlocking()
@@ -865,7 +865,7 @@ LibrarySync::Outcome LibrarySync::syncBlocking()
         m_pool.waitForDone();
         QCoreApplication::processEvents();
     }
-    const auto outcome = runPass(m_directory, m_folder, m_device, m_library, m_cancel, false);
+    const auto outcome = runPass(m_directory, m_papers, m_folder, m_device, m_library, m_cancel, false);
     m_running = true;
     finished(outcome);
     return outcome;
@@ -877,7 +877,7 @@ void LibrarySync::finish()
     if (m_folder.isEmpty()) return;
     m_cancel->store(true);
     m_pool.waitForDone();
-    runPass(m_directory, m_folder, m_device, m_library, m_cancel, true);
+    runPass(m_directory, m_papers, m_folder, m_device, m_library, m_cancel, true);
     m_folder.clear();
 }
 

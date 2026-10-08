@@ -28,6 +28,11 @@ T.Button {
         text: control.text
         font: control.font
         color: !control.enabled ? Theme.textDisabled : control.accented ? Theme.onAccent : control.palette.buttonText
+        // Cut off (too narrow): the whole text on hover.
+        HoverHandler { id: cutHover; enabled: control.text.length > 0 && control.implicitContentWidth > control.availableWidth + 1 }
+        T.ToolTip.visible: cutHover.enabled && cutHover.hovered
+        T.ToolTip.delay: 500
+        T.ToolTip.text: control.text
     }
     background: Rectangle {
         implicitWidth: 64

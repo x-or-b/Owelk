@@ -1275,6 +1275,44 @@ private slots:
         QCOMPARE(store.documentLinkId(moved), id);
         QCOMPARE(store.documentLinkId(old), id);
         QCOMPARE(store.libraryDocuments().size(), 2);
+        // Two files with the same bytes added together become one paper.
+        const auto twin = QUrl::fromLocalFile(directory.filePath("twin.pdf")),
+                   twinCopy = QUrl::fromLocalFile(directory.filePath("twin copy.pdf"));
+        writeFixture(twin.toLocalFile(), "Twin Paper");
+        QVERIFY(QFile::copy(twin.toLocalFile(), twinCopy.toLocalFile()));
+        store.addDocuments({twin, twinCopy});
+        QTRY_COMPARE_WITH_TIMEOUT(store.libraryDocuments().size(), 3, 5000);
+    }
+    void keptPdfsFollowTheirFolder()
+    {
+        // PDFs kept in the data folder move when the PDF folder changes (the move to Documents/Owelk);
+        // each paper keeps its ID and the old path still finds it.
+        QTemporaryDir directory;
+        const auto original = directory.filePath("paper.pdf");
+        writeFixture(original, "Moving Paper");
+        QUrl kept;
+        QString id, error;
+        {
+            ResearchStore store(directory.filePath("data"));
+            QVERIFY2(store.initialize(&error), qPrintable(error));
+            kept = store.adoptPdf(QUrl::fromLocalFile(original));
+            QVERIFY(kept.toLocalFile().startsWith(directory.filePath("data/papers/")));
+            QVERIFY(store.rememberDocument(kept));
+            id = store.documentLinkId(kept);
+            QVERIFY(store.setSetting("library.folder", directory.filePath("Documents/Owelk")));
+            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+        }
+        ResearchStore store(directory.filePath("data"));
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QCOMPARE(store.papersFolder(), directory.filePath("Documents/Owelk"));
+        const auto moved = store.resolvedSource(kept);
+        QCOMPARE(moved, QUrl::fromLocalFile(directory.filePath("Documents/Owelk/paper.pdf")));
+        QVERIFY(QFileInfo::exists(moved.toLocalFile()));
+        QVERIFY(!QFileInfo::exists(kept.toLocalFile()));
+        QVERIFY(QFileInfo::exists(original));
+        QCOMPARE(store.documentLinkId(moved), id);
+        QCOMPARE(store.libraryDocuments().size(), 1);
+        QCOMPARE(store.libraryDocuments()[0].toMap()["url"].toUrl(), moved);
     }
     void addRemoveAndRestoreLibraryPapers()
     {

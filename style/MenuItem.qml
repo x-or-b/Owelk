@@ -30,6 +30,11 @@ T.MenuItem {
         text: control.text
         font: control.font
         color: control.enabled ? control.palette.windowText : Theme.textDisabled
+        // Cut off (too narrow): the whole text on hover.
+        HoverHandler { id: cutHover; enabled: control.text.length > 0 && control.implicitContentWidth > control.availableWidth + 1 }
+        T.ToolTip.visible: cutHover.enabled && cutHover.hovered
+        T.ToolTip.delay: 500
+        T.ToolTip.text: control.text
     }
     indicator: Icon {
         x: control.mirrored ? control.width - width - control.rightPadding : control.leftPadding

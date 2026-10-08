@@ -438,21 +438,29 @@ ApplicationWindow {
         function close() { visible = false }
         visible: false
         x: (parent.width - width) / 2; y: 8
-        width: Math.min(560, parent.width - 32); height: 44
+        width: Math.min(620, parent.width - 32); height: duplicateRow.implicitHeight + 16
         color: Theme.raised; border.color: Theme.border; radius: Theme.radiusLarge
         RowLayout {
-            anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 6
+            id: duplicateRow
+            anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+            anchors.leftMargin: 12; anchors.rightMargin: 6
             spacing: 6
-            Label {
+            ColumnLayout {
                 Layout.fillWidth: true
-                text: "Same file as \u201c" + duplicateBar.existingTitle + "\u201d"
-                elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text
-                ToolTip.visible: duplicateHover.hovered; ToolTip.delay: 450
-                ToolTip.text: researchStore.localPath(duplicateBar.existing)
-                HoverHandler { id: duplicateHover }
+                spacing: 1
+                Label { Layout.fillWidth: true; text: "This PDF is already in your Library"; font.weight: Font.DemiBold; color: Theme.text; wrapMode: Text.Wrap }
+                // The title wraps to two lines; anything longer shows in full on hover.
+                Label {
+                    Layout.fillWidth: true
+                    text: "\u201c" + duplicateBar.existingTitle + "\u201d"
+                    wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; textFormat: Text.PlainText
+                    font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
+                }
             }
             Button {
-                objectName: "openExistingCopy"; text: "Open Existing"; focusPolicy: Qt.NoFocus
+                objectName: "openExistingCopy"; text: "Use Existing"; focusPolicy: Qt.NoFocus
+                ToolTip.visible: hovered; ToolTip.delay: 450
+                ToolTip.text: "Read the paper already in your Library (with its notes). This extra entry is set aside; no file is deleted."
                 onClicked: {
                     if (researchStore.useExistingCopy(duplicateBar.source, duplicateBar.existing))
                         documents.relinkSource(duplicateBar.source, duplicateBar.existing)
@@ -461,6 +469,8 @@ ApplicationWindow {
             }
             Button {
                 objectName: "keepBothCopies"; text: "Keep Both"; focusPolicy: Qt.NoFocus
+                ToolTip.visible: hovered; ToolTip.delay: 450
+                ToolTip.text: "Keep two separate papers, each with its own notes. Owelk won't ask again about this file."
                 onClicked: { researchStore.keepDuplicate(duplicateBar.source); duplicateBar.close() }
             }
             IconButton { icon.name: "close"; description: "Dismiss"; focusPolicy: Qt.NoFocus; onClicked: duplicateBar.close() }

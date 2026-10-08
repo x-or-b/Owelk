@@ -45,6 +45,8 @@ public:
     Q_INVOKABLE QString setFolder(const QUrl &folder);
     Q_INVOKABLE void turnOff();
     Q_INVOKABLE void syncNow();
+    // Where papers from other computers are copied (the store's PDF folder).
+    void setPapersFolder(const QString &folder) { m_papers = folder; }
     // One whole pass on the calling thread (tests).
     Outcome syncBlocking();
     // At quit: stop copying files and write the last changes (files follow on the next start).
@@ -57,7 +59,7 @@ signals:
 
 private:
     void finished(const Outcome &outcome);
-    QString m_directory, m_folder, m_device, m_library, m_status;
+    QString m_directory, m_papers, m_folder, m_device, m_library, m_status;
     QStringList m_computers;
     bool m_running = false, m_again = false;
     QThreadPool m_pool;

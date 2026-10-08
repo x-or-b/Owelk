@@ -356,10 +356,18 @@ bool ResearchStore::keepDuplicate(const QUrl &source)
 bool ResearchStore::useExistingCopy(const QUrl &duplicate, const QUrl &existing)
 {
     if (!rememberDocument(existing)) return false;
+    const auto id = findDocument(duplicate);
     QSqlQuery query(m_database);
     query.prepare("DELETE FROM recent_documents WHERE document_id=?");
-    query.addBindValue(findDocument(duplicate));
+    query.addBindValue(id);
     query.exec();
+    // An extra entry with nothing of its own also leaves the Library (hidden, like Remove from
+    // Library: its file stays and opening it again brings it back).
+    query.prepare("SELECT EXISTS(SELECT 1 FROM highlights WHERE document_id=? AND deleted_at IS NULL) "
+                  "OR EXISTS(SELECT 1 FROM captures WHERE document_id=?)");
+    query.addBindValue(id);
+    query.addBindValue(id);
+    if (!id.isEmpty() && query.exec() && query.next() && !query.value(0).toBool()) removeFromLibrary({duplicate});
     emit recentDocumentsChanged();
     emit homeChanged();
     return true;

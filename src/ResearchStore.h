@@ -369,8 +369,13 @@ private:
     QHash<QString, QString> m_relinks;
     bool m_relinking = false;
     bool m_copyingPdfs = false;
-    static QStringList adoptPdfFiles(
-        const QString &directory, const QHash<QString, QString> &relinks, const QStringList &paths);
+    static QStringList adoptPdfFiles(const QString &directory, const QString &papers,
+        const QHash<QString, QString> &relinks, const QStringList &paths);
+    // Same-bytes files met earlier in one batch reuse that copy.
+    QUrl adoptPdf(const QUrl &source, QHash<QString, QUrl> *batch);
+    static QString defaultPapersFolder(const QString &directory);
+    void relocatePapers();
+    QString m_papers;
     QString m_directory;
     QString m_connection;
     QSqlDatabase m_database;

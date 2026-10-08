@@ -29,11 +29,16 @@ T.Button {
             color: control.checked ? Theme.selectedText : Theme.textSecondary
         }
         Text {
+            id: chipText
             visible: !control.compact
             Layout.fillWidth: true
             text: control.text
             font: control.font
             elide: Text.ElideRight
+            HoverHandler { id: cutHover; enabled: chipText.truncated }
+            T.ToolTip.visible: cutHover.hovered && chipText.truncated
+            T.ToolTip.delay: 500
+            T.ToolTip.text: chipText.text
             verticalAlignment: Text.AlignVCenter
             color: !control.enabled ? Theme.textDisabled : control.checked ? Theme.selectedText : Theme.textSecondary
         }
