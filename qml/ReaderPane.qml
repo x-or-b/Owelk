@@ -548,6 +548,17 @@ Rectangle {
         }
     }
     Timer { id: searchDelay; interval: 220; onTriggered: canvas.searchString = searchField.text }
+    // ←/→ scroll sideways when the page is wider than the view (a focused text field keeps its arrows).
+    Shortcut {
+        sequence: "Left"
+        enabled: root.isActive && canvas.ready && canvas.wide
+        onActivated: canvas.scrollAcross(-80)
+    }
+    Shortcut {
+        sequence: "Right"
+        enabled: root.isActive && canvas.ready && canvas.wide
+        onActivated: canvas.scrollAcross(80)
+    }
     Shortcut {
         sequences: [StandardKey.Copy]
         enabled: root.isActive && canvas.selectedText.length > 0 && !searchField.activeFocus && !pageField.activeFocus

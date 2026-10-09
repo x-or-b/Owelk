@@ -157,6 +157,17 @@ Item {
     property real targetScrollX: 0
     property real targetScrollY: 0
     property int sourceScrollDuration: 800
+    // The page scroll bars appear while scrolling or under the pointer and stay this long (ms) after.
+    readonly property int scrollBarHold: 1500
+    function scrollBarShown(bar) { return bar.active || bar.hovered || bar.pressed }
+    // Sideways by a number of pixels (Shift+wheel, ←/→), kept within the pages.
+    readonly property bool wide: pages.contentWidth > pages.width + 1
+    function scrollAcross(pixels) {
+        if (pages.contentWidth <= pages.width) return false
+        stopSourceMotion()
+        pages.contentX = Math.max(0, Math.min(pages.contentWidth - pages.width, pages.contentX + pixels))
+        return true
+    }
     // Going to a place: captures and annotations move quickly and flash; a place cited by an AI answer
     // (passage) moves a little slower and stays lit longer. Tune the passage values here.
     readonly property real passageScrollPace: 1.3   // × the capture move time
@@ -624,10 +635,22 @@ Item {
             background: Item {}
             // Over the pages, shown only while scrolling or under the pointer.
             contentItem: Rectangle {
+                id: verticalHandle
                 implicitWidth: 8; implicitHeight: 36; radius: 4
                 color: parent.pressed ? Theme.scrollHandlePressed : parent.hovered ? Theme.scrollHandleHover : Theme.scrollHandle
-                opacity: parent.active || parent.hovered || parent.pressed ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 200 } }
+                opacity: 0
+                states: State {
+                    name: "shown"
+                    when: root.scrollBarShown(verticalHandle.parent)
+                    PropertyChanges { target: verticalHandle; opacity: 1 }
+                }
+                transitions: Transition {
+                    from: "shown"
+                    SequentialAnimation {
+                        PauseAnimation { duration: root.scrollBarHold }
+                        NumberAnimation { target: verticalHandle; property: "opacity"; duration: 250 }
+                    }
+                }
             }
         }
         ScrollBar.horizontal: ScrollBar {
@@ -638,10 +661,33 @@ Item {
             onPressedChanged: if (pressed) root.stopSourceMotion()
             background: Item {}
             contentItem: Rectangle {
+                id: horizontalHandle
                 implicitWidth: 36; implicitHeight: 8; radius: 4
                 color: parent.pressed ? Theme.scrollHandlePressed : parent.hovered ? Theme.scrollHandleHover : Theme.scrollHandle
-                opacity: parent.active || parent.hovered || parent.pressed ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 200 } }
+                opacity: 0
+                states: State {
+                    name: "shown"
+                    when: root.scrollBarShown(horizontalHandle.parent)
+                    PropertyChanges { target: horizontalHandle; opacity: 1 }
+                }
+                transitions: Transition {
+                    from: "shown"
+                    SequentialAnimation {
+                        PauseAnimation { duration: root.scrollBarHold }
+                        NumberAnimation { target: horizontalHandle; property: "opacity"; duration: 250 }
+                    }
+                }
+            }
+        }
+        // A mouse wheel with Shift scrolls sideways when the page is wider than the view.
+        WheelHandler {
+            target: null
+            enabled: root.ready && !root.overPreview && pages.contentWidth > pages.width
+            acceptedDevices: PointerDevice.Mouse
+            acceptedModifiers: Qt.ShiftModifier
+            onWheel: function(event) {
+                const step = event.angleDelta.y !== 0 ? event.angleDelta.y : event.angleDelta.x
+                root.scrollAcross(-step / 120 * 60)
             }
         }
         WheelHandler {
@@ -1629,7 +1675,13 @@ Item {
                     currentFrame: previewCard.spec.page
                     width: previewFlick.width * previewFlick.zoom
                     height: previewFlick.points.width > 0 ? width * previewFlick.points.height / previewFlick.points.width : width
-                    sourceSize.width: Math.ceil(width * Screen.devicePixelRatio)
+                    // While zooming, the drawn image is scaled (no blank while it redraws); once the zoom rests
+                    // it is drawn again at the new size.
+                    property real drawnWidth: 0
+                    onWidthChanged: if (drawnWidth <= 0) drawnWidth = width; else zoomSettle.restart()
+                    Timer { id: zoomSettle; interval: 160; onTriggered: page.drawnWidth = page.width }
+                    sourceSize.width: Math.ceil(Math.max(1, drawnWidth) * Screen.devicePixelRatio)
+                    retainWhileLoading: true
                     asynchronous: true
                     fillMode: Image.PreserveAspectFit
                     layer.enabled: root.invertPages

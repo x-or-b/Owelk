@@ -268,6 +268,20 @@ Item {
             canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000)
         }
+        function test_sidewaysScrollWithoutATrackpad() {
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 2.5})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            tryCompare(canvas, "wide", true)
+            const list = findChild(canvas, "pageList"), start = list.contentX
+            verify(canvas.scrollAcross(80))
+            verify(list.contentX > start)
+            // Shift + mouse wheel scrolls sideways.
+            const before = list.contentX
+            mouseWheel(list, list.width / 2, list.height / 2, 0, -120, Qt.NoButton, Qt.ShiftModifier)
+            tryVerify(function() { return list.contentX > before })
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+        }
         function test_figureAndTablePreviewsShowTheFloatAndScroll() {
             canvas.openFile(referenceSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
