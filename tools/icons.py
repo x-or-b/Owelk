@@ -57,6 +57,7 @@ thumbnails layout-grid
 related network
 split columns-2
 splitDown rows-2
+symbols sigma
 preview eye
 check check
 home house

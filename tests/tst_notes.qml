@@ -52,11 +52,11 @@ Item {
             // Links in a note open their source.
             verify(workspace.documents.openLink("owelk://document/" + paper))
             tryVerify(function() { return activeTab().kind === undefined && researchStore.sameSource(activeTab().source, fixtureSource) })
-            // The Document panel lists notes linking to the paper.
-            workspace.navigationMode = 2
+            // The Document panel lists notes linking to the paper first under Related.
+            workspace.navigationMode = 3
             workspace.togglePanel("document")
             tryCompare(findChild(workspace, "leftDock"), "activePanel", "document")
-            tryVerify(function() { const list = findChild(workspace, "backlinkList"); return list && list.count >= 1 }, 5000)
+            tryVerify(function() { const related = findChild(workspace, "relatedView"); return related && visualChild(related.contentItem, "backlink-0") !== null }, 5000)
             workspace.togglePanel("document")
             // Trash closes its tab; restore and purge from the library.
             verify(workspace.documents.openNote(id))

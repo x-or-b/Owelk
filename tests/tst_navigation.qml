@@ -106,6 +106,33 @@ Item {
             panel.mode = 0
             tryCompare(list, "count", 0, 5000)
         }
+        function test_symbolsAreListedWithWhereTheyAreDefined() {
+            mouseClick(findChild(panel, "symbolsTab"))
+            compare(panel.mode, 2)
+            // Nothing is sent until asked; without a key the tab says what is missing.
+            const find = findChild(panel, "findSymbols")
+            tryCompare(find, "visible", true)
+            researchStore.ai.provider = "claude"
+            researchStore.ai.clearApiKey("claude")
+            mouseClick(find)
+            tryCompare(findChild(panel, "symbolsError"), "visible", true)
+            // A list: each symbol, its meaning, and its page; a row goes to the defining words.
+            panel.symbols = [{symbol: "\\omega_m", meaning: "angular velocity", page: 2, quote: "the angular velocity"},
+                             {symbol: "SE_2(3)", meaning: "extended poses", page: 0, quote: ""}]
+            const list = findChild(panel, "symbolList")
+            tryCompare(list, "count", 2)
+            verify(!find.visible)
+            const spy = createTemporaryObject(linkSpyComponent, panel)
+            tryVerify(function() { return findChild(panel, "symbolRow-0") !== null })
+            tryVerify(function() { return list.width > 0 && list.height > 0 })
+            mouseClick(findChild(panel, "symbolRow-0"))
+            compare(spy.count, 1)
+            verify(/^owelk:\/\/document\/[^#]+#page=2&q=the%20angular%20velocity$/.test(spy.signalArguments[0][0]), spy.signalArguments[0][0])
+            // Background knowledge has no place in the paper to go to.
+            verify(!findChild(panel, "symbolRow-1").enabled)
+            panel.symbols = []
+            mouseClick(findChild(panel, "outlineTab"))
+        }
         function test_switchPdfAndNoOutline() {
             reader.openFile(fixtureSource)
             tryCompare(reader, "pageCount", 8)

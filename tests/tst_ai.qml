@@ -607,6 +607,21 @@ Item {
             peek.close()
             c.clearSelection()
         }
+        function test_9zzzzzy_aPageLinkInFrontLeavesABackButton() {
+            workspace.documents.restore({})
+            workspace.openDocument(fixtureSource)
+            const c = canvas()
+            c.jump(0, 0, 0); tryCompare(c, "restoring", false)
+            c.backStack = []
+            const paper = researchStore.documentLinkId(fixtureSource)
+            verify(workspace.documents.openLink("owelk://document/" + paper + "#page=4&q=" + encodeURIComponent("Research finding 4.2")))
+            tryCompare(c, "currentPage", 3)
+            compare(c.backTarget.page, 0)
+            // The words are lit where the link pointed.
+            tryVerify(function() { return c.highlight !== null && c.highlight.page === 3 }, 5000)
+            verify(c.goBack())
+            tryCompare(c, "currentPage", 0)
+        }
         function test_9zzzzzz_symbolHintsMatchWhatIsPrinted() {
             workspace.documents.restore({})
             workspace.openDocument(fixtureSource)

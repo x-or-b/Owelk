@@ -81,6 +81,46 @@ Item {
             root.citations = result
         }
     }
+    // Symbols (AI): the paper's notation, asked for only on request and kept per paper.
+    property var symbols: []
+    property int symbolsRequest: -1
+    property bool symbolsLoading: false
+    property string symbolsError: ""
+    readonly property string symbolsSource: ready && mode === 2 ? reader.source.toString() : ""
+    onSymbolsSourceChanged: loadSymbols()
+    function loadSymbols() {
+        symbolsError = ""
+        symbols = symbolsSource.length ? researchStore.ai.notation(reader.source) : []
+    }
+    readonly property var aiProvider: researchStore.ai.providers.find(function(p) { return p.id === researchStore.ai.provider }) || ({})
+    function findSymbols() {
+        symbolsError = ""
+        if (!aiProvider.configured && researchStore.ai.provider !== "ollama") {
+            symbolsError = researchStore.ai.provider === "codex" ? "Sign in with ChatGPT in Settings → AI." : "Add an API key in Settings → AI."
+            return
+        }
+        // Pressing the button, under the note on what is sent, is the agreement.
+        researchStore.ai.giveConsent(researchStore.ai.provider)
+        symbolsLoading = true
+        symbolsRequest = researchStore.ai.findSymbols(reader.source)
+    }
+    // Where a symbol is defined: that page, with its defining words lit (and Back to return).
+    function goToSymbol(entry) {
+        if (!entry.page) return
+        let link = "owelk://document/" + researchStore.documentLinkId(reader.source) + "#page=" + entry.page
+        if (entry.quote) link += "&q=" + encodeURIComponent(entry.quote)
+        linkActivated(link)
+    }
+    Connections {
+        target: researchStore.ai
+        function onFinished(id) { if (id === root.symbolsRequest) { root.symbolsLoading = false; root.symbolsRequest = -1 } }
+        function onFailed(id, message) {
+            if (id !== root.symbolsRequest) return
+            root.symbolsLoading = false; root.symbolsRequest = -1
+            if (message !== "Stopped.") root.symbolsError = message
+        }
+        function onNotationChanged(paper) { if (root.symbolsSource.length && researchStore.sameSource(paper, root.reader.source)) root.loadSymbols() }
+    }
     PdfDocument { id: emptyDocument }
     // A blank document also avoids passing null to an active Qt PDF image/model during tab removal.
     readonly property var navigationDocument: reader && reader.pdfDocument ? reader.pdfDocument : emptyDocument
@@ -108,11 +148,7 @@ Item {
             currentIndex: root.mode
             TabButton { id: outlineTab; objectName: "outlineTab"; icon.name: "outline"; ToolTip.text: "Outline"; onClicked: root.modeChosen(0) }
             TabButton { id: thumbnailsTab; objectName: "thumbnailsTab"; icon.name: "thumbnails"; ToolTip.text: "Thumbnails"; onClicked: root.modeChosen(1) }
-            TabButton {
-                id: linksTab; objectName: "linksTab"; icon.name: "link"
-                ToolTip.text: "Linked notes"
-                onClicked: root.modeChosen(2)
-            }
+            TabButton { id: symbolsTab; objectName: "symbolsTab"; icon.name: "symbols"; ToolTip.text: "Symbols"; onClicked: root.modeChosen(2) }
             TabButton { id: relatedTab; objectName: "relatedTab"; icon.name: "related"; ToolTip.text: "Related"; onClicked: root.modeChosen(3) }
             TabButton { id: citationsTab; objectName: "citationsTab"; icon.name: "citations"; ToolTip.text: "Citations"; onClicked: root.modeChosen(4) }
         }
@@ -127,9 +163,59 @@ Item {
                 id: relatedColumn
                 width: parent.width
                 spacing: 2
+                // Notes linking to this paper or to its excerpts and annotations.
+                Label { visible: root.backlinks.length > 0; text: "Linked notes"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4 }
+                Repeater {
+                    model: root.backlinks
+                    delegate: ItemDelegate {
+                        required property var modelData
+                        required property int index
+                        objectName: "backlink-" + index
+                        Layout.fillWidth: true
+                        text: modelData.title
+                        font.pixelSize: Theme.fontSmall
+                        onClicked: root.linkActivated("owelk://" + modelData.kind + "/" + modelData.id)
+                    }
+                }
+                Label { text: "Similar papers"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: root.backlinks.length ? 10 : 4 }
+                Repeater {
+                    model: root.relatedPapers
+                    delegate: ItemDelegate {
+                        required property var modelData
+                        objectName: "relatedPaper-" + index
+                        required property int index
+                        Layout.fillWidth: true
+                        text: modelData.title
+                        font.pixelSize: Theme.fontSmall
+                        ToolTip.visible: hovered; ToolTip.delay: 450; ToolTip.text: researchStore.localPath(modelData.source)
+                        onClicked: root.linkActivated("owelk://document/" + modelData.documentId)
+                    }
+                }
+                Label {
+                    visible: !root.relatedPapers.length
+                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+                    text: root.relatedLoading ? "Looking for related papers…" : "No related papers in the library yet."
+                }
+                Label { text: "Similar notes"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 10 }
+                Repeater {
+                    // Notes linked above are not repeated.
+                    model: root.relatedNotes.filter(function(n) { return !root.backlinks.some(function(b) { return b.kind === "note" && b.id === n.id }) })
+                    delegate: ItemDelegate {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        text: modelData.title
+                        font.pixelSize: Theme.fontSmall
+                        onClicked: root.linkActivated("owelk://note/" + modelData.id)
+                    }
+                }
+                Label {
+                    visible: !root.relatedNotes.length && !root.relatedLoading
+                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+                    text: "No notes share this paper's key words."
+                }
                 Label {
                     visible: root.suggestedCollections.length > 0
-                    text: "Add to collection"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4
+                    text: "Add to collection"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 10
                 }
                 Flow {
                     visible: root.suggestedCollections.length > 0
@@ -149,41 +235,6 @@ Item {
                             }
                         }
                     }
-                }
-                Label { text: "Papers"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4 }
-                Repeater {
-                    model: root.relatedPapers
-                    delegate: ItemDelegate {
-                        required property var modelData
-                        objectName: "relatedPaper-" + index
-                        required property int index
-                        Layout.fillWidth: true
-                        text: modelData.title
-                        font.pixelSize: Theme.fontSmall
-                        ToolTip.visible: hovered; ToolTip.delay: 450; ToolTip.text: researchStore.localPath(modelData.source)
-                        onClicked: root.linkActivated("owelk://document/" + modelData.documentId)
-                    }
-                }
-                Label {
-                    visible: !root.relatedPapers.length
-                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
-                    text: root.relatedLoading ? "Looking for related papers…" : "No related papers in the library yet."
-                }
-                Label { text: "Notes"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 10 }
-                Repeater {
-                    model: root.relatedNotes
-                    delegate: ItemDelegate {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        text: modelData.title
-                        font.pixelSize: Theme.fontSmall
-                        onClicked: root.linkActivated("owelk://note/" + modelData.id)
-                    }
-                }
-                Label {
-                    visible: !root.relatedNotes.length && !root.relatedLoading
-                    Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
-                    text: "No notes share this paper's key words."
                 }
             }
         }
@@ -293,28 +344,92 @@ Item {
                 MenuItem { text: "Copy Title"; onTriggered: researchStore.copyText(citationMenu.row.title) }
             }
         }
-        ListView {
-            objectName: "backlinkList"
+        ColumnLayout {
+            objectName: "symbolsView"
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: root.mode === 2 && root.ready
-            clip: true
-            model: root.backlinks
-            delegate: ItemDelegate {
-                required property var modelData
-                width: ListView.view.width
-                text: modelData.title
-                font.pixelSize: Theme.fontSmall
-                ToolTip.visible: hovered; ToolTip.delay: 450
-                ToolTip.text: modelData.via === "document" ? "Links to this paper" : "Links to an " + (modelData.via === "capture" ? "excerpt" : "annotation") + " in this paper"
-                onClicked: root.linkActivated("owelk://" + modelData.kind + "/" + modelData.id)
+            spacing: 6
+            readonly property bool loaded: root.symbols.length > 0
+            // Before anything is asked: what the button sends.
+            Label {
+                visible: !parent.loaded && !root.symbolsLoading
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+                text: "The symbols this paper uses: what each means and where it is defined. Sends the paper's text to "
+                      + (root.aiProvider.sends || root.aiProvider.name || "the AI provider") + "."
+            }
+            Button {
+                objectName: "findSymbols"
+                visible: !parent.loaded && !root.symbolsLoading
+                text: root.symbolsError.length ? "Try Again" : "Find Symbols"
+                onClicked: root.findSymbols()
+            }
+            RowLayout {
+                visible: root.symbolsLoading
+                Layout.fillWidth: true
+                Label { Layout.fillWidth: true; text: "Finding symbols…"; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
+                IconButton { objectName: "stopSymbols"; icon.name: "stop"; description: "Stop"; onClicked: researchStore.ai.cancel(root.symbolsRequest) }
             }
             Label {
-                anchors.centerIn: parent; width: parent.width - 16
-                visible: parent.count === 0
-                text: "No notes link to this paper yet. Use Link to Note… on an excerpt or annotation, or [[ in a note."
-                wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; color: Theme.textTertiary
+                objectName: "symbolsError"
+                visible: root.symbolsError.length > 0
+                Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.danger
+                text: root.symbolsError
             }
+            RowLayout {
+                visible: parent.loaded && !root.symbolsLoading
+                Layout.fillWidth: true
+                Label { Layout.fillWidth: true; text: root.symbols.length + " symbols"; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                IconButton { objectName: "refreshSymbols"; icon.name: "reload"; description: "Refresh"; onClicked: root.findSymbols() }
+            }
+            ListView {
+                objectName: "symbolList"
+                visible: parent.loaded
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                model: root.symbols
+                ScrollBar.vertical: ScrollBar {}
+                // A row: the symbol as typeset, what it means, and where it is defined (click: go there).
+                delegate: ItemDelegate {
+                    id: symbolRow
+                    required property var modelData
+                    required property int index
+                    objectName: "symbolRow-" + index
+                    width: ListView.view.width
+                    height: Math.max(Theme.rowHeight, details.implicitHeight + 10)
+                    enabled: modelData.page > 0
+                    onClicked: root.goToSymbol(modelData)
+                    contentItem: Item {
+                        Text {
+                            id: symbol
+                            x: 2; width: 48
+                            anchors.verticalCenter: parent.verticalCenter
+                            textFormat: Text.RichText
+                            text: researchStore.markdownHtml("$" + symbolRow.modelData.symbol + "$", Theme.accent, Theme.text, Theme.fontBody)
+                            color: Theme.text; font.pixelSize: Theme.fontSmall
+                        }
+                        Column {
+                            id: details
+                            x: symbol.x + symbol.width + 4
+                            width: parent.width - x
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 1
+                            Label {
+                                width: parent.width
+                                text: symbolRow.modelData.meaning
+                                wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.text
+                            }
+                            Label {
+                                text: symbolRow.modelData.page > 0 ? "p. " + symbolRow.modelData.page : "Background"
+                                font.pixelSize: Theme.fontCaption
+                                color: symbolRow.modelData.page > 0 && symbolRow.hovered ? Theme.accent : Theme.textTertiary
+                            }
+                        }
+                    }
+                }
+            }
+            Item { Layout.fillHeight: true; Layout.fillWidth: true; visible: !parent.loaded }
         }
         Item {
             Layout.fillWidth: true

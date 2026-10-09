@@ -282,7 +282,11 @@ Flickable {
         if (match && match[1] === "document" && page) {
             const found = researchStore.linkTarget("document", match[2])
             if (found.source) {
-                openAtPage(found.source, Number(page[1]) - 1)
+                // The paper in front moves there and keeps the spot it left (Back returns to it).
+                if (currentReader && currentReader.pdfReady && researchStore.sameSource(currentReader.source, found.source))
+                    currentReader.jumpToPage(Number(page[1]) - 1, 0)
+                else
+                    openAtPage(found.source, Number(page[1]) - 1)
                 const words = /[#&]q=([^&]*)/.exec(link.toString())
                 if (words) researchStore.revealPassage(found.source, Number(page[1]) - 1, decodeURIComponent(words[1]))
                 return true

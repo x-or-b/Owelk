@@ -44,6 +44,7 @@ var glyphs = {
     "related": "\ue125",
     "split": "\ue098",
     "splitDown": "\ue439",
+    "symbols": "\ue201",
     "preview": "\ue0ba",
     "check": "\ue06c",
     "home": "\ue0f5",
