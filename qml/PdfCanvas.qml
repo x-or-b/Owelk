@@ -28,11 +28,20 @@ Item {
     onInteractingChanged: researchStore.paperIndex.setReaderInteracting(root, interacting)
     property real pinchStartZoom: 1
     property var pinchAnchor: null
-    readonly property real rasterScale: Math.max(0.1, ((rasterWidth > 0 ? rasterWidth : width) - 56) / Math.max(1, firstPageWidth)) * (pinching ? pinchStartZoom : zoomFactor)
+    readonly property real rasterScale: Math.max(0.1, (layoutWidth - 56) / Math.max(1, firstPageWidth)) * (pinching ? pinchStartZoom : zoomFactor)
     // The width pages are drawn for. It catches up once a resize pauses, so dragging a panel edge or a
     // split scales the pages already drawn instead of redrawing every page at every step.
     property real rasterWidth: 0
-    Timer { id: rasterSettle; interval: 140; onTriggered: root.rasterWidth = root.width }
+    Timer {
+        id: rasterSettle
+        interval: 140
+        onTriggered: {
+            if (root.rasterWidth === root.width) return
+            // Refit once, keeping the reading position.
+            if (root.ready && !root.restoring) { root.pendingPosition = root.lastPosition; root.restoring = true; restoreTimer.restart() }
+            root.rasterWidth = root.width
+        }
+    }
     property bool captureMode: false
     property int currentPage: 0
     property string selectedText: ""
@@ -146,10 +155,20 @@ Item {
     property real targetScrollX: 0
     property real targetScrollY: 0
     property int sourceScrollDuration: 800
+    // Going to a place: captures and annotations move quickly and flash; a place cited by an AI answer
+    // (passage) moves a little slower and stays lit longer. Tune the passage values here.
+    readonly property real passageScrollPace: 1.3   // × the capture move time
+    readonly property int passageLitFor: 1400        // ms the words stay fully lit
+    readonly property int passageFade: 900           // ms to fade out
+    property int spotlightHold: 0
+    property int spotlightFade: Theme.captureFadeDuration
     readonly property bool ready: pdfDocument.status === PdfDocument.Ready
     readonly property int pageCount: pdfDocument.pageCount
     readonly property string error: source.toString().length && pdfDocument.status === PdfDocument.Error ? pdfDocument.error : ""
-    readonly property real pageScale: Math.max(0.1, (width - 56) / Math.max(1, firstPageWidth)) * zoomFactor
+    // Pages are laid out for the settled width: while a panel edge or split is dragged they keep their
+    // size (the view only shows more or less of them) and refit once the drag pauses.
+    readonly property real layoutWidth: rasterWidth > 0 ? rasterWidth : width
+    readonly property real pageScale: Math.max(0.1, (layoutWidth - 56) / Math.max(1, firstPageWidth)) * zoomFactor
     readonly property real firstPageWidth: ready ? pdfDocument.pagePointSize(0).width : 595
     property alias searchString: search.searchString
     property int matchCount: 0
@@ -259,7 +278,7 @@ Item {
     }
     // The zoom at which the current page is wholly visible (never wider than the width).
     function fitPageZoom(page) {
-        const size = pdfDocument.pagePointSize(page === undefined ? currentPage : page), widthScale = Math.max(0.1, (width - 56) / Math.max(1, firstPageWidth))
+        const size = pdfDocument.pagePointSize(page === undefined ? currentPage : page), widthScale = Math.max(0.1, (layoutWidth - 56) / Math.max(1, firstPageWidth))
         return size.height > 0 ? Math.max(0.5, Math.min(1, (pages.height - 24) / (size.height * widthScale))) : 1
     }
     // Shows a whole page at a time; turning pages (Cmd+] / Cmd+[) then reads like a book.
@@ -345,7 +364,7 @@ Item {
             search.currentResult = (search.currentResult + direction + matchCount) % matchCount
     }
 
-    function showSource(page, rect) {
+    function showSource(page, rect, passage) {
         stopSourceMotion()
         spotlight.stop()
         clearSelection()
@@ -367,7 +386,9 @@ Item {
             ? oldX : Math.max(0, Math.min(left - 24, pages.contentWidth - pages.width))
         pages.contentX = oldX; pages.contentY = oldY
         // Give long jumps more time without making nearby captures feel sluggish.
-        sourceScrollDuration = Math.round(Math.min(1500, 700 + Math.abs(targetScrollY - oldY) / Math.max(1, pages.height) * 90))
+        sourceScrollDuration = Math.round(Math.min(1500, 700 + Math.abs(targetScrollY - oldY) / Math.max(1, pages.height) * 90) * (passage ? passageScrollPace : 1))
+        spotlightHold = passage ? passageLitFor : 0
+        spotlightFade = passage ? passageFade : Theme.captureFadeDuration
         sourceScroll.restart(); spotlight.restart()
     }
 
@@ -391,9 +412,10 @@ Item {
             NumberAnimation { target: root; property: "spotlightOpacity"; to: 1; duration: 160 }
             NumberAnimation { target: root; property: "spotlightScale"; to: 1; duration: 230; easing.type: Easing.OutBack }
         }
+        PauseAnimation { duration: root.spotlightHold }
         ParallelAnimation {
             objectName: "captureSpotlightFade"
-            NumberAnimation { target: root; property: "spotlightOpacity"; to: 0; duration: Theme.captureFadeDuration; easing.type: Easing.InOutQuad }
+            NumberAnimation { target: root; property: "spotlightOpacity"; to: 0; duration: root.spotlightFade; easing.type: Easing.InOutQuad }
         }
     }
 
@@ -514,11 +536,6 @@ Item {
         else rasterSettle.restart()
         stopSourceMotion()
         if (pinching) cancelPinch()
-        if (ready && !restoring) {
-            pendingPosition = lastPosition
-            restoring = true
-            restoreTimer.restart()
-        }
     }
     onVisibleChanged: if (!visible && pinching) endPinch()
 

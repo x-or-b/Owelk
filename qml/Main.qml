@@ -292,6 +292,7 @@ ApplicationWindow {
             window.shelfVisible = true; window.movePanel("captures", window.capturesSide)
         }
         function onSourceReady(url, page, region) { if (!window.restoreFailed) { documents.reveal(url, page, region); window.homeVisible = false } }
+        function onPassageReady(url, page, region) { if (!window.restoreFailed) { documents.reveal(url, page, region, true); window.homeVisible = false } }
     }
     Connections {
         target: researchStore.paperIndex

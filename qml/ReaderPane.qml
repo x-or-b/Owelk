@@ -124,14 +124,14 @@ Rectangle {
     function toggleCapture() { if (canvas.ready) { canvas.tool = ""; canvas.captureMode = !canvas.captureMode } }
     function startCapture() { if (canvas.ready) { activated(); canvas.tool = ""; canvas.captureMode = true } }
     readonly property bool capturing: canvas.captureMode
-    function reveal(url, page, region) {
+    function reveal(url, page, region, passage) {
         cancelReveal()
         if (!researchStore.sameSource(source, url)) {
             // Managed readers belong to a tab: never replace its PDF behind the controller's back.
             if (managed || !openFile(url, {page: page, y: Math.max(0, region.y - .08), x: 0, zoom: 1})) return
         }
         hideSearch()
-        sourceToReveal = {source: url.toString(), page: page, region: region}
+        sourceToReveal = {source: url.toString(), page: page, region: region, passage: !!passage}
         revealTimer.restart()
     }
 
@@ -143,7 +143,7 @@ Rectangle {
             if (!root.sourceToReveal || canvas.error.length
                 || !researchStore.sameSource(root.sourceToReveal.source, canvas.source)) { root.cancelReveal(); return }
             if (canvas.ready && !canvas.restoring) {
-                canvas.showSource(root.sourceToReveal.page, root.sourceToReveal.region)
+                canvas.showSource(root.sourceToReveal.page, root.sourceToReveal.region, root.sourceToReveal.passage)
                 root.sourceToReveal = null
                 stop()
             }

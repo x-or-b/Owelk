@@ -284,7 +284,7 @@ public:
     Q_INVOKABLE QVariantMap anchor(const QString &item, const QString &id) const;
     Q_INVOKABLE void revealAnchor(const QVariantMap &anchor);
     // A place an AI answer cites ([p. N: "exact words"]): the paper opens at that page and the words
-    // light up once found (answered through sourceReady; nothing more happens when they are not found).
+    // light up once found (answered through passageReady; nothing more happens when they are not found).
     Q_INVOKABLE void revealPassage(const QUrl &source, int page, const QString &phrase);
     // Where a quoted phrase sits on a page, in page-relative coordinates; empty when it is not there.
     // Case, spacing and line-end hyphens are ignored; a long quote is matched by its opening words.
@@ -356,6 +356,8 @@ signals:
     void captureSaved(const QString &id);
     void knowledgeFound(int request, const QVariantList &results);
     void sourceReady(const QUrl &source, int page, const QRectF &region);
+    // Words an AI answer cites, found on their page (revealPassage).
+    void passageReady(const QUrl &source, int page, const QRectF &region);
     void webSourceRequested(const QUrl &page);
     void folderLoaded(int requestId, const QUrl &folder, const QVariantList &entries, const QString &error);
     void homeChanged();

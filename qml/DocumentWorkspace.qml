@@ -716,7 +716,8 @@ Flickable {
             font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.accent
         }
     }
-    function reveal(source, page, region) {
+    // passage: a place cited by an AI answer (a slower move and a longer light; see PdfCanvas).
+    function reveal(source, page, region, passage) {
         let t = null
         const list = Tree.leaves(tree)
         // Prefer the current copy when a PDF is open in more than one split.
@@ -736,7 +737,7 @@ Flickable {
             if (!g || g.activeTab !== tabId) return
             const view = root.groupView(g.id)
             if (!view || view.loadedTab !== tabId || !researchStore.sameSource(view.reader.source, sourceUrl)) return
-            view.reader.reveal(source, page, region)
+            view.reader.reveal(source, page, region, passage)
         })
     }
     onContentWidthChanged: if (!syncing) Qt.callLater(place, false)

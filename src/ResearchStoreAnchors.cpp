@@ -167,7 +167,7 @@ void ResearchStore::revealPassage(const QUrl &source, int page, const QString &p
     connect(watcher, &QFutureWatcher<QRectF>::finished, this, [this, watcher, url, page] {
         const auto region = watcher->result();
         watcher->deleteLater();
-        if (!region.isEmpty()) emit sourceReady(url, page, region);
+        if (!region.isEmpty()) emit passageReady(url, page, region);
     });
     watcher->setFuture(QtConcurrent::run(&m_verifiers, [path = url.toLocalFile(), page, phrase] {
         QPdfDocument pdf;
