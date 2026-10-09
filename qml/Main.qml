@@ -644,7 +644,8 @@ ApplicationWindow {
             }
             Label {
                 Layout.fillWidth: true
-                text: window.notification.length ? window.notification : researchStore.busy ? "Saving capture…" : window.workspaceName.length ? window.workspaceName : "Local workspace"
+                // A notice, else the open workspace's name; nothing otherwise.
+                text: window.notification.length ? window.notification : researchStore.busy ? "Saving capture…" : window.workspaceName
                 elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
             }
             StatusIcon { kind: "search"; description: "Search · " + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }
