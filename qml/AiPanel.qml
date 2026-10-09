@@ -31,6 +31,7 @@ Item {
             textFormat: TextEdit.PlainText; wrapMode: TextEdit.WrapAtWordBoundaryOrAnywhere
             color: Theme.onAccent; font.pixelSize: Theme.fontSmall
             selectionColor: Theme.onAccent; selectedTextColor: Theme.accent
+            TapHandler { acceptedButtons: Qt.RightButton; onTapped: function(point) { root.openTextMenu(bubbleText, point.position) } }
         }
     }
     // The model's reasoning summary above an answer. While it thinks: "Thinking · <latest step>" in a
@@ -83,6 +84,41 @@ Item {
         selectionColor: Theme.mix(Theme.accent, Theme.field, .65); selectedTextColor: Theme.text
         onLinkActivated: function(link) { root.linkActivated(link) }
         HoverHandler { cursorShape: parent.hoveredLink.length > 0 ? Qt.PointingHandCursor : Qt.IBeamCursor }
+        TapHandler { acceptedButtons: Qt.RightButton; onTapped: function(point) { root.openTextMenu(parent, point.position) } }
+    }
+    // Right-click on a question or an answer: Copy, Select All, and Ask About This, which quotes the
+    // selection at the top of the question box. One menu serves every message.
+    function openTextMenu(target, at) {
+        textMenu.target = target
+        textMenu.kept = target.persistentSelection
+        target.persistentSelection = true // The menu takes focus; the selection stays.
+        textMenu.popup(target, at.x, at.y)
+    }
+    function quote(text) {
+        const lines = text.trim().slice(0, 2000).split("\n").map(function(line) { return "> " + line })
+        question.text = lines.join("\n") + "\n\n" + question.text
+        textMenu.target = null // The question box keeps the focus once the menu closes.
+        question.forceActiveFocus()
+        question.cursorPosition = question.length
+    }
+    Menu {
+        id: textMenu
+        objectName: "aiTextMenu"
+        property Item target: null
+        property bool kept: false
+        readonly property bool selected: target !== null && target.selectedText.length > 0
+        onClosed: if (target) { target.persistentSelection = kept; if (selected) target.forceActiveFocus() }
+        MenuItem { objectName: "aiTextCopy"; text: "Copy"; enabled: textMenu.selected; onTriggered: textMenu.target.copy() }
+        MenuItem {
+            objectName: "aiTextSelectAll"; text: "Select All"
+            enabled: textMenu.target !== null && textMenu.target.length > 0
+            onTriggered: textMenu.target.selectAll()
+        }
+        MenuSeparator {}
+        MenuItem {
+            objectName: "aiTextAsk"; text: "Ask About This"; enabled: textMenu.selected
+            onTriggered: { const target = textMenu.target; target.persistentSelection = textMenu.kept; root.quote(target.selectedText) }
+        }
     }
     ColumnLayout {
         anchors.fill: parent
@@ -211,8 +247,9 @@ Item {
                 }
                 Label {
                     objectName: "aiCutOff-" + message.index
-                    visible: message.modelData.role === "assistant" && !!(message.modelData.context || {}).cutOff
-                    text: "Stopped at the length limit."
+                    readonly property var context: message.modelData.context || ({})
+                    visible: message.modelData.role === "assistant" && !!(context.cutOff || context.stopped)
+                    text: context.stopped ? "Stopped." : "Stopped at the length limit."
                     textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
                 }
                 RowLayout {

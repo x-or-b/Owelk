@@ -33,6 +33,8 @@ public:
     int status = 200;
     QByteArray contentType = "text/event-stream";
     QList<QByteArray> chunks;
+    // Send the chunks and leave the stream open (an answer still coming).
+    bool keepOpen = false;
     explicit MockServer(QObject *parent = nullptr) : QObject(parent)
     {
         server.listen(QHostAddress::LocalHost);
@@ -58,6 +60,10 @@ public:
                 seen.append(request);
                 QByteArray body;
                 for (const auto &chunk : chunks) body += chunk;
+                if (keepOpen) {
+                    socket->write("HTTP/1.1 200 X\r\nContent-Type: " + contentType + "\r\n\r\n" + body);
+                    return;
+                }
                 socket->write("HTTP/1.1 " + QByteArray::number(status) + " X\r\nContent-Type: " + contentType
                     + "\r\nConnection: close\r\nContent-Length: " + QByteArray::number(body.size()) + "\r\n\r\n"
                     + body);
@@ -591,6 +597,46 @@ private slots:
         QCOMPARE(followUp["messages"].toArray()[1].toObject()["content"].toString(), QString("The answer."));
         QVERIFY(!QJsonDocument(followUp).toJson().contains("Weighing"));
         QVERIFY(!followUp.contains("thinking"));
+        ai->clearApiKey("claude");
+    }
+    void stoppedAnswersKeepWhatArrived()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        MockServer server;
+        server.keepOpen = true;
+        server.chunks = {MockServer::sse("content_block_delta",
+            {{"type", "content_block_delta"}, {"delta", QJsonObject{{"type", "text_delta"}, {"text", "Half an "}}}})};
+        store.setSetting("ai.baseUrl.claude", server.base().toString());
+        ai->giveConsent("claude");
+        QVERIFY(ai->setApiKey("claude", "sk-ant-stop-test"));
+        QSignalSpy finished(ai, &AiService::finished), failed(ai, &AiService::failed), delta(ai, &AiService::delta);
+        const int request
+            = ai->ask({{"provider", "claude"}, {"model", "claude-opus-5-5"}, {"action", "ask"}, {"question", "Go on"}});
+        QTRY_COMPARE_WITH_TIMEOUT(delta.size(), 1, 10000);
+        ai->cancel(request);
+        // The text so far is kept as the answer, marked as stopped.
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 5000);
+        QCOMPARE(failed.size(), 0);
+        QVERIFY(finished[0][2].toMap()["stopped"].toBool());
+        const auto messages = store.aiThread(finished[0][2].toMap()["threadId"].toString())["messages"].toList();
+        QCOMPARE(messages.size(), 2);
+        QCOMPARE(messages[1].toMap()["content"].toString(), QString("Half an "));
+        QVERIFY(messages[1].toMap()["context"].toMap()["stopped"].toBool());
+        // Stopped before any text: nothing is stored.
+        server.chunks = {};
+        const int empty
+            = ai->ask({{"provider", "claude"}, {"model", "claude-opus-5-5"}, {"action", "ask"}, {"question", "Wait"}});
+        QTRY_VERIFY_WITH_TIMEOUT(server.seen.size() == 2, 5000);
+        ai->cancel(empty);
+        QTRY_COMPARE_WITH_TIMEOUT(failed.size(), 1, 5000);
+        QCOMPARE(failed[0][1].toString(), QString("Stopped."));
+        int stored = 0;
+        for (const auto &thread : store.aiThreads()) stored += thread.toMap()["messages"].toInt();
+        QCOMPARE(stored, 2);
         ai->clearApiKey("claude");
     }
     void serviceRequiresConsentKeyAndSavesAnswers()

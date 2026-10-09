@@ -504,52 +504,59 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         if (thought->untilAnswer < 0) thought->untilAnswer = thought->clock.elapsed();
         emit delta(request, text);
     });
+    // Stores the turn: a whole answer, or what had arrived when the reader stopped it.
+    const auto store = [this, request, id, prompt, spec, done, threadId, thought, provider, attached = materials](
+                           const QString &answer, const QString &used, bool stopped) {
+        done();
+        const auto text = spec.contains("sources") ? withSourceLinks(answer, spec.value("sources").toList()) : answer;
+        // Question and answer are stored together, so a thread always alternates them.
+        const auto usedModel = used.isEmpty() ? model(id) : used;
+        static const QHash<QString, QString> labels{{"explain", "Explain"}, {"translate", "Translate"},
+            {"summarize", "Summarize"}, {"figure", "Explain figure"}};
+        auto display = spec.value("question").toString().trimmed();
+        if (display.isEmpty()) display = spec.value("label").toString();
+        if (display.isEmpty()) display = labels.value(spec.value("action").toString(), "Ask");
+        QStringList attachments;
+        if (!attached.selection.isEmpty()) attachments << "selection";
+        if (!attached.pageText.isEmpty()) attachments << QStringLiteral("page %1").arg(attached.pageNumber);
+        if (!attached.paperText.isEmpty()) attachments << "paper";
+        if (attached.hasImage) attachments << "image";
+        if (!attached.libraryText.isEmpty()) attachments << "library";
+        m_store->appendAiMessage(threadId,
+            {{"role", "user"}, {"content", prompt.text}, {"display", display}, {"provider", id}, {"model", usedModel},
+                {"context",
+                    QVariantMap{{"attachments", attachments}, {"captureId", spec.value("captureId")},
+                        {"selection", attached.selection.left(400)}, {"page", spec.value("page")}}}});
+        // The reasoning summary sits in the answer's context: shown folded, never copied or resent.
+        QVariantMap answerContext;
+        const auto reasoning = thought->text.trimmed();
+        if (!reasoning.isEmpty()) {
+            answerContext.insert("thinking", reasoning);
+            const auto ms = thought->untilAnswer >= 0 ? thought->untilAnswer : thought->clock.elapsed();
+            answerContext.insert("thinkingSeconds", qMax<qint64>(1, (ms + 500) / 1000));
+        }
+        const bool cutOff = !stopped && provider->cutOff();
+        if (cutOff) answerContext.insert("cutOff", true);
+        if (stopped) answerContext.insert("stopped", true);
+        m_store->appendAiMessage(threadId,
+            {{"role", "assistant"}, {"content", text}, {"model", usedModel}, {"provider", id},
+                {"context", answerContext}});
+        emit finished(request, text,
+            {{"provider", id}, {"model", usedModel}, {"prompt", prompt.text}, {"threadId", threadId},
+                {"action", spec.value("action")}, {"question", spec.value("question")},
+                {"source", spec.value("source")}, {"page", spec.value("page")}, {"captureId", spec.value("captureId")},
+                {"cutOff", cutOff}, {"stopped", stopped}});
+    };
     connect(provider, &AiProvider::finished, this,
-        [this, request, id, prompt, spec, done, threadId, thought, provider, attached = materials](
-            const QString &answer, const QString &used) {
-            done();
-            const auto text
-                = spec.contains("sources") ? withSourceLinks(answer, spec.value("sources").toList()) : answer;
-            // A turn is stored only when it completed, so a thread always alternates question and answer.
-            const auto usedModel = used.isEmpty() ? model(id) : used;
-            static const QHash<QString, QString> labels{{"explain", "Explain"}, {"translate", "Translate"},
-                {"summarize", "Summarize"}, {"figure", "Explain figure"}};
-            auto display = spec.value("question").toString().trimmed();
-            if (display.isEmpty()) display = spec.value("label").toString();
-            if (display.isEmpty()) display = labels.value(spec.value("action").toString(), "Ask");
-            QStringList attachments;
-            if (!attached.selection.isEmpty()) attachments << "selection";
-            if (!attached.pageText.isEmpty()) attachments << QStringLiteral("page %1").arg(attached.pageNumber);
-            if (!attached.paperText.isEmpty()) attachments << "paper";
-            if (attached.hasImage) attachments << "image";
-            if (!attached.libraryText.isEmpty()) attachments << "library";
-            m_store->appendAiMessage(threadId,
-                {{"role", "user"}, {"content", prompt.text}, {"display", display}, {"provider", id},
-                    {"model", usedModel},
-                    {"context",
-                        QVariantMap{{"attachments", attachments}, {"captureId", spec.value("captureId")},
-                            {"selection", attached.selection.left(400)}, {"page", spec.value("page")}}}});
-            // The reasoning summary sits in the answer's context: shown folded, never copied or resent.
-            QVariantMap answerContext;
-            const auto reasoning = thought->text.trimmed();
-            if (!reasoning.isEmpty()) {
-                answerContext.insert("thinking", reasoning);
-                const auto ms = thought->untilAnswer >= 0 ? thought->untilAnswer : thought->clock.elapsed();
-                answerContext.insert("thinkingSeconds", qMax<qint64>(1, (ms + 500) / 1000));
-            }
-            const bool cutOff = provider->cutOff();
-            if (cutOff) answerContext.insert("cutOff", true);
-            m_store->appendAiMessage(threadId,
-                {{"role", "assistant"}, {"content", text}, {"model", usedModel}, {"provider", id},
-                    {"context", answerContext}});
-            emit finished(request, text,
-                {{"provider", id}, {"model", usedModel}, {"prompt", prompt.text}, {"threadId", threadId},
-                    {"action", spec.value("action")}, {"question", spec.value("question")},
-                    {"source", spec.value("source")}, {"page", spec.value("page")},
-                    {"captureId", spec.value("captureId")}, {"cutOff", cutOff}});
-        });
+        [store](const QString &answer, const QString &used) { store(answer, used, false); });
     connect(provider, &AiProvider::failed, this,
-        [this, request, done, id, spec, prepared, summary = call.thinkingSummary](const QString &message) {
+        [this, request, done, store, provider, id, spec, prepared, summary = call.thinkingSummary](
+            const QString &message) {
+            // Stopped part-way: the text so far is kept as the answer, with Copy and Save as Note.
+            if (message == "Stopped." && !provider->partialText().trimmed().isEmpty()) {
+                store(provider->partialText(), QString(), true);
+                return;
+            }
             done();
             // Some OpenAI accounts may not receive reasoning summaries: ask again without, and remember.
             if (summary && id == "openai"

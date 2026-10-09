@@ -49,6 +49,8 @@ public:
     virtual void cancel() = 0;
     // The answer stopped at the output limit (read after finished).
     bool cutOff() const { return m_cutOff; }
+    // The answer so far (kept when the reader stops it).
+    virtual QString partialText() const = 0;
 signals:
     void delta(const QString &text);
     // Summarized reasoning, shown apart from the answer and never sent back to the model.
@@ -66,6 +68,7 @@ class HttpStreamProvider : public AiProvider {
 public:
     HttpStreamProvider(QNetworkAccessManager *network, QUrl endpoint, QObject *parent = nullptr);
     void cancel() override;
+    QString partialText() const override { return m_text; }
 
 protected:
     void post(const QHash<QByteArray, QByteArray> &headers, const QJsonObject &body, bool sse);
@@ -171,6 +174,7 @@ public:
     CodexProvider(CodexBridge *bridge, QObject *parent = nullptr);
     void start(const AiRequest &request) override;
     void cancel() override;
+    QString partialText() const override { return m_text; }
 
 private:
     CodexBridge *m_bridge;
