@@ -11,6 +11,10 @@ Item {
     property var reader: null
     property int mode: 0
     readonly property bool invertPages: Theme.invertPages && Theme.canInvertPages
+    // Thumbnails are drawn for the panel width once a resize pauses (scaled meanwhile).
+    property real drawnWidth: 0
+    onWidthChanged: if (drawnWidth <= 0) drawnWidth = width; else drawnSettle.restart()
+    Timer { id: drawnSettle; interval: 140; onTriggered: root.drawnWidth = root.width }
     signal modeChosen(int mode)
     signal linkActivated(string link)
     // Notes that link to this paper or to its excerpts and annotations.
@@ -388,7 +392,7 @@ Item {
                             currentFrame: thumb.index
                             asynchronous: true
                             cache: false
-                            sourceSize.width: Math.min(440, Math.ceil(width * Screen.devicePixelRatio))
+                            sourceSize.width: Math.min(440, Math.ceil((root.drawnWidth - 12) * Screen.devicePixelRatio))
                             fillMode: Image.PreserveAspectFit
                             layer.enabled: root.invertPages
                             layer.effect: ShaderEffect { objectName: "thumbnailInvert"; fragmentShader: "qrc:/owelk/shaders/invert.frag.qsb" }

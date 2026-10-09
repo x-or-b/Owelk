@@ -84,6 +84,12 @@ Flickable {
         const minimum = Tree.minimum(tree)
         layoutMinimumWidth = minimum.width; layoutMinimumHeight = minimum.height
         revision++
+        place(true)
+        syncing = false
+    }
+    // Where the groups and split edges sit. A resize only moves them (whole: false): the tree, the
+    // tab lists and everything bound to revision stay as they are, so dragging an edge stays smooth.
+    function place(whole) {
         const list = [], handles = []
         Tree.geometry(tree, 0, 0, contentWidth, contentHeight, list, handles)
         const ids = list.map(function(r) { return r.node.id })
@@ -92,6 +98,11 @@ Flickable {
             const r = list[i]
             let at = -1
             for (let j = 0; j < groupRows.count; ++j) if (groupRows.get(j).groupId === r.node.id) at = j
+            if (at >= 0 && !whole) {
+                groupRows.setProperty(at, "gx", r.x); groupRows.setProperty(at, "gy", r.y)
+                groupRows.setProperty(at, "gw", r.width); groupRows.setProperty(at, "gh", r.height)
+                continue
+            }
             const data = {groupId: r.node.id, encoded: JSON.stringify(r.node), gx: r.x, gy: r.y, gw: r.width, gh: r.height}
             if (at < 0) groupRows.append(data)
             else groupRows.set(at, data)
@@ -104,7 +115,6 @@ Flickable {
             for (let j = 0; j < handleRows.count; ++j) if (handleRows.get(j).nodeId === handles[i].nodeId) at = j
             if (at < 0) handleRows.append(handles[i]); else handleRows.set(at, handles[i])
         }
-        syncing = false
     }
     function activateGroup(id) { if (Tree.find(tree, id)) { activeGroup = id; changed() } }
     // Next/previous tab within the active group, wrapping at the ends.
@@ -724,8 +734,8 @@ Flickable {
             view.reader.reveal(source, page, region)
         })
     }
-    onContentWidthChanged: if (!syncing) Qt.callLater(sync)
-    onContentHeightChanged: if (!syncing) Qt.callLater(sync)
+    onContentWidthChanged: if (!syncing) Qt.callLater(place, false)
+    onContentHeightChanged: if (!syncing) Qt.callLater(place, false)
     Component.onCompleted: sync()
     Repeater {
         id: groups

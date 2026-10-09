@@ -28,7 +28,11 @@ Item {
     onInteractingChanged: researchStore.paperIndex.setReaderInteracting(root, interacting)
     property real pinchStartZoom: 1
     property var pinchAnchor: null
-    readonly property real rasterScale: Math.max(0.1, (width - 56) / Math.max(1, firstPageWidth)) * (pinching ? pinchStartZoom : zoomFactor)
+    readonly property real rasterScale: Math.max(0.1, ((rasterWidth > 0 ? rasterWidth : width) - 56) / Math.max(1, firstPageWidth)) * (pinching ? pinchStartZoom : zoomFactor)
+    // The width pages are drawn for. It catches up once a resize pauses, so dragging a panel edge or a
+    // split scales the pages already drawn instead of redrawing every page at every step.
+    property real rasterWidth: 0
+    Timer { id: rasterSettle; interval: 140; onTriggered: root.rasterWidth = root.width }
     property bool captureMode: false
     property int currentPage: 0
     property string selectedText: ""
@@ -504,6 +508,8 @@ Item {
     // A whole page stays fitted when the window or split changes height.
     onHeightChanged: if (fitMode === "page" && ready && !restoring) { pendingPosition = lastPosition; restoring = true; restoreTimer.restart() }
     onWidthChanged: {
+        if (rasterWidth <= 0) rasterWidth = width
+        else rasterSettle.restart()
         stopSourceMotion()
         if (pinching) cancelPinch()
         if (ready && !restoring) {

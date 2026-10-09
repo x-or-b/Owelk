@@ -537,6 +537,10 @@ Item {
             const group = findChild(workspace.documents, "group-" + workspace.documents.activeGroup)
             compare(group.radius, 0)
             compare(workspace.currentReader.radius, 0)
+            // Resizing only moves the groups: tab lists and readers are not rebuilt at every step.
+            const revision = workspace.documents.revision
+            for (let i = 0; i < 5; ++i) { workspace.leftDockWidth += 12; wait(20) }
+            compare(workspace.documents.revision, revision)
         }
         function test_resizeSplitPreservesTabs() {
             const d = workspace.documents
