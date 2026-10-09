@@ -35,6 +35,8 @@ struct AiRequest {
     QString effort;
     bool fast = false;
     int maxTokens = 16000;
+    // Ask for a readable summary of the model's reasoning, streamed through thinkingDelta.
+    bool thinkingSummary = false;
 };
 
 // One streamed answer. A provider object handles a single request and is deleted afterwards.
@@ -46,6 +48,8 @@ public:
     virtual void cancel() = 0;
 signals:
     void delta(const QString &text);
+    // Summarized reasoning, shown apart from the answer and never sent back to the model.
+    void thinkingDelta(const QString &text);
     void finished(const QString &text, const QString &model);
     void failed(const QString &error);
 };
@@ -64,7 +68,10 @@ protected:
     virtual QString errorFrom(int status, const QByteArray &body) const;
     void finish(const QString &model);
     void fail(const QString &error);
+    // A piece of reasoning summary; a new part starts on its own paragraph.
+    void think(const QString &text, bool newPart = false);
     QString m_text;
+    bool m_thought = false;
     bool m_done = false;
 
 private:
@@ -78,6 +85,10 @@ private:
 
 // Which Claude models take output_config.effort, and which offer fast mode.
 bool anthropicEfforts(const QString &model);
+// Claude models that always think (adaptive): asking for a summary only makes it visible.
+bool anthropicThinks(const QString &model);
+// OpenAI reasoning models, which take reasoning.effort and reasoning.summary.
+bool openAiReasons(const QString &model);
 bool anthropicFast(const QString &model);
 
 class AnthropicProvider final : public HttpStreamProvider {
@@ -158,6 +169,6 @@ public:
 private:
     CodexBridge *m_bridge;
     QString m_threadId, m_turnId, m_text, m_model, m_effort;
-    bool m_fast = false;
+    bool m_fast = false, m_summary = false, m_thought = false;
     bool m_done = false;
 };

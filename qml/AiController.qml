@@ -33,6 +33,25 @@ Item {
     property string usedModel: ""
     property bool truncated: false
     property bool streaming: false
+    // The reasoning summary of the answer being prepared, and the seconds before the answer began.
+    property string thinkingText: ""
+    property int thinkingSeconds: 0
+    property double askedAt: 0
+    property bool showThinking: researchStore.setting("ai.showThinking", "1") === "1"
+    Connections { target: researchStore; function onSettingsChanged() { root.showThinking = researchStore.setting("ai.showThinking", "1") === "1" } }
+    // One line for "Thinking · …": the latest heading of the summary, else its latest sentence.
+    function thinkingHeadline(text) {
+        const headings = text.match(/\*\*([^*\n]+)\*\*/g) || []
+        let line = headings.length ? headings[headings.length - 1] : ""
+        if (!line.length) {
+            const paragraphs = text.split(/\n+/).map(function(p) { return p.trim() }).filter(function(p) { return p.length })
+            const last = paragraphs.length ? paragraphs[paragraphs.length - 1] : ""
+            const sentences = last.split(/[.!?]\s+/).filter(function(p) { return p.trim().length > 12 })
+            line = sentences.length ? sentences[sentences.length - 1] : last
+        }
+        line = line.replace(/[*_`#>]/g, "").replace(/\s+/g, " ").trim()
+        return line.length > 120 ? line.slice(0, 119) + "…" : line
+    }
     // provider id → [{id, name}] as the providers report them.
     property var models: ({})
     // Whether the panel shows a conversation (open thread or a new one) rather than the thread list.
@@ -129,6 +148,7 @@ Item {
     function reset() {
         stop()
         answer = ""; error = ""; pendingQuestion = ""; usedModel = ""; truncated = false
+        thinkingText = ""; thinkingSeconds = 0
     }
     // A reader or capture action starts a new thread about that material.
     function begin(next) {
@@ -193,6 +213,7 @@ Item {
         pendingQuestion = question.trim().length ? question.trim() : (spec.label || actions[spec.action] || "Ask")
         translatePage = !question.trim().length && spec.action === "translate" && spec.scope === "page" ? Number(spec.page) : -1
         answer = ""; streaming = true
+        thinkingText = ""; thinkingSeconds = 0; askedAt = Date.now()
         const choice = {provider: provider, model: model, question: question, threadId: threadId, action: spec.action || "ask",
                         imageFiles: images.map(function(i) { return i.url })}
         if (efforts.length) choice.effort = effectiveEffort
@@ -252,12 +273,17 @@ Item {
             root.usedModel = model; root.truncated = cut
             if (root.threadId !== thread) { root.threadId = thread; root.thread = researchStore.aiThread(thread) }
         }
-        function onDelta(id, text) { if (id === root.request) root.answer += text }
+        function onThinking(id, text) { if (id === root.request) root.thinkingText += text }
+        function onDelta(id, text) {
+            if (id !== root.request) return
+            if (!root.answer.length) root.thinkingSeconds = Math.max(1, Math.round((Date.now() - root.askedAt) / 1000))
+            root.answer += text
+        }
         function onFinished(id, text, details) {
             if (id !== root.request) return
             root.streaming = false; root.usedModel = details.model
             root.thread = researchStore.aiThread(root.threadId)
-            root.answer = ""; root.pendingQuestion = ""
+            root.answer = ""; root.pendingQuestion = ""; root.thinkingText = ""
             root.answered(root.threadId, root.thread.title || "AI",
                           text.replace(/\]\([^)]*\)/g, "]").replace(/[#*_`>|]/g, "").replace(/\s+/g, " ").trim().slice(0, 160))
             // The material went with this turn; follow-ups reuse it through the thread.

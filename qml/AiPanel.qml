@@ -33,6 +33,48 @@ Item {
             selectionColor: Theme.onAccent; selectedTextColor: Theme.accent
         }
     }
+    // The model's reasoning summary above an answer. While it thinks: "Thinking · <latest step>" in a
+    // lighter colour; once the answer starts: "Thought for 12s ›", which unfolds the whole summary.
+    component ThinkingFold: ColumnLayout {
+        id: fold
+        property string summary: ""
+        property int seconds: 0
+        property bool live: false
+        property bool expanded: false
+        readonly property bool shown: root.c && root.c.showThinking && summary.length > 0
+        visible: live || shown
+        spacing: 4
+        Label {
+            objectName: "aiThinkingNow"
+            visible: fold.live
+            Layout.fillWidth: true
+            text: fold.shown ? "Thinking · " + root.c.thinkingHeadline(fold.summary) : "Thinking…"
+            elide: Text.ElideRight; textFormat: Text.PlainText
+            color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
+        }
+        Label {
+            objectName: "aiThoughtToggle"
+            visible: !fold.live && fold.shown
+            text: "Thought for " + fold.seconds + "s " + (fold.expanded ? "\u2304" : "\u203a")
+            textFormat: Text.PlainText
+            color: toggleHover.hovered ? Theme.text : Theme.textSecondary; font.pixelSize: Theme.fontSmall
+            HoverHandler { id: toggleHover; cursorShape: Qt.PointingHandCursor }
+            TapHandler { onTapped: fold.expanded = !fold.expanded }
+        }
+        Item {
+            visible: !fold.live && fold.shown && fold.expanded
+            Layout.fillWidth: true
+            implicitHeight: summaryText.implicitHeight
+            Rectangle { width: 2; height: parent.height; radius: 1; color: Theme.separator }
+            AnswerText {
+                id: summaryText
+                objectName: "aiThoughtText"
+                x: 10; width: parent.width - 10
+                text: parent.visible ? researchStore.markdownHtml(fold.summary, Theme.accent) : ""
+                color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
+            }
+        }
+    }
     // An answer: Markdown as rich text that can be selected and copied; links open in Owelk.
     component AnswerText: TextEdit {
         readOnly: true; selectByMouse: true
@@ -154,6 +196,13 @@ Item {
                     objectName: "aiQuestion-" + message.index
                     text: message.modelData.display || ""
                 }
+                ThinkingFold {
+                    readonly property var context: message.modelData.context || ({})
+                    objectName: "aiThought-" + message.index
+                    Layout.fillWidth: true
+                    summary: message.modelData.role === "assistant" ? (context.thinking || "") : ""
+                    seconds: context.thinkingSeconds || 0
+                }
                 AnswerText {
                     visible: message.modelData.role === "assistant"
                     objectName: "aiMessage-" + message.index
@@ -185,11 +234,20 @@ Item {
                     Layout.topMargin: 10
                     text: root.c ? root.c.pendingQuestion : ""
                 }
+                ThinkingFold {
+                    objectName: "aiThinking"
+                    Layout.fillWidth: true
+                    live: root.c && root.c.streaming && root.c.answer.length === 0
+                    visible: root.c && root.c.streaming && (live || shown)
+                    summary: root.c ? root.c.thinkingText : ""
+                    seconds: root.c ? root.c.thinkingSeconds : 0
+                    onSummaryChanged: conversation.follow()
+                }
                 AnswerText {
                     objectName: "aiAnswer"
-                    visible: root.c && (root.c.streaming || root.c.answer.length > 0)
+                    visible: root.c && root.c.answer.length > 0
                     Layout.fillWidth: true
-                    text: !root.c ? "" : root.c.answer.length ? researchStore.markdownHtml(root.c.answer, Theme.accent) : "<i>Thinking…</i>"
+                    text: root.c && root.c.answer.length ? researchStore.markdownHtml(root.c.answer, Theme.accent) : ""
                     onTextChanged: conversation.follow()
                 }
                 Label {

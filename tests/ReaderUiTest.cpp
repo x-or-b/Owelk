@@ -270,6 +270,12 @@ public slots:
                             : comparing
                             ? QList<QByteArray>{"| Paper | Method |\\n|---|---|\\n", "| One 2020 | occlusion |"}
                             : QList<QByteArray>{"Mock ", "answer about **occlusion**."};
+                        // Answers to questions come with a reasoning summary, as Claude's summarized thinking.
+                        if (!grouping && !sorting && !comparing)
+                            body += "event: content_block_start\ndata: {\"type\":\"content_block_start\","
+                                    "\"content_block\":{\"type\":\"thinking\"}}\n\n"
+                                    "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":"
+                                    "{\"type\":\"thinking_delta\",\"thinking\":\"**Reading the selection**\"}}\n\n";
                         for (const auto &piece : pieces)
                             body += QByteArray(
                                         "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":"

@@ -45,6 +45,15 @@ ColumnLayout {
                 onActivated: function(index) { researchStore.setSetting("aiLanguage", root.languages[index].value) }
             }
         }
+        SettingsRow {
+            label: "Show thinking"
+            detail: "A short summary of the model's reasoning, folded above each answer"
+            Switch {
+                objectName: "aiShowThinking"
+                checked: researchStore.setting("ai.showThinking", "1") === "1"
+                onToggled: researchStore.setSetting("ai.showThinking", checked ? "1" : "0")
+            }
+        }
     }
     SettingsGroup {
         title: "Provider"

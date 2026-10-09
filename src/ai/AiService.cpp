@@ -9,6 +9,7 @@
 #include <QClipboard>
 #include <QMimeData>
 #include <QDesktopServices>
+#include <QElapsedTimer>
 #include <QGuiApplication>
 #include <QImage>
 #include <QUuid>
@@ -473,6 +474,9 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     const auto effort = spec.value("effort").toString();
     if (level.match(effort).hasMatch()) call.effort = effort;
     call.fast = spec.value("fast").toBool();
+    // Reasoning summaries, unless turned off (Settings → AI) or refused by this OpenAI account before.
+    call.thinkingSummary = m_store->setting("ai.showThinking", "1") == "1"
+        && !(id == "openai" && m_store->setting("ai.reasoningSummary.openai") == "0");
     for (const auto &value : images) {
         const auto image = value.toMap();
         call.images.append({image.value("data").toByteArray(), "image/png", image.value("path").toString()});
@@ -483,9 +487,24 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         provider->deleteLater();
         emit busyChanged();
     };
-    connect(provider, &AiProvider::delta, this, [this, request](const QString &text) { emit delta(request, text); });
+    // The summary and the time until the answer began, stored with the answer.
+    struct Thought {
+        QString text;
+        QElapsedTimer clock;
+        qint64 untilAnswer = -1;
+    };
+    auto thought = std::make_shared<Thought>();
+    thought->clock.start();
+    connect(provider, &AiProvider::thinkingDelta, this, [this, request, thought](const QString &text) {
+        thought->text += text;
+        emit thinking(request, text);
+    });
+    connect(provider, &AiProvider::delta, this, [this, request, thought](const QString &text) {
+        if (thought->untilAnswer < 0) thought->untilAnswer = thought->clock.elapsed();
+        emit delta(request, text);
+    });
     connect(provider, &AiProvider::finished, this,
-        [this, request, id, prompt, spec, done, threadId, attached = materials](
+        [this, request, id, prompt, spec, done, threadId, thought, attached = materials](
             const QString &answer, const QString &used) {
             done();
             const auto text
@@ -509,18 +528,36 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
                     {"context",
                         QVariantMap{{"attachments", attachments}, {"captureId", spec.value("captureId")},
                             {"selection", attached.selection.left(400)}, {"page", spec.value("page")}}}});
-            m_store->appendAiMessage(
-                threadId, {{"role", "assistant"}, {"content", text}, {"model", usedModel}, {"provider", id}});
+            // The reasoning summary sits in the answer's context: shown folded, never copied or resent.
+            QVariantMap answerContext;
+            const auto reasoning = thought->text.trimmed();
+            if (!reasoning.isEmpty()) {
+                answerContext.insert("thinking", reasoning);
+                const auto ms = thought->untilAnswer >= 0 ? thought->untilAnswer : thought->clock.elapsed();
+                answerContext.insert("thinkingSeconds", qMax<qint64>(1, (ms + 500) / 1000));
+            }
+            m_store->appendAiMessage(threadId,
+                {{"role", "assistant"}, {"content", text}, {"model", usedModel}, {"provider", id},
+                    {"context", answerContext}});
             emit finished(request, text,
                 {{"provider", id}, {"model", usedModel}, {"prompt", prompt.text}, {"threadId", threadId},
                     {"action", spec.value("action")}, {"question", spec.value("question")},
                     {"source", spec.value("source")}, {"page", spec.value("page")},
                     {"captureId", spec.value("captureId")}});
         });
-    connect(provider, &AiProvider::failed, this, [this, request, done](const QString &message) {
-        done();
-        emit failed(request, message);
-    });
+    connect(provider, &AiProvider::failed, this,
+        [this, request, done, id, spec, prepared, summary = call.thinkingSummary](const QString &message) {
+            done();
+            // Some OpenAI accounts may not receive reasoning summaries: ask again without, and remember.
+            if (summary && id == "openai"
+                && (message.contains("summar", Qt::CaseInsensitive)
+                    || message.contains("verif", Qt::CaseInsensitive))) {
+                m_store->setSetting("ai.reasoningSummary.openai", "0");
+                run(request, id, spec, prepared);
+                return;
+            }
+            emit failed(request, message);
+        });
     emit started(request, threadId, id, call.model, prompt.truncated);
     provider->start(call);
 }

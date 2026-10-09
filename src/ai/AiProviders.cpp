@@ -9,6 +9,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QRegularExpression>
 #include <QStandardPaths>
 
 namespace {
@@ -105,6 +106,14 @@ void HttpStreamProvider::finish(const QString &model)
     emit finished(m_text, model);
 }
 
+void HttpStreamProvider::think(const QString &text, bool newPart)
+{
+    if (newPart && m_thought) emit thinkingDelta("\n\n");
+    if (text.isEmpty()) return;
+    m_thought = true;
+    emit thinkingDelta(text);
+}
+
 void HttpStreamProvider::fail(const QString &error)
 {
     if (m_done) return;
@@ -131,6 +140,12 @@ AnthropicProvider::AnthropicProvider(
 bool anthropicEfforts(const QString &model)
 {
     return model.startsWith("claude-opus-5") || model.startsWith("claude-sonnet-5") || model.startsWith("claude-fable");
+}
+
+bool anthropicThinks(const QString &model)
+{
+    return model.startsWith("claude-opus-5") || model.startsWith("claude-sonnet-5") || model.startsWith("claude-fable")
+        || model.startsWith("claude-haiku-5") || model.startsWith("claude-mythos");
 }
 
 bool anthropicFast(const QString &model)
@@ -164,6 +179,9 @@ void AnthropicProvider::start(const AiRequest &request)
     // Fast mode: the same model at a higher output speed and premium price (Claude Opus 5 / 5.5 only).
     const bool fast = request.fast && anthropicFast(request.model);
     if (fast) body.insert("speed", "fast");
+    // These models think anyway; "summarized" makes the reasoning readable instead of empty.
+    if (request.thinkingSummary && anthropicThinks(request.model))
+        body.insert("thinking", QJsonObject{{"type", "adaptive"}, {"display", "summarized"}});
     QHash<QByteArray, QByteArray> headers{{"x-api-key", m_key.toUtf8()}, {"anthropic-version", "2023-06-01"}};
     QStringList betas;
     if (fallbacks) betas << "server-side-fallback-2026-07-01";
@@ -176,14 +194,19 @@ bool AnthropicProvider::handle(const QString &event, const QJsonObject &data)
 {
     if (event == "message_start") {
         m_model = data.value("message").toObject().value("model").toString(m_model);
+    } else if (event == "content_block_start") {
+        // Each thinking block is a paragraph of the summary.
+        if (data.value("content_block").toObject().value("type").toString() == "thinking") think({}, true);
     } else if (event == "content_block_delta") {
-        // Thinking and other non-text blocks are not shown.
+        // Text is the answer, thinking the summarized reasoning; signatures and other blocks are not shown.
         const auto delta = data.value("delta").toObject();
-        if (delta.value("type").toString() == "text_delta") {
+        const auto type = delta.value("type").toString();
+        if (type == "text_delta") {
             const auto text = delta.value("text").toString();
             m_text += text;
             emit this->delta(text);
-        }
+        } else if (type == "thinking_delta")
+            think(delta.value("thinking").toString());
     } else if (event == "message_delta") {
         const auto reason = data.value("delta").toObject().value("stop_reason").toString();
         if (!reason.isEmpty()) m_stopReason = reason;
@@ -233,15 +256,28 @@ void OpenAiProvider::start(const AiRequest &request)
              input.append(QJsonObject{{"role", "user"}, {"content", content}});
              return input;
          }()}};
-    if (!request.effort.isEmpty()) body.insert("reasoning", QJsonObject{{"effort", request.effort}});
+    QJsonObject reasoning;
+    if (!request.effort.isEmpty()) reasoning.insert("effort", request.effort);
+    if (request.thinkingSummary && openAiReasons(request.model)) reasoning.insert("summary", "auto");
+    if (!reasoning.isEmpty()) body.insert("reasoning", reasoning);
     // OpenAI's faster processing tier.
     if (request.fast) body.insert("service_tier", "priority");
     post({{"Authorization", "Bearer " + m_key.toUtf8()}}, body, true);
 }
 
+bool openAiReasons(const QString &model)
+{
+    static const QRegularExpression reasoning("^(gpt-5|o\\d)");
+    return reasoning.match(model).hasMatch();
+}
+
 bool OpenAiProvider::handle(const QString &event, const QJsonObject &data)
 {
-    if (event == "response.output_text.delta") {
+    if (event == "response.reasoning_summary_part.added") {
+        think({}, true);
+    } else if (event == "response.reasoning_summary_text.delta") {
+        think(data.value("delta").toString());
+    } else if (event == "response.output_text.delta") {
         const auto text = data.value("delta").toString();
         m_text += text;
         emit delta(text);
@@ -297,6 +333,8 @@ bool OllamaProvider::handle(const QString &, const QJsonObject &data)
         fail("Ollama: " + data.value("error").toString());
         return false;
     }
+    // Thinking models put their reasoning beside the answer.
+    think(data.value("message").toObject().value("thinking").toString());
     const auto text = data.value("message").toObject().value("content").toString();
     if (!text.isEmpty()) {
         m_text += text;
@@ -445,6 +483,14 @@ CodexProvider::CodexProvider(CodexBridge *bridge, QObject *parent) : AiProvider(
             const auto text = params.value("delta").toString();
             m_text += text;
             emit delta(text);
+        } else if (method == "item/reasoning/summaryPartAdded") {
+            if (m_thought) emit thinkingDelta("\n\n");
+        } else if (method == "item/reasoning/summaryTextDelta") {
+            const auto text = params.value("delta").toString();
+            if (!text.isEmpty()) {
+                m_thought = true;
+                emit thinkingDelta(text);
+            }
         } else if (method == "turn/completed") {
             m_done = true;
             const auto turn = params.value("turn").toObject();
@@ -472,6 +518,7 @@ void CodexProvider::start(const AiRequest &request)
     m_model = request.model;
     m_effort = request.effort;
     m_fast = request.fast;
+    m_summary = request.thinkingSummary;
     QJsonObject thread{{"ephemeral", true}, {"sandbox", "read-only"}, {"approvalPolicy", "never"},
         {"developerInstructions", request.system}};
     if (!request.model.isEmpty()) thread.insert("model", request.model);
@@ -500,6 +547,7 @@ void CodexProvider::start(const AiRequest &request)
         if (!self->m_effort.isEmpty()) turn.insert("effort", self->m_effort);
         // Codex names its fast tier "priority".
         if (self->m_fast) turn.insert("serviceTier", "priority");
+        if (self->m_summary) turn.insert("summary", "auto");
         self->m_bridge->call("turn/start", turn, [self](const QJsonValue &turn, const QString &error) {
             if (!self || self->m_done) return;
             if (!error.isEmpty()) {

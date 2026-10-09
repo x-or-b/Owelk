@@ -70,6 +70,8 @@ signals:
     void busyChanged();
     void started(int request, const QString &threadId, const QString &provider, const QString &model, bool truncated);
     void delta(int request, const QString &text);
+    // Summarized reasoning while the answer is prepared (kept with the answer, never resent).
+    void thinking(int request, const QString &text);
     void finished(int request, const QString &text, const QVariantMap &details);
     void failed(int request, const QString &error);
     void connectionTested(const QString &provider, bool ok, const QString &detail);

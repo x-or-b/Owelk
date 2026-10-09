@@ -76,13 +76,14 @@ private:
 };
 
 struct Outcome {
-    QString text, error;
+    QString text, error, thinking;
     QStringList deltas;
 };
 Outcome run(AiProvider *provider, const AiRequest &request)
 {
     Outcome outcome;
     QObject::connect(provider, &AiProvider::delta, [&](const QString &text) { outcome.deltas << text; });
+    QObject::connect(provider, &AiProvider::thinkingDelta, [&](const QString &text) { outcome.thinking += text; });
     QSignalSpy finished(provider, &AiProvider::finished), failed(provider, &AiProvider::failed);
     provider->start(request);
     if (!QTest::qWaitFor([&] { return finished.size() + failed.size() > 0; }, 10000)) outcome.error = "timeout";
@@ -201,6 +202,34 @@ private slots:
         request.model = "claude-opus-5-5";
         request.effort.clear();
         request.fast = false;
+        // Asked for, the reasoning summary streams apart from the answer, a paragraph per thinking block.
+        server.chunks = {MockServer::sse("content_block_start",
+                             {{"type", "content_block_start"}, {"content_block", QJsonObject{{"type", "thinking"}}}}),
+            MockServer::sse("content_block_delta",
+                {{"type", "content_block_delta"},
+                    {"delta", QJsonObject{{"type", "thinking_delta"}, {"thinking", "Checking the setup."}}}}),
+            MockServer::sse("content_block_delta",
+                {{"type", "content_block_delta"},
+                    {"delta", QJsonObject{{"type", "signature_delta"}, {"signature", "x"}}}}),
+            MockServer::sse("content_block_start",
+                {{"type", "content_block_start"}, {"content_block", QJsonObject{{"type", "thinking"}}}}),
+            MockServer::sse("content_block_delta",
+                {{"type", "content_block_delta"},
+                    {"delta", QJsonObject{{"type", "thinking_delta"}, {"thinking", "Then the data."}}}}),
+            MockServer::sse("content_block_delta",
+                {{"type", "content_block_delta"}, {"delta", QJsonObject{{"type", "text_delta"}, {"text", "Answer."}}}}),
+            MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        request.thinkingSummary = true;
+        outcome = run(new AnthropicProvider(&network, server.base(), "k", this), request);
+        QCOMPARE(outcome.text, QString("Answer."));
+        QCOMPARE(outcome.thinking, QString("Checking the setup.\n\nThen the data."));
+        QCOMPARE(server.seen.last().body["thinking"].toObject(),
+            QJsonObject({{"type", "adaptive"}, {"display", "summarized"}}));
+        request.model = "claude-haiku-4-5"; // No adaptive thinking there: nothing is asked.
+        run(new AnthropicProvider(&network, server.base(), "k", this), request);
+        QVERIFY(!server.seen.last().body.contains("thinking"));
+        request.model = "claude-opus-5-5";
+        request.thinkingSummary = false;
         // A refusal discards partial text.
         server.chunks = {
             MockServer::sse("content_block_delta",
@@ -242,18 +271,40 @@ private slots:
         const auto content = server.seen[0].body["input"].toArray()[0].toObject()["content"].toArray();
         QCOMPARE(content[1].toObject()["image_url"].toString(),
             QString("data:image/png;base64,") + QByteArray("img").toBase64());
+        QVERIFY(!server.seen[0].body.contains("reasoning"));
+        // Reasoning models give a summary when asked; each part is a paragraph.
+        server.chunks = {MockServer::sse("response.reasoning_summary_part.added",
+                             {{"type", "response.reasoning_summary_part.added"}}),
+            MockServer::sse("response.reasoning_summary_text.delta",
+                {{"type", "response.reasoning_summary_text.delta"}, {"delta", "**Reading the table**"}}),
+            MockServer::sse(
+                "response.reasoning_summary_part.added", {{"type", "response.reasoning_summary_part.added"}}),
+            MockServer::sse("response.reasoning_summary_text.delta",
+                {{"type", "response.reasoning_summary_text.delta"}, {"delta", "Comparing rows."}}),
+            MockServer::sse("response.output_text.delta", {{"type", "response.output_text.delta"}, {"delta", "Done"}}),
+            MockServer::sse(
+                "response.completed", {{"type", "response.completed"}, {"response", QJsonObject{{"model", "gpt-5"}}}})};
+        request.thinkingSummary = true;
+        outcome = run(new OpenAiProvider(&network, server.base(), "k", this), request);
+        QCOMPARE(outcome.text, QString("Done"));
+        QCOMPARE(outcome.thinking, QString("**Reading the table**\n\nComparing rows."));
+        QCOMPARE(server.seen.last().body["reasoning"].toObject()["summary"].toString(), QString("auto"));
+        request.thinkingSummary = false;
         server.chunks = {MockServer::sse("response.failed",
             {{"type", "response.failed"}, {"response", QJsonObject{{"error", QJsonObject{{"message", "quota"}}}}}})};
         QVERIFY(run(new OpenAiProvider(&network, server.base(), "k", this), request).error.contains("quota"));
         server.contentType = "application/x-ndjson";
-        server.chunks = {R"({"message":{"role":"assistant","content":"Lo"},"done":false})"
+        server.chunks = {R"({"message":{"role":"assistant","content":"","thinking":"Hmm, local."},"done":false})"
                          "\n",
+            R"({"message":{"role":"assistant","content":"Lo"},"done":false})"
+            "\n",
             R"({"message":{"role":"assistant","content":"cal"},"done":false})"
             "\n",
             R"({"model":"llama3.2","done":true})"
             "\n"};
         outcome = run(new OllamaProvider(&network, server.base(), this), request);
         QCOMPARE(outcome.text, QString("Local"));
+        QCOMPARE(outcome.thinking, QString("Hmm, local."));
         QVERIFY(server.seen.last().requestLine.startsWith("POST /api/chat"));
         QCOMPARE(server.seen.last().body["messages"].toArray()[1].toObject()["images"].toArray()[0].toString(),
             QString(QByteArray("img").toBase64()));
@@ -487,6 +538,49 @@ private slots:
         QVERIFY(sent.contains("p3: Indoor scenes"));
         QVERIFY(!sent.contains("file:///"));
         QVERIFY(ai->clearApiKey("claude"));
+    }
+    void serviceKeepsThinkingApartFromTheAnswer()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        MockServer server;
+        server.chunks = {MockServer::sse("content_block_start",
+                             {{"type", "content_block_start"}, {"content_block", QJsonObject{{"type", "thinking"}}}}),
+            MockServer::sse("content_block_delta",
+                {{"type", "content_block_delta"},
+                    {"delta", QJsonObject{{"type", "thinking_delta"}, {"thinking", "Weighing the evidence."}}}}),
+            MockServer::sse("content_block_delta",
+                {{"type", "content_block_delta"},
+                    {"delta", QJsonObject{{"type", "text_delta"}, {"text", "The answer."}}}}),
+            MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        store.setSetting("ai.baseUrl.claude", server.base().toString());
+        ai->giveConsent("claude");
+        QVERIFY(ai->setApiKey("claude", "sk-ant-thinking-test"));
+        QSignalSpy finished(ai, &AiService::finished), thinking(ai, &AiService::thinking);
+        ai->ask({{"provider", "claude"}, {"model", "claude-opus-5-5"}, {"action", "ask"}, {"question", "Why?"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 10000);
+        QCOMPARE(thinking.size(), 1);
+        QCOMPARE(server.seen[0].body["thinking"].toObject()["display"].toString(), QString("summarized"));
+        // Stored beside the answer, not in it.
+        const auto threadId = finished[0][2].toMap()["threadId"].toString();
+        auto messages = store.aiThread(threadId)["messages"].toList();
+        const auto answer = messages[1].toMap();
+        QCOMPARE(answer["content"].toString(), QString("The answer."));
+        QCOMPARE(answer["context"].toMap()["thinking"].toString(), QString("Weighing the evidence."));
+        QVERIFY(answer["context"].toMap()["thinkingSeconds"].toInt() >= 1);
+        // A follow-up resends the answer without its reasoning; turned off, no summary is asked for.
+        store.setSetting("ai.showThinking", "0");
+        ai->ask({{"provider", "claude"}, {"model", "claude-opus-5-5"}, {"threadId", threadId}, {"action", "ask"},
+            {"question", "And then?"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 10000);
+        const auto followUp = server.seen.last().body;
+        QCOMPARE(followUp["messages"].toArray()[1].toObject()["content"].toString(), QString("The answer."));
+        QVERIFY(!QJsonDocument(followUp).toJson().contains("Weighing"));
+        QVERIFY(!followUp.contains("thinking"));
+        ai->clearApiKey("claude");
     }
     void serviceRequiresConsentKeyAndSavesAnswers()
     {
