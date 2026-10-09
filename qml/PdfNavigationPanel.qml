@@ -10,6 +10,7 @@ Item {
     objectName: "pdfNavigationPanel"
     property var reader: null
     property int mode: 0
+    readonly property bool invertPages: Theme.invertPages && Theme.canInvertPages
     signal modeChosen(int mode)
     signal linkActivated(string link)
     // Notes that link to this paper or to its excerpts and annotations.
@@ -372,18 +373,26 @@ Item {
                 background: Rectangle { color: Theme.window; border.color: root.reader && root.reader.currentPage === thumb.index ? Theme.accent : Theme.separator; radius: Theme.radius }
                 contentItem: Column {
                     spacing: 4
-                    PdfPageImage {
+                    // A page on paper, so text stays readable on a dark theme; Dark pages turn it dark too.
+                    Rectangle {
                         id: preview
-                        objectName: "thumbnailImage-" + thumb.index
+                        objectName: "thumbnailPaper-" + thumb.index
                         readonly property size points: root.ready ? root.reader.pdfDocument.pagePointSize(thumb.index) : Qt.size(595, 842)
                         width: thumb.width - 12
                         height: Math.min(250, width * points.height / Math.max(1, points.width))
-                        document: root.navigationDocument
-                        currentFrame: thumb.index
-                        asynchronous: true
-                        cache: false
-                        sourceSize.width: Math.min(440, Math.ceil(width * Screen.devicePixelRatio))
-                        fillMode: Image.PreserveAspectFit
+                        color: root.invertPages ? Theme.paperInverted : Theme.paper
+                        PdfPageImage {
+                            objectName: "thumbnailImage-" + thumb.index
+                            anchors.fill: parent
+                            document: root.navigationDocument
+                            currentFrame: thumb.index
+                            asynchronous: true
+                            cache: false
+                            sourceSize.width: Math.min(440, Math.ceil(width * Screen.devicePixelRatio))
+                            fillMode: Image.PreserveAspectFit
+                            layer.enabled: root.invertPages
+                            layer.effect: ShaderEffect { objectName: "thumbnailInvert"; fragmentShader: "qrc:/owelk/shaders/invert.frag.qsb" }
+                        }
                     }
                     Label { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: thumb.index + 1; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
                 }

@@ -90,6 +90,16 @@ Item {
             const image = findChild(first, "thumbnailImage-0")
             compare(image.document, reader.pdfDocument)
             tryCompare(image, "status", Image.Ready, 10000)
+            // The page sits on paper; with Dark pages, dark paper and the inverted image.
+            const paper = findChild(first, "thumbnailPaper-0")
+            verify(Qt.colorEqual(paper.color, Theme.paper))
+            if (Theme.canInvertPages) {
+                Theme.invertPages = true
+                tryVerify(function() { return Qt.colorEqual(paper.color, Theme.paperInverted) })
+                verify(image.layer.enabled)
+                Theme.invertPages = false
+                verify(!image.layer.enabled)
+            }
             list.positionViewAtIndex(2, ListView.Contain); list.forceLayout()
             mouseClick(list.itemAtIndex(2))
             tryCompare(reader, "currentPage", 2)
