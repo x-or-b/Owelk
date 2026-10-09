@@ -4,6 +4,7 @@
 #include "WorkerConnection.h"
 #include "PaperIndex.h"
 #include "ReferenceFinder.h"
+#include "FileFingerprint.h"
 #include "AppInstance.h"
 #include <QFileOpenEvent>
 #include "SelectionGeometry.h"
@@ -1462,6 +1463,53 @@ private slots:
         QCOMPARE(close.size(), 1);
         QCOMPARE(close[0].toMap()["id"].toString(), twin);
         QVERIFY(store.relatedNotes(unrelated).isEmpty());
+    }
+    void annotationsFromAnotherCopyCanBeShownWhenTheyFit()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("stamped.pdf");
+        writeFixture(path, "Stamped Paper", 2);
+        const auto source = QUrl::fromLocalFile(path);
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QVERIFY(store.rememberDocument(source));
+        QSignalSpy loaded(&store, &ResearchStore::highlightsLoaded), saved(&store, &ResearchStore::highlightSaved);
+        {
+            QPdfDocument pdf;
+            QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+            const auto bounds
+                = pdf.getSelectionAtIndex(0, int(pdf.getAllText(0).text().indexOf("Research finding 1.2")), 40)
+                      .boundingRectangle();
+            const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y());
+            store.highlightText(source, 0, from, to, pdf.getSelection(0, from, to).text());
+        }
+        QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000);
+        store.loadHighlights(source);
+        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 5000);
+        QCOMPARE(loaded.last().at(2).toList().size(), 1);
+        // The same paper downloaded again, stamped differently: other bytes, same pages.
+        QFile::remove(path);
+        writeFixture(path, "Stamped Paper (downloaded again)", 2);
+        FileFingerprint::clearCache();
+        store.loadHighlights(source);
+        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 2, 5000);
+        QVERIFY(loaded.last().at(2).toList().isEmpty());
+        QCOMPARE(loaded.last().at(5).toInt(), 1);
+        QVERIFY(loaded.last().at(3).toString().contains("another copy"));
+        QCOMPARE(store.adoptAnnotations(source), 1);
+        store.loadHighlights(source);
+        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 3, 5000);
+        QCOMPARE(loaded.last().at(2).toList().size(), 1);
+        QCOMPARE(loaded.last().at(5).toInt(), 0);
+        // A different paper under the same name: the words are not there, so they stay hidden.
+        QFile::remove(path);
+        writeTextFixture(path, {"Something else entirely.", "Nothing about findings here."});
+        FileFingerprint::clearCache();
+        QCOMPARE(store.adoptAnnotations(source), -1);
+        store.loadHighlights(source);
+        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 4, 5000);
+        QCOMPARE(loaded.last().at(5).toInt(), 1);
     }
     void downloadedPdfsTakeTheirPaperName()
     {

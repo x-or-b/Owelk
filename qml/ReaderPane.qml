@@ -461,12 +461,26 @@ Rectangle {
             IconButton { icon.name: "close"; description: "Close search · Esc"; onClicked: root.hideSearch() }
         }
 
-        Label {
+        // Annotations that cannot be shown: why, and (made on another copy of this PDF) the way to show
+        // them here when they still fit its pages. × hides the note for now.
+        RowLayout {
+            objectName: "annotationNotice"
             visible: canvas.highlightError.length > 0
             Layout.fillWidth: true
-            Layout.leftMargin: 12; Layout.rightMargin: 12
-            text: canvas.highlightError
-            textFormat: Text.PlainText; wrapMode: Text.Wrap; color: Theme.danger
+            Layout.leftMargin: 12; Layout.rightMargin: 6
+            spacing: 6
+            Label {
+                Layout.fillWidth: true
+                text: canvas.highlightError
+                textFormat: Text.PlainText; wrapMode: Text.Wrap; color: Theme.danger
+            }
+            Button {
+                objectName: "adoptAnnotations"
+                visible: canvas.hiddenAnnotations > 0
+                text: "Show Them Here"
+                onClicked: researchStore.adoptAnnotations(canvas.source)
+            }
+            IconButton { objectName: "dismissAnnotationNotice"; icon.name: "close"; description: "Close"; onClicked: canvas.highlightError = "" }
         }
         Label {
             visible: canvas.captureMode || canvas.tool.length > 0

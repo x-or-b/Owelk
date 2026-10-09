@@ -286,6 +286,10 @@ public:
     // Where a quoted phrase sits on a page, in page-relative coordinates; empty when it is not there.
     // Case, spacing and line-end hyphens are ignored; a long quote is matched by its opening words.
     static QRectF passageRegion(QPdfDocument &pdf, int page, const QString &phrase);
+    // Annotations made on another copy of this PDF (a publisher that stamps each download changes the
+    // bytes) are hidden. When they still fit this copy (their pages exist and their words are on them),
+    // the reader may move them here. Returns how many moved, or -1 when they do not fit (they stay hidden).
+    Q_INVOKABLE int adoptAnnotations(const QUrl &source);
     Q_INVOKABLE void openHighlight(const QString &id);
     Q_INVOKABLE void openCapture(const QString &id);
     Q_INVOKABLE void copyText(const QString &text);
@@ -344,8 +348,9 @@ signals:
     // The opened file has the same bytes as another library entry that still exists.
     void duplicateFound(const QUrl &source, const QUrl &existing, const QString &existingTitle);
     void highlightSaved(const QString &id, const QUrl &source);
+    // hidden: annotations kept for another copy of this PDF (its bytes differ), not shown.
     void highlightsLoaded(int request, const QUrl &source, const QVariantList &highlights, const QString &error,
-        const QString &fingerprint);
+        const QString &fingerprint, int hidden);
     void annotationSaved(const QString &id);
     void annotationFinished(bool success, const QString &id);
     void capturesChanged();

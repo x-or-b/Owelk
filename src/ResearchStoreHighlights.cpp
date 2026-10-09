@@ -49,21 +49,73 @@ int ResearchStore::loadHighlights(const QUrl &source)
         const auto hash = watcher->result();
         watcher->deleteLater();
         QVariantList verified;
-        bool mismatch = false;
+        int hidden = 0;
         for (const auto &row : rows) {
             if (!hash.isEmpty() && row.toMap()["sha256"].toString() == hash)
                 verified.append(row);
             else
-                mismatch = true;
+                ++hidden;
         }
         emit highlightsLoaded(request, source, verified,
-            !queried       ? "Cannot load highlights."
-                : mismatch ? "Some annotations are hidden because the original PDF is missing or changed."
-                           : QString(),
-            hash);
+            !queried ? QStringLiteral("Cannot load highlights.")
+                : hidden
+                ? (hash.isEmpty() ? QStringLiteral("Annotations are hidden: the PDF file cannot be read.")
+                                  : QStringLiteral("%1 annotation%2 made on another copy of this PDF %3 hidden.")
+                                        .arg(hidden)
+                                        .arg(hidden == 1 ? "" : "s", hidden == 1 ? "is" : "are"))
+                : QString(),
+            hash, hash.isEmpty() ? 0 : hidden);
     });
     watcher->setFuture(QtConcurrent::run(&m_verifiers, [source] { return fingerprint(source); }));
     return request;
+}
+
+int ResearchStore::adoptAnnotations(const QUrl &source)
+{
+    const auto url = resolvedSource(source);
+    const auto hash = fingerprint(url);
+    const auto document = findDocument(source);
+    if (hash.isEmpty() || document.isEmpty()) return -1;
+    QSqlQuery query(m_database);
+    query.prepare("SELECT id,page,text FROM highlights WHERE document_id=? AND deleted_at IS NULL AND sha256<>?");
+    query.addBindValue(document);
+    query.addBindValue(hash);
+    if (!query.exec()) return -1;
+    QStringList ids;
+    QList<QPair<int, QString>> places;
+    while (query.next()) {
+        ids << query.value(0).toString();
+        places.append({query.value(1).toInt(), query.value(2).toString().simplified()});
+    }
+    if (ids.isEmpty()) return 0;
+    // They fit when every page is here and every marked passage is still on its page.
+    QPdfDocument pdf;
+    if (PdfAccess::load(pdf, url.toLocalFile()) != QPdfDocument::Error::None) return -1;
+    for (const auto &[page, text] : std::as_const(places)) {
+        if (page < 0 || page >= pdf.pageCount()
+            || (!text.isEmpty() && passageRegion(pdf, page, text.left(200)).isEmpty())) {
+            emit message("These annotations do not fit this copy's pages, so they stay hidden.");
+            return -1;
+        }
+    }
+    if (!m_database.transaction()) return -1;
+    QSqlQuery update(m_database);
+    update.prepare("UPDATE highlights SET sha256=? WHERE document_id=? AND deleted_at IS NULL AND sha256<>?");
+    update.addBindValue(hash);
+    update.addBindValue(document);
+    update.addBindValue(hash);
+    QSqlQuery captures(m_database);
+    captures.prepare("UPDATE captures SET sha256=? WHERE document_id=? AND sha256<>?");
+    captures.addBindValue(hash);
+    captures.addBindValue(document);
+    captures.addBindValue(hash);
+    if (!update.exec() || !captures.exec() || !m_database.commit()) {
+        m_database.rollback();
+        return -1;
+    }
+    emit highlightsChanged();
+    emit capturesChanged();
+    return int(ids.size());
 }
 
 bool ResearchStore::updateHighlight(const QString &id, const QString &color, const QString &body)

@@ -95,6 +95,8 @@ Item {
     property var savedHighlights: []
     property int highlightRequest: -1
     property string highlightError: ""
+    // Annotations kept for another copy of this PDF (ResearchStore::adoptAnnotations).
+    property int hiddenAnnotations: 0
     property string removingHighlight: ""
     property var pendingHighlightSelection: null
     function refreshHighlights() {
@@ -113,9 +115,10 @@ Item {
     Connections {
         target: researchStore
         function onHighlightsChanged() { root.refreshHighlights() }
-        function onHighlightsLoaded(request, source, highlights, error, fingerprint) {
+        function onHighlightsLoaded(request, source, highlights, error, fingerprint, hidden) {
             if (request !== root.highlightRequest || !researchStore.sameSource(root.source, source)) return
             root.savedHighlights = highlights; root.highlightError = error; root.documentFingerprint = fingerprint
+            root.hiddenAnnotations = hidden || 0
         }
         function onHighlightSaved(id, source) {
             if (researchStore.sameSource(root.source, source) && root.pendingHighlightSelection !== null
