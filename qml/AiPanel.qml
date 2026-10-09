@@ -16,6 +16,32 @@ Item {
     function focusQuestion() { question.forceActiveFocus() }
     Connections { target: root.c; function onFocusRequested() { root.focusQuestion() } }
     Component.onCompleted: if (c && c.spec.action === "ask" && !c.streaming) question.forceActiveFocus()
+    // The reader's turn: an accent bubble that hugs its text, with room on the left like a messenger.
+    component Bubble: Rectangle {
+        property alias text: bubbleText.text
+        readonly property real room: conversation.width - Math.min(40, conversation.width * 0.12)
+        Layout.alignment: Qt.AlignRight
+        Layout.preferredWidth: Math.min(room, bubbleText.implicitWidth + 18)
+        implicitHeight: bubbleText.contentHeight + 14
+        radius: Theme.radiusLarge; color: Theme.accent
+        TextEdit {
+            id: bubbleText
+            anchors.fill: parent; anchors.leftMargin: 9; anchors.rightMargin: 9; anchors.topMargin: 7; anchors.bottomMargin: 7
+            readOnly: true; selectByMouse: true
+            textFormat: TextEdit.PlainText; wrapMode: TextEdit.WrapAtWordBoundaryOrAnywhere
+            color: Theme.onAccent; font.pixelSize: Theme.fontSmall
+            selectionColor: Theme.onAccent; selectedTextColor: Theme.accent
+        }
+    }
+    // An answer: Markdown as rich text that can be selected and copied; links open in Owelk.
+    component AnswerText: TextEdit {
+        readOnly: true; selectByMouse: true
+        textFormat: TextEdit.RichText; wrapMode: TextEdit.WrapAtWordBoundaryOrAnywhere
+        color: Theme.text; font.pixelSize: Theme.fontBody
+        selectionColor: Theme.mix(Theme.accent, Theme.field, .65); selectedTextColor: Theme.text
+        onLinkActivated: function(link) { root.linkActivated(link) }
+        HoverHandler { cursorShape: parent.hoveredLink.length > 0 ? Qt.PointingHandCursor : Qt.IBeamCursor }
+    }
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 8
@@ -90,7 +116,8 @@ Item {
                 color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
             }
         }
-        // The conversation: earlier turns, then the streaming answer.
+        // The conversation: earlier turns, then the streaming answer. Mouse drags select text (the
+        // wheel and trackpad scroll); the view follows a streaming answer only while at the bottom.
         ListView {
             id: conversation
             objectName: "aiConversation"
@@ -99,34 +126,39 @@ Item {
             Layout.fillWidth: true; Layout.fillHeight: true
             clip: true
             spacing: 10
+            acceptedButtons: Qt.NoButton
             model: root.c ? root.c.messages : []
-            onCountChanged: Qt.callLater(positionViewAtEnd)
+            property bool following: true
+            property bool settling: false
+            readonly property bool nearEnd: contentHeight <= height || contentY + height >= contentHeight + originY - 24
+            function toEnd() { following = true; settling = true; positionViewAtEnd(); settling = false }
+            function follow() { if (following) Qt.callLater(toEnd) }
+            // The question an answer replies to: the nearest user turn above it.
+            function toQuestion(index) {
+                const list = root.c ? root.c.messages : []
+                let at = index
+                while (at > 0 && list[at].role !== "user") --at
+                following = false
+                positionViewAtIndex(at, ListView.Beginning)
+            }
+            onContentYChanged: if (!settling) following = nearEnd
+            onCountChanged: follow()
             delegate: ColumnLayout {
                 id: message
                 required property var modelData
                 required property int index
                 width: ListView.view.width
                 spacing: 4
-                Rectangle {
+                Bubble {
                     visible: message.modelData.role === "user"
-                    Layout.fillWidth: true
-                    implicitHeight: userText.implicitHeight + 12
-                    radius: Theme.radius; color: Theme.window
-                    Label {
-                        id: userText
-                        anchors.fill: parent; anchors.margins: 6
-                        text: message.modelData.display || ""; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; textFormat: Text.PlainText
-                        color: Theme.text; font.pixelSize: Theme.fontSmall
-                    }
+                    objectName: "aiQuestion-" + message.index
+                    text: message.modelData.display || ""
                 }
-                Text {
+                AnswerText {
                     visible: message.modelData.role === "assistant"
                     objectName: "aiMessage-" + message.index
                     Layout.fillWidth: true
                     text: visible ? researchStore.markdownHtml(message.modelData.content, Theme.accent) : ""
-                    textFormat: Text.RichText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                    color: Theme.text; font.pixelSize: Theme.fontBody
-                    onLinkActivated: function(link) { root.linkActivated(link) }
                 }
                 RowLayout {
                     visible: message.modelData.role === "assistant"
@@ -137,26 +169,28 @@ Item {
                         icon.name: "note"; description: "Save as note"; glyphSize: Theme.fontBody
                         onClicked: root.c.saveAsNote(message.index)
                     }
+                    IconButton {
+                        objectName: "aiToQuestion-" + message.index
+                        icon.name: "up"; description: "Back to the question"; glyphSize: Theme.fontBody
+                        onClicked: conversation.toQuestion(message.index)
+                    }
                 }
             }
             footer: ColumnLayout {
                 width: conversation.width
                 spacing: 4
-                Rectangle {
+                Bubble {
                     visible: root.c && root.c.pendingQuestion.length > 0
-                    Layout.fillWidth: true; Layout.topMargin: 10
-                    implicitHeight: pendingText.implicitHeight + 12
-                    radius: Theme.radius; color: Theme.window
-                    Label { id: pendingText; anchors.fill: parent; anchors.margins: 6; text: root.c ? root.c.pendingQuestion : ""; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; textFormat: Text.PlainText; color: Theme.text; font.pixelSize: Theme.fontSmall }
+                    objectName: "aiPendingQuestion"
+                    Layout.topMargin: 10
+                    text: root.c ? root.c.pendingQuestion : ""
                 }
-                Text {
+                AnswerText {
                     objectName: "aiAnswer"
                     visible: root.c && (root.c.streaming || root.c.answer.length > 0)
                     Layout.fillWidth: true
                     text: !root.c ? "" : root.c.answer.length ? researchStore.markdownHtml(root.c.answer, Theme.accent) : "<i>Thinking…</i>"
-                    textFormat: Text.RichText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                    color: Theme.text; font.pixelSize: Theme.fontBody
-                    onTextChanged: Qt.callLater(conversation.positionViewAtEnd)
+                    onTextChanged: conversation.follow()
                 }
                 Label {
                     objectName: "aiError"
@@ -180,6 +214,23 @@ Item {
                     text: "Open Settings…"; implicitHeight: Theme.rowHeight - 2
                     onClicked: root.settingsRequested()
                 }
+            }
+            // Scrolled up while newer text sits below: one click back to the latest.
+            IconButton {
+                id: toLatest
+                objectName: "aiToLatest"
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom; anchors.bottomMargin: 8
+                z: 2
+                visible: !conversation.nearEnd && conversation.count > 0
+                icon.name: "down"; description: "Go to the latest"
+                background: Rectangle {
+                    implicitWidth: Theme.controlHeight; implicitHeight: Theme.controlHeight
+                    radius: height / 2
+                    color: toLatest.hovered ? Theme.hover : Theme.raised
+                    border.color: Theme.border
+                }
+                onClicked: conversation.toEnd()
             }
         }
         // Attachments for the next turn; × removes one. Images show a thumbnail.

@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import Owelk.Ui
 import "../qml" as App
 import "../qml/WorkspaceTree.js" as Tree
 
@@ -104,6 +105,23 @@ Item {
             tryCompare(ai, "threadId", thread)
             verify(workspace.documents.openLink("owelk://ai/" + thread))
             compare(ai.conversationOpen, true)
+            // The reader's turns are accent bubbles with room on the left; answers can be selected.
+            const conv = findChild(p, "aiConversation")
+            tryVerify(function() { return findChild(conv, "aiQuestion-2") !== null && findChild(conv, "aiMessage-3") !== null })
+            waitForPolish(conv)
+            const bubble = findChild(conv, "aiQuestion-2")
+            verify(Qt.colorEqual(bubble.color, Theme.accent))
+            verify(bubble.x > 0)
+            fuzzyCompare(bubble.x + bubble.width, conv.width, 1)
+            const answer = findChild(conv, "aiMessage-3")
+            answer.selectAll()
+            verify(answer.selectedText.indexOf("Mock answer") >= 0)
+            answer.deselect()
+            // Back to the question stops following; the latest button (or toEnd) resumes it.
+            mouseClick(findChild(conv, "aiToQuestion-3"))
+            compare(conv.following, false)
+            conv.toEnd()
+            compare(conv.following, true)
         }
         function pickModel(p, name) {
             const button = findChild(p, "aiModelButton")
