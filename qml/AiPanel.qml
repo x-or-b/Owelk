@@ -397,7 +397,8 @@ Item {
             readonly property real limit: expanded ? Math.max(140, root.height * 0.5) : 140
             Layout.minimumWidth: 0
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(limit, Math.max(56, question.implicitHeight))
+            // Expanded, the box keeps its larger height (like Zed or ChatGPT) until collapsed or sent.
+            Layout.preferredHeight: expanded ? limit : Math.min(limit, Math.max(56, question.implicitHeight))
             onTallChanged: if (!tall) expanded = false
             ScrollView {
                 id: questionScroll

@@ -189,7 +189,7 @@ Rectangle {
         MenuSeparator {}
         // With a selection they act on it; without one: a new thread to ask in, this page translated
         // (then the next, from the AI panel), the whole paper summarized.
-        MenuItem { objectName:"menuExplainAi"; text:canvas.selectedText ? "Explain with AI" : "Explain with AI…"; onTriggered:canvas.selectedText ? root.requestAi("explain", "selection") : root.requestAi("ask", "none") }
+        MenuItem { objectName:"menuExplainAi"; text:canvas.selectedText ? "Explain with AI" : "Explain with AI…"; onTriggered:canvas.selectedText ? root.requestAi("explain", "selection") : root.requestAi("ask", "paper") }
         MenuItem { objectName:"menuTranslateAi"; text:canvas.selectedText ? "Translate with AI" : "Translate This Page with AI"; onTriggered:root.requestAi("translate", canvas.selectedText ? "selection" : "page") }
         MenuItem { objectName:"menuSummarizeAi"; text:canvas.selectedText ? "Summarize with AI" : "Summarize Paper with AI"; onTriggered:root.requestAi("summarize", canvas.selectedText ? "selection" : "paper") }
         MenuItem { text:canvas.selectedText ? "Ask AI about the Selection…" : "Ask AI about This Page…"; onTriggered:root.requestAi("ask", canvas.selectedText ? "selection" : "page") }

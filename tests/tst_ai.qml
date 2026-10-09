@@ -151,6 +151,9 @@ Item {
             const composerBox = findChild(p, "aiComposer"), before = composerBox.limit
             mouseClick(size)
             verify(composerBox.limit > before)
+            // Expanded, the box keeps its height even for short text.
+            box.text = "one\ntwo\nthree"
+            tryCompare(composerBox, "height", composerBox.limit)
             box.text = ""
             tryCompare(size, "visible", false)
             compare(composerBox.expanded, false)
@@ -273,6 +276,10 @@ Item {
             compare(ai.threadId, "")
             compare(ai.conversationOpen, true)
             verify(ai.attachments.some(function(a) { return a.kind === "paper" }))
+            // The paper chip is the whole paper: a new thread sends its text, and Whole Paper adds no second chip.
+            compare(ai.spec.scope, "paper")
+            ai.attach("paper")
+            compare(ai.attachments.filter(function(a) { return a.kind === "paper" || a.kind === "paperText" }).length, 1)
             ai.attach("page")
             verify(ai.attachments.some(function(a) { return a.kind === "page" }))
             ai.detach("page")

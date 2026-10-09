@@ -183,6 +183,7 @@ private slots:
         QVERIFY(seen.body["stream"].toBool());
         QCOMPARE(seen.body["system"].toString(), QString("system text"));
         QCOMPARE(seen.body["output_config"].toObject()["effort"].toString(), QString("medium"));
+        QCOMPARE(seen.body["cache_control"].toObject()["type"].toString(), QString("ephemeral"));
         QVERIFY(!seen.body.contains("thinking")); // Opus 5.5 thinks adaptively; it cannot be configured off.
         const auto content = seen.body["messages"].toArray()[0].toObject()["content"].toArray();
         QCOMPARE(content[0].toObject()["type"].toString(), QString("image"));

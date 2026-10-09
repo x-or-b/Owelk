@@ -169,6 +169,8 @@ void AnthropicProvider::start(const AiRequest &request)
     messages.append(QJsonObject{{"role", "user"}, {"content", content}});
     QJsonObject body{{"model", request.model}, {"max_tokens", request.maxTokens}, {"stream", true},
         {"system", request.system}, {"messages", messages}};
+    // Follow-ups resend the conversation (a whole paper, often): cached, the repeat costs a tenth.
+    body.insert("cache_control", QJsonObject{{"type", "ephemeral"}});
     // A safety decline is retried server-side on the model Anthropic recommends for that category.
     const bool fallbacks = request.model.startsWith("claude-opus-5") || request.model.startsWith("claude-sonnet-5-5")
         || request.model.startsWith("claude-fable-5");

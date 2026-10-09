@@ -145,6 +145,8 @@ Item {
     readonly property var attachments: {
         const list = []
         const s = spec
+        // The paper chip is the paper itself: with no narrower scope (a page, a selection) its whole text
+        // goes with the first question; later turns carry it in the conversation.
         if (s.source && s.source.toString().length) list.push({kind: "paper", label: "Paper · " + researchStore.displayName(s.source)})
         if (s.selection && s.selection.length) {
             const flat = s.selection.replace(/\s+/g, " ").trim()
@@ -155,7 +157,6 @@ Item {
             list.push({kind: "quote", label: "Quote · " + flat.slice(0, 60) + (flat.length > 60 ? "…" : "")})
         }
         if (s.scope === "page") list.push({kind: "page", label: "Page " + (Number(s.page) + 1) + " text"})
-        if (s.scope === "paper") list.push({kind: "paperText", label: "Full paper text"})
         if (s.scope === "library") list.push({kind: "library", label: (s.collection ? "Collection · " + s.collectionName : "Whole library") + " · passages that answer the question"})
         if (s.captureId) list.push({kind: "capture", label: s.action === "figure" ? "Figure image" : "Excerpt"})
         images.forEach(function(image, index) { list.push({kind: "image", index: index, label: image.name, url: image.url}) })
@@ -181,7 +182,7 @@ Item {
     function newThread() {
         reset()
         threadId = ""; thread = ({})
-        spec = reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "none", page: reader.currentPage || 0} : ({})
+        spec = reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "paper", page: reader.currentPage || 0} : ({})
         conversationOpen = true
         focusRequested()
     }
@@ -228,9 +229,9 @@ Item {
             return
         }
         if (kind === "quote") delete next.quote
-        if (kind === "library") { spec = reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "none"} : ({}); return }
+        if (kind === "library") { spec = reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "paper"} : ({}); return }
         if (kind === "selection") next.selection = ""
-        if (kind === "page" || kind === "paperText") next.scope = "none"
+        if (kind === "page") next.scope = "none"
         if (kind === "capture") delete next.captureId
         spec = next
     }
