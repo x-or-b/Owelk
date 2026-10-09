@@ -24,7 +24,7 @@
 #include <QtTest>
 #include <limits>
 
-class TextCaptureTest : public QObject {
+class AnnotationTest : public QObject {
     Q_OBJECT
 private slots:
     void printDialogOpensAndCancels()
@@ -122,7 +122,7 @@ private slots:
         QSKIP("Native HEIC import is tested on macOS; other platforms use installed Qt image codecs.");
 #endif
     }
-    void undoAndRedoAnnotationsAndCaptures()
+    void undoAndRedoAnnotations()
     {
         QTemporaryDir dir;
         const auto path = dir.filePath("undo.pdf");
@@ -167,14 +167,17 @@ private slots:
         QVERIFY(store.undo(source));
         QCOMPARE(marks().size(), 1);
         QCOMPARE(marks()[0].toMap()["drawing"].toList().size(), 2);
-        // A capture: undo moves it to the trash, redo restores it.
-        store.captureRegion(source, 0, QRectF(.1, .1, .3, .2));
-        QTRY_VERIFY_WITH_TIMEOUT(!store.busy() && store.captures().size() == 1, 10000);
+        // A marked region needs no words; undo removes it, redo brings it back.
+        store.saveAnnotation(source, 0,
+            {{"kind", "area"}, {"color", "#54a878"}, {"sha256", hash},
+                {"rectangles", QVariantList{QVariantMap{{"x", .1}, {"y", .5}, {"width", .4}, {"height", .2}}}}});
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 2, 10000);
+        QVERIFY(done.last()[0].toBool());
+        QCOMPARE(marks().size(), 2);
         QVERIFY(store.undo(source));
-        QCOMPARE(store.captures().size(), 0);
-        QCOMPARE(store.trashedCaptures().size(), 1);
+        QCOMPARE(marks().size(), 1);
         QVERIFY(store.redo(source));
-        QCOMPARE(store.captures().size(), 1);
+        QCOMPARE(marks().size(), 2);
         // Nothing left to undo past the start.
         while (store.canUndo(source)) QVERIFY(store.undo(source));
         QVERIFY(!store.undo(source));
@@ -377,7 +380,6 @@ private slots:
             store.highlightText(source, 0, from, to, selected);
             QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000);
             id = saved[0][0].toString();
-            QVERIFY(store.captures().isEmpty());
             store.loadHighlights(source);
             QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
             const auto marks = loaded[0][2].toList();
@@ -440,125 +442,6 @@ private slots:
         QVERIFY(reopened.initialize(&error));
         QVERIFY(reopened.searchKnowledge("occlusion").isEmpty());
     }
-    void captureNotesPersistSearchAndKeepSource()
-    {
-        QTemporaryDir directory;
-        const auto path = directory.filePath("source.pdf");
-        writeFixture(path);
-        QString id, original;
-        {
-            ResearchStore store(directory.path());
-            QString error;
-            QVERIFY(store.initialize(&error));
-            QPdfDocument pdf;
-            QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
-            const auto bounds = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45)
-                                    .boundingRectangle();
-            const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y());
-            original = pdf.getSelection(0, from, to).text();
-            store.captureText(QUrl::fromLocalFile(path), 0, from, to, original);
-            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
-            QCOMPARE(store.captures().size(), 1);
-            id = store.captures()[0].toMap()["id"].toString();
-            QVERIFY(store.saveCaptureNote(id, "My uniquecomparison <b>not HTML</b>\n한글 메모"));
-            QCOMPARE(store.captures()[0].toMap()["text"].toString(), original);
-            const auto results = store.searchKnowledge("uniquecomparison", QUrl::fromLocalFile(path), "captures");
-            QCOMPARE(results.size(), 1);
-            QCOMPARE(results[0].toMap()["kind"].toString(), "note");
-            QVERIFY(store.searchKnowledge("uniquecomparison", QUrl::fromLocalFile("/another.pdf")).isEmpty());
-            QVERIFY(!store.saveCaptureNote(id, QString(10001, 'a')));
-            QVERIFY(!store.saveCaptureNote("missing", "No orphan note"));
-        }
-        ResearchStore reopened(directory.path());
-        QString error;
-        QVERIFY(reopened.initialize(&error));
-        QVERIFY(reopened.captures()[0].toMap()["note"].toString().contains("uniquecomparison"));
-        QVERIFY(reopened.saveCaptureNote(id, "Revised question"));
-        QVERIFY(reopened.searchKnowledge("uniquecomparison").isEmpty());
-        QVERIFY(reopened.saveCaptureNote(id, ""));
-        QVERIFY(reopened.captures()[0].toMap()["note"].toString().isEmpty());
-        QCOMPARE(reopened.captures()[0].toMap()["text"].toString(), original);
-        reopened.captureRegion(QUrl::fromLocalFile(path), 1, QRectF(.1, .2, .3, .2));
-        QTRY_VERIFY_WITH_TIMEOUT(!reopened.busy(), 10000);
-        QString regionId;
-        for (const auto &row : reopened.captures())
-            if (row.toMap()["kind"] == "region") regionId = row.toMap()["id"].toString();
-        QVERIFY(!regionId.isEmpty());
-        QVERIFY(reopened.saveCaptureNote(regionId, "Figure note"));
-        QVERIFY(reopened.deleteCapture(regionId));
-        QVERIFY(reopened.searchKnowledge("Figure note").isEmpty());
-        QVERIFY(!reopened.saveCaptureNote(regionId, "Cannot edit trashed capture"));
-        QVERIFY(QFile::exists(path));
-    }
-    void legacyRegionSchemaIsPreserved()
-    {
-        QTemporaryDir directory;
-        const auto connection = QStringLiteral("legacy-capture-check");
-        const auto id = QStringLiteral("91ffeb1a-df10-4a54-a6fc-8a8b2c629b13");
-        {
-            auto db = QSqlDatabase::addDatabase("QSQLITE", connection);
-            db.setDatabaseName(directory.filePath("owelk.sqlite3"));
-            QVERIFY(db.open());
-            QSqlQuery query(db);
-            QVERIFY(
-                query.exec("CREATE TABLE captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, "
-                           "sha256 TEXT NOT NULL,page INTEGER NOT NULL,x REAL NOT NULL,y REAL NOT NULL,"
-                           "width REAL NOT NULL,height REAL NOT NULL,image TEXT NOT NULL,created_at TEXT NOT NULL)"));
-            query.prepare("INSERT INTO captures VALUES(?,'file:///preserved.pdf','hash',2,.1,.2,.3,.4,?,'2026-01-01')");
-            query.addBindValue(id);
-            query.addBindValue(id + ".png");
-            QVERIFY(query.exec());
-        }
-        QSqlDatabase::removeDatabase(connection);
-        ResearchStore store(directory.path());
-        QString error;
-        QVERIFY(store.initialize(&error));
-        QCOMPARE(store.captures().size(), 1);
-        const auto capture = store.captures()[0].toMap();
-        QCOMPARE(capture["id"].toString(), id);
-        QCOMPARE(capture["kind"].toString(), "region");
-        QCOMPARE(capture["page"].toInt(), 2);
-        QVERIFY(capture["text"].toString().isEmpty());
-        QVERIFY(capture["image"].toUrl().toLocalFile().endsWith(id + ".png"));
-    }
-    void failedPayloadInsertRollsBackAnchor()
-    {
-        QTemporaryDir directory;
-        const auto path = directory.filePath("source.pdf");
-        writeFixture(path);
-        ResearchStore store(directory.path());
-        QString error;
-        QVERIFY(store.initialize(&error));
-        const auto connection = QStringLiteral("capture-failure-check");
-        {
-            auto db = QSqlDatabase::addDatabase("QSQLITE", connection);
-            db.setDatabaseName(directory.filePath("owelk.sqlite3"));
-            QVERIFY(db.open());
-            QSqlQuery query(db);
-            QVERIFY(query.exec("CREATE TRIGGER reject_text BEFORE INSERT ON text_captures BEGIN SELECT "
-                               "RAISE(ABORT,'test failure'); END"));
-            QPdfDocument pdf;
-            QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
-            const auto bounds = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45)
-                                    .boundingRectangle();
-            const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y());
-            const auto text = pdf.getSelection(0, from, to).text();
-            QSignalSpy saved(&store, &ResearchStore::captureSaved);
-            QSignalSpy messages(&store, &ResearchStore::message);
-            store.captureText(QUrl::fromLocalFile(path), 0, from, to, text);
-            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
-            QCOMPARE(saved.size(), 0);
-            QVERIFY(!messages.isEmpty());
-            QVERIFY(store.captures().isEmpty());
-            QVERIFY(query.exec("SELECT COUNT(*) FROM captures") && query.next());
-            QCOMPARE(query.value(0).toInt(), 0);
-            query.finish();
-            QVERIFY(query.exec("DROP TRIGGER reject_text"));
-            store.captureText(QUrl::fromLocalFile(path), 0, from, to, text);
-            QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000);
-        }
-        QSqlDatabase::removeDatabase(connection);
-    }
     void saveAndReopen_data()
     {
         QTest::addColumn<bool>("reverse");
@@ -590,40 +473,29 @@ private slots:
         {
             ResearchStore store(directory.filePath("data"));
             QVERIFY2(store.initialize(&error), qPrintable(error));
-            QSignalSpy saved(&store, &ResearchStore::captureSaved);
-            store.captureText(source, 2, from, to, text);
+            QSignalSpy saved(&store, &ResearchStore::highlightSaved);
+            store.highlightText(source, 2, from, to, text);
             QVERIFY(store.busy());
             QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000);
             QVERIFY(!store.busy());
-            QCOMPARE(store.captures().size(), 1);
-            const auto capture = store.captures()[0].toMap();
-            id = capture["id"].toString();
-            QCOMPARE(capture["kind"].toString(), "text");
-            QCOMPARE(capture["text"].toString(), text);
-            QVERIFY(capture["image"].toUrl().isEmpty());
-            QVERIFY(QDir(directory.filePath("data/captures")).entryList(QDir::Files).isEmpty());
+            id = saved[0][0].toString();
             const auto results = store.searchKnowledge("OCCLUSION");
             QCOMPARE(results.size(), 1);
             QCOMPARE(results[0].toMap()["id"].toString(), id);
             QVERIFY(results[0].toMap()["snippet"].toString().contains("occlusion"));
             QSignalSpy ready(&store, &ResearchStore::sourceReady);
-            store.openCapture(id);
+            store.openHighlight(id);
             QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
             QCOMPARE(ready[0][0].toUrl(), source);
             QCOMPARE(ready[0][1].toInt(), 2);
             const auto rect = ready[0][2].toRectF();
             const auto page = pdf.pagePointSize(2);
-            QVERIFY(qAbs(rect.x() * page.width() - selection.boundingRectangle().x()) < .001);
-            QVERIFY(qAbs(rect.height() * page.height() - selection.boundingRectangle().height()) < .001);
-            // Existing image captures coexist with the new payload table.
-            store.captureRegion(source, 0, QRectF(.1, .1, .2, .2));
-            QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 2, 10000);
+            QVERIFY(qAbs(rect.x() * page.width() - selection.boundingRectangle().x()) < 1);
         }
         ResearchStore reopened(directory.filePath("data"));
         QVERIFY(reopened.initialize(&error));
-        QCOMPARE(reopened.captures().size(), 2);
         QCOMPARE(reopened.searchKnowledge("occlusion").size(), 1);
-        // Relinking keeps the text payload and verifies the same source bytes.
+        // Relinking keeps the highlight and verifies the same source bytes.
         pdf.close();
         const auto moved = directory.filePath("moved.pdf");
         QVERIFY(QFile::rename(path, moved));
@@ -631,37 +503,19 @@ private slots:
         reopened.relinkSource(source, QUrl::fromLocalFile(moved));
         QTRY_COMPARE_WITH_TIMEOUT(relinked.size(), 1, 10000);
         QVERIFY2(relinked[0][0].toBool(), qPrintable(relinked[0][1].toString()));
-        for (const auto &entry : reopened.captures()) {
-            const auto capture = entry.toMap();
-            QCOMPARE(capture["source"].toUrl(), QUrl::fromLocalFile(moved));
-            if (capture["id"].toString() == id) QCOMPARE(capture["text"].toString(), text);
-        }
-        QVERIFY(reopened.saveCaptureNote(id, "Preserved text note"));
-        QVERIFY(reopened.deleteCapture(id));
-        QVERIFY(!reopened.deleteCapture(id));
-        QCOMPARE(reopened.captures().size(), 1);
+        QCOMPARE(reopened.anchor(id).value("source").toUrl(), QUrl::fromLocalFile(moved));
+        QCOMPARE(reopened.anchor(id).value("quote").toMap().value("exact").toString(), text);
+        QVERIFY(reopened.removeHighlight(id));
         QVERIFY(reopened.searchKnowledge("occlusion").isEmpty());
         QVERIFY(QFileInfo::exists(moved));
-        QCOMPARE(reopened.trashedCaptures().size(), 1);
-        QCOMPARE(reopened.trashedCaptures()[0].toMap()["text"].toString(), text);
-        QVERIFY(reopened.restoreCapture(id));
-        QVERIFY(reopened.trashedCaptures().isEmpty());
-        QCOMPARE(reopened.searchKnowledge("occlusion").size(), 1);
-        for (const auto &entry : reopened.captures()) {
-            if (entry.toMap()["id"].toString() == id) {
-                QCOMPARE(entry.toMap()["text"].toString(), text);
-                QCOMPARE(entry.toMap()["note"].toString(), "Preserved text note");
-                QVERIFY(entry.toMap()["image"].toUrl().isEmpty());
-            }
-        }
-        // Soft deletion must preserve the original quote in SQLite, without inventing a PNG.
-        const auto connection = QStringLiteral("text-capture-check");
+        // Removal is soft: the quote and its place in the text stay in SQLite.
+        const auto connection = QStringLiteral("highlight-check");
         {
             auto db = QSqlDatabase::addDatabase("QSQLITE", connection);
             db.setDatabaseName(directory.filePath("data/owelk.sqlite3"));
             QVERIFY(db.open());
             QSqlQuery query(db);
-            query.prepare("SELECT text,start_index,end_index FROM text_captures WHERE capture_id=?");
+            query.prepare("SELECT text,start_index,end_index FROM highlights WHERE id=?");
             query.addBindValue(id);
             QVERIFY(query.exec() && query.next());
             QCOMPARE(query.value(0).toString(), text);
@@ -678,12 +532,12 @@ private slots:
         ResearchStore store(directory.filePath("data"));
         QString error;
         QVERIFY(store.initialize(&error));
-        QSignalSpy saved(&store, &ResearchStore::captureSaved);
+        QSignalSpy saved(&store, &ResearchStore::highlightSaved);
         const auto source = QUrl::fromLocalFile(path);
-        store.captureText(source, 0, {}, {}, "");
-        store.captureText(source, -1, {}, {}, "quote");
-        store.captureText(QUrl("https://example.com/test.pdf"), 0, {}, {}, "quote");
-        store.captureText(source, 0, {std::numeric_limits<double>::quiet_NaN(), 0}, {}, "quote");
+        store.highlightText(source, 0, {}, {}, "");
+        store.highlightText(source, -1, {}, {}, "quote");
+        store.highlightText(QUrl("https://example.com/test.pdf"), 0, {}, {}, "quote");
+        store.highlightText(source, 0, {std::numeric_limits<double>::quiet_NaN(), 0}, {}, "quote");
         QVERIFY(!store.busy());
         QPdfDocument pdf;
         QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
@@ -691,12 +545,11 @@ private slots:
             = pdf.getSelectionAtIndex(0, pdf.getAllText(0).text().indexOf("Research finding"), 45).boundingRectangle();
         const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y());
         const auto text = pdf.getSelection(0, from, to).text();
-        store.captureText(source, 0, from, to, "stale UI text");
-        store.captureText(source, 1000, from, to, text);
+        store.highlightText(source, 0, from, to, "stale UI text");
+        store.highlightText(source, 1000, from, to, text);
         QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
         QCOMPARE(saved.size(), 0);
-        QVERIFY(store.captures().isEmpty());
-        store.captureText(source, 0, from, to, text);
+        store.highlightText(source, 0, from, to, text);
         QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000);
         const auto id = saved[0][0].toString();
         pdf.close();
@@ -706,17 +559,17 @@ private slots:
         changed.close();
         QSignalSpy messages(&store, &ResearchStore::message);
         QSignalSpy ready(&store, &ResearchStore::sourceReady);
-        store.openCapture(id);
+        store.openHighlight(id);
         QTRY_VERIFY_WITH_TIMEOUT(!messages.isEmpty(), 10000);
         QVERIFY(messages.last()[0].toString().contains("changed"));
         QCOMPARE(ready.size(), 0);
-        QCOMPARE(store.captures()[0].toMap()["text"].toString(), text);
+        QCOMPARE(store.anchor(id).value("quote").toMap().value("exact").toString(), text);
         QVERIFY(QFile::rename(path, directory.filePath("missing.pdf")));
         QSignalSpy missing(&store, &ResearchStore::relinkRequested);
-        store.openCapture(id);
+        store.openHighlight(id);
         QTRY_COMPARE_WITH_TIMEOUT(missing.size(), 1, 10000);
         QCOMPARE(ready.size(), 0);
     }
 };
-QTEST_MAIN(TextCaptureTest)
-#include "TextCaptureTest.moc"
+QTEST_MAIN(AnnotationTest)
+#include "AnnotationTest.moc"

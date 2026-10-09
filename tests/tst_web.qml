@@ -165,27 +165,21 @@ Item {
             tryVerify(function() { return activeTab().kind === "web" && activeTab().source.indexOf("q=lidar%20odometry") > 0 })
             researchStore.setSetting("searchEngine", "")
         }
-        function test_webCaptureKeepsPageAndReopensIt() {
+        function test_webRegionGoesToTheAi() {
             const d = workspace.documents
-            const page = testInput.webFixture("/page.html?capture")
+            const page = testInput.webFixture("/page.html?region")
             verify(d.openResource(page))
             const pane = webPane()
             tryCompare(activeTab(), "title", "Owelk Test Page", 15000)
             wait(300)
-            const before = researchStore.captures.length
+            const ai = findChild(workspace, "aiController")
+            ai.images = []
             pane.captureRegion(Qt.rect(0, 0, 300, 120))
-            tryVerify(function() { return researchStore.captures.length === before + 1 }, 10000)
-            const capture = researchStore.captures[0]
-            compare(capture.kind, "web")
-            compare(capture.name, "Owelk Test Page")
-            verify(capture.imageAvailable)
-            const image = testInput.imageSize(capture.image)
+            tryVerify(function() { return ai.images.length === 1 }, 10000)
+            compare(ai.images[0].name, "Web · Owelk Test Page")
+            const image = testInput.imageSize(ai.images[0].url)
             verify(image.width > 50 && image.height > 20, JSON.stringify(image))
-            // Opening it brings back the page, not a PDF check.
-            d.openNote(researchStore.createNote("placeholder", ""), true)
-            researchStore.openCapture(capture.id)
-            tryVerify(function() { return activeTab().kind === "web" && activeTab().source.indexOf("capture") >= 0 }, 5000)
-            researchStore.deleteCapture(capture.id); researchStore.purgeCapture(capture.id)
+            ai.images = []
         }
         function test_shortcutOpensWebTabAndAddressNavigates() {
             const d = workspace.documents

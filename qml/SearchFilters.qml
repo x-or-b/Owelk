@@ -15,7 +15,7 @@ ColumnLayout {
         IconButton { icon.name: "back"; description: "Back to the previous search"; visible: root.controller.history.length > 0; onClicked: root.controller.back() }
         Repeater {
             model: [{value: "all", name: "All"}, {value: "text", name: "PDF text"}, {value: "filename", name: "Papers"},
-                    {value: "captures", name: "Captures"}, {value: "ai", name: "AI"}]
+                    {value: "notes", name: "Notes"}, {value: "ai", name: "AI"}]
             delegate: Chip {
                 required property var modelData
                 objectName: "searchTarget-" + modelData.value

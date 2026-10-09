@@ -3,7 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// Add a link to a capture, annotation or paper at the end of a note (or in a new note).
+// Add a link to an annotation or paper at the end of a note (or in a new note).
 Dialog {
     id: root
     objectName: "linkToNoteDialog"

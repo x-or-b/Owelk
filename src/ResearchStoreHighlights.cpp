@@ -122,17 +122,11 @@ QVariantMap ResearchStore::adoptAnnotations(const QUrl &source, bool removeMisfi
         remove.addBindValue(id);
         ok = ok && remove.exec();
     }
-    QSqlQuery captures(m_database);
-    captures.prepare("UPDATE captures SET sha256=? WHERE document_id=? AND sha256<>?");
-    captures.addBindValue(hash);
-    captures.addBindValue(document);
-    captures.addBindValue(hash);
-    if (!ok || !captures.exec() || !m_database.commit()) {
+    if (!ok || !m_database.commit()) {
         m_database.rollback();
         return {{"error", "Cannot update the annotations."}};
     }
     emit highlightsChanged();
-    emit capturesChanged();
     emit homeChanged();
     if (!misfit.isEmpty())
         emit message(QString("Deleted %1 annotation%2 that did not fit this copy.")
@@ -172,7 +166,8 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
         fail("Wait for the current operation and choose a PDF page.");
         return;
     }
-    if (!QStringList{"comment", "text", "image", "draw"}.contains(kind) || body.size() > 10000
+    // An area marks a region (a figure, a table, an equation); its comment is optional.
+    if (!QStringList{"comment", "text", "image", "draw", "area"}.contains(kind) || body.size() > 10000
         || ((kind == "comment" || kind == "text") && body.trimmed().isEmpty()) || !annotationColors().contains(color)) {
         fail("Invalid annotation content or color.");
         return;
@@ -240,7 +235,7 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
     const QUrl imageSource(input.value("imageSource").toString());
     const QString assetDirectory = m_directory + "/annotations";
     struct Result {
-        QString error, asset, newPath;
+        QString error, asset, newPath, caption;
     };
     ++m_pending;
     emit busyChanged();
@@ -267,7 +262,7 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
             save.prepare(
                 "INSERT INTO "
                 "highlights(rectangles,body,color,image,drawing,font_size,id,document_id,sha256,page,kind,text,"
-                "start_index,end_index,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,'',-1,-1,?)");
+                "start_index,end_index,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,-1,-1,?)");
         save.addBindValue(QString::fromUtf8(QJsonDocument::fromVariant(rects).toJson(QJsonDocument::Compact)));
         save.addBindValue(body.isNull() ? QStringLiteral("") : body);
         save.addBindValue(color);
@@ -280,6 +275,7 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
             save.addBindValue(expected);
             save.addBindValue(page);
             save.addBindValue(kind);
+            save.addBindValue(result.caption.isNull() ? QStringLiteral("") : result.caption);
             save.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
         }
         if (!save.exec() || save.numRowsAffected() != 1) {
@@ -320,6 +316,8 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
             }
         }
         if (kind == "image" && result.asset.isEmpty()) result.error = "Choose an image first.";
+        // A marked figure or table is found (and searched) by its caption.
+        if (kind == "area" && !editing) result.caption = figureCaption(pdf, page, rect);
         if (fingerprint(source) != expected) result.error = "The PDF changed while saving. Nothing was attached.";
         return result;
     }));

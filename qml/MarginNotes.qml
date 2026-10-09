@@ -5,8 +5,8 @@ import Owelk.Ui
 import "Platform.js" as Platform
 import "StrokePath.js" as Stroke
 
-// Annotations beside the page: every mark on the paper — pen, highlights, comments, text boxes and
-// pictures — in page order (top to bottom) or grouped by kind. Hover one to outline its place on the
+// Annotations beside the page: every mark on the paper — pen, highlights, comments, text boxes,
+// pictures and marked regions — in page order (top to bottom) or grouped by kind. Hover one to outline its place on the
 // page, click to go there; comments and highlight notes are written and edited in place, text boxes in
 // their editor. They are the same annotations as on the page, so export, search and undo work on them.
 Rectangle {
@@ -20,8 +20,8 @@ Rectangle {
     // "page": top to bottom through the paper; "type": pen, highlights, comments, text, pictures.
     property string sortMode: researchStore.setting("annotations.sort", "page") === "type" ? "type" : "page"
     function setSortMode(mode) { sortMode = mode; researchStore.setSetting("annotations.sort", mode) }
-    readonly property var kinds: ["draw", "highlight", "comment", "text", "image"]
-    readonly property var kindNames: ({draw: "Pen", highlight: "Highlights", comment: "Comments", text: "Text", image: "Pictures"})
+    readonly property var kinds: ["draw", "highlight", "comment", "text", "image", "area"]
+    readonly property var kindNames: ({draw: "Pen", highlight: "Highlights", comment: "Comments", text: "Text", image: "Pictures", area: "Regions"})
     readonly property var notes: canvas.savedHighlights
         .filter(function(h) { return root.kinds.indexOf(h.kind) >= 0 })
         .sort(function(a, b) {
@@ -98,6 +98,7 @@ Rectangle {
                     }
                     MenuItem { objectName: "newTextItem"; text: "Text Box"; onTriggered: root.newAnnotation("text") }
                     MenuItem { objectName: "newImageItem"; text: "Picture"; onTriggered: root.newAnnotation("image") }
+                    MenuItem { objectName: "newAreaItem"; text: "Region"; onTriggered: root.newAnnotation("area") }
                     MenuItem { objectName: "newPenItem"; text: "Pen"; onTriggered: root.newAnnotation("draw") }
                 }
             }
@@ -152,7 +153,7 @@ Rectangle {
                 // Text boxes are edited in their editor (it fits the font to the box); pen and pictures have no text.
                 onEditRequested: {
                     if (modelData.kind === "text") root.canvas.editRequested(modelData, null)
-                    else if (modelData.kind === "highlight" || modelData.kind === "comment") root.edit(modelData.id)
+                    else if (["highlight", "comment", "area"].indexOf(modelData.kind) >= 0) root.edit(modelData.id)
                 }
                 onCommitted: function(text) {
                     root.editingId = ""
@@ -259,13 +260,13 @@ Rectangle {
                     }
                     // What the mark is, for pen and pictures (and empty highlights); a small picture of it.
                     RowLayout {
-                        visible: card.kind === "draw" || card.kind === "image" || card.kind === "text" || (card.kind === "highlight" && !card.body && !card.quote)
+                        visible: card.kind === "draw" || card.kind === "image" || card.kind === "text" || ((card.kind === "highlight" || card.kind === "area") && !card.body && !card.quote)
                         Layout.fillWidth: true
                         spacing: 8
-                        Icon { name: ({draw: "draw", image: "image", text: "text", highlight: "highlight"})[card.kind] || "comment"; color: card.ink; size: Theme.fontBody }
+                        Icon { name: ({draw: "draw", image: "image", text: "text", highlight: "highlight", area: "area"})[card.kind] || "comment"; color: card.ink; size: Theme.fontBody }
                         Label {
                             Layout.fillWidth: true
-                            text: ({draw: "Drawing", image: "Picture", text: "Text box", highlight: "Highlight"})[card.kind] || ""
+                            text: ({draw: "Drawing", image: "Picture", text: "Text box", highlight: "Highlight", area: "Region"})[card.kind] || ""
                             font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                         }
                     }

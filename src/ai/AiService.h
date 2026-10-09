@@ -11,7 +11,7 @@ class CodexBridge;
 class QNetworkAccessManager;
 class ResearchStore;
 
-// Reading help from an AI provider: builds the request from the paper, page, selection, captures and
+// Reading help from an AI provider: builds the request from the paper, page, selection, images and
 // notes, streams the answer, and keeps keys in the Keychain. Nothing is sent before the user agreed
 // to what a provider receives (consent is per provider).
 class AiService final : public QObject {
@@ -84,6 +84,8 @@ public:
     // A region of a PDF page (page-relative), drawn sharp enough to read and saved like a pasted image:
     // a figure attached from its preview. Returns a file URL, or empty.
     Q_INVOKABLE QString saveRegionImage(const QUrl &source, int page, const QRectF &region);
+    // Part (view-relative) of a screenshot of a view, such as a web page, saved the same way.
+    Q_INVOKABLE QString saveViewImage(const QImage &image, const QRectF &region);
 
 signals:
     void providersChanged();

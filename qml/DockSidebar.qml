@@ -16,14 +16,13 @@ Rectangle {
     signal navigationModeChosen(int mode)
     signal documentChosen(url source)
     signal folderChosen(url folder)
-    signal noteRequested(string id)
     signal linkActivated(string link)
     signal aiRequested(var spec)
     signal settingsRequested()
     // The document area (tabs dragged onto a collection) and the Library opened with a filter.
     property var documents: null
     signal libraryFilterRequested(var filter)
-    function panelName(panel) { return panel === "files" ? "Library" : panel === "captures" ? "Captures" : panel === "ai" ? "AI" : panel === "document" ? "Document" : "" }
+    function panelName(panel) { return panel === "files" ? "Library" : panel === "ai" ? "AI" : panel === "document" ? "Document" : "" }
     // A slice of the window: no corners or frame; the 1px edge beside the document is the resize
     // edge in Main.qml.
     color: Theme.sidebar
@@ -33,7 +32,7 @@ Rectangle {
         Loader {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            sourceComponent: root.activePanel === "files" ? files : root.activePanel === "captures" ? captures : root.activePanel === "document" ? navigation : root.activePanel === "ai" ? aiPanel : null
+            sourceComponent: root.activePanel === "files" ? files : root.activePanel === "document" ? navigation : root.activePanel === "ai" ? aiPanel : null
         }
     }
     Component {
@@ -46,7 +45,6 @@ Rectangle {
             onLibraryFilterRequested: function(filter) { root.libraryFilterRequested(filter) }
         }
     }
-    Component { id: captures; CaptureShelf { onNoteRequested: function(id) { root.noteRequested(id) }; onAiRequested: function(spec) { root.aiRequested(spec) } } }
     Component { id: aiPanel; AiPanel { controller: root.aiController; onLinkActivated: function(link) { root.linkActivated(link) }; onSettingsRequested: root.settingsRequested() } }
     Component {
         id: navigation

@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import Owelk.Ui
 
 // A standalone Markdown note. Saves itself shortly after typing stops; [[ inserts a link to a
-// paper, excerpt, annotation or other note, and links open their source.
+// paper, annotation or other note, and links open their source.
 Rectangle {
     id: root
     objectName: "notePane"
@@ -47,7 +47,7 @@ Rectangle {
     Timer { id: autosave; interval: 600; onTriggered: root.save() }
     Connections {
         target: researchStore
-        // Links appended from a capture's "Link to Note…" arrive while the note is open.
+        // Links appended from an annotation's "Link to Note…" arrive while the note is open.
         function onNotesChanged() {
             if (root.dirty || !root.noteId.length) return
             const row = researchStore.note(root.noteId)
@@ -121,7 +121,7 @@ Rectangle {
             TextArea {
                 id: body
                 objectName: "noteBody"
-                placeholderText: "Write in Markdown. Type [[ to link a paper, excerpt or note."
+                placeholderText: "Write in Markdown. Type [[ to link a paper, annotation or note."
                 wrapMode: TextEdit.Wrap
                 selectByMouse: true
                 font.pixelSize: Theme.fontHeadline
@@ -202,7 +202,7 @@ Rectangle {
                 id: linkQuery
                 objectName: "noteLinkQuery"
                 Layout.fillWidth: true
-                placeholderText: "Link to… (paper title, excerpt text, note)"
+                placeholderText: "Link to… (paper title, annotation text, note)"
                 onTextChanged: linkPicker.candidates = researchStore.linkCandidates(text)
                 Keys.onReturnPressed: if (linkPicker.candidates.length) { root.insertLink(linkPicker.candidates[0].kind, linkPicker.candidates[0].id); linkPicker.close() }
                 Keys.onEscapePressed: linkPicker.close()
@@ -216,7 +216,7 @@ Rectangle {
                     required property var modelData
                     width: ListView.view.width
                     objectName: "noteLinkCandidate-" + modelData.kind + "-" + modelData.id
-                    text: ({note: "Note", document: "Paper", capture: "Excerpt", highlight: "Annotation"})[modelData.kind] + " · " + modelData.title
+                    text: ({note: "Note", document: "Paper", highlight: "Annotation"})[modelData.kind] + " · " + modelData.title
                     font.pixelSize: Theme.fontSmall
                     onClicked: { root.insertLink(modelData.kind, modelData.id); linkPicker.close() }
                 }

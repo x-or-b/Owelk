@@ -4,6 +4,8 @@
 #include <QCryptographicHash>
 #include <QFileInfo>
 #include <QHash>
+#include <QPainter>
+#include <algorithm>
 #include <mutex>
 
 namespace {
@@ -78,5 +80,24 @@ void forget(const QString &path)
         directory = keyDirectory;
     }
     Keychain::remove(account(path), directory);
+}
+
+QImage renderRegion(QPdfDocument &pdf, int page, const QRectF &region, int across)
+{
+    const auto area = region.intersected(QRectF(0, 0, 1, 1));
+    if (area.isEmpty() || page < 0 || page >= pdf.pageCount()) return {};
+    const auto points = pdf.pagePointSize(page);
+    const qreal scale = std::clamp(across / std::max(1.0, area.width() * points.width()), 1.0, 4.0);
+    const QSize size(qRound(points.width() * scale), qRound(points.height() * scale));
+    const auto rendered = pdf.render(page, size);
+    if (rendered.isNull()) return {};
+    QImage paper(rendered.size(), QImage::Format_RGB32);
+    paper.fill(Qt::white); // Pages may be transparent where nothing is printed.
+    {
+        QPainter painter(&paper);
+        painter.drawImage(0, 0, rendered);
+    }
+    return paper.copy(QRect(qRound(area.x() * size.width()), qRound(area.y() * size.height()),
+        qRound(area.width() * size.width()), qRound(area.height() * size.height())));
 }
 }

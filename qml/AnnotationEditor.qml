@@ -46,7 +46,7 @@ Dialog {
     height: Math.min(520, parent.height - 32)
     modal: true
     closePolicy: Popup.NoAutoClose
-    title: record.kind === "image" ? "Image annotation" : record.kind === "text" ? "Text box" : "Comment"
+    title: record.kind === "image" ? "Image annotation" : record.kind === "text" ? "Text box" : record.kind === "area" ? "Region" : "Comment"
     function begin(canvas, data, anchor) {
         readerCanvas = canvas;
         source = canvas.source;
@@ -89,7 +89,8 @@ Dialog {
         Qt.inputMethod.commit();
         if (saving || researchStore.busy)
             return;
-        if (record.kind !== "image" && !body.text.trim().length)
+        // A picture and a marked region need no words.
+        if (record.kind !== "image" && record.kind !== "area" && !body.text.trim().length)
             return;
         if (selection) {
             saving = true;

@@ -141,7 +141,7 @@ Item {
             width: 390
             modal: true
             standardButtons: Dialog.Ok | Dialog.Cancel
-            Label { text: "The original PDF, open tabs and captures will be kept."; wrapMode: Text.Wrap; width: 330 }
+            Label { text: "The original PDF, open tabs and annotations will be kept."; wrapMode: Text.Wrap; width: 330 }
             onAccepted: { const source = root.paper.url; Qt.callLater(function() { researchStore.removeRecentDocument(source) }) }
         }
     }

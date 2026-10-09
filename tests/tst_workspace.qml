@@ -26,13 +26,47 @@ Item {
             return c
         }
         function cleanupTestCase() { workspace.visible = false }
+        function test_revealStaysOnMatchingTab() {
+            workspace.documents.restore({}); workspace.homeVisible = true
+            const pair = testInput.relinkFixture(true) // Spaces/Unicode; two paths containing identical sentences.
+            workspace.openDocument(pair.source, {page: 1, y: .1, zoom: 1})
+            const c = findChild(workspace.currentReader, "pdfCanvas0")
+            tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
+            const a = Tree.leaves(workspace.documents.tree)[0].activeTab
+            workspace.openDocument(pair.candidate, {page: 0, zoom: 1})
+            tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
+            const b = Tree.leaves(workspace.documents.tree)[0].activeTab
+            researchStore.sourceReady(pair.candidate, 4, Qt.rect(.1, .4, .3, .1))
+            tryCompare(c, "currentPage", 4)
+            wait(400)
+            compare(c.currentPage, 4)
+            verify(researchStore.sameSource(c.source, pair.candidate))
+            workspace.documents.activateTab(a)
+            tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
+            wait(350)
+            verify(researchStore.sameSource(c.source, pair.source))
+            compare(c.currentPage, 1)
+            compare(c.highlight, null)
+            // Activate a background source and then change tabs before deferred work runs.
+            workspace.documents.reveal(pair.candidate, 6, Qt.rect(.1, .4, .3, .1))
+            workspace.documents.activateTab(a)
+            tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
+            wait(350)
+            compare(Tree.leaves(workspace.documents.tree)[0].activeTab, a)
+            verify(researchStore.sameSource(c.source, pair.source))
+            compare(c.currentPage, 1)
+            compare(c.highlight, null)
+            workspace.documents.activateTab(b)
+            tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
+            verify(researchStore.sameSource(c.source, pair.candidate))
+        }
         function init() {
             // Sessions saved by other test files restore a different window size; geometry tests need the default.
             workspace.width = 1440; workspace.height = 930
             workspace.leftDockWidth = 224; workspace.rightDockWidth = 224
             workspace.documents.restore({})
-            workspace.filesVisible = true; workspace.shelfVisible = true
-            workspace.filesSide = "left"; workspace.capturesSide = "right"
+            workspace.filesVisible = true; workspace.aiVisible = true
+            workspace.filesSide = "left"; workspace.aiSide = "right"
             workspace.documentVisible = false; workspace.documentSide = "left"; workspace.navigationMode = 0
             workspace.homeVisible = true
         }
@@ -98,10 +132,10 @@ Item {
         }
         function test_noPanelCloseButton() {
             compare(findChild(findChild(workspace, "rightDock"), "closePanel"), null)
-            workspace.togglePanel("captures")
-            compare(workspace.shelfVisible, false)
-            workspace.togglePanel("captures")
-            compare(workspace.shelfVisible, true)
+            workspace.togglePanel("ai")
+            compare(workspace.aiVisible, false)
+            workspace.togglePanel("ai")
+            compare(workspace.aiVisible, true)
         }
         function test_resizeDocks() {
             workspace.leftDockWidth = 224; workspace.rightDockWidth = 224
@@ -119,22 +153,22 @@ Item {
             compare(researchStore.session.panels.rightWidth, workspace.rightDockWidth)
         }
         function test_contextMenuMovesPanel() {
-            const icon = visualChild(findChild(workspace, "statusBar"), "dockIcon-captures")
+            const icon = visualChild(findChild(workspace, "statusBar"), "dockIcon-ai")
             mouseClick(icon, 15, 14, Qt.RightButton)
-            const menu = findChild(icon, "dockMenu-captures")
+            const menu = findChild(icon, "dockMenu-ai")
             tryCompare(menu, "opened", true)
             mouseClick(findChild(menu, "leftDockOption"))
-            tryCompare(workspace, "capturesSide", "left")
+            tryCompare(workspace, "aiSide", "left")
             workspace.persist()
-            compare(researchStore.session.panels.capturesSide, "left")
+            compare(researchStore.session.panels.aiSide, "left")
         }
         function test_iconTogglesClosedPanel() {
-            workspace.shelfVisible = false
-            const icon = visualChild(findChild(workspace, "statusBar"), "dockIcon-captures")
+            workspace.aiVisible = false
+            const icon = visualChild(findChild(workspace, "statusBar"), "dockIcon-ai")
             mouseClick(icon)
-            tryCompare(workspace, "shelfVisible", true)
+            tryCompare(workspace, "aiVisible", true)
             mouseClick(icon)
-            compare(workspace.shelfVisible, false)
+            compare(workspace.aiVisible, false)
         }
         function test_oneOpenPanelPerDock() {
             workspace.filesVisible = true; workspace.filesSide = "left"
@@ -153,10 +187,10 @@ Item {
             compare(workspace.leftPanels, ["files"])
         }
         function test_hiddenPanelMovesWithoutOpening() {
-            workspace.shelfVisible = false
-            workspace.movePanel("captures", "left")
-            compare(workspace.shelfVisible, false)
-            compare(workspace.capturesSide, "left")
+            workspace.aiVisible = false
+            workspace.movePanel("ai", "left")
+            compare(workspace.aiVisible, false)
+            compare(workspace.aiSide, "left")
         }
         function test_homeAndContinue() {
             workspace.openDocument(fixtureSource, {page: 2, y: .2, x: 0, zoom: 1})
@@ -179,24 +213,24 @@ Item {
             compare(Tree.leaves(restored.documents.tree)[0].tabs.length, 1)
         }
         function test_panelStateRestores() {
-            workspace.movePanel("captures", "left"); workspace.movePanel("files", "right")
+            workspace.movePanel("ai", "left"); workspace.movePanel("files", "right")
             workspace.paperFolder = fixtureFolder
-            tryCompare(findChild(workspace, "leftDock"), "activePanel", "captures")
+            tryCompare(findChild(workspace, "leftDock"), "activePanel", "ai")
             workspace.persist()
             const restored = createTemporaryObject(restoredWindow, null)
-            compare(restored.capturesSide, "left"); compare(restored.filesSide, "right")
+            compare(restored.aiSide, "left"); compare(restored.filesSide, "right")
             compare(restored.paperFolder.toString(), fixtureFolder.toString())
         }
         function test_movingAnOpenPanelIntoADockReplacesItsPanel() {
-            workspace.filesVisible = true; workspace.filesSide = "left"; workspace.shelfVisible = true
-            workspace.movePanel("captures", "left")
-            tryCompare(findChild(workspace, "leftDock"), "activePanel", "captures")
+            workspace.filesVisible = true; workspace.filesSide = "left"; workspace.aiVisible = true
+            workspace.movePanel("ai", "left")
+            tryCompare(findChild(workspace, "leftDock"), "activePanel", "ai")
             compare(workspace.filesVisible, false)
             workspace.togglePanel("files")
             tryCompare(findChild(workspace, "leftDock"), "activePanel", "files")
-            compare(workspace.shelfVisible, false)
+            compare(workspace.aiVisible, false)
             workspace.togglePanel("files")
-            compare(workspace.filesVisible, false); compare(workspace.shelfVisible, false)
+            compare(workspace.filesVisible, false); compare(workspace.aiVisible, false)
         }
         function test_tabIndependentPositionsAndShortcutClose() {
             const d = workspace.documents
@@ -511,7 +545,7 @@ Item {
         function test_resizeSplitPreservesTabs() {
             const d = workspace.documents
             d.openDocument(fixtureSource); canvas()
-            workspace.filesVisible = false; workspace.shelfVisible = false
+            workspace.filesVisible = false; workspace.aiVisible = false
             d.duplicateSplit("right"); canvas()
             const handle = visualChild(d.contentItem, "splitHandle-" + d.tree.id)
             verify(handle !== null)
@@ -860,21 +894,6 @@ Item {
             tryVerify(function() { return !researchStore.recentDocuments.some(function(p) { return p.url.toString() === fixtureSource.toString() }) })
             workspace.openDocument(fixtureSource)
             canvas() // The actual PDF was not removed.
-        }
-        function test_deleteCaptureRequiresConfirmation() {
-            researchStore.captureRegion(fixtureSource, 0, Qt.rect(.1, .1, .4, .2))
-            tryCompare(researchStore, "busy", false, 10000)
-            verify(researchStore.captures.length > 0)
-            const id = researchStore.captures[0].id
-            const shelf = findChild(workspace, "captureShelf")
-            verify(shelf !== null)
-            shelf.requestDelete(id)
-            const dialog = findChild(shelf, "deleteCaptureDialog")
-            tryCompare(dialog, "opened", true); dialog.reject()
-            verify(researchStore.captures.some(function(c) { return c.id === id }))
-            shelf.requestDelete(id)
-            tryCompare(dialog, "opened", true); dialog.accept()
-            tryVerify(function() { return !researchStore.captures.some(function(c) { return c.id === id }) })
         }
     }
 }

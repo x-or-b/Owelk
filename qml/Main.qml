@@ -41,10 +41,8 @@ ApplicationWindow {
     // Vertical tabs (Settings → Appearance): the list beside the window is open or a thin rail.
     property bool tabsPanelOpen: researchStore.setting("tabs.panelOpen", "1") === "1"
     function setTabsPanel(open) { tabsPanelOpen = open; researchStore.setSetting("tabs.panelOpen", open ? "1" : "0") }
-    property bool shelfVisible: true
     property bool filesVisible: true
     property string filesSide: "left"
-    property string capturesSide: "right"
     property bool documentVisible: false
     property string documentSide: "left"
     property bool aiVisible: false
@@ -70,18 +68,16 @@ ApplicationWindow {
     function panelsForSide(side) {
         const panels = []
         if (filesVisible && filesSide === side) panels.push("files")
-        if (shelfVisible && capturesSide === side) panels.push("captures")
         if (documentVisible && documentSide === side) panels.push("document")
         if (aiVisible && aiSide === side) panels.push("ai")
         return panels
     }
-    readonly property var dockPanels: ["files", "captures", "document", "ai"]
-    function panelSide(panel) { return panel === "files" ? filesSide : panel === "captures" ? capturesSide : panel === "ai" ? aiSide : documentSide }
-    function panelShown(panel) { return panel === "files" ? filesVisible : panel === "captures" ? shelfVisible : panel === "ai" ? aiVisible : documentVisible }
-    function panelName(panel) { return panel === "files" ? "Library" : panel === "captures" ? "Captures" : panel === "ai" ? "AI threads" : "Document outline and thumbnails" }
+    readonly property var dockPanels: ["files", "document", "ai"]
+    function panelSide(panel) { return panel === "files" ? filesSide : panel === "ai" ? aiSide : documentSide }
+    function panelShown(panel) { return panel === "files" ? filesVisible : panel === "ai" ? aiVisible : documentVisible }
+    function panelName(panel) { return panel === "files" ? "Library" : panel === "ai" ? "AI threads" : "Document outline and thumbnails" }
     function setPanelShown(panel, shown) {
         if (panel === "files") filesVisible = shown
-        else if (panel === "captures") shelfVisible = shown
         else if (panel === "ai") aiVisible = shown
         else documentVisible = shown
     }
@@ -90,7 +86,7 @@ ApplicationWindow {
         const side = panelSide(panel)
         dockPanels.forEach(function(other) { if (other !== panel && panelShown(other) && panelSide(other) === side) setPanelShown(other, false) })
     }
-    // Reader and capture actions bring the AI panel forward and start a thread there.
+    // Reader actions bring the AI panel forward and start a thread there.
     function showAi() { setPanelShown("ai", true); closeOthers("ai") }
     function askAi(spec) { showAi(); aiController.begin(spec) }
     function openAiThread(id) { if (aiController.openThread(id)) showAi() }
@@ -107,7 +103,6 @@ ApplicationWindow {
     function movePanel(panel, side) {
         if (side !== "left" && side !== "right") return
         if (panel === "files") filesSide = side
-        if (panel === "captures") capturesSide = side
         if (panel === "document") documentSide = side
         if (panel === "ai") aiSide = side
         if (panelShown(panel)) closeOthers(panel)
@@ -161,10 +156,8 @@ ApplicationWindow {
     function openDocument(source, position) { if (!restoreFailed) documents.openDocument(researchStore.resolvedSource(source), position) }
     function openSearchResult(result) {
         if (result.kind === "paper") openDocument(result.source, result.position)
-        else if (result.kind === "capture") researchStore.openCapture(result.id)
         else if (result.kind === "highlight") researchStore.openHighlight(result.id)
-        else if (result.kind === "note") captureNote.begin(result.id)
-        else if (result.kind === "standalone-note" && !restoreFailed) documents.openNote(result.id)
+        else if (result.kind === "note" && !restoreFailed) documents.openNote(result.id)
         else if (result.kind === "ai") openAiThread(result.id)
         else if (result.kind === "collection" && !restoreFailed) documents.openLibrary({collection: result.id})
         else if (result.kind === "tag" && !restoreFailed) documents.openLibrary({tag: result.id})
@@ -173,7 +166,7 @@ ApplicationWindow {
     function persist() {
         if (!initialized || restoreFailed) return false
         const state = documents.snapshot()
-        Object.assign(state, {shelf: shelfVisible, width: width, height: height, panels: {filesVisible: filesVisible, filesSide: filesSide, capturesSide: capturesSide,
+        Object.assign(state, {width: width, height: height, panels: {filesVisible: filesVisible, filesSide: filesSide,
                 documentVisible: documentVisible, documentSide: documentSide, aiVisible: aiVisible, aiSide: aiSide, navigationMode: navigationMode,
                 folder: paperFolder.toString(), leftActive: leftDock.activePanel, rightActive: rightDock.activePanel,
                 leftWidth: leftDockWidth, rightWidth: rightDockWidth}})
@@ -187,13 +180,11 @@ ApplicationWindow {
         const state = researchStore.session
         if (state.width) width = Math.max(minimumWidth, Math.min(Screen.width, state.width))
         if (state.height) height = Math.max(minimumHeight, Math.min(Screen.height, state.height))
-        shelfVisible = state.shelf === undefined ? true : state.shelf
         const panels = state.panels || {}
         leftDockWidth = Number(panels.leftWidth) || 224
         rightDockWidth = Number(panels.rightWidth) || 224
         filesVisible = panels.filesVisible === undefined ? true : panels.filesVisible
         filesSide = panels.filesSide === "right" ? "right" : "left"
-        capturesSide = panels.capturesSide === "left" ? "left" : "right"
         documentVisible = !!panels.documentVisible
         documentSide = panels.documentSide === "right" ? "right" : "left"
         aiVisible = !!panels.aiVisible
@@ -233,16 +224,13 @@ ApplicationWindow {
     onClosing: function(close) {
         if (researchStore.printing) { close.accepted = false; notify("Finish or cancel printing before closing the window."); return }
         if (window.currentReader && window.currentReader.annotationDirty) { close.accepted = false; notify("Save or discard annotation edits before closing the window."); return }
-        if (captureNote.dirty) { close.accepted = false; captureNote.open(); notify("Save or discard your note edits before closing the window.") }
-        else if (researchStore.busy) { close.accepted = false; notify("Saving capture. Please close the window after saving finishes.") }
+        if (researchStore.busy) { close.accepted = false; notify("Saving. Please close the window after saving finishes.") }
         else if (initialized && !restoreFailed && !persist()) { close.accepted = false; notify("Cannot save the session. Check storage and try again.") }
     }
     onWidthChanged: scheduleSave()
     onHeightChanged: scheduleSave()
-    onShelfVisibleChanged: scheduleSave()
     onFilesVisibleChanged: scheduleSave()
     onFilesSideChanged: scheduleSave()
-    onCapturesSideChanged: scheduleSave()
     onDocumentSideChanged: scheduleSave()
     onDocumentVisibleChanged: scheduleSave()
     onNavigationModeChanged: scheduleSave()
@@ -256,16 +244,10 @@ ApplicationWindow {
         target: researchStore
         function onMessage(text) { window.notify(text) }
         function onDuplicateFound(source, existing, title) { duplicateBar.show(source, existing, title) }
-        function onWebSourceRequested(page) { if (!window.restoreFailed) documents.openWeb(page.toString(), true) }
         function onRelinkRequested(source) { if (!window.restoreFailed && !researchStore.relinking && window.persist()) relinkDialog.begin(source) }
         function onSourceRelinked(source, candidate) { documents.relinkSource(source, candidate) }
         function onPapersDeleted(sources) { documents.closeSources(sources) }
         function onRelinkFinished(success, detail) { if (success) window.notify(detail) }
-        function onCaptureSaved(id) {
-            // A capture asked for by the AI panel joins the question; others open the shelf.
-            if (aiController.takeCapture(id)) { window.showAi(); return }
-            window.shelfVisible = true; window.movePanel("captures", window.capturesSide)
-        }
         function onSourceReady(url, page, region) { if (!window.restoreFailed) { documents.reveal(url, page, region); window.homeVisible = false } }
         function onPassageReady(url, page, region) { if (!window.restoreFailed) { documents.reveal(url, page, region, true); window.homeVisible = false } }
     }
@@ -300,11 +282,9 @@ ApplicationWindow {
             case "/move down": documents.moveActiveTabToSplit("bottom"); break
             case "/next split": documents.focusGroup(1); break
             case "/previous split": documents.focusGroup(-1); break
-            case "/capture": if (!window.homeVisible && window.currentReader) window.currentReader.toggleCapture(); break
-            case "/capture text": if (!window.homeVisible && window.currentReader) window.currentReader.captureSelection(); break
+            case "/mark region": if (!window.homeVisible && window.currentReader) window.currentReader.setTool("area"); break
             case "/highlight": if (!window.homeVisible && window.currentReader) window.currentReader.highlightSelection(); break
             case "/files": window.togglePanel("files"); break
-            case "/captures": window.togglePanel("captures"); break
             case "/document": window.togglePanel("document"); break
             case "/close tab": documents.closeActiveTab(); break
             case "/new tab": if (!window.restoreFailed) documents.newHomeTab(); break
@@ -349,7 +329,7 @@ ApplicationWindow {
             Action { objectName: "jumpForwardAction"; text: "Forward to Next Spot"; shortcut: window.keys("jumpForward"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.goForward() }
             Action { objectName: "fitWidthAction"; text: "Fit Width"; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitWidth() }
             Action { objectName: "fitPageAction"; text: "Fit Page"; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitPage() }
-            Action { text: "Capture region"; shortcut: window.keys("capture"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.toggleCapture() }
+            Action { objectName: "markRegionAction"; text: "Mark Region"; shortcut: window.keys("markRegion"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.setTool("area") }
             MenuSeparator {}
             Action { objectName: "splitRightAction"; text: "Duplicate to Right Split"; shortcut: window.keys("splitRight"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("right") }
             Action { objectName: "splitDownAction"; text: "Duplicate to Bottom Split"; shortcut: window.keys("splitDown"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("bottom") }
@@ -360,7 +340,6 @@ ApplicationWindow {
             Action { text: "Join All Groups"; enabled: !window.homeVisible; onTriggered: documents.joinAll() }
         }
     }
-    CaptureNoteDialog { id: captureNote }
     // An answer arrived while its thread is not in view: a card at the bottom right (Open / Dismiss),
     // and while another app is in front, the Dock icon bounces once (the taskbar flashes on Linux).
     AiNotice {
@@ -504,7 +483,6 @@ ApplicationWindow {
             onDocumentChosen: function(source) { window.openDocument(source) }
             documents: documents
             onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary(filter) } }
-            onNoteRequested: function(id) { captureNote.begin(id) }
             onActivePanelChanged: window.scheduleSave()
         }
         ResizeEdge {
@@ -569,7 +547,6 @@ ApplicationWindow {
             onDocumentChosen: function(source) { window.openDocument(source) }
             documents: documents
             onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary(filter) } }
-            onNoteRequested: function(id) { captureNote.begin(id) }
             onActivePanelChanged: window.scheduleSave()
         }
     }
@@ -598,7 +575,7 @@ ApplicationWindow {
             Label {
                 Layout.fillWidth: true
                 // A notice while there is one.
-                text: window.notification.length ? window.notification : researchStore.busy ? "Saving capture…" : ""
+                text: window.notification.length ? window.notification : researchStore.busy ? "Saving…" : ""
                 elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
             }
             StatusIcon { kind: "search"; description: "Search · " + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }

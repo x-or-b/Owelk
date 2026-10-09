@@ -30,7 +30,6 @@ Popup {
         {command: "/settings", title: "App: Settings", enabled: true},
         {command: "/find", title: "Search: Find in Current PDF", enabled: hasDocument},
         {command: "/files", title: "Panel: Toggle Files", enabled: true},
-        {command: "/captures", title: "Panel: Toggle Captures", enabled: true},
         {command: "/organize tabs", title: "Tabs: Organize with AI…", enabled: hasDocument},
         {command: "/ask library", title: "AI: Ask Your Library…", enabled: true},
         {command: "/document", title: "Panel: Toggle Document Outline and Thumbnails", enabled: true},
@@ -41,8 +40,7 @@ Popup {
         {command: "/move down", title: "Split: Move Tab Below", enabled: hasDocument},
         {command: "/next split", title: "Split: Focus Next", enabled: hasDocument},
         {command: "/previous split", title: "Split: Focus Previous", enabled: hasDocument},
-        {command: "/capture", title: "Capture: Select a Region", enabled: hasDocument},
-        {command: "/capture text", title: "Capture: Save Selected Text", enabled: hasDocument && hasSelection},
+        {command: "/mark region", title: "PDF: Mark a Region", enabled: hasDocument},
         {command: "/highlight", title: "PDF: Highlight Selected Text", enabled: hasDocument && hasSelection},
         {command: "/fit width", title: "PDF: Fit Width", enabled: hasDocument},
         {command: "/fit page", title: "PDF: Fit Page", enabled: hasDocument}

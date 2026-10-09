@@ -68,7 +68,7 @@ Item {
             return count
         }
         function test_commandHighlightIsActuallyPainted() {
-            findChild(palette, "paletteQuery").text = "capture"
+            findChild(palette, "paletteQuery").text = "region"
             const list = findChild(palette, "paletteResults")
             tryVerify(function() { return list.itemAtIndex(0) !== null })
             const title = list.itemAtIndex(0).contentItem
@@ -76,7 +76,7 @@ Item {
         }
         function test_resultTitleAndSnippetArePainted_data() {
             return [{tag: "paper", kind: "paper"}, {tag: "text", kind: "text"},
-                    {tag: "capture", kind: "capture"}, {tag: "workspace", kind: "workspace"}]
+                    {tag: "highlight", kind: "highlight"}, {tag: "note", kind: "note"}]
         }
         function test_resultTitleAndSnippetArePainted(data) {
             palette.close(); tryCompare(palette, "visible", false)
@@ -95,15 +95,15 @@ Item {
             compare(palette.results[0].enabled, false)
             keyClick(Qt.Key_Return); compare(command.count, 0); compare(palette.visible, true)
         }
-        function test_excerptRequiresSelection() {
-            findChild(palette, "paletteQuery").text = "save selected"
+        function test_highlightRequiresSelection() {
+            findChild(palette, "paletteQuery").text = "highlight selected"
             compare(palette.results.length, 1)
             compare(palette.results[0].enabled, false)
             palette.hasSelection = true
             compare(palette.results[0].enabled, true)
             keyClick(Qt.Key_Return)
             tryCompare(command, "count", 1)
-            compare(command.signalArguments[0][0], "/capture text")
+            compare(command.signalArguments[0][0], "/highlight")
         }
         function test_searchContainsNoCommands() {
             palette.close()
@@ -132,7 +132,7 @@ Item {
             verify(byline.visible)
             compare(byline.text, "Chiyun Noh, Wooseong Yang  ·  2025")
             compare(findChild(result, "resultTitle").elide, Text.ElideRight)
-            const plain = createTemporaryObject(resultComponent, scene, {modelData: {kind: "capture", title: "Excerpt"}, queryText: ""})
+            const plain = createTemporaryObject(resultComponent, scene, {modelData: {kind: "highlight", title: "Annotation"}, queryText: ""})
             verify(!findChild(plain, "resultByline").visible)
         }
         function overflowing(item, box, list) {

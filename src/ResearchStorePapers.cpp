@@ -283,7 +283,7 @@ void ResearchStore::copyPdfsIntoLibrary()
 
 // Owelk's paper Trash. Delete Paper hides a paper (with its notes, collections and tags kept) and
 // marks when; Restore brings it all back. Deleting for good, by hand or after the chosen number of
-// days, removes the paper with its annotations and captures, and sends a PDF Owelk keeps to the
+// days, removes the paper with its annotations, and sends a PDF Owelk keeps to the
 // system Trash (a file outside Owelk's folder is left alone). Opening the PDF again also restores.
 int ResearchStore::deletePapers(const QVariantList &sources)
 {
@@ -364,7 +364,7 @@ int ResearchStore::restorePapers(const QVariantList &sources)
 int ResearchStore::purgePapers(const QVariantList &sources)
 {
     int purged = 0;
-    QStringList captureImages, annotationImages;
+    QStringList annotationImages;
     QList<QUrl> files;
     for (const auto &value : sources) {
         const auto url = resolvedSource(value.toUrl());
@@ -379,9 +379,7 @@ int ResearchStore::purgePapers(const QVariantList &sources)
                 while (query.next()) values << query.value(0).toString();
             return values;
         };
-        const auto captures = rows("SELECT id FROM captures WHERE document_id=?");
         const auto highlights = rows("SELECT id FROM highlights WHERE document_id=?");
-        captureImages += rows("SELECT image FROM captures WHERE document_id=? AND image<>''");
         annotationImages += rows("SELECT image FROM highlights WHERE document_id=? AND image<>''");
         if (!m_database.transaction()) continue;
         bool ok = true;
@@ -391,18 +389,11 @@ int ResearchStore::purgePapers(const QVariantList &sources)
             for (const auto &arg : args) query.addBindValue(arg);
             ok = ok && query.exec();
         };
-        for (const auto &id : captures) {
-            for (const auto *table : {"text_captures", "capture_notes"})
-                run(QStringLiteral("DELETE FROM %1 WHERE capture_id=?").arg(table), {id});
-            run("DELETE FROM deleted_captures WHERE id=?", {id});
-            run("DELETE FROM links WHERE (from_kind='capture' AND from_id=?) OR (to_kind='capture' AND to_id=?)",
-                {id, id});
-        }
         for (const auto &id : highlights)
             run("DELETE FROM links WHERE (from_kind='highlight' AND from_id=?) OR (to_kind='highlight' AND to_id=?)",
                 {id, id});
-        for (const auto *table : {"captures", "highlights", "recent_documents", "reading_positions",
-                 "collection_documents", "document_tags"})
+        for (const auto *table :
+            {"highlights", "recent_documents", "reading_positions", "collection_documents", "document_tags"})
             run(QStringLiteral("DELETE FROM %1 WHERE document_id=?").arg(table), {document});
         run("DELETE FROM links WHERE (from_kind='document' AND from_id=?) OR (to_kind='document' AND to_id=?)",
             {document, document});
@@ -419,17 +410,12 @@ int ResearchStore::purgePapers(const QVariantList &sources)
     // Files go only after the rows: at worst an unused file stays behind, never a paper without its file.
     for (const auto &url : std::as_const(files))
         if (url.toLocalFile().startsWith(papersFolder() + "/")) QFile::moveToTrash(url.toLocalFile());
-    for (const auto &image : std::as_const(captureImages)) {
-        QFile::remove(m_directory + "/captures/" + image);
-        QFile::remove(m_directory + "/captures/trash/" + image);
-    }
     for (const auto &image : std::as_const(annotationImages)) {
         QSqlQuery used(m_database);
         used.prepare("SELECT 1 FROM highlights WHERE image=?");
         used.addBindValue(image);
         if (used.exec() && !used.next()) QFile::remove(m_directory + "/annotations/" + image);
     }
-    reloadCaptures();
     announceDocumentsChanged();
     emit highlightsChanged();
     emit linksChanged();

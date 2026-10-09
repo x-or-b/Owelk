@@ -65,8 +65,6 @@ bool ResearchStore::appendAiMessage(const QString &threadId, const QVariantMap &
     touch.addBindValue(text(message.value("model").toString()));
     touch.addBindValue(threadId);
     touch.exec();
-    const auto capture = message.value("context").toMap().value("captureId").toString();
-    if (!capture.isEmpty()) addLink("ai", threadId, "capture", capture);
     emit aiThreadsChanged();
     return true;
 }
@@ -226,7 +224,7 @@ QString ResearchStore::saveAiResponse(const QVariantMap &response)
         {"provider", response.value("provider")}, {"model", response.value("model")},
         {"source", response.value("source")}});
     if (id.isEmpty()) return {};
-    QVariantMap context{{"captureId", response.value("captureId")}, {"page", response.value("page")}};
+    const QVariantMap context{{"page", response.value("page")}};
     appendAiMessage(id,
         {{"role", "user"},
             {"content", response.value("prompt").toString().isEmpty() ? question : response.value("prompt")},

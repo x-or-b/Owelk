@@ -1,3 +1,4 @@
+#include "PdfAccess.h"
 #include "ResearchStore.h"
 
 #include <QDir>
@@ -90,13 +91,16 @@ QString ResearchStore::exportPaperMarkdown(const QUrl &source, const QString &fo
     out << "File: " + localPath(source) << "";
 
     QSqlQuery marks(m_database);
-    marks.prepare("SELECT page,kind,text,body,color FROM highlights WHERE document_id=? AND deleted_at IS NULL "
+    marks.prepare("SELECT page,kind,text,body,rectangles FROM highlights WHERE document_id=? AND deleted_at IS NULL "
                   "ORDER BY page,created_at");
     marks.addBindValue(document);
     QStringList highlights;
+    QPdfDocument pdf; // Opened for the first marked region, whose picture goes next to the file.
+    bool pdfTried = false, pdfRead = false;
     if (marks.exec())
         while (marks.next()) {
-            const auto page = "p. " + QString::number(marks.value(0).toInt() + 1);
+            const int pageIndex = marks.value(0).toInt();
+            const auto page = "p. " + QString::number(pageIndex + 1);
             const auto kind = marks.value(1).toString(), text = marks.value(2).toString().simplified(),
                        body = marks.value(3).toString().trimmed();
             if (kind == "draw" || kind == "image") {
@@ -105,38 +109,28 @@ QString ResearchStore::exportPaperMarkdown(const QUrl &source, const QString &fo
                 continue;
             }
             QString entry = "- " + page;
+            if (kind == "area") entry += " · region";
             if (!text.isEmpty()) entry += " · “" + text + "”";
             if (kind == "text") entry += " · text box";
             highlights << entry;
+            if (kind == "area") {
+                if (!std::exchange(pdfTried, true))
+                    pdfRead = PdfAccess::load(pdf, resolvedSource(source).toLocalFile()) == QPdfDocument::Error::None;
+                const auto rects = QJsonDocument::fromJson(marks.value(4).toByteArray()).toVariant().toList();
+                const auto r = rects.value(0).toMap();
+                const auto picture = pdfRead
+                    ? PdfAccess::renderRegion(pdf, pageIndex,
+                          QRectF(r["x"].toDouble(), r["y"].toDouble(), r["width"].toDouble(), r["height"].toDouble()),
+                          1200)
+                    : QImage();
+                const auto copy = images + "/" + page.mid(3) + "-" + QString::number(highlights.size()) + ".png";
+                if (!picture.isNull() && QDir().mkpath(directory + "/" + images)
+                    && picture.save(directory + "/" + copy, "PNG"))
+                    highlights << "  ![" + page + "](" + QString(copy).replace(' ', "%20") + ")";
+            }
             if (!body.isEmpty()) highlights << "  " + quoted(body).replace("\n", "\n  ");
         }
-    if (!highlights.isEmpty()) out << "## Highlights and comments" << "" << highlights << "";
-
-    QStringList captured;
-    int copied = 0;
-    for (const auto &value : captures()) {
-        const auto capture = value.toMap();
-        if (!sameSource(capture.value("source").toUrl(), source)) continue;
-        const auto page = "p. " + QString::number(capture.value("page").toInt() + 1);
-        captured << "### " + page
-                + (capture.value("caption").toString().isEmpty()
-                        ? ""
-                        : " · " + capture.value("caption").toString().simplified());
-        if (!capture.value("text").toString().isEmpty()) captured << "" << quoted(capture.value("text").toString());
-        const auto image = capture.value("image").toUrl().toLocalFile();
-        if (capture.value("imageAvailable").toBool() && QFileInfo::exists(image)) {
-            QDir().mkpath(directory + "/" + images);
-            const auto copy = images + "/" + QFileInfo(image).fileName();
-            if (QFile::exists(directory + "/" + copy) || QFile::copy(image, directory + "/" + copy)) {
-                captured << "" << "![" + page + "](" + QString(copy).replace(' ', "%20") + ")";
-                ++copied;
-            }
-        }
-        if (!capture.value("note").toString().trimmed().isEmpty())
-            captured << "" << "Note: " + capture.value("note").toString().trimmed();
-        captured << "";
-    }
-    if (!captured.isEmpty()) out << "## Captures" << "" << captured;
+    if (!highlights.isEmpty()) out << "## Annotations" << "" << highlights << "";
 
     QStringList linked;
     for (const auto &value : backlinks("document", document)) {

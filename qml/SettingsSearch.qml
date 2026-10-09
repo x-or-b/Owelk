@@ -99,7 +99,7 @@ ColumnLayout {
         standardButtons: Dialog.Ok | Dialog.Cancel
         Label {
             width: parent.width; wrapMode: Text.Wrap
-            text: "To search by meaning with OpenAI, Owelk sends the text of your indexed papers, notes, annotations, captures and AI answers to OpenAI's embedding service, a little at a time, and again for new or changed items. PDF files themselves are not uploaded. Usage is billed to your OpenAI key."
+            text: "To search by meaning with OpenAI, Owelk sends the text of your indexed papers, notes, annotations and AI answers to OpenAI's embedding service, a little at a time, and again for new or changed items. PDF files themselves are not uploaded. Usage is billed to your OpenAI key."
         }
         onAccepted: { researchStore.setSetting("semantic.consent.openai", "1"); researchStore.semantic.configure("openai", "") }
     }

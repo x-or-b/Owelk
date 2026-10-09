@@ -16,7 +16,7 @@ class PaperIndex;
 class ResearchStore;
 
 // Optional search by meaning, next to the keyword index. Off by default; when the reader turns it on,
-// passages of indexed papers (the text PaperIndex already extracted), notes, annotations, captures and
+// passages of indexed papers (the text PaperIndex already extracted), notes, annotations and
 // AI answers are embedded by an external engine (Ollama on this computer, or OpenAI) in the background,
 // paused while reading. Vectors are int8 in semantic.sqlite3; nothing is opened while it is off.
 class SemanticIndex final : public QObject {

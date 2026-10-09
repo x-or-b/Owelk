@@ -315,7 +315,7 @@ Rectangle {
                     Label {
                         Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                         text: (researchStore.trashDays() > 0 ? "Papers are deleted for good after " + researchStore.trashDays() + " days" : "Papers stay until you empty the Trash")
-                            + " (Settings › Data). Deleting for good removes their annotations and captures and sends a PDF Owelk keeps to the system Trash."
+                            + " (Settings › Data). Deleting for good removes their annotations and sends a PDF Owelk keeps to the system Trash."
                     }
                 }
                 Button {
@@ -364,7 +364,7 @@ Rectangle {
                 id: emptyTrashConfirm
                 objectName: "emptyPaperTrashConfirm"
                 title: "Delete " + root.trashRows.length + (root.trashRows.length === 1 ? " paper" : " papers") + " for good?"
-                message: "Their annotations and captures are deleted. PDFs Owelk keeps go to the system Trash."
+                message: "Their annotations are deleted. PDFs Owelk keeps go to the system Trash."
                 actionText: "Empty Trash"
                 onConfirmed: Qt.callLater(function() { researchStore.emptyPaperTrash(); root.refresh() })
             }

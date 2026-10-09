@@ -24,7 +24,7 @@ ColumnLayout {
     SettingsGroup {
         title: "PDFs"
         note: (root.keepsPdfs ? "Downloaded PDFs go to Owelk's own PDF folder (Settings › Data); other files go to the folder above. " : "")
-            + "A downloaded PDF is named after its paper when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where highlights, captures and notes work."
+            + "A downloaded PDF is named after its paper when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work."
         SettingsRow {
             label: root.keepsPdfs ? "Other downloads to" : "Download to"
             wide: true

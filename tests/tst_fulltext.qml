@@ -110,7 +110,7 @@ Item {
             palette.open(); tryCompare(palette, "opened", true)
             waitForPolish(palette.contentItem); wait(30)
             // One row of scopes instead of menus; the chosen one is marked.
-            for (const value of ["text", "filename", "captures", "ai", "all"]) {
+            for (const value of ["text", "filename", "notes", "ai", "all"]) {
                 const chip = visualChild(palette.contentItem, "searchTarget-" + value)
                 verify(chip, value)
                 mouseClick(chip)

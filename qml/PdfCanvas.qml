@@ -42,6 +42,7 @@ Item {
             root.rasterWidth = root.width
         }
     }
+    // A region dragged out to show the AI (regionSelected); nothing is saved.
     property bool captureMode: false
     property int currentPage: 0
     property string selectedText: ""
@@ -144,6 +145,15 @@ Item {
             visible: !!root.editingMark && !!root.editingMark.text; height: visible ? implicitHeight : 0
             text: "Copy Text"; onTriggered: researchStore.copyText(root.editingMark.text)
         }
+        MenuItem {
+            objectName: "askAboutRegion"
+            visible: !!root.editingMark && root.editingMark.kind === "area"; height: visible ? implicitHeight : 0
+            text: "Ask AI about This Region"
+            onTriggered: {
+                const mark = root.editingMark, r = mark.rectangles[0]
+                root.figureAiRequested(mark.page, Qt.rect(r.x, r.y, r.width, r.height), "Region")
+            }
+        }
         MenuSeparator {}
         MenuItem {
             objectName: "removeHighlightAction"
@@ -189,9 +199,9 @@ Item {
         pages.contentX = Math.max(0, Math.min(pages.contentWidth - pages.width, pages.contentX + pixels))
         return true
     }
-    // Going to a place: captures and annotations move quickly and flash; a place cited by an AI answer
+    // Going to a place: annotations and search results move quickly and flash; a place cited by an AI answer
     // (passage) moves a little slower and stays lit longer. Tune the passage values here.
-    readonly property real passageScrollPace: 1.3   // × the capture move time
+    readonly property real passageScrollPace: 1.3   // × the annotation move time
     readonly property int passageLitFor: 1400        // ms the words stay fully lit
     readonly property int passageFade: 900           // ms to fade out
     property int spotlightHold: 0
@@ -419,7 +429,7 @@ Item {
         targetScrollX = rect.width * pageWidth <= pages.width && left >= oldX && left + rect.width * pageWidth <= oldX + pages.width
             ? oldX : Math.max(0, Math.min(left - 24, pages.contentWidth - pages.width))
         pages.contentX = oldX; pages.contentY = oldY
-        // Give long jumps more time without making nearby captures feel sluggish.
+        // Give long jumps more time without making nearby annotations feel sluggish.
         sourceScrollDuration = Math.round(Math.min(1500, 700 + Math.abs(targetScrollY - oldY) / Math.max(1, pages.height) * 90) * (passage ? passageScrollPace : 1))
         spotlightHold = passage ? passageLitFor : 0
         spotlightFade = passage ? passageFade : Theme.captureFadeDuration
@@ -546,11 +556,6 @@ Item {
         } : null
     }
 
-    function captureSelection() {
-        if (!selectedAnchor || selectedAnchor.text !== selectedText || selecting) return
-        if (selectedAnchor.segments) { researchStore.captureTextSegments(source, selectedAnchor.segments); return }
-        researchStore.captureText(source, selectedAnchor.page, selectedAnchor.from, selectedAnchor.to, selectedAnchor.text)
-    }
     function highlightSelection() {
         if (!selectedAnchor || selectedAnchor.text !== selectedText || selecting || researchStore.busy) return
         pendingHighlightSelection = selectedAnchor
@@ -595,7 +600,7 @@ Item {
             if (status === PdfDocument.Error && !pdfDocument.password.length) root.tryKnownPassword()
             if (status === PdfDocument.Ready) {
                 restoreTimer.restart()
-                // A password that worked is shared with indexing, captures, printing and AI.
+                // A password that worked is shared with indexing, annotations, printing and AI.
                 if (passwordDialog.tried.length) researchStore.rememberPdfPassword(root.source, passwordDialog.tried, passwordDialog.keep)
                 passwordDialog.tried = ""
             }
@@ -921,15 +926,17 @@ Item {
                                 readonly property var shown: index === 0 && root.markEdit && root.markEdit.id === persistentMark.modelData.id ? root.markEdit.rect : modelData
                                 x: shown.x * paper.width; y: shown.y * paper.height
                                 width: shown.width * paper.width; height: shown.height * paper.height
-                                // Highlights tint the text; comments (and notes beside the page) only outline their place.
+                                // Highlights tint the text; comments (and notes beside the page) only outline their place;
+                                // a marked region is outlined over a faint tint.
                                 Rectangle {
                                     objectName: "markShape-" + persistentMark.modelData.id
-                                    readonly property bool outline: persistentMark.modelData.kind === "comment"
+                                    readonly property bool area: persistentMark.modelData.kind === "area"
+                                    readonly property bool outline: persistentMark.modelData.kind === "comment" || area
                                     readonly property color ink: persistentMark.modelData.color || Theme.accent
                                     anchors.fill: parent
                                     visible: persistentMark.modelData.kind === "highlight" || outline
                                     radius: outline ? 2 : 0
-                                    color: outline ? "transparent" : Qt.rgba(ink.r, ink.g, ink.b, .28)
+                                    color: area ? Qt.rgba(ink.r, ink.g, ink.b, .06) : outline ? "transparent" : Qt.rgba(ink.r, ink.g, ink.b, .28)
                                     border.width: outline ? 1.5 : 0
                                     border.color: ink
                                 }
@@ -980,10 +987,14 @@ Item {
                                     // marks let a left press through so text can still be selected under them.
                                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                                     enabled: !root.captureMode
-                                    cursorShape: persistentMark.modelData.text ? Qt.IBeamCursor : selectable ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                    // Only the ink is a drawing's hit area; empty space inside its box keeps text actions.
+                                    cursorShape: persistentMark.modelData.text || persistentMark.modelData.kind === "area" ? Qt.IBeamCursor : selectable ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    // Only the ink is a drawing's hit area, and only the edge a region's; the space inside
+                                    // keeps text actions.
                                     onPressed: function(mouse) {
                                         if (mouse.button === Qt.LeftButton && !selectable) { mouse.accepted = false; return }
+                                        const edge = Math.max(6, 2 * root.pageScale)
+                                        if (mouse.button === Qt.LeftButton && persistentMark.modelData.kind === "area" && mouse.x > edge
+                                            && mouse.y > edge && mouse.x < width - edge && mouse.y < height - edge) { mouse.accepted = false; return }
                                         if (mouse.button === Qt.LeftButton) root.markPressed = true
                                         if (persistentMark.modelData.kind === "draw"
                                             && Stroke.distance(savedStroke.points, mouse.x, mouse.y, savedStroke.mapX, savedStroke.mapY)
@@ -1217,7 +1228,7 @@ Item {
                     id: annotationArea
                     objectName: "annotationArea" + pageHolder.index
                     anchors.fill: parent
-                    enabled: ["comment", "text", "image", "draw"].indexOf(root.tool) >= 0
+                    enabled: ["comment", "text", "image", "draw", "area"].indexOf(root.tool) >= 0
                     visible: enabled; cursorShape: Qt.CrossCursor; preventStealing: true
                     property point start
                     property point end
@@ -1377,7 +1388,7 @@ Item {
     // Saving reloads the marks (briefly none): the selection stays, its frame returns with the mark.
     onSavedHighlightsChanged: if (!pendingMarkSave) markEdit = null
     function adjustable(mark) {
-        return mark.kind === "text" || mark.kind === "image" || mark.kind === "draw" || (mark.kind === "comment" && !mark.text)
+        return mark.kind === "text" || mark.kind === "image" || mark.kind === "draw" || mark.kind === "area" || (mark.kind === "comment" && !mark.text)
     }
     function beginMarkEdit(mark) {
         if (!mark) return

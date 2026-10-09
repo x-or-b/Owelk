@@ -36,11 +36,10 @@ struct Table {
 const QList<Table> &tables()
 {
     static const QList<Table> list{{"documents", {"id"}}, {"tags", {"id"}}, {"collections", {"id"}}, {"notes", {"id"}},
-        {"captures", {"id"}}, {"deleted_captures", {"id"}}, {"text_captures", {"capture_id"}},
-        {"capture_notes", {"capture_id"}}, {"highlights", {"id"}}, {"recent_documents", {"document_id"}},
-        {"reading_positions", {"document_id"}}, {"collection_documents", {"collection_id", "document_id"}},
-        {"document_tags", {"document_id", "tag_id"}}, {"links", {"from_kind", "from_id", "to_kind", "to_id"}},
-        {"ai_threads", {"id"}}, {"ai_messages", {"id"}}, {"ai_responses", {"id"}}};
+        {"highlights", {"id"}}, {"recent_documents", {"document_id"}}, {"reading_positions", {"document_id"}},
+        {"collection_documents", {"collection_id", "document_id"}}, {"document_tags", {"document_id", "tag_id"}},
+        {"links", {"from_kind", "from_id", "to_kind", "to_id"}}, {"ai_threads", {"id"}}, {"ai_messages", {"id"}},
+        {"ai_responses", {"id"}}};
     return list;
 }
 
@@ -227,15 +226,13 @@ private:
     bool upsert(const QString &table, QVariantMap row, const QStringList &keys, const QVariantList &keyValues);
     QString localPaperPath(const QVariantMap &row);
     bool writeSegments(const QByteArray &lines);
-    void placeCaptureImages();
 
     QSqlDatabase &m_db;
     QString m_data, m_papers, m_folder, m_device;
     std::shared_ptr<std::atomic_bool> m_cancel;
     QHash<QString, QStringList> m_columns;
     QHash<QString, QHash<QString, QString>> m_aliases;
-    QSet<QString> m_moveCaptures;
-    QStringList m_removedImages, m_removedPapers;
+    QStringList m_removedPapers;
 };
 
 bool Pass::importChanges()
@@ -272,8 +269,6 @@ bool Pass::importChanges()
 
 bool Pass::applyFile(const QString &device, const QString &file, qint64 size, const QList<QByteArray> &lines, int from)
 {
-    m_moveCaptures.clear();
-    m_removedImages.clear();
     m_removedPapers.clear();
     if (!m_db.transaction()) {
         outcome.error = m_db.lastError().text();
@@ -298,7 +293,6 @@ bool Pass::applyFile(const QString &device, const QString &file, qint64 size, co
         outcome.error = m_db.lastError().text();
         return abort();
     }
-    placeCaptureImages();
     for (const auto &path : std::as_const(m_removedPapers)) QFile::moveToTrash(path);
     return true;
 }
@@ -366,16 +360,10 @@ bool Pass::applyChange(const QJsonObject &change)
                 if (path.startsWith(m_papers + "/")) m_removedPapers << path;
             }
         }
-        if (table == "captures") {
-            QSqlQuery image(m_db);
-            if (run(image, "SELECT image FROM captures WHERE id=?", keyValues) && image.next())
-                m_removedImages << image.value(0).toString();
-        }
         if (!run("DELETE FROM " + table + " WHERE " + where(keys), keyValues)) return false;
     } else if (!upsert(table, row, keys, keyValues)) {
         return false;
     }
-    if (table == "captures" || table == "deleted_captures") m_moveCaptures.insert(keyValues.value(0).toString());
     outcome.tables.insert(table);
     ++outcome.received;
     return run("INSERT OR REPLACE INTO sync_rows(tbl,key,time,device) VALUES(?,?,?,?)", {table, key, time, device})
@@ -408,8 +396,8 @@ bool Pass::rekey(const QString &table, const QString &from, const QString &to)
     if (!run("DELETE FROM sync_pause")) return false;
     QList<QPair<QString, QVariantList>> statements;
     if (table == "documents") {
-        for (const auto *child : {"recent_documents", "reading_positions", "collection_documents", "document_tags",
-                 "captures", "highlights"})
+        for (const auto *child :
+            {"recent_documents", "reading_positions", "collection_documents", "document_tags", "highlights"})
             statements.append(
                 {QStringLiteral("UPDATE OR REPLACE %1 SET document_id=? WHERE document_id=?").arg(child), {to, from}});
         statements.append(
@@ -484,10 +472,9 @@ bool Pass::upsert(const QString &table, QVariantMap row, const QStringList &keys
             return false;
     }
     const auto image = row.value("image").toString();
-    if (!image.isEmpty() && (table == "captures" || table == "highlights")) {
-        const auto folder = table == "captures" ? QStringLiteral("captures") : QStringLiteral("annotations");
+    if (!image.isEmpty() && table == "highlights") {
         if (!run("INSERT OR IGNORE INTO sync_files(local,remote,outgoing) VALUES(?,?,0)",
-                {m_data + "/" + folder + "/" + image, "Files/" + folder + "/" + image}))
+                {m_data + "/annotations/" + image, "Files/annotations/" + image}))
             return false;
     }
     for (const auto &field : fields) values << row.value(field);
@@ -516,31 +503,6 @@ QString Pass::localPaperPath(const QVariantMap &row)
         if (taken(path)) path = folder + base + " " + row.value("id").toString() + ".pdf";
     }
     return path;
-}
-
-// Captures sit in captures/ or, while in the trash, captures/trash/: follow the other computer.
-void Pass::placeCaptureImages()
-{
-    for (const auto &id : std::as_const(m_moveCaptures)) {
-        QSqlQuery query(m_db);
-        if (!run(query, "SELECT image,EXISTS(SELECT 1 FROM deleted_captures WHERE id=?) FROM captures WHERE id=?",
-                {id, id})
-            || !query.next() || query.value(0).toString().isEmpty())
-            continue;
-        const auto image = query.value(0).toString();
-        const bool trashed = query.value(1).toBool();
-        const auto here = m_data + "/captures/" + image, trash = m_data + "/captures/trash/" + image;
-        const auto &want = trashed ? trash : here, &other = trashed ? here : trash;
-        if (!QFileInfo::exists(want) && QFileInfo::exists(other)) {
-            QDir().mkpath(QFileInfo(want).absolutePath());
-            QFile::rename(other, want);
-        }
-    }
-    for (const auto &image : std::as_const(m_removedImages)) {
-        if (image.isEmpty() || image.contains('/')) continue;
-        QFile::remove(m_data + "/captures/" + image);
-        QFile::remove(m_data + "/captures/trash/" + image);
-    }
 }
 
 bool Pass::exportChanges()
@@ -592,10 +554,6 @@ bool Pass::exportChanges()
                 && !text("sha256").isEmpty()) {
                 local = QUrl(text("url")).toLocalFile();
                 remote = "Papers/" + text("sha256") + ".pdf";
-            } else if (change.table == "captures" && !text("image").isEmpty()) {
-                local = m_data + "/captures/" + text("image");
-                if (!QFileInfo::exists(local)) local = m_data + "/captures/trash/" + text("image");
-                remote = "Files/captures/" + text("image");
             } else if (change.table == "highlights" && !text("image").isEmpty()) {
                 local = m_data + "/annotations/" + text("image");
                 remote = "Files/annotations/" + text("image");
@@ -704,15 +662,7 @@ void Pass::moveFiles()
         if (item.outgoing) {
             if (!QFileInfo::exists(remote) && QFileInfo::exists(item.local)) done = copyFile(item.local, remote);
         } else {
-            auto local = item.local;
-            const auto image = QFileInfo(local).fileName();
-            if (local == m_data + "/captures/" + image) {
-                QSqlQuery trashed(m_db);
-                if (run(trashed, "SELECT 1 FROM captures c JOIN deleted_captures d ON d.id=c.id WHERE c.image=?",
-                        {image})
-                    && trashed.next())
-                    local = m_data + "/captures/trash/" + image;
-            }
+            const auto &local = item.local;
             if (!QFileInfo::exists(local)) {
                 if (!QFileInfo::exists(remote)) {
                     ++outcome.waiting; // Not here yet: the sync program is still bringing it.

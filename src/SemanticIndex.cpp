@@ -120,14 +120,9 @@ Plan planSync(const QString &path, const QString &libraryPath, const QString &se
             while (rows.next())
                 want("highlight", rows.value(0).toString(), rows.value(1).toString(), rows.value(2).toInt(),
                     rows.value(3).toString());
-        if (rows.exec("SELECT c.id,c.document_id,c.page,coalesce(t.text,'') || ' ' || c.caption || ' ' || "
-                      "coalesce(n.body,'') FROM captures c LEFT JOIN text_captures t ON t.capture_id=c.id LEFT JOIN "
-                      "capture_notes n ON n.capture_id=c.id WHERE c.id NOT IN (SELECT id FROM deleted_captures)"))
-            while (rows.next())
-                want("capture", rows.value(0).toString(), rows.value(1).toString(), rows.value(2).toInt(),
-                    rows.value(3).toString());
         if (rows.exec("SELECT thread_id,group_concat(substr(content,1,2000),' ') FROM ai_messages WHERE "
-                      "role='assistant' GROUP BY thread_id"))
+                      "role='assistant' AND thread_id IN (SELECT id FROM ai_threads WHERE trashed_at IS NULL) "
+                      "GROUP BY thread_id"))
             while (rows.next()) want("ai", rows.value(0).toString(), {}, 0, rows.value(1).toString());
     }
     QSqlQuery stored(semantic.db);
@@ -233,7 +228,7 @@ QVariantList describe(const QList<std::pair<const SemanticIndex::Matrix::Row *, 
                 {"page", row->page}, {"title", title}, {"snippet", text.mid(std::max(0, at - 60), 220)}});
         } else if (row->kind == "note") {
             const auto note = one(library.db, "SELECT title,body FROM notes WHERE id=?", {row->ref});
-            result.insert({{"kind", "standalone-note"}, {"id", row->ref},
+            result.insert({{"kind", "note"}, {"id", row->ref},
                 {"title", "Note · " + (note.value(0).toString().isEmpty() ? "Untitled" : note.value(0).toString())},
                 {"snippet", note.value(1).toString().simplified().left(220)}});
         } else if (row->kind == "highlight") {
@@ -242,10 +237,6 @@ QVariantList describe(const QList<std::pair<const SemanticIndex::Matrix::Row *, 
             result.insert({{"kind", "highlight"}, {"id", row->ref}, {"source", url},
                 {"title", title + " · p. " + QString::number(row->page + 1)},
                 {"snippet", mark.value(0).toString().simplified().left(220)}});
-        } else if (row->kind == "capture") {
-            const auto [url, sha, title] = paper(row->document);
-            result.insert({{"kind", "capture"}, {"id", row->ref}, {"source", url},
-                {"title", title + " · p. " + QString::number(row->page + 1)}});
         } else if (row->kind == "ai") {
             const auto thread = one(library.db, "SELECT title FROM ai_threads WHERE id=?", {row->ref});
             result.insert({{"kind", "ai"}, {"id", row->ref}, {"title", "AI · " + thread.value(0).toString()}});

@@ -15,12 +15,14 @@
 #include <QtConcurrent>
 #include <algorithm>
 
-// Backups are plain folders: a consistent copy of the library database (VACUUM INTO), the capture
-// and annotation images, and a small manifest. The search index and meaning vectors are rebuilt from
+// Backups are plain folders: a consistent copy of the library database (VACUUM INTO), the annotation
+// images, and a small manifest. The search index and meaning vectors are rebuilt from
 // the PDFs, so they are not copied. Restoring is staged and applied on the next start, after the
 // current data is moved aside, so nothing is ever overwritten in place.
 namespace {
-const QStringList copiedFolders{"captures", "annotations"};
+const QStringList copiedFolders{"annotations"};
+// A backup from before schema step 15 also holds capture images; they come back too, for the step to convert.
+const QStringList restoredFolders{"annotations", "captures"};
 
 bool copyFolder(const QString &from, const QString &to)
 {
@@ -165,7 +167,7 @@ bool ResearchStore::applyPendingRestore(const QString &directory, QString *error
         return true;
     }
     QStringList moved;
-    for (const auto &name : QStringList{"owelk.sqlite3", "owelk.sqlite3-wal", "owelk.sqlite3-shm"} + copiedFolders)
+    for (const auto &name : QStringList{"owelk.sqlite3", "owelk.sqlite3-wal", "owelk.sqlite3-shm"} + restoredFolders)
         if (QFileInfo::exists(directory + "/" + name)) {
             if (!QDir().rename(directory + "/" + name, aside + "/" + name)) {
                 for (const auto &back : moved) QDir().rename(aside + "/" + back, directory + "/" + back);
@@ -175,11 +177,11 @@ bool ResearchStore::applyPendingRestore(const QString &directory, QString *error
             moved << name;
         }
     bool ok = QFile::copy(backup + "/owelk.sqlite3", directory + "/owelk.sqlite3");
-    for (const auto &folder : copiedFolders) ok = ok && copyFolder(backup + "/" + folder, directory + "/" + folder);
+    for (const auto &folder : restoredFolders) ok = ok && copyFolder(backup + "/" + folder, directory + "/" + folder);
     if (!ok) {
         // Put the previous data back exactly as it was.
         QFile::remove(directory + "/owelk.sqlite3");
-        for (const auto &folder : copiedFolders) QDir(directory + "/" + folder).removeRecursively();
+        for (const auto &folder : restoredFolders) QDir(directory + "/" + folder).removeRecursively();
         for (const auto &back : moved) QDir().rename(aside + "/" + back, directory + "/" + back);
         *error = "The backup could not be copied; your current data was kept.";
         return true;

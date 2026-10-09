@@ -363,9 +363,7 @@ bool ResearchStore::useExistingCopy(const QUrl &duplicate, const QUrl &existing)
     query.exec();
     // An extra entry with nothing of its own also leaves the Library (hidden, like Remove from
     // Library: its file stays and opening it again brings it back).
-    query.prepare("SELECT EXISTS(SELECT 1 FROM highlights WHERE document_id=? AND deleted_at IS NULL) "
-                  "OR EXISTS(SELECT 1 FROM captures WHERE document_id=?)");
-    query.addBindValue(id);
+    query.prepare("SELECT EXISTS(SELECT 1 FROM highlights WHERE document_id=? AND deleted_at IS NULL)");
     query.addBindValue(id);
     if (!id.isEmpty() && query.exec() && query.next() && !query.value(0).toBool()) removeFromLibrary({duplicate});
     emit recentDocumentsChanged();
@@ -405,7 +403,6 @@ void ResearchStore::announceDocumentsChanged()
     QTimer::singleShot(50, this, [this] {
         m_documentsChangePending = false;
         ++m_documentsRevision;
-        reloadCaptures();
         emit documentsChanged();
         emit recentDocumentsChanged();
         emit homeChanged();

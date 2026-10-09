@@ -275,7 +275,7 @@ Flickable {
     }
     // owelk://<kind>/<id> links from notes and backlink lists.
     function openLink(link) {
-        const match = /^owelk:\/\/(note|capture|highlight|document|ai)\/([A-Za-z0-9-]+)/.exec(link.toString())
+        const match = /^owelk:\/\/(note|highlight|document|ai)\/([A-Za-z0-9-]+)/.exec(link.toString())
         // A source in an AI answer: that paper at that page, and the quoted words lit up once found.
         const page = /#page=(\d+)/.exec(link.toString())
         if (match && match[1] === "document" && page) {
@@ -293,7 +293,6 @@ Flickable {
         }
         if (!match) return Tree.isWebAddress(link.toString()) ? openWeb(link.toString(), true) : false
         if (match[1] === "note") return openNote(match[2], true)
-        if (match[1] === "capture") { researchStore.openCapture(match[2]); return true }
         if (match[1] === "highlight") { researchStore.openHighlight(match[2]); return true }
         if (match[1] === "ai") { root.aiResponseRequested(match[2]); return true }
         const target = researchStore.linkTarget("document", match[2])

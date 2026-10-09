@@ -1,6 +1,7 @@
 #include "ResearchStore.h"
 #include "PaperIndex.h"
 #include "PdfFixture.h"
+#include "StoreFixture.h"
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QSqlQuery>
@@ -34,13 +35,13 @@ QVariantList sql(const QString &path, const QString &statement)
 class RelinkTest : public QObject {
     Q_OBJECT
 private slots:
-    void updatesReferencesPreservesCaptureAndIndexId()
+    void updatesReferencesPreservesAnnotationAndIndexId()
     {
         QTemporaryDir dir;
         const auto old = QUrl::fromLocalFile(dir.filePath("old.pdf")),
                    next = QUrl::fromLocalFile(dir.filePath("moved.pdf"));
         writeFixture(old.toLocalFile());
-        QString capture, documentId;
+        QString region, documentId;
         {
             ResearchStore store(dir.filePath("data"));
             QString error;
@@ -48,10 +49,8 @@ private slots:
             auto *index = qobject_cast<PaperIndex *>(store.paperIndex());
             QVERIFY(store.rememberDocument(old));
             QVERIFY(store.saveSession(state(old)));
-            store.captureRegion(old, 0, QRectF(.1, .1, .4, .2));
-            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
-            QCOMPARE(store.captures().size(), 1);
-            capture = store.captures().first().toMap()["id"].toString();
+            region = markRegion(store, old);
+            QVERIFY(!region.isEmpty());
             QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 10000);
             documentId = index->documents().first().toMap()["id"].toString();
             QVERIFY(QFile::rename(old.toLocalFile(), next.toLocalFile())); // Only temporary generated fixture.
@@ -64,16 +63,15 @@ private slots:
             QCOMPARE(store.session()["left"].toMap()["source"].toString(), next.toString());
             QCOMPARE(store.readingPosition(next)["page"].toInt(), 3);
             QCOMPARE(store.recentDocuments().first().toMap()["url"].toUrl(), next);
-            QCOMPARE(store.captures().first().toMap()["source"].toUrl(), next);
+            QCOMPARE(store.anchor(region)["source"].toUrl(), next);
             QCOMPARE(index->documents().size(), 1);
             QCOMPARE(index->documents().first().toMap()["id"].toString(), documentId);
             QSignalSpy opened(&store, &ResearchStore::sourceReady);
-            store.openCapture(capture);
+            store.openHighlight(region);
             QVERIFY(opened.wait(10000));
             QCOMPARE(opened.first()[0].toUrl(), next);
             QVERIFY(store.saveSession(state(old))); // A stale queued save must not restore the old path.
             QCOMPARE(store.session()["left"].toMap()["source"].toString(), next.toString());
-            QVERIFY(QFileInfo::exists(store.captures().first().toMap()["image"].toUrl().toLocalFile()));
         }
         // Simulate exit after primary data committed but before the separate search cache was updated.
         sql(dir.filePath("data/search.sqlite3"),
@@ -120,7 +118,7 @@ private slots:
         QVERIFY(QFileInfo::exists(old.toLocalFile()));
         QVERIFY(QFileInfo::exists(wrong.toLocalFile()));
     }
-    void mergesKnownTargetAndPreservesDeletedCapture()
+    void mergesKnownTargetKeepingRemovedAnnotationAndCollections()
     {
         QTemporaryDir dir;
         const auto old = QUrl::fromLocalFile(dir.filePath("old.pdf")),
@@ -134,10 +132,12 @@ private slots:
         store.rememberDocument(old);
         store.saveSession(state(old));
         store.rememberDocument(next);
-        store.captureRegion(old, 0, QRectF(.1, .1, .4, .2));
-        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
-        const auto id = store.captures().first().toMap()["id"].toString();
-        QVERIFY(store.deleteCapture(id));
+        // The copy already sits in a collection; the merged paper keeps that.
+        const auto collection = store.createCollection("Kept");
+        QVERIFY(store.setDocumentCollection(next, collection, true));
+        const auto id = markRegion(store, old);
+        QVERIFY(!id.isEmpty());
+        QVERIFY(store.removeHighlight(id));
         QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 10000);
         QSignalSpy done(&store, &ResearchStore::relinkFinished);
         store.relinkSource(old, next);
@@ -146,13 +146,18 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 10000);
         QCOMPARE(store.recentDocuments().size(), 1);
         QCOMPARE(index->documents().size(), 1);
-        QCOMPARE(sql(dir.filePath("data/owelk.sqlite3"),
-                     "SELECT d.url FROM captures c JOIN documents d ON d.id=c.document_id")
+        const auto database = dir.filePath("data/owelk.sqlite3");
+        QCOMPARE(sql(database,
+                     "SELECT d.url FROM highlights h JOIN documents d ON d.id=h.document_id WHERE "
+                     "h.deleted_at IS NOT NULL")
                      .first()
                      .toString(),
             next.toString());
-        QCOMPARE(sql(dir.filePath("data/owelk.sqlite3"), "SELECT count(*) FROM deleted_captures").first().toInt(), 1);
-        QVERIFY(store.captures().isEmpty());
+        QCOMPARE(sql(database, "SELECT d.url FROM collection_documents c JOIN documents d ON d.id=c.document_id")
+                     .value(0)
+                     .toString(),
+            next.toString());
+        QCOMPARE(sql(database, "SELECT count(*) FROM collection_documents").first().toInt(), 1);
         QVERIFY(QFileInfo::exists(old.toLocalFile()));
     }
     void invalidSavedStateRollsBackEverything()
@@ -190,8 +195,8 @@ private slots:
         ResearchStore store(dir.filePath("data"));
         QString error;
         QVERIFY(store.initialize(&error));
-        store.captureRegion(old, 0, QRectF(.1, .1, .4, .2));
-        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+        const auto region = markRegion(store, old);
+        QVERIFY(!region.isEmpty());
         writeFixture(old.toLocalFile(), "New version");
         store.rememberDocument(old);
         auto *index = qobject_cast<PaperIndex *>(store.paperIndex());
@@ -201,7 +206,7 @@ private slots:
         QCOMPARE(done.size(), 1);
         QVERIFY(!done.first()[0].toBool());
         QVERIFY(done.first()[1].toString().contains("different PDF versions"));
-        QCOMPARE(store.captures().first().toMap()["source"].toUrl(), old);
+        QCOMPARE(store.anchor(region)["source"].toUrl(), old);
     }
 };
 QTEST_MAIN(RelinkTest)

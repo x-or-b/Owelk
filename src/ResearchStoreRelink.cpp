@@ -59,7 +59,7 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
 {
     auto reject = [this](const QString &error) { emit relinkFinished(false, error); };
     if (m_relinking || busy()) {
-        reject("Wait for the current capture or source verification to finish.");
+        reject("Wait for the current source verification to finish.");
         return;
     }
     const auto source = resolvedSource(input);
@@ -72,17 +72,15 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
         return;
     }
     QSet<QString> hashes;
-    QSqlQuery captures(m_database);
-    captures.prepare(
-        "SELECT sha256 FROM captures WHERE document_id=? UNION SELECT sha256 FROM highlights WHERE document_id=?");
-    captures.addBindValue(findDocument(source));
-    captures.addBindValue(findDocument(source));
-    if (!captures.exec()) {
-        reject(captures.lastError().text());
+    QSqlQuery annotations(m_database);
+    annotations.prepare("SELECT DISTINCT sha256 FROM highlights WHERE document_id=?");
+    annotations.addBindValue(findDocument(source));
+    if (!annotations.exec()) {
+        reject(annotations.lastError().text());
         return;
     }
-    while (captures.next())
-        if (!captures.value(0).toString().isEmpty()) hashes.insert(captures.value(0).toString());
+    while (annotations.next())
+        if (!annotations.value(0).toString().isEmpty()) hashes.insert(annotations.value(0).toString());
     const auto indexedHash = m_index->knownHash(source);
     if (!indexedHash.isEmpty()) hashes.insert(indexedHash);
     QSqlQuery previous(m_database);
@@ -114,7 +112,6 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
             emit sourceRelinked(source, candidate);
             loadDocumentNames(); // Titles are cached by URL.
             announceDocumentsChanged();
-            reloadCaptures();
             emit highlightsChanged();
             emit recentDocumentsChanged();
             emit homeChanged();
@@ -122,7 +119,7 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
         m_relinking = false;
         emit relinkingChanged();
         emit relinkFinished(
-            success, success ? "PDF source reconnected. Reading positions and captures were preserved." : error);
+            success, success ? "PDF source reconnected. Reading positions and annotations were preserved." : error);
     });
     watcher->setFuture(QtConcurrent::run(&m_workers, [source, candidate, expected] {
         const auto original = expected.isEmpty() ? hashFile(source.toLocalFile()) : expected;
@@ -186,9 +183,14 @@ bool ResearchStore::applyRelink(const QUrl &source, const QUrl &candidate, const
                 "(SELECT title,authors,year,doi,arxiv,metadata_origin,metadata_sha256 FROM documents WHERE id=?) "
                 "WHERE id=? AND metadata_origin<>'user' AND (SELECT metadata_origin FROM documents WHERE id=?)='user'",
                 {duplicate, original, duplicate})
-            || !run("UPDATE captures SET document_id=? WHERE document_id=?", {original, duplicate})
-            || !run("UPDATE highlights SET document_id=? WHERE document_id=?", {original, duplicate}))
+            || !run(
+                "UPDATE OR REPLACE links SET from_id=? WHERE from_kind='document' AND from_id=?", {original, duplicate})
+            || !run("UPDATE OR REPLACE links SET to_id=? WHERE to_kind='document' AND to_id=?", {original, duplicate}))
             return abort();
+        for (const auto *table : {"highlights", "collection_documents", "document_tags"})
+            if (!run(QStringLiteral("UPDATE OR REPLACE %1 SET document_id=? WHERE document_id=?").arg(table),
+                    {original, duplicate}))
+                return abort();
         for (const auto *table : {"recent_documents", "reading_positions"})
             if (!run(QStringLiteral("DELETE FROM %1 WHERE document_id=?").arg(table), {duplicate})) return abort();
         if (!run("DELETE FROM documents WHERE id=?", {duplicate})) return abort();

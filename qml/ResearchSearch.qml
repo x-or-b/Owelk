@@ -141,10 +141,10 @@ QtObject {
         if (needle.length && offset === 0) {
             namesPending = true
             namesRequest = researchStore.searchKnowledgeAsync(needle, sourceFilter, targetFilter, scope ? scope.map(function(p) { return p.url }) : null)
-        } else if (!needle.length && scope && targetFilter !== "text" && targetFilter !== "captures" && targetFilter !== "ai") {
+        } else if (!needle.length && scope && targetFilter !== "text" && targetFilter !== "notes" && targetFilter !== "ai") {
             // Only library conditions (e.g. "tag:slam"): list the papers they match.
             names = scope.slice(0, 40).map(function(p) { return {kind: "paper", title: p.name, source: p.url, position: p.position, authors: p.authors, year: p.year} })
-        } else if (!needle.length && showRecent && !sourceFilter.toString().length && targetFilter !== "text" && targetFilter !== "captures") {
+        } else if (!needle.length && showRecent && !sourceFilter.toString().length && targetFilter !== "text" && targetFilter !== "notes") {
             names = researchStore.recentDocuments.map(function(p) { return {kind: "paper", title: p.name, source: p.url, position: p.position, authors: p.authors, year: p.year} })
         }
         publish()

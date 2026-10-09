@@ -60,7 +60,7 @@ ColumnLayout {
     SettingsGroup {
         title: "Sync"
         note: root.syncProblem.length ? root.syncProblem
-            : "Keeps this library the same on your other computers. Choose a folder inside Google Drive, Dropbox or Syncthing (for example My Drive) on each computer; Owelk works in an Owelk folder there and copies the Library's PDFs into it, so there is nothing to move by hand. On Ubuntu, reach Google Drive with rclone or Insync. Papers, annotations, notes, captures, collections, reading state and AI threads travel; when one item changes on two computers, the later change wins."
+            : "Keeps this library the same on your other computers. Choose a folder inside Google Drive, Dropbox or Syncthing (for example My Drive) on each computer; Owelk works in an Owelk folder there and copies the Library's PDFs into it, so there is nothing to move by hand. On Ubuntu, reach Google Drive with rclone or Insync. Papers, annotations, notes, collections, reading state and AI threads travel; when one item changes on two computers, the later change wins."
         noteColor: root.syncProblem.length ? Theme.danger : Theme.textTertiary
         SettingsRow {
             label: "Sync folder"
@@ -109,7 +109,7 @@ ColumnLayout {
     }
     SettingsGroup {
         title: "Export"
-        note: "Each note becomes a Markdown file. A paper's highlights and captures are exported from the reader's ⋯ menu."
+        note: "Each note becomes a Markdown file. A paper's annotations are exported from the reader's ⋯ menu."
         SettingsRow {
             label: "All notes as Markdown"
             Button { objectName: "exportNotes"; text: "Export…"; onClicked: notesFolderDialog.open() }

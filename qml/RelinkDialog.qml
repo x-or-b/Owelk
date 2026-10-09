@@ -19,7 +19,7 @@ Dialog {
     function begin(url) { source = url; candidate = ""; detail = ""; open() }
     contentItem: ColumnLayout {
         spacing: 12
-        Label { Layout.fillWidth: true; text: "Reconnect the exact same PDF at a new location. Tabs, reading positions and captures will be preserved."; wrapMode: Text.Wrap }
+        Label { Layout.fillWidth: true; text: "Reconnect the exact same PDF at a new location. Tabs, reading positions and annotations will be preserved."; wrapMode: Text.Wrap }
         Label { Layout.fillWidth: true; text: "Previous: " + root.source.toString(); textFormat: Text.PlainText; wrapMode: Text.WrapAnywhere; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
         Label { Layout.fillWidth: true; text: root.candidate.toString().length ? "Selected: " + root.candidate.toString() : "No replacement selected"; textFormat: Text.PlainText; wrapMode: Text.WrapAnywhere; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
         RowLayout {

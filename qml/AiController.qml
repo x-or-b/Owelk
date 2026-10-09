@@ -75,31 +75,12 @@ Item {
     readonly property bool effectiveFast: fast && fastAvailable
     // Images attached to the next question: [{url, name}].
     property var images: []
-    // A region capture started from the AI panel goes into the next question instead of only the shelf.
-    property bool captureWanted: false
-    readonly property bool readerCapturing: !!reader && !!reader.capturing
-    // Esc ends capture mode without a capture; the save itself is asynchronous, so wait a moment.
-    onReaderCapturingChanged: if (!readerCapturing && captureWanted) captureGrace.restart()
-    Timer { id: captureGrace; interval: 4000; onTriggered: root.captureWanted = false }
+    // A region of the PDF dragged out from the AI panel: its picture joins the next question (nothing is
+    // saved; the reader sends it back through begin({attach, region})).
     function captureRegion() {
-        if (!reader || !reader.pdfReady) { error = "Open a PDF to capture a region."; return false }
+        if (!reader || !reader.pdfReady) { error = "Open a PDF to choose a region."; return false }
         error = ""
-        captureWanted = true
-        captureGrace.stop()
         reader.startCapture()
-        return true
-    }
-    // Called for every saved capture; takes the one the panel asked for.
-    function takeCapture(id) {
-        if (!captureWanted) return false
-        captureWanted = false
-        captureGrace.stop()
-        const capture = researchStore.captures.find(function(c) { return c.id === id })
-        if (!capture || !capture.imageAvailable) return false
-        if (!conversationOpen) newThread()
-        if (capture.source && !spec.source) spec = Object.assign({}, spec, {source: capture.source, scope: spec.scope || "none"})
-        images = images.concat([{url: capture.image.toString(), name: "Capture · p. " + (Number(capture.page) + 1)}])
-        focusRequested()
         return true
     }
     readonly property string selectionProvider: ai.provider
@@ -115,32 +96,34 @@ Item {
     function companyName(provider) {
         return ({claude: "Anthropic", openai: "OpenAI", codex: "ChatGPT account", ollama: "Ollama (this computer)"})[provider] || provider
     }
-    function attachImage(url) {
+    function attachImage(url, name, about) {
         const value = url.toString()
         if (!/\.(png|jpe?g|gif|webp|heic)$/i.test(value) || images.some(function(i) { return i.url === value })) return false
         if (images.length >= 6) { error = "Up to 6 images per question."; return false }
-        images = images.concat([{url: value, name: decodeURIComponent(value.replace(/^.*\//, ""))}])
+        images = images.concat([{url: value, name: name || decodeURIComponent(value.replace(/^.*\//, "")), about: about || ""}])
         return true
     }
-    // A figure, table, algorithm or equation (with its caption) from the PDF: its image, named so the model
+    // A figure, table, algorithm, equation or marked region from the PDF: its image, named so the model
     // knows what it is ("Figure 3, page 5"), joins the open conversation, or a new one about that paper.
-    // Nothing is saved to Captures.
     function attachFigure(next) {
         const file = ai.saveRegionImage(next.source, next.page, next.region)
         if (!file.length) { error = "Could not read that part of the PDF."; return false }
         if (!conversationOpen) newThread(next.source)
-        if (!attachImage(file)) return false
         const label = next.label || "Figure", page = Number(next.page) + 1
         const elsewhere = spec.source && !researchStore.sameSource(spec.source, next.source)
-        const copy = images.slice()
-        copy[copy.length - 1] = Object.assign({}, copy[copy.length - 1], {
-            name: label + " · p. " + page,
-            about: label + ", page " + page + (elsewhere ? " of " + researchStore.displayName(next.source) : "")})
-        images = copy
+        if (!attachImage(file, label + " · p. " + page,
+                         label + ", page " + page + (elsewhere ? " of " + researchStore.displayName(next.source) : ""))) return false
         focusRequested()
         return true
     }
-    // Words selected in the PDF or a saved excerpt, to ask about: with the open conversation, or a new one.
+    // A picture from elsewhere (part of a web page), already saved: attached as it is.
+    function attachPicture(next) {
+        if (!conversationOpen) newThread("")
+        if (!attachImage(next.image, next.name, next.about)) return false
+        focusRequested()
+        return true
+    }
+    // Words selected in the PDF, to ask about: with the open conversation, or a new one.
     function attachText(next) {
         if (!conversationOpen) newThread(next.source)
         const elsewhere = spec.source && !researchStore.sameSource(spec.source, next.source)
@@ -180,12 +163,12 @@ Item {
         answer = ""; error = ""; pendingQuestion = ""; usedModel = ""; truncated = false
         thinkingText = ""; thinkingSeconds = 0
     }
-    // Attaching (a figure, the selection, a capture) adds to the conversation open in the AI panel, even
+    // Attaching (a figure or region, the selection, a picture) adds to the conversation open in the AI panel, even
     // while the panel is hidden, or starts one; a page translation starts its own thread.
     function begin(next) {
         if (next.attach) {
             if (next.region) attachFigure(next)
-            else if (next.captureId) attachCapture(next.captureId)
+            else if (next.image) attachPicture(next)
             else if (next.selection) attachText(next)
             return
         }
@@ -195,22 +178,6 @@ Item {
         spec = Object.assign({}, next)
         if (spec.action === "ask") focusRequested()
         else send("")
-    }
-    // A saved capture: its image, or its text, like a selection.
-    function attachCapture(id) {
-        const capture = researchStore.captures.find(function(c) { return c.id === id })
-        if (!capture) return false
-        const source = capture.kind === "web" ? "" : capture.source
-        if (capture.kind === "text") return attachText({source: source, page: capture.page, selection: capture.text})
-        if (!capture.imageAvailable) { error = "This capture's image is missing."; return false }
-        if (!conversationOpen) newThread(source)
-        if (!attachImage(capture.image.toString())) return false
-        const copy = images.slice()
-        copy[copy.length - 1] = Object.assign({}, copy[copy.length - 1], {name: "Capture · p. " + (Number(capture.page) + 1),
-                                                                       about: "a region captured from page " + (Number(capture.page) + 1)})
-        images = copy
-        focusRequested()
-        return true
     }
     // A new conversation about the given paper (or the one in the reader).
     function newThread(source) {

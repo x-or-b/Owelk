@@ -15,7 +15,6 @@
 #include <QElapsedTimer>
 #include <QGuiApplication>
 #include <QImage>
-#include <QPainter>
 #include <QUuid>
 #include <QDir>
 #include <QFile>
@@ -1148,35 +1147,27 @@ bool AiService::clipboardHasImage() const
 QString AiService::saveRegionImage(const QUrl &source, int page, const QRectF &region)
 {
     const auto url = m_store->resolvedSource(source);
-    const auto area = region.intersected(QRectF(0, 0, 1, 1));
-    if (!url.isLocalFile() || area.isEmpty()) return {};
     QPdfDocument pdf;
-    if (PdfAccess::load(pdf, url.toLocalFile()) != QPdfDocument::Error::None || page < 0 || page >= pdf.pageCount())
-        return {};
-    // About 1600 pixels across the region (the size the providers read best), at most 4x the page.
-    const auto points = pdf.pagePointSize(page);
-    const qreal scale = std::clamp(1600.0 / std::max(1.0, area.width() * points.width()), 1.0, 4.0);
-    const QSize size(qRound(points.width() * scale), qRound(points.height() * scale));
-    const auto rendered = pdf.render(page, size);
-    if (rendered.isNull()) return {};
-    QImage paper(rendered.size(), QImage::Format_RGB32);
-    paper.fill(Qt::white); // Pages may be transparent where nothing is printed.
-    {
-        QPainter painter(&paper);
-        painter.drawImage(0, 0, rendered);
-    }
-    const QRect crop(qRound(area.x() * size.width()), qRound(area.y() * size.height()),
-        qRound(area.width() * size.width()), qRound(area.height() * size.height()));
+    if (!url.isLocalFile() || PdfAccess::load(pdf, url.toLocalFile()) != QPdfDocument::Error::None) return {};
+    // About 1600 pixels across the region: the size the providers read best.
+    const auto image = PdfAccess::renderRegion(pdf, page, region);
     const auto path = attachmentDirectory() + "/figure-p" + QString::number(page + 1) + "-"
         + QUuid::createUuid().toString(QUuid::WithoutBraces).left(8) + ".png";
-    return paper.copy(crop).save(path, "PNG") ? QUrl::fromLocalFile(path).toString() : QString();
+    return !image.isNull() && image.save(path, "PNG") ? QUrl::fromLocalFile(path).toString() : QString();
+}
+
+QString AiService::saveViewImage(const QImage &image, const QRectF &region)
+{
+    const auto area = region.intersected(QRectF(0, 0, 1, 1));
+    if (image.isNull() || area.isEmpty()) return {};
+    const auto part = image.copy(QRect(qRound(area.x() * image.width()), qRound(area.y() * image.height()),
+        qRound(area.width() * image.width()), qRound(area.height() * image.height())));
+    const auto path = attachmentDirectory() + "/" + QUuid::createUuid().toString(QUuid::WithoutBraces) + ".png";
+    return !part.isNull() && part.save(path, "PNG") ? QUrl::fromLocalFile(path).toString() : QString();
 }
 
 QString AiService::saveClipboardImage()
 {
     if (!clipboardHasImage()) return {};
-    const auto image = QGuiApplication::clipboard()->image();
-    if (image.isNull()) return {};
-    const auto path = attachmentDirectory() + "/" + QUuid::createUuid().toString(QUuid::WithoutBraces) + ".png";
-    return image.save(path, "PNG") ? QUrl::fromLocalFile(path).toString() : QString();
+    return saveViewImage(QGuiApplication::clipboard()->image(), QRectF(0, 0, 1, 1));
 }

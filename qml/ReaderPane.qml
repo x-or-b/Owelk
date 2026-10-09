@@ -140,9 +140,8 @@ Rectangle {
                      region: Qt.rect(target.x / size.width, target.y / size.height, target.width / size.width, target.height / size.height)})
     }
     function copySelection() { canvas.copySelection() }
-    function captureSelection() { canvas.captureSelection() }
     function highlightSelection() { canvas.highlightSelection() }
-    function toggleCapture() { if (canvas.ready) { canvas.tool = ""; canvas.captureMode = !canvas.captureMode } }
+    // A region of the page for the AI: dragged out once, then attached as a picture (nothing is saved).
     function startCapture() { if (canvas.ready) { activated(); canvas.tool = ""; canvas.captureMode = true } }
     readonly property bool capturing: canvas.captureMode
     function reveal(url, page, region, passage) {
@@ -244,7 +243,6 @@ Rectangle {
         MenuItem { objectName: "selectionCopy"; text: "Copy"; onTriggered: canvas.copySelection() }
         MenuItem { text: "Highlight…"; enabled: !!canvas.selectedAnchor; onTriggered: root.chooseHighlightColor(pageField, true) }
         MenuItem { text: "Add Comment…"; enabled: !!canvas.selectedAnchor; onTriggered: root.addComment() }
-        MenuItem { text: "Save Excerpt"; enabled: !!canvas.selectedAnchor; onTriggered: canvas.captureSelection() }
         MenuSeparator {}
         MenuItem { objectName: "menuGloss"; text: "Gloss"; onTriggered: root.glossSelection() }
         MenuItem { objectName: "menuAskSelection"; text: "Ask AI about Selection"; onTriggered: root.askAboutSelection() }
@@ -258,7 +256,7 @@ Rectangle {
             onTriggered: root.askAboutObject(root.contextObject)
         }
         MenuSeparator {}
-        MenuItem { text: "Capture Region"; onTriggered: root.startCapture() }
+        MenuItem { text: "Mark Region"; onTriggered: root.setTool("area") }
     }
     Menu {
         id: pageMenu
@@ -266,7 +264,7 @@ Rectangle {
         MenuItem { objectName: "menuTranslatePage"; text: "Translate This Page with AI"; onTriggered: root.translatePage() }
         MenuSeparator {}
         MenuItem { text: "Select All on Page"; onTriggered: canvas.selectPage(root.contextPage) }
-        MenuItem { text: "Capture Region"; onTriggered: root.startCapture() }
+        MenuItem { text: "Mark Region"; onTriggered: root.setTool("area") }
     }
     Loader { id: paperDetails; active: false; sourceComponent: PaperDetailsDialog {} }
     FileDialog {
@@ -280,7 +278,7 @@ Rectangle {
     }
     FolderDialog {
         id: markdownFolder
-        title: "Export highlights and captures as Markdown to…"
+        title: "Export annotations as Markdown to…"
         onAccepted: researchStore.exportPaperMarkdown(root.source, researchStore.localPath(selectedFolder))
     }
 
@@ -371,7 +369,7 @@ Rectangle {
                 }
                 IconButton { icon.name: "add"; description: "Zoom in · " + Platform.keys("Ctrl+Plus"); onClicked:{root.activated();canvas.zoom(1.2)} }
             }
-            // Annotation tools, then capture, then everything else (find, print, export) behind ⋯.
+            // Annotation tools, then margin notes, then everything else (find, print, export) behind ⋯.
             // Highlight and Draw keep their own colors; the narrow arrow next to each picks one.
             Row {
                 anchors.right:parent.right;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter
@@ -379,7 +377,8 @@ Rectangle {
                 Row {
                     objectName: "annotationTools"
                     visible: readerToolbar.width >= 600
-                    // Inks first (pen, highlight: right-click for color), then writing (comment, text), then image.
+                    // Inks first (pen, highlight: right-click for color), then writing (comment, text), then image
+                    // and a marked region (a figure, a table, an equation).
                     IconButton {
                         id: drawTool
                         objectName:"drawTool";icon.name: "draw";swatch:canvas.drawColor;checked:canvas.tool==="draw"
@@ -397,9 +396,9 @@ Rectangle {
                     IconButton { objectName:"commentTool";icon.name: "comment";checked:canvas.tool==="comment";description: "Comment";onClicked:root.setTool("comment") }
                     IconButton { objectName:"textTool";icon.name: "text";checked:canvas.tool==="text";description: "Text box";onClicked:root.setTool("text") }
                     IconButton { objectName:"imageTool";icon.name: "image";checked:canvas.tool==="image";description: "Image";onClicked:root.setTool("image") }
+                    IconButton { objectName:"areaTool";icon.name: "area";checked:canvas.tool==="area";description: "Mark region";onClicked:root.setTool("area") }
                 }
                 Rectangle { visible: readerToolbar.width >= 600; width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
-                IconButton { objectName:"readerCaptureButton";icon.name: "capture";description:"Capture a region · " + Platform.keys("Ctrl+Shift+C");checked:canvas.captureMode;onClicked:root.toggleCapture() }
                 IconButton { objectName:"marginNotesButton";icon.name: "margin";checked:root.marginNotes;description: "Margin notes";onClicked:root.setMarginNotes(!root.marginNotes) }
                 Rectangle { width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
                 IconButton { icon.name: "more";
@@ -415,11 +414,12 @@ Rectangle {
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Comment";onTriggered:root.setTool("comment") }
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Text Box";onTriggered:root.setTool("text") }
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Image";onTriggered:root.setTool("image") }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Mark Region";onTriggered:root.setTool("area") }
                         MenuSeparator { visible:readerToolbar.width<600;height:visible?implicitHeight:0 }
                         MenuItem { text:"Find in Document · " + Platform.keys("Ctrl+F");onTriggered:root.find() }
                         MenuItem { objectName:"printOption";text:"Print…";onTriggered:root.printDocument() }
                         MenuItem { objectName:"exportAnnotatedOption";text:"Export Annotated PDF…";visible:researchStore.canExportAnnotatedPdf();height:visible?implicitHeight:0;enabled:canvas.documentFingerprint.length>0;onTriggered:annotatedFile.open() }
-                        MenuItem { objectName:"exportMarkdownOption";text:"Export Highlights and Captures…";onTriggered:markdownFolder.open() }
+                        MenuItem { objectName:"exportMarkdownOption";text:"Export Annotations as Markdown…";onTriggered:markdownFolder.open() }
                         MenuSeparator {}
                         MenuItem { text:"Mark Paper as Read";onTriggered:researchStore.setReadingState(root.source, "read") }
                         MenuItem { objectName:"paperDetailsOption";text:"Paper Details…";onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
@@ -505,7 +505,8 @@ Rectangle {
             Layout.fillWidth: true
             Layout.leftMargin: 12
             Layout.bottomMargin: 6
-            text: canvas.captureMode ? "Drag a region to capture · Esc to cancel" : canvas.tool === "highlight" ? "Drag over text to highlight · Esc to finish" : "Click or drag on a page to add " + canvas.tool + " · Esc to cancel"
+            text: canvas.captureMode ? "Drag a region to show the AI · Esc to cancel" : canvas.tool === "highlight" ? "Drag over text to highlight · Esc to finish"
+                : canvas.tool === "area" ? "Drag around a figure, table or equation to mark it · Esc to cancel" : "Click or drag on a page to add " + canvas.tool + " · Esc to cancel"
             color: Theme.textSecondary
             font.pixelSize: Theme.fontCaption
         }
@@ -531,7 +532,9 @@ Rectangle {
                 onAnnotationPlaced: function(page,rectangle,points) {
                     const kind=canvas.tool
                     const spec={kind:kind,page:page,rectangles:[rectangle],color:kind==="draw"?canvas.drawColor:kind==="text"?canvas.textColor:canvas.markColor,sha256:canvas.documentFingerprint,drawing:kind==="draw"?points:[]}
+                    // A pen stroke and a marked region are kept at once (a region's comment is added later).
                     if(kind==="draw")researchStore.saveAnnotation(canvas.source,page,spec)
+                    else if(kind==="area"){canvas.tool="";researchStore.saveAnnotation(canvas.source,page,spec)}
                     else if(kind==="comment"&&root.marginShown){canvas.tool="";margin.beginDraft({page:page,rectangle:rectangle})}
                     else {canvas.tool="";annotationEditor.begin(canvas,spec,null)}
                 }
@@ -541,8 +544,8 @@ Rectangle {
                     root.aiRequested({attach: true, source: root.source, page: page, region: rect, label: label})
                 }
                 onRegionSelected: function(page, rect) {
-                    researchStore.captureRegion(source, page, rect)
                     captureMode = false
+                    root.aiRequested({attach: true, source: root.source, page: page, region: rect, label: "Region"})
                 }
                 onSourceChanged: {
                     searchDelay.stop()
@@ -579,12 +582,6 @@ Rectangle {
                         onClicked: { root.activated(); root.chooseHighlightColor(this,true) }
                     }
                     IconButton { objectName:"commentSelectionButton";icon.name: "comment";description: "Comment";enabled:!!canvas.selectedAnchor&&!researchStore.busy;onClicked:root.addComment() }
-                    IconButton {
-                        objectName: "saveExcerptButton"
-                        icon.name: "excerpt";description: "Save excerpt"
-                        enabled: canvas.selectedAnchor !== null && !researchStore.busy
-                        onClicked: { root.activated(); canvas.captureSelection() }
-                    }
                     IconButton {
                         objectName: "glossSelectionButton"
                         icon.name: "gloss"; description: "Gloss"
@@ -682,7 +679,7 @@ Rectangle {
         enabled: root.isActive && canvas.selectedText.length > 0 && !searchField.activeFocus && !pageField.activeFocus
         onActivated: canvas.copySelection()
     }
-    // Undo and redo annotation and capture changes in this paper. A focused text field keeps its own.
+    // Undo and redo annotation changes in this paper. A focused text field keeps its own.
     Shortcut {
         objectName: "undoShortcut"
         sequences: [StandardKey.Undo]

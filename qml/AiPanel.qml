@@ -593,7 +593,7 @@ Item {
                 Menu {
                     id: attachMenu
                     MenuItem { objectName: "aiAttachPaper"; text: "This Paper"; enabled: root.c && root.c.reader !== null && root.c.reader.source.toString().length > 0; onTriggered: root.c.attachPaper() }
-                    MenuItem { objectName: "aiAttachCapture"; text: "Region of the PDF…"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.captureRegion() }
+                    MenuItem { objectName: "aiAttachRegion"; text: "Region of the PDF…"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.captureRegion() }
                     MenuItem { objectName: "aiAttachImage"; text: "Image…"; onTriggered: imageDialog.open() }
                 }
             }

@@ -9,6 +9,7 @@
 #include <QFileOpenEvent>
 #include "SelectionGeometry.h"
 #include "PdfFixture.h"
+#include "StoreFixture.h"
 #include "PaperMetadata.h"
 #include "MetadataLookup.h"
 #include <QTcpServer>
@@ -16,6 +17,7 @@
 #include <QDir>
 #include <QFile>
 #include <QImage>
+#include <QSqlRecord>
 #include <QPainter>
 #include <QPdfDocument>
 #include <QPdfWriter>
@@ -181,7 +183,7 @@ private slots:
         QVERIFY(shader.size() > 100);
 #endif
     }
-    void regionCaptureKeepsFigureCaption()
+    void markedRegionKeepsFigureCaption()
     {
         QTemporaryDir directory;
         const auto path = directory.filePath("figure.pdf");
@@ -201,15 +203,14 @@ private slots:
         QString error;
         QVERIFY2(store.initialize(&error), qPrintable(error));
         const auto size = QPageSize(QPageSize::A4).sizePoints();
-        store.captureRegion(QUrl::fromLocalFile(path), 0,
+        const auto id = markRegion(store, QUrl::fromLocalFile(path), 0,
             QRectF(95. / size.width(), 115. / size.height(), 310. / size.width(), 210. / size.height()));
-        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
-        QCOMPARE(store.captures().size(), 1);
-        const auto caption = store.captures()[0].toMap()["caption"].toString();
+        QVERIFY(!id.isEmpty());
+        const auto caption = store.anchor(id)["quote"].toMap()["exact"].toString();
         QVERIFY2(caption.startsWith("Figure 2: Occlusion examples"), qPrintable(caption));
         QVERIFY2(caption.contains("after aggregation"), qPrintable(caption));
         QVERIFY(!caption.contains("Unrelated"));
-        QCOMPARE(store.searchKnowledge("kitchen scene").value(0).toMap()["kind"].toString(), QString("capture"));
+        QCOMPARE(store.searchKnowledge("kitchen scene").value(0).toMap()["kind"].toString(), QString("highlight"));
     }
     void syncKeepsLibrariesTheSameThroughAFolder()
     {
@@ -243,10 +244,8 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(!scalar(mac, "SELECT sha256 FROM documents").toString().isEmpty(), 10000);
         const auto sha = scalar(mac, "SELECT sha256 FROM documents").toString();
         annotate(mac, source, "Check the drift term");
-        QSignalSpy captured(&mac, &ResearchStore::captureSaved);
-        mac.captureRegion(source, 0, QRectF(.1, .1, .3, .2));
-        QTRY_COMPARE_WITH_TIMEOUT(captured.size(), 1, 10000);
-        QTRY_VERIFY_WITH_TIMEOUT(!mac.busy(), 10000);
+        const auto region = markRegion(mac, source);
+        QVERIFY(!region.isEmpty());
         const auto note = mac.createNote("Idea", "Radar drift");
         const auto robots = mac.createCollection("Robots");
         QVERIFY(mac.setDocumentCollection(source, robots, true));
@@ -275,8 +274,7 @@ private slots:
         QCOMPARE(ubuntu.collections().size(), 1);
         QCOMPARE(scalar(ubuntu, "SELECT body FROM highlights WHERE kind='text'").toString(),
             QString("Check the drift term"));
-        QTRY_COMPARE_WITH_TIMEOUT(ubuntu.captures().size(), 1, 5000);
-        QVERIFY(QFileInfo::exists(ubuntu.captures()[0].toMap()["image"].toUrl().toLocalFile()));
+        QCOMPARE(scalar(ubuntu, "SELECT count(*) FROM highlights WHERE kind='area' AND deleted_at IS NULL").toInt(), 1);
 
         // Edits travel back, and of two edits to the same note the later one wins on both.
         QVERIFY(ubuntu.saveNote(note, "Idea from Ubuntu", "Radar drift"));
@@ -310,18 +308,17 @@ private slots:
             if (store == &mac) QVERIFY(macSync->syncBlocking().error.isEmpty());
             QCOMPARE(store->libraryDocuments().size(), 1);
             QCOMPARE(scalar(*store, "SELECT count(*) FROM documents").toInt(), 1);
-            QCOMPARE(scalar(*store, "SELECT count(*) FROM highlights WHERE deleted_at IS NULL").toInt(), 2);
+            QCOMPARE(scalar(*store, "SELECT count(*) FROM highlights WHERE deleted_at IS NULL").toInt(), 3);
             QCOMPARE(
-                scalar(*store, "SELECT count(*) FROM highlights h JOIN documents d ON d.id=h.document_id").toInt(), 2);
+                scalar(*store, "SELECT count(*) FROM highlights h JOIN documents d ON d.id=h.document_id").toInt(), 3);
         }
         QCOMPARE(laptop.libraryDocuments()[0].toMap()["url"].toUrl(), QUrl::fromLocalFile(own));
         QCOMPARE(scalar(laptop, "SELECT id FROM documents"), scalar(mac, "SELECT id FROM documents"));
-        // A capture moved to the trash moves there on the others too.
-        QVERIFY(mac.deleteCapture(captured[0][0].toString()));
+        // A removed annotation is removed on the others too.
+        QVERIFY(mac.removeHighlight(region));
         QVERIFY(macSync->syncBlocking().error.isEmpty());
         QVERIFY(ubuntuSync->syncBlocking().error.isEmpty());
-        QTRY_COMPARE_WITH_TIMEOUT(ubuntu.trashedCaptures().size(), 1, 5000);
-        QVERIFY(QFileInfo::exists(ubuntu.trashedCaptures()[0].toMap()["image"].toUrl().toLocalFile()));
+        QCOMPARE(scalar(ubuntu, "SELECT count(*) FROM highlights WHERE kind='area' AND deleted_at IS NULL").toInt(), 0);
         // Once everything has gone round, a pass neither sends nor receives anything.
         for (int round = 0; round < 2; ++round)
             for (auto *sync : {macSync, ubuntuSync, laptop.librarySync()})
@@ -584,9 +581,8 @@ private slots:
         QVERIFY(store.rememberDocument(source));
         // The title is read from the PDF in the background.
         QTRY_COMPARE_WITH_TIMEOUT(store.displayName(source), QString("Linked Paper"), 10000);
-        store.captureRegion(source, 1, QRectF(.1, .1, .3, .2));
-        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
-        const auto capture = store.captures()[0].toMap()["id"].toString();
+        const auto region = markRegion(store, source, 1);
+        QVERIFY(!region.isEmpty());
         const auto paper = store.documentLinkId(source);
         // A note body links with owelk:// URLs; saving keeps the link table in sync.
         const auto ideas = store.createNote("Ideas", "See " + store.markdownLink("document", paper));
@@ -594,16 +590,16 @@ private slots:
         QVERIFY(store.markdownLink("document", paper).contains("Linked Paper"));
         QCOMPARE(store.backlinks("document", paper).size(), 1);
         const auto other = store.createNote("Other", "");
-        QVERIFY(store.appendNoteLink(other, "capture", capture));
-        QVERIFY(store.appendNoteLink(other, "capture", capture)); // Idempotent.
-        QCOMPARE(store.note(other)["body"].toString().count("owelk://capture/"), 1);
-        // A paper's backlinks include notes that link to its captures.
+        QVERIFY(store.appendNoteLink(other, "highlight", region));
+        QVERIFY(store.appendNoteLink(other, "highlight", region)); // Idempotent.
+        QCOMPARE(store.note(other)["body"].toString().count("owelk://highlight/"), 1);
+        // A paper's backlinks include notes that link to its annotations.
         QCOMPARE(store.backlinks("document", paper).size(), 2);
-        QCOMPARE(store.backlinks("capture", capture)[0].toMap()["id"].toString(), other);
+        QCOMPARE(store.backlinks("highlight", region)[0].toMap()["id"].toString(), other);
         QVERIFY(store.saveNote(ideas, "Ideas", "no links now"));
         QCOMPARE(store.backlinks("document", paper).size(), 1);
         // Search, link candidates and trash.
-        QCOMPARE(store.searchKnowledge("no links now").value(0).toMap()["kind"].toString(), QString("standalone-note"));
+        QCOMPARE(store.searchKnowledge("no links now").value(0).toMap()["kind"].toString(), QString("note"));
         const auto linkedCandidates = store.linkCandidates("Linked");
         QVERIFY(std::any_of(linkedCandidates.cbegin(), linkedCandidates.cend(),
             [](const QVariant &r) { return r.toMap()["kind"] == "document"; }));
@@ -617,7 +613,7 @@ private slots:
         QVERIFY(store.deleteNote(other));
         QVERIFY(store.purgeNote(other));
         QVERIFY(store.note(other).isEmpty());
-        QVERIFY(store.backlinks("capture", capture).isEmpty());
+        QVERIFY(store.backlinks("highlight", region).isEmpty());
         QVERIFY(!store.addLink("note", ideas, "note", ideas)); // No self links.
     }
     void libraryCollectionsTagsFiltersAndExclusion()
@@ -734,42 +730,6 @@ private slots:
         QCOMPARE(store.recentDocuments().size(), 1);
         QCOMPARE(store.recentDocuments()[0].toMap()["url"].toUrl(), first);
         QVERIFY(QFileInfo::exists(copy)); // Files are never touched.
-    }
-    void trashPurgeRemovesOnlyTrashedCaptures()
-    {
-        QTemporaryDir directory;
-        const auto path = directory.filePath("purge.pdf");
-        writeFixture(path);
-        const auto source = QUrl::fromLocalFile(path);
-        ResearchStore store(directory.filePath("data"));
-        QString error;
-        QVERIFY2(store.initialize(&error), qPrintable(error));
-        for (int i = 0; i < 3; ++i) {
-            store.captureRegion(source, i, QRectF(.1, .1, .3, .2));
-            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
-        }
-        QCOMPARE(store.captures().size(), 3);
-        const auto kept = store.captures()[0].toMap()["id"].toString();
-        const auto first = store.captures()[1].toMap()["id"].toString();
-        const auto second = store.captures()[2].toMap()["id"].toString();
-        QVERIFY(store.saveCaptureNote(first, "purged note words"));
-        QVERIFY(!store.purgeCapture(kept)); // A saved capture is never deleted permanently.
-        QVERIFY(store.deleteCapture(first));
-        QVERIFY(store.deleteCapture(second));
-        const auto trashImage = directory.filePath("data/captures/trash/" + first + ".png");
-        QVERIFY(QFileInfo::exists(trashImage));
-        QVERIFY(store.purgeCapture(first));
-        QVERIFY(!QFileInfo::exists(trashImage));
-        QCOMPARE(store.trashedCaptures().size(), 1);
-        QVERIFY(!store.restoreCapture(first));
-        QCOMPARE(store.emptyCaptureTrash(), 1);
-        QVERIFY(store.trashedCaptures().isEmpty());
-        QVERIFY(!QFileInfo::exists(directory.filePath("data/captures/trash/" + second + ".png")));
-        QCOMPARE(store.captures().size(), 1);
-        QCOMPARE(store.captures()[0].toMap()["id"].toString(), kept);
-        QVERIFY(QFileInfo(store.captures()[0].toMap()["image"].toUrl().toLocalFile()).isFile());
-        QVERIFY(QFileInfo::exists(path));
-        QCOMPARE(store.emptyCaptureTrash(), 0);
     }
     void citationsComeFromSemanticScholarAndMatchTheLibrary()
     {
@@ -982,7 +942,7 @@ private slots:
             for (const auto *sql :
                 {"DROP TABLE documents", "DROP TABLE recent_documents", "DROP TABLE reading_positions",
                     "DROP TABLE IF EXISTS workspace_documents", "DROP TABLE IF EXISTS workspace_document_exclusions",
-                    "DROP TABLE captures", "DROP TABLE highlights", "DROP TABLE collections",
+                    "DROP TABLE IF EXISTS captures", "DROP TABLE highlights", "DROP TABLE collections",
                     "DROP TABLE collection_documents", "DROP TABLE tags", "DROP TABLE document_tags",
                     "DROP TABLE notes", "DROP TABLE ai_responses", "DROP TABLE ai_messages", "DROP TABLE ai_threads",
                     "DROP TABLE links", "CREATE TABLE recent_documents (url TEXT PRIMARY KEY, opened_at TEXT NOT NULL)",
@@ -1000,6 +960,12 @@ private slots:
                     "page INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT "
                     "NULL, "
                     "image TEXT NOT NULL, created_at TEXT NOT NULL)",
+                    "CREATE TABLE IF NOT EXISTS text_captures (capture_id TEXT PRIMARY KEY, text TEXT NOT NULL, "
+                    "start_index INTEGER NOT NULL, end_index INTEGER NOT NULL, prefix TEXT NOT NULL, suffix TEXT NOT "
+                    "NULL)",
+                    "CREATE TABLE IF NOT EXISTS capture_notes (capture_id TEXT PRIMARY KEY, body TEXT NOT NULL, "
+                    "updated_at TEXT NOT NULL)",
+                    "CREATE TABLE IF NOT EXISTS deleted_captures (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
                     "CREATE TABLE highlights (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
                     "page INTEGER NOT NULL,text TEXT NOT NULL,rectangles TEXT NOT NULL,start_index INTEGER NOT NULL,"
                     "end_index INTEGER NOT NULL,created_at TEXT NOT NULL,deleted_at TEXT,color TEXT NOT NULL DEFAULT "
@@ -1029,8 +995,8 @@ private slots:
         const QUrl source(url);
         QCOMPARE(store.recentDocuments().size(), 1);
         QCOMPARE(store.readingPosition(source)["page"].toInt(), 5);
-        QCOMPARE(store.captures().size(), 1);
-        QCOMPARE(store.captures()[0].toMap()["source"].toUrl(), source);
+        // The excerpt went on to become a highlight (schema 15).
+        QCOMPARE(store.anchor("91ffeb1a-df10-4a54-a6fc-8a8b2c629b13")["source"].toUrl(), source);
         QCOMPARE(store.searchKnowledge("kept excerpt").size(), 1);
         QCOMPARE(store.searchKnowledge("kept highlight").size(), 1);
         // Workspaces became collections of their papers.
@@ -1046,6 +1012,115 @@ private slots:
         QCOMPARE(store.displayName(source), QString("My Own Title"));
         QCOMPARE(store.searchKnowledge("A. Author").size(), 1);
         QVERIFY(!store.updateDocumentDetails(source, {{"year", "20x4"}}));
+    }
+    void capturesBecomeAnnotationsAndNotes()
+    {
+        QTemporaryDir directory;
+        const auto data = directory.filePath("data");
+        const auto pdf = directory.filePath("paper.pdf");
+        writeFixture(pdf);
+        const auto source = QUrl::fromLocalFile(pdf);
+        QString paper;
+        {
+            ResearchStore fresh(data);
+            QString error;
+            QVERIFY2(fresh.initialize(&error), qPrintable(error));
+            QVERIFY(fresh.rememberDocument(source));
+            paper = fresh.documentLinkId(source);
+        }
+        QVERIFY(!paper.isEmpty());
+        QVERIFY(QDir().mkpath(data + "/captures/trash"));
+        QImage clip(8, 8, QImage::Format_RGB32);
+        clip.fill(Qt::red);
+        QVERIFY(clip.save(data + "/captures/web.png"));
+        QVERIFY(clip.save(data + "/captures/trash/gone.png"));
+        {
+            // The capture tables as schema 14 had them, with one capture of each kind.
+            auto db = QSqlDatabase::addDatabase("QSQLITE", "v14");
+            db.setDatabaseName(data + "/owelk.sqlite3");
+            QVERIFY(db.open());
+            QSqlQuery query(db);
+            const QStringList statements{
+                "CREATE TABLE captures (id TEXT PRIMARY KEY, document_id TEXT NOT NULL, sha256 TEXT NOT NULL, page "
+                "INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT NULL, image "
+                "TEXT NOT NULL, created_at TEXT NOT NULL, caption TEXT NOT NULL DEFAULT '', anchor_kind TEXT NOT NULL "
+                "DEFAULT 'pdf')",
+                "CREATE TABLE text_captures (capture_id TEXT PRIMARY KEY, text TEXT NOT NULL, start_index INTEGER NOT "
+                "NULL, end_index INTEGER NOT NULL, prefix TEXT NOT NULL, suffix TEXT NOT NULL)",
+                "CREATE TABLE capture_notes (capture_id TEXT PRIMARY KEY, body TEXT NOT NULL, updated_at TEXT NOT "
+                "NULL)",
+                "CREATE TABLE deleted_captures (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
+                "INSERT INTO documents(id,url,added_at,kind) VALUES('web-doc','https://example.com/post','2026-09-01',"
+                "'web')",
+                "INSERT INTO captures VALUES('region','" + paper
+                    + "','h',1,.1,.2,.3,.4,'region.png','2026-09-01','Figure 2: Drift','pdf')",
+                "INSERT INTO capture_notes VALUES('region','compare with table one','2026-09-02')",
+                "INSERT INTO captures VALUES('excerpt','" + paper + "','h',2,.1,.5,.8,.1,'','2026-09-01','','pdf')",
+                "INSERT INTO text_captures VALUES('excerpt','kept excerpt words',10,28,'','')",
+                "INSERT INTO captures VALUES('trashed','" + paper + "','h',3,.1,.1,.2,.2,'','2026-09-01','','pdf')",
+                "INSERT INTO text_captures VALUES('trashed','thrown away words',0,5,'','')",
+                "INSERT INTO deleted_captures VALUES('trashed','2026-09-03')",
+                "INSERT INTO captures VALUES('web','web-doc','',0,0,0,1,1,'web.png','2026-09-01','A web chart','web')",
+                "INSERT INTO capture_notes VALUES('web','seen on the blog','2026-09-02')",
+                "INSERT INTO captures VALUES('gone','web-doc','',0,0,0,1,1,'gone.png','2026-09-01','','web')",
+                "INSERT INTO deleted_captures VALUES('gone','2026-09-04')",
+                "INSERT INTO notes(id,title,body,created_at,updated_at) VALUES('n1','Reading','See "
+                "owelk://capture/excerpt and owelk://capture/web','2026-09-01','2026-09-01')",
+                "INSERT INTO links(from_kind,from_id,to_kind,to_id,created_at) VALUES('note','n1','capture','excerpt',"
+                "'2026-09-01')",
+                "INSERT INTO links(from_kind,from_id,to_kind,to_id,created_at) VALUES('note','n1','capture','web',"
+                "'2026-09-01')",
+                "INSERT INTO links(from_kind,from_id,to_kind,to_id,created_at) VALUES('note','n1','capture','purged',"
+                "'2026-09-01')",
+                "PRAGMA user_version=14"};
+            for (const auto &sql : statements) QVERIFY2(query.exec(sql), qPrintable(query.lastError().text() + sql));
+            db.close();
+        }
+        QSqlDatabase::removeDatabase("v14");
+        ResearchStore store(data);
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QCOMPARE(QDir(data + "/backups").entryList({"before-schema-15-*.sqlite3"}).size(), 1);
+        const auto rows = [&](const QString &sql) {
+            WorkerConnection db(data + "/owelk.sqlite3", true);
+            QSqlQuery query(db.db);
+            QStringList out;
+            if (query.exec(sql))
+                while (query.next()) {
+                    QStringList fields;
+                    for (int i = 0; i < query.record().count(); ++i) fields << query.value(i).toString();
+                    out << fields.join('|');
+                }
+            return out;
+        };
+        // A region is an area annotation with its caption and note; excerpts are highlights, a trashed one
+        // removed (kept in the table).
+        QCOMPARE(rows("SELECT kind,page,text,body,deleted_at FROM highlights WHERE id='region'"),
+            QStringList{"area|1|Figure 2: Drift|compare with table one|"});
+        QCOMPARE(store.anchor("region")["bounds"].toMap()["width"].toDouble(), .3);
+        QCOMPARE(rows("SELECT kind,text,start_index,end_index FROM highlights WHERE id='excerpt'"),
+            QStringList{"highlight|kept excerpt words|10|28"});
+        QCOMPARE(
+            rows("SELECT kind,deleted_at FROM highlights WHERE id='trashed'"), QStringList{"highlight|2026-09-03"});
+        QCOMPARE(store.searchKnowledge("compare with table").value(0).toMap()["kind"].toString(), QString("highlight"));
+        // Web clips are notes with their picture (copied next to the annotation images); a trashed one is a
+        // trashed note.
+        const auto web = store.note("web");
+        QCOMPARE(web["title"].toString(), QString("A web chart"));
+        QVERIFY(web["body"].toString().startsWith("![](annotations/web.png)"));
+        QVERIFY(web["body"].toString().contains("seen on the blog"));
+        QVERIFY(web["body"].toString().contains("(https://example.com/post)"));
+        QVERIFY(store.markdownHtml(web["body"].toString(), "", "", 0)
+                .contains(QUrl::fromLocalFile(data + "/annotations/web.png").toString()));
+        QVERIFY(QFileInfo::exists(data + "/annotations/web.png"));
+        QVERIFY(QFileInfo::exists(data + "/annotations/gone.png"));
+        QCOMPARE(rows("SELECT deleted_at FROM notes WHERE id='gone'"), QStringList{"2026-09-04"});
+        // Links and note links follow; a link to a capture deleted for good is gone.
+        QCOMPARE(store.note("n1")["body"].toString(), QString("See owelk://highlight/excerpt and owelk://note/web"));
+        QCOMPARE(rows("SELECT to_kind,to_id FROM links WHERE from_id='n1' ORDER BY to_id"),
+            (QStringList{"highlight|excerpt", "note|web"}));
+        QCOMPARE(rows("SELECT name FROM sqlite_master WHERE name LIKE '%capture%'"), QStringList{});
+        QVERIFY(QFileInfo::exists(data + "/captures/web.png")); // The old files stay where they were.
     }
     void unversionedDataMigratesInPlaceAndNewerIsRefused()
     {
@@ -1092,145 +1167,30 @@ private slots:
         QVERIFY(!newer.initialize(&error));
         QVERIFY(error.contains("newer Owelk"));
     }
-    void captureRestorePersistsNotesImagesAndLinks()
-    {
-        QTemporaryDir directory;
-        const auto path = directory.filePath("preserved.pdf");
-        writeFixture(path);
-        const auto source = QUrl::fromLocalFile(path);
-        QString id;
-        QImage pixels;
-        {
-            ResearchStore store(directory.filePath("data"));
-            QString error;
-            QVERIFY(store.initialize(&error));
-            store.captureRegion(source, 2, QRectF(.1, .2, .4, .3));
-            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
-            const auto capture = store.captures().first().toMap();
-            id = capture["id"].toString();
-            pixels.load(capture["image"].toUrl().toLocalFile());
-            QVERIFY(!pixels.isNull());
-            QVERIFY(store.saveCaptureNote(id, "Restorable uniquequestion"));
-            QVERIFY(store.deleteCapture(id));
-            QCOMPARE(store.trashedCaptures().size(), 1);
-            QVERIFY(store.searchKnowledge("uniquequestion").isEmpty());
-        }
-        {
-            ResearchStore store(directory.filePath("data"));
-            QString error;
-            QVERIFY(store.initialize(&error));
-            QCOMPARE(store.trashedCaptures().size(), 1);
-            const auto trash = store.trashedCaptures()[0].toMap();
-            QCOMPARE(trash["id"].toString(), id);
-            QVERIFY(!trash["deletedAt"].toString().isEmpty());
-            QCOMPARE(QImage(trash["image"].toUrl().toLocalFile()), pixels);
-            // Restoring evidence must not require or modify the original PDF.
-            QVERIFY(QFile::rename(path, path + ".moved"));
-            QVERIFY(store.restoreCapture(id));
-            QVERIFY(!store.restoreCapture(id));
-            QVERIFY(!store.restoreCapture("../../preserved.pdf"));
-            QVERIFY(store.trashedCaptures().isEmpty());
-            QCOMPARE(store.captures().size(), 1);
-            const auto restored = store.captures()[0].toMap();
-            QCOMPARE(restored["note"].toString(), "Restorable uniquequestion");
-            QCOMPARE(QImage(restored["image"].toUrl().toLocalFile()), pixels);
-            QVERIFY(!QFile::exists(trash["image"].toUrl().toLocalFile()));
-            QCOMPARE(store.searchKnowledge("uniquequestion").size(), 1);
-            QVERIFY(QFile::rename(path + ".moved", path));
-            QSignalSpy ready(&store, &ResearchStore::sourceReady);
-            store.openCapture(id);
-            QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
-            QCOMPARE(ready[0][0].toUrl(), source);
-            QCOMPARE(ready[0][1].toInt(), 2);
-            QCOMPARE(ready[0][2].toRectF(), QRectF(.1, .2, .4, .3));
-        }
-        ResearchStore reopened(directory.filePath("data"));
-        QString error;
-        QVERIFY(reopened.initialize(&error));
-        QCOMPARE(reopened.captures().size(), 1);
-        QVERIFY(reopened.trashedCaptures().isEmpty());
-        QVERIFY(reopened.deleteCapture(id));
-        QVERIFY(reopened.restoreCapture(id));
-    }
-    void captureRestoreFailureKeepsTrashAndNeverOverwrites()
-    {
-        QTemporaryDir directory;
-        const auto path = directory.filePath("paper.pdf");
-        writeFixture(path);
-        ResearchStore store(directory.filePath("data"));
-        QString error;
-        QVERIFY(store.initialize(&error));
-        store.captureRegion(QUrl::fromLocalFile(path), 0, QRectF(.1, .1, .3, .2));
-        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
-        const auto capture = store.captures().first().toMap();
-        const auto id = capture["id"].toString(), original = capture["image"].toUrl().toLocalFile();
-        QVERIFY(store.deleteCapture(id));
-        const auto archived = store.trashedCaptures()[0].toMap()["image"].toUrl().toLocalFile();
-        QVERIFY(QFile::rename(archived, archived + ".held"));
-        QVERIFY(!store.restoreCapture(id));
-        QVERIFY(store.captures().isEmpty());
-        QVERIFY(QFile::rename(archived + ".held", archived));
-        QFile collision(original);
-        QVERIFY(collision.open(QIODevice::WriteOnly));
-        collision.write("Do not overwrite");
-        collision.close();
-        QVERIFY(!store.restoreCapture(id));
-        QVERIFY(collision.open(QIODevice::ReadOnly));
-        QCOMPARE(collision.readAll(), QByteArray("Do not overwrite"));
-        collision.close();
-        QVERIFY(collision.remove());
-        const QString connection = "restore-failure-check";
-        {
-            auto db = QSqlDatabase::addDatabase("QSQLITE", connection);
-            db.setDatabaseName(directory.filePath("data/owelk.sqlite3"));
-            QVERIFY(db.open());
-            QSqlQuery query(db);
-            QVERIFY(query.exec("CREATE TRIGGER reject_restore BEFORE DELETE ON deleted_captures BEGIN SELECT "
-                               "RAISE(ABORT,'test failure'); END"));
-            QVERIFY(!store.restoreCapture(id));
-            QVERIFY(store.captures().isEmpty());
-            QCOMPARE(store.trashedCaptures().size(), 1);
-            QVERIFY(QFile::exists(archived));
-            QVERIFY(!QFile::exists(original));
-            QVERIFY(query.exec("DROP TRIGGER reject_restore"));
-        }
-        QSqlDatabase::removeDatabase(connection);
-        QVERIFY(store.restoreCapture(id));
-    }
-    void removalPreservesOriginalAndCaptureTrash()
+    void removalPreservesOriginalAndAnnotations()
     {
         QTemporaryDir directory;
         const auto path = directory.filePath("keep.pdf");
         writeFixture(path);
         const auto source = QUrl::fromLocalFile(path);
         const auto originalSize = QFileInfo(path).size();
-        QString captureId;
+        QString region;
         {
             ResearchStore store(directory.filePath("data"));
             QString error;
             QVERIFY(store.initialize(&error));
             QVERIFY(store.rememberDocument(source));
-            store.captureRegion(source, 0, QRectF(.1, .1, .4, .2));
-            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
-            QCOMPARE(store.captures().size(), 1);
-            captureId = store.captures().first().toMap()["id"].toString();
+            region = markRegion(store, source);
+            QVERIFY(!region.isEmpty());
             QVERIFY(store.removeRecentDocument(source));
             QVERIFY(store.recentDocuments().isEmpty());
-            QCOMPARE(store.captures().size(), 1);
-            QVERIFY(store.deleteCapture(captureId));
-            QVERIFY(!store.deleteCapture(captureId));
-            QVERIFY(!store.deleteCapture("../../keep.pdf"));
-            QVERIFY(store.captures().isEmpty());
-            // Removing a recent entry does not remove the PDF from the text index.
-            QVERIFY(store.searchKnowledge("keep", QUrl(), "captures").isEmpty());
-            QVERIFY(!QFileInfo::exists(directory.filePath("data/captures/" + captureId + ".png")));
-            QVERIFY(QFileInfo::exists(directory.filePath("data/captures/trash/" + captureId + ".png")));
+            QCOMPARE(store.anchor(region)["source"].toUrl(), source);
             QCOMPARE(QFileInfo(path).size(), originalSize);
         }
         ResearchStore reopened(directory.filePath("data"));
         QString error;
         QVERIFY(reopened.initialize(&error));
-        QVERIFY(reopened.captures().isEmpty());
+        QCOMPARE(reopened.anchor(region)["source"].toUrl(), source);
         QVERIFY(reopened.recentDocuments().isEmpty());
         QVERIFY(QFileInfo::exists(path));
     }
@@ -1600,11 +1560,8 @@ private slots:
         QVERIFY(store.setSetting("library.keepPdfs", "0")); // Files outside Owelk's folder are never touched.
         const auto topic = store.createCollection("Topic");
         QCOMPARE(store.addDocuments({a, b}, topic), 2);
-        QSignalSpy captured(&store, &ResearchStore::captureSaved);
-        store.captureRegion(a, 0, QRectF(.1, .1, .3, .2));
-        QTRY_COMPARE_WITH_TIMEOUT(captured.size(), 1, 10000);
-        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
-        const auto image = store.captures()[0].toMap()["image"].toUrl().toLocalFile();
+        const auto region = markRegion(store, a);
+        QVERIFY(!region.isEmpty());
         QSignalSpy deleted(&store, &ResearchStore::papersDeleted);
         // Deleted: out of the Library, still whole in the Trash, back with its collection on Restore.
         QCOMPARE(store.deletePapers({a, b}), 2);
@@ -1617,11 +1574,15 @@ private slots:
         // Opening a deleted paper's file brings it back too.
         QVERIFY(store.deletePapers({b}) == 1 && store.rememberDocument(b));
         QCOMPARE(store.trashedPaperCount(), 1);
-        // Deleting for good removes the paper with its captures; its own file outside Owelk stays.
+        // Deleting for good removes the paper with its annotations; its own file outside Owelk stays.
         QCOMPARE(store.purgePapers({a}), 1);
         QCOMPARE(store.trashedPaperCount(), 0);
-        QTRY_COMPARE_WITH_TIMEOUT(store.captures().size(), 0, 5000);
-        QVERIFY(!QFileInfo::exists(image));
+        {
+            WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3", true);
+            QSqlQuery query(db.db);
+            QVERIFY(query.exec("SELECT count(*) FROM highlights") && query.next());
+            QCOMPARE(query.value(0).toInt(), 0);
+        }
         QVERIFY(QFileInfo::exists(a.toLocalFile()));
         QCOMPARE(store.libraryDocuments().size(), 1);
         // After the chosen days the Trash empties itself; "Never" keeps papers.
@@ -1779,10 +1740,8 @@ private slots:
         QVERIFY(!found[0][1].toList().isEmpty());
         QPdfDocument reopened;
         QCOMPARE(PdfAccess::load(reopened, path), QPdfDocument::Error::None);
-        // Background work such as captures can open it too.
-        QSignalSpy saved(&store, &ResearchStore::captureSaved);
-        store.captureRegion(source, 0, QRectF(.1, .1, .3, .2));
-        QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000);
+        // Background work such as annotations can open it too.
+        QVERIFY(!markRegion(store, source).isEmpty());
         // Remembered in the keyring: a new session finds it there.
         PdfAccess::remember(path, "owelk", true, store.dataDirectory());
         PdfAccess::forget(path);
@@ -1850,9 +1809,20 @@ private slots:
             QVERIFY(store.initialize(&error));
             QVERIFY(!store.recoveredFromCrash());
             kept = store.createNote("Kept", "Written before the backup.");
-            QSignalSpy captured(&store, &ResearchStore::captureSaved);
-            store.captureRegion(pdf, 0, QRectF(.1, .1, .3, .2));
-            QTRY_COMPARE_WITH_TIMEOUT(captured.size(), 1, 10000);
+            // A picture annotation: its file goes into the backup too.
+            QImage picture(8, 8, QImage::Format_RGB32);
+            picture.fill(Qt::blue);
+            QVERIFY(picture.save(directory.filePath("picture.png")));
+            QSignalSpy loaded(&store, &ResearchStore::highlightsLoaded),
+                saved(&store, &ResearchStore::annotationFinished);
+            store.loadHighlights(pdf);
+            QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
+            store.saveAnnotation(pdf, 0,
+                {{"kind", "image"}, {"imageSource", QUrl::fromLocalFile(directory.filePath("picture.png")).toString()},
+                    {"sha256", loaded.last()[4]},
+                    {"rectangles", QVariantList{QVariantMap{{"x", .1}, {"y", .1}, {"width", .3}, {"height", .2}}}}});
+            QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000);
+            QVERIFY(saved.last()[0].toBool());
             QSignalSpy done(&store, &ResearchStore::backupFinished);
             store.backUp(directory.filePath("backups"));
             QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
@@ -1860,17 +1830,17 @@ private slots:
             backupPath = done[0][1].toString();
             QVERIFY(QFileInfo::exists(backupPath + "/owelk.sqlite3"));
             QVERIFY(QFileInfo::exists(backupPath + "/owelk-backup.json"));
-            QCOMPARE(QDir(backupPath + "/captures").entryList({"*.png"}).size(), 1);
+            QCOMPARE(QDir(backupPath + "/annotations").entryList({"*.png"}).size(), 1);
             QCOMPARE(store.checkBackup(backupPath), QString());
             QVERIFY(!store.checkBackup(directory.path()).isEmpty());
             // Changes after the backup are undone by restoring it (on the next start).
             later = store.createNote("Later", "Written after the backup.");
             QVERIFY(store.scheduleRestore(backupPath));
             // Drafts: kept until saved or discarded.
-            QVERIFY(store.saveDraft("capture-note:x", "half a thought"));
-            QCOMPARE(store.draft("capture-note:x"), QString("half a thought"));
-            store.clearDraft("capture-note:x");
-            QCOMPARE(store.draft("capture-note:x"), QString());
+            QVERIFY(store.saveDraft("note:x", "half a thought"));
+            QCOMPARE(store.draft("note:x"), QString("half a thought"));
+            store.clearDraft("note:x");
+            QCOMPARE(store.draft("note:x"), QString());
         }
         QVERIFY(!QFileInfo::exists(data + "/.running")); // A clean exit removes the marker.
         {
@@ -1880,8 +1850,7 @@ private slots:
             QVERIFY(store.startupMessage().startsWith("Restored the backup"));
             QVERIFY(!store.note(kept).isEmpty());
             QVERIFY(store.note(later).isEmpty());
-            QCOMPARE(store.captures().size(), 1);
-            QVERIFY(QFileInfo(store.captures()[0].toMap()["image"].toUrl().toLocalFile()).exists());
+            QCOMPARE(QDir(data + "/annotations").entryList({"*.png"}).size(), 1);
             // The previous library was moved aside, not deleted.
             QCOMPARE(QDir(data + "/backups").entryList({"before-restore-*"}, QDir::Dirs).size(), 1);
         }
@@ -1911,7 +1880,7 @@ private slots:
                 {"doi", "10.1000/xyz_1"}}));
         QVERIFY(store.updateDocumentDetails(
             b, {{"title", "Radar Mapping"}, {"authors", "Ada Kim"}, {"year", "2025"}, {"arxiv", "2501.01234"}}));
-        // Reading notes for paper A: a text box, a capture with a note, and a linked note.
+        // Reading notes for paper A: a text box, a marked region with a comment, and a linked note.
         QSignalSpy loaded(&store, &ResearchStore::highlightsLoaded), done(&store, &ResearchStore::annotationFinished);
         store.loadHighlights(a);
         QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 10000);
@@ -1919,10 +1888,8 @@ private slots:
             {{"kind", "text"}, {"body", "Check the drift term"}, {"color", "#d87797"}, {"sha256", loaded.last()[4]},
                 {"rectangles", QVariantList{QVariantMap{{"x", .1}, {"y", .2}, {"width", .3}, {"height", .1}}}}});
         QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
-        QSignalSpy captured(&store, &ResearchStore::captureSaved);
-        store.captureRegion(a, 0, QRectF(.1, .1, .3, .2));
-        QTRY_COMPARE_WITH_TIMEOUT(captured.size(), 1, 10000);
-        QVERIFY(store.saveCaptureNote(captured[0][0].toString(), "Figure shows drift"));
+        const auto region = markRegion(store, a);
+        QVERIFY(store.updateHighlight(region, ResearchStore::defaultAnnotationColor(), "Figure shows drift"));
         const auto note = store.createNote(
             "Odometry plan", "Compare with " + store.markdownLink("document", store.documentLinkId(a)));
         const auto out = directory.filePath("export");
@@ -1935,7 +1902,8 @@ private slots:
         QVERIFY(markdown.contains("Ada Kim, Bo Lee · 2025 · DOI 10.1000/xyz_1"));
         QVERIFY(markdown.contains("- p. 2 · text box"));
         QVERIFY(markdown.contains("> Check the drift term"));
-        QVERIFY(markdown.contains("Note: Figure shows drift"));
+        QVERIFY(markdown.contains("- p. 1 · region"));
+        QVERIFY(markdown.contains("> Figure shows drift"));
         QVERIFY(markdown.contains("![p. 1](Radar%20&%20Lidar%20Odometry%20images/"));
         QCOMPARE(QDir(out + "/Radar & Lidar Odometry images").entryList({"*.png"}).size(), 1);
         QVERIFY(markdown.contains("- Odometry plan"));
@@ -1961,7 +1929,7 @@ private slots:
         QVERIFY(store.exportBibTeX({a.toString()}, directory.filePath("refs.bib")));
         QVERIFY(QFileInfo(directory.filePath("refs.bib")).size() > 50);
     }
-    void capturesAndAnnotationsShareOneAnchor()
+    void annotationsHaveOneAnchor()
     {
         QTemporaryDir directory;
         const auto source = QUrl::fromLocalFile(directory.filePath("paper.pdf"));
@@ -1969,31 +1937,30 @@ private slots:
         ResearchStore store(directory.filePath("data"));
         QString error;
         QVERIFY(store.initialize(&error));
-        QSignalSpy captured(&store, &ResearchStore::captureSaved);
-        store.captureRegion(source, 2, QRectF(.1, .2, .3, .1));
-        QTRY_COMPARE_WITH_TIMEOUT(captured.size(), 1, 10000);
-        const auto anchor = store.anchor("capture", captured[0][0].toString());
-        QCOMPARE(anchor["kind"].toString(), QString("pdf"));
+        const auto id = markRegion(store, source, 2, QRectF(.1, .2, .3, .1));
+        QVERIFY(!id.isEmpty());
+        const auto anchor = store.anchor(id);
         QCOMPARE(anchor["documentId"].toString(), store.documentLinkId(source));
         QCOMPARE(anchor["page"].toInt(), 2);
         QCOMPARE(anchor["source"].toUrl(), source);
         QVERIFY(qAbs(anchor["bounds"].toMap()["y"].toDouble() - .2) < 1e-6);
         QVERIFY(!anchor["sha256"].toString().isEmpty());
-        QVERIFY(store.anchor("capture", "missing").isEmpty());
-        QVERIFY(store.anchor("note", "x").isEmpty());
-        // Opening goes through the same path: verify, then reveal.
+        QVERIFY(store.anchor("missing").isEmpty());
+        // Opening verifies the file, then reveals the place.
         QSignalSpy ready(&store, &ResearchStore::sourceReady);
-        store.openCapture(captured[0][0].toString());
+        store.openHighlight(id);
         QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
         QCOMPARE(ready[0][0].toUrl(), source);
         QCOMPARE(ready[0][1].toInt(), 2);
-        // A changed file is not revealed; the item is kept.
+        QCOMPARE(ready[0][2].toRectF(), QRectF(.1, .2, .3, .1));
+        // A changed file is not revealed; the annotation is kept.
         writeFixture(source.toLocalFile(), "Changed", 4);
         QSignalSpy messages(&store, &ResearchStore::message);
-        store.revealAnchor(anchor);
+        store.openHighlight(id);
         QTRY_VERIFY_WITH_TIMEOUT(!messages.isEmpty(), 10000);
         QVERIFY(messages.last()[0].toString().contains("changed"));
         QCOMPARE(ready.size(), 1);
+        QVERIFY(!store.anchor(id).isEmpty());
     }
     void pathsUseThePlatformForm()
     {
@@ -2096,77 +2063,6 @@ private slots:
         QCOMPARE(reopened.session().value("left").toMap().value("position").toMap().value("page").toInt(), 4);
     }
 
-    void captureKeepsPixelsAndVerifiesSource()
-    {
-        QTemporaryDir directory;
-        const QString path = directory.filePath("paper with spaces.pdf");
-        writeFixture(path);
-        QPdfDocument pdf;
-        QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
-        QCOMPARE(pdf.pageCount(), 8);
-        QVERIFY(pdf.getAllText(3).text().contains("occlusion"));
-
-        ResearchStore store(directory.filePath("data"));
-        QString error;
-        QVERIFY2(store.initialize(&error), qPrintable(error));
-        const QUrl source = QUrl::fromLocalFile(path);
-        QVERIFY(store.rememberDocument(source));
-        QVERIFY(store.rememberDocument(source));
-        QCOMPARE(store.recentDocuments().size(), 1);
-        QSignalSpy saved(&store, &ResearchStore::captureSaved);
-        QSignalSpy ready(&store, &ResearchStore::sourceReady);
-        QSignalSpy messages(&store, &ResearchStore::message);
-        store.captureRegion(source, 3, QRectF(.1, .5, .75, .25));
-        QVERIFY(store.busy());
-        QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 15000);
-        QVERIFY(!store.busy());
-        QCOMPARE(store.captures().size(), 1);
-        const auto capture = store.captures().first().toMap();
-        const auto found = store.searchKnowledge("paper with spaces");
-        QCOMPARE(found.size(), 2);
-        QCOMPARE(found[1].toMap()["kind"].toString(), "capture");
-        QCOMPARE(found[1].toMap()["id"].toString(), capture["id"].toString());
-        const QImage image(capture.value("image").toUrl().toLocalFile());
-        QVERIFY(!image.isNull());
-        QVERIFY(image.width() > 800);
-        QVERIFY(image.height() > 350);
-        store.openCapture(capture.value("id").toString());
-        QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
-        QCOMPARE(ready.first()[1].toInt(), 3);
-        QCOMPARE(ready.first()[2].toRectF(), QRectF(.1, .5, .75, .25));
-
-        pdf.close();
-        QFile changed(path);
-        QVERIFY(changed.open(QIODevice::Append));
-        changed.write("\n% changed after capture\n");
-        changed.close();
-        messages.clear();
-        store.openCapture(capture.value("id").toString());
-        QTRY_VERIFY_WITH_TIMEOUT(!messages.isEmpty(), 10000);
-        QCOMPARE(ready.size(), 1);
-        QVERIFY(messages.last()[0].toString().contains("changed"));
-        QVERIFY(QFileInfo::exists(capture.value("image").toUrl().toLocalFile()));
-
-        ResearchStore reopened(directory.filePath("data"));
-        QVERIFY(reopened.initialize(&error));
-        QCOMPARE(reopened.captures().size(), 1);
-    }
-
-    void invalidCaptureDoesNotCreateEvidence()
-    {
-        QTemporaryDir directory;
-        ResearchStore store(directory.path());
-        QString error;
-        QVERIFY(store.initialize(&error));
-        QSignalSpy messages(&store, &ResearchStore::message);
-        store.captureRegion(QUrl("https://example.com/paper.pdf"), 0, QRectF(0, 0, 1, 1));
-        QCOMPARE(messages.size(), 1);
-        QVERIFY(!store.busy());
-        store.captureRegion(QUrl::fromLocalFile(directory.filePath("missing.pdf")), 0, QRectF(0, 0, 1, 1));
-        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
-        QCOMPARE(store.captures().size(), 0);
-        QCOMPARE(messages.size(), 2);
-    }
     void folderListingIsReadOnlyAndScoped()
     {
         QTemporaryDir directory;

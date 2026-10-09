@@ -21,8 +21,6 @@ class QPdfDocument;
 class ResearchStore final : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantMap session READ session NOTIFY homeChanged)
-    Q_PROPERTY(QVariantList captures READ captures NOTIFY capturesChanged)
-    Q_PROPERTY(QVariantList trashedCaptures READ trashedCaptures NOTIFY capturesChanged)
     Q_PROPERTY(QVariantList recentDocuments READ recentDocuments NOTIFY recentDocumentsChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(bool printing READ printing NOTIFY printingChanged)
@@ -59,8 +57,6 @@ public:
     // "Figure 3: …" / "Table 2 …" next to a captured region (normalised page coordinates), or empty.
     static QString figureCaption(QPdfDocument &document, int page, const QRectF &region);
     QVariantMap session() const;
-    QVariantList captures() const { return m_captures; }
-    QVariantList trashedCaptures() const { return m_trashedCaptures; }
     QVariantList recentDocuments() const;
     bool busy() const { return m_pending > 0; }
     bool printing() const { return m_printing; }
@@ -103,12 +99,6 @@ public:
     Q_INVOKABLE bool saveSession(const QVariantMap &state);
     Q_INVOKABLE bool rememberDocument(const QUrl &url);
     Q_INVOKABLE bool removeRecentDocument(const QUrl &url);
-    Q_INVOKABLE bool deleteCapture(const QString &id);
-    Q_INVOKABLE bool restoreCapture(const QString &id);
-    // Permanent removal from the local trash only; saved captures and original PDFs are never touched.
-    Q_INVOKABLE bool purgeCapture(const QString &id);
-    Q_INVOKABLE int emptyCaptureTrash();
-    Q_INVOKABLE bool saveCaptureNote(const QString &id, const QString &body);
     Q_INVOKABLE QString fileName(const QUrl &url) const;
     // A local file URL as a path in the platform's own form (C:\Users\… on Windows), or the URL text.
     Q_INVOKABLE QString localPath(const QUrl &url) const;
@@ -141,7 +131,7 @@ public:
     // text are read in the background. Returns how many were added.
     Q_INVOKABLE int addDocuments(const QVariantList &sources, const QString &collectionId = QString());
     // Takes papers out of the Library: lists, recent papers, collections, tags and the text index.
-    // The PDF file, annotations and captures stay; opening the file again brings the paper back.
+    // The PDF file and annotations stay; opening the file again brings the paper back.
     Q_INVOKABLE int removeFromLibrary(const QVariantList &sources);
     // Adds every PDF under a folder (subfolders included; hidden files and links skipped), found in
     // the background. With foldersAsCollections, the folder and its subfolders become a collection
@@ -163,7 +153,7 @@ public:
     Q_INVOKABLE bool excludedFromIndex(const QUrl &source) const;
 
     // Standalone Markdown notes and links between knowledge objects (ResearchStoreNotes.cpp).
-    // Link kinds: note, capture, highlight, document, ai. Note bodies link with owelk://<kind>/<id>.
+    // Link kinds: note, highlight (any annotation), document, ai. Note bodies link with owelk://<kind>/<id>.
     Q_INVOKABLE QString createNote(const QString &title = QString(), const QString &body = QString());
     Q_INVOKABLE QVariantMap note(const QString &id) const;
     Q_INVOKABLE bool saveNote(const QString &id, const QString &title, const QString &body);
@@ -191,17 +181,17 @@ public:
     // With a collection, only its papers (and those of its sub-collections).
     QVariantList libraryPassages(const QStringList &terms, int limit, const QString &collection = QString());
     Q_INVOKABLE QVariantMap paperExcerpt(const QUrl &source, int opening = 5000, int closing = 2500);
-    // Encrypted PDFs: the viewer hands over a password that worked, so indexing, captures, printing
-    // and AI can open the file too. keep: also store it in the system keyring.
+    // Encrypted PDFs: the viewer hands over a password that worked, so indexing, annotations,
+    // printing and AI can open the file too. keep: also store it in the system keyring.
     Q_INVOKABLE void rememberPdfPassword(const QUrl &source, const QString &password, bool keep);
     Q_INVOKABLE QString pdfPassword(const QUrl &source) const;
     // OCR for scanned pages with the installed Tesseract: found, program, languages, installed, enabled.
     Q_INVOKABLE QVariantMap ocrStatus() const;
     Q_INVOKABLE void setOcr(bool enabled, const QString &languages);
-    // Backups: a folder with the library database, captures and annotations (see ResearchStoreBackup.cpp).
+    // Backups: a folder with the library database and its files (see ResearchStoreBackup.cpp).
     Q_INVOKABLE void backUp(const QString &folder);
     Q_INVOKABLE QString checkBackup(const QString &folder) const;
-    // Exports (new files only): a paper's highlights, comments and captures as Markdown; every note as a
+    // Exports (new files only): a paper's annotations as Markdown; every note as a
     // Markdown file; BibTeX for papers (sources: file URLs).
     Q_INVOKABLE QString exportPaperMarkdown(const QUrl &source, const QString &folder);
     Q_INVOKABLE int exportNotesMarkdown(const QString &folder);
@@ -243,25 +233,20 @@ public:
     Q_INVOKABLE QVariantMap aiThread(const QString &id) const;
     Q_INVOKABLE bool renameAiThread(const QString &id, const QString &title);
     Q_INVOKABLE bool deleteAiThread(const QString &id);
-    // Saved AI answers. response: provider, model, action, question, answer, prompt, source, page, captureId.
+    // Saved AI answers. response: provider, model, action, question, answer, prompt, source, page.
     Q_INVOKABLE QString saveAiResponse(const QVariantMap &response);
     Q_INVOKABLE QVariantMap aiResponse(const QString &id) const;
     Q_INVOKABLE bool appendNoteLink(const QString &noteId, const QString &kind, const QString &id);
     int documentsRevision() const { return m_documentsRevision; }
     Q_INVOKABLE bool sameSource(const QUrl &first, const QUrl &second) const { return first == second; }
-    Q_INVOKABLE void captureRegion(const QUrl &source, int page, const QRectF &normalizedRegion);
-    // A region of a web page screenshot (normalised to the image); opening it reopens the page.
-    Q_INVOKABLE void captureWebImage(const QUrl &page, const QString &title, const QImage &image, const QRectF &region);
-    // segments: [{page, from, to, text}] in PDF points, one per page of a selection spanning pages.
-    Q_INVOKABLE void captureTextSegments(const QUrl &source, const QVariantList &segments);
-    Q_INVOKABLE void captureText(
-        const QUrl &source, int page, const QPointF &from, const QPointF &to, const QString &expectedText);
     Q_INVOKABLE void highlightText(const QUrl &source, int page, const QPointF &from, const QPointF &to,
         const QString &expectedText, const QString &color = defaultAnnotationColor());
     Q_INVOKABLE void commentText(const QUrl &source, int page, const QPointF &from, const QPointF &to,
         const QString &expectedText, const QString &body, const QString &color = defaultAnnotationColor());
     Q_INVOKABLE bool updateHighlight(const QString &id, const QString &color, const QString &body);
     Q_INVOKABLE void saveAnnotation(const QUrl &source, int page, const QVariantMap &annotation);
+    // What an annotation kind is called in lists and undo labels ("area" is a marked Region).
+    Q_INVOKABLE static QString annotationName(const QString &kind);
     Q_INVOKABLE QUrl annotationPreviewUrl(const QUrl &source) const
     {
         return QUrl(QStringLiteral("image://annotation/")
@@ -276,16 +261,15 @@ public:
     Q_INVOKABLE bool canExportAnnotatedPdf() const;
     Q_INVOKABLE int loadHighlights(const QUrl &source);
     Q_INVOKABLE bool removeHighlight(const QString &id);
-    // Undo/redo the last annotation or capture change in this document (Cmd+Z, Cmd+Shift+Z).
+    // Undo/redo the last annotation change in this document (Cmd+Z, Cmd+Shift+Z).
     Q_INVOKABLE bool undo(const QUrl &source) { return replay(source, false); }
     Q_INVOKABLE bool redo(const QUrl &source) { return replay(source, true); }
     Q_INVOKABLE bool canUndo(const QUrl &source) const;
     Q_INVOKABLE bool canRedo(const QUrl &source) const;
     int historyRevision() const { return m_historyRevision; }
-    // Where a capture or annotation sits (a DocumentAnchor; see ResearchStoreAnchors.cpp), and the one
-    // way to show it: verify the source, then move the reader there.
-    Q_INVOKABLE QVariantMap anchor(const QString &item, const QString &id) const;
-    Q_INVOKABLE void revealAnchor(const QVariantMap &anchor);
+    // Where an annotation sits (a DocumentAnchor; see ResearchStoreAnchors.cpp). openHighlight is the
+    // one way to show it: verify the source, then move the reader there.
+    QVariantMap anchor(const QString &id) const;
     // A place an AI answer cites ([p. N: "exact words"]): the paper opens at that page and the words
     // light up once found (answered through passageReady; nothing more happens when they are not found).
     Q_INVOKABLE void revealPassage(const QUrl &source, int page, const QString &phrase);
@@ -298,7 +282,6 @@ public:
     // removeMisfits (the reader agreed), which deletes those and moves the rest.
     Q_INVOKABLE QVariantMap adoptAnnotations(const QUrl &source, bool removeMisfits = false);
     Q_INVOKABLE void openHighlight(const QString &id);
-    Q_INVOKABLE void openCapture(const QString &id);
     Q_INVOKABLE void copyText(const QString &text);
     // Show a status message from QML through the same channel as store messages.
     Q_INVOKABLE void notify(const QString &text) { emit message(text); }
@@ -346,19 +329,16 @@ signals:
         const QString &fingerprint, int hidden);
     void annotationSaved(const QString &id);
     void annotationFinished(bool success, const QString &id);
-    void capturesChanged();
     void recentDocumentsChanged();
     void busyChanged();
     void printingChanged();
     void historyChanged();
     void message(const QString &text);
     void downloadNamed(const QUrl &file, const QUrl &named);
-    void captureSaved(const QString &id);
     void knowledgeFound(int request, const QVariantList &results);
     void sourceReady(const QUrl &source, int page, const QRectF &region);
     // Words an AI answer cites, found on their page (revealPassage).
     void passageReady(const QUrl &source, int page, const QRectF &region);
-    void webSourceRequested(const QUrl &page);
     void folderLoaded(int requestId, const QUrl &folder, const QVariantList &entries, const QString &error);
     void homeChanged();
     void relinkingChanged();
@@ -371,10 +351,8 @@ signals:
 
 private:
     void saveTextSelection(const QUrl &source, int page, const QPointF &from, const QPointF &to,
-        const QString &expectedText, bool asHighlight, const QString &color = defaultAnnotationColor(),
-        const QString &kind = "highlight", const QString &body = QString());
-    void reloadCaptures();
-    int purgeTrashedCaptures(const QStringList &ids);
+        const QString &expectedText, const QString &color, const QString &kind = "highlight",
+        const QString &body = QString());
     // Saved data is keyed by document ID; QML keeps passing file URLs.
     QString findDocument(const QUrl &source) const;
     QString ensureDocument(const QUrl &source);
@@ -386,7 +364,6 @@ private:
     void reportDuplicate(const QString &id, const QUrl &url, const QString &hash);
     void announceDocumentsChanged();
     static bool adoptDocumentIds(QSqlDatabase &db, QString *error);
-    QVariantList readCaptures(bool trashed) const;
     QVariantMap canonicalState(const QVariantMap &state) const;
     bool applyRelink(const QUrl &source, const QUrl &candidate, const QString &hash, QString *error);
     QHash<QString, QString> m_relinks;
@@ -402,9 +379,7 @@ private:
     QString m_directory;
     QString m_connection;
     QSqlDatabase m_database;
-    QVariantList m_captures;
-    QVariantList m_trashedCaptures;
-    // Writes (captures, annotations, relink, print) stay ordered on one thread.
+    // Writes (annotations, relink, print) stay ordered on one thread.
     // Read-only source checks and folder listing use their own pool so a click never waits behind a save.
     QThreadPool m_workers;
     QThreadPool m_verifiers;
@@ -419,18 +394,18 @@ private:
     int m_highlightRequest = 0;
     int m_knowledgeRequest = 0;
     bool m_printing = false;
-    // Undo and redo, per document, for this session: annotation states and capture trash moves.
+    // Undo and redo, per document, for this session: annotation states before and after each change.
     struct HistoryStep {
-        QString type, id, label;
+        QString id, label;
         QVariantMap before, after;
     };
     QHash<QString, QList<HistoryStep>> m_undo, m_redo;
     bool m_replaying = false;
     int m_historyRevision = 0;
     QVariantMap annotationState(const QString &id) const;
+    void revealAnchor(const QVariantMap &anchor);
     bool applyAnnotationState(const QString &id, const QVariantMap &state);
     void recordAnnotation(const QString &id, const QVariantMap &before, const QString &label);
-    void recordCapture(const QString &id, bool trashed);
     void pushHistory(const QString &document, const HistoryStep &step);
     bool replay(const QUrl &source, bool forward);
     int m_relatedRequest = 0;

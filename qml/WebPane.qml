@@ -44,13 +44,16 @@ Rectangle {
     signal activated()
     color: Theme.content
     property bool capturing: false
-    // Screenshot the visible page and keep the chosen part (normalised to the view).
+    // Screenshot the visible page; the chosen part (normalised to the view) goes to the AI conversation.
     function captureRegion(rect) {
-        const region = Qt.rect(rect.x / view.width, rect.y / view.height, rect.width / view.width, rect.height / view.height)
-        view.grabToImage(function(result) {
-            researchStore.captureWebImage(view.url, view.title, result.image, region)
-        })
         capturing = false
+        if (rect.width < 4 || rect.height < 4) return
+        const region = Qt.rect(rect.x / view.width, rect.y / view.height, rect.width / view.width, rect.height / view.height)
+        const page = view.title || view.url.toString()
+        view.grabToImage(function(result) {
+            const file = researchStore.ai.saveViewImage(result.image, region)
+            if (file.length) root.controller.aiRequested({attach: true, image: file, name: "Web · " + page, about: "part of the web page " + page})
+        })
     }
     function open(url) {
         if (openedUrl === url.toString() && view.url.toString() === url.toString()) return
@@ -136,9 +139,9 @@ Rectangle {
                     Keys.onEscapePressed: { text = view.url.toString(); view.forceActiveFocus() }
                 }
                 IconButton {
-                    objectName: "webCapture"; icon.name: "capture"; implicitWidth: 24; checkable: true
+                    objectName: "webCapture"; icon.name: "ai"; implicitWidth: 24; checkable: true
                     checked: root.capturing
-                    description: "Capture a region"
+                    description: "Ask AI about part of the page"
                     onClicked: root.capturing = !root.capturing
                 }
                 Button {
@@ -169,7 +172,7 @@ Rectangle {
                 Label {
                     Layout.fillWidth: true; Layout.minimumWidth: 0
                     elide: Text.ElideRight; font.pixelSize: Theme.fontSmall; color: Theme.text
-                    text: root.browserPdf ? "Reading the PDF in this tab. Highlights, captures and notes work in the reader."
+                    text: root.browserPdf ? "Reading the PDF in this tab. Annotations and notes work in the reader."
                                           : "This page shows a PDF."
                 }
                 Button {

@@ -13,7 +13,8 @@ Item {
         paneIndex: 0
         isActive: true
     }
-    SignalSpy { id: captureSpy; target: researchStore; signalName: "captureSaved" }
+    SignalSpy { id: highlightSpy; target: researchStore; signalName: "highlightSaved" }
+    SignalSpy { id: aiSpy; target: reader; signalName: "aiRequested" }
     SignalSpy { id: linkSpy; target: reader; signalName: "linkRequested" }
     SignalSpy { id: messageSpy; target: researchStore; signalName: "message" }
 
@@ -49,13 +50,6 @@ Item {
             compare(canvas.selectedAnchor.segments[1].page, 1)
             verify(canvas.selectedText.indexOf("1.11") >= 0, canvas.selectedText)
             verify(canvas.selectedText.indexOf("2.1") >= 0, canvas.selectedText)
-            const before = researchStore.captures.length
-            canvas.captureSelection()
-            tryVerify(function() { return researchStore.captures.length === before + 1 }, 10000)
-            const excerpt = researchStore.captures[0]
-            compare(excerpt.kind, "text")
-            verify(excerpt.text.indexOf("1.11") >= 0 && excerpt.text.indexOf("2.1") >= 0, excerpt.text)
-            compare(excerpt.page, 0)
             // Highlights are stored per page.
             const marks = researchStore.searchKnowledge("Research finding 2.1").filter(function(r) { return r.kind === "highlight" }).length
             canvas.highlightSelection()
@@ -1030,13 +1024,13 @@ Item {
             verify(point.x >= 0 && point.x < canvas.width)
             verify(point.y >= 0 && point.y < canvas.height)
         }
-        function test_saveExcerpt_data() {
+        function test_highlightKeepsTheSelectedText_data() {
             return [{tag: "single_line", reverse: false, dy: 0, zoom: 1},
                     {tag: "reversed_multiline_after_zoom", reverse: true, dy: 40, zoom: 1.2},
                     {tag: "already_zoomed", reverse: false, dy: 40, zoom: 1, initialZoom: 1.4}]
         }
-        function test_saveExcerpt(data) {
-            captureSpy.clear()
+        function test_highlightKeepsTheSelectedText(data) {
+            highlightSpy.clear()
             messageSpy.clear()
             if (data.initialZoom) {
                 canvas.zoom(data.initialZoom)
@@ -1055,19 +1049,19 @@ Item {
                 canvas.zoom(data.zoom)
                 tryCompare(canvas, "restoring", false)
             }
-            const button = findChild(reader, "saveExcerptButton")
+            const button = findChild(reader, "highlightSelectionButton")
             verify(button.visible && button.enabled)
             compare(canvas.selectedAnchor.text, canvas.selectedText)
             compare(canvas.selecting, false)
-            mouseClick(button)
-            tryVerify(function() { return captureSpy.count > 0 || messageSpy.count > 0 }, 10000)
-            compare(captureSpy.count, 1, JSON.stringify(messageSpy.signalArguments))
-            const saved = researchStore.captures.filter(function(c) { return c.id === captureSpy.signalArguments[0][0] })[0]
-            compare(saved.kind, "text")
+            reader.highlightSelection()
+            tryVerify(function() { return highlightSpy.count > 0 || messageSpy.count > 0 }, 10000)
+            compare(highlightSpy.count, 1, JSON.stringify(messageSpy.signalArguments))
+            const id = highlightSpy.signalArguments[0][0]
+            tryVerify(function() { return canvas.savedHighlights.some(function(h) { return h.id === id }) }, 10000)
+            const saved = canvas.savedHighlights.filter(function(h) { return h.id === id })[0]
             compare(saved.text, text)
             compare(saved.page, 0)
-            verify(researchStore.searchKnowledge("Research finding").some(function(c) { return c.id === saved.id }))
-            verify(researchStore.deleteCapture(saved.id))
+            verify(researchStore.removeHighlight(id))
             canvas.openFile(fixtureSource)
             compare(canvas.selectedAnchor, null)
             compare(button.visible, false)
@@ -1125,17 +1119,35 @@ Item {
             compare(canvas.captureMode, false)
             compare(area.visible, false)
         }
-        function test_regionCapture() {
-            captureSpy.clear()
+        function test_regionGoesToTheAi() {
+            aiSpy.clear()
             canvas.jump(1, .45, 0)
             tryCompare(canvas, "restoring", false)
-            canvas.captureMode = true
+            reader.startCapture()
             const paper = findChild(canvas, "paperPage1")
             verify(paper !== null)
             const start = paper.mapToItem(canvas, paper.width * .12, paper.height * .57)
             mouseDrag(canvas, start.x, start.y, paper.width * .5, paper.height * .12, Qt.LeftButton, Qt.NoModifier, 40)
-            tryCompare(captureSpy, "count", 1, 15000)
-            compare(researchStore.captures[0].page, 1)
+            tryCompare(aiSpy, "count", 1, 5000)
+            const spec = aiSpy.signalArguments[0][0]
+            compare(spec.page, 1)
+            compare(spec.label, "Region")
+            verify(spec.region.width > .4 && spec.region.width < .6)
+            compare(canvas.captureMode, false)
+        }
+        function test_markRegion() {
+            canvas.jump(1, .45, 0)
+            tryCompare(canvas, "restoring", false)
+            reader.setTool("area")
+            compare(canvas.tool, "area")
+            const paper = findChild(canvas, "paperPage1")
+            const start = paper.mapToItem(canvas, paper.width * .12, paper.height * .57)
+            mouseDrag(canvas, start.x, start.y, paper.width * .5, paper.height * .12, Qt.LeftButton, Qt.NoModifier, 40)
+            tryVerify(function() { return canvas.savedHighlights.some(function(h) { return h.kind === "area" && h.page === 1 }) }, 10000)
+            compare(canvas.tool, "")
+            const mark = canvas.savedHighlights.filter(function(h) { return h.kind === "area" })[0]
+            fuzzyCompare(mark.rectangles[0].width, .5, .02)
+            verify(researchStore.removeHighlight(mark.id))
         }
     }
 }

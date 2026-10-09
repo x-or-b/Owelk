@@ -45,13 +45,12 @@ stop square
 attach paperclip
 star star
 ai sparkles
-capture scan
+area scan
 highlight highlighter
 draw pen-line
 comment message-square
 text type
 image image
-excerpt quote
 outline list-tree
 thumbnails layout-grid
 related network
@@ -79,7 +78,6 @@ key key-round
 settings settings
 locate file-search
 tag tag
-workspace layers
 appearance palette
 keyboard keyboard
 data database

@@ -189,6 +189,16 @@ QString write(const QString &source, const QString &target, const QVariantList &
                     appearance(pdf, icon,
                         "q " + rgb(color) + " rg 0 0 0 RG 0.5 w " + number(icon[0] + 1) + " " + number(icon[1] + 1)
                             + " 16 16 re B Q"));
+            } else if (kind == "area") {
+                // A marked region: a square outline, its comment as the note.
+                annot = baseAnnotation("/Square", all, color, body);
+                auto border = Handle::newDictionary();
+                border.replaceKey("/W", real(1.5));
+                annot.replaceKey("/BS", border);
+                annot.replaceKey("/AP",
+                    appearance(pdf, all,
+                        "q " + rgb(color) + " RG 1.5 w " + number(all[0] + .75) + " " + number(all[1] + .75) + " "
+                            + number(all[2] - all[0] - 1.5) + " " + number(all[3] - all[1] - 1.5) + " re S Q"));
             } else if (kind == "text") {
                 annot = baseAnnotation("/FreeText", all, color, body);
                 // The size the box was drawn at (older boxes: 14 pt, as on screen).

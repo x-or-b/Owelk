@@ -857,7 +857,7 @@ private slots:
         const auto aiOnly = store.searchKnowledge("Page", QUrl(), "ai");
         QVERIFY(!aiOnly.isEmpty());
         for (const auto &row : aiOnly) QCOMPARE(row.toMap()["kind"].toString(), QString("ai"));
-        for (const auto &row : store.searchKnowledge("Page", QUrl(), "captures"))
+        for (const auto &row : store.searchKnowledge("Page", QUrl(), "notes"))
             QVERIFY(row.toMap()["kind"].toString() != "ai");
         // An attached JPEG is sent as a PNG, scaled to the vision limit, and noted in the thread.
         const auto photo = directory.filePath("photo.jpg");

@@ -91,7 +91,7 @@ Item {
             compare(ai.messages[2].display, "Why does it matter?")
             // Saving an answer as a note links back to the thread.
             mouseClick(findChild(p, "aiSaveNote-3"))
-            verify(researchStore.searchKnowledge("Mock answer").some(function(h) { return h.kind === "standalone-note" }))
+            verify(researchStore.searchKnowledge("Mock answer").some(function(h) { return h.kind === "note" }))
         }
         function test_2_threadsListReopensWithoutANewRequest() {
             const ai = findChild(workspace, "aiController")
@@ -164,12 +164,11 @@ Item {
             box.text = ""
             tryCompare(size, "visible", false)
             compare(composerBox.expanded, false)
-            // A figure from its preview joins this conversation as an image; no capture is saved.
-            const captures = researchStore.captures.length, current = ai.threadId
+            // A figure from its preview joins this conversation as an image.
+            const current = ai.threadId
             verify(ai.attachFigure({source: fixtureSource, page: 0, region: Qt.rect(.05, .5, .9, .25), label: "Figure 1"}))
             compare(ai.threadId, current)
             compare(ai.images[ai.images.length - 1].name, "Figure 1 · p. 1")
-            compare(researchStore.captures.length, captures)
             ai.images = []
             // The reasoning summary is folded above the answer and unfolds on a click; off, it is hidden.
             const thought = findChild(conv, "aiThought-3")
@@ -390,26 +389,22 @@ Item {
             const start = paper.mapToItem(c, paper.width * .12, paper.height * .2)
             mouseDrag(c, start.x, start.y, paper.width * .5, paper.height * .12, Qt.LeftButton, Qt.NoModifier, 40)
             tryVerify(function() { return ai.images.length === 1 }, 15000)
-            verify(ai.images[0].name.indexOf("Capture · p. 1") === 0)
-            compare(ai.captureWanted, false)
-            // The AI panel stays in front instead of switching to the shelf.
+            verify(ai.images[0].name.indexOf("Region · p. 1") === 0)
             tryCompare(findChild(workspace, "rightDock"), "activePanel", "ai")
             verify(ai.send("What does this region show?"))
             tryCompare(ai, "streaming", false, 10000)
             compare(ai.error, "")
             verify(ai.messages[ai.messages.length - 2].context.attachments.indexOf("image") >= 0)
-            // A capture made the usual way still goes to the shelf only.
+            // Marking a region on the page keeps it as an annotation; nothing goes to the AI.
             compare(c.captureMode, false)
-            researchStore.captureRegion(fixtureSource, 0, Qt.rect(.1, .5, .3, .1))
-            wait(500)
-            compare(ai.images.length, 0)
-            // The reader toolbar has a capture button again.
-            const button = findChild(workspace.currentReader, "readerCaptureButton")
+            const button = findChild(workspace.currentReader, "areaTool")
             verify(button)
             button.clicked()
-            compare(c.captureMode, true)
-            button.clicked()
-            compare(c.captureMode, false)
+            compare(c.tool, "area")
+            mouseDrag(c, start.x, start.y + 40, paper.width * .4, paper.height * .1, Qt.LeftButton, Qt.NoModifier, 40)
+            tryVerify(function() { return c.savedHighlights.some(function(h) { return h.kind === "area" }) }, 10000)
+            compare(c.tool, "")
+            compare(ai.images.length, 0)
         }
         function test_9z_organizeTabsAppliesOnlyOnApply() {
             verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))

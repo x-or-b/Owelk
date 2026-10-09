@@ -4,18 +4,20 @@
 
 // Undo history. An annotation step stores the row before and after a change (a new annotation's
 // "before" is the same row, deleted), so undo and redo are one UPDATE each and nothing is lost:
-// annotations are only soft-deleted. A capture step moves the capture to or from the trash.
+// annotations are only soft-deleted.
 
 namespace {
 constexpr int historyLimit = 100;
-QString kindName(const QString &kind)
+}
+
+QString ResearchStore::annotationName(const QString &kind)
 {
     if (kind == "draw") return "Drawing";
     if (kind == "text") return "Text Box";
     if (kind == "image") return "Image";
     if (kind == "comment") return "Comment";
+    if (kind == "area") return "Region";
     return "Highlight";
-}
 }
 
 QVariantMap ResearchStore::annotationState(const QString &id) const
@@ -70,19 +72,7 @@ void ResearchStore::recordAnnotation(const QString &id, const QVariantMap &befor
     }
     if (previous == after) return;
     pushHistory(after.value("document").toString(),
-        {"annotation", id, label.isEmpty() ? kindName(after.value("kind").toString()) : label, previous, after});
-}
-
-void ResearchStore::recordCapture(const QString &id, bool trashed)
-{
-    if (m_replaying) return;
-    QSqlQuery query(m_database);
-    query.prepare("SELECT document_id FROM captures WHERE id=?");
-    query.addBindValue(id);
-    if (!query.exec() || !query.next()) return;
-    const auto document = query.value(0).toString();
-    pushHistory(document,
-        {"capture", id, trashed ? "Delete Capture" : "Capture", {{"trashed", !trashed}}, {{"trashed", trashed}}});
+        {id, label.isEmpty() ? annotationName(after.value("kind").toString()) : label, previous, after});
 }
 
 bool ResearchStore::canUndo(const QUrl &source) const
@@ -106,11 +96,7 @@ bool ResearchStore::replay(const QUrl &source, bool forward)
     const auto step = from.takeLast();
     const auto &state = forward ? step.after : step.before;
     m_replaying = true;
-    bool ok = false;
-    if (step.type == "annotation")
-        ok = applyAnnotationState(step.id, state);
-    else if (step.type == "capture")
-        ok = state.value("trashed").toBool() ? deleteCapture(step.id) : restoreCapture(step.id);
+    const bool ok = applyAnnotationState(step.id, state);
     m_replaying = false;
     if (ok) (forward ? m_undo : m_redo)[document].append(step);
     ++m_historyRevision;

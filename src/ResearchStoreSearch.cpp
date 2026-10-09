@@ -86,25 +86,25 @@ struct Query {
     }
 };
 
-// Saved names, notes, excerpts and annotations. PDF body text is searched by PaperIndex.
+// Saved names, notes and annotations. PDF body text is searched by PaperIndex.
 // Runs on the UI thread for tests and on a worker with its own read-only connection for the app.
 // allowed: when set, only papers with these URLs (library filters) and their saved items are searched.
-QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures, const QList<QUrl> &indexed,
-    const QString &queryText, const QUrl &scope, const QString &target, const std::optional<QSet<QString>> &allowed)
+QVariantList findKnowledge(const QSqlDatabase &db, const QList<QUrl> &indexed, const QString &queryText,
+    const QUrl &scope, const QString &target, const std::optional<QSet<QString>> &allowed)
 {
     const Query query(queryText);
     if (query.terms.isEmpty()) return {};
     const auto needle = query.phrase;
     const bool names = target == "all" || target == "filename";
-    const bool saved = target == "all" || target == "captures";
+    const bool saved = target == "all" || target == "notes";
     const auto inScope = [&](const QUrl &url) {
         return (scope.isEmpty() || url == scope) && (!allowed || allowed->contains(url.toString()));
     };
     QVariantList results;
     // Kinds start from a small weight so a strong title match of any kind can still come first.
     const auto add = [&](QVariantMap row, int score) {
-        static const QHash<QString, int> weight{{"paper", 12}, {"standalone-note", 8}, {"note", 7}, {"capture", 6},
-            {"highlight", 6}, {"ai", 5}, {"collection", 4}, {"tag", 4}};
+        static const QHash<QString, int> weight{
+            {"paper", 12}, {"note", 8}, {"highlight", 6}, {"ai", 5}, {"collection", 4}, {"tag", 4}};
         row.insert("score", score + weight.value(row.value("kind").toString()));
         results.append(row);
     };
@@ -156,35 +156,6 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
     }
 
     if (saved) {
-        int notes = 0, excerpts = 0;
-        for (const auto &value : captures) {
-            if (notes >= 20 && excerpts >= 20) break;
-            const auto capture = value.toMap();
-            if (!inScope(capture.value("source").toUrl())) continue;
-            const auto title
-                = capture.value("name").toString() + " · p. " + QString::number(capture.value("page").toInt() + 1);
-            const auto note = capture.value("note").toString();
-            if (notes < 20 && query.matches({note})) {
-                add(QVariantMap{{"kind", "note"}, {"id", capture.value("id")}, {"source", capture.value("source")},
-                        {"title", "Note · " + title}, {"snippet", snippet(note, query.firstHit(note), needle.size())}},
-                    query.score({}, note));
-                ++notes;
-            }
-            if (excerpts >= 20) continue;
-            // Region captures are found by their figure or table caption.
-            const auto text = capture.value("text").toString().isEmpty() ? capture.value("caption").toString()
-                                                                         : capture.value("text").toString();
-            // Captures match their paper's title or file name as well as their text.
-            if (!query.matches({text, title, fileName(capture.value("source").toUrl())})) continue;
-            add(QVariantMap{{"kind", "capture"}, {"title", title}, {"id", capture.value("id")},
-                    {"source", capture.value("source")},
-                    {"snippet", snippet(text, query.firstHit(text), needle.size())}},
-                query.score({}, text));
-            ++excerpts;
-        }
-    }
-
-    if (target == "all") {
         QSqlQuery highlights(db);
         highlights.prepare(
             "SELECT h.id,d.url,h.page,h.text,h.body FROM highlights h JOIN documents d ON d.id=h.document_id "
@@ -208,7 +179,7 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
         }
     }
 
-    if ((target == "all" || target == "captures") && scope.isEmpty() && !allowed) {
+    if (saved && scope.isEmpty() && !allowed) {
         // Standalone notes belong to no paper, so a paper scope leaves them out.
         QSqlQuery notes(db);
         notes.prepare("SELECT id,title,body FROM notes WHERE deleted_at IS NULL AND "
@@ -222,7 +193,7 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
                 const auto body = notes.value(2).toString();
                 const auto title = notes.value(1).toString();
                 if (!query.matches({title, body})) continue;
-                add(QVariantMap{{"kind", "standalone-note"}, {"id", notes.value(0)},
+                add(QVariantMap{{"kind", "note"}, {"id", notes.value(0)},
                         {"title", "Note · " + (title.isEmpty() ? QStringLiteral("Untitled") : title)},
                         {"snippet", snippet(body, query.firstHit(body), needle.size())}},
                     query.score(title, body));
@@ -300,7 +271,7 @@ QVariantList ResearchStore::searchKnowledge(
 {
     QList<QUrl> indexed;
     for (const auto &entry : m_index->documents()) indexed.append(entry.toMap().value("source").toUrl());
-    return findKnowledge(m_database, m_captures, indexed, queryText, scope, target, allowedUrls(scopeUrls));
+    return findKnowledge(m_database, indexed, queryText, scope, target, allowedUrls(scopeUrls));
 }
 
 int ResearchStore::searchKnowledgeAsync(
@@ -314,14 +285,12 @@ int ResearchStore::searchKnowledgeAsync(
         watcher->deleteLater();
         emit knowledgeFound(request, rows);
     });
-    // The capture list is an implicitly shared snapshot; later reloads detach and never touch this copy.
-    watcher->setFuture(QtConcurrent::run(
-        &m_verifiers, [directory = m_directory, captures = m_captures, queryText, scope, target, allowed] {
-            WorkerConnection store(directory + "/owelk.sqlite3", true);
-            WorkerConnection search(directory + "/search.sqlite3", true);
-            if (!store.db.isOpen()) return QVariantList();
-            return findKnowledge(store.db, captures, search.db.isOpen() ? indexedSources(search.db) : QList<QUrl>(),
-                queryText, scope, target, allowed);
-        }));
+    watcher->setFuture(QtConcurrent::run(&m_verifiers, [directory = m_directory, queryText, scope, target, allowed] {
+        WorkerConnection store(directory + "/owelk.sqlite3", true);
+        WorkerConnection search(directory + "/search.sqlite3", true);
+        if (!store.db.isOpen()) return QVariantList();
+        return findKnowledge(store.db, search.db.isOpen() ? indexedSources(search.db) : QList<QUrl>(), queryText, scope,
+            target, allowed);
+    }));
     return request;
 }

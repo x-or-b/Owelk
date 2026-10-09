@@ -6,7 +6,7 @@
 - Use `Theme.accent` (default blue, user-selectable) only for state and emphasis: selection, primary buttons, focus, links, progress, matches. Hover is always `Theme.hover`. Keep surfaces neutral; red remains reserved for errors/destructive actions.
 - Do not use computer-use MCP tools. Use offscreen automated tests; ask the user for actual desktop/trackpad checks.
 - Stop and ask the user when a required decision or external permission cannot be resolved safely within the task.
-- Preserve original PDFs, captures and reading state. Never silently reconnect a different PDF version.
+- Preserve original PDFs, annotations and reading state. Never silently reconnect a different PDF version.
 - Build: `cmake --build build --parallel 6`
 - Test: `ctest --test-dir build --output-on-failure`
 - Update `docs/STATUS.md` and `docs/NEXT.md` when a development stage changes.

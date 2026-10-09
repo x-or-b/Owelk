@@ -13,6 +13,7 @@
 #include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QImageReader>
 #include <QTextDocument>
 #include <QRegularExpression>
 #include <QSet>
@@ -24,7 +25,7 @@ QString now()
 {
     return QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
 }
-const QStringList linkKinds{"note", "capture", "highlight", "document", "ai"};
+const QStringList linkKinds{"note", "highlight", "document", "ai"};
 QString text(const QString &value)
 {
     return value.isNull() ? QStringLiteral("") : value;
@@ -142,7 +143,7 @@ bool ResearchStore::purgeNote(const QString &id)
 // Links written into a note body as owelk://<kind>/<id> are the note's outgoing links.
 void ResearchStore::syncNoteLinks(const QString &noteId, const QString &body)
 {
-    static const QRegularExpression link("owelk://(note|capture|highlight|document|ai)/([A-Za-z0-9\\-]+)");
+    static const QRegularExpression link("owelk://(note|highlight|document|ai)/([A-Za-z0-9\\-]+)");
     QSet<QPair<QString, QString>> targets;
     for (auto it = link.globalMatch(body); it.hasNext();) {
         const auto match = it.next();
@@ -223,19 +224,49 @@ QString takeMath(const QString &markdown, QList<MathSpan> *found)
     }
     return found->isEmpty() ? markdown : out + markdown.mid(last);
 }
+
+// Pictures (![](…)): Qt's Markdown reader leaves them out, so they are taken out first and put back
+// after it. Only files on this computer are shown, never fetched from the web; annotations/… is
+// relative to the data folder (clips kept with the library).
+QString takePictures(const QString &markdown, const QString &directory, QStringList *found)
+{
+    static const QRegularExpression picture(R"(!\[[^\]\n]*\]\(([^)\s]+)\))");
+    QString out;
+    qsizetype last = 0;
+    for (auto it = picture.globalMatch(markdown); it.hasNext();) {
+        const auto m = it.next();
+        const auto target = m.captured(1);
+        const auto url
+            = target.startsWith("annotations/") ? QUrl::fromLocalFile(directory + "/" + target) : QUrl(target);
+        if (!url.isLocalFile()) continue;
+        out += markdown.mid(last, m.capturedStart() - last) + QStringLiteral("OWELKPICTURE%1X").arg(found->size());
+        found->append(url.toString());
+        last = m.capturedEnd();
+    }
+    return found->isEmpty() ? markdown : out + markdown.mid(last);
+}
 } // namespace
 
 QString ResearchStore::markdownHtml(
     const QString &markdown, const QString &linkColor, const QString &textColor, int pixelSize) const
 {
     QList<MathSpan> math;
-    const auto prepared = takeMath(markdown, &math);
+    QStringList pictures;
+    const auto prepared = takePictures(takeMath(markdown, &math), m_directory, &pictures);
     // Markdown rendered as rich text bakes Qt's default link blue into the HTML; use the app accent instead.
     QTextDocument document;
     document.setMarkdown(prepared);
     auto html = document.toHtml();
     static const QRegularExpression blue("color:\\s*#0000ff", QRegularExpression::CaseInsensitiveOption);
     if (QColor::isValidColorName(linkColor)) html.replace(blue, "color:" + linkColor);
+    for (qsizetype i = 0; i < pictures.size(); ++i) {
+        // At its own size, up to a column's width; the height follows.
+        const auto size = QImageReader(QUrl(pictures[i]).toLocalFile()).size();
+        html.replace(QStringLiteral("OWELKPICTURE%1X").arg(i),
+            QStringLiteral("<img src=\"%1\" width=\"%2\" />")
+                .arg(pictures[i].toHtmlEscaped())
+                .arg(size.isValid() ? std::min(size.width(), 480) : 320));
+    }
     if (math.isEmpty()) return html;
     const QColor ink = QColor::isValidColorName(textColor) ? QColor(textColor) : QColor("#1d1d1f");
     const int size = pixelSize > 0 ? pixelSize : 14;
@@ -331,18 +362,6 @@ QVariantMap ResearchStore::linkTarget(const QString &kind, const QString &id) co
         const QUrl url(query.value(0).toString());
         return {{"kind", kind}, {"id", id}, {"title", displayName(url)}, {"source", url}};
     }
-    if (kind == "capture") {
-        for (const auto &value : m_captures) {
-            const auto capture = value.toMap();
-            if (capture["id"].toString() != id) continue;
-            const auto excerpt = capture["text"].toString().simplified().left(80);
-            return {{"kind", kind}, {"id", id}, {"source", capture["source"]},
-                {"title",
-                    (excerpt.isEmpty() ? QStringLiteral("Region") : "“" + excerpt + "”") + " · "
-                        + capture["name"].toString() + " · p. " + QString::number(capture["page"].toInt() + 1)}};
-        }
-        return {};
-    }
     if (kind == "highlight") {
         query.prepare("SELECT d.url,h.page,h.text,h.kind FROM highlights h JOIN documents d ON d.id=h.document_id "
                       "WHERE h.id=? AND h.deleted_at IS NULL");
@@ -352,8 +371,8 @@ QVariantMap ResearchStore::linkTarget(const QString &kind, const QString &id) co
         const auto excerpt = query.value(2).toString().simplified().left(80);
         return {{"kind", kind}, {"id", id}, {"source", url},
             {"title",
-                (excerpt.isEmpty() ? query.value(3).toString() : "“" + excerpt + "”") + " · " + displayName(url)
-                    + " · p. " + QString::number(query.value(1).toInt() + 1)}};
+                (excerpt.isEmpty() ? annotationName(query.value(3).toString()) : "“" + excerpt + "”") + " · "
+                    + displayName(url) + " · p. " + QString::number(query.value(1).toInt() + 1)}};
     }
     if (kind == "ai") {
         query.prepare("SELECT title FROM ai_threads WHERE id=?");
@@ -366,13 +385,12 @@ QVariantMap ResearchStore::linkTarget(const QString &kind, const QString &id) co
 
 QVariantList ResearchStore::backlinks(const QString &kind, const QString &id) const
 {
-    // A paper's backlinks include links to its captures and highlights.
+    // A paper's backlinks include links to its annotations.
     QStringList conditions{"(to_kind=? AND to_id=?)"};
     QVariantList args{kind, id};
     if (kind == "document") {
-        conditions << "(to_kind='capture' AND to_id IN (SELECT id FROM captures WHERE document_id=?))"
-                   << "(to_kind='highlight' AND to_id IN (SELECT id FROM highlights WHERE document_id=?))";
-        args << id << id;
+        conditions << "(to_kind='highlight' AND to_id IN (SELECT id FROM highlights WHERE document_id=?))";
+        args << id;
     }
     QSqlQuery query(m_database);
     query.prepare("SELECT DISTINCT from_kind,from_id,to_kind,to_id FROM links WHERE " + conditions.join(" OR ")
@@ -395,7 +413,7 @@ QVariantList ResearchStore::backlinks(const QString &kind, const QString &id) co
 
 QVariantList ResearchStore::linkCandidates(const QString &queryText) const
 {
-    // For the [[ picker: notes, papers, excerpts and annotations matching the text.
+    // For the [[ picker: notes, papers and annotations matching the text.
     QVariantList rows;
     const auto needle = queryText.trimmed();
     for (const auto &value : notes(false)) {
@@ -412,7 +430,7 @@ QVariantList ResearchStore::linkCandidates(const QString &queryText) const
             const auto document = findDocument(row["source"].toUrl());
             if (!document.isEmpty())
                 rows.append(QVariantMap{{"kind", "document"}, {"id", document}, {"title", row["title"]}});
-        } else if (kind == "capture" || kind == "highlight")
+        } else if (kind == "highlight")
             rows.append(QVariantMap{{"kind", kind}, {"id", row["id"]},
                 {"title", row["title"].toString() + " · " + row["snippet"].toString().left(60)}});
         if (rows.size() >= 20) break;
@@ -459,7 +477,7 @@ QVariantList ResearchStore::notesSharing(const QStringList &terms, const QString
         if (shared < needed) continue;
         const auto title = query.value(1).toString();
         scored.append({shared,
-            QVariantMap{{"kind", "standalone-note"}, {"id", query.value(0)},
+            QVariantMap{{"kind", "note"}, {"id", query.value(0)},
                 {"title", title.isEmpty() ? QStringLiteral("Untitled") : title}}});
     }
     std::stable_sort(scored.begin(), scored.end(), [](const auto &a, const auto &b) { return a.first > b.first; });

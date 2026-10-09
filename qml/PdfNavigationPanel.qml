@@ -17,7 +17,7 @@ Item {
     Timer { id: drawnSettle; interval: 140; onTriggered: root.drawnWidth = root.width }
     signal modeChosen(int mode)
     signal linkActivated(string link)
-    // Notes that link to this paper or to its excerpts and annotations.
+    // Notes that link to this paper or to its annotations.
     readonly property var backlinks: {
         const revision = linkRevision
         return root.reader && root.reader.source.toString().length ? researchStore.backlinks("document", researchStore.documentLinkId(root.reader.source)) : []
@@ -163,7 +163,7 @@ Item {
                 id: relatedColumn
                 width: parent.width
                 spacing: 2
-                // Notes linking to this paper or to its excerpts and annotations.
+                // Notes linking to this paper or to its annotations.
                 Label { visible: root.backlinks.length > 0; text: "Linked notes"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4 }
                 Repeater {
                     model: root.backlinks

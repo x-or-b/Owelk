@@ -11,8 +11,8 @@ Item {
     ToolButton { id: toolButton; y: 50; text: "Filters" }
     TextField { id: field; y: 90; text: "Query" }
     TextArea { id: area; y: 140; text: "Note" }
-    ComboBox { id: combo; y: 190; model: ["Everything", "Captures"] }
-    Menu { id: menu; MenuItem { text: "Delete" } MenuItem { objectName: "longItem"; text: "Export Highlights and Captures as Markdown…" } }
+    ComboBox { id: combo; y: 190; model: ["Everything", "Notes"] }
+    Menu { id: menu; MenuItem { text: "Delete" } MenuItem { objectName: "longItem"; text: "Export Annotations as Markdown…" } }
     Dialog { id: dialog; title: "Rounded dialog"; standardButtons: Dialog.Ok | Dialog.Cancel }
     ItemDelegate { id: row; y: 240; width: 200; text: "Paper" }
     Label { id: cut; y: 290; width: 60; text: "A long paper title that cannot fit"; elide: Text.ElideRight }
