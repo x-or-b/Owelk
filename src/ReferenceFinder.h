@@ -48,9 +48,10 @@ public:
     // Answered by objectFound(request, target); never dropped for a newer hover.
     Q_INVOKABLE int objectAt(const QUrl &source, int page, const QPointF &point);
     static QVariantMap findObject(QPdfDocument &pdf, int page, const QPointF &point);
-    // The word and the character under a point (PDF points), for symbol hints: {word, glyph, x, y,
-    // width, height (the word's box)}, or {}. Answered by wordFound(request, word).
-    Q_INVOKABLE int wordAt(const QUrl &source, int page, const QPointF &point);
+    // The word and the character under a point (PDF points; tolerance: how far off a glyph still counts),
+    // for symbol hints: {word, glyph, plainWord, plainGlyph (math letters as plain ones, no spaces), page,
+    // x, y, width, height (the word's box)}, or {}. Answered by wordFound(request, word).
+    Q_INVOKABLE int wordAt(const QUrl &source, int page, const QPointF &point, qreal tolerance = 2);
 
 signals:
     void resolved(int request, const QVariantMap &target);

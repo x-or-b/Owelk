@@ -811,7 +811,20 @@ QString AiService::continueExplanation(const QString &key)
 QVariantList AiService::notation(const QUrl &source)
 {
     if (source.isEmpty()) return {};
-    return explanation(explanationKey({{"source", source}, {"kind", "notation"}})).value("symbols").toList();
+    auto symbols = explanation(explanationKey({{"source", source}, {"kind", "notation"}})).value("symbols").toList();
+    // How each symbol may be printed, as plain forms (math letters as plain ones, no spaces), to match
+    // the word under the pointer (ReferenceFinder::wordAt).
+    for (auto &value : symbols) {
+        auto entry = value.toMap();
+        QStringList match;
+        for (const auto &form : entry.value("text").toStringList()) {
+            const auto plain = form.normalized(QString::NormalizationForm_KC).remove(QRegularExpression("\\s"));
+            if (!plain.isEmpty() && !match.contains(plain)) match << plain;
+        }
+        entry.insert("match", match);
+        value = entry;
+    }
+    return symbols;
 }
 
 void AiService::cancel(int request)

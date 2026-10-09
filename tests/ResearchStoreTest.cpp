@@ -491,6 +491,102 @@ private slots:
         QVERIFY(!steps.contains(at("After the selection")));
         QVERIFY(ReferenceFinder::findObject(math, 0, at("propagated with")).isEmpty());
     }
+    void twoColumnPagesKeepObjectsInTheirColumn()
+    {
+        // A two-column page: body text on the left beside an algorithm on the right, line for line (their
+        // lines once ran together across the gutter), then two figures and a table caption side by side.
+        QTemporaryDir directory;
+        const auto path = directory.filePath("columns.pdf");
+        {
+            QPdfWriter writer(path);
+            writer.setPageSize(QPageSize(QPageSize::A4));
+            writer.setResolution(72);
+            QPainter painter(&writer);
+            painter.setFont(QFont("Helvetica", 9));
+            // Column by column, as typesetting writes them.
+            for (int line = 0; line < 22; ++line)
+                painter.drawText(
+                    30, 60 + line * 12, QString("Body text of the left column, line %1 here.").arg(line + 1));
+            for (int line = 0; line < 22; ++line) {
+                if (line == 0)
+                    painter.drawText(300, 60, "Algorithm 1 Frontier Selection");
+                else if (line == 1)
+                    painter.drawText(300, 72, "Require: frontier set F");
+                else
+                    painter.drawText(
+                        300 + (line % 3) * 8, 60 + line * 12, QString("%1: x%1 = step(x, %1)").arg(line - 1));
+            }
+            painter.drawText(30, 360, "After the steps the paper goes on in the left column as usual text.");
+            painter.fillRect(QRect(40, 400, 220, 120), QColor("#bbbbbb"));
+            painter.drawText(30, 540, "Fig. 6: The left figure.");
+            painter.fillRect(QRect(310, 400, 220, 90), QColor("#bbbbbb"));
+            painter.drawText(300, 510, "Fig. 8: The right figure.");
+            painter.drawText(300, 530, "TABLE IV: The right table");
+            painter.drawText(300, 548, "Method   Error   Time");
+            painter.drawText(300, 562, "Ours     0.10    12");
+            painter.fillRect(QRect(40, 570, 220, 80), QColor("#bbbbbb"));
+            painter.drawText(30, 666, "Fig. 7: Another left figure.");
+            for (int line = 0; line < 6; ++line)
+                painter.drawText(
+                    300, 600 + line * 12, QString("More text of the right column, line %1 here.").arg(line + 1));
+        }
+        QPdfDocument pdf;
+        QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+        const auto text = pdf.getAllText(0).text();
+        const auto at = [&](const QString &words) {
+            return pdf.getSelectionAtIndex(0, int(text.indexOf(words)), int(words.size())).boundingRectangle().center();
+        };
+        const auto label
+            = [&](const QPointF &point) { return ReferenceFinder::findObject(pdf, 0, point)["label"].toString(); };
+        // Every step of the algorithm, also the last ones beside the body text.
+        QCOMPARE(label(at("1: x1")), QString("Algorithm 1"));
+        QCOMPARE(label(at("19: x19")), QString("Algorithm 1"));
+        QVERIFY(label(at("line 20 here")).isEmpty());
+        // Each figure in its own column; a table's title is the table's.
+        const auto rightFigure = at("Fig. 8") - QPointF(-60, 60);
+        QCOMPARE(label(rightFigure), QString("Figure 8"));
+        QCOMPARE(label(at("Fig. 6") - QPointF(-60, 60)), QString("Figure 6"));
+        QCOMPARE(label(at("TABLE IV")), QString("Table IV"));
+        QCOMPARE(label(at("Ours")), QString("Table IV"));
+        QCOMPARE(label(at("Fig. 7") - QPointF(-60, 40)), QString("Figure 7"));
+    }
+    void wordsUnderThePointerAreFoundAcrossTheWholeGlyph()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("symbols.pdf");
+        {
+            QPdfWriter writer(path);
+            writer.setResolution(72);
+            QPainter painter(&writer);
+            painter.setFont(QFont("Helvetica", 28));
+            painter.drawText(40, 80, QString::fromUtf8("x ⊞ δx and y"));
+        }
+        QPdfDocument pdf;
+        QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+        const auto text = pdf.getAllText(0).text();
+        const auto box = [&](const QString &part) {
+            return pdf.getSelectionAtIndex(0, int(text.indexOf(part)), int(part.size())).boundingRectangle();
+        };
+        ReferenceFinder finder(std::make_shared<std::atomic_bool>(false));
+        QSignalSpy found(&finder, &ReferenceFinder::wordFound);
+        const auto source = QUrl::fromLocalFile(path);
+        const auto wordAt = [&](const QPointF &point) {
+            const auto before = found.size();
+            finder.wordAt(source, 0, point, 1);
+            [&] { QTRY_COMPARE_WITH_TIMEOUT(found.size(), before + 1, 5000); }();
+            return found.last().at(1).toMap();
+        };
+        // Anywhere on the glyph: its middle, near its left edge, near its top (a short selection used to
+        // find a character only at the glyph's right edge).
+        const auto symbol = box(QString::fromUtf8("⊞"));
+        QVERIFY(!symbol.isEmpty());
+        for (const auto &point : {symbol.center(), QPointF(symbol.left() + 1, symbol.center().y()),
+                 QPointF(symbol.center().x(), symbol.top() + 1)})
+            QCOMPARE(wordAt(point)["glyph"].toString(), QString::fromUtf8("⊞"));
+        QCOMPARE(wordAt(box("δx").center())["word"].toString(), QString::fromUtf8("δx"));
+        // Off the text by more than the tolerance: nothing.
+        QVERIFY(wordAt(QPointF(symbol.center().x(), symbol.bottom() + 20)).isEmpty());
+    }
     void notesLinksBacklinksAndTrash()
     {
         QTemporaryDir directory;

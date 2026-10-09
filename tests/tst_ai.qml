@@ -615,10 +615,19 @@ Item {
             // Words are not symbols.
             compare(c.symbolFor({word: "a", glyph: "a"}), null)
             compare(c.symbolFor({word: "bias", glyph: "b"}), null)
-            c.symbolHint = {entry: c.symbols[0], x: 100, y: 100}
+            // Plain forms: math letters as plain ones.
+            c.symbols = c.symbols.concat([{symbol: "\\mathbf{p}_r", text: ["𝐩𝑟"], match: ["pr"], meaning: "robot position", page: 4}])
+            compare(c.symbolFor({word: "𝐩𝑟", plainWord: "pr", glyph: "𝐩", plainGlyph: "p"}).meaning, "robot position")
+            c.symbolHint = {entry: c.symbols[0], page: 0, box: Qt.rect(10, 10, 5, 5), x: 100, y: 100}
             const tip = findChild(c, "symbolHint")
             verify(tip.visible)
             verify(tip.width > 40 && tip.width <= 320)
+            // It stays while the pointer moves on the symbol, and goes once it leaves.
+            c.restOn(0, Qt.point(13, 12), Qt.point(104, 101))
+            verify(tip.visible)
+            c.restOn(0, Qt.point(30, 12), Qt.point(120, 101))
+            verify(!tip.visible)
+            c.symbolHint = {entry: c.symbols[0], page: 0, box: Qt.rect(10, 10, 5, 5), x: 100, y: 100}
             c.leaveRest()
             verify(!tip.visible)
             c.symbols = []

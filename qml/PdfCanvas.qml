@@ -1521,7 +1521,12 @@ Item {
     property bool referenceFallback: false
     function restOn(page, point, viewPoint) {
         if (!ready || captureMode || tool.length || selecting || pinching) { referenceRest.stop(); return }
-        if (symbolHint && Math.abs(viewPoint.x - symbolHint.x) + Math.abs(viewPoint.y - symbolHint.y) > 6) symbolHint = null
+        // The hint stays while the pointer is on its symbol.
+        if (symbolHint) {
+            const b = symbolHint.box, slack = 1.5
+            if (page !== symbolHint.page || point.x < b.x - slack || point.x > b.x + b.width + slack
+                    || point.y < b.y - slack || point.y > b.y + b.height + slack) symbolHint = null
+        }
         // Moving off the reference that opened the card lets it go (unless the pointer goes into the card).
         if (linkPreview && linkPreview.fromText && Math.abs(viewPoint.x - linkPreview.anchorX) + Math.abs(viewPoint.y - linkPreview.anchorY) > 18) leaveLinkPreview()
         restSpot = {page: page, x: point.x, y: point.y, viewX: viewPoint.x, viewY: viewPoint.y}
@@ -1536,7 +1541,9 @@ Item {
     function resolveReference(spot) {
         referenceFallback = false
         referenceRequest = researchStore.references.resolve(source, spot.page, Qt.point(spot.x, spot.y))
-        if (symbols.length && symbolHints) symbolRequest = researchStore.references.wordAt(source, spot.page, Qt.point(spot.x, spot.y))
+        // A few pixels off a glyph still count, at any zoom.
+        if (symbols.length && symbolHints && !symbolHint)
+            symbolRequest = researchStore.references.wordAt(source, spot.page, Qt.point(spot.x, spot.y), Math.max(.5, 3 / pageScale))
     }
     // Symbol hints: once the paper's symbols are listed (Explain › Symbols in This Paper), resting on one
     // shows what it means. [{symbol (LaTeX), text (as printed), meaning, page (0: background)}]
@@ -1554,12 +1561,13 @@ Item {
         target: researchStore
         function onSettingsChanged() { root.symbolHints = researchStore.setting("ai.symbolHints", "1") === "1" }
     }
-    // The symbol for the word under the pointer: the word as printed, a shorter start of it (ωmi for
-    // ωm), or a Greek letter or operator inside it. Plain words never match ("a" and "I" are words).
+    // The symbol for the word under the pointer, compared in plain forms (𝑥 as x, no spaces): the word as
+    // printed, a shorter start of it (ωmi for ωm), or a Greek letter or operator inside it. Plain words never
+    // match ("a" and "I" are words).
     function symbolFor(word) {
-        const w = (word.word || "").replace(/[.,;:]+$/, ""), glyph = word.glyph || ""
+        const w = (word.plainWord || word.word || "").replace(/[.,;:]+$/, ""), glyph = word.plainGlyph || word.glyph || ""
         if (!w.length || /^(a|A|I)$/.test(w)) return null
-        const printed = function(form) { return symbols.find(function(s) { return (s.text || []).indexOf(form) >= 0 }) || null }
+        const printed = function(form) { return symbols.find(function(s) { return (s.match || s.text || []).indexOf(form) >= 0 }) || null }
         let found = printed(w)
         for (let n = w.length - 1; !found && n >= 1 && w.length <= 8; --n) {
             const start = w.slice(0, n)
@@ -1573,7 +1581,8 @@ Item {
         function onWordFound(request, word) {
             if (request !== root.symbolRequest || !root.restSpot) return
             const entry = word.word ? root.symbolFor(word) : null
-            root.symbolHint = entry ? {entry: entry, x: root.restSpot.viewX, y: root.restSpot.viewY} : null
+            root.symbolHint = entry ? {entry: entry, page: word.page, box: Qt.rect(word.x, word.y, word.width, word.height),
+                                       x: root.restSpot.viewX, y: root.restSpot.viewY} : null
         }
     }
     Timer { id: referenceRest; interval: 350; onTriggered: if (root.restSpot) root.resolveReference(root.restSpot) }
