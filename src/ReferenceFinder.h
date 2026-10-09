@@ -42,9 +42,20 @@ public:
     // caption (its text)}, or {} when the page has no text to go by. Figure and table previews show
     // this area, and Ask AI sends it.
     static QVariantMap floatRegion(QPdfDocument &pdf, int page, const QRectF &captionLine, bool table);
+    // The figure, table, algorithm or displayed equation at a point (PDF points), for Explain:
+    // {kind (figure | table | algorithm | equation), label ("Figure 3", "Algorithm 1", "Equation (2)"),
+    // page, x, y, width, height (the whole object with its caption, PDF points), caption}, or {}.
+    // Answered by objectFound(request, target); never dropped for a newer hover.
+    Q_INVOKABLE int objectAt(const QUrl &source, int page, const QPointF &point);
+    static QVariantMap findObject(QPdfDocument &pdf, int page, const QPointF &point);
+    // The word and the character under a point (PDF points), for symbol hints: {word, glyph, x, y,
+    // width, height (the word's box)}, or {}. Answered by wordFound(request, word).
+    Q_INVOKABLE int wordAt(const QUrl &source, int page, const QPointF &point);
 
 signals:
     void resolved(int request, const QVariantMap &target);
+    void objectFound(int request, const QVariantMap &target);
+    void wordFound(int request, const QVariantMap &word);
 
 private:
     QVariantMap find(const QString &path, int page, const QPointF &point, int request);

@@ -428,6 +428,69 @@ private slots:
         QVERIFY2(region["caption"].toString().startsWith("Figure 1. Capture this chart"),
             qPrintable(region["caption"].toString()));
     }
+    void explainFindsTheObjectUnderThePointer()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("objects.pdf");
+        writeFixture(path, "Object Paper", 1);
+        QPdfDocument pdf;
+        QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+        // Inside the chart (430-595) and on its caption: the figure with its caption.
+        for (const auto &point : {QPointF(250, 500), QPointF(120, 620)}) {
+            const auto figure = ReferenceFinder::findObject(pdf, 0, point);
+            QCOMPARE(figure["kind"].toString(), QString("figure"));
+            QCOMPARE(figure["label"].toString(), QString("Figure 1"));
+            QCOMPARE(figure["page"].toInt(), 0);
+        }
+        // Running text is no object.
+        QVERIFY(ReferenceFinder::findObject(pdf, 0, QPointF(120, 230)).isEmpty());
+
+        // A displayed equation between paragraphs, and an algorithm with its steps.
+        const auto mathPath = directory.filePath("math.pdf");
+        {
+            QPdfWriter writer(mathPath);
+            writer.setPageSize(QPageSize(QPageSize::A4));
+            writer.setResolution(72);
+            QPainter painter(&writer);
+            painter.setFont(QFont("Helvetica", 11));
+            painter.drawText(35, 100, "The state is propagated with the motion model of the robot as follows:");
+            painter.drawText(150, 140, QString::fromUtf8("x = A x + B u + w"));
+            painter.drawText(500, 140, "(2)");
+            painter.drawText(35, 180, "where the noise term is drawn from a zero mean Gaussian distribution here.");
+            painter.drawText(35, 260, "Algorithm 1 Frontier Selection");
+            painter.drawText(35, 280, "Require: frontier set F, robot position p");
+            painter.drawText(35, 298, "1: for each frontier f in F do");
+            painter.drawText(35, 316, "2: score f by distance");
+            painter.drawText(35, 334, "3: end for");
+            painter.drawText(
+                35, 400, "After the selection the robot moves to the best frontier and the map is updated.");
+            painter.drawText(35, 418, "This continues until the goal object is found or the time budget is spent.");
+        }
+        QPdfDocument math;
+        QCOMPARE(math.load(mathPath), QPdfDocument::Error::None);
+        // Points on the words themselves (the writer adds page margins).
+        const auto text = math.getAllText(0).text();
+        const auto at = [&](const QString &words) {
+            return math.getSelectionAtIndex(0, int(text.indexOf(words)), int(words.size()))
+                .boundingRectangle()
+                .center();
+        };
+        const auto equation = ReferenceFinder::findObject(math, 0, at("B u"));
+        QCOMPARE(equation["kind"].toString(), QString("equation"));
+        QCOMPARE(equation["label"].toString(), QString("Equation (2)"));
+        const QRectF box(equation["x"].toDouble(), equation["y"].toDouble(), equation["width"].toDouble(),
+            equation["height"].toDouble());
+        QVERIFY(box.contains(at("(2)")) && box.contains(at("x = A")));
+        QVERIFY(box.bottom() < at("where the noise").y() && box.top() > at("The state").y());
+        const auto algorithm = ReferenceFinder::findObject(math, 0, at("score f"));
+        QCOMPARE(algorithm["kind"].toString(), QString("algorithm"));
+        QCOMPARE(algorithm["label"].toString(), QString("Algorithm 1"));
+        const QRectF steps(algorithm["x"].toDouble(), algorithm["y"].toDouble(), algorithm["width"].toDouble(),
+            algorithm["height"].toDouble());
+        QVERIFY(steps.contains(at("Algorithm 1")) && steps.contains(at("3: end")));
+        QVERIFY(!steps.contains(at("After the selection")));
+        QVERIFY(ReferenceFinder::findObject(math, 0, at("propagated with")).isEmpty());
+    }
     void notesLinksBacklinksAndTrash()
     {
         QTemporaryDir directory;

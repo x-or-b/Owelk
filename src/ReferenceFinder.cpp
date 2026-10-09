@@ -49,6 +49,73 @@ bool lineStart(const QString &text, qsizetype index)
     while (index > 0 && (text[index - 1] == ' ' || text[index - 1] == '\t')) --index;
     return index == 0 || text[index - 1] == '\n' || text[index - 1] == '\r';
 }
+// The text lines of a page (PDF points, top to bottom) and whether it is set in two columns (many
+// lines in each half).
+struct PageLines {
+    QList<QRectF> lines;
+    qreal width = 0;
+    bool twoColumns = false;
+};
+
+PageLines pageLines(QPdfDocument &pdf, int page)
+{
+    PageLines result;
+    result.width = pdf.pagePointSize(page).width();
+    SelectionGeometry geometry;
+    for (const auto &value : geometry.lineRectangles(pdf.getAllText(page).bounds())) result.lines << value.toRectF();
+    // Sideways text (arXiv's stamp in the margin) is no line of the page.
+    result.lines.removeIf([](const QRectF &r) { return r.height() > r.width() || r.height() > 60; });
+    std::sort(
+        result.lines.begin(), result.lines.end(), [](const QRectF &a, const QRectF &b) { return a.top() < b.top(); });
+    int left = 0, right = 0;
+    for (const auto &line : result.lines) {
+        if (line.right() <= result.width * .55)
+            ++left;
+        else if (line.left() >= result.width * .45)
+            ++right;
+    }
+    result.twoColumns = left >= 6 && right >= 6;
+    return result;
+}
+
+// The column a box sits in: on a two-column page its half, unless it spans both; else the whole width.
+QPair<qreal, qreal> columnOf(const PageLines &page, const QRectF &box)
+{
+    const qreal w = page.width;
+    if (page.twoColumns) {
+        if (box.right() <= w * .56) return {0, w * .5};
+        if (box.left() >= w * .44) return {w * .5, w};
+    }
+    return {0, w};
+}
+
+QString lineText(QPdfDocument &pdf, int page, const QRectF &line)
+{
+    const qreal y = line.center().y();
+    return pdf.getSelection(page, QPointF(line.left() + .5, y), QPointF(line.right() - .5, y)).text().simplified();
+}
+
+// Running text: several ordinary words (an equation has few, if any, besides function names), or a
+// lead-in ending with a colon.
+bool proseLine(const QString &text)
+{
+    static const QRegularExpression word("[A-Za-z]{3,}");
+    static const QStringList math{"exp", "log", "sin", "cos", "tan", "max", "min", "arg", "argmax", "argmin", "sup",
+        "inf", "lim", "det", "diag", "softmax", "sign", "tanh", "sigmoid", "relu", "mod", "var", "cov", "atan"};
+    int words = 0;
+    for (auto it = word.globalMatch(text); it.hasNext();)
+        if (!math.contains(it.next().captured().toLower())) ++words;
+    return words >= 4 || (words >= 2 && text.trimmed().endsWith(':'));
+}
+
+QVariantMap equationAround(QPdfDocument &pdf, int page, const QPointF &point);
+
+bool mathLine(const QString &text)
+{
+    static const QRegularExpression math(QStringLiteral("[=≜≈≡≤≥<>∈∉⊂⊆∑∏∫∮∂∇√∞±×·⋅∘⊕⊗⊙⊞⊟→←↦‖∥]|[\\x{0370}-\\x{03FF}]|["
+                                                        "\\x{1D400}-\\x{1D7FF}]|\\(\\d{1,3}[a-z]?\\)\\s*$"));
+    return math.match(text).hasMatch();
+}
 } // namespace
 
 ReferenceFinder::ReferenceFinder(std::shared_ptr<std::atomic_bool> readerBusy, QObject *parent)
@@ -154,6 +221,13 @@ QVariantMap ReferenceFinder::find(const QString &path, int page, const QPointF &
         const auto region = floatRegion(pdf, found["page"].toInt(),
             QRectF(found["x"].toDouble(), found["y"].toDouble(), found["width"].toDouble(), found["height"].toDouble()),
             reference["kind"] == "table");
+        if (!region.isEmpty()) found.insert("float", region);
+    }
+    // An equation: its whole display, for Explain.
+    if (reference["kind"] == "equation") {
+        const auto region = equationAround(pdf, found["page"].toInt(),
+            QPointF(found["x"].toDouble() + found["width"].toDouble() / 2,
+                found["y"].toDouble() + found["height"].toDouble() / 2));
         if (!region.isEmpty()) found.insert("float", region);
     }
     found.insert("kind", reference["kind"]);
@@ -413,28 +487,13 @@ QVariantMap ReferenceFinder::floatRegion(QPdfDocument &pdf, int page, const QRec
 {
     if (page < 0 || page >= pdf.pageCount() || captionLine.isEmpty()) return {};
     const auto size = pdf.pagePointSize(page);
-    SelectionGeometry geometry;
-    QList<QRectF> lines;
-    for (const auto &value : geometry.lineRectangles(pdf.getAllText(page).bounds())) lines << value.toRectF();
+    const auto layout = pageLines(pdf, page);
+    const auto &lines = layout.lines;
     if (lines.isEmpty()) return {};
-    std::sort(lines.begin(), lines.end(), [](const QRectF &a, const QRectF &b) { return a.top() < b.top(); });
-    // The caption's column: on a two-column page (many lines in each half) its half, unless the caption
-    // spans both; otherwise the whole width.
+    // The caption's column: on a two-column page its half, unless the caption spans both.
     const qreal w = size.width();
-    int leftLines = 0, rightLines = 0;
-    for (const auto &line : lines) {
-        if (line.right() <= w * .55)
-            ++leftLines;
-        else if (line.left() >= w * .45)
-            ++rightLines;
-    }
-    qreal left = 0, right = w;
-    if (leftLines >= 6 && rightLines >= 6) {
-        if (captionLine.right() <= w * .56)
-            right = w * .5;
-        else if (captionLine.left() >= w * .44)
-            left = w * .5;
-    }
+    const auto column = columnOf(layout, captionLine);
+    const qreal left = column.first, right = column.second;
     const auto inColumn = [&](const QRectF &r) { return r.center().x() >= left && r.center().x() <= right; };
     // The column's text block: figures sit within it.
     qreal blockLeft = captionLine.left(), blockRight = captionLine.right();
@@ -454,7 +513,8 @@ QVariantMap ReferenceFinder::floatRegion(QPdfDocument &pdf, int page, const QRec
             caption |= line;
             continue;
         }
-        if (line.top() - caption.bottom() > lineHeight * .9) break;
+        // Body text right after it: further down, or set in a larger type than the caption.
+        if (line.top() - caption.bottom() > lineHeight * .9 || line.height() > captionLine.height() * 1.3) break;
         caption |= line;
     }
     // Body text: a long line with another long one just above or below it (labels in a figure are short).
@@ -495,4 +555,203 @@ QVariantMap ReferenceFinder::floatRegion(QPdfDocument &pdf, int page, const QRec
                           .simplified();
     return {{"x", from}, {"y", top}, {"width", to - from}, {"height", bottom - top}, {"captionTop", caption.top()},
         {"captionBottom", caption.bottom()}, {"caption", text}};
+}
+
+int ReferenceFinder::objectAt(const QUrl &source, int page, const QPointF &point)
+{
+    const int request = ++m_next;
+    const auto path = source.toLocalFile();
+    m_pool.start([this, request, path, page, point] {
+        QVariantMap target;
+        QPdfDocument pdf;
+        if (!path.isEmpty() && PdfAccess::load(pdf, path) == QPdfDocument::Error::None)
+            target = findObject(pdf, page, point);
+        QMetaObject::invokeMethod(
+            this, [this, request, target] { emit objectFound(request, target); }, Qt::QueuedConnection);
+    });
+    return request;
+}
+
+namespace {
+// An algorithm runs from its caption ("Algorithm 1 Name") down through numbered steps, Require/Ensure
+// lines, control words and indented continuations, to the first ordinary line after it.
+QRectF algorithmBox(QPdfDocument &pdf, int page, const QRectF &captionLine)
+{
+    const auto layout = pageLines(pdf, page);
+    const auto column = columnOf(layout, captionLine);
+    static const QRegularExpression step(
+        R"(^\s*(\d{1,3}:|(?:Require|Ensure|Input|Output|Data|Result|Parameters?|Initiali[sz]e)\b|(?:end|while|for|if|else|return|repeat|until|function|procedure|do|then)\b))",
+        QRegularExpression::CaseInsensitiveOption);
+    const qreal lineHeight = std::max<qreal>(6, captionLine.height());
+    qreal blockLeft = captionLine.left();
+    for (const auto &line : layout.lines)
+        if (line.center().x() >= column.first && line.center().x() <= column.second)
+            blockLeft = std::min(blockLeft, line.left());
+    QRectF box = captionLine;
+    int taken = 0;
+    for (const auto &line : layout.lines) {
+        if (line.center().x() < column.first || line.center().x() > column.second) continue;
+        if (line.top() < captionLine.bottom() - 1) continue;
+        if (line.top() - box.bottom() > lineHeight * 2.2 || ++taken > 80) break;
+        const auto text = lineText(pdf, page, line);
+        if (!step.match(text).hasMatch() && line.left() < blockLeft + lineHeight && proseLine(text)) break;
+        box |= line;
+    }
+    return box;
+}
+
+// A displayed equation around a point. Lines are taken in the PDF's reading order, where each column
+// stays on its own: the line under the point and its neighbours, as long as they are not running text
+// (an equation's pieces are short or mathematical), with the number "(N)" printed beside them.
+QVariantMap equationAround(QPdfDocument &pdf, int page, const QPointF &point)
+{
+    const auto all = pdf.getAllText(page).text();
+    qsizetype index = -1;
+    for (const qreal reach : {2.0, 6.0, 14.0}) {
+        const auto hit = pdf.getSelection(page, point - QPointF(reach, 0), point + QPointF(reach, 0));
+        if (!hit.text().trimmed().isEmpty()) {
+            index = hit.startIndex();
+            break;
+        }
+    }
+    if (index < 0 || index >= all.size()) return {};
+    QList<QPair<qsizetype, qsizetype>> lines; // Start and end of each line.
+    for (qsizetype from = 0; from < all.size();) {
+        auto to = from;
+        while (to < all.size() && all[to] != '\r' && all[to] != '\n') ++to;
+        if (to > from) lines.append({from, to});
+        from = to + 1;
+    }
+    qsizetype at = -1;
+    for (qsizetype i = 0; i < lines.size() && at < 0; ++i)
+        if (index >= lines[i].first && index < lines[i].second) at = i;
+    if (at < 0) return {};
+    const auto text
+        = [&](qsizetype i) { return all.mid(lines[i].first, lines[i].second - lines[i].first).simplified(); };
+    const auto boxOf = [&](qsizetype i) {
+        return pdf.getSelectionAtIndex(page, lines[i].first, lines[i].second - lines[i].first).boundingRectangle();
+    };
+    // On a two-column page the equation stays in the point's column; reading order sometimes jumps across.
+    const auto layout = pageLines(pdf, page);
+    const qreal middle = layout.width / 2;
+    const auto otherColumn = [&](qsizetype i) {
+        if (!layout.twoColumns) return false;
+        const auto box = boxOf(i);
+        return !box.isEmpty() && (point.x() < middle ? box.left() >= middle - 5 : box.right() <= middle + 5);
+    };
+    const auto part = [&](qsizetype i) {
+        const auto line = text(i);
+        static const QRegularExpression words("[A-Za-z]{3,}.*[A-Za-z]{3,}.*[A-Za-z]{3,}");
+        return !proseLine(line) && (mathLine(line) || (line.size() < 30 && !words.match(line).hasMatch()))
+            && !otherColumn(i);
+    };
+    if (!part(at)) return {};
+    QList<qsizetype> taken{at};
+    for (auto i = at - 1; i >= 0 && at - i <= 80 && part(i); --i) taken.prepend(i);
+    for (auto i = at + 1; i < lines.size() && i - at <= 80 && part(i); ++i) taken.append(i);
+    QStringList caption;
+    QRectF box;
+    bool math = false;
+    for (const auto i : std::as_const(taken)) {
+        caption << text(i);
+        math = math || mathLine(caption.last());
+        box |= boxOf(i);
+    }
+    if (!math || box.isEmpty()) return {};
+    // The equation's number: "(N)" at the height of the block, right of its middle ("SE(3)" is no
+    // number); of several, the one nearest the point.
+    static const QRegularExpression tag(R"((?:^|\s)\((\d{1,3}[a-z]?)\))");
+    QString number;
+    qreal nearest = 1e9;
+    for (auto it = tag.globalMatch(all); it.hasNext();) {
+        const auto m = it.next();
+        const auto found
+            = pdf.getSelectionAtIndex(page, m.capturedStart(1) - 1, m.capturedLength(1) + 2).boundingRectangle();
+        if (found.isEmpty() || found.bottom() < box.top() - 4 || found.top() > box.bottom() + 4) continue;
+        if (found.left() < box.center().x() || found.left() > box.right() + 60) continue;
+        if (layout.twoColumns && (point.x() < middle) != (found.center().x() < middle)) continue;
+        const qreal distance = std::abs(found.center().y() - point.y());
+        if (distance < nearest) {
+            nearest = distance;
+            number = m.captured(1);
+        }
+        box |= found;
+    }
+    box.adjust(-6, -4, 6, 4);
+    return {{"kind", "equation"},
+        {"label", number.isEmpty() ? QStringLiteral("Equation") : "Equation (" + number + ")"}, {"page", page},
+        {"x", std::max<qreal>(0, box.x())}, {"y", std::max<qreal>(0, box.y())}, {"width", box.width()},
+        {"height", box.height()}, {"caption", caption.join(' ').left(600)}};
+}
+} // namespace
+
+QVariantMap ReferenceFinder::findObject(QPdfDocument &pdf, int page, const QPointF &point)
+{
+    if (page < 0 || page >= pdf.pageCount()) return {};
+    const auto text = pdf.getAllText(page).text();
+    // Figures, tables and algorithms by their captions: the one whose area holds the point.
+    static const QRegularExpression caption(
+        R"((?:^|[\r\n])[ \t]*(?:((?:Fig\.|Figure|FIG\.|FIGURE|Fig)[ \t]*(\d+)[ \t]*[:.|])|((?:TABLE|Table)[ \t]+([IVXLC]+|\d+))(?![\dA-Za-z])|(Algorithm[ \t]+(\d+))(?!\d)))");
+    static const QRegularExpression steps(R"((?:Require|Ensure|Input|Output|Data|Result)\s*:|[\r\n][ \t]*1:)");
+    for (auto it = caption.globalMatch(text); it.hasNext();) {
+        const auto m = it.next();
+        const int group = m.capturedStart(1) >= 0 ? 1 : m.capturedStart(3) >= 0 ? 3 : 5;
+        const auto start = m.capturedStart(group);
+        const auto line = pdf.getSelectionAtIndex(page, start, lineLength(text, start)).boundingRectangle();
+        if (line.isEmpty()) continue;
+        QVariantMap found;
+        if (group == 5) {
+            // "Algorithm 1 summarizes …" in running text is a mention, not a caption: steps follow a caption.
+            if (!steps.match(text.mid(m.capturedEnd(), 400)).hasMatch()) continue;
+            const auto box = algorithmBox(pdf, page, line);
+            const auto head = pdf.getSelection(page, QPointF(line.left() + 1, line.center().y()),
+                                     QPointF(line.right() - 1, line.center().y()))
+                                  .text()
+                                  .simplified();
+            found = {{"kind", "algorithm"}, {"label", "Algorithm " + m.captured(6)}, {"x", box.left() - 4},
+                {"y", box.top() - 3}, {"width", box.width() + 8}, {"height", box.height() + 6}, {"caption", head}};
+        } else {
+            const bool table = group == 3;
+            found = floatRegion(pdf, page, line, table);
+            if (found.isEmpty()) continue;
+            found.insert("kind", table ? "table" : "figure");
+            found.insert("label", table ? "Table " + m.captured(4) : "Figure " + m.captured(2));
+        }
+        const QRectF area(
+            found["x"].toDouble(), found["y"].toDouble(), found["width"].toDouble(), found["height"].toDouble());
+        if (!area.adjusted(-4, -4, 4, 4).contains(point)) continue;
+        found.insert("page", page);
+        return found;
+    }
+    return equationAround(pdf, page, point);
+}
+
+int ReferenceFinder::wordAt(const QUrl &source, int page, const QPointF &point)
+{
+    const int request = ++m_next;
+    const auto path = source.toLocalFile();
+    m_pool.start([this, request, path, page, point] {
+        QVariantMap word;
+        QPdfDocument pdf;
+        if (!path.isEmpty() && PdfAccess::load(pdf, path) == QPdfDocument::Error::None && page >= 0
+            && page < pdf.pageCount()) {
+            const auto hit = pdf.getSelection(page, point - QPointF(1.5, 0), point + QPointF(1.5, 0));
+            if (!hit.text().trimmed().isEmpty()) {
+                const auto all = pdf.getAllText(page).text();
+                // The word: the characters around the hit up to spaces and punctuation that is not math.
+                const auto boundary
+                    = [](QChar c) { return c.isSpace() || QStringLiteral(",;:()[]{}\"'“”").contains(c); };
+                qsizetype from = hit.startIndex(), to = hit.startIndex() + 1;
+                while (from > 0 && !boundary(all[from - 1]) && hit.startIndex() - from < 24) --from;
+                while (to < all.size() && !boundary(all[to]) && to - hit.startIndex() < 24) ++to;
+                auto text = all.mid(from, to - from);
+                while (text.endsWith('.')) text.chop(1);
+                const auto box = pdf.getSelectionAtIndex(page, from, to - from).boundingRectangle();
+                word = {{"word", text}, {"glyph", hit.text().trimmed().left(2)}, {"x", box.x()}, {"y", box.y()},
+                    {"width", box.width()}, {"height", box.height()}};
+            }
+        }
+        QMetaObject::invokeMethod(this, [this, request, word] { emit wordFound(request, word); }, Qt::QueuedConnection);
+    });
+    return request;
 }
