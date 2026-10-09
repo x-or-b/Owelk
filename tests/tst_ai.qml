@@ -154,6 +154,13 @@ Item {
             box.text = ""
             tryCompare(size, "visible", false)
             compare(composerBox.expanded, false)
+            // A figure from its preview joins this conversation as an image; no capture is saved.
+            const captures = researchStore.captures.length, current = ai.threadId
+            verify(ai.attachFigure({source: fixtureSource, page: 0, region: Qt.rect(.05, .5, .9, .25), label: "Figure 1"}))
+            compare(ai.threadId, current)
+            compare(ai.images[ai.images.length - 1].name, "Figure 1 · p. 1")
+            compare(researchStore.captures.length, captures)
+            ai.images = []
             // The reasoning summary is folded above the answer and unfolds on a click; off, it is hidden.
             const thought = findChild(conv, "aiThought-3")
             const toggle = findChild(thought, "aiThoughtToggle")

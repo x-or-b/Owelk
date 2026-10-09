@@ -64,6 +64,9 @@ public:
     // A pasted screenshot: saved under the data folder and returned as a file URL (empty if none).
     Q_INVOKABLE bool clipboardHasImage() const;
     Q_INVOKABLE QString saveClipboardImage();
+    // A region of a PDF page (page-relative), drawn sharp enough to read and saved like a pasted image:
+    // a figure attached from its preview. Returns a file URL, or empty.
+    Q_INVOKABLE QString saveRegionImage(const QUrl &source, int page, const QRectF &region);
 
 signals:
     void providersChanged();

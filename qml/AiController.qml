@@ -78,7 +78,7 @@ Item {
     readonly property bool readerCapturing: !!reader && !!reader.capturing
     // Esc ends capture mode without a capture; the save itself is asynchronous, so wait a moment.
     onReaderCapturingChanged: if (!readerCapturing && captureWanted) captureGrace.restart()
-    Timer { id: captureGrace; interval: 4000; onTriggered: { root.captureWanted = false; root.figureWanted = false } }
+    Timer { id: captureGrace; interval: 4000; onTriggered: root.captureWanted = false }
     function captureRegion() {
         if (!reader || !reader.pdfReady) { error = "Open a PDF to capture a region."; return false }
         error = ""
@@ -89,14 +89,6 @@ Item {
     }
     // Called for every saved capture; takes the one the panel asked for.
     function takeCapture(id) {
-        if (figureWanted) {
-            figureWanted = false
-            const shot = researchStore.captures.find(function(c) { return c.id === id })
-            if (!shot) return false
-            spec = {action: "figure", scope: "none", captureId: id, source: shot.source, page: shot.page}
-            send("")
-            return true
-        }
         if (!captureWanted) return false
         captureWanted = false
         captureGrace.stop()
@@ -131,6 +123,19 @@ Item {
         images = images.concat([{url: value, name: decodeURIComponent(value.replace(/^.*\//, ""))}])
         return true
     }
+    // A figure (with its caption) from a preview: its image joins the open conversation, or a new one
+    // about that paper, and the question box gets the focus. Nothing is saved to Captures.
+    function attachFigure(next) {
+        const file = ai.saveRegionImage(next.source, next.page, next.region)
+        if (!file.length) { error = "Could not read that figure from the PDF."; return false }
+        if (!conversationOpen) newThread()
+        if (!attachImage(file)) return false
+        const at = images.length - 1, copy = images.slice()
+        copy[at] = Object.assign({}, copy[at], {name: (next.label || "Figure") + " · p. " + (Number(next.page) + 1)})
+        images = copy
+        focusRequested()
+        return true
+    }
     function pasteImage() {
         const file = ai.saveClipboardImage()
         return file.length > 0 && attachImage(file)
@@ -162,20 +167,13 @@ Item {
         answer = ""; error = ""; pendingQuestion = ""; usedModel = ""; truncated = false
         thinkingText = ""; thinkingSeconds = 0
     }
-    // A figure asked about from its preview: captured first (with its caption), then explained.
-    property bool figureWanted: false
-    // A reader or capture action starts a new thread about that material.
+    // A reader or capture action starts a new thread about that material; a figure from its preview
+    // joins the conversation instead (attachFigure).
     function begin(next) {
+        if (next.region) { attachFigure(next); return }
         reset()
         threadId = ""; thread = ({})
         conversationOpen = true
-        if (next.region) {
-            spec = {source: next.source, scope: "none", page: next.page}
-            figureWanted = true
-            captureGrace.restart()
-            researchStore.captureRegion(next.source, next.page, next.region)
-            return
-        }
         spec = Object.assign({}, next)
         if (spec.action === "ask") focusRequested()
         else send("")

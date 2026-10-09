@@ -177,7 +177,7 @@ Item {
     signal activated()
     signal regionSelected(int page, rect normalizedRegion)
     // Ask AI on a figure or table preview: its region with the caption (page-relative).
-    signal figureAiRequested(int page, rect normalizedRegion)
+    signal figureAiRequested(int page, rect normalizedRegion, string label)
 
     // Previous and next page (Cmd+[ / Cmd+], the toolbar arrows and the mouse's side buttons).
     function previousPage() { if (ready && currentPage > 0) jump(currentPage - 1, 0, 0) }
@@ -1720,12 +1720,13 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 text: "Ask AI"; icon.name: "ai"
                 ToolTip.visible: hovered; ToolTip.delay: 500
-                ToolTip.text: "Send the " + (previewCard.spec.kind === "table" ? "table" : "figure") + " and its caption to the AI panel (saved as a capture)"
+                ToolTip.text: "Attach the " + (previewCard.spec.kind === "table" ? "table" : "figure") + " with its caption to the AI conversation"
                 onClicked: {
                     const a = previewCard.area, size = pdfDocument.pagePointSize(previewCard.spec.page)
                     const page = previewCard.spec.page
                     root.closeLinkPreview()
-                    root.figureAiRequested(page, Qt.rect(a.x / size.width, a.y / size.height, a.width / size.width, a.height / size.height))
+                    root.figureAiRequested(page, Qt.rect(a.x / size.width, a.y / size.height, a.width / size.width, a.height / size.height),
+                                           previewCard.spec.label || "")
                 }
             }
         }
