@@ -8,12 +8,14 @@
 #include <QFileInfo>
 #include <QImageReader>
 #include <QPdfDocument>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QUuid>
 #include <cmath>
 #include <QFutureWatcher>
 #include <QJsonDocument>
 #include <QSqlQuery>
+#include <QSqlError>
 #include <QtConcurrent>
 
 namespace {
@@ -70,52 +72,73 @@ int ResearchStore::loadHighlights(const QUrl &source)
     return request;
 }
 
-int ResearchStore::adoptAnnotations(const QUrl &source)
+QVariantMap ResearchStore::adoptAnnotations(const QUrl &source, bool removeMisfits)
 {
     const auto url = resolvedSource(source);
     const auto hash = fingerprint(url);
     const auto document = findDocument(source);
-    if (hash.isEmpty() || document.isEmpty()) return -1;
+    QPdfDocument pdf;
+    if (hash.isEmpty() || document.isEmpty() || PdfAccess::load(pdf, url.toLocalFile()) != QPdfDocument::Error::None)
+        return {{"error", "The PDF cannot be read."}};
     QSqlQuery query(m_database);
     query.prepare("SELECT id,page,text FROM highlights WHERE document_id=? AND deleted_at IS NULL AND sha256<>?");
     query.addBindValue(document);
     query.addBindValue(hash);
-    if (!query.exec()) return -1;
-    QStringList ids;
-    QList<QPair<int, QString>> places;
+    if (!query.exec()) return {{"error", query.lastError().text()}};
+    // One fits when its page is here and its marked words are on that page (spacing, line breaks and
+    // hyphenation aside; however short the words).
+    const auto bare
+        = [](QString text) { return text.remove(QRegularExpression("[\\s\\x{00AD}\\x{0002}\\x{FFFE}-]")).toLower(); };
+    QHash<int, QString> pages;
+    QStringList fit, misfit;
     while (query.next()) {
-        ids << query.value(0).toString();
-        places.append({query.value(1).toInt(), query.value(2).toString().simplified()});
-    }
-    if (ids.isEmpty()) return 0;
-    // They fit when every page is here and every marked passage is still on its page.
-    QPdfDocument pdf;
-    if (PdfAccess::load(pdf, url.toLocalFile()) != QPdfDocument::Error::None) return -1;
-    for (const auto &[page, text] : std::as_const(places)) {
-        if (page < 0 || page >= pdf.pageCount()
-            || (!text.isEmpty() && passageRegion(pdf, page, text.left(200)).isEmpty())) {
-            emit message("These annotations do not fit this copy's pages, so they stay hidden.");
-            return -1;
+        const int page = query.value(1).toInt();
+        const auto words = bare(query.value(2).toString());
+        bool ok = page >= 0 && page < pdf.pageCount();
+        if (ok && !words.isEmpty()) {
+            if (!pages.contains(page)) pages.insert(page, bare(pdf.getAllText(page).text()));
+            ok = pages[page].contains(words);
         }
+        (ok ? fit : misfit) << query.value(0).toString();
     }
-    if (!m_database.transaction()) return -1;
-    QSqlQuery update(m_database);
-    update.prepare("UPDATE highlights SET sha256=? WHERE document_id=? AND deleted_at IS NULL AND sha256<>?");
-    update.addBindValue(hash);
-    update.addBindValue(document);
-    update.addBindValue(hash);
+    query.finish();
+    const QVariantMap counts{{"moved", int(fit.size())}, {"misfits", int(misfit.size())}};
+    // Ones that do not fit are deleted only when the reader agreed; until then nothing changes.
+    if (!misfit.isEmpty() && !removeMisfits) return counts;
+    if (!m_database.transaction()) return {{"error", m_database.lastError().text()}};
+    const auto now = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    bool ok = true;
+    for (const auto &id : std::as_const(fit)) {
+        QSqlQuery update(m_database);
+        update.prepare("UPDATE highlights SET sha256=? WHERE id=?");
+        update.addBindValue(hash);
+        update.addBindValue(id);
+        ok = ok && update.exec();
+    }
+    for (const auto &id : std::as_const(misfit)) {
+        QSqlQuery remove(m_database);
+        remove.prepare("UPDATE highlights SET deleted_at=? WHERE id=?");
+        remove.addBindValue(now);
+        remove.addBindValue(id);
+        ok = ok && remove.exec();
+    }
     QSqlQuery captures(m_database);
     captures.prepare("UPDATE captures SET sha256=? WHERE document_id=? AND sha256<>?");
     captures.addBindValue(hash);
     captures.addBindValue(document);
     captures.addBindValue(hash);
-    if (!update.exec() || !captures.exec() || !m_database.commit()) {
+    if (!ok || !captures.exec() || !m_database.commit()) {
         m_database.rollback();
-        return -1;
+        return {{"error", "Cannot update the annotations."}};
     }
     emit highlightsChanged();
     emit capturesChanged();
-    return int(ids.size());
+    emit homeChanged();
+    if (!misfit.isEmpty())
+        emit message(QString("Deleted %1 annotation%2 that did not fit this copy.")
+                .arg(misfit.size())
+                .arg(misfit.size() == 1 ? "" : "s"));
+    return counts;
 }
 
 bool ResearchStore::updateHighlight(const QString &id, const QString &color, const QString &body)

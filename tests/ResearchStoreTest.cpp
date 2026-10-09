@@ -1497,7 +1497,7 @@ private slots:
         QVERIFY(loaded.last().at(2).toList().isEmpty());
         QCOMPARE(loaded.last().at(5).toInt(), 1);
         QVERIFY(loaded.last().at(3).toString().contains("another copy"));
-        QCOMPARE(store.adoptAnnotations(source), 1);
+        QCOMPARE(store.adoptAnnotations(source)["moved"].toInt(), 1);
         store.loadHighlights(source);
         QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 3, 5000);
         QCOMPARE(loaded.last().at(2).toList().size(), 1);
@@ -1506,10 +1506,16 @@ private slots:
         QFile::remove(path);
         writeTextFixture(path, {"Something else entirely.", "Nothing about findings here."});
         FileFingerprint::clearCache();
-        QCOMPARE(store.adoptAnnotations(source), -1);
+        // Asked first: nothing changes until the reader agrees, then they are deleted.
+        QCOMPARE(store.adoptAnnotations(source)["misfits"].toInt(), 1);
         store.loadHighlights(source);
         QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 4, 5000);
         QCOMPARE(loaded.last().at(5).toInt(), 1);
+        QCOMPARE(store.adoptAnnotations(source, true)["misfits"].toInt(), 1);
+        store.loadHighlights(source);
+        QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 5, 5000);
+        QCOMPARE(loaded.last().at(5).toInt(), 0);
+        QVERIFY(loaded.last().at(3).toString().isEmpty());
     }
     void aiConversationsGoToTheTrashFirst()
     {

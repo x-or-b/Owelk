@@ -468,6 +468,7 @@ Rectangle {
             visible: canvas.highlightError.length > 0
             Layout.fillWidth: true
             Layout.leftMargin: 12; Layout.rightMargin: 6
+            Layout.topMargin: 6; Layout.bottomMargin: 6
             spacing: 6
             Label {
                 Layout.fillWidth: true
@@ -477,8 +478,25 @@ Rectangle {
             Button {
                 objectName: "adoptAnnotations"
                 visible: canvas.hiddenAnnotations > 0
+                implicitHeight: Theme.controlHeightSmall
+                font.pixelSize: Theme.fontSmall
                 text: "Show Them Here"
-                onClicked: researchStore.adoptAnnotations(canvas.source)
+                onClicked: {
+                    const result = researchStore.adoptAnnotations(canvas.source)
+                    if (result.misfits > 0) {
+                        adoptConfirm.message = result.misfits + (result.misfits === 1 ? " annotation does" : " annotations do")
+                            + " not fit this copy: the words they mark are not on their pages any more. Delete "
+                            + (result.misfits === 1 ? "it" : "them") + (result.moved > 0 ? " and show the other " + result.moved + " here?" : "?")
+                        adoptConfirm.open()
+                    } else if (result.error) researchStore.notify(result.error)
+                }
+            }
+            ConfirmDialog {
+                id: adoptConfirm
+                objectName: "adoptAnnotationsConfirm"
+                title: "Delete annotations that do not fit?"
+                actionText: "Delete"
+                onConfirmed: researchStore.adoptAnnotations(canvas.source, true)
             }
             IconButton { objectName: "dismissAnnotationNotice"; icon.name: "close"; description: "Close"; onClicked: canvas.highlightError = "" }
         }

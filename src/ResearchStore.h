@@ -294,9 +294,10 @@ public:
     // Case, spacing and line-end hyphens are ignored; a long quote is matched by its opening words.
     static QRectF passageRegion(QPdfDocument &pdf, int page, const QString &phrase);
     // Annotations made on another copy of this PDF (a publisher that stamps each download changes the
-    // bytes) are hidden. When they still fit this copy (their pages exist and their words are on them),
-    // the reader may move them here. Returns how many moved, or -1 when they do not fit (they stay hidden).
-    Q_INVOKABLE int adoptAnnotations(const QUrl &source);
+    // bytes) are hidden. Those that still fit this copy (their page exists and their words are on it)
+    // move here. Returns {moved, misfits} (or {error}); while some do not fit, nothing changes unless
+    // removeMisfits (the reader agreed), which deletes those and moves the rest.
+    Q_INVOKABLE QVariantMap adoptAnnotations(const QUrl &source, bool removeMisfits = false);
     Q_INVOKABLE void openHighlight(const QString &id);
     Q_INVOKABLE void openCapture(const QString &id);
     Q_INVOKABLE void copyText(const QString &text);
