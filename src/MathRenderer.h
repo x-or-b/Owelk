@@ -14,4 +14,6 @@ namespace MathRenderer {
 QString render(const QString &latex, bool display, int pixelSize, const QColor &color, QSize *size);
 // The image for a key from render(), or a null image when it has left the cache. Any thread.
 QImage cached(const QString &key);
+// The LaTeX a key was drawn from, written back as $…$ or $$…$$ (empty for an unknown key).
+QString source(const QString &key);
 }

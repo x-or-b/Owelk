@@ -228,6 +228,8 @@ public:
     // textColor at the text's pixel size (see MathRenderer.h).
     Q_INVOKABLE QString markdownHtml(const QString &markdown, const QString &linkColor,
         const QString &textColor = QString(), int pixelSize = 0) const;
+    // Plain text of rich text made by markdownHtml (a selection's HTML), with formulas as their LaTeX.
+    Q_INVOKABLE QString plainTextWithMath(const QString &html) const;
     // "[title](owelk://kind/id)" for inserting into a note.
     Q_INVOKABLE QString markdownLink(const QString &kind, const QString &id) const;
     // AI conversations (ResearchStoreAi.cpp). A thread keeps its turns; message: role, content (sent),

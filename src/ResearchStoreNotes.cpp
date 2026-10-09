@@ -276,6 +276,22 @@ QString ResearchStore::markdownHtml(
     return out + html.mid(last);
 }
 
+QString ResearchStore::plainTextWithMath(const QString &html) const
+{
+    // Formula images become their LaTeX before the HTML turns into text (an image alone would vanish).
+    static const QRegularExpression image(R"re(<img[^>]*src="image://math/(\w+)"[^>]*/?>)re");
+    QString withMath;
+    qsizetype last = 0;
+    for (auto it = image.globalMatch(html); it.hasNext();) {
+        const auto m = it.next();
+        withMath += html.mid(last, m.capturedStart() - last) + MathRenderer::source(m.captured(1)).toHtmlEscaped();
+        last = m.capturedEnd();
+    }
+    QTextDocument document;
+    document.setHtml(withMath + html.mid(last));
+    return document.toPlainText().replace(QChar(0x2029), '\n').replace(QChar(0xa0), ' ').trimmed();
+}
+
 QString ResearchStore::markdownLink(const QString &kind, const QString &id) const
 {
     const auto target = linkTarget(kind, id);

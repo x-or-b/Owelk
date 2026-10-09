@@ -19,6 +19,8 @@ QMutex mutex;
 QHash<QString, QImage> images;
 std::list<QString> order; // Oldest first.
 qsizetype used = 0;
+// Small and kept for the session (unlike the images): copying a formula needs its LaTeX.
+QHash<QString, QString> sources;
 
 void keep(const QString &key, const QImage &image)
 {
@@ -47,6 +49,7 @@ QString render(const QString &latex, bool display, int pixelSize, const QColor &
             .left(24));
     {
         QMutexLocker lock(&mutex);
+        if (sources.size() < 50000) sources.insert(key, display ? "$$" + formula + "$$" : "$" + formula + "$");
         if (images.contains(key)) {
             const auto &image = images[key];
             *size = QSize(image.width() / scale, image.height() / scale);
@@ -87,5 +90,11 @@ QImage cached(const QString &key)
 {
     QMutexLocker lock(&mutex);
     return images.value(key);
+}
+
+QString source(const QString &key)
+{
+    QMutexLocker lock(&mutex);
+    return sources.value(key);
 }
 } // namespace MathRenderer

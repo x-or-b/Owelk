@@ -62,6 +62,9 @@ AiPrompt buildAiPrompt(
     bool cut = false;
     if (!materials.selection.isEmpty())
         parts << "<selection>\n" + clip(materials.selection, remaining, cut) + "\n</selection>";
+    if (!materials.quote.isEmpty())
+        parts << "<quoted_from_conversation>\n" + clip(materials.quote, remaining, cut)
+                + "\n</quoted_from_conversation>";
     for (const auto &note : materials.notes)
         if (!note.trimmed().isEmpty()) parts << "<note>\n" + clip(note, remaining, cut) + "\n</note>";
     if (!materials.pageText.isEmpty())
@@ -102,6 +105,7 @@ AiPrompt buildAiPrompt(
         task = question.trimmed().isEmpty() ? QStringLiteral("Help me understand this material.") : question.trimmed();
     if (action != "ask" && action != "library" && !question.trimmed().isEmpty())
         task += "\n\nAdditional request: " + question.trimmed();
+    if (!materials.quote.isEmpty()) task += "\n\nThe request is about the passage quoted from this conversation.";
     if (materials.hasImage && action != "figure") task += "\n\nAn image from the paper is attached.";
     if (cut) task += "\n\n(Some material was shortened to fit; mention it if the answer depends on the missing part.)";
     parts << task;

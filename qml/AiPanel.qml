@@ -85,6 +85,14 @@ Item {
         onLinkActivated: function(link) { root.linkActivated(link) }
         HoverHandler { cursorShape: parent.hoveredLink.length > 0 ? Qt.PointingHandCursor : Qt.IBeamCursor }
         TapHandler { acceptedButtons: Qt.RightButton; onTapped: function(point) { root.openTextMenu(parent, point.position) } }
+        Keys.onPressed: function(event) {
+            if (event.matches(StandardKey.Copy) && selectedText.length) { researchStore.copyText(root.selectionText(this)); event.accepted = true }
+        }
+    }
+    // The selected text of a message; formulas come back as their LaTeX rather than vanishing.
+    function selectionText(target) {
+        if (target.textFormat !== TextEdit.RichText) return target.selectedText
+        return researchStore.plainTextWithMath(target.getFormattedText(target.selectionStart, target.selectionEnd))
     }
     // Right-click on a question or an answer: Copy, Select All, and Ask About This, which quotes the
     // selection at the top of the question box. One menu serves every message.
@@ -94,12 +102,11 @@ Item {
         target.persistentSelection = true // The menu takes focus; the selection stays.
         textMenu.popup(target, at.x, at.y)
     }
+    // Ask About This: the passage joins the next question as an attachment chip above the box.
     function quote(text) {
-        const lines = text.trim().slice(0, 2000).split("\n").map(function(line) { return "> " + line })
-        question.text = lines.join("\n") + "\n\n" + question.text
         textMenu.target = null // The question box keeps the focus once the menu closes.
+        root.c.quote(text)
         question.forceActiveFocus()
-        question.cursorPosition = question.length
     }
     Menu {
         id: textMenu
@@ -108,7 +115,7 @@ Item {
         property bool kept: false
         readonly property bool selected: target !== null && target.selectedText.length > 0
         onClosed: if (target) { target.persistentSelection = kept; if (selected) target.forceActiveFocus() }
-        MenuItem { objectName: "aiTextCopy"; text: "Copy"; enabled: textMenu.selected; onTriggered: textMenu.target.copy() }
+        MenuItem { objectName: "aiTextCopy"; text: "Copy"; enabled: textMenu.selected; onTriggered: researchStore.copyText(root.selectionText(textMenu.target)) }
         MenuItem {
             objectName: "aiTextSelectAll"; text: "Select All"
             enabled: textMenu.target !== null && textMenu.target.length > 0
@@ -117,7 +124,7 @@ Item {
         MenuSeparator {}
         MenuItem {
             objectName: "aiTextAsk"; text: "Ask About This"; enabled: textMenu.selected
-            onTriggered: { const target = textMenu.target; target.persistentSelection = textMenu.kept; root.quote(target.selectedText) }
+            onTriggered: { const target = textMenu.target; target.persistentSelection = textMenu.kept; root.quote(root.selectionText(target)) }
         }
     }
     ColumnLayout {
@@ -205,6 +212,7 @@ Item {
             clip: true
             spacing: 10
             acceptedButtons: Qt.NoButton
+            ScrollBar.vertical: ScrollBar {}
             model: root.c ? root.c.messages : []
             property bool following: true
             property bool settling: false
@@ -227,6 +235,16 @@ Item {
                 required property int index
                 width: ListView.view.width
                 spacing: 4
+                Label {
+                    readonly property string quoted: message.modelData.role === "user" ? ((message.modelData.context || {}).quote || "") : ""
+                    objectName: "aiQuoted-" + message.index
+                    visible: quoted.length > 0
+                    Layout.alignment: Qt.AlignRight
+                    Layout.maximumWidth: conversation.width - Math.min(40, conversation.width * 0.12)
+                    text: "\u201c" + quoted.replace(/\s+/g, " ").trim() + "\u201d"
+                    wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; textFormat: Text.PlainText
+                    color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
+                }
                 Bubble {
                     visible: message.modelData.role === "user"
                     objectName: "aiQuestion-" + message.index
@@ -346,7 +364,7 @@ Item {
                     required property var modelData
                     required property int index
                     objectName: "aiChip-" + modelData.kind + (modelData.kind === "image" ? "-" + modelData.index : "")
-                    readonly property bool removable: modelData.kind !== "paper"
+                    readonly property bool removable: true
                     readonly property real lead: modelData.kind === "image" ? 26 : 6
                     height: 22; width: Math.min(chip.implicitWidth + lead + (removable ? 22 : 6), root.width - 16)
                     radius: Theme.radius; color: Theme.window; border.color: Theme.separator
@@ -369,23 +387,49 @@ Item {
                 }
             }
         }
-        TextArea {
-            id: question
-            objectName: "aiQuestion"
+        // The question box grows with its text up to a limit, then scrolls (the scroll bar shows only
+        // while scrolling). From three lines on, the corner button makes it taller or back.
+        Item {
+            id: composer
+            objectName: "aiComposer"
+            property bool expanded: false
+            readonly property bool tall: question.lineCount >= 3
+            readonly property real limit: expanded ? Math.max(140, root.height * 0.5) : 140
             Layout.minimumWidth: 0
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(140, Math.max(56, implicitHeight))
-            placeholderText: root.c && root.c.spec.scope === "library" ? (root.c.spec.collection ? "Ask this collection…" : "Ask your library…") : root.c && root.c.threadId.length ? "Ask a follow-up…" : "Ask about the paper…"
-            wrapMode: TextEdit.Wrap
-            font.pixelSize: Theme.fontSmall
-            // Return sends, Shift+Return adds a line; pasting an image attaches it.
-            Keys.onPressed: function(event) {
-                if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
-                    if (!root.c.streaming && root.c.send(text)) text = ""
-                    event.accepted = true
-                } else if (event.matches(StandardKey.Paste) && root.c.pasteImage()) {
-                    event.accepted = true
+            Layout.preferredHeight: Math.min(limit, Math.max(56, question.implicitHeight))
+            onTallChanged: if (!tall) expanded = false
+            ScrollView {
+                id: questionScroll
+                objectName: "aiQuestionScroll"
+                anchors.fill: parent
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                TextArea {
+                    id: question
+                    objectName: "aiQuestion"
+                    placeholderText: root.c && root.c.spec.scope === "library" ? (root.c.spec.collection ? "Ask this collection…" : "Ask your library…") : root.c && root.c.threadId.length ? "Ask a follow-up…" : "Ask about the paper…"
+                    wrapMode: TextEdit.Wrap
+                    font.pixelSize: Theme.fontSmall
+                    rightPadding: composer.tall ? 28 : 8
+                    // Return sends, Shift+Return adds a line; pasting an image attaches it.
+                    Keys.onPressed: function(event) {
+                        if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
+                            if (!root.c.streaming && root.c.send(text)) { text = ""; composer.expanded = false }
+                            event.accepted = true
+                        } else if (event.matches(StandardKey.Paste) && root.c.pasteImage()) {
+                            event.accepted = true
+                        }
+                    }
                 }
+            }
+            IconButton {
+                objectName: "aiComposerSize"
+                visible: composer.tall
+                anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 3
+                implicitWidth: 22; implicitHeight: 22; glyphSize: Theme.fontSmall
+                icon.name: composer.expanded ? "collapse" : "expand"
+                description: composer.expanded ? "Smaller question box" : "Larger question box"
+                onClicked: { composer.expanded = !composer.expanded; question.forceActiveFocus() }
             }
         }
         // Composer bar, one row: context, model, reasoning effort, fast mode, Send. When the panel is

@@ -39,6 +39,8 @@ edit pencil
 send arrow-up
 toQuestion arrow-up
 toLatest arrow-down
+expand maximize-2
+collapse minimize-2
 stop square
 attach paperclip
 star star

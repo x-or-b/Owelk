@@ -137,6 +137,10 @@ Item {
             const flat = s.selection.replace(/\s+/g, " ").trim()
             list.push({kind: "selection", label: "Selection · " + flat.slice(0, 60) + (flat.length > 60 ? "…" : "")})
         }
+        if (s.quote && s.quote.length) {
+            const flat = s.quote.replace(/\s+/g, " ").trim()
+            list.push({kind: "quote", label: "Quote · " + flat.slice(0, 60) + (flat.length > 60 ? "…" : "")})
+        }
         if (s.scope === "page") list.push({kind: "page", label: "Page " + (Number(s.page) + 1) + " text"})
         if (s.scope === "paper") list.push({kind: "paperText", label: "Full paper text"})
         if (s.scope === "library") list.push({kind: "library", label: (s.collection ? "Collection · " + s.collectionName : "Whole library") + " · passages that answer the question"})
@@ -191,10 +195,24 @@ Item {
         else if (kind === "selection" && reader.selectedText.length) { next.selection = reader.selectedText; next.scope = next.scope || "selection" }
         spec = next
     }
+    // A passage from an answer (Ask About This), sent with the next question as its own material.
+    function quote(text) {
+        const next = Object.assign({}, spec)
+        next.quote = text.trim().slice(0, 4000)
+        if (next.quote.length) spec = next
+        focusRequested()
+    }
     function detach(kind, index) {
         if (kind === "image") { images = images.filter(function(_, i) { return i !== index }); return }
         const next = Object.assign({}, spec)
-        if (kind === "paper") return
+        // Without the paper the question goes out on its own: no paper details, page or selection.
+        if (kind === "paper") {
+            delete next.source; delete next.page; delete next.selection
+            if (next.scope === "page" || next.scope === "paper" || next.scope === "selection") next.scope = "none"
+            spec = next
+            return
+        }
+        if (kind === "quote") delete next.quote
         if (kind === "library") { spec = reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "none"} : ({}); return }
         if (kind === "selection") next.selection = ""
         if (kind === "page" || kind === "paperText") next.scope = "none"

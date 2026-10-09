@@ -446,6 +446,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         materials.year = prepared.value("year").toString();
     }
     materials.selection = spec.value("selection").toString();
+    materials.quote = spec.value("quote").toString().left(4000);
     materials.pageText = prepared.value("pageText").toString();
     materials.paperText = prepared.value("paperText").toString();
     materials.libraryText = prepared.value("libraryText").toString();
@@ -522,11 +523,13 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         if (!attached.paperText.isEmpty()) attachments << "paper";
         if (attached.hasImage) attachments << "image";
         if (!attached.libraryText.isEmpty()) attachments << "library";
+        if (!attached.quote.isEmpty()) attachments << "quote";
         m_store->appendAiMessage(threadId,
             {{"role", "user"}, {"content", prompt.text}, {"display", display}, {"provider", id}, {"model", usedModel},
                 {"context",
                     QVariantMap{{"attachments", attachments}, {"captureId", spec.value("captureId")},
-                        {"selection", attached.selection.left(400)}, {"page", spec.value("page")}}}});
+                        {"selection", attached.selection.left(400)}, {"quote", attached.quote.left(400)},
+                        {"page", spec.value("page")}}}});
         // The reasoning summary sits in the answer's context: shown folded, never copied or resent.
         QVariantMap answerContext;
         const auto reasoning = thought->text.trimmed();

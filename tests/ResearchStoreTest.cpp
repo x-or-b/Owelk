@@ -377,6 +377,11 @@ private slots:
         for (int y = 0; y < drawn.height() && !inked; ++y)
             for (int x = 0; x < drawn.width() && !inked; ++x) inked = qAlpha(drawn.pixel(x, y)) > 128;
         QVERIFY(inked);
+        // Copied or quoted, the formulas come back as LaTeX.
+        const auto plain = store.plainTextWithMath(html);
+        QVERIFY(plain.contains("$E=mc^2$"));
+        QVERIFY(plain.contains("$$\\frac{a}{b}$$"));
+        QVERIFY(plain.contains("Energy"));
         // Without math the HTML is what Qt makes of the Markdown.
         QVERIFY(!store.markdownHtml("Plain **text**", "#3366cc").contains("image://"));
     }

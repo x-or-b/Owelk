@@ -131,10 +131,29 @@ Item {
             verify(findChild(menu, "aiTextCopy").enabled)
             findChild(menu, "aiTextAsk").triggered()
             menu.close(); tryCompare(menu, "opened", false)
-            const composer = findChild(p, "aiQuestion")
-            verify(composer.text.indexOf("> Mock answer") === 0)
-            composer.text = ""
+            // The passage joins the next question as a chip, not as text in the box.
+            verify(ai.spec.quote.indexOf("Mock answer about occlusion") === 0)
+            verify(ai.attachments.some(function(a) { return a.kind === "quote" }))
+            compare(findChild(p, "aiQuestion").text, "")
+            ai.detach("quote")
+            verify(!ai.attachments.some(function(a) { return a.kind === "quote" }))
             answer.deselect()
+            // The paper chip can be removed too: the question then goes out on its own.
+            if (ai.attachments.some(function(a) { return a.kind === "paper" })) {
+                ai.detach("paper")
+                verify(!ai.attachments.some(function(a) { return a.kind === "paper" }))
+            }
+            // Three lines or more: the corner button makes the question box taller, and back.
+            const box = findChild(p, "aiQuestion"), size = findChild(p, "aiComposerSize")
+            compare(size.visible, false)
+            box.text = "one\ntwo\nthree\nfour"
+            tryCompare(size, "visible", true)
+            const composerBox = findChild(p, "aiComposer"), before = composerBox.limit
+            mouseClick(size)
+            verify(composerBox.limit > before)
+            box.text = ""
+            tryCompare(size, "visible", false)
+            compare(composerBox.expanded, false)
             // The reasoning summary is folded above the answer and unfolds on a click; off, it is hidden.
             const thought = findChild(conv, "aiThought-3")
             const toggle = findChild(thought, "aiThoughtToggle")

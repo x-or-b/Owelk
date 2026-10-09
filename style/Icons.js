@@ -26,6 +26,8 @@ var glyphs = {
     "send": "\ue04a",
     "toQuestion": "\ue04a",
     "toLatest": "\ue042",
+    "expand": "\ue113",
+    "collapse": "\ue11b",
     "stop": "\ue167",
     "attach": "\ue12d",
     "star": "\ue176",

@@ -7,6 +7,7 @@
 struct AiMaterials {
     QString title, authors, year;
     QString selection; // Selected text or an excerpt.
+    QString quote; // A passage the reader quoted from the conversation (Ask About This).
     QString pageText; // The current page.
     QString paperText; // Leading pages of the paper (for "Ask about paper").
     QString libraryText; // Passages from several papers, each marked [n] (for "Ask your library").
