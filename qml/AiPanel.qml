@@ -54,13 +54,43 @@ Item {
             source: chipBox.thumbnail ? chipBox.modelData.url : ""
             sourceSize.width: 36; sourceSize.height: 32; asynchronous: true
         }
-        Label {
+        // Plain text: the hover preview below shows the whole attachment instead of the cut label.
+        Text {
             id: chipLabel
             x: chipBox.lead; anchors.verticalCenter: parent.verticalCenter
             width: parent.width - chipBox.lead - (chipBox.removable ? 20 : 6)
             text: chipBox.modelData.label || ""
             elide: Text.ElideRight; maximumLineCount: 1; textFormat: Text.PlainText
             font.pixelSize: Theme.fontCaption; color: Theme.textSecondary
+        }
+        // Hover: the attachment itself, larger (an image) or in full (a selection or quote).
+        readonly property string detail: modelData.detail || ""
+        HoverHandler { id: chipHover }
+        ToolTip {
+            objectName: "aiChipPreview"
+            visible: chipHover.hovered && (chipBox.thumbnail || chipBox.detail.length > 0)
+            delay: 300
+            contentItem: Item {
+                implicitWidth: chipBox.thumbnail ? large.width : fullText.width
+                implicitHeight: chipBox.thumbnail ? large.height : fullText.height
+                Image {
+                    id: large
+                    visible: chipBox.thumbnail
+                    source: visible && chipHover.hovered ? chipBox.modelData.url : ""
+                    asynchronous: true
+                    sourceSize.width: 640
+                    width: Math.min(320, implicitWidth); height: implicitWidth > 0 ? width * implicitHeight / implicitWidth : 0
+                    fillMode: Image.PreserveAspectFit
+                }
+                Text {
+                    id: fullText
+                    visible: !chipBox.thumbnail
+                    width: Math.min(340, implicitWidth)
+                    text: chipBox.detail
+                    wrapMode: Text.Wrap; textFormat: Text.PlainText; maximumLineCount: 16; elide: Text.ElideRight
+                    font.pixelSize: Theme.fontSmall; color: Theme.text
+                }
+            }
         }
         IconButton {
             visible: chipBox.removable
@@ -79,8 +109,8 @@ Item {
         ;(context.attachments || []).forEach(function(kind) {
             if (kind === "paper") list.push({kind: kind, label: "Paper" + (paper.length ? " · " + paper : "")})
             else if (kind.indexOf("page ") === 0) list.push({kind: "page", label: "Page " + kind.slice(5) + " text"})
-            else if (kind === "selection") list.push({kind: kind, label: "Selection · " + flat(context.selection)})
-            else if (kind === "quote") list.push({kind: kind, label: "Quote · " + flat(context.quote)})
+            else if (kind === "selection") list.push({kind: kind, label: "Selection · " + flat(context.selection), detail: context.selection || ""})
+            else if (kind === "quote") list.push({kind: kind, label: "Quote · " + flat(context.quote), detail: context.quote || ""})
             else if (kind === "library") list.push({kind: kind, label: "Library passages"})
             else if (kind === "image") {
                 const names = context.images || [], files = context.imageFiles || []
