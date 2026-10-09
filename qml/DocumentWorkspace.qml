@@ -45,8 +45,10 @@ Flickable {
     signal compareRequested(string groupId)
     // A group was just made (by dragging or the tab menu): its label opens for the name.
     signal tabGroupCreated(string stripId, string labelId)
-    ScrollBar.horizontal: ScrollBar {}
-    ScrollBar.vertical: ScrollBar {}
+    // Only when the window is smaller than the layout's minimum: otherwise these invisible bars would lie
+    // over the PDF view's own scroll bars at the right and bottom edges and take their clicks.
+    ScrollBar.horizontal: ScrollBar { policy: root.contentWidth > root.width + 1 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff }
+    ScrollBar.vertical: ScrollBar { policy: root.contentHeight > root.height + 1 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff }
     ListModel { id: groupRows }
     ListModel { id: handleRows }
     function groupView(id) {

@@ -37,6 +37,27 @@ Item {
             workspace.documentVisible = false; workspace.documentSide = "left"; workspace.navigationMode = 0
             workspace.homeVisible = true
         }
+        function test_pdfScrollBarsTakeClicksOnTheirWholeHandle() {
+            workspace.documents.restore({})
+            workspace.openDocument(fixtureSource)
+            tryVerify(function() { return workspace.currentReader !== null })
+            const c = findChild(workspace.currentReader, "pdfCanvas0")
+            tryCompare(c, "ready", true); tryCompare(c, "restoring", false)
+            c.zoom(2.5)
+            for (const name of ["pdfVerticalScrollBar", "pdfHorizontalScrollBar"]) {
+                const bar = findChild(c, name)
+                tryVerify(function() { return bar.size > 0 && bar.size < 1 })
+                // A press anywhere on the handle, also at its outer edge, takes it (nothing lies over it).
+                const h = bar.contentItem, vertical = name === "pdfVerticalScrollBar"
+                for (const p of [Qt.point(h.x + h.width / 2, h.y + h.height / 2),
+                                 vertical ? Qt.point(h.x + h.width - 1, h.y + h.height / 2) : Qt.point(h.x + h.width / 2, h.y + h.height - 1)]) {
+                    mousePress(bar, p.x, p.y)
+                    verify(bar.pressed, name + " at " + p.x + "," + p.y)
+                    mouseRelease(bar, p.x, p.y)
+                }
+            }
+            c.zoom(1 / 2.5)
+        }
         function test_pdfOpenedFromFinderOpensInATab() {
             const paper = testInput.copyFixture("from finder.pdf")
             workspace.homeVisible = true
