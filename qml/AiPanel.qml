@@ -36,6 +36,60 @@ Item {
             TapHandler { acceptedButtons: Qt.RightButton; onTapped: function(point) { root.openTextMenu(bubbleText, point.position) } }
         }
     }
+    // An attachment: what goes with a question (× removes it) or went with an earlier one. Images show a
+    // thumbnail.
+    component AttachmentChip: Rectangle {
+        id: chipBox
+        required property var modelData
+        property bool removable: false
+        signal removed()
+        readonly property bool thumbnail: modelData.kind === "image" && !!modelData.url
+        readonly property real lead: thumbnail ? 26 : 6
+        height: 22; width: Math.min(chipLabel.implicitWidth + lead + (removable ? 22 : 6), root.width - 16)
+        radius: Theme.radius; color: Theme.window; border.color: Theme.separator
+        Image {
+            visible: chipBox.thumbnail && status !== Image.Error
+            x: 3; anchors.verticalCenter: parent.verticalCenter
+            width: 18; height: 16; fillMode: Image.PreserveAspectCrop
+            source: chipBox.thumbnail ? chipBox.modelData.url : ""
+            sourceSize.width: 36; sourceSize.height: 32; asynchronous: true
+        }
+        Label {
+            id: chipLabel
+            x: chipBox.lead; anchors.verticalCenter: parent.verticalCenter
+            width: parent.width - chipBox.lead - (chipBox.removable ? 20 : 6)
+            text: chipBox.modelData.label || ""
+            elide: Text.ElideRight; maximumLineCount: 1; textFormat: Text.PlainText
+            font.pixelSize: Theme.fontCaption; color: Theme.textSecondary
+        }
+        IconButton {
+            visible: chipBox.removable
+            objectName: "aiChipRemove"
+            anchors.right: parent.right; anchors.rightMargin: 2; anchors.verticalCenter: parent.verticalCenter
+            width: 18; height: 18; glyphSize: Theme.fontSmall
+            icon.name: "close"; description: "Remove"
+            onClicked: chipBox.removed()
+        }
+    }
+    // What went with an earlier question, as chips: from the attachments kept with it.
+    function sentAttachments(message) {
+        const context = message.context || {}, list = []
+        const flat = function(text) { const t = (text || "").replace(/\s+/g, " ").trim(); return t.slice(0, 60) + (t.length > 60 ? "…" : "") }
+        const paper = root.c && root.c.thread.source && root.c.thread.source.toString().length ? researchStore.displayName(root.c.thread.source) : ""
+        ;(context.attachments || []).forEach(function(kind) {
+            if (kind === "paper") list.push({kind: kind, label: "Paper" + (paper.length ? " · " + paper : "")})
+            else if (kind.indexOf("page ") === 0) list.push({kind: "page", label: "Page " + kind.slice(5) + " text"})
+            else if (kind === "selection") list.push({kind: kind, label: "Selection · " + flat(context.selection)})
+            else if (kind === "quote") list.push({kind: kind, label: "Quote · " + flat(context.quote)})
+            else if (kind === "library") list.push({kind: kind, label: "Library passages"})
+            else if (kind === "image") {
+                const names = context.images || [], files = context.imageFiles || []
+                for (let i = 0; i < Math.max(1, names.length, files.length); ++i)
+                    list.push({kind: "image", label: names[i] || "Image", url: files[i] || ""})
+            }
+        })
+        return list
+    }
     // The model's reasoning summary above an answer. While it thinks: "Thinking · <latest step>" in a
     // lighter colour; once the answer starts: "Thought for 12s ›", which unfolds the whole summary.
     component ThinkingFold: ColumnLayout {
@@ -237,15 +291,23 @@ Item {
                 required property int index
                 width: ListView.view.width
                 spacing: 4
-                Label {
-                    readonly property string quoted: message.modelData.role === "user" ? ((message.modelData.context || {}).quote || "") : ""
-                    objectName: "aiQuoted-" + message.index
-                    visible: quoted.length > 0
-                    Layout.alignment: Qt.AlignRight
-                    Layout.maximumWidth: conversation.width - Math.min(40, conversation.width * 0.12)
-                    text: "\u201c" + quoted.replace(/\s+/g, " ").trim() + "\u201d"
-                    wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; textFormat: Text.PlainText
-                    color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
+                // What went with the question, above it.
+                Flow {
+                    readonly property var sent: message.modelData.role === "user" ? root.sentAttachments(message.modelData) : []
+                    objectName: "aiSent-" + message.index
+                    visible: sent.length > 0
+                    Layout.fillWidth: true
+                    Layout.leftMargin: Math.min(40, conversation.width * 0.12)
+                    // Right-aligned like the question; filled from the right, so the list is reversed.
+                    layoutDirection: Qt.RightToLeft
+                    spacing: 4
+                    Repeater {
+                        model: parent.sent.slice().reverse()
+                        delegate: AttachmentChip {
+                            required property int index
+                            objectName: "aiSentChip-" + message.index + "-" + index
+                        }
+                    }
                 }
                 Bubble {
                     visible: message.modelData.role === "user"
@@ -361,31 +423,11 @@ Item {
             visible: root.c && root.c.attachments.length > 0
             Repeater {
                 model: root.c ? root.c.attachments : []
-                delegate: Rectangle {
-                    id: chipBox
-                    required property var modelData
+                delegate: AttachmentChip {
                     required property int index
                     objectName: "aiChip-" + modelData.kind + (modelData.kind === "image" ? "-" + modelData.index : "")
-                    readonly property bool removable: true
-                    readonly property real lead: modelData.kind === "image" ? 26 : 6
-                    height: 22; width: Math.min(chip.implicitWidth + lead + (removable ? 22 : 6), root.width - 16)
-                    radius: Theme.radius; color: Theme.window; border.color: Theme.separator
-                    Image {
-                        visible: chipBox.modelData.kind === "image"
-                        x: 3; anchors.verticalCenter: parent.verticalCenter
-                        width: 18; height: 16; fillMode: Image.PreserveAspectCrop
-                        source: visible ? chipBox.modelData.url : ""
-                        sourceSize.width: 36; sourceSize.height: 32; asynchronous: true
-                    }
-                    Label { id: chip; x: chipBox.lead; anchors.verticalCenter: parent.verticalCenter; width: parent.width - chipBox.lead - (chipBox.removable ? 20 : 6); text: chipBox.modelData.label; elide: Text.ElideRight; maximumLineCount: 1; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
-                    IconButton {
-                        visible: chipBox.removable
-                        objectName: "aiChipRemove-" + chipBox.index
-                        anchors.right: parent.right; anchors.rightMargin: 2; anchors.verticalCenter: parent.verticalCenter
-                        width: 18; height: 18; glyphSize: Theme.fontSmall
-                        icon.name: "close"; description: "Remove"
-                        onClicked: { const kind = chipBox.modelData.kind, at = chipBox.modelData.index; Qt.callLater(function() { root.c.detach(kind, at) }) }
-                    }
+                    removable: true
+                    onRemoved: { const kind = modelData.kind, at = modelData.index; Qt.callLater(function() { root.c.detach(kind, at) }) }
                 }
             }
         }

@@ -280,7 +280,8 @@ Item {
         thinkingText = ""; thinkingSeconds = 0; askedAt = Date.now()
         const choice = {provider: provider, model: model, question: question, threadId: threadId, action: spec.action || "ask",
                         imageFiles: images.map(function(i) { return i.url }),
-                        imageLabels: images.map(function(i) { return i.about || "" })}
+                        imageLabels: images.map(function(i) { return i.about || "" }),
+                        imageNames: images.map(function(i) { return i.name || "" })}
         if (efforts.length) choice.effort = effectiveEffort
         if (effectiveFast) choice.fast = true
         request = ai.ask(Object.assign({}, spec, choice))

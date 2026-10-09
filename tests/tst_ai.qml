@@ -368,6 +368,12 @@ Item {
             compare(ai.error, "")
             const asked = ai.messages[ai.messages.length - 2]
             verify(asked.context.attachments.indexOf("image") >= 0)
+            // The question keeps showing what went with it: the image, named, with its thumbnail.
+            compare(asked.context.images, ["figure.png"])
+            compare(asked.context.imageFiles.length, 1)
+            const sent = p.sentAttachments(asked)
+            verify(sent.some(function(a) { return a.kind === "image" && a.label === "figure.png" && a.url.length > 0 }))
+            tryVerify(function() { const chip = findChild(p, "aiSentChip-" + (ai.messages.length - 2) + "-0"); return chip !== null && chip.width > 40 && chip.visible })
             // × removes an image before sending.
             verify(ai.attachImage(url))
             ai.detach("image", 0)

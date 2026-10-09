@@ -514,8 +514,13 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         emit delta(request, text);
     });
     // Stores the turn: a whole answer, or what had arrived when the reader stopped it.
-    const auto store = [this, request, id, prompt, spec, done, threadId, thought, provider, attached = materials](
-                           const QString &answer, const QString &used, bool stopped) {
+    // What the reader attached, kept with the question so the thread shows it: image names and the copies
+    // that were sent (thumbnails).
+    QStringList sentImages;
+    for (const auto &value : images)
+        sentImages << QUrl::fromLocalFile(value.toMap().value("path").toString()).toString();
+    const auto store = [this, request, id, prompt, spec, done, threadId, thought, provider, attached = materials,
+                           sentImages](const QString &answer, const QString &used, bool stopped) {
         done();
         auto text = spec.contains("sources") ? withSourceLinks(answer, spec.value("sources").toList()) : answer;
         // Page citations in an answer about one paper become links to those places.
@@ -544,7 +549,9 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
             {{"role", "user"}, {"content", sent}, {"display", display}, {"provider", id}, {"model", usedModel},
                 {"context",
                     QVariantMap{{"attachments", attachments}, {"selection", attached.selection.left(400)},
-                        {"quote", attached.quote.left(400)}, {"page", spec.value("page")}}}});
+                        {"quote", attached.quote.left(400)}, {"page", spec.value("page")},
+                        {"images", spec.value("imageNames").toStringList().mid(0, sentImages.size())},
+                        {"imageFiles", sentImages}}}});
         // The reasoning summary sits in the answer's context: shown folded, never copied or resent.
         QVariantMap answerContext;
         const auto reasoning = thought->text.trimmed();
