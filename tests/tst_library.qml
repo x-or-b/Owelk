@@ -84,7 +84,7 @@ Item {
             workspace.openDocument(fixtureSource)
             tryVerify(function() { return workspace.currentReader && workspace.currentReader.pdfReady }, 10000)
             // Other test files leave other panels in this dock; show the Library panel.
-            findChild(workspace, "leftDock").activePanel = "files"
+            workspace.setPanelShown("files", true); workspace.closeOthers("files")
             let panel = null
             tryVerify(function() { panel = findChild(workspace, "libraryPanel"); return panel !== null })
             tryVerify(function() { return visibleChild(panel, "panelCollection-Panel Topic") !== null })
@@ -101,10 +101,14 @@ Item {
             d.finishDrag(false)
             tryVerify(function() { return researchStore.libraryDocuments({collection: topic}).length === 1 })
             verify(Tree.owner(d.tree, tab) !== null, "the tab stays open")
-            // Clicking the collection opens the Library filtered to it.
+            // Clicking the collection opens the Library filtered to it; the navigator's other rows too.
             mouseClick(visibleChild(panel, "panelCollection-Panel Topic"))
             const view = library()
             tryVerify(function() { return view.filter.collection === topic })
+            mouseClick(visibleChild(panel, "panelFavorites"))
+            tryVerify(function() { return view.filter.favorite === true })
+            mouseClick(visibleChild(panel, "panelAllPapers"))
+            tryVerify(function() { return Object.keys(view.filter).length === 0 })
             // New and renamed collections from the panel.
             mouseClick(visibleChild(panel, "panelNewCollection"))
             const nameDialog = findChild(panel, "panelCollectionName")
@@ -135,12 +139,14 @@ Item {
             findChild(menu, "deletePaperOption").triggered()
             tryVerify(function() { return !view.rows.some(function(r) { return researchStore.sameSource(r.url, copy) }) })
             verify(testInput.fileExists(copy), "the PDF file waits with the paper")
-            // In the Trash until restored.
-            view.setFilter({papersTrash: true})
-            tryVerify(function() { return view.trashRows.some(function(r) { return r.id === row.id }) })
-            tryVerify(function() { return findChild(view, "restorePaper-" + row.id) !== null })
-            findChild(view, "restorePaper-" + row.id).clicked()
-            view.setFilter({})
+            // In the Trash (with notes and AI conversations) until restored.
+            mouseClick(visualChild(view, "libraryTrashTab"))
+            compare(view.view, "trash")
+            tryVerify(function() { return view.trashRows.some(function(r) { return r.kind === "paper" && r.id === row.id }) })
+            tryVerify(function() { return findChild(view, "restore-paper-" + row.id) !== null })
+            findChild(view, "restore-paper-" + row.id).clicked()
+            mouseClick(visualChild(view, "libraryPapersTab"))
+            compare(view.view, "papers")
             tryVerify(function() { return view.rows.some(function(r) { return researchStore.sameSource(r.url, copy) }) })
             compare(view.trashCount, 0)
         }

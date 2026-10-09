@@ -315,36 +315,6 @@ int ResearchStore::deletePapers(const QVariantList &sources)
     return int(deleted.size());
 }
 
-int ResearchStore::trashDays() const
-{
-    return setting("trash.days", "30").toInt();
-}
-
-QVariantList ResearchStore::trashedPapers() const
-{
-    QVariantList rows;
-    QSqlQuery query(m_database);
-    if (!query.exec("SELECT id,url,trashed_at FROM documents WHERE trashed_at IS NOT NULL ORDER BY trashed_at DESC"))
-        return rows;
-    const auto days = trashDays();
-    while (query.next()) {
-        const QUrl url(query.value(1).toString());
-        const auto trashed = QDateTime::fromString(query.value(2).toString(), Qt::ISODateWithMs);
-        rows.append(QVariantMap{{"id", query.value(0)}, {"url", url}, {"name", displayName(url)},
-            {"fileName", fileName(url)}, {"trashedAt", trashed},
-            {"daysLeft", days > 0 ? qMax(0, days - int(trashed.daysTo(QDateTime::currentDateTimeUtc()))) : -1}});
-    }
-    return rows;
-}
-
-int ResearchStore::trashedPaperCount() const
-{
-    QSqlQuery query(m_database);
-    return query.exec("SELECT count(*) FROM documents WHERE trashed_at IS NOT NULL") && query.next()
-        ? query.value(0).toInt()
-        : 0;
-}
-
 int ResearchStore::restorePapers(const QVariantList &sources)
 {
     int restored = 0;
@@ -420,26 +390,4 @@ int ResearchStore::purgePapers(const QVariantList &sources)
     emit highlightsChanged();
     emit linksChanged();
     return purged;
-}
-
-int ResearchStore::emptyPaperTrash()
-{
-    QVariantList urls;
-    for (const auto &row : trashedPapers()) urls << row.toMap().value("url");
-    return purgePapers(urls);
-}
-
-void ResearchStore::purgeExpiredPapers()
-{
-    const auto days = trashDays();
-    if (days <= 0) return;
-    const auto cutoff = QDateTime::currentDateTimeUtc().addDays(-days).toString(Qt::ISODateWithMs);
-    QSqlQuery query(m_database);
-    query.prepare("SELECT url FROM documents WHERE trashed_at IS NOT NULL AND trashed_at<?");
-    query.addBindValue(cutoff);
-    QVariantList urls;
-    if (query.exec())
-        while (query.next()) urls << QUrl(query.value(0).toString());
-    query.finish();
-    if (!urls.isEmpty()) purgePapers(urls);
 }

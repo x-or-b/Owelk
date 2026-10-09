@@ -42,7 +42,7 @@ ColumnLayout {
         }
         SettingsRow {
             label: "Empty the Trash"
-            detail: "Deleted papers wait in Library › Trash until then"
+            detail: "Deleted papers, notes and AI conversations wait in Library › Trash until then"
             ComboBox {
                 objectName: "trashDaysBox"
                 Layout.preferredWidth: 160

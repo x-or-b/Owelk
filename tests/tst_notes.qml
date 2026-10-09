@@ -72,11 +72,11 @@ Item {
             findChild(pane(), "deleteNoteOption").triggered()
             tryVerify(function() { return !Tree.leaves(workspace.documents.tree).some(function(g) { return g.tabs.some(function(t) { return t.noteId === id }) }) })
             compare(researchStore.notes(true).filter(function(n) { return n.id === id }).length, 1)
-            workspace.documents.openLibrary({notesTrash: true})
+            workspace.documents.openLibrary({view: "trash"})
             let library = null
             tryVerify(function() { library = visualChild(workspace.documents.groupView(workspace.documents.activeGroup), "libraryView"); return library && library.width > 0 })
-            tryVerify(function() { return visualChild(library, "restoreNote-" + id) !== null })
-            mouseClick(visualChild(library, "restoreNote-" + id))
+            tryVerify(function() { return visualChild(library, "restore-note-" + id) !== null })
+            mouseClick(visualChild(library, "restore-note-" + id))
             tryVerify(function() { return !researchStore.note(id).deleted })
             workspace.navigationMode = 0
         }

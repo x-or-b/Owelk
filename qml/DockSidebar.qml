@@ -44,9 +44,18 @@ Rectangle {
             onDocumentChosen: function(source) { root.documentChosen(source) }
             onFolderChosen: function(folder) { root.folderChosen(folder) }
             onLibraryFilterRequested: function(filter) { root.libraryFilterRequested(filter) }
+            onNoteChosen: function(id) { root.linkActivated("owelk://note/" + id) }
         }
     }
-    Component { id: aiPanel; AiPanel { controller: root.aiController; onLinkActivated: function(link) { root.linkActivated(link) }; onSettingsRequested: root.settingsRequested() } }
+    Component {
+        id: aiPanel
+        AiPanel {
+            controller: root.aiController
+            onLinkActivated: function(link) { root.linkActivated(link) }
+            onSettingsRequested: root.settingsRequested()
+            onTrashRequested: root.libraryFilterRequested({view: "trash"})
+        }
+    }
     Component {
         id: navigation
         PdfNavigationPanel {

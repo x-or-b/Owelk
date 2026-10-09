@@ -4,8 +4,9 @@ import QtQuick.Layouts
 import Owelk.Ui
 import QtQuick.Dialogs as Native
 
-// Every paper in the library, filtered by reading state, favorites, collection or tag.
-// Papers are referenced, never copied: collections and tags only group them.
+// The Library tab: Papers (filtered by reading state, favorites, collection or tag), Notes, and the
+// Trash (papers, notes and AI conversations together). Papers are referenced, never copied:
+// collections and tags only group them.
 Rectangle {
     id: root
     objectName: "libraryView"
@@ -37,10 +38,24 @@ Rectangle {
     function papersFor(row) { return isSelected(row.url) ? selection : [row.url.toString()] }
     property var tagRows: []
     property var noteRows: []
-    readonly property bool showingNotes: !!(filter.notes || filter.notesTrash)
-    readonly property bool showingTrash: !!filter.papersTrash
+    // Which list: papers (no view in the filter), notes or the Trash.
+    readonly property string view: filter.view === "notes" || filter.view === "trash" ? filter.view : "papers"
+    readonly property bool showingNotes: view === "notes"
+    readonly property bool showingTrash: view === "trash"
+    function setView(next) { setFilter(next === "papers" ? {} : {view: next}) }
     property int trashCount: 0
     property var trashRows: []
+    readonly property var kindNames: ({paper: "Paper", note: "Note", ai: "AI conversation"})
+    // Later, so a row is not removed while its own button handles the click.
+    function restore(items) { Qt.callLater(function() { researchStore.restoreFromTrash(items); root.refresh() }) }
+    // Deleting for good, after a word when notes link to what goes (their links stop opening).
+    function deleteForGood(items) {
+        const linked = researchStore.notesLinkingTo(items)
+        if (!linked) { Qt.callLater(function() { researchStore.deleteForGood(items); root.refresh() }); return }
+        purgeConfirm.items = items
+        purgeConfirm.linked = linked
+        purgeConfirm.open()
+    }
     signal noteChosen(string id)
     signal newNoteRequested()
     // collection: "" for the whole library.
@@ -57,9 +72,9 @@ Rectangle {
         selection = selection.filter(function(u) { return present.indexOf(u) >= 0 })
         collectionRows = researchStore.collections()
         tagRows = researchStore.tags()
-        noteRows = showingNotes ? researchStore.notes(!!filter.notesTrash) : []
-        trashCount = researchStore.trashedPaperCount()
-        trashRows = showingTrash ? researchStore.trashedPapers() : []
+        noteRows = showingNotes ? researchStore.notes(false) : []
+        trashCount = researchStore.trashCount()
+        trashRows = showingTrash ? researchStore.trash() : []
     }
     Loader { id: organizer; active: false; sourceComponent: OrganizePapersDialog {} }
     Loader { id: comparer; active: false; sourceComponent: ComparePapersDialog { onNoteCreated: function(id) { root.noteChosen(id) } } }
@@ -81,7 +96,8 @@ Rectangle {
         target: researchStore
         function onDocumentsChanged() { root.refresh() }
         function onRecentDocumentsChanged() { root.refresh() }
-        function onNotesChanged() { if (root.showingNotes) root.refresh() }
+        function onNotesChanged() { root.refresh() }
+        function onAiThreadsChanged() { if (root.showingTrash) root.refresh(); else root.trashCount = researchStore.trashCount() }
     }
     Dialog {
         id: collectionDialog
@@ -224,355 +240,386 @@ Rectangle {
         collectionId: root.filter.collection || ""
         onOpenRequested: function(source, position) { root.documentChosen(source, position) }
     }
-    RowLayout {
+    ColumnLayout {
         anchors.fill: parent
         spacing: 0
-        // Sidebar: built-in views, collections, tags.
+        // The three lists, in the same small switch as the panels' views.
         Rectangle {
-            Layout.preferredWidth: 210; Layout.fillHeight: true
+            Layout.fillWidth: true
+            Layout.preferredHeight: Theme.barHeight + 8
             color: Theme.sidebar
-            ListView {
-                id: sidebar
-                anchors.fill: parent; anchors.margins: 8
-                clip: true
-                spacing: 1
-                model: [{key: "all", label: "All Papers"}, {key: "unsorted", value: true, label: "Unsorted", count: root.unsortedCount}, {key: "favorite", value: true, label: "Favorites"},
-                        {key: "state", value: "unread", label: "Unread"}, {key: "state", value: "reading", label: "Reading"},
-                        {key: "state", value: "read", label: "Read"}, {key: "papersTrash", value: true, label: "Trash", count: root.trashCount}, {header: "Notes"}, {key: "notes", value: true, label: "All Notes"},
-                        {key: "notesTrash", value: true, label: "Notes Trash"}, {header: "Collections", add: true}]
-                    .concat(root.collectionRows.map(function(c) { return {key: "collection", value: c.id, label: c.name, depth: c.depth, count: c.count, row: c} }))
-                    .concat(root.tagRows.length ? [{header: "Tags"}] : [])
-                    .concat(root.tagRows.map(function(t) { return {key: "tag", value: t.id, label: "# " + t.name, count: t.count} }))
-                delegate: Item {
-                    id: entry
-                    required property var modelData
-                    width: sidebar.width
-                    height: modelData.header ? 34 : 28
-                    Label {
-                        visible: !!entry.modelData.header
-                        anchors.left: parent.left; anchors.leftMargin: 6; anchors.bottom: parent.bottom; anchors.bottomMargin: 4
-                        text: entry.modelData.header || ""; font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textTertiary
-                    }
-                    IconButton {
-                        visible: !!entry.modelData.add
-                        anchors.right: parent.right; anchors.bottom: parent.bottom
-                        objectName: "newCollectionButton"; icon.name: "add"; implicitWidth: 24; implicitHeight: 22
-                        description: "New collection"; onClicked: collectionDialog.begin("", "")
-                    }
-                    ItemDelegate {
-                        id: item
-                        visible: !entry.modelData.header
-                        objectName: "librarySidebar-" + entry.modelData.key + "-" + (entry.modelData.value === undefined ? "" : entry.modelData.value)
-                        anchors.fill: parent
-                        leftPadding: 8 + 14 * (entry.modelData.depth || 0)
-                        highlighted: !entry.modelData.header && root.selected(entry.modelData.key, entry.modelData.value)
-                        text: entry.modelData.label || ""
-                        contentItem: Label {
-                            leftPadding: 0; rightPadding: 28
-                            text: item.text; font: item.font; elide: Text.ElideRight; textFormat: Text.PlainText
-                            color: item.highlighted ? Theme.selectedText : Theme.text
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        onClicked: {
-                            const next = {}
-                            if (entry.modelData.key !== "all") next[entry.modelData.key] = entry.modelData.value
-                            root.setFilter(next)
-                        }
-                        Label {
-                            anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                            visible: entry.modelData.count !== undefined; text: entry.modelData.count || 0
-                            font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
-                        }
-                        TapHandler {
-                            acceptedButtons: Qt.RightButton
-                            enabled: entry.modelData.key === "collection"
-                            onTapped: { collectionMenu.row = entry.modelData.row; collectionMenu.popup() }
-                        }
-                        // Drop a paper here to add it to this collection.
-                        DropArea {
-                            anchors.fill: parent
-                            enabled: entry.modelData.key === "collection"
-                            keys: ["owelk/paper"]
-                            onDropped: function(drop) { researchStore.setDocumentsCollection(drop.source.paperUrls, entry.modelData.value, true) }
-                            Rectangle { anchors.fill: parent; color: "transparent"; border.color: Theme.accent; radius: Theme.radius; visible: parent.containsDrag }
-                        }
-                    }
-                }
+            TabBar {
+                objectName: "libraryViews"
+                anchors.left: parent.left; anchors.leftMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                width: Math.min(parent.width - 16, 320)
+                currentIndex: ["papers", "notes", "trash"].indexOf(root.view)
+                TabButton { objectName: "libraryPapersTab"; text: "Papers"; onClicked: root.setView("papers") }
+                TabButton { objectName: "libraryNotesTab"; text: "Notes"; onClicked: root.setView("notes") }
+                TabButton { objectName: "libraryTrashTab"; text: root.trashCount ? "Trash " + root.trashCount : "Trash"; onClicked: root.setView("trash") }
             }
+            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.separator }
         }
-        Rectangle { Layout.preferredWidth: 1; Layout.fillHeight: true; color: Theme.separator }
-        ColumnLayout {
+        RowLayout {
             Layout.fillWidth: true; Layout.fillHeight: true
-            Layout.margins: 12
-            spacing: 8
-            // Owelk's paper Trash: restore, delete for good, or empty it.
-            RowLayout {
-                Layout.fillWidth: true
-                visible: root.showingTrash
-                ColumnLayout {
-                    Layout.fillWidth: true; spacing: 2
-                    Label { text: "Trash"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
-                    Label {
-                        Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
-                        text: (researchStore.trashDays() > 0 ? "Papers are deleted for good after " + researchStore.trashDays() + " days" : "Papers stay until you empty the Trash")
-                            + " (Settings › Data). Deleting for good removes their annotations and sends a PDF Owelk keeps to the system Trash."
-                    }
-                }
-                Button {
-                    objectName: "emptyPaperTrash"; text: "Empty Trash"; enabled: root.trashRows.length > 0
-                    onClicked: emptyTrashConfirm.open()
-                }
-            }
-            ListView {
-                id: trashList
-                objectName: "libraryTrash"
-                visible: root.showingTrash
-                Layout.fillWidth: true; Layout.fillHeight: true
-                clip: true
-                model: root.trashRows
-                delegate: ItemDelegate {
-                    id: trashItem
-                    required property var modelData
-                    required property int index
-                    objectName: "trashedPaper-" + modelData.id
-                    width: trashList.width; height: Theme.rowHeightTall
-                    separator: index < trashList.count - 1
-                    contentItem: RowLayout {
-                        ColumnLayout {
-                            Layout.fillWidth: true; spacing: 2
-                            Label { Layout.fillWidth: true; text: trashItem.modelData.name; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+            spacing: 0
+            // Sidebar for papers: built-in views, collections, tags.
+            Rectangle {
+                visible: !root.showingNotes && !root.showingTrash
+                Layout.preferredWidth: 210; Layout.fillHeight: true
+                color: Theme.sidebar
+                ListView {
+                    id: sidebar
+                    anchors.fill: parent; anchors.margins: 8
+                    clip: true
+                    spacing: 1
+                    model: [{key: "all", label: "All Papers"}, {key: "unsorted", value: true, label: "Unsorted", count: root.unsortedCount}, {key: "favorite", value: true, label: "Favorites"},
+                            {key: "state", value: "unread", label: "Unread"}, {key: "state", value: "reading", label: "Reading"},
+                            {key: "state", value: "read", label: "Read"}, {header: "Collections", add: true}]
+                        .concat(root.collectionRows.map(function(c) { return {key: "collection", value: c.id, label: c.name, depth: c.depth, count: c.count, row: c} }))
+                        .concat(root.tagRows.length ? [{header: "Tags"}] : [])
+                        .concat(root.tagRows.map(function(t) { return {key: "tag", value: t.id, label: "# " + t.name, count: t.count} }))
+                    delegate: Item {
+                        id: entry
+                        required property var modelData
+                        width: sidebar.width
+                        height: modelData.header ? 34 : 28
+                        Label {
+                            visible: !!entry.modelData.header
+                            anchors.left: parent.left; anchors.leftMargin: 6; anchors.bottom: parent.bottom; anchors.bottomMargin: 4
+                            text: entry.modelData.header || ""; font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textTertiary
+                        }
+                        IconButton {
+                            visible: !!entry.modelData.add
+                            anchors.right: parent.right; anchors.bottom: parent.bottom
+                            objectName: "newCollectionButton"; icon.name: "add"; implicitWidth: 24; implicitHeight: 22
+                            description: "New collection"; onClicked: collectionDialog.begin("", "")
+                        }
+                        ItemDelegate {
+                            id: item
+                            visible: !entry.modelData.header
+                            objectName: "librarySidebar-" + entry.modelData.key + "-" + (entry.modelData.value === undefined ? "" : entry.modelData.value)
+                            anchors.fill: parent
+                            leftPadding: 8 + 14 * (entry.modelData.depth || 0)
+                            highlighted: !entry.modelData.header && root.selected(entry.modelData.key, entry.modelData.value)
+                            text: entry.modelData.label || ""
+                            contentItem: Label {
+                                leftPadding: 0; rightPadding: 28
+                                text: item.text; font: item.font; elide: Text.ElideRight; textFormat: Text.PlainText
+                                color: item.highlighted ? Theme.selectedText : Theme.text
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            onClicked: {
+                                const next = {}
+                                if (entry.modelData.key !== "all") next[entry.modelData.key] = entry.modelData.value
+                                root.setFilter(next)
+                            }
                             Label {
-                                Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
-                                text: trashItem.modelData.fileName + (trashItem.modelData.daysLeft >= 0 ? " · deleted in " + trashItem.modelData.daysLeft + (trashItem.modelData.daysLeft === 1 ? " day" : " days") : "")
+                                anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                                visible: entry.modelData.count !== undefined; text: entry.modelData.count || 0
+                                font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                            }
+                            TapHandler {
+                                acceptedButtons: Qt.RightButton
+                                enabled: entry.modelData.key === "collection"
+                                onTapped: { collectionMenu.row = entry.modelData.row; collectionMenu.popup() }
+                            }
+                            // Drop a paper here to add it to this collection.
+                            DropArea {
+                                anchors.fill: parent
+                                enabled: entry.modelData.key === "collection"
+                                keys: ["owelk/paper"]
+                                onDropped: function(drop) { researchStore.setDocumentsCollection(drop.source.paperUrls, entry.modelData.value, true) }
+                                Rectangle { anchors.fill: parent; color: "transparent"; border.color: Theme.accent; radius: Theme.radius; visible: parent.containsDrag }
                             }
                         }
-                        IconButton {
-                            objectName: "restorePaper-" + trashItem.modelData.id
-                            icon.name: "restore"; description: "Restore paper"
-                            onClicked: { researchStore.restorePapers([trashItem.modelData.url]); root.refresh() }
+                    }
+                }
+            }
+            Rectangle { visible: !root.showingNotes && !root.showingTrash; Layout.preferredWidth: 1; Layout.fillHeight: true; color: Theme.separator }
+            ColumnLayout {
+                Layout.fillWidth: true; Layout.fillHeight: true
+                Layout.margins: 12
+                spacing: 8
+                // The Trash: papers, notes and AI conversations; restore, delete for good, or empty it.
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: root.showingTrash
+                    ColumnLayout {
+                        Layout.fillWidth: true; spacing: 2
+                        Label { text: "Trash"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
+                        Label {
+                            Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+                            text: (researchStore.trashDays() > 0 ? "Papers, notes and AI conversations are deleted for good after " + researchStore.trashDays() + " days"
+                                                                  : "Papers, notes and AI conversations stay until you empty the Trash")
+                                + " (Settings › Data). A paper deleted for good loses its annotations; a PDF Owelk keeps goes to the system Trash."
                         }
-                        IconButton {
-                            objectName: "purgePaper-" + trashItem.modelData.id
-                            icon.name: "trash"; tint: Theme.danger; description: "Delete for good"
-                            onClicked: { researchStore.purgePapers([trashItem.modelData.url]); root.refresh() }
+                    }
+                    Button {
+                        objectName: "emptyTrash"; text: "Empty Trash"; enabled: root.trashRows.length > 0
+                        onClicked: {
+                            emptyTrashConfirm.linked = researchStore.notesLinkingTo(root.trashRows)
+                            emptyTrashConfirm.open()
                         }
                     }
                 }
-                Label { anchors.centerIn: parent; visible: trashList.count === 0; text: "Trash is empty."; color: Theme.textTertiary }
-            }
-            ConfirmDialog {
-                id: emptyTrashConfirm
-                objectName: "emptyPaperTrashConfirm"
-                title: "Delete " + root.trashRows.length + (root.trashRows.length === 1 ? " paper" : " papers") + " for good?"
-                message: "Their annotations are deleted. PDFs Owelk keeps go to the system Trash."
-                actionText: "Empty Trash"
-                onConfirmed: Qt.callLater(function() { researchStore.emptyPaperTrash(); root.refresh() })
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                visible: root.showingNotes
-                Label { Layout.fillWidth: true; text: root.filter.notesTrash ? "Notes trash" : "Notes"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
-                IconButton { objectName: "libraryNewNote"; visible: !root.filter.notesTrash; icon.name: "note"; description: "New note"; onClicked: root.newNoteRequested() }
-            }
-            ListView {
-                id: noteList
-                objectName: "libraryNotes"
-                visible: root.showingNotes
-                Layout.fillWidth: true; Layout.fillHeight: true
-                clip: true
-                model: root.noteRows
-                delegate: ItemDelegate {
-                    id: noteItem
-                    required property var modelData
-                    objectName: "libraryNote-" + modelData.id
-                    required property int index
-                    width: noteList.width; height: Theme.rowHeightTall
-                    separator: index < noteList.count - 1
-                    onClicked: if (!root.filter.notesTrash) root.noteChosen(modelData.id)
-                    TapHandler { acceptedButtons: Qt.RightButton; enabled: !root.filter.notesTrash; onTapped: { noteMenu.noteId = noteItem.modelData.id; noteMenu.popup() } }
-                    contentItem: RowLayout {
-                        ColumnLayout {
-                            Layout.fillWidth: true; spacing: 2
+                ListView {
+                    id: trashList
+                    objectName: "libraryTrash"
+                    visible: root.showingTrash
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    clip: true
+                    model: root.trashRows
+                    ScrollBar.vertical: ScrollBar {}
+                    delegate: ItemDelegate {
+                        id: trashItem
+                        required property var modelData
+                        required property int index
+                        objectName: "trashed-" + modelData.kind + "-" + modelData.id
+                        width: trashList.width; height: Theme.rowHeightTall
+                        separator: index < trashList.count - 1
+                        contentItem: RowLayout {
+                            spacing: 10
+                            Icon { name: ({paper: "document", note: "note", ai: "ai"})[trashItem.modelData.kind]; size: Theme.fontBody; color: Theme.textTertiary }
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 2
+                                Label { Layout.fillWidth: true; text: trashItem.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                                Label {
+                                    Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                    text: [root.kindNames[trashItem.modelData.kind], trashItem.modelData.kind === "ai" ? "" : trashItem.modelData.detail,
+                                           trashItem.modelData.daysLeft >= 0 ? "deleted in " + trashItem.modelData.daysLeft + (trashItem.modelData.daysLeft === 1 ? " day" : " days") : ""]
+                                          .filter(function(t) { return t && t.length }).join(" · ")
+                                }
+                            }
+                            IconButton {
+                                objectName: "restore-" + trashItem.modelData.kind + "-" + trashItem.modelData.id
+                                icon.name: "restore"; description: "Restore"
+                                onClicked: root.restore([trashItem.modelData])
+                            }
+                            IconButton {
+                                objectName: "purge-" + trashItem.modelData.kind + "-" + trashItem.modelData.id
+                                icon.name: "trash"; tint: Theme.danger; description: "Delete for good"
+                                onClicked: root.deleteForGood([trashItem.modelData])
+                            }
+                        }
+                    }
+                    Label { anchors.centerIn: parent; visible: trashList.count === 0; text: "Trash is empty."; color: Theme.textTertiary }
+                }
+                ConfirmDialog {
+                    id: emptyTrashConfirm
+                    objectName: "emptyTrashConfirm"
+                    property int linked: 0
+                    title: "Delete " + root.trashRows.length + (root.trashRows.length === 1 ? " item" : " items") + " for good?"
+                    message: "Papers lose their annotations, and PDFs Owelk keeps go to the system Trash."
+                             + (linked ? " " + linked + (linked === 1 ? " note links" : " notes link") + " to them; those links will no longer open." : "")
+                    actionText: "Empty Trash"
+                    onConfirmed: Qt.callLater(function() { researchStore.emptyTrash(); root.refresh() })
+                }
+                ConfirmDialog {
+                    id: purgeConfirm
+                    objectName: "purgeConfirm"
+                    property var items: []
+                    property int linked: 0
+                    title: "Delete for good?"
+                    message: linked + (linked === 1 ? " note links" : " notes link") + " to this; the link will no longer open"
+                             + (items.length && items[0].kind === "ai" ? " (it reads \u201cDeleted conversation\u201d)." : ".")
+                    actionText: "Delete"
+                    onConfirmed: { const chosen = items; Qt.callLater(function() { researchStore.deleteForGood(chosen); root.refresh() }) }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: root.showingNotes
+                    Label { Layout.fillWidth: true; text: "Notes"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
+                    IconButton { objectName: "libraryNewNote"; icon.name: "note"; description: "New note"; onClicked: root.newNoteRequested() }
+                }
+                ListView {
+                    id: noteList
+                    objectName: "libraryNotes"
+                    visible: root.showingNotes
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    clip: true
+                    model: root.noteRows
+                    delegate: ItemDelegate {
+                        id: noteItem
+                        required property var modelData
+                        objectName: "libraryNote-" + modelData.id
+                        required property int index
+                        width: noteList.width; height: Theme.rowHeightTall
+                        separator: index < noteList.count - 1
+                        onClicked: root.noteChosen(modelData.id)
+                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: { noteMenu.noteId = noteItem.modelData.id; noteMenu.popup() } }
+                        contentItem: ColumnLayout {
+                            spacing: 2
                             Label { Layout.fillWidth: true; text: noteItem.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
                             Label { Layout.fillWidth: true; text: noteItem.modelData.snippet || " "; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
                         }
-                        IconButton {
-                            visible: !!root.filter.notesTrash; objectName: "restoreNote-" + noteItem.modelData.id
-                            icon.name: "restore"; description: "Restore note"; onClicked: researchStore.restoreNote(noteItem.modelData.id)
-                        }
-                        IconButton {
-                            visible: !!root.filter.notesTrash; objectName: "purgeNote-" + noteItem.modelData.id
-                            icon.name: "trash"; tint: Theme.danger; description: "Delete permanently"
-                            onClicked: researchStore.purgeNote(noteItem.modelData.id)
-                        }
                     }
+                    Label { anchors.centerIn: parent; visible: noteList.count === 0; text: "No notes yet."; color: Theme.textTertiary }
                 }
-                Label { anchors.centerIn: parent; visible: noteList.count === 0; text: root.filter.notesTrash ? "Trash is empty." : "No notes yet."; color: Theme.textTertiary }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                visible: !root.showingNotes && !root.showingTrash
-                TextField {
-                    objectName: "libraryQuery"
+                RowLayout {
                     Layout.fillWidth: true
-                    placeholderText: "Filter by title, author, year, DOI or file name"
-                    onTextChanged: root.query = text
-                }
-                ComboBox {
-                    objectName: "librarySort"
-                    Layout.preferredWidth: 140
-                    model: ["Last opened", "Last added", "Title", "Year"]
-                    readonly property var keys: ["opened", "added", "title", "year"]
-                    onActivated: function(index) { root.sort = keys[index] }
-                }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                visible: !root.showingNotes && !root.showingTrash
-                Label { objectName: "libraryCount"; Layout.fillWidth: true; text: root.rows.length + (root.rows.length === 1 ? " paper" : " papers"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
-                IconButton {
-                    id: addButton
-                    objectName: "libraryAddPdfs"
-                    icon.name: "add"
-                    description: "Add PDFs or a folder"
-                    onClicked: addMenu.popup(addButton, 0, addButton.height)
-                    Menu {
-                        id: addMenu
-                        objectName: "libraryAddMenu"
-                        MenuItem { text: "Add PDFs…"; onTriggered: addDialog.open() }
-                        MenuItem { objectName: "libraryAddFolder"; text: "Add Folder…"; onTriggered: folderDialog.open() }
+                    visible: !root.showingNotes && !root.showingTrash
+                    TextField {
+                        objectName: "libraryQuery"
+                        Layout.fillWidth: true
+                        placeholderText: "Filter by title, author, year, DOI or file name"
+                        onTextChanged: root.query = text
+                    }
+                    ComboBox {
+                        objectName: "librarySort"
+                        Layout.preferredWidth: 140
+                        model: ["Last opened", "Last added", "Title", "Year"]
+                        readonly property var keys: ["opened", "added", "title", "year"]
+                        onActivated: function(index) { root.sort = keys[index] }
                     }
                 }
-                // AI topic collections for the selection, or for the papers listed (Unsorted is the usual place).
-                IconButton {
-                    objectName: "libraryOrganize"
-                    icon.name: "organize"
-                    enabled: (root.selection.length || root.rows.length) >= 2
-                    description: "Organize with AI"
-                    onClicked: root.organizeWithAi(root.selection.length ? root.selection : root.rows.map(function(r) { return r.url.toString() }))
-                }
-                // A question to the library (or the collection shown), answered from its papers with the pages linked.
-                IconButton {
-                    objectName: "libraryAsk"
-                    icon.name: "ai"
-                    readonly property var shownCollection: root.filter.collection ? root.collectionRows.find(function(c) { return c.id === root.filter.collection }) || null : null
-                    description: shownCollection ? "Ask this collection with AI" : "Ask your library with AI"
-                    onClicked: root.askLibraryRequested(shownCollection ? shownCollection.id : "", shownCollection ? shownCollection.name : "")
-                }
-                IconButton {
-                    objectName: "exportBibtex"
-                    icon.name: "export"
-                    enabled: root.rows.length > 0
-                    description: "Export BibTeX"
-                    onClicked: bibtexDialog.open()
-                }
-            }
-            Native.FileDialog {
-                id: bibtexDialog
-                title: "Export BibTeX"
-                fileMode: Native.FileDialog.SaveFile
-                defaultSuffix: "bib"
-                nameFilters: ["BibTeX (*.bib)"]
-                onAccepted: researchStore.exportBibTeX(root.rows.map(function(r) { return r.url.toString() }), researchStore.localPath(selectedFile))
-            }
-            ListView {
-                id: papers
-                objectName: "libraryList"
-                visible: !root.showingNotes && !root.showingTrash
-                Layout.fillWidth: true; Layout.fillHeight: true
-                clip: true
-                model: root.rows
-                ScrollBar.vertical: ScrollBar {}
-                delegate: ItemDelegate {
-                    id: paper
-                    required property var modelData
-                    readonly property url paperUrl: modelData.url
-                    // Dragging a selected paper drags the whole selection.
-                    readonly property var paperUrls: root.papersFor(modelData)
-                    objectName: "libraryPaper-" + modelData.id
-                    required property int index
-                    width: papers.width
-                    height: Theme.rowHeightTall
-                    separator: index < papers.count - 1
-                    highlighted: root.isSelected(modelData.url)
-                    onClicked: root.rowClicked(index)
-                    // Unsorted papers get up to two places they probably belong, from similar papers.
-                    property var suggestions: []
-                    property int suggestionRequest: -1
-                    Component.onCompleted: if (root.filter.unsorted) suggestionRequest = researchStore.suggestCollections(modelData.url)
-                    Connections {
-                        target: researchStore
-                        enabled: paper.suggestionRequest >= 0
-                        function onCollectionsSuggested(request, source, list) { if (request === paper.suggestionRequest) paper.suggestions = list }
-                    }
-                    ToolTip.visible: hovered; ToolTip.delay: 600
-                    ToolTip.text: modelData.fileName + (modelData.duplicate ? "\nSame file as another library entry" : "") + (modelData.excluded ? "\nExcluded from text search" : "")
-                    Drag.active: dragHandler.active
-                    Drag.keys: ["owelk/paper"]
-                    Drag.source: paper
-                    Drag.hotSpot: Qt.point(20, 20)
-                    DragHandler { id: dragHandler; target: null; onActiveChanged: if (!active) paper.Drag.drop() }
-                    TapHandler {
-                        acceptedButtons: Qt.RightButton
-                        onTapped: {
-                            if (paper.paperUrls.length > 1) { batchMenu.urls = paper.paperUrls; batchMenu.popup() }
-                            else { root.selection = []; paperMenu.show(paper.modelData) }
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: !root.showingNotes && !root.showingTrash
+                    Label { objectName: "libraryCount"; Layout.fillWidth: true; text: root.rows.length + (root.rows.length === 1 ? " paper" : " papers"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
+                    IconButton {
+                        id: addButton
+                        objectName: "libraryAddPdfs"
+                        icon.name: "add"
+                        description: "Add PDFs or a folder"
+                        onClicked: addMenu.popup(addButton, 0, addButton.height)
+                        Menu {
+                            id: addMenu
+                            objectName: "libraryAddMenu"
+                            MenuItem { text: "Add PDFs…"; onTriggered: addDialog.open() }
+                            MenuItem { objectName: "libraryAddFolder"; text: "Add Folder…"; onTriggered: folderDialog.open() }
                         }
                     }
-                    contentItem: RowLayout {
-                        spacing: 10
-                        Rectangle {
-                            // Reading state: hollow unread, half reading, full read.
-                            Layout.preferredWidth: 8; Layout.preferredHeight: 8; radius: 4
-                            color: paper.modelData.readingState === "read" ? Theme.textTertiary : paper.modelData.readingState === "reading" ? Theme.accent : "transparent"
-                            border.color: paper.modelData.readingState === "read" ? Theme.textTertiary : Theme.accent
+                    // AI topic collections for the selection, or for the papers listed (Unsorted is the usual place).
+                    IconButton {
+                        objectName: "libraryOrganize"
+                        icon.name: "organize"
+                        enabled: (root.selection.length || root.rows.length) >= 2
+                        description: "Organize with AI"
+                        onClicked: root.organizeWithAi(root.selection.length ? root.selection : root.rows.map(function(r) { return r.url.toString() }))
+                    }
+                    // A question to the library (or the collection shown), answered from its papers with the pages linked.
+                    IconButton {
+                        objectName: "libraryAsk"
+                        icon.name: "ai"
+                        readonly property var shownCollection: root.filter.collection ? root.collectionRows.find(function(c) { return c.id === root.filter.collection }) || null : null
+                        description: shownCollection ? "Ask this collection with AI" : "Ask your library with AI"
+                        onClicked: root.askLibraryRequested(shownCollection ? shownCollection.id : "", shownCollection ? shownCollection.name : "")
+                    }
+                    IconButton {
+                        objectName: "exportBibtex"
+                        icon.name: "export"
+                        enabled: root.rows.length > 0
+                        description: "Export BibTeX"
+                        onClicked: bibtexDialog.open()
+                    }
+                }
+                Native.FileDialog {
+                    id: bibtexDialog
+                    title: "Export BibTeX"
+                    fileMode: Native.FileDialog.SaveFile
+                    defaultSuffix: "bib"
+                    nameFilters: ["BibTeX (*.bib)"]
+                    onAccepted: researchStore.exportBibTeX(root.rows.map(function(r) { return r.url.toString() }), researchStore.localPath(selectedFile))
+                }
+                ListView {
+                    id: papers
+                    objectName: "libraryList"
+                    visible: !root.showingNotes && !root.showingTrash
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    clip: true
+                    model: root.rows
+                    ScrollBar.vertical: ScrollBar {}
+                    delegate: ItemDelegate {
+                        id: paper
+                        required property var modelData
+                        readonly property url paperUrl: modelData.url
+                        // Dragging a selected paper drags the whole selection.
+                        readonly property var paperUrls: root.papersFor(modelData)
+                        objectName: "libraryPaper-" + modelData.id
+                        required property int index
+                        width: papers.width
+                        height: Theme.rowHeightTall
+                        separator: index < papers.count - 1
+                        highlighted: root.isSelected(modelData.url)
+                        onClicked: root.rowClicked(index)
+                        // Unsorted papers get up to two places they probably belong, from similar papers.
+                        property var suggestions: []
+                        property int suggestionRequest: -1
+                        Component.onCompleted: if (root.filter.unsorted) suggestionRequest = researchStore.suggestCollections(modelData.url)
+                        Connections {
+                            target: researchStore
+                            enabled: paper.suggestionRequest >= 0
+                            function onCollectionsSuggested(request, source, list) { if (request === paper.suggestionRequest) paper.suggestions = list }
                         }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-                            Label { Layout.fillWidth: true; text: paper.modelData.name; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
-                            Label {
-                                Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
-                                text: [paper.modelData.authors, paper.modelData.year, paper.modelData.tags ? "# " + paper.modelData.tags : ""].filter(function(s) { return s && s.length }).join("  ·  ")
+                        ToolTip.visible: hovered; ToolTip.delay: 600
+                        ToolTip.text: modelData.fileName + (modelData.duplicate ? "\nSame file as another library entry" : "") + (modelData.excluded ? "\nExcluded from text search" : "")
+                        Drag.active: dragHandler.active
+                        Drag.keys: ["owelk/paper"]
+                        Drag.source: paper
+                        Drag.hotSpot: Qt.point(20, 20)
+                        DragHandler { id: dragHandler; target: null; onActiveChanged: if (!active) paper.Drag.drop() }
+                        TapHandler {
+                            acceptedButtons: Qt.RightButton
+                            onTapped: {
+                                if (paper.paperUrls.length > 1) { batchMenu.urls = paper.paperUrls; batchMenu.popup() }
+                                else { root.selection = []; paperMenu.show(paper.modelData) }
                             }
                         }
-                        Label { visible: paper.modelData.duplicate; text: "duplicate"; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
-                        Repeater {
-                            model: paper.suggestions
-                            delegate: Chip {
-                                required property var modelData
-                                objectName: "suggestion-" + modelData.name
-                                text: "+ " + modelData.name
-                                Layout.maximumWidth: 140
-                                ToolTip.text: "Add to " + modelData.name
-                                onClicked: { const url = paper.modelData.url, id = modelData.id; Qt.callLater(function() { researchStore.setDocumentCollection(url, id, true) }) }
+                        contentItem: RowLayout {
+                            spacing: 10
+                            Rectangle {
+                                // Reading state: hollow unread, half reading, full read.
+                                Layout.preferredWidth: 8; Layout.preferredHeight: 8; radius: 4
+                                color: paper.modelData.readingState === "read" ? Theme.textTertiary : paper.modelData.readingState === "reading" ? Theme.accent : "transparent"
+                                border.color: paper.modelData.readingState === "read" ? Theme.textTertiary : Theme.accent
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+                                Label { Layout.fillWidth: true; text: paper.modelData.name; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                                Label {
+                                    Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                    text: [paper.modelData.authors, paper.modelData.year, paper.modelData.tags ? "# " + paper.modelData.tags : ""].filter(function(s) { return s && s.length }).join("  ·  ")
+                                }
+                            }
+                            Label { visible: paper.modelData.duplicate; text: "duplicate"; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                            Repeater {
+                                model: paper.suggestions
+                                delegate: Chip {
+                                    required property var modelData
+                                    objectName: "suggestion-" + modelData.name
+                                    text: "+ " + modelData.name
+                                    Layout.maximumWidth: 140
+                                    ToolTip.text: "Add to " + modelData.name
+                                    onClicked: { const url = paper.modelData.url, id = modelData.id; Qt.callLater(function() { researchStore.setDocumentCollection(url, id, true) }) }
+                                }
+                            }
+                            // The star shows on favorites; on hover it is the toggle.
+                            IconButton {
+                                objectName: "libraryFavorite-" + paper.modelData.id
+                                icon.name: "star"
+                                opacity: paper.modelData.favorite || paper.hovered || hovered ? 1 : 0
+                                tint: paper.modelData.favorite ? Theme.accent : Theme.textDisabled
+                                description: paper.modelData.favorite ? "Remove from Favorites" : "Add to Favorites"
+                                onClicked: researchStore.setFavorite(paper.modelData.url, !paper.modelData.favorite)
                             }
                         }
-                        // The star shows on favorites; on hover it is the toggle.
-                        IconButton {
-                            objectName: "libraryFavorite-" + paper.modelData.id
-                            icon.name: "star"
-                            opacity: paper.modelData.favorite || paper.hovered || hovered ? 1 : 0
-                            tint: paper.modelData.favorite ? Theme.accent : Theme.textDisabled
-                            description: paper.modelData.favorite ? "Remove from Favorites" : "Add to Favorites"
-                            onClicked: researchStore.setFavorite(paper.modelData.url, !paper.modelData.favorite)
+                    }
+                    DropArea {
+                        anchors.fill: parent
+                        keys: ["text/uri-list"]
+                        onDropped: function(drop) {
+                            const pdfs = drop.urls.filter(function(u) { return /\.pdf$/i.test(u.toString()) })
+                            if (pdfs.length) { researchStore.addDocuments(pdfs, root.filter.collection || ""); drop.acceptProposedAction() }
                         }
+                        Rectangle { anchors.fill: parent; visible: parent.containsDrag; color: "transparent"; radius: Theme.radius; border.width: 2; border.color: Theme.accent }
                     }
-                }
-                DropArea {
-                    anchors.fill: parent
-                    keys: ["text/uri-list"]
-                    onDropped: function(drop) {
-                        const pdfs = drop.urls.filter(function(u) { return /\.pdf$/i.test(u.toString()) })
-                        if (pdfs.length) { researchStore.addDocuments(pdfs, root.filter.collection || ""); drop.acceptProposedAction() }
+                    Label {
+                        anchors.centerIn: parent
+                        visible: papers.count === 0
+                        text: root.filter.collection ? "No papers here yet. Add PDFs with +, or drop them here." : root.query.length || Object.keys(root.filter).length ? "No papers match." : "Papers you open or add with + appear here."
+                        color: Theme.textTertiary
                     }
-                    Rectangle { anchors.fill: parent; visible: parent.containsDrag; color: "transparent"; radius: Theme.radius; border.width: 2; border.color: Theme.accent }
-                }
-                Label {
-                    anchors.centerIn: parent
-                    visible: papers.count === 0
-                    text: root.filter.collection ? "No papers here yet. Add PDFs with +, or drop them here." : root.query.length || Object.keys(root.filter).length ? "No papers match." : "Papers you open or add with + appear here."
-                    color: Theme.textTertiary
                 }
             }
         }

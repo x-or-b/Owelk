@@ -1403,8 +1403,9 @@ private slots:
         // Two moved to the Trash: hidden from the list and from search, kept whole.
         QCOMPARE(store.trashAiThreads({ids[0], ids[1]}), 2);
         QCOMPARE(store.aiThreads().size(), 1);
-        QCOMPARE(store.trashedAiThreads().size(), 2);
-        QVERIFY(store.trashedAiThreads()[0].toMap()["daysLeft"].toInt() >= 29);
+        QCOMPARE(store.trashCount(), 2);
+        QCOMPARE(store.trash()[0].toMap()["kind"].toString(), QString("ai"));
+        QVERIFY(store.trash()[0].toMap()["daysLeft"].toInt() >= 29);
         const auto hits = store.searchKnowledge("question about");
         QVERIFY(std::none_of(
             hits.cbegin(), hits.cend(), [&](const QVariant &hit) { return hit.toMap()["id"].toString() == ids[0]; }));
@@ -1417,13 +1418,66 @@ private slots:
         QCOMPARE(store.trashAiThreads({ids[0]}, false), 1);
         QVERIFY(!store.aiThread(ids[0])["trashed"].toBool());
         QCOMPARE(store.aiThreads().size(), 2);
-        QCOMPARE(store.emptyAiTrash(), 1);
+        QCOMPARE(store.emptyTrash(), 1);
         QVERIFY(store.aiThread(ids[1]).isEmpty());
         const auto html = store.markdownHtml(linked, "#0000aa", "#111111", 14, "#999999");
         QCOMPARE(html.count("owelk://ai/"), 1);
         QVERIFY(html.contains("Deleted conversation"));
-        QVERIFY(store.trashedAiThreads().isEmpty());
+        QCOMPARE(store.trashCount(), 0);
         QCOMPARE(store.aiThreads().size(), 2);
+    }
+    void oneTrashForPapersNotesAndConversations()
+    {
+        QTemporaryDir directory;
+        const auto pdf = QUrl::fromLocalFile(directory.filePath("paper.pdf"));
+        writeFixture(pdf.toLocalFile(), "Trashed Paper");
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QVERIFY(store.setSetting("library.keepPdfs", "0"));
+        QVERIFY(store.rememberDocument(pdf));
+        const auto thread = store.createAiThread({{"title", "Old question"}, {"provider", "claude"}, {"model", "m"}});
+        const auto note = store.createNote("Draft", "about it");
+        // A note that stays links to the conversation and the paper.
+        const auto keeper = store.createNote(
+            "Keeper", "[q](owelk://ai/" + thread + ") [p](owelk://document/" + store.documentLinkId(pdf) + ")");
+        QCOMPARE(store.trashAiThreads({thread}), 1);
+        QTest::qWait(5);
+        QVERIFY(store.deleteNote(note));
+        QTest::qWait(5);
+        QCOMPARE(store.deletePapers({pdf}), 1);
+        // All three together, newest first.
+        auto rows = store.trash();
+        QCOMPARE(store.trashCount(), 3);
+        QCOMPARE(rows.size(), 3);
+        QCOMPARE(rows[0].toMap()["kind"].toString(), QString("paper"));
+        QCOMPARE(rows[0].toMap()["url"].toUrl(), pdf);
+        QCOMPARE(rows[1].toMap()["kind"].toString(), QString("note"));
+        QCOMPARE(rows[2].toMap()["kind"].toString(), QString("ai"));
+        QCOMPARE(store.notesLinkingTo({rows[0], rows[2]}), 1);
+        QCOMPARE(store.notesLinkingTo({rows[1]}), 0);
+        // Restored as they were.
+        QCOMPARE(store.restoreFromTrash({rows[1]}), 1);
+        QVERIFY(!store.note(note)["deleted"].toBool());
+        QCOMPARE(store.trashCount(), 2);
+        // Older than the chosen days: deleted for good (never with "Never").
+        {
+            WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3");
+            QSqlQuery old(db.db);
+            QVERIFY(
+                old.exec("UPDATE ai_threads SET trashed_at='2020-01-01T00:00:00.000Z' WHERE trashed_at IS NOT NULL"));
+        }
+        QVERIFY(store.setSetting("trash.days", "0"));
+        store.purgeExpired();
+        QCOMPARE(store.trashCount(), 2);
+        QVERIFY(store.setSetting("trash.days", "30"));
+        store.purgeExpired();
+        QCOMPARE(store.trashCount(), 1);
+        QVERIFY(store.aiThread(thread).isEmpty());
+        QCOMPARE(store.emptyTrash(), 1);
+        QCOMPARE(store.trashCount(), 0);
+        QVERIFY(QFileInfo::exists(pdf.toLocalFile())); // A file outside Owelk is left alone.
+        QVERIFY(!store.note(keeper).isEmpty());
     }
     void downloadedPdfsTakeTheirPaperName()
     {
@@ -1575,16 +1629,16 @@ private slots:
         QCOMPARE(store.deletePapers({a, b}), 2);
         QCOMPARE(deleted.size(), 1);
         QCOMPARE(store.libraryDocuments().size(), 0);
-        QCOMPARE(store.trashedPaperCount(), 2);
+        QCOMPARE(store.trashCount(), 2);
         QCOMPARE(store.collections()[0].toMap()["count"].toInt(), 0);
         QCOMPARE(store.restorePapers({b}), 1);
         QCOMPARE(store.libraryDocuments({{"collection", topic}}).size(), 1);
         // Opening a deleted paper's file brings it back too.
         QVERIFY(store.deletePapers({b}) == 1 && store.rememberDocument(b));
-        QCOMPARE(store.trashedPaperCount(), 1);
+        QCOMPARE(store.trashCount(), 1);
         // Deleting for good removes the paper with its annotations; its own file outside Owelk stays.
         QCOMPARE(store.purgePapers({a}), 1);
-        QCOMPARE(store.trashedPaperCount(), 0);
+        QCOMPARE(store.trashCount(), 0);
         {
             WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3", true);
             QSqlQuery query(db.db);
@@ -1602,11 +1656,11 @@ private slots:
                 old.exec("UPDATE documents SET trashed_at='2020-01-01T00:00:00.000Z' WHERE trashed_at IS NOT NULL"));
         }
         QVERIFY(store.setSetting("trash.days", "0"));
-        store.purgeExpiredPapers();
-        QCOMPARE(store.trashedPaperCount(), 1);
+        store.purgeExpired();
+        QCOMPARE(store.trashCount(), 1);
         QVERIFY(store.setSetting("trash.days", "30"));
-        store.purgeExpiredPapers();
-        QCOMPARE(store.trashedPaperCount(), 0);
+        store.purgeExpired();
+        QCOMPARE(store.trashCount(), 0);
         QVERIFY(QFileInfo::exists(b.toLocalFile()));
     }
     void addRemoveAndRestoreLibraryPapers()

@@ -121,26 +121,6 @@ bool ResearchStore::renameAiThread(const QString &id, const QString &title)
     return true;
 }
 
-QVariantList ResearchStore::trashedAiThreads() const
-{
-    QVariantList rows;
-    QSqlQuery query(m_database);
-    if (!query.exec("SELECT id,title,model,trashed_at FROM ai_threads WHERE trashed_at IS NOT NULL ORDER BY "
-                    "trashed_at DESC"))
-        return rows;
-    const auto days = trashDays();
-    while (query.next()) {
-        const auto trashed = QDateTime::fromString(query.value(3).toString(), Qt::ISODateWithMs);
-        rows.append(QVariantMap{{"id", query.value(0)}, {"title", query.value(1)}, {"model", query.value(2)},
-            {"trashedAt", query.value(3)},
-            {"daysLeft",
-                days > 0 && trashed.isValid()
-                    ? std::max<qint64>(0, days - trashed.daysTo(QDateTime::currentDateTimeUtc()))
-                    : -1}});
-    }
-    return rows;
-}
-
 int ResearchStore::trashAiThreads(const QStringList &ids, bool trashed)
 {
     // In the Trash a thread is hidden (list, search) but whole: restoring brings it back as it was.
@@ -171,27 +151,6 @@ int ResearchStore::purgeAiThreads(const QStringList &ids)
     for (const auto &id : ids)
         if (deleteAiThread(id)) ++deleted;
     return deleted;
-}
-
-int ResearchStore::emptyAiTrash()
-{
-    QStringList ids;
-    for (const auto &row : trashedAiThreads()) ids << row.toMap().value("id").toString();
-    return purgeAiThreads(ids);
-}
-
-void ResearchStore::purgeExpiredAiThreads()
-{
-    const auto days = trashDays();
-    if (days <= 0) return;
-    QSqlQuery query(m_database);
-    query.prepare("SELECT id FROM ai_threads WHERE trashed_at IS NOT NULL AND trashed_at<?");
-    query.addBindValue(QDateTime::currentDateTimeUtc().addDays(-days).toString(Qt::ISODateWithMs));
-    QStringList ids;
-    if (query.exec())
-        while (query.next()) ids << query.value(0).toString();
-    query.finish();
-    purgeAiThreads(ids);
 }
 
 bool ResearchStore::deleteAiThread(const QString &id)

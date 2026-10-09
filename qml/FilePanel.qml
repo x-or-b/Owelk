@@ -5,8 +5,9 @@ import QtQuick.Dialogs
 import Owelk.Ui
 import "WorkspaceTree.js" as Tree
 
-// The Library panel: the bookshelf beside the reader. Collections (drop a tab or a paper on one to
-// file it), tags, and the paper folder. Sections fold; the folder takes the rest.
+// The Library panel: a navigator beside the reader. All Papers, Unsorted and Favorites open the Library
+// tab with that list; then collections (drop a tab or a paper on one to file it), tags, recent notes and
+// the paper folder. Sections fold; the folder takes the rest.
 Item {
     id: root
     objectName: "libraryPanel"
@@ -14,19 +15,24 @@ Item {
     // The document area, for tabs dropped on a collection.
     property var documents: null
     signal libraryFilterRequested(var filter)
+    signal noteChosen(string id)
     property var collections: []
     property var tags: []
+    property var notes: []
     property int unsorted: 0
     function refreshShelf() { collections = researchStore.collections(); tags = researchStore.tags(); unsorted = researchStore.unsortedCount() }
+    function refreshNotes() { notes = researchStore.notes(false).slice(0, 5) }
     function sectionOpen(name, fallback) { return researchStore.setting("library.section." + name, fallback ? "1" : "0") === "1" }
     property bool collectionsOpen: sectionOpen("collections", true)
     property bool tagsOpen: sectionOpen("tags", false)
+    property bool notesOpen: sectionOpen("notes", true)
     property bool folderOpen: sectionOpen("folder", true)
     function setSection(name, open) { researchStore.setSetting("library.section." + name, open ? "1" : "0") }
     Connections {
         target: researchStore
         function onDocumentsChanged() { root.refreshShelf() }
         function onHomeChanged() { root.refreshShelf() }
+        function onNotesChanged() { root.refreshNotes() }
     }
     // Tabs dragged over a collection are filed there (PDF tabs only); the tab stays open.
     function claimDrop(id, x, y) {
@@ -38,7 +44,7 @@ Item {
         if (p.x < 0 || p.y < 0 || p.x > shelf.width || p.y > shelf.height) return null
         const i = shelf.indexAt(p.x, p.y + shelf.contentY)
         const row = i >= 0 ? shelf.model[i] : null
-        if (!row || row.unsorted) return null
+        if (!row) return null
         return {handler: root, collection: row.id, name: row.name, source: tab.source}
     }
     function dropTab(id, target) {
@@ -97,7 +103,7 @@ Item {
         }
     }
     onFolderChanged: if (initialized) refresh()
-    Component.onCompleted: { initialized = true; refresh(); refreshShelf(); if (documents) documents.addDropHandler(root) }
+    Component.onCompleted: { initialized = true; refresh(); refreshShelf(); refreshNotes(); if (documents) documents.addDropHandler(root) }
     ListModel { id: rows }
     Connections {
         target: researchStore
@@ -174,10 +180,32 @@ Item {
         nameFilters: ["PDF documents (*.pdf)"]
         onAccepted: researchStore.addDocuments(selectedFiles, shelfMenu.collection.id)
     }
+    // A row of the navigator: an icon, a name, a count at the right.
+    component NavigatorRow: ItemDelegate {
+        id: navRow
+        property string glyph
+        property var count
+        property int depth: 0
+        Layout.fillWidth: true
+        implicitHeight: Theme.rowHeight
+        leftPadding: 26 + 12 * depth
+        rightPadding: 34
+        Icon { x: 6 + 12 * navRow.depth; anchors.verticalCenter: parent.verticalCenter; name: navRow.glyph; size: Theme.fontBody; color: Theme.textTertiary }
+        Label {
+            visible: navRow.count !== undefined
+            anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+            text: navRow.count !== undefined ? navRow.count : ""; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+        }
+    }
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 8
         spacing: 2
+        // --- Papers ---------------------------------------------------------------------------
+        NavigatorRow { objectName: "panelAllPapers"; glyph: "library"; text: "All Papers"; onClicked: root.libraryFilterRequested({}) }
+        NavigatorRow { objectName: "panelUnsorted"; glyph: "filter"; text: "Unsorted"; count: root.unsorted; onClicked: root.libraryFilterRequested({unsorted: true}) }
+        NavigatorRow { objectName: "panelFavorites"; glyph: "star"; text: "Favorites"; onClicked: root.libraryFilterRequested({favorite: true}) }
+        Item { implicitHeight: 4 }
         // --- Collections ----------------------------------------------------------------------
         SectionHeader {
             objectName: "collectionsSection"
@@ -193,7 +221,7 @@ Item {
             Layout.preferredHeight: Math.min(contentHeight, root.height * .35)
             clip: true
             interactive: contentHeight > height
-            model: (root.unsorted > 0 ? [{unsorted: true, name: "Unsorted", count: root.unsorted, depth: 0}] : []).concat(root.collections)
+            model: root.collections
             delegate: ItemDelegate {
                 id: shelfRow
                 required property var modelData
@@ -205,14 +233,13 @@ Item {
                 text: modelData.name
                 readonly property bool tabOver: !!root.documents && !!root.documents.dropTarget && root.documents.dropTarget.handler === root && root.documents.dropTarget.collection === modelData.id
                 highlighted: tabOver || drop.containsDrag
-                onClicked: root.libraryFilterRequested(modelData.unsorted ? {unsorted: true} : {collection: modelData.id})
-                Icon { x: 6 + 12 * (shelfRow.modelData.depth || 0); anchors.verticalCenter: parent.verticalCenter; name: shelfRow.modelData.unsorted ? "filter" : "folder"; size: Theme.fontBody; color: Theme.textTertiary }
+                onClicked: root.libraryFilterRequested({collection: modelData.id})
+                Icon { x: 6 + 12 * (shelfRow.modelData.depth || 0); anchors.verticalCenter: parent.verticalCenter; name: "folder"; size: Theme.fontBody; color: Theme.textTertiary }
                 Label { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: shelfRow.modelData.count; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
                 // Papers dragged from the Library list are filed here too.
                 DropArea {
                     id: drop
                     anchors.fill: parent
-                    enabled: !shelfRow.modelData.unsorted
                     keys: ["owelk/paper", "text/uri-list"]
                     // A Library paper is filed here; PDF files from the desktop are added to the Library and filed.
                     onDropped: function(event) {
@@ -220,7 +247,7 @@ Item {
                         else researchStore.addDocuments(event.urls.filter(function(u) { return /\.pdf$/i.test(u.toString()) }), shelfRow.modelData.id)
                     }
                 }
-                TapHandler { acceptedButtons: Qt.RightButton; enabled: !shelfRow.modelData.unsorted; onTapped: { shelfMenu.collection = shelfRow.modelData; shelfMenu.popup() } }
+                TapHandler { acceptedButtons: Qt.RightButton; onTapped: { shelfMenu.collection = shelfRow.modelData; shelfMenu.popup() } }
             }
         }
         Label {
@@ -247,6 +274,29 @@ Item {
                     onClicked: root.libraryFilterRequested({tag: modelData.id})
                 }
             }
+        }
+        // --- Notes ----------------------------------------------------------------------------
+        SectionHeader {
+            objectName: "notesSection"
+            title: "Notes"; open: root.notesOpen
+            onToggled: { root.notesOpen = !root.notesOpen; root.setSection("notes", root.notesOpen) }
+        }
+        Repeater {
+            model: root.notesOpen ? root.notes : []
+            delegate: NavigatorRow {
+                required property var modelData
+                required property int index
+                objectName: "panelNote-" + index
+                glyph: "note"; text: modelData.title
+                onClicked: root.noteChosen(modelData.id)
+            }
+        }
+        NavigatorRow {
+            objectName: "panelAllNotes"
+            visible: root.notesOpen
+            glyph: "more"; text: root.notes.length ? "All Notes" : "No notes yet"
+            enabled: root.notes.length > 0
+            onClicked: root.libraryFilterRequested({view: "notes"})
         }
         // --- Folder ---------------------------------------------------------------------------
         SectionHeader {

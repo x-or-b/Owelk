@@ -198,13 +198,15 @@ PDF의 문서 정보와 첫 페이지에서 제목·저자·연도·DOI·arXiv I
 - 본문에 `[[`를 입력하거나 링크 아이콘을 누르면 논문·주석·노트를 찾아 `[제목](owelk://종류/ID)` 링크를 넣습니다.
 - 주석 우클릭 → `Link to Note…`로 기존 노트 끝이나 새 노트에 링크를 추가합니다.
 - Document 패널 Annotations의 위쪽은 지금 논문(또는 그 주석)을 링크한 노트를, 노트 아래 `Linked from`은 그 노트를 링크한 항목을 보여 줍니다. 명령 `New Note about This Paper`도 이 논문 링크가 든 노트를 옆 분할에 엽니다.
-- 노트는 Home/Cmd+K 검색에 포함됩니다. `Move Note to Trash`는 휴지통으로 옮기며, 라이브러리의 `Notes Trash`에서 복원하거나 영구 삭제합니다.
+- 노트는 Home/Cmd+K 검색에 포함됩니다. `Move Note to Trash`는 휴지통으로 옮기며, 라이브러리의 `Trash`에서 복원하거나 영구 삭제합니다.
 
 ## 라이브러리
 
-Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭을 엽니다. 모든 논문을 제목·저자·연도·태그·읽기 상태(●)·즐겨찾기(★)·중복 표시와 함께 보여 주고, 제목·저자·연도·DOI·파일명으로 거르거나 최근 열람/추가/제목/연도 순으로 정렬합니다.
+Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭을 엽니다. 위쪽 `Papers · Notes · Trash`로 목록을 바꿉니다. Papers는 모든 논문을 제목·저자·연도·태그·읽기 상태(●)·즐겨찾기(★)·중복 표시와 함께 보여 주고, 제목·저자·연도·DOI·파일명으로 거르거나 최근 열람/추가/제목/연도 순으로 정렬합니다.
 
-- 왼쪽에서 전체/즐겨찾기/Unread/Reading/Read, Collection, Tag로 거릅니다. 선택한 필터는 탭과 함께 저장됩니다.
+- Papers 왼쪽에서 전체/Unsorted/즐겨찾기/Unread/Reading/Read, Collection, Tag로 거릅니다. 선택한 목록과 필터는 탭과 함께 저장됩니다.
+- **Notes**는 모든 노트(최근 수정 순), **Trash**는 지운 논문·노트·AI 대화를 함께 보여 줍니다(아래 지우기).
+- 리더 옆 Library 패널은 길잡이입니다: `All Papers`·`Unsorted`·`Favorites`를 누르면 그 목록으로 Library 탭이 열리고, 아래에 Collection(탭·논문을 끌어 놓아 넣기), Tag, 최근 노트 5개와 `All Notes`, 폴더 탐색이 있습니다.
 - Collection은 `+`로 만들고 우클릭으로 하위 Collection 추가·이름 변경·삭제합니다. 상위 Collection은 하위 Collection의 논문도 보여 줍니다. 논문을 Collection으로 끌어 놓거나 논문 우클릭 → Collections에서 추가합니다. 삭제는 묶음만 지우며 논문과 파일은 그대로입니다.
 - **주제별 정리(Collection = 책장)**:
   - **Unsorted**: 어느 Collection에도 없는 논문만 개수와 함께 보여 줍니다. 정리할 목록입니다.
@@ -216,7 +218,7 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
   - **AI로 주제별 정리**: Library 목록 위의 폴더 트리 버튼(선택한 논문이 있으면 그 논문들, 없으면 지금 보이는 논문 최대 80편) 또는 여러 논문 우클릭 → `Organize into Collections with AI…`. 보낼 내용(제목·저자·연도·앞부분 300자, 기존 Collection 이름)을 보여 주고 `Ask`를 누르면 AI가 주제별 Collection을 제안합니다. 기존 Collection과 이름이 같으면 `Existing`(거기에 추가), 아니면 `New`(보고 있는 Collection 안에 새로 만듦)로 표시됩니다. `Apply`를 눌러야만 바뀌고(편집 방법은 탭 정리와 같음), 논문을 다른 Collection에서 빼거나 지우지는 않습니다.
 - **폴더 한 번에 추가**: Library의 `+` → `Add Folder…`로 폴더를 고르면 하위 폴더까지 PDF를 배경에서 찾아 추가합니다(숨김 폴더·바로가기 제외, 최대 1만 개). "Make a collection of the folder…"를 켜 두면 폴더와 하위 폴더가 Collection 트리가 되고, 같은 이름의 Collection은 다시 씁니다. 다시 가져와도 중복으로 들어가지 않으며, 원래 파일은 옮기거나 지우지 않습니다.
 - **PDF 가져오기**: Library의 `+` → `Add PDFs…`로 여러 PDF를 고르거나, Finder에서 PDF를 목록·Library 패널의 Collection 위로 끌어 놓습니다. Collection을 보고 있으면 그 Collection에 바로 들어갑니다. 가져온 논문은 열지 않으며(최근 목록에 안 들어감), 제목과 본문은 배경에서 읽습니다.
-- **지우기**: 논문 우클릭(여러 개 선택 가능) → `Delete Paper`. 논문은 Library 왼쪽의 **Trash**로 가며 Collection·태그·주석이 그대로 남아 `Restore`로 되살릴 수 있습니다(PDF를 다시 열어도 돌아옴). 휴지통은 Settings → Data의 `Empty the Trash`(7일·30일·안 함, 기본 30일)가 지나면 저절로 비워지고, `Empty Trash`나 행의 휴지통 버튼으로 바로 비울 수도 있습니다. 영구 삭제하면 주석도 지워지고, Owelk가 보관하던 PDF는 시스템 휴지통으로 갑니다(Owelk 보관 폴더 밖의 원본 파일은 건드리지 않음). 동기화 중이면 다른 컴퓨터에서도 같이 휴지통에 들어가고 같이 비워집니다.
+- **지우기**: 논문 우클릭(여러 개 선택 가능) → `Delete Paper`. 논문은 Library의 **Trash**로 가며 Collection·태그·주석이 그대로 남아 `Restore`로 되살릴 수 있습니다(PDF를 다시 열어도 돌아옴). 노트(`Move Note to Trash`)와 AI 대화(AI 패널 우클릭 → `Move to Trash`, 패널의 휴지통 아이콘이 이 Trash를 엶)도 같은 Trash에 모입니다. 휴지통은 Settings → Data의 `Empty the Trash`(7일·30일·안 함, 기본 30일)가 지나면 저절로 비워지고, `Empty Trash`나 행의 휴지통 버튼으로 바로 비울 수도 있습니다. 지울 항목을 링크한 노트가 있으면 그 링크가 더 이상 열리지 않는다고 먼저 알려 줍니다. 논문을 영구 삭제하면 주석도 지워지고, Owelk가 보관하던 PDF는 시스템 휴지통으로 갑니다(Owelk 보관 폴더 밖의 원본 파일은 건드리지 않음). 동기화 중이면 다른 컴퓨터에서도 같이 휴지통에 들어가고 같이 비워집니다.
 - 논문 우클릭 → Tags…에 쉼표로 태그를 입력합니다(대소문자 무시, 쓰지 않는 태그는 자동 정리).
 - 논문 우클릭 → Exclude from Text Search는 그 논문의 본문을 검색 인덱스에서 지웁니다. 다시 포함하면 새로 색인합니다.
 - Cmd+K/Home 검색은 Collection·Tag 이름도 찾고, 누르면 그 Collection·Tag로 거른 라이브러리를 엽니다. 검색어에 `tag:` `collection:` `state:` `year:`를 적으면 본문 검색과 저장 항목 검색이 그 논문들로 한정됩니다. `tag:sl`처럼 치는 중에는 맞는 태그·Collection·읽기 상태 이름이 목록으로 나오고, 고르면 조건이 완성됩니다(공백이 있으면 따옴표로 묶임). 조건만 쓰면 해당 논문 목록이 나옵니다.
@@ -251,7 +253,7 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 - 답변 한도는 넉넉히(64,000 토큰, 실제로 쓴 만큼만 과금) 두고, 그래도 한도에서 멈춘 답은 `Stopped at the length limit.`로 표시합니다.
 - 처음 쓰는 제공자는 보낼 내용(논문 제목, 선택 문장, 페이지/논문 본문, 붙인 그림)을 보여 주고 동의를 받습니다. PDF 파일 자체나 다른 라이브러리 자료는 보내지 않습니다. 긴 본문은 잘라서 보내고 그 사실을 표시합니다.
 - AI는 독 패널(기본 오른쪽)에서 엽니다. 상태바 AI 아이콘을 누르면 열고 닫고, 우클릭 → Left/Right Dock으로 위치를 바꿉니다. 리더의 AI 동작은 패널을 열고 새 Thread를 시작합니다.
-- 모든 대화는 **Thread**로 저장됩니다. 패널에서 이어 묻기(Return 전송, Shift+Return 줄바꿈)를 하면 이전 대화가 함께 전송됩니다. ← 버튼으로 Thread 목록을 보고, 우클릭으로 이름 변경·삭제합니다. `+`는 새 Thread, `+ Context`는 현재 페이지·선택·논문 전체를 붙입니다. Thread는 Cmd+K 검색과 `owelk://ai/…` 링크로 다시 엽니다.
+- 모든 대화는 **Thread**로 저장됩니다. 패널에서 이어 묻기(Return 전송, Shift+Return 줄바꿈)를 하면 이전 대화가 함께 전송됩니다. ← 버튼으로 Thread 목록을 보고, 우클릭으로 이름 변경·휴지통으로 옮기기를 합니다(Library의 Trash에서 복원·영구 삭제). `+`는 새 Thread, `+ Context`는 현재 페이지·선택·논문 전체를 붙입니다. Thread는 Cmd+K 검색과 `owelk://ai/…` 링크로 다시 엽니다.
 - 입력창 아래 줄(Zed 방식)에서 이번 질문의 설정을 고릅니다.
   - **모델 ▾**: 설정된 회사(Anthropic · OpenAI · ChatGPT 계정 · Ollama)별 모델 목록과 검색. 설정되지 않은 회사는 맨 아래 `Set up …`으로 안내합니다. 기존 Thread를 열면 그 Thread의 모델로 이어 갑니다.
   - **추론 강도 ▾**: 모델이 지원할 때만 보입니다(Claude Opus/Sonnet/Fable: Low~Max, ChatGPT 계정: 모델별 목록, OpenAI 추론 모델: Low~High). Haiku·Ollama에는 없습니다.

@@ -81,17 +81,23 @@ public:
     // only after its copy matched byte for byte, like Locate Original PDF).
     Q_INVOKABLE int outsidePdfCount() const;
     Q_INVOKABLE void copyPdfsIntoLibrary();
-    // The paper Trash (ResearchStorePapers.cpp): Delete Paper, Restore, delete for good (by hand or after
-    // trash.days, default 30; 0 keeps them). Rows: {id, url, name, fileName, trashedAt, daysLeft}.
+    // Papers to and from the Trash (ResearchStorePapers.cpp); deleting for good removes their annotations
+    // and sends a PDF Owelk keeps to the system Trash.
     Q_INVOKABLE int deletePapers(const QVariantList &sources);
-    Q_INVOKABLE QVariantList trashedPapers() const;
-    Q_INVOKABLE int trashedPaperCount() const;
     Q_INVOKABLE int restorePapers(const QVariantList &sources);
     Q_INVOKABLE int purgePapers(const QVariantList &sources);
-    Q_INVOKABLE int emptyPaperTrash();
+    // One Trash for papers, notes and AI conversations (ResearchStoreTrash.cpp), newest first. Rows:
+    // {kind: paper|note|ai, id, title, detail, trashedAt, daysLeft (-1: kept), url (papers)}. Items are
+    // rows (or {kind, id}). After trash.days (default 30; 0 keeps them) they are deleted for good.
+    Q_INVOKABLE QVariantList trash() const;
+    Q_INVOKABLE int trashCount() const;
+    Q_INVOKABLE int restoreFromTrash(const QVariantList &items);
+    Q_INVOKABLE int deleteForGood(const QVariantList &items);
+    Q_INVOKABLE int emptyTrash();
+    // Notes (not in the Trash) linking to these items: their links stop opening once they are gone.
+    Q_INVOKABLE int notesLinkingTo(const QVariantList &items) const;
     Q_INVOKABLE int trashDays() const;
-    void purgeExpiredPapers();
-    void purgeExpiredAiThreads();
+    void purgeExpired();
     Q_INVOKABLE QUrl resolvedSource(const QUrl &source) const;
     Q_INVOKABLE void requestRelink(const QUrl &source);
     Q_INVOKABLE void relinkSource(const QUrl &source, const QUrl &candidate);
@@ -230,12 +236,9 @@ public:
     Q_INVOKABLE QString createAiThread(const QVariantMap &thread);
     Q_INVOKABLE bool appendAiMessage(const QString &threadId, const QVariantMap &message);
     Q_INVOKABLE QVariantList aiThreads() const;
-    // The AI Trash: conversations moved there (trashed true) or back (false), listed with the days left
-    // before they are deleted for good (Settings › Data › Trash); deleted now with purge or empty.
-    Q_INVOKABLE QVariantList trashedAiThreads() const;
+    // Conversations to the Trash (trashed true) or back (false), and deleted for good.
     Q_INVOKABLE int trashAiThreads(const QStringList &ids, bool trashed = true);
     Q_INVOKABLE int purgeAiThreads(const QStringList &ids);
-    Q_INVOKABLE int emptyAiTrash();
     // A thread with its messages; trashed while it is in the Trash.
     Q_INVOKABLE QVariantMap aiThread(const QString &id) const;
     Q_INVOKABLE bool renameAiThread(const QString &id, const QString &title);

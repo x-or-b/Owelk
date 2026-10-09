@@ -402,8 +402,7 @@ bool ResearchStore::initialize(QString *error)
     scheduleAutomaticBackup();
     m_sync->start();
     // Papers past their days in the Trash go a little after start, not while the window opens.
-    QTimer::singleShot(20000, this, &ResearchStore::purgeExpiredPapers);
-    QTimer::singleShot(21000, this, &ResearchStore::purgeExpiredAiThreads);
+    QTimer::singleShot(20000, this, &ResearchStore::purgeExpired);
     // Durable redirects also replay any search-cache update interrupted by process exit.
     for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)
         m_index->relocateSource(QUrl(it.key()), resolvedSource(QUrl(it.value())));
