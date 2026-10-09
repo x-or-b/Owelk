@@ -289,6 +289,8 @@ bool ResearchStore::initialize(QString *error)
         {11, {"ALTER TABLE highlights ADD COLUMN font_size REAL NOT NULL DEFAULT 0"}},
         // Papers in Owelk's Trash (also hidden like removed papers until restored or deleted for good).
         {12, {"ALTER TABLE documents ADD COLUMN trashed_at TEXT"}},
+        // AI conversations in the Trash (hidden from the list until restored or deleted for good).
+        {13, {"ALTER TABLE ai_threads ADD COLUMN trashed_at TEXT"}},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     loadDocumentNames();
@@ -318,6 +320,7 @@ bool ResearchStore::initialize(QString *error)
     m_sync->start();
     // Papers past their days in the Trash go a little after start, not while the window opens.
     QTimer::singleShot(20000, this, &ResearchStore::purgeExpiredPapers);
+    QTimer::singleShot(21000, this, &ResearchStore::purgeExpiredAiThreads);
     // Durable redirects also replay any search-cache update interrupted by process exit.
     for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)
         m_index->relocateSource(QUrl(it.key()), resolvedSource(QUrl(it.value())));

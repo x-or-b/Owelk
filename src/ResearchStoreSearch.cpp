@@ -235,8 +235,8 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
         answers.prepare(
             "SELECT t.id,t.title,(SELECT group_concat(m.display || ' ' || m.content, ' ') FROM (SELECT display, "
             "content FROM ai_messages WHERE thread_id=t.id AND instr(lower(display || ' ' || content),lower(?))>0 "
-            "ORDER BY created_at DESC LIMIT 4) m) AS hit FROM ai_threads t WHERE instr(lower(t.title),lower(?))>0 "
-            "OR hit IS NOT NULL ORDER BY t.updated_at DESC LIMIT 60");
+            "ORDER BY created_at DESC LIMIT 4) m) AS hit FROM ai_threads t WHERE t.trashed_at IS NULL AND "
+            "(instr(lower(t.title),lower(?))>0 OR hit IS NOT NULL) ORDER BY t.updated_at DESC LIMIT 60");
         answers.addBindValue(query.probe);
         answers.addBindValue(query.probe);
         int count = 0;

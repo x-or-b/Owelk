@@ -12,6 +12,25 @@ Item {
     property var controller: null
     readonly property var c: controller
     readonly property bool showingThreads: !c || !c.conversationOpen
+    property bool showingTrash: false
+    // Threads chosen in the list (Cmd/Ctrl-click, Shift-click), and where a Shift range starts.
+    property var selectedThreads: []
+    property int selectionAnchor: -1
+    function toggleThread(id, index) {
+        selectedThreads = selectedThreads.indexOf(id) >= 0 ? selectedThreads.filter(function(t) { return t !== id }) : selectedThreads.concat([id])
+        selectionAnchor = index
+    }
+    function selectThreadRange(index) {
+        const from = selectionAnchor < 0 ? index : selectionAnchor
+        const rows = threadList.model.slice(Math.min(from, index), Math.max(from, index) + 1)
+        selectedThreads = rows.map(function(t) { return t.id })
+    }
+    function trashThreads(ids) {
+        if (!ids.length) return
+        if (ids.indexOf(c.threadId) >= 0) c.showThreads()
+        selectedThreads = []
+        researchStore.trashAiThreads(ids)
+    }
     signal linkActivated(string link)
     signal settingsRequested()
     function focusQuestion() { question.forceActiveFocus() }
@@ -229,14 +248,22 @@ Item {
             Label {
                 objectName: "aiThreadTitle"
                 Layout.fillWidth: true; Layout.minimumWidth: 0
-                text: root.showingThreads ? "Threads" : (root.c.thread.title || "New thread")
+                text: root.showingThreads ? (root.showingTrash ? "Trash" : "Threads") : (root.c.thread.title || "New thread")
                 elide: Text.ElideRight; textFormat: Text.PlainText
                 font.pixelSize: Theme.fontBody; font.weight: Font.DemiBold; color: Theme.text
             }
-            IconButton { objectName: "aiNewThread"; icon.name: "add"; description: "New thread"; onClicked: { root.c.newThread(); root.focusQuestion() } }
+            IconButton {
+                objectName: "aiTrashButton"
+                visible: root.showingThreads
+                checked: root.showingTrash
+                icon.name: "trash"; description: root.showingTrash ? "Back to threads" : "Trash"
+                onClicked: { root.showingTrash = !root.showingTrash; root.selectedThreads = [] }
+            }
+            IconButton { objectName: "aiNewThread"; icon.name: "add"; description: "New thread"; onClicked: { root.showingTrash = false; root.c.newThread(); root.focusQuestion() } }
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }
-        // Saved threads, newest first.
+        // Saved threads, newest first (or the Trash). Click opens; Cmd/Ctrl-click and Shift-click select
+        // several; Delete or the right-click menu moves them to the Trash.
         ListView {
             id: threadList
             objectName: "aiThreadList"
@@ -245,46 +272,88 @@ Item {
             Layout.fillWidth: true; Layout.fillHeight: true
             clip: true
             spacing: 0
-            model: researchStore.aiThreads()
-            Connections { target: researchStore; function onAiThreadsChanged() { threadList.model = researchStore.aiThreads() } }
+            focus: visible
+            model: root.showingTrash ? researchStore.trashedAiThreads() : researchStore.aiThreads()
+            Connections {
+                target: researchStore
+                function onAiThreadsChanged() {
+                    threadList.model = root.showingTrash ? researchStore.trashedAiThreads() : researchStore.aiThreads()
+                    const ids = threadList.model.map(function(t) { return t.id })
+                    root.selectedThreads = root.selectedThreads.filter(function(id) { return ids.indexOf(id) >= 0 })
+                }
+            }
+            Keys.onDeletePressed: if (root.selectedThreads.length && !root.showingTrash) root.trashThreads(root.selectedThreads)
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Backspace && root.selectedThreads.length && !root.showingTrash) { root.trashThreads(root.selectedThreads); event.accepted = true }
+            }
             delegate: ItemDelegate {
                 id: row
                 required property var modelData
                 required property int index
+                readonly property bool chosen: root.selectedThreads.indexOf(modelData.id) >= 0
                 objectName: "aiThread-" + index
                 width: ListView.view.width
                 height: Theme.rowHeightTall
+                highlighted: chosen
                 separator: index < threadList.count - 1
-                onClicked: { const id = row.modelData.id; Qt.callLater(function() { root.c.openThread(id) }) }
-                TapHandler { acceptedButtons: Qt.RightButton; onTapped: threadMenu.popup() }
+                onClicked: {
+                    threadList.forceActiveFocus()
+                    const mods = threadList.clickModifiers
+                    if (mods & (Qt.ControlModifier | Qt.MetaModifier)) root.toggleThread(row.modelData.id, row.index)
+                    else if (mods & Qt.ShiftModifier) root.selectThreadRange(row.index)
+                    else if (root.showingTrash) root.selectedThreads = [row.modelData.id]
+                    else { root.selectedThreads = []; const id = row.modelData.id; Qt.callLater(function() { root.c.openThread(id) }) }
+                }
+                TapHandler {
+                    acceptedButtons: Qt.LeftButton
+                    acceptedModifiers: Qt.KeyboardModifierMask
+                    // Only notes the keys held; the click itself goes to the row.
+                    onPressedChanged: if (pressed) threadList.clickModifiers = point.modifiers
+                }
+                TapHandler {
+                    acceptedButtons: Qt.RightButton
+                    onTapped: {
+                        if (!row.chosen) root.selectedThreads = [row.modelData.id]
+                        threadMenu.ids = root.selectedThreads.slice()
+                        threadMenu.row = row.modelData
+                        threadMenu.popup()
+                    }
+                }
                 contentItem: ColumnLayout {
                     spacing: 1
-                    Label { Layout.fillWidth: true; text: row.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                    Label { Layout.fillWidth: true; text: row.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: row.chosen ? Theme.selectedText : Theme.text }
                     Label {
                         Layout.fillWidth: true
-                        text: Math.ceil(row.modelData.messages / 2) + (row.modelData.messages > 2 ? " turns" : " turn") + " · " + row.modelData.model
+                        text: root.showingTrash
+                              ? (row.modelData.daysLeft >= 0 ? "Deleted for good in " + row.modelData.daysLeft + (row.modelData.daysLeft === 1 ? " day" : " days") : "In the Trash")
+                              : Math.ceil(row.modelData.messages / 2) + (row.modelData.messages > 2 ? " turns" : " turn") + " · " + row.modelData.model
                         elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: Theme.fontCaption
                     }
                 }
-                Menu {
-                    id: threadMenu
-                    MenuItem { text: "Rename…"; onTriggered: { renameDialog.threadId = row.modelData.id; renameField.text = row.modelData.title; renameDialog.open() } }
-                    MenuSeparator {}
-                    MenuItem {
-                        objectName: "deleteThreadOption"
-                        text: "Delete Thread…"
-                        palette.windowText: Theme.danger
-                        onTriggered: { deleteDialog.threadId = row.modelData.id; deleteDialog.open() }
-                    }
-                }
             }
+            property int clickModifiers: 0
             Label {
                 anchors.centerIn: parent
                 width: parent.width - 16
                 visible: threadList.count === 0
-                text: "Ask about a selection, page or figure, or start a new thread with +."
+                text: root.showingTrash ? "The Trash is empty." : "Ask about a selection, page or figure, or start a new thread with +."
                 wrapMode: Text.WrapAtWordBoundaryOrAnywhere; horizontalAlignment: Text.AlignHCenter
                 color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
+            }
+        }
+        RowLayout {
+            visible: root.showingThreads && root.showingTrash && threadList.count > 0
+            Layout.fillWidth: true
+            Label {
+                Layout.fillWidth: true
+                text: researchStore.trashDays() > 0 ? "Deleted for good after " + researchStore.trashDays() + " days." : ""
+                elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+            }
+            Button {
+                objectName: "aiEmptyTrash"
+                text: "Empty Trash"
+                palette.buttonText: Theme.danger
+                onClicked: { purgeDialog.ids = []; purgeDialog.open() }
             }
         }
         // The conversation: earlier turns, then the streaming answer. Mouse drags select text (the
@@ -721,21 +790,63 @@ Item {
             }
         }
     }
+    // One menu for the thread list: what it offers depends on the list (threads or Trash) and on how
+    // many are selected.
+    Menu {
+        id: threadMenu
+        objectName: "aiThreadMenu"
+        property var ids: []
+        property var row: ({})
+        MenuItem {
+            visible: !root.showingTrash && threadMenu.ids.length === 1
+            height: visible ? implicitHeight : 0
+            text: "Rename…"
+            onTriggered: { renameDialog.threadId = threadMenu.row.id; renameField.text = threadMenu.row.title; renameDialog.open() }
+        }
+        MenuItem {
+            objectName: "trashThreadOption"
+            visible: !root.showingTrash
+            height: visible ? implicitHeight : 0
+            text: threadMenu.ids.length > 1 ? "Move " + threadMenu.ids.length + " to Trash" : "Move to Trash"
+            onTriggered: root.trashThreads(threadMenu.ids)
+        }
+        MenuItem {
+            objectName: "restoreThreadOption"
+            visible: root.showingTrash
+            height: visible ? implicitHeight : 0
+            text: threadMenu.ids.length > 1 ? "Restore " + threadMenu.ids.length : "Restore"
+            onTriggered: { const ids = threadMenu.ids; root.selectedThreads = []; researchStore.trashAiThreads(ids, false) }
+        }
+        MenuItem {
+            objectName: "purgeThreadOption"
+            visible: root.showingTrash
+            height: visible ? implicitHeight : 0
+            text: "Delete Forever…"
+            palette.windowText: Theme.danger
+            onTriggered: { purgeDialog.ids = threadMenu.ids; purgeDialog.open() }
+        }
+    }
     Dialog {
-        id: deleteDialog
-        objectName: "deleteThreadDialog"
+        id: purgeDialog
+        objectName: "purgeThreadsDialog"
         parent: Overlay.overlay
         anchors.centerIn: parent
         width: 360
         modal: true
-        title: "Delete this thread?"
-        property string threadId: ""
-        Label { width: parent.width; text: "Its questions and answers are removed. Notes saved from it stay."; wrapMode: Text.Wrap; color: Theme.textSecondary }
+        // Empty: the whole Trash.
+        property var ids: []
+        title: ids.length ? (ids.length === 1 ? "Delete this conversation for good?" : "Delete " + ids.length + " conversations for good?")
+                          : "Empty the AI Trash?"
+        Label { width: parent.width; text: "Their questions and answers are removed. Notes saved from them stay."; wrapMode: Text.Wrap; color: Theme.textSecondary }
         footer: DialogButtonBox {
             Button { text: "Cancel"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
-            Button { objectName: "confirmDeleteThread"; text: "Delete"; palette.buttonText: Theme.danger; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
+            Button { objectName: "confirmPurgeThreads"; text: "Delete"; palette.buttonText: Theme.danger; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
         }
-        onAccepted: { const id = threadId; Qt.callLater(function() { root.c.deleteThread(id) }) }
+        onAccepted: {
+            const chosen = ids
+            root.selectedThreads = []
+            Qt.callLater(function() { if (chosen.length) researchStore.purgeAiThreads(chosen); else researchStore.emptyAiTrash() })
+        }
     }
     Dialog {
         id: renameDialog

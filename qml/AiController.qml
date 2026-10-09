@@ -307,10 +307,6 @@ Item {
         conversationOpen = false
     }
     function renameThread(id, title) { return researchStore.renameAiThread(id, title) }
-    function deleteThread(id) {
-        if (id === threadId) { reset(); threadId = ""; thread = ({}) }
-        return researchStore.deleteAiThread(id)
-    }
     function saveAsNote(index) {
         const message = messages[index]
         if (!message || message.role !== "assistant" || !threadId.length) return ""

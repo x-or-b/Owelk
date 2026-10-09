@@ -25,7 +25,7 @@ QString ResearchStore::createAiThread(const QVariantMap &thread)
     if (title.isEmpty())
         title = source.isValid() && !source.isEmpty() ? displayName(source) : QStringLiteral("New thread");
     QSqlQuery query(m_database);
-    query.prepare("INSERT INTO ai_threads VALUES(?,?,?,?,?,?,?)");
+    query.prepare("INSERT INTO ai_threads(id,title,provider,model,source,created_at,updated_at) VALUES(?,?,?,?,?,?,?)");
     for (const QString &value : {id, title, thread.value("provider").toString(), thread.value("model").toString(),
              source.isValid() ? source.toString() : QString(), now(), now()})
         query.addBindValue(text(value));
@@ -75,8 +75,9 @@ QVariantList ResearchStore::aiThreads() const
 {
     QVariantList rows;
     QSqlQuery query(m_database);
-    query.exec("SELECT t.id,t.title,t.provider,t.model,t.source,t.updated_at,(SELECT count(*) FROM ai_messages m "
-               "WHERE m.thread_id=t.id) FROM ai_threads t ORDER BY t.updated_at DESC LIMIT 200");
+    query.exec(
+        "SELECT t.id,t.title,t.provider,t.model,t.source,t.updated_at,(SELECT count(*) FROM ai_messages m "
+        "WHERE m.thread_id=t.id) FROM ai_threads t WHERE t.trashed_at IS NULL ORDER BY t.updated_at DESC LIMIT 500");
     while (query.next())
         rows.append(QVariantMap{{"id", query.value(0)}, {"title", query.value(1)}, {"provider", query.value(2)},
             {"model", query.value(3)}, {"source", QUrl(query.value(4).toString())}, {"updatedAt", query.value(5)},
@@ -118,6 +119,79 @@ bool ResearchStore::renameAiThread(const QString &id, const QString &title)
     if (!query.exec() || query.numRowsAffected() != 1) return false;
     emit aiThreadsChanged();
     return true;
+}
+
+QVariantList ResearchStore::trashedAiThreads() const
+{
+    QVariantList rows;
+    QSqlQuery query(m_database);
+    if (!query.exec("SELECT id,title,model,trashed_at FROM ai_threads WHERE trashed_at IS NOT NULL ORDER BY "
+                    "trashed_at DESC"))
+        return rows;
+    const auto days = trashDays();
+    while (query.next()) {
+        const auto trashed = QDateTime::fromString(query.value(3).toString(), Qt::ISODateWithMs);
+        rows.append(QVariantMap{{"id", query.value(0)}, {"title", query.value(1)}, {"model", query.value(2)},
+            {"trashedAt", query.value(3)},
+            {"daysLeft",
+                days > 0 && trashed.isValid()
+                    ? std::max<qint64>(0, days - trashed.daysTo(QDateTime::currentDateTimeUtc()))
+                    : -1}});
+    }
+    return rows;
+}
+
+int ResearchStore::trashAiThreads(const QStringList &ids, bool trashed)
+{
+    // In the Trash a thread is hidden (list, search) but whole: restoring brings it back as it was.
+    int moved = 0;
+    const auto now = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    for (const auto &id : ids) {
+        QSqlQuery query(m_database);
+        query.prepare(trashed ? "UPDATE ai_threads SET trashed_at=? WHERE id=? AND trashed_at IS NULL"
+                              : "UPDATE ai_threads SET trashed_at=NULL WHERE id=? AND trashed_at IS NOT NULL");
+        if (trashed) query.addBindValue(now);
+        query.addBindValue(id);
+        if (query.exec()) moved += query.numRowsAffected();
+    }
+    if (!moved) return 0;
+    emit aiThreadsChanged();
+    if (trashed) {
+        const auto days = trashDays();
+        emit message((moved == 1 ? QStringLiteral("Moved the conversation to the Trash.")
+                                 : QString("Moved %1 conversations to the Trash.").arg(moved))
+            + (days > 0 ? QString(" It is deleted for good after %1 days.").arg(days) : QString()));
+    }
+    return moved;
+}
+
+int ResearchStore::purgeAiThreads(const QStringList &ids)
+{
+    int deleted = 0;
+    for (const auto &id : ids)
+        if (deleteAiThread(id)) ++deleted;
+    return deleted;
+}
+
+int ResearchStore::emptyAiTrash()
+{
+    QStringList ids;
+    for (const auto &row : trashedAiThreads()) ids << row.toMap().value("id").toString();
+    return purgeAiThreads(ids);
+}
+
+void ResearchStore::purgeExpiredAiThreads()
+{
+    const auto days = trashDays();
+    if (days <= 0) return;
+    QSqlQuery query(m_database);
+    query.prepare("SELECT id FROM ai_threads WHERE trashed_at IS NOT NULL AND trashed_at<?");
+    query.addBindValue(QDateTime::currentDateTimeUtc().addDays(-days).toString(Qt::ISODateWithMs));
+    QStringList ids;
+    if (query.exec())
+        while (query.next()) ids << query.value(0).toString();
+    query.finish();
+    purgeAiThreads(ids);
 }
 
 bool ResearchStore::deleteAiThread(const QString &id)

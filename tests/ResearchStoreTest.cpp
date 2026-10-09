@@ -1511,6 +1511,36 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 4, 5000);
         QCOMPARE(loaded.last().at(5).toInt(), 1);
     }
+    void aiConversationsGoToTheTrashFirst()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QStringList ids;
+        for (const auto &title : {"First", "Second", "Third"}) {
+            const auto id = store.createAiThread({{"title", title}, {"provider", "claude"}, {"model", "m"}});
+            QVERIFY(store.appendAiMessage(id, {{"role", "user"}, {"content", QString("question about ") + title}}));
+            ids << id;
+        }
+        QCOMPARE(store.aiThreads().size(), 3);
+        // Two moved to the Trash: hidden from the list and from search, kept whole.
+        QCOMPARE(store.trashAiThreads({ids[0], ids[1]}), 2);
+        QCOMPARE(store.aiThreads().size(), 1);
+        QCOMPARE(store.trashedAiThreads().size(), 2);
+        QVERIFY(store.trashedAiThreads()[0].toMap()["daysLeft"].toInt() >= 29);
+        const auto hits = store.searchKnowledge("question about");
+        QVERIFY(std::none_of(
+            hits.cbegin(), hits.cend(), [&](const QVariant &hit) { return hit.toMap()["id"].toString() == ids[0]; }));
+        QCOMPARE(store.aiThread(ids[0])["messages"].toList().size(), 1);
+        // Restored as it was; deleted for good only from the Trash.
+        QCOMPARE(store.trashAiThreads({ids[0]}, false), 1);
+        QCOMPARE(store.aiThreads().size(), 2);
+        QCOMPARE(store.emptyAiTrash(), 1);
+        QVERIFY(store.aiThread(ids[1]).isEmpty());
+        QVERIFY(store.trashedAiThreads().isEmpty());
+        QCOMPARE(store.aiThreads().size(), 2);
+    }
     void downloadedPdfsTakeTheirPaperName()
     {
         PaperMetadata paper;

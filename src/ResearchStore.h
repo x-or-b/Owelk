@@ -96,6 +96,7 @@ public:
     Q_INVOKABLE int emptyPaperTrash();
     Q_INVOKABLE int trashDays() const;
     void purgeExpiredPapers();
+    void purgeExpiredAiThreads();
     Q_INVOKABLE QUrl resolvedSource(const QUrl &source) const;
     Q_INVOKABLE void requestRelink(const QUrl &source);
     Q_INVOKABLE void relinkSource(const QUrl &source, const QUrl &candidate);
@@ -234,6 +235,12 @@ public:
     Q_INVOKABLE QString createAiThread(const QVariantMap &thread);
     Q_INVOKABLE bool appendAiMessage(const QString &threadId, const QVariantMap &message);
     Q_INVOKABLE QVariantList aiThreads() const;
+    // The AI Trash: conversations moved there (trashed true) or back (false), listed with the days left
+    // before they are deleted for good (Settings › Data › Trash); deleted now with purge or empty.
+    Q_INVOKABLE QVariantList trashedAiThreads() const;
+    Q_INVOKABLE int trashAiThreads(const QStringList &ids, bool trashed = true);
+    Q_INVOKABLE int purgeAiThreads(const QStringList &ids);
+    Q_INVOKABLE int emptyAiTrash();
     Q_INVOKABLE QVariantMap aiThread(const QString &id) const;
     Q_INVOKABLE bool renameAiThread(const QString &id, const QString &title);
     Q_INVOKABLE bool deleteAiThread(const QString &id);
