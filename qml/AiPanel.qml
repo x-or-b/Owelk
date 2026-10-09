@@ -263,7 +263,7 @@ Item {
                     }
                     IconButton {
                         objectName: "aiToQuestion-" + message.index
-                        icon.name: "up"; description: "Back to the question"; glyphSize: Theme.fontBody
+                        icon.name: "toQuestion"; description: "Back to the question"; glyphSize: Theme.fontBody
                         onClicked: conversation.toQuestion(message.index)
                     }
                 }
@@ -324,7 +324,7 @@ Item {
                 anchors.bottom: parent.bottom; anchors.bottomMargin: 8
                 z: 2
                 visible: !conversation.nearEnd && conversation.count > 0
-                icon.name: "down"; description: "Go to the latest"
+                icon.name: "toLatest"; description: "Go to the latest"
                 background: Rectangle {
                     implicitWidth: Theme.controlHeight; implicitHeight: Theme.controlHeight
                     radius: height / 2

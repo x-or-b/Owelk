@@ -24,6 +24,8 @@ var glyphs = {
     "search": "\ue151",
     "edit": "\ue1f9",
     "send": "\ue04a",
+    "toQuestion": "\ue04a",
+    "toLatest": "\ue042",
     "stop": "\ue167",
     "attach": "\ue12d",
     "star": "\ue176",

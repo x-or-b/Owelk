@@ -37,6 +37,8 @@ open folder-open
 search search
 edit pencil
 send arrow-up
+toQuestion arrow-up
+toLatest arrow-down
 stop square
 attach paperclip
 star star
