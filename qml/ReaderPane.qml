@@ -106,39 +106,36 @@ Rectangle {
     function goForward() { return canvas.goForward() }
     // Web links in a PDF open in an app tab when the pane belongs to a workspace.
     signal linkRequested(url url)
-    // AI help about the selection, the current page or the whole paper; the composer is shared app-wide.
+    // AI help: a page translated, or something attached to the AI conversation to ask about (the one open
+    // in the AI panel, else a new one about this paper). The composer is shared app-wide.
     signal aiRequested(var spec)
-    function requestAi(action, scope) {
+    function translatePage() {
         activated()
-        const anchor = canvas.selectedAnchor
-        const spec = {action: action, scope: scope, source: source,
-                      page: scope === "selection" && anchor ? (anchor.segments ? anchor.segments[0].page : anchor.page) : canvas.currentPage,
-                      selection: scope === "selection" ? canvas.selectedText : ""}
+        const page = canvas.currentPage
         // A page translation stands alone (the next page follows from the AI panel).
-        if (action === "translate" && scope === "page") { spec.fresh = true; spec.label = "Translate page " + (spec.page + 1) }
-        aiRequested(spec)
+        aiRequested({action: "translate", scope: "page", source: source, page: page, fresh: true, label: "Translate page " + (page + 1)})
     }
-    // Explain: a card beside the figure, table, algorithm, equation or selection (ExplainCard).
-    signal appLinkRequested(string link)
-    function explainObject(target, anchor) {
-        activated()
-        const size = canvas.pagePoints(target.page)
-        const region = Qt.rect(target.x / size.width, target.y / size.height, target.width / size.width, target.height / size.height)
-        explainCard.open({source: source, kind: target.kind, label: target.label, page: target.page, region: region, caption: target.caption || ""},
-                         anchor || canvas.viewRect(target.page, target.x, target.y, target.width, target.height))
+    function selectionPage() {
+        const anchor = canvas.selectedAnchor
+        return anchor ? (anchor.segments ? anchor.segments[0].page : anchor.page) : canvas.currentPage
     }
-    function explainSelection() {
+    // For now in the AI panel.
+    function translateSelection() {
         if (!canvas.selectedText.length) return
         activated()
-        const anchor = canvas.selectedAnchor
-        const page = anchor ? (anchor.segments ? anchor.segments[0].page : anchor.page) : canvas.currentPage
-        const end = canvas.selectionEnd
-        explainCard.open({source: source, kind: "selection", page: page, selection: canvas.selectedText},
-                         Qt.rect(end.x - 220, end.y - 4, 440, 16))
+        aiRequested({action: "translate", scope: "selection", source: source, page: selectionPage(), selection: canvas.selectedText})
     }
-    function explainSymbols() {
+    function askAboutSelection() {
+        if (!canvas.selectedText.length) return
         activated()
-        explainCard.open({source: source, kind: "notation", page: canvas.currentPage}, Qt.rect(canvas.width, 48, 0, 0))
+        aiRequested({attach: true, source: source, page: selectionPage(), selection: canvas.selectedText})
+    }
+    // A figure, table, algorithm or equation (ReferenceFinder): its image, named, joins the conversation.
+    function askAboutObject(target) {
+        activated()
+        const size = canvas.pagePoints(target.page)
+        aiRequested({attach: true, source: source, page: target.page, label: target.label,
+                     region: Qt.rect(target.x / size.width, target.y / size.height, target.width / size.width, target.height / size.height)})
     }
     function copySelection() { canvas.copySelection() }
     function captureSelection() { canvas.captureSelection() }
@@ -198,34 +195,76 @@ Rectangle {
         }
     }
     AnnotationEditor { id: annotationEditor }
+    // Right-click: only what applies there. With a selection; on a figure, table, algorithm or equation
+    // (found while the button is down, ReferenceFinder::objectAt); elsewhere on the page.
+    property int contextPage: 0
+    property var contextObject: null
+    property int objectRequest: -1
+    property bool objectAnswered: false
+    property var pendingContext: null
+    function prepareContext(page, pagePoint) {
+        contextPage = page
+        contextObject = null
+        objectAnswered = !!canvas.selectedText
+        objectRequest = objectAnswered ? -1 : researchStore.references.objectAt(source, page, pagePoint)
+    }
+    function openContext(position, page, pagePoint) {
+        activated()
+        if (page !== contextPage || objectRequest < 0 && !objectAnswered) prepareContext(page, pagePoint)
+        pendingContext = position
+        if (objectAnswered) showContext()
+        else contextWait.restart()
+    }
+    function showContext() {
+        contextWait.stop()
+        const at = pendingContext
+        pendingContext = null
+        objectRequest = -1
+        if (!at) return
+        const menu = canvas.selectedText ? selectionMenu : contextObject ? objectMenu : pageMenu
+        menu.popup(canvas, at.x, at.y)
+        objectAnswered = false
+    }
+    // Finding the object takes a moment; the menu opens without it after this.
+    Timer { id: contextWait; interval: 250; onTriggered: root.showContext() }
+    Connections {
+        target: researchStore.references
+        function onObjectFound(request, target) {
+            if (request !== root.objectRequest) return
+            root.contextObject = target.page !== undefined ? target : null
+            root.objectAnswered = true
+            if (root.pendingContext) root.showContext()
+        }
+    }
     Menu {
         id: selectionMenu
         objectName: "selectionContextMenu"
-        property int page: 0
-        // The figure, table, algorithm or equation under the pointer (found while the menu opens).
-        property var object: null
-        property int objectRequest: -1
-        onClosed: objectRequest = -1
-        MenuItem { objectName:"selectionCopy"; text:"Copy"; enabled:!!canvas.selectedText; onTriggered:canvas.copySelection() }
-        MenuItem { text:"Select All on Page"; onTriggered:canvas.selectPage(selectionMenu.page) }
+        MenuItem { objectName: "selectionCopy"; text: "Copy"; onTriggered: canvas.copySelection() }
+        MenuItem { text: "Highlight…"; enabled: !!canvas.selectedAnchor; onTriggered: root.chooseHighlightColor(pageField, true) }
+        MenuItem { text: "Add Comment…"; enabled: !!canvas.selectedAnchor; onTriggered: root.addComment() }
+        MenuItem { text: "Save Excerpt"; enabled: !!canvas.selectedAnchor; onTriggered: canvas.captureSelection() }
         MenuSeparator {}
-        MenuItem { text:"Add Comment to Selection…"; enabled:!!canvas.selectedAnchor; onTriggered:root.addComment() }
-        MenuItem { text:"Highlight Selection…"; enabled:!!canvas.selectedAnchor; onTriggered:root.chooseHighlightColor(pageField,true) }
-        MenuItem { text:"Save Excerpt"; enabled:!!canvas.selectedAnchor; onTriggered:canvas.captureSelection() }
-        MenuSeparator {}
-        // With a selection they act on it; without one: a new thread to ask in, this page translated
-        // (then the next, from the AI panel), the whole paper summarized.
+        MenuItem { objectName: "menuTranslateSelection"; text: "Translate with AI"; onTriggered: root.translateSelection() }
+        MenuItem { objectName: "menuAskSelection"; text: "Ask AI about Selection"; onTriggered: root.askAboutSelection() }
+    }
+    Menu {
+        id: objectMenu
+        objectName: "objectContextMenu"
         MenuItem {
-            objectName: "menuExplainAi"
-            text: canvas.selectedText ? "Explain with AI" : selectionMenu.object ? "Explain " + selectionMenu.object.label : "Explain with AI…"
-            onTriggered: canvas.selectedText ? root.explainSelection() : selectionMenu.object ? root.explainObject(selectionMenu.object) : root.requestAi("ask", "paper")
+            objectName: "menuAskObject"
+            text: root.contextObject ? "Ask AI about " + root.contextObject.label : ""
+            onTriggered: root.askAboutObject(root.contextObject)
         }
-        MenuItem { objectName:"menuTranslateAi"; text:canvas.selectedText ? "Translate with AI" : "Translate This Page with AI"; onTriggered:root.requestAi("translate", canvas.selectedText ? "selection" : "page") }
-        MenuItem { objectName:"menuSummarizeAi"; text:canvas.selectedText ? "Summarize with AI" : "Summarize Paper with AI"; onTriggered:root.requestAi("summarize", canvas.selectedText ? "selection" : "paper") }
-        MenuItem { text:canvas.selectedText ? "Ask AI about the Selection…" : "Ask AI about This Page…"; onTriggered:root.requestAi("ask", canvas.selectedText ? "selection" : "page") }
-        MenuItem { objectName: "menuExplainSymbols"; text: "Symbols in This Paper"; onTriggered: root.explainSymbols() }
         MenuSeparator {}
-        MenuItem { text:"Capture a Region"; onTriggered:root.startCapture() }
+        MenuItem { text: "Capture Region"; onTriggered: root.startCapture() }
+    }
+    Menu {
+        id: pageMenu
+        objectName: "pageContextMenu"
+        MenuItem { objectName: "menuTranslatePage"; text: "Translate This Page with AI"; onTriggered: root.translatePage() }
+        MenuSeparator {}
+        MenuItem { text: "Select All on Page"; onTriggered: canvas.selectPage(root.contextPage) }
+        MenuItem { text: "Capture Region"; onTriggered: root.startCapture() }
     }
     Loader { id: paperDetails; active: false; sourceComponent: PaperDetailsDialog {} }
     FileDialog {
@@ -447,13 +486,8 @@ Rectangle {
                 anchors.rightMargin: root.marginShown ? margin.width : 0
                 onActivated: root.activated()
                 onExternalLinkRequested: function(url) { if (root.managed) root.linkRequested(url); else Qt.openUrlExternally(url) }
-                onContextRequested: function(position,page,pagePoint) {
-                    root.activated(); selectionMenu.page=page
-                    selectionMenu.object = null
-                    selectionMenu.objectRequest = canvas.selectedText ? -1 : researchStore.references.objectAt(source, page, pagePoint)
-                    selectionMenu.popup(canvas,position.x,position.y)
-                }
-                onExplainRequested: function(target, anchor) { root.explainObject(target, anchor) }
+                onContextPressed: function(page, pagePoint) { root.prepareContext(page, pagePoint) }
+                onContextRequested: function(position, page, pagePoint) { root.openContext(position, page, pagePoint) }
                 onEditRequested: function(record,selection) {
                     root.activated()
                     // With the notes open, a comment or a highlight's note is written beside the page.
@@ -470,7 +504,7 @@ Rectangle {
                 onPositionChanged: root.changed()
                 onFigureAiRequested: function(page, rect, label) {
                     root.activated()
-                    root.aiRequested({source: root.source, page: page, region: rect, label: label})
+                    root.aiRequested({attach: true, source: root.source, page: page, region: rect, label: label})
                 }
                 onRegionSelected: function(page, rect) {
                     researchStore.captureRegion(source, page, rect)
@@ -517,35 +551,17 @@ Rectangle {
                         onClicked: { root.activated(); canvas.captureSelection() }
                     }
                     IconButton {
-                        objectName: "aiSelectionButton"
-                        icon.name: "ai"; description: "AI"
-                        onClicked: selectionAiMenu.popup(this, 0, height)
-                        Menu {
-                            id: selectionAiMenu
-                            objectName: "selectionAiMenu"
-                            MenuItem { objectName: "aiExplainSelection"; text: "Explain"; onTriggered: root.explainSelection() }
-                            MenuItem { objectName: "aiTranslateSelection"; text: "Translate"; onTriggered: root.requestAi("translate", "selection") }
-                            MenuItem { text: "Summarize"; onTriggered: root.requestAi("summarize", "selection") }
-                            MenuItem { text: "Ask…"; onTriggered: root.requestAi("ask", "selection") }
-                        }
+                        objectName: "translateSelectionButton"
+                        icon.name: "globe"; description: "Translate"
+                        onClicked: root.translateSelection()
+                    }
+                    IconButton {
+                        objectName: "askSelectionButton"
+                        icon.name: "ai"; description: "Ask AI"
+                        onClicked: root.askAboutSelection()
                     }
                 }
             }
-
-            ExplainCard {
-                id: explainCard
-                parent: canvas
-                onContinueRequested: function(thread, image, label) { root.aiRequested({continueThread: thread, image: image, label: label}) }
-                onLinkActivated: function(link) { if (root.managed) root.appLinkRequested(link) }
-                onGoRequested: function(page, top) { canvas.jumpRemembering(page, top, 0) }
-            }
-            Connections {
-                target: researchStore.references
-                function onObjectFound(request, target) {
-                    if (request === selectionMenu.objectRequest && target.page !== undefined) selectionMenu.object = target
-                }
-            }
-            Connections { target: canvas; function onSourceChanged() { explainCard.close() } }
 
             ColumnLayout {
                 visible: !canvas.source.toString().length || canvas.error.length > 0

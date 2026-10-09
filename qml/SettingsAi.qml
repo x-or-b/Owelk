@@ -47,7 +47,7 @@ ColumnLayout {
         }
         SettingsRow {
             label: "Explanations"
-            detail: "How Explain and other answers are written · also switchable on each Explain card"
+            detail: "How every answer is written"
             ComboBox {
                 objectName: "aiExplainLevelBox"
                 Layout.preferredWidth: 200
@@ -58,7 +58,7 @@ ColumnLayout {
         }
         SettingsRow {
             label: "Symbol hints"
-            detail: "Once a paper's symbols are listed (right-click › Symbols in This Paper), pointing at one shows its meaning"
+            detail: "Once a paper's symbols are listed (Document panel › Symbols), pointing at one shows its meaning"
             Switch {
                 objectName: "aiSymbolHints"
                 checked: researchStore.setting("ai.symbolHints", "1") === "1"

@@ -14,10 +14,11 @@ struct AiMaterials {
     QStringList notes;
     int pageNumber = 0; // 1-based; 0 when unknown.
     bool hasImage = false;
-    // What an Explain card is about: "Figure 3", "Equation (2)", "Algorithm 1" (with its page).
-    QString label;
-    // How the reader wants things explained: "easy" (plain words and examples) or "brief".
-    QString level;
+    // What attached images from a paper are: "Figure 3, page 5", "Equation (2), page 3".
+    QStringList imageLabels;
+    // How the reader wants things explained: "easy" (plain words and examples) or "brief"; and the
+    // reader's own standing instructions (Settings → AI).
+    QString level, instructions;
 };
 
 struct AiPrompt {
@@ -30,7 +31,7 @@ struct AiPrompt {
 // "Korean" for "ko" and so on; empty for "source" (the paper's own language).
 QString aiLanguageName(const QString &language);
 
-// action: explain | translate | summarize | ask | figure | equation | algorithm | notation.
+// action: ask | translate | library | notation.
 // language: ko | en | source. Long material is cut to the character budget (page text first; the paper's
 // text has a budget of its own) with a visible marker.
 AiPrompt buildAiPrompt(const QString &action, const QString &language, const QString &question,

@@ -130,7 +130,7 @@ private slots:
         prompt = buildAiPrompt("ask", "ja", "What does this show?", materials);
         QVERIFY(prompt.system.contains("language of the reader's request"));
         QVERIFY(!prompt.system.contains("Japanese"));
-        prompt = buildAiPrompt("summarize", "ja", {}, materials);
+        prompt = buildAiPrompt("translate", "ja", {}, materials);
         QVERIFY(prompt.system.contains("Answer in Japanese"));
         // "Same as the paper" still needs a translation target.
         prompt = buildAiPrompt("translate", "source", {}, materials);
@@ -600,11 +600,11 @@ private slots:
         QVERIFY(!followUp.contains("thinking"));
         ai->clearApiKey("claude");
     }
-    void explainCardsAreKeptAndContinueAsThreads()
+    void attachedFiguresAreNamedAndSymbolsAreKept()
     {
         QTemporaryDir directory;
-        const auto pdf = directory.filePath("explain.pdf");
-        writeFixture(pdf, "Explain Paper", 2);
+        const auto pdf = directory.filePath("attach.pdf");
+        writeFixture(pdf, "Attach Paper", 2);
         const auto source = QUrl::fromLocalFile(pdf);
         ResearchStore store(directory.filePath("data"));
         QString error;
@@ -622,70 +622,55 @@ private slots:
         store.setSetting("ai.baseUrl.claude", server.base().toString());
         ai->setProvider("claude");
         ai->giveConsent("claude");
-        QVERIFY(ai->setApiKey("claude", "sk-ant-explain-test"));
+        QVERIFY(ai->setApiKey("claude", "sk-ant-attach-test"));
+        store.setSetting("ai.instructions", "Put English terms in brackets.");
         QSignalSpy finished(ai, &AiService::finished), failed(ai, &AiService::failed);
-        const QVariantMap figure{{"source", source}, {"kind", "figure"}, {"label", "Figure 1"}, {"page", 0},
-            {"region", QRectF(0.05, 0.5, 0.9, 0.25)}, {"caption", "Figure 1. Capture this chart"}};
-        ai->explain(figure);
+        // A figure from the paper goes with its name; the paper leads the request with its own cache mark.
+        const auto image = ai->saveRegionImage(source, 0, QRectF(0.05, 0.5, 0.9, 0.25));
+        QVERIFY(!image.isEmpty());
+        ai->ask({{"source", source}, {"scope", "paper"}, {"question", "What does the chart compare?"},
+            {"imageFiles", QVariantList{image}}, {"imageLabels", QStringList{"Figure 1, page 1"}}});
         QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 10000);
-        QCOMPARE(failed.size(), 0);
-        auto details = finished[0][2].toMap();
-        const auto key = details["key"].toString();
-        QVERIFY(!key.isEmpty());
-        QVERIFY(!details["cached"].toBool());
-        // The paper first (cached by the provider), then the figure, then the task with the reader's level.
         const auto content = server.seen[0].body["messages"].toArray().last().toObject()["content"].toArray();
         QCOMPARE(content[0].toObject()["cache_control"].toObject()["type"].toString(), QString("ephemeral"));
         QVERIFY(content[0].toObject()["text"].toString().contains("<paper_text>"));
         QCOMPARE(content[1].toObject()["type"].toString(), QString("image"));
-        QVERIFY(content[2].toObject()["text"].toString().contains("Figure 1, page 1"));
-        QVERIFY(server.seen[0].body["system"].toString().contains("new to this field"));
-        // Page citations become links; no thread is made for a card.
+        QVERIFY(content[2].toObject()["text"].toString().contains("Attached from the paper: Figure 1, page 1."));
+        const auto system = server.seen[0].body["system"].toString();
+        QVERIFY(system.contains("new to this field"));
+        QVERIFY(system.contains("Put English terms in brackets."));
         QVERIFY(finished[0][1].toString().contains("owelk://document/"));
-        QVERIFY(store.aiThreads().isEmpty());
-        // Opened again: the kept answer, without a request. Another level is a new explanation.
-        ai->explain(figure);
+        store.setSetting("ai.explainLevel", "brief");
+        ai->ask({{"source", source}, {"scope", "paper"}, {"question", "Again"}});
         QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 10000);
-        QVERIFY(finished[1][2].toMap()["cached"].toBool());
-        QCOMPARE(finished[1][1].toString(), finished[0][1].toString());
-        QCOMPARE(server.seen.size(), 1);
-        auto brief = figure;
-        brief.insert("level", "brief");
-        ai->explain(brief);
-        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 3, 10000);
-        QCOMPARE(server.seen.size(), 2);
         QVERIFY(server.seen[1].body["system"].toString().contains("Be brief"));
-        // Continue in AI: a thread whose first turn is the material and the explanation; once only.
-        const auto thread = ai->continueExplanation(key);
-        QVERIFY(!thread.isEmpty());
-        QCOMPARE(ai->continueExplanation(key), thread);
-        const auto messages = store.aiThread(thread)["messages"].toList();
-        QCOMPARE(messages.size(), 2);
-        QCOMPARE(messages[0].toMap()["display"].toString(), QString("Explain Figure 1"));
-        QVERIFY(messages[0].toMap()["content"].toString().contains("<paper_text>"));
-        QCOMPARE(messages[1].toMap()["content"].toString(), finished[0][1].toString());
-        QVERIFY(ai->continueExplanation("not-a-key").isEmpty());
+        store.setSetting("ai.explainLevel", "easy");
+        const auto threads = store.aiThreads().size();
 
-        // The paper's symbols: a list for hints, shown as a table with links to their definitions.
-        answer("```json\n{\"symbols\": [{\"symbol\": \"\\\\omega_m\", \"text\": [\"ωm\"], \"meaning\": \"angular "
-               "velocity\", "
-               "\"page\": 2, \"background\": false}, {\"symbol\": \"SE_2(3)\", \"text\": \"SE2(3)\", \"meaning\": "
-               "\"extended poses\", \"page\": null, \"background\": true}]}\n```");
+        // The paper's symbols: kept for the Symbols tab and hints, not as a conversation.
+        answer(
+            "```json\n{\"symbols\": [{\"symbol\": \"\\\\omega_m\", \"text\": [\"ωm\"], \"meaning\": \"angular "
+            "velocity\", "
+            "\"page\": 2, \"quote\": \"the angular velocity from the IMU\", \"background\": false}, {\"symbol\": "
+            "\"\\\\mathbf{p}_r\", \"text\": \"𝐩𝑟\", \"meaning\": \"robot position\", \"page\": null, \"background\": "
+            "true}]}\n```");
         QSignalSpy notation(ai, &AiService::notationChanged);
         QVERIFY(ai->notation(source).isEmpty());
-        ai->explain({{"source", source}, {"kind", "notation"}, {"page", 0}});
-        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 4, 10000);
+        ai->findSymbols(source);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 3, 10000);
         QCOMPARE(notation.size(), 1);
-        const auto table = finished[3][1].toString();
-        QVERIFY2(table.contains("| $\\omega_m$ | angular velocity | [p. 2](owelk://document/"), qPrintable(table));
-        QVERIFY(table.contains("| Background |"));
+        QCOMPARE(finished[2][2].toMap()["symbols"].toInt(), 2);
+        QCOMPARE(store.aiThreads().size(), threads);
         const auto symbols = ai->notation(source);
         QCOMPARE(symbols.size(), 2);
-        QCOMPARE(symbols[0].toMap()["text"].toStringList(), QStringList{"ωm"});
+        QCOMPARE(symbols[0].toMap()["quote"].toString(), QString("the angular velocity from the IMU"));
+        QCOMPARE(symbols[0].toMap()["page"].toInt(), 2);
+        // Background knowledge has no page; printed math letters match as plain ones.
         QCOMPARE(symbols[1].toMap()["page"].toInt(), 0);
-        // A symbol list that does not come back is an error, not an empty list.
+        QCOMPARE(symbols[1].toMap()["match"].toStringList(), QStringList{"pr"});
+        // A list that does not come back is an error, and the kept one stays.
         answer("Sorry, no list.");
-        ai->explain({{"source", source}, {"kind", "notation"}, {"page", 0}, {"refresh", true}});
+        ai->findSymbols(source);
         QTRY_COMPARE_WITH_TIMEOUT(failed.size(), 1, 10000);
         QCOMPARE(ai->notation(source).size(), 2);
         ai->clearApiKey("claude");
@@ -750,8 +735,8 @@ private slots:
             MockServer::sse("message_stop", {{"type", "message_stop"}})};
         store.setSetting("ai.baseUrl.claude", server.base().toString());
         QSignalSpy finished(ai, &AiService::finished), failed(ai, &AiService::failed);
-        const QVariantMap spec{{"provider", "claude"}, {"action", "summarize"}, {"source", QUrl::fromLocalFile(pdf)},
-            {"page", 2}, {"scope", "page"}};
+        const QVariantMap spec{{"provider", "claude"}, {"action", "ask"}, {"question", "Summarize this page"},
+            {"source", QUrl::fromLocalFile(pdf)}, {"page", 2}, {"scope", "page"}};
         ai->ask(spec);
         QTRY_COMPARE_WITH_TIMEOUT(failed.size(), 1, 5000);
         QVERIFY(failed[0][1].toString().contains("Review what is sent")); // No consent yet: nothing leaves the Mac.
@@ -780,7 +765,7 @@ private slots:
         QVERIFY(text.contains("Research finding 3.1"));
         // Page text comes with the request to cite places.
         QVERIFY(server.seen[0].body["system"].toString().contains("[p. N: \"exact words\"]"));
-        QVERIFY(server.seen[0].body["system"].toString().contains("Korean"));
+        QVERIFY(server.seen[0].body["system"].toString().contains("language of the reader's request"));
         // Saved answers are searchable knowledge objects linked to the paper.
         auto details = finished[0][2].toMap();
         details.insert("answer", finished[0][1].toString());
@@ -806,7 +791,7 @@ private slots:
         const auto thread = store.aiThread(threadId)["messages"].toList();
         QCOMPARE(thread.size(), 4);
         QCOMPARE(thread[2].toMap()["display"].toString(), QString("And the method?"));
-        QCOMPARE(thread[0].toMap()["display"].toString(), QString("Summarize"));
+        QCOMPARE(thread[0].toMap()["display"].toString(), QString("Summarize this page"));
         QCOMPARE(store.searchKnowledge("the method").value(0).toMap()["id"].toString(), threadId);
         // A fresh turn (one page translated) goes alone, with its own label, and still joins the thread.
         ai->ask({{"provider", "claude"}, {"threadId", threadId}, {"action", "translate"}, {"scope", "page"},

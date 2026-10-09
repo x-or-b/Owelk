@@ -51,9 +51,7 @@ Item {
     // Highlight (also comments), drawing and text-box inks are separate and remembered; text starts navy.
     readonly property bool invertPages: Theme.invertPages && Theme.canInvertPages
     // The pointer is on a reference preview: drags, pinches and Ctrl+wheel belong to the card, not the page.
-    // An Explain card (ExplainCard, placed over this view) the pointer is on: the same.
-    property bool overCard: false
-    readonly property bool overPreview: (previewCard.visible && previewHover.hovered) || overCard
+    readonly property bool overPreview: previewCard.visible && previewHover.hovered
     readonly property string defaultTextColor: "#1d3a5c"
     property string markColor: savedInk("highlightColor")
     property string drawColor: savedInk("drawColor")
@@ -71,22 +69,15 @@ Item {
     }
     // A page's size in PDF points (text boxes fit their font to it).
     function pagePoints(page) { return pdfDocument.pagePointSize(page) }
-    // A box on a page (PDF points) in this view's coordinates; empty while that page is not laid out.
-    function viewRect(page, x, y, width, height) {
-        const item = pages.itemAtIndex(page)
-        if (!item) return Qt.rect(0, 0, 0, 0)
-        const left = (pages.contentWidth - item.pointSize.width * pageScale) / 2
-        return Qt.rect(left + x * pageScale - pages.contentX, item.y + y * pageScale - pages.contentY, width * pageScale, height * pageScale)
-    }
     property string documentFingerprint: ""
     property var editingMark: null
     // A mark outlined on the page while its note is hovered in the margin.
     property string focusedMark: ""
     property point markMenuPosition: Qt.point(0, 0)
-    // pagePoint: where on the page, in PDF points (for Explain: the figure or equation there).
+    // Right-click. pagePoint: where on the page, in PDF points (what is there is looked up while the
+    // button is down, so the menu can name it).
+    signal contextPressed(int page, point pagePoint)
     signal contextRequested(point position, int page, point pagePoint)
-    // Explain on a figure, table or equation preview: the object found (ReferenceFinder) and where the card was.
-    signal explainRequested(var target, rect anchor)
     signal externalLinkRequested(url url)
     signal editRequested(var record, var selection)
     signal annotationPlaced(int page, var rectangle, var points)
@@ -202,7 +193,7 @@ Item {
     signal positionChanged()
     signal activated()
     signal regionSelected(int page, rect normalizedRegion)
-    // Ask AI on a figure or table preview: its region with the caption (page-relative).
+    // Ask AI on a figure, table or equation preview: its region with the caption (page-relative).
     signal figureAiRequested(int page, rect normalizedRegion, string label)
 
     // Previous and next page (Cmd+[ / Cmd+], the toolbar arrows and the mouse's side buttons).
@@ -894,6 +885,7 @@ Item {
                     cursorShape: !root.captureMode && (!root.tool.length || root.tool === "highlight")
                         && containsMouse && pageHolder.overText(mouseX / root.pageScale, mouseY / root.pageScale)
                         ? Qt.IBeamCursor : Qt.ArrowCursor
+                    onPressed: function(mouse) { root.contextPressed(pageHolder.index, Qt.point(mouse.x / root.pageScale, mouse.y / root.pageScale)) }
                     onClicked: function(mouse) { root.contextRequested(mapToItem(root, mouse.x, mouse.y), pageHolder.index, Qt.point(mouse.x / root.pageScale, mouse.y / root.pageScale)) }
                 }
                 Repeater {
@@ -1545,7 +1537,7 @@ Item {
         if (symbols.length && symbolHints && !symbolHint)
             symbolRequest = researchStore.references.wordAt(source, spot.page, Qt.point(spot.x, spot.y), Math.max(.5, 3 / pageScale))
     }
-    // Symbol hints: once the paper's symbols are listed (Explain › Symbols in This Paper), resting on one
+    // Symbol hints: once the paper's symbols are listed (Document panel › Symbols), resting on one
     // shows what it means. [{symbol (LaTeX), text (as printed), meaning, page (0: background)}]
     property var symbols: []
     property bool symbolHints: researchStore.setting("ai.symbolHints", "1") === "1"
@@ -1841,7 +1833,7 @@ Item {
             Label { id: goLabel; anchors.centerIn: parent; text: (previewCard.spec.label ? previewCard.spec.label + " · " : "") + "p. " + (previewCard.spec.page + 1) + " · click to go"; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
         }
         // Figures and tables: zoom out and in by small steps, and ask AI about the figure with its caption.
-        // Figures, tables and equations: Explain, in a card of its own.
+        // Figures, tables and equations: Ask AI attaches them (with the caption, named) to the conversation.
         Row {
             objectName: "linkPreviewZoom"
             visible: previewCard.showsFloat || (previewCard.spec.kind === "equation" && !!previewCard.spec.float)
@@ -1865,29 +1857,15 @@ Item {
                 tint: previewCard.ink; onClicked: previewCard.setZoom(previewCard.zoom * 1.1)
             }
             Button {
-                objectName: "linkPreviewExplain"
-                visible: !!previewCard.spec.float
-                anchors.verticalCenter: parent.verticalCenter
-                text: "Explain"
-                onClicked: {
-                    const s = previewCard.spec
-                    const target = Object.assign({kind: s.kind, label: s.label, page: s.page}, s.float)
-                    const anchor = Qt.rect(previewCard.x, previewCard.y, 0, 0)
-                    root.closeLinkPreview()
-                    root.explainRequested(target, anchor)
-                }
-            }
-            Button {
                 objectName: "linkPreviewAskAi"
-                visible: !!previewCard.area
+                visible: !!previewCard.spec.float
                 anchors.verticalCenter: parent.verticalCenter
                 text: "Ask AI"; icon.name: "ai"
                 onClicked: {
-                    const a = previewCard.area, size = pdfDocument.pagePointSize(previewCard.spec.page)
-                    const page = previewCard.spec.page
+                    const s = previewCard.spec, a = s.float, size = pdfDocument.pagePointSize(s.page)
                     root.closeLinkPreview()
-                    root.figureAiRequested(page, Qt.rect(a.x / size.width, a.y / size.height, a.width / size.width, a.height / size.height),
-                                           previewCard.spec.label || "")
+                    root.figureAiRequested(s.page, Qt.rect(a.x / size.width, a.y / size.height, a.width / size.width, a.height / size.height),
+                                           a.label || s.label || "")
                 }
             }
         }

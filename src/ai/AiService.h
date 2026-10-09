@@ -37,22 +37,16 @@ public:
     Q_INVOKABLE QString keyStorage() const;
     Q_INVOKABLE bool consented(const QString &provider) const;
     Q_INVOKABLE void giveConsent(const QString &provider);
-    // spec: provider, action (explain|translate|summarize|ask|figure), question, source, page (0-based),
-    // scope (selection|page|paper|none), selection, captureId, noteIds. Returns a request id.
+    // spec: provider, action (ask|translate), question, source, page (0-based), scope (selection|page|
+    // paper|library|none), selection, quote, noteIds, imageFiles and imageLabels (what each image is, for
+    // images from a paper). Returns a request id.
     // threadId continues a conversation (earlier turns are sent along); empty starts a new thread.
     Q_INVOKABLE int ask(const QVariantMap &spec);
-    // Explain card: a short explanation of a figure, table, algorithm, equation, selection or the paper's
-    // symbols, kept per paper, place and level so opening it again is instant and free. No thread is made.
-    // spec: source, kind (figure | table | algorithm | equation | selection | notation), label, page,
-    // region (page-relative; figures, tables, algorithms, equations), caption, selection, level (easy |
-    // brief; default: the setting ai.explainLevel), refresh (ask again). Streams like ask and ends with
-    // finished(request, text, {key, cached, image, provider, model, stopped}) or failed.
-    Q_INVOKABLE int explain(const QVariantMap &spec);
-    // A thread in the AI panel that goes on from an explanation (its material and answer are the first
-    // turn); the same thread when continued before. Empty when the explanation is gone.
-    Q_INVOKABLE QString continueExplanation(const QString &key);
-    // The paper's symbol list, for hints on hover: [{symbol (LaTeX), text (as printed), meaning, page
-    // (1-based, 0: background)}], or [] until it is made (explain with kind "notation").
+    // The paper's symbols, asked for on request (Document panel › Symbols) and kept per paper and answer
+    // language. Ends with notationChanged(source) and finished(request, "", {symbols}), or failed.
+    Q_INVOKABLE int findSymbols(const QUrl &source);
+    // That list: [{symbol (LaTeX), text (as printed), match (plain forms), meaning, page (1-based, 0:
+    // background knowledge), quote (the defining words on that page)}], or [] before it is made.
     Q_INVOKABLE QVariantList notation(const QUrl &source);
     // Models the provider offers: Claude's current lineup, the OpenAI/Ollama/Codex lists from the service.
     Q_INVOKABLE void listModels(const QString &provider);
@@ -75,7 +69,7 @@ public:
     Q_INVOKABLE void codexSignOut();
     Q_INVOKABLE void listOllamaModels();
     // A pasted screenshot: saved under the data folder and returned as a file URL (empty if none).
-    Q_INVOKABLE bool clipboardHasImage() const;
+    bool clipboardHasImage() const;
     Q_INVOKABLE QString saveClipboardImage();
     // A region of a PDF page (page-relative), drawn sharp enough to read and saved like a pasted image:
     // a figure attached from its preview. Returns a file URL, or empty.
@@ -107,12 +101,10 @@ private:
     AiProvider *createProvider(const QString &provider, QString *error);
     QString attachmentDirectory() const;
     void run(int request, const QString &provider, const QVariantMap &spec, const QVariantMap &prepared);
-    // Explanations live in <data>/ai-explanations, one JSON file each, named by a hash of their key.
-    QString explanationKey(const QVariantMap &spec) const;
-    QVariantMap explanation(const QString &key) const;
-    bool keepExplanation(const QVariantMap &entry) const;
-    void finishExplanation(int request, const QVariantMap &spec, const QString &sent, const QString &answer,
-        const QString &provider, const QString &model, bool stopped);
+    // <data>/ai-symbols/<paper and language>.json
+    QString symbolsFile(const QUrl &source) const;
+    void finishSymbols(int request, const QVariantMap &spec, const QString &answer, const QString &provider,
+        const QString &model, bool stopped);
     // "Ask your library": search terms from the question (one short request), then the matching passages.
     void retrieveLibrary(int request, const QString &provider, QVariantMap spec, QVariantMap prepared);
     // Shared by tab and paper organization: items are named <prefix>1…N in the prompt, and the

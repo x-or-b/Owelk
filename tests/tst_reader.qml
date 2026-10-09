@@ -489,7 +489,7 @@ Item {
             // The page menu is about the spot: no print or export there (they are in ⋯).
             const page = findChild(canvas, "paperPage0")
             mouseClick(page, page.width * .8, 100, Qt.RightButton)
-            const context = findChild(reader, "selectionContextMenu")
+            const context = findChild(reader, "pageContextMenu")
             tryCompare(context, "opened", true)
             for (let i = 0; i < context.count; ++i) {
                 const entry = context.itemAt(i)

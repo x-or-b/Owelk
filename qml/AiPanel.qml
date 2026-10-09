@@ -16,7 +16,8 @@ Item {
     signal settingsRequested()
     function focusQuestion() { question.forceActiveFocus() }
     Connections { target: root.c; function onFocusRequested() { root.focusQuestion() } }
-    Component.onCompleted: if (c && c.spec.action === "ask" && !c.streaming) question.forceActiveFocus()
+    // Opened to ask about something just attached (or a new thread): the question box is ready.
+    Component.onCompleted: if (c && c.conversationOpen && !c.streaming) question.forceActiveFocus()
     // The reader's turn: an accent bubble that hugs its text, with room on the left like a messenger.
     component Bubble: Rectangle {
         property alias text: bubbleText.text
@@ -448,14 +449,9 @@ Item {
                 onClicked: attachMenu.popup(attachButton, 0, -attachMenu.implicitHeight)
                 Menu {
                     id: attachMenu
-                    MenuItem { objectName: "aiAttachPage"; text: "Current Page"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.attach("page") }
-                    MenuItem { text: "Selection"; enabled: root.c && root.c.reader && root.c.reader.selectedText.length > 0; onTriggered: root.c.attach("selection") }
-                    MenuItem { text: "Whole Paper"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.attach("paper") }
-                    MenuItem { objectName: "aiAttachLibrary"; text: "Whole Library"; onTriggered: root.c.attach("library") }
-                    MenuSeparator {}
-                    MenuItem { objectName: "aiAttachCapture"; text: "Capture a Region"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.captureRegion() }
+                    MenuItem { objectName: "aiAttachPaper"; text: "This Paper"; enabled: root.c && root.c.reader !== null && root.c.reader.source.toString().length > 0; onTriggered: root.c.attachPaper() }
+                    MenuItem { objectName: "aiAttachCapture"; text: "Region of the PDF…"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.captureRegion() }
                     MenuItem { objectName: "aiAttachImage"; text: "Image…"; onTriggered: imageDialog.open() }
-                    MenuItem { objectName: "aiPasteImage"; text: "Paste Image"; enabled: attachMenu.opened && root.c.ai.clipboardHasImage(); onTriggered: root.c.pasteImage() }
                 }
             }
             Chip {

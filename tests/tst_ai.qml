@@ -39,7 +39,7 @@ Item {
             waitForPolish(p)
             return p
         }
-        function test_1_explainSelectionOpensThePanelAndKeepsAThread() {
+        function test_1_askingAboutTheSelectionAttachesItAndKeepsAThread() {
             workspace.documents.restore({})
             workspace.openDocument(fixtureSource)
             const c = canvas()
@@ -47,20 +47,27 @@ Item {
             verify(c.selectedText.length > 0)
             const ai = findChild(workspace, "aiController")
             compare(workspace.aiVisible, false)
-            // Without a key the panel explains what is missing and sends nothing.
-            findChild(workspace.currentReader, "aiTranslateSelection").triggered()
+            // Ask AI about Selection: the selection joins a new conversation about this paper; nothing is sent.
+            findChild(workspace.currentReader, "menuAskSelection").triggered()
             tryCompare(workspace, "aiVisible", true)
             compare(workspace.aiSide, "right") // The AI panel docks on the right by default.
             tryCompare(findChild(workspace, "rightDock"), "activePanel", "ai")
             const p = panel()
+            compare(ai.threadId, "")
+            verify(!ai.streaming)
+            verify(ai.attachments.some(function(a) { return a.kind === "selection" }))
+            verify(ai.attachments.some(function(a) { return a.kind === "paper" }))
+            // Without a key the panel explains what is missing and sends nothing.
+            const question = findChild(p, "aiQuestion")
+            tryVerify(function() { return question.activeFocus || question.focus })
+            question.text = "What does this say?"
+            mouseClick(findChild(p, "aiSend"))
             tryVerify(function() { return ai.error.indexOf("API key") >= 0 })
             verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
             // The first request to a provider shows what will be sent.
             mouseClick(findChild(p, "aiSend"))
             const consent = findChild(workspace, "aiConsentDialog")
             tryCompare(consent, "opened", true)
-            verify(ai.attachments.some(function(a) { return a.kind === "selection" }))
-            verify(ai.attachments.some(function(a) { return a.kind === "paper" }))
             consent.accept()
             tryCompare(ai, "streaming", false, 10000)
             verify(researchStore.ai.consented("claude"))
@@ -68,14 +75,14 @@ Item {
             verify(ai.threadId.length > 0)
             compare(ai.messages.length, 2)
             compare(ai.messages[1].content, "Mock answer about **occlusion**.")
-            compare(ai.messages[0].display, "Translate")
+            compare(ai.messages[0].display, "What does this say?")
+            verify(ai.messages[0].context.attachments.indexOf("selection") >= 0)
             const hits = researchStore.searchKnowledge("Mock answer")
             verify(hits.some(function(h) { return h.kind === "ai" && h.id === ai.threadId }))
             const paper = researchStore.documentLinkId(fixtureSource)
             verify(researchStore.backlinks("document", paper).some(function(b) { return b.kind === "ai" }))
             // A follow-up continues the same thread.
             const thread = ai.threadId
-            const question = findChild(p, "aiQuestion")
             question.text = "Why does it matter?"
             testInput.keyClick(question, Qt.Key_Return)
             compare(question.text, "")
@@ -276,14 +283,14 @@ Item {
             compare(ai.threadId, "")
             compare(ai.conversationOpen, true)
             verify(ai.attachments.some(function(a) { return a.kind === "paper" }))
-            // The paper chip is the whole paper: a new thread sends its text, and Whole Paper adds no second chip.
+            // The paper chip is the whole paper: a new thread sends its text; removed, This Paper brings it back once.
             compare(ai.spec.scope, "paper")
-            ai.attach("paper")
-            compare(ai.attachments.filter(function(a) { return a.kind === "paper" || a.kind === "paperText" }).length, 1)
-            ai.attach("page")
-            verify(ai.attachments.some(function(a) { return a.kind === "page" }))
-            ai.detach("page")
-            verify(!ai.attachments.some(function(a) { return a.kind === "page" }))
+            ai.detach("paper")
+            verify(!ai.attachments.some(function(a) { return a.kind === "paper" }))
+            ai.attachPaper()
+            ai.attachPaper()
+            compare(ai.attachments.filter(function(a) { return a.kind === "paper" }).length, 1)
+            compare(ai.spec.scope, "paper")
             verify(ai.send("What is the main claim?"))
             tryCompare(ai, "streaming", false, 10000)
             compare(ai.messages.length, 2)
@@ -513,28 +520,26 @@ Item {
             compare(fromTabs.papers.length, 1)
             fromTabs.close()
         }
-        function test_9zzzz_rightClickWithoutASelection() {
+        function test_9zzzz_rightClickOffersWhatIsThere() {
             verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
             researchStore.ai.provider = "claude"
             researchStore.ai.giveConsent("claude")
+            workspace.aiVisible = false
             workspace.documents.restore({})
             workspace.openDocument(fixtureSource)
             const c = canvas()
             c.clearSelection()
             const ai = findChild(workspace, "aiController"), reader = workspace.currentReader
-            // Explain: a new thread to ask in, the composer ready, nothing sent.
-            const explain = findChild(reader, "menuExplainAi")
-            compare(explain.text, "Explain with AI…")
-            explain.triggered()
+            ai.showThreads()
+            // On running text: the page menu. Translate: this page, then the next from the panel, each on its own.
+            c.jump(0, 0, 0); tryCompare(c, "restoring", false)
+            const pageMenu = findChild(reader, "pageContextMenu")
+            c.contextRequested(Qt.point(200, 200), 0, Qt.point(120, 230))
+            tryCompare(pageMenu, "opened", true, 3000)
+            findChild(reader, "menuTranslatePage").triggered()
+            pageMenu.close()
             tryCompare(workspace, "aiVisible", true)
             const p = panel()
-            compare(ai.threadId, "")
-            compare(ai.messages.length, 0)
-            verify(!ai.streaming)
-            tryVerify(function() { return findChild(p, "aiQuestion").activeFocus || findChild(p, "aiQuestion").focus })
-            // Translate: this page, then the next from the panel, each on its own.
-            c.jump(0, 0, 0); tryCompare(c, "restoring", false)
-            findChild(reader, "menuTranslateAi").triggered()
             tryVerify(function() { return !ai.streaming && ai.messages.length === 2 }, 10000)
             compare(ai.messages[0].display, "Translate page 1")
             verify(ai.messages[0].content.indexOf("Research finding 1.1") >= 0)
@@ -545,60 +550,33 @@ Item {
             tryVerify(function() { return !ai.streaming && ai.messages.length === 4 }, 10000)
             compare(ai.messages[2].display, "Translate page 2")
             verify(ai.messages[2].content.indexOf("Research finding 2.1") >= 0)
-            // Asking something else ends the page-by-page offer.
-            findChild(reader, "menuSummarizeAi").triggered()
-            tryVerify(function() { return !ai.streaming && ai.messages.length === 2 }, 10000)
-            compare(ai.messages[0].display, "Summarize")
-            verify(ai.messages[0].context.attachments.indexOf("paper") >= 0)
-            verify(!findChild(p, "aiTranslateNext").visible)
-        }
-        function test_9zzzzz_explainCardBesideTheFigure() {
-            verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
-            researchStore.ai.provider = "claude"
-            researchStore.ai.giveConsent("claude")
-            researchStore.setSetting("ai.explainLevel", "easy")
-            workspace.aiVisible = false
-            workspace.documents.restore({})
-            workspace.openDocument(fixtureSource)
-            const c = canvas()
-            c.clearSelection()
-            const ai = findChild(workspace, "aiController"), reader = workspace.currentReader
-            // Right-click on the chart: the menu offers to explain that figure.
+            // On the chart: Ask AI about Figure 1 attaches its image, named, to the open conversation.
+            const thread = ai.threadId
+            const objectMenu = findChild(reader, "objectContextMenu")
             c.contextRequested(Qt.point(200, 200), 0, Qt.point(250, 520))
-            const explain = findChild(reader, "menuExplainAi")
-            tryCompare(explain, "text", "Explain Figure 1", 5000)
-            explain.triggered()
-            const card = findChild(reader, "explainCard")
-            tryCompare(card, "visible", true)
-            compare(card.title, "Figure 1")
-            tryCompare(card, "streaming", false, 10000)
-            verify(card.answer.indexOf("Mock answer") >= 0)
-            verify(card.key.length > 0)
-            compare(workspace.aiVisible, false) // Nothing opens in the AI panel until asked.
-            const threads = researchStore.aiThreads().length
-            // The other level is a new explanation; switching back shows the kept one at once.
-            mouseClick(findChild(card, "explainLevel-brief"))
-            compare(researchStore.setting("ai.explainLevel"), "brief")
-            tryCompare(card, "streaming", false, 10000)
-            mouseClick(findChild(card, "explainLevel-easy"))
-            tryCompare(card, "cached", true, 5000)
-            compare(researchStore.aiThreads().length, threads)
-            // Continue in AI: the thread opens in the panel with the explanation and the figure attached.
-            mouseClick(findChild(card, "explainContinue"))
-            tryCompare(workspace, "aiVisible", true)
-            compare(card.visible, false)
-            tryCompare(ai, "conversationOpen", true)
-            compare(ai.messages.length, 2)
-            compare(ai.messages[0].display, "Explain Figure 1")
+            tryCompare(objectMenu, "opened", true, 3000)
+            const ask = findChild(reader, "menuAskObject")
+            compare(ask.text, "Ask AI about Figure 1")
+            ask.triggered()
+            objectMenu.close()
+            compare(ai.threadId, thread)
             compare(ai.images.length, 1)
-            compare(researchStore.aiThreads().length, threads + 1)
-            // Without a figure under the pointer the item asks about the paper, as before.
-            c.contextRequested(Qt.point(200, 200), 0, Qt.point(120, 230))
-            wait(300)
-            compare(explain.text, "Explain with AI…")
-            findChild(reader, "selectionContextMenu").close()
+            compare(ai.images[0].name, "Figure 1 · p. 1")
+            compare(ai.images[0].about, "Figure 1, page 1")
+            verify(!ai.streaming)
+            verify(ai.attachments.some(function(a) { return a.kind === "image" && a.label === "Figure 1 · p. 1" }))
+            ai.detach("image", 0)
+            // With no conversation open, a new one about this paper.
             ai.showThreads()
-            researchStore.setSetting("ai.explainLevel", "easy")
+            c.contextRequested(Qt.point(200, 200), 0, Qt.point(250, 520))
+            tryCompare(objectMenu, "opened", true, 3000)
+            findChild(reader, "menuAskObject").triggered()
+            objectMenu.close()
+            compare(ai.threadId, "")
+            compare(ai.conversationOpen, true)
+            compare(ai.images.length, 1)
+            verify(ai.attachments.some(function(a) { return a.kind === "paper" }))
+            ai.showThreads()
         }
         function test_9zzzzzz_symbolHintsMatchWhatIsPrinted() {
             workspace.documents.restore({})

@@ -181,10 +181,9 @@ Rectangle {
                     MenuItem { objectName: "captureNoteOption-" + card.modelData.id; text: card.modelData.note ? "Edit Note…" : "Add Note…"; onTriggered: root.noteRequested(card.modelData.id) }
                     MenuItem { objectName: "linkCaptureToNote-" + card.modelData.id; text: "Link to Note…"; onTriggered: linkToNote.begin("capture", card.modelData.id) }
                     MenuItem {
-                        objectName: "explainCapture-" + card.modelData.id
-                        text: "Explain with AI"
-                        onTriggered: root.aiRequested({action: card.modelData.kind === "text" ? "explain" : "figure", scope: "none",
-                                                       captureId: card.modelData.id, source: card.modelData.kind === "web" ? "" : card.modelData.source, page: card.modelData.page})
+                        objectName: "askCapture-" + card.modelData.id
+                        text: "Ask AI about This"
+                        onTriggered: root.aiRequested({attach: true, captureId: card.modelData.id})
                     }
                     MenuSeparator {}
                     MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(card.modelData.source) }

@@ -200,15 +200,12 @@ int AiService::ask(const QVariantMap &input)
     if (!info(id)) return fail("Choose an AI provider in Settings → AI.");
     if (!consented(id)) return fail("Review what is sent to this provider before the first request.");
     if ((id == "ollama") && model(id).isEmpty()) return fail("Choose an Ollama model in Settings → AI.");
-    // An Explain card keeps its answer in its own cache; a thread starts only from Continue in AI.
-    const bool card = spec.value("card").toBool();
-    if (!card
+    // A symbol list is kept for the Symbols tab, not as a conversation.
+    if (!spec.value("symbols").toBool()
         && (spec.value("threadId").toString().isEmpty()
             || m_store->aiThread(spec.value("threadId").toString()).isEmpty())) {
-        static const QHash<QString, QString> labels{{"explain", "Explain"}, {"translate", "Translate"},
-            {"summarize", "Summarize"}, {"figure", "Explain figure"}};
         const auto question = spec.value("question").toString().simplified();
-        auto title = labels.value(spec.value("action").toString());
+        auto title = spec.value("action").toString() == "translate" ? QStringLiteral("Translate") : QString();
         const auto source = spec.value("source").toUrl();
         if (title.isEmpty())
             title = question.left(80);
@@ -226,21 +223,6 @@ int AiService::ask(const QVariantMap &input)
         const auto details = m_store->documentDetails(source);
         prepared.insert({{"title", m_store->displayName(source)}, {"authors", details.value("authors")},
             {"year", details.value("year")}});
-    }
-    QStringList imagePaths;
-    const auto captureId = spec.value("captureId").toString();
-    for (const auto &value : m_store->captures()) {
-        const auto capture = value.toMap();
-        if (captureId.isEmpty() || capture.value("id").toString() != captureId) continue;
-        if (capture.value("kind").toString() == "text")
-            spec.insert("selection", capture.value("text"));
-        else if (capture.value("imageAvailable").toBool())
-            imagePaths << capture.value("image").toUrl().toLocalFile();
-        if (!capture.value("caption").toString().isEmpty()) spec.insert("selection", capture.value("caption"));
-        if (!source.isValid() || source.isEmpty()) {
-            spec.insert("source", capture.value("source"));
-            prepared.insert("title", capture.value("name"));
-        }
     }
     // Images the reader attached (files, drops, pasted screenshots).
     QStringList userImages;
@@ -287,7 +269,7 @@ int AiService::ask(const QVariantMap &input)
         else
             run(request, id, spec, next);
     });
-    watcher->setFuture(QtConcurrent::run([pdfSource, scope, page, imagePaths, userImages, attachments] {
+    watcher->setFuture(QtConcurrent::run([pdfSource, scope, page, userImages, attachments] {
         Material material;
         if (pdfSource.isLocalFile() && (scope == "page" || scope == "paper")) {
             QPdfDocument pdf;
@@ -300,13 +282,6 @@ int AiService::ask(const QVariantMap &input)
                 // Leading pages carry the abstract, method and results; the budget trims the rest.
                 for (int i = 0; i < pdf.pageCount() && material.paperText.size() < 80000; ++i)
                     material.paperText += QStringLiteral("[Page %1] ").arg(i + 1) + pdfText(pdf, i) + "\n";
-            }
-        }
-        for (const auto &path : imagePaths) {
-            QFile file(path);
-            if (file.open(QIODevice::ReadOnly) && file.size() < 8 * 1024 * 1024) {
-                material.images << file.readAll();
-                material.paths << path;
             }
         }
         // Any common format becomes a PNG at most 1568 px on its long side (what vision models use);
@@ -479,10 +454,11 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     materials.libraryText = prepared.value("libraryText").toString();
     materials.notes = prepared.value("notes").toStringList();
     materials.pageNumber = spec.value("scope").toString() == "page" ? spec.value("page").toInt() + 1 : 0;
-    if (spec.value("card").toBool() && !spec.value("label").toString().isEmpty())
-        materials.label = spec.value("label").toString() + ", page " + QString::number(spec.value("page").toInt() + 1);
-    materials.level = spec.value("level").toString().isEmpty() ? m_store->setting("ai.explainLevel", "easy")
-                                                               : spec.value("level").toString();
+    materials.level = m_store->setting("ai.explainLevel", "easy");
+    materials.instructions = m_store->setting("ai.instructions").left(2000);
+    // What attached images are ("Figure 3, page 5"), when they come from a paper.
+    for (const auto &label : spec.value("imageLabels").toStringList())
+        if (!label.trimmed().isEmpty()) materials.imageLabels << label.simplified().left(200);
     const auto images = prepared.value("images").toList();
     materials.hasImage = !images.isEmpty();
     const auto action
@@ -549,16 +525,14 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         }
         const auto usedModel = used.isEmpty() ? model(id) : used;
         const auto sent = prompt.context.isEmpty() ? prompt.text : prompt.context + "\n\n" + prompt.text;
-        if (spec.value("card").toBool()) {
-            finishExplanation(request, spec, sent, text, id, usedModel, stopped);
+        if (spec.value("symbols").toBool()) {
+            finishSymbols(request, spec, answer, id, usedModel, stopped);
             return;
         }
         // Question and answer are stored together, so a thread always alternates them.
-        static const QHash<QString, QString> labels{{"explain", "Explain"}, {"translate", "Translate"},
-            {"summarize", "Summarize"}, {"figure", "Explain figure"}};
         auto display = spec.value("question").toString().trimmed();
         if (display.isEmpty()) display = spec.value("label").toString();
-        if (display.isEmpty()) display = labels.value(spec.value("action").toString(), "Ask");
+        if (display.isEmpty()) display = spec.value("action").toString() == "translate" ? "Translate" : "Ask";
         QStringList attachments;
         if (!attached.selection.isEmpty()) attachments << "selection";
         if (!attached.pageText.isEmpty()) attachments << QStringLiteral("page %1").arg(attached.pageNumber);
@@ -569,9 +543,8 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         m_store->appendAiMessage(threadId,
             {{"role", "user"}, {"content", sent}, {"display", display}, {"provider", id}, {"model", usedModel},
                 {"context",
-                    QVariantMap{{"attachments", attachments}, {"captureId", spec.value("captureId")},
-                        {"selection", attached.selection.left(400)}, {"quote", attached.quote.left(400)},
-                        {"page", spec.value("page")}}}});
+                    QVariantMap{{"attachments", attachments}, {"selection", attached.selection.left(400)},
+                        {"quote", attached.quote.left(400)}, {"page", spec.value("page")}}}});
         // The reasoning summary sits in the answer's context: shown folded, never copied or resent.
         QVariantMap answerContext;
         const auto reasoning = thought->text.trimmed();
@@ -589,8 +562,8 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         emit finished(request, text,
             {{"provider", id}, {"model", usedModel}, {"prompt", sent}, {"threadId", threadId},
                 {"action", spec.value("action")}, {"question", spec.value("question")},
-                {"source", spec.value("source")}, {"page", spec.value("page")}, {"captureId", spec.value("captureId")},
-                {"cutOff", cutOff}, {"stopped", stopped}});
+                {"source", spec.value("source")}, {"page", spec.value("page")}, {"cutOff", cutOff},
+                {"stopped", stopped}});
     };
     connect(provider, &AiProvider::finished, this,
         [store](const QString &answer, const QString &used) { store(answer, used, false); });
@@ -617,95 +590,20 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     provider->start(call);
 }
 
-QString AiService::explanationKey(const QVariantMap &spec) const
+QString AiService::symbolsFile(const QUrl &source) const
 {
-    const auto url = m_store->resolvedSource(spec.value("source").toUrl());
+    const auto url = m_store->resolvedSource(source);
     const auto paper = url.isLocalFile() ? FileFingerprint::sha256(url.toLocalFile()) : url.toString();
-    const auto kind = spec.value("kind").toString();
-    const auto region = spec.value("region").toRectF();
-    QStringList parts{paper, kind, m_store->setting("aiLanguage", "ko")};
-    if (kind != "notation") {
-        parts << spec.value("level").toString() << QString::number(spec.value("page").toInt());
-        // Rounded, so the same figure found again (or from its preview) is the same explanation.
-        parts << QStringLiteral("%1,%2,%3,%4")
-                     .arg(qRound(region.x() * 200))
-                     .arg(qRound(region.y() * 200))
-                     .arg(qRound(region.width() * 200))
-                     .arg(qRound(region.height() * 200));
-        parts << spec.value("selection").toString().simplified();
-    }
-    return QString::fromLatin1(QCryptographicHash::hash(parts.join('\n').toUtf8(), QCryptographicHash::Sha1).toHex());
+    if (paper.isEmpty()) return {};
+    // Per paper (its bytes, wherever the file is) and answer language.
+    const auto key = QCryptographicHash::hash(
+        (paper + '\n' + m_store->setting("aiLanguage", "ko")).toUtf8(), QCryptographicHash::Sha1);
+    return m_store->dataDirectory() + "/ai-symbols/" + QString::fromLatin1(key.toHex()) + ".json";
 }
 
-QVariantMap AiService::explanation(const QString &key) const
+int AiService::findSymbols(const QUrl &source)
 {
-    static const QRegularExpression plain("^[0-9a-f]{40}$");
-    if (!plain.match(key).hasMatch()) return {};
-    QFile file(m_store->dataDirectory() + "/ai-explanations/" + key + ".json");
-    if (!file.open(QIODevice::ReadOnly)) return {};
-    return QJsonDocument::fromJson(file.readAll()).object().toVariantMap();
-}
-
-bool AiService::keepExplanation(const QVariantMap &entry) const
-{
-    const auto folder = m_store->dataDirectory() + "/ai-explanations";
-    QFile file(folder + "/" + entry.value("key").toString() + ".json");
-    return QDir().mkpath(folder) && file.open(QIODevice::WriteOnly)
-        && file.write(QJsonDocument(QJsonObject::fromVariantMap(entry)).toJson(QJsonDocument::Compact)) > 0;
-}
-
-int AiService::explain(const QVariantMap &input)
-{
-    auto spec = input;
-    const auto kind = spec.value("kind").toString();
-    static const QHash<QString, QString> actions{{"figure", "figure"}, {"table", "figure"}, {"algorithm", "algorithm"},
-        {"equation", "equation"}, {"selection", "explain"}, {"notation", "notation"}};
-    if (!actions.contains(kind)) {
-        const int request = ++m_nextRequest;
-        QMetaObject::invokeMethod(
-            this, [this, request] { emit failed(request, "Nothing to explain here."); }, Qt::QueuedConnection);
-        return request;
-    }
-    const auto level = spec.value("level").toString();
-    if (level != "easy" && level != "brief") spec.insert("level", m_store->setting("ai.explainLevel", "easy"));
-    const auto key = explanationKey(spec);
-    const auto kept = spec.value("refresh").toBool() ? QVariantMap() : explanation(key);
-    if (!kept.isEmpty()) {
-        // Opened before: the kept answer, at once and without a request.
-        const int request = ++m_nextRequest;
-        QMetaObject::invokeMethod(
-            this,
-            [this, request, kept] {
-                emit started(request, {}, kept.value("provider").toString(), kept.value("model").toString(), false);
-                emit finished(request, kept.value("answer").toString(),
-                    {{"key", kept.value("key")}, {"cached", true}, {"image", kept.value("image")},
-                        {"provider", kept.value("provider")}, {"model", kept.value("model")}});
-            },
-            Qt::QueuedConnection);
-        return request;
-    }
-    spec.insert("key", key);
-    spec.insert("card", true);
-    spec.insert("action", actions.value(kind));
-    spec.insert("scope", "paper");
-    spec.remove("threadId");
-    if (kind != "selection" && kind != "notation") {
-        // The object itself as an image: equations and drawings do not survive as text.
-        const auto image
-            = saveRegionImage(spec.value("source").toUrl(), spec.value("page").toInt(), spec.value("region").toRectF());
-        if (image.isEmpty()) {
-            const int request = ++m_nextRequest;
-            QMetaObject::invokeMethod(
-                this, [this, request] { emit failed(request, "Could not read this part of the PDF."); },
-                Qt::QueuedConnection);
-            return request;
-        }
-        spec.insert("image", image);
-        spec.insert("imageFiles", QVariantList{image});
-        // A caption's own words help; an equation's extracted text is a jumble.
-        if (kind != "equation") spec.insert("selection", spec.value("caption").toString().left(1500));
-    }
-    return ask(spec);
+    return ask({{"source", source}, {"action", "notation"}, {"scope", "paper"}, {"symbols", true}});
 }
 
 namespace {
@@ -726,92 +624,46 @@ QVariantList parseSymbols(const QString &answer)
         for (const auto &form : printed.isArray() ? printed.toArray() : QJsonArray{printed})
             if (!form.toString().trimmed().isEmpty()) text << form.toString().simplified().left(40);
         const int page = entry.value("background").toBool() ? 0 : std::max(0, entry.value("page").toInt());
-        symbols.append(QVariantMap{{"symbol", symbol}, {"text", text}, {"meaning", meaning}, {"page", page}});
+        symbols.append(QVariantMap{{"symbol", symbol}, {"text", text}, {"meaning", meaning}, {"page", page},
+            {"quote", page ? entry.value("quote").toString().simplified().left(200) : QString()}});
         if (symbols.size() >= 120) break;
     }
     return symbols;
 }
-
-// The symbol list as a Markdown table with links to where each symbol is defined.
-QString symbolTable(const QVariantList &symbols, const QString &documentId)
-{
-    QStringList rows{"| Symbol | Meaning | Where |", "|---|---|---|"};
-    for (const auto &value : symbols) {
-        const auto entry = value.toMap();
-        const int page = entry.value("page").toInt();
-        const auto where = page <= 0 ? QStringLiteral("Background")
-            : documentId.isEmpty()   ? QStringLiteral("p. %1").arg(page)
-                                     : QStringLiteral("[p. %1](owelk://document/%2#page=%1)").arg(page).arg(documentId);
-        rows << QStringLiteral("| $%1$ | %2 | %3 |")
-                    .arg(entry.value("symbol").toString().replace('|', "\\vert "),
-                        entry.value("meaning").toString().replace('|', "/"), where);
-    }
-    return rows.join('\n');
-}
 } // namespace
 
-void AiService::finishExplanation(int request, const QVariantMap &spec, const QString &sent, const QString &answer,
-    const QString &provider, const QString &model, bool stopped)
+void AiService::finishSymbols(int request, const QVariantMap &spec, const QString &answer, const QString &provider,
+    const QString &model, bool stopped)
 {
-    const auto kind = spec.value("kind").toString();
-    const auto source = spec.value("source").toUrl();
-    auto text = answer;
-    QVariantList symbols;
-    if (kind == "notation") {
-        symbols = parseSymbols(answer);
-        if (symbols.isEmpty()) {
-            emit failed(
-                request, stopped ? QStringLiteral("Stopped.") : QStringLiteral("No symbol list came back. Try again."));
-            return;
-        }
-        text = symbolTable(symbols, m_store->documentLinkId(source));
+    const auto symbols = parseSymbols(answer);
+    if (symbols.isEmpty()) {
+        emit failed(
+            request, stopped ? QStringLiteral("Stopped.") : QStringLiteral("No symbol list came back. Try again."));
+        return;
     }
-    const auto key = spec.value("key").toString();
-    // A stopped answer is shown but not kept: opening it again asks again.
-    if (!stopped)
-        keepExplanation({{"key", key}, {"kind", kind}, {"label", spec.value("label")}, {"source", source.toString()},
-            {"page", spec.value("page")}, {"level", spec.value("level")}, {"prompt", sent}, {"answer", text},
-            {"symbols", symbols}, {"provider", provider}, {"model", model}, {"image", spec.value("image")},
-            {"created", QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}});
-    if (kind == "notation" && !stopped) emit notationChanged(source);
-    emit finished(request, text,
-        {{"key", key}, {"cached", false}, {"image", spec.value("image")}, {"provider", provider}, {"model", model},
-            {"stopped", stopped}});
-}
-
-QString AiService::continueExplanation(const QString &key)
-{
-    auto entry = explanation(key);
-    if (entry.isEmpty()) return {};
-    const auto existing = entry.value("threadId").toString();
-    if (!existing.isEmpty() && !m_store->aiThread(existing).isEmpty()) return existing;
-    const QUrl source(entry.value("source").toString());
-    const auto kind = entry.value("kind").toString();
-    auto label = entry.value("label").toString();
-    if (kind == "notation") label = "Symbols";
-    if (label.isEmpty()) label = "Selection";
-    const auto provider = entry.value("provider").toString(), usedModel = entry.value("model").toString();
-    const auto thread = m_store->createAiThread({{"title", "Explain " + label + " · " + m_store->displayName(source)},
-        {"provider", provider}, {"model", usedModel}, {"source", source}});
-    if (thread.isEmpty()) return {};
-    QStringList attachments{"paper"};
-    if (!entry.value("image").toString().isEmpty()) attachments << "image";
-    m_store->appendAiMessage(thread,
-        {{"role", "user"}, {"content", entry.value("prompt")}, {"display", "Explain " + label}, {"provider", provider},
-            {"model", usedModel},
-            {"context", QVariantMap{{"attachments", attachments}, {"page", entry.value("page")}}}});
-    m_store->appendAiMessage(thread,
-        {{"role", "assistant"}, {"content", entry.value("answer")}, {"provider", provider}, {"model", usedModel},
-            {"context", QVariantMap()}});
-    entry.insert("threadId", thread);
-    keepExplanation(entry);
-    return thread;
+    const auto source = spec.value("source").toUrl();
+    const auto path = symbolsFile(source);
+    QFile file(path);
+    if (path.isEmpty() || !QDir().mkpath(QFileInfo(path).absolutePath()) || !file.open(QIODevice::WriteOnly)
+        || file.write(QJsonDocument(
+               QJsonObject::fromVariantMap({{"source", source.toString()}, {"symbols", symbols}, {"provider", provider},
+                   {"model", model}, {"created", QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}}))
+                   .toJson(QJsonDocument::Compact))
+            <= 0) {
+        emit failed(request, "Cannot keep the symbol list in the data folder.");
+        return;
+    }
+    file.close();
+    emit notationChanged(source);
+    emit finished(request, {}, {{"symbols", symbols.size()}, {"provider", provider}, {"model", model}});
 }
 
 QVariantList AiService::notation(const QUrl &source)
 {
     if (source.isEmpty()) return {};
-    auto symbols = explanation(explanationKey({{"source", source}, {"kind", "notation"}})).value("symbols").toList();
+    QFile file(symbolsFile(source));
+    if (!file.open(QIODevice::ReadOnly)) return {};
+    auto symbols = QJsonDocument::fromJson(file.readAll()).object().value("symbols").toVariant().toList();
     // How each symbol may be printed, as plain forms (math letters as plain ones, no spaces), to match
     // the word under the pointer (ReferenceFinder::wordAt).
     for (auto &value : symbols) {

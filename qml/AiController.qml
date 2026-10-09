@@ -14,7 +14,7 @@ Item {
     property string threadId: ""
     property var thread: ({})
     readonly property var messages: thread.messages || []
-    // What the next request carries (source, scope, page, selection, captureId, action).
+    // What the next request carries (source, scope, page, selection, quote, action).
     property var spec: ({})
     // The page last translated on its own, so the panel can offer the next one (-1: none).
     property int translatePage: -1
@@ -123,16 +123,30 @@ Item {
         images = images.concat([{url: value, name: decodeURIComponent(value.replace(/^.*\//, ""))}])
         return true
     }
-    // A figure (with its caption) from a preview: its image joins the open conversation, or a new one
-    // about that paper, and the question box gets the focus. Nothing is saved to Captures.
+    // A figure, table, algorithm or equation (with its caption) from the PDF: its image, named so the model
+    // knows what it is ("Figure 3, page 5"), joins the open conversation, or a new one about that paper.
+    // Nothing is saved to Captures.
     function attachFigure(next) {
         const file = ai.saveRegionImage(next.source, next.page, next.region)
-        if (!file.length) { error = "Could not read that figure from the PDF."; return false }
-        if (!conversationOpen) newThread()
+        if (!file.length) { error = "Could not read that part of the PDF."; return false }
+        if (!conversationOpen) newThread(next.source)
         if (!attachImage(file)) return false
-        const at = images.length - 1, copy = images.slice()
-        copy[at] = Object.assign({}, copy[at], {name: (next.label || "Figure") + " · p. " + (Number(next.page) + 1)})
+        const label = next.label || "Figure", page = Number(next.page) + 1
+        const elsewhere = spec.source && !researchStore.sameSource(spec.source, next.source)
+        const copy = images.slice()
+        copy[copy.length - 1] = Object.assign({}, copy[copy.length - 1], {
+            name: label + " · p. " + page,
+            about: label + ", page " + page + (elsewhere ? " of " + researchStore.displayName(next.source) : "")})
         images = copy
+        focusRequested()
+        return true
+    }
+    // Words selected in the PDF or a saved excerpt, to ask about: with the open conversation, or a new one.
+    function attachText(next) {
+        if (!conversationOpen) newThread(next.source)
+        const elsewhere = spec.source && !researchStore.sameSource(spec.source, next.source)
+        const text = (elsewhere ? "(From " + researchStore.displayName(next.source) + ", page " + (Number(next.page) + 1) + ")\n" : "") + next.selection
+        spec = Object.assign({}, spec, {selection: text})
         focusRequested()
         return true
     }
@@ -140,7 +154,7 @@ Item {
         const file = ai.saveClipboardImage()
         return file.length > 0 && attachImage(file)
     }
-    readonly property var actions: ({explain: "Explain", translate: "Translate", summarize: "Summarize", ask: "Ask", figure: "Explain figure"})
+    readonly property var actions: ({translate: "Translate", ask: "Ask"})
     // What goes into the request, shown as chips before anything is sent.
     readonly property var attachments: {
         const list = []
@@ -158,7 +172,6 @@ Item {
         }
         if (s.scope === "page") list.push({kind: "page", label: "Page " + (Number(s.page) + 1) + " text"})
         if (s.scope === "library") list.push({kind: "library", label: (s.collection ? "Collection · " + s.collectionName : "Whole library") + " · passages that answer the question"})
-        if (s.captureId) list.push({kind: "capture", label: s.action === "figure" ? "Figure image" : "Excerpt"})
         images.forEach(function(image, index) { list.push({kind: "image", index: index, label: image.name, url: image.url}) })
         return list
     }
@@ -168,19 +181,13 @@ Item {
         answer = ""; error = ""; pendingQuestion = ""; usedModel = ""; truncated = false
         thinkingText = ""; thinkingSeconds = 0
     }
-    // A reader or capture action starts a new thread about that material; a figure from its preview
-    // joins the conversation instead (attachFigure).
+    // Attaching (a figure, the selection, a capture) adds to the conversation open in the AI panel, even
+    // while the panel is hidden, or starts one; a page translation starts its own thread.
     function begin(next) {
-        if (next.region) { attachFigure(next); return }
-        // Continue in AI from an Explain card: its thread, with the figure ready for the next question.
-        if (next.continueThread) {
-            if (!openThread(next.continueThread)) return
-            if (next.image && attachImage(next.image)) {
-                const copy = images.slice()
-                copy[copy.length - 1] = Object.assign({}, copy[copy.length - 1], {name: next.label || "Figure"})
-                images = copy
-            }
-            focusRequested()
+        if (next.attach) {
+            if (next.region) attachFigure(next)
+            else if (next.captureId) attachCapture(next.captureId)
+            else if (next.selection) attachText(next)
             return
         }
         reset()
@@ -190,10 +197,28 @@ Item {
         if (spec.action === "ask") focusRequested()
         else send("")
     }
-    function newThread() {
+    // A saved capture: its image, or its text, like a selection.
+    function attachCapture(id) {
+        const capture = researchStore.captures.find(function(c) { return c.id === id })
+        if (!capture) return false
+        const source = capture.kind === "web" ? "" : capture.source
+        if (capture.kind === "text") return attachText({source: source, page: capture.page, selection: capture.text})
+        if (!capture.imageAvailable) { error = "This capture's image is missing."; return false }
+        if (!conversationOpen) newThread(source)
+        if (!attachImage(capture.image.toString())) return false
+        const copy = images.slice()
+        copy[copy.length - 1] = Object.assign({}, copy[copy.length - 1], {name: "Capture · p. " + (Number(capture.page) + 1),
+                                                                       about: "a region captured from page " + (Number(capture.page) + 1)})
+        images = copy
+        focusRequested()
+        return true
+    }
+    // A new conversation about the given paper (or the one in the reader).
+    function newThread(source) {
         reset()
         threadId = ""; thread = ({})
-        spec = reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "paper", page: reader.currentPage || 0} : ({})
+        const paper = source !== undefined && source.toString().length ? source : reader && reader.source ? reader.source : ""
+        spec = paper.toString().length ? {source: paper, scope: "paper", page: reader && researchStore.sameSource(reader.source, paper) ? reader.currentPage || 0 : 0} : ({})
         conversationOpen = true
         focusRequested()
     }
@@ -212,15 +237,10 @@ Item {
         spec = saved.source && saved.source.toString().length ? {source: saved.source, scope: "none"} : ({})
         return true
     }
-    function attach(kind) {
-        // The whole library instead of one paper: passages are found for each question.
-        if (kind === "library") { spec = {scope: "library"}; return }
-        if (!reader) return
-        const next = Object.assign({}, spec, {source: reader.source})
-        if (kind === "page") { next.scope = "page"; next.page = reader.currentPage || 0 }
-        else if (kind === "paper") next.scope = "paper"
-        else if (kind === "selection" && reader.selectedText.length) { next.selection = reader.selectedText; next.scope = next.scope || "selection" }
-        spec = next
+    // This paper again, after its chip was removed.
+    function attachPaper() {
+        if (!reader || !reader.source.toString().length) return
+        spec = Object.assign({}, spec, {source: reader.source, scope: "paper"})
     }
     // A passage from an answer (Ask About This), sent with the next question as its own material.
     function quote(text) {
@@ -243,7 +263,6 @@ Item {
         if (kind === "library") { spec = reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "paper"} : ({}); return }
         if (kind === "selection") next.selection = ""
         if (kind === "page") next.scope = "none"
-        if (kind === "capture") delete next.captureId
         spec = next
     }
     function send(question) {
@@ -260,7 +279,8 @@ Item {
         answer = ""; streaming = true
         thinkingText = ""; thinkingSeconds = 0; askedAt = Date.now()
         const choice = {provider: provider, model: model, question: question, threadId: threadId, action: spec.action || "ask",
-                        imageFiles: images.map(function(i) { return i.url })}
+                        imageFiles: images.map(function(i) { return i.url }),
+                        imageLabels: images.map(function(i) { return i.about || "" })}
         if (efforts.length) choice.effort = effectiveEffort
         if (effectiveFast) choice.fast = true
         request = ai.ask(Object.assign({}, spec, choice))
