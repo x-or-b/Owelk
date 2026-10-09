@@ -25,7 +25,7 @@ open -n /Users/gyu/Documents/Owelk/build/owelk.app --args --data-dir /Users/gyu/
 
 ## 현재 기능
 
-- Home: 중앙 검색, Continue Reading, Recent Papers
+- Home: 중앙 검색과 웹 검색, Continue Reading 카드, Recent Papers, Inbox(분류 전 논문과 넣을 곳 제안), Recent Notes, Recent AI Conversations
 - UI 모서리는 공통 5px이며, 원문 위치·탭 × 호버 테두리는 Cmd+K의 파란색 `#426b9a`입니다. [디자인 토큰](docs/DESIGN.md).
 - 열린 PDF의 백그라운드 본문 인덱싱, 문맥·페이지 검색 결과, 원본 지문 검증 후 이동
 - 옮겨진 원본 PDF 재연결: 동일 파일 검증 후 탭·읽기 위치·주석·Collection 유지
@@ -149,9 +149,11 @@ Settings → Appearance → Tabs에서 `Horizontal`(기본) / `Vertical`을 고�
 
 - 앱은 항상 Home으로 시작합니다. 이전 탭과 분할은 보존하되 리더의 PDF 로드·렌더링은 Continue Reading 등으로 읽기를 시작할 때 수행합니다. 본문 인덱싱은 Home에서도 별도 백그라운드 작업으로 PDF를 읽을 수 있습니다. 하단 집 아이콘은 제거했습니다. 필요할 때 View → Home, `⌘/Ctrl+Shift+H`, 명령 `View: Go to Home`으로 돌아갈 수 있습니다.
 - 중앙 검색은 앱에서 연 PDF의 **본문·파일명**, **주석·노트·AI 대화**, **Collection·Tag 이름**을 찾습니다. 본문 결과에는 문맥·페이지를 표시하고 클릭 또는 방향키·Enter로 원문 페이지를 엽니다. 폴더 전체 PDF를 자동 등록하지는 않습니다.
-- Continue Reading은 마지막 활성 문서의 페이지·스크롤·배율을 복원합니다. 최근 PDF도 개별 읽기 위치를 기억합니다.
-- **Collections**: 최상위 Collection과 Unsorted(아직 어느 Collection에도 없는 논문) 개수가 칩으로 보이고, 누르면 그 Collection으로 거른 Library가 열립니다.
-- Recent Papers는 최근 12개를 표시합니다. 이름 검색은 이 최근 표시 개수 밖의 저장된 항목도 찾습니다(종류별 최대 20개 결과). 본문은 논문별 3개 미리보기이며 더 보기로 확장합니다.
+- 검색창 아래 `Search the web or enter an address` 칸은 주소를 열거나 설정한 검색 엔진으로 웹을 검색합니다(웹 탭).
+- **Continue Reading** 카드(제목·저자·연도·쪽)를 누르면 마지막 활성 문서의 페이지·스크롤·배율을 복원합니다. 최근 PDF도 개별 읽기 위치를 기억합니다.
+- **Recent Papers**(최근 8개) 옆의 **Inbox**는 아직 어느 Collection에도 없는 논문을 새로 추가된 순으로 5개 보여 주고, 각 논문 아래에 `+ SLAM`처럼 비슷한 논문이 있는 Collection을 제안합니다(누르면 바로 넣음). `All Unsorted N`은 Library의 Unsorted를 엽니다.
+- **Recent Notes**와 **Recent AI Conversations**는 최근 5개씩이며 누르면 노트 탭이나 AI 패널에서 엽니다.
+- 이름 검색은 최근 표시 개수 밖의 저장된 항목도 찾습니다(종류별 최대 20개 결과). 본문은 논문별 3개 미리보기이며 더 보기로 확장합니다.
 - 네이티브 다중 창과 새 창 전용 Home 흐름은 아직 없습니다. 같은 데이터 폴더를 여러 앱 인스턴스에서 동시에 열지 마세요.
 
 ## 검색과 명령 팔레트
@@ -211,7 +213,7 @@ Home의 `Library`, `⇧⌘L`, 명령 팔레트 `library`로 라이브러리 탭�
 - **주제별 정리(Collection = 책장)**:
   - **Unsorted**: 어느 Collection에도 없는 논문만 개수와 함께 보여 줍니다. 정리할 목록입니다.
   - **여러 개 한꺼번에**: `⌘`(Linux·Windows `Ctrl`)+클릭으로 하나씩, `Shift`+클릭으로 범위를 고릅니다. 고른 논문을 사이드바 Collection으로 끌어 놓거나, 우클릭 → `Add to Collection`(새 Collection 만들기 포함)·`Remove from This Collection`·읽음·즐겨찾기·BibTeX 복사를 한 번에 합니다. 그냥 클릭은 지금처럼 논문을 엽니다.
-  - **넣을 곳 제안**: Unsorted의 각 논문 옆에 `+ SLAM`처럼 이미 비슷한 논문이 들어 있는 Collection을 최대 2개 제안합니다. AI 없이 관련 논문 계산을 쓰고, 그 목록을 볼 때만 계산합니다(라이브러리가 바뀌기 전까지 캐시).
+  - **넣을 곳 제안**: Unsorted의 각 논문 옆과 Home의 Inbox에 `+ SLAM`처럼 이미 비슷한 논문이 들어 있는 Collection을 최대 2개 제안합니다. AI 없이 관련 논문 계산을 쓰고, 그 목록을 볼 때만 계산합니다(라이브러리가 바뀌기 전까지 캐시).
   - **답변 알림**: AI 답변이 왔을 때 그 대화가 화면에 보이지 않으면(AI 패널이 닫혀 있거나, 다른 패널·다른 대화를 보고 있거나, 다른 앱을 쓰는 중) 창 오른쪽 아래에 `Answer ready` 카드가 뜹니다. `Open`은 그 대화를 열고 `Dismiss`는 닫으며, 8초 뒤 저절로 사라집니다(마우스를 올려 두면 유지). 다른 앱을 쓰는 중이면 Dock 아이콘이 한 번 튑니다(Linux는 작업 표시줄 깜빡임).
   - **라이브러리 전체에 묻기**: Library 위쪽 ✦ 버튼(Collection을 보고 있으면 그 Collection 안에서만, 하위 Collection 포함), AI 패널 📎 → `Whole Library`, 또는 명령 `AI: Ask Your Library…`. 질문을 보내면 먼저 AI가 검색어(영어 포함)를 만들고, 그 말로 본문 색인에서 맞는 쪽을 찾아(논문당 최대 2쪽, 모두 8곳) 그 부분만 AI에 보냅니다. 답에는 근거 표시 `[1]`이 붙고, 답이 끝나면 `[1]`이 그 논문의 그 쪽으로 가는 링크가 되며 아래에 출처 목록이 붙습니다. 본문이 색인된 논문만 찾을 수 있습니다(스캔 PDF는 OCR 후). 같은 대화에서 이어 물으면 질문마다 다시 찾습니다.
   - **AI로 논문 비교**: Library에서 논문 여러 편 선택 → 우클릭 → `Compare with AI…`, 또는 탭 영역 빈 곳 우클릭 → `Compare Open Papers with AI…`(그 탭 줄의 PDF, 최대 8편). `Compare by`에 표의 열(기본 Problem, Method, Data, Results, Limitations; 쉼표로 구분, 기억됨)을 정하고 `Ask`를 누르면 논문마다 한 줄인 비교표와 주요 차이 3–5개가 옵니다. 보내는 것은 제목·저자·연도와 본문 색인의 앞부분(초록·서론, 5000자)·결론(2500자)이며, 본문에 없는 내용은 `not stated`로 적게 합니다. `Copy` 또는 `Save as Note`(각 논문 링크 포함)로 남깁니다.

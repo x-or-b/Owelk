@@ -15,10 +15,30 @@ Rectangle {
     readonly property var continuation: researchStore.continueReading
     signal openRequested()
     signal libraryRequested()
-    // A Collection (or Unsorted) chosen on Home: the Library opens filtered to it.
+    // Unsorted chosen on Home: the Library opens filtered to it.
     signal libraryFilterRequested(var filter)
-    readonly property var topCollections: (researchStore.documentsRevision, researchStore.recentDocuments, researchStore.collections().filter(function(c) { return c.depth === 0 }))
-    readonly property int unsorted: (researchStore.documentsRevision, researchStore.recentDocuments, researchStore.unsortedCount())
+    // What Home lists, read again when papers, notes or conversations change (and when shown).
+    property var recentNotes: []
+    property var recentThreads: []
+    property var inbox: []
+    property int unsorted: 0
+    function refreshLists() {
+        if (!visible) return
+        recentNotes = researchStore.notes(false).slice(0, 5)
+        recentThreads = researchStore.aiThreads().slice(0, 5)
+        unsorted = researchStore.unsortedCount()
+        inbox = unsorted ? researchStore.libraryDocuments({unsorted: true, sort: "added"}).slice(0, 5) : []
+    }
+    onVisibleChanged: refreshLists()
+    Component.onCompleted: refreshLists()
+    Timer { id: listsLater; interval: 150; onTriggered: root.refreshLists() }
+    Connections {
+        target: researchStore
+        function onHomeChanged() { listsLater.restart() }
+        function onNotesChanged() { listsLater.restart() }
+        function onAiThreadsChanged() { listsLater.restart() }
+        function onDocumentsChanged() { listsLater.restart() }
+    }
     // An address or a web search typed on Home (opens a web tab).
     signal webRequested(string url)
     function searchWeb(text) {
@@ -105,65 +125,52 @@ Rectangle {
                     Label { anchors.centerIn: parent; visible: searchResults.count === 0; text: searchModel.waiting ? "Searching PDF text…" : searchModel.error.length ? "Text search failed. Try again." : "No matching saved items"; color: Theme.textTertiary }
                 }
             }
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }
-            ColumnLayout {
+            // The paper last read, as a card: click anywhere on it to go back to the page.
+            ItemDelegate {
+                id: continueCard
+                objectName: "continueReading"
                 Layout.fillWidth: true
-                spacing: 8
-                Label { text: "Continue Reading"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold }
-                RowLayout {
-                    Layout.fillWidth: true
+                implicitHeight: continueColumn.implicitHeight + 32
+                readonly property var details: root.continuation.source ? (researchStore.documentsRevision, researchStore.documentDetails(root.continuation.source)) : ({})
+                onClicked: {
+                    if (root.continuation.source) root.documentChosen(root.continuation.source, root.continuation.position)
+                    else root.openRequested()
+                }
+                background: Rectangle {
+                    radius: Theme.radiusLarge
+                    color: continueCard.hovered ? Theme.hover : Theme.content
+                    border.color: Theme.separator
+                }
+                contentItem: RowLayout {
+                    spacing: 16
                     ColumnLayout {
+                        id: continueColumn
                         Layout.fillWidth: true
+                        spacing: 4
+                        Label { text: "Continue Reading"; font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textTertiary }
                         Label {
                             Layout.fillWidth: true
                             text: root.continuation.name || "Start with a paper"
-                            elide: Text.ElideMiddle
+                            elide: Text.ElideRight; maximumLineCount: 2; wrapMode: Text.Wrap; textFormat: Text.PlainText
+                            font.pixelSize: Theme.fontTitle; font.weight: Font.Medium; color: Theme.text
                         }
                         Label {
-                            text: root.continuation.source ? "Page " + (((root.continuation.position || {}).page || 0) + 1) : "Open a PDF. Your reading position is saved automatically."
-                            color: Theme.textTertiary
-                            font.pixelSize: Theme.fontCaption
+                            Layout.fillWidth: true
+                            text: root.continuation.source
+                                ? [continueCard.details.authors, continueCard.details.year, "Page " + (((root.continuation.position || {}).page || 0) + 1)].filter(function(t) { return t && String(t).length }).join("  ·  ")
+                                : "Open a PDF. Your reading position is saved automatically."
+                            elide: Text.ElideRight; textFormat: Text.PlainText
+                            color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
                         }
                     }
                     Button {
-                        objectName: "continueReading"
+                        highlighted: true
                         text: root.continuation.source ? "Continue" : "Open PDF…"
-                        onClicked: {
-                            if (root.continuation.source) root.documentChosen(root.continuation.source, root.continuation.position)
-                            else root.openRequested()
-                        }
+                        onClicked: continueCard.clicked()
                     }
                 }
             }
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }
-            // The bookshelf: top-level collections and the papers still to file.
-            ColumnLayout {
-                objectName: "homeCollections"
-                Layout.fillWidth: true
-                visible: root.topCollections.length > 0 || root.unsorted > 0
-                spacing: 6
-                Label { text: "Collections"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold }
-                Flow {
-                    Layout.fillWidth: true
-                    spacing: 6
-                    Chip {
-                        objectName: "homeUnsorted"
-                        visible: root.unsorted > 0
-                        text: "Unsorted  " + root.unsorted
-                        onClicked: root.libraryFilterRequested({unsorted: true})
-                    }
-                    Repeater {
-                        model: root.topCollections
-                        delegate: Chip {
-                            required property var modelData
-                            objectName: "homeCollection-" + modelData.name
-                            text: modelData.name + "  " + modelData.count
-                            onClicked: root.libraryFilterRequested({collection: modelData.id})
-                        }
-                    }
-                }
-            }
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator; visible: root.topCollections.length > 0 || root.unsorted > 0 }
+            // What was read and what is waiting: recent papers beside the papers still to file.
             RowLayout {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
@@ -186,18 +193,146 @@ Rectangle {
                         Layout.fillWidth: true
                         visible: researchStore.recentDocuments.length > 0
                         Repeater {
-                            model: researchStore.recentDocuments
+                            model: researchStore.recentDocuments.slice(0, 8)
                             delegate: RecentPaperDelegate {
                                 required property int index
                                 width: parent.width
                                 height: Theme.rowHeight + 4
-                                separator: index < researchStore.recentDocuments.length - 1
+                                separator: index < Math.min(8, researchStore.recentDocuments.length) - 1
                                 onDocumentChosen: function(source, position) { root.documentChosen(source, position) }
                                 onMenuRequested: function(row) { recentMenu.show(row) }
                             }
                         }
                     }
                     Label { visible: researchStore.recentDocuments.length === 0; text: "No recent papers"; color: Theme.textTertiary }
+                }
+                // Inbox: papers in no collection yet, newest first, with where similar papers already are.
+                ColumnLayout {
+                    objectName: "homeInbox"
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+                    Layout.alignment: Qt.AlignTop
+                    spacing: 6
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label { text: "Inbox"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32; Layout.fillWidth: true }
+                        Button {
+                            objectName: "homeUnsorted"
+                            visible: root.unsorted > 0
+                            flat: true
+                            text: "All Unsorted  " + root.unsorted
+                            font.pixelSize: Theme.fontSmall
+                            onClicked: root.libraryFilterRequested({unsorted: true})
+                        }
+                    }
+                    ListGroup {
+                        Layout.fillWidth: true
+                        visible: root.inbox.length > 0
+                        Repeater {
+                            model: root.inbox
+                            delegate: ItemDelegate {
+                                id: waiting
+                                required property var modelData
+                                required property int index
+                                objectName: "homeInbox-" + index
+                                width: parent.width
+                                height: Theme.rowHeightTall
+                                separator: index < root.inbox.length - 1
+                                onClicked: root.documentChosen(modelData.url, modelData.position)
+                                // Up to two collections where similar papers already are.
+                                property var suggestions: []
+                                property int request: -1
+                                Component.onCompleted: request = researchStore.suggestCollections(modelData.url)
+                                Connections {
+                                    target: researchStore
+                                    enabled: waiting.request >= 0
+                                    function onCollectionsSuggested(request, source, list) { if (request === waiting.request) waiting.suggestions = list }
+                                }
+                                contentItem: ColumnLayout {
+                                    spacing: 3
+                                    Label { Layout.fillWidth: true; text: waiting.modelData.name; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                                    Flow {
+                                        Layout.fillWidth: true
+                                        spacing: 4
+                                        Label {
+                                            visible: !waiting.suggestions.length
+                                            text: [waiting.modelData.authors, waiting.modelData.year].filter(function(t) { return t && String(t).length }).join("  ·  ") || " "
+                                            elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                        }
+                                        Repeater {
+                                            model: waiting.suggestions
+                                            delegate: Chip {
+                                                required property var modelData
+                                                objectName: "homeSuggestion-" + modelData.name
+                                                text: "+ " + modelData.name
+                                                ToolTip.text: "Add to " + modelData.name
+                                                onClicked: { const url = waiting.modelData.url, id = modelData.id; Qt.callLater(function() { researchStore.setDocumentCollection(url, id, true) }) }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Label { visible: root.inbox.length === 0; text: "Every paper is in a collection."; color: Theme.textTertiary }
+                }
+            }
+            // Recent notes and AI conversations.
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignTop
+                spacing: 28
+                ColumnLayout {
+                    objectName: "homeNotes"
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+                    Layout.alignment: Qt.AlignTop
+                    spacing: 6
+                    Label { text: "Recent Notes"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32 }
+                    ListGroup {
+                        Layout.fillWidth: true
+                        visible: root.recentNotes.length > 0
+                        Repeater {
+                            model: root.recentNotes
+                            delegate: ItemDelegate {
+                                required property var modelData
+                                required property int index
+                                objectName: "homeNote-" + index
+                                width: parent.width
+                                height: Theme.rowHeight + 4
+                                separator: index < root.recentNotes.length - 1
+                                text: modelData.title
+                                onClicked: root.resultChosen({kind: "note", id: modelData.id})
+                            }
+                        }
+                    }
+                    Label { visible: root.recentNotes.length === 0; text: "No notes yet"; color: Theme.textTertiary }
+                }
+                ColumnLayout {
+                    objectName: "homeThreads"
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+                    Layout.alignment: Qt.AlignTop
+                    spacing: 6
+                    Label { text: "Recent AI Conversations"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32 }
+                    ListGroup {
+                        Layout.fillWidth: true
+                        visible: root.recentThreads.length > 0
+                        Repeater {
+                            model: root.recentThreads
+                            delegate: ItemDelegate {
+                                required property var modelData
+                                required property int index
+                                objectName: "homeThread-" + index
+                                width: parent.width
+                                height: Theme.rowHeight + 4
+                                separator: index < root.recentThreads.length - 1
+                                text: modelData.title
+                                onClicked: root.resultChosen({kind: "ai", id: modelData.id})
+                            }
+                        }
+                    }
+                    Label { visible: root.recentThreads.length === 0; text: "No conversations yet"; color: Theme.textTertiary }
                 }
             }
         }

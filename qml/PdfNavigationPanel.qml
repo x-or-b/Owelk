@@ -211,7 +211,6 @@ Item {
                     Layout.fillWidth: true
                     text: modelData.title
                     font.pixelSize: Theme.fontSmall
-                    icon.name: "note"
                     onClicked: root.linkActivated("owelk://note/" + modelData.id)
                     TapHandler { acceptedButtons: Qt.RightButton; onTapped: linkedNoteMenu.popup() }
                     Menu {
