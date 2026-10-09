@@ -590,14 +590,14 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     provider->start(call);
 }
 
-QString AiService::peekModel(const QString &provider) const
+QString AiService::glossModel(const QString &provider) const
 {
     // Claude has a small, fast model; elsewhere the chosen model answers with little reasoning.
-    if (provider == "claude" && m_store->setting("ai.peekModel", "auto") == "auto") return "claude-haiku-5-5";
+    if (provider == "claude" && m_store->setting("ai.glossModel", "auto") == "auto") return "claude-haiku-5-5";
     return model(provider);
 }
 
-int AiService::peek(const QVariantMap &spec)
+int AiService::gloss(const QVariantMap &spec)
 {
     const int request = ++m_nextRequest;
     const auto id = provider();
@@ -631,7 +631,7 @@ int AiService::peek(const QVariantMap &spec)
         // A word or a short phrase: what it means here; anything longer: its translation.
         const bool term = text.split(' ', Qt::SkipEmptyParts).size() <= 3 && text.size() <= 48;
         AiRequest call;
-        call.system = QStringLiteral("You are Peek, a quick reading aid in a paper reader. Answer at once, briefly, "
+        call.system = QStringLiteral("You are Gloss, a quick reading aid in a paper reader. Answer at once, briefly, "
                                      "in %1, with no headings or preamble. Keep math as LaTeX in $...$.")
                           .arg(into);
         call.text = (context.isEmpty() ? QString() : "<passage>\n" + context + "\n</passage>\n\n") + "<selection>\n"
@@ -642,7 +642,7 @@ int AiService::peek(const QVariantMap &spec)
                     : QStringLiteral("Translate the selection into %1. Give only the translation, faithful and "
                                      "natural; keep equations, symbols and citation markers unchanged.")
                           .arg(into));
-        call.model = peekModel(id);
+        call.model = glossModel(id);
         if (id != "claude") call.effort = "low";
         call.maxTokens = 1500;
         m_running.insert(request, provider);

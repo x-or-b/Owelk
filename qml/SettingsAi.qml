@@ -71,14 +71,14 @@ ColumnLayout {
             }
         }
         SettingsRow {
-            label: "Peek model"
-            detail: "Peek explains a selected word or translates a passage beside it"
+            label: "Gloss model"
+            detail: "Gloss explains a selected word or translates a passage beside it"
             ComboBox {
-                objectName: "aiPeekModelBox"
+                objectName: "aiGlossModelBox"
                 Layout.preferredWidth: 200
                 model: ["Fast (automatic)", "Same as chat"]
-                currentIndex: researchStore.setting("ai.peekModel", "auto") === "chat" ? 1 : 0
-                onActivated: function(index) { researchStore.setSetting("ai.peekModel", index === 1 ? "chat" : "auto") }
+                currentIndex: researchStore.setting("ai.glossModel", "auto") === "chat" ? 1 : 0
+                onActivated: function(index) { researchStore.setSetting("ai.glossModel", index === 1 ? "chat" : "auto") }
             }
         }
         SettingsRow {

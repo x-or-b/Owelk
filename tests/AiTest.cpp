@@ -675,11 +675,11 @@ private slots:
         QCOMPARE(ai->notation(source).size(), 2);
         ai->clearApiKey("claude");
     }
-    void peekIsQuickAndKeptNowhere()
+    void glossIsQuickAndKeptNowhere()
     {
         QTemporaryDir directory;
-        const auto pdf = directory.filePath("peek.pdf");
-        writeFixture(pdf, "Peek Paper", 1);
+        const auto pdf = directory.filePath("gloss.pdf");
+        writeFixture(pdf, "Gloss Paper", 1);
         const auto source = QUrl::fromLocalFile(pdf);
         ResearchStore store(directory.filePath("data"));
         QString error;
@@ -692,15 +692,15 @@ private slots:
             MockServer::sse("message_stop", {{"type", "message_stop"}})};
         store.setSetting("ai.baseUrl.claude", server.base().toString());
         ai->setProvider("claude");
-        QVERIFY(ai->setApiKey("claude", "sk-ant-peek-test"));
+        QVERIFY(ai->setApiKey("claude", "sk-ant-gloss-test"));
         QSignalSpy finished(ai, &AiService::finished), failed(ai, &AiService::failed);
         // Nothing leaves before the provider was agreed to.
-        ai->peek({{"source", source}, {"page", 0}, {"text", "occlusion"}});
+        ai->gloss({{"source", source}, {"page", 0}, {"text", "occlusion"}});
         QTRY_COMPARE_WITH_TIMEOUT(failed.size(), 1, 5000);
         QVERIFY(server.seen.isEmpty());
         ai->giveConsent("claude");
         // A word: its meaning here, from the fast model, with the sentences around it and no paper.
-        ai->peek({{"source", source}, {"page", 0}, {"text", "occlusion"}});
+        ai->gloss({{"source", source}, {"page", 0}, {"text", "occlusion"}});
         QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 10000);
         QCOMPARE(finished[0][1].toString(), QString("**occlusion** — 가림"));
         const auto body = server.seen[0].body;
@@ -714,8 +714,8 @@ private slots:
         QVERIFY(text.contains("what it means in this passage"));
         QVERIFY(store.aiThreads().isEmpty());
         // A passage: its translation; with the chat model when chosen.
-        store.setSetting("ai.peekModel", "chat");
-        ai->peek({{"source", source}, {"page", 0},
+        store.setSetting("ai.glossModel", "chat");
+        ai->gloss({{"source", source}, {"page", 0},
             {"text", "Research finding 1.1: occlusion links observation to context."}});
         QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 10000);
         QCOMPARE(server.seen[1].body["model"].toString(), ai->model("claude"));

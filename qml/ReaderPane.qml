@@ -119,13 +119,13 @@ Rectangle {
         const anchor = canvas.selectedAnchor
         return anchor ? (anchor.segments ? anchor.segments[0].page : anchor.page) : canvas.currentPage
     }
-    // Peek: the selected word explained as used here, or the passage translated, beside the selection.
-    function peekSelection() {
+    // Gloss: the selected word explained as used here, or the passage translated, beside the selection.
+    function glossSelection() {
         if (!canvas.selectedText.length) return
         activated()
         const at = selectionToolbar.visible ? Qt.point(selectionToolbar.x, selectionToolbar.y + selectionToolbar.height)
                                             : Qt.point(canvas.selectionEnd.x, canvas.selectionEnd.y + 8)
-        peek.show({source: source, page: selectionPage(), text: canvas.selectedText}, at)
+        gloss.show({source: source, page: selectionPage(), text: canvas.selectedText}, at)
     }
     function askAboutSelection() {
         if (!canvas.selectedText.length) return
@@ -246,7 +246,7 @@ Rectangle {
         MenuItem { text: "Add Comment…"; enabled: !!canvas.selectedAnchor; onTriggered: root.addComment() }
         MenuItem { text: "Save Excerpt"; enabled: !!canvas.selectedAnchor; onTriggered: canvas.captureSelection() }
         MenuSeparator {}
-        MenuItem { objectName: "menuPeek"; text: "Peek"; onTriggered: root.peekSelection() }
+        MenuItem { objectName: "menuGloss"; text: "Gloss"; onTriggered: root.glossSelection() }
         MenuItem { objectName: "menuAskSelection"; text: "Ask AI about Selection"; onTriggered: root.askAboutSelection() }
     }
     Menu {
@@ -554,9 +554,9 @@ Rectangle {
                         onClicked: { root.activated(); canvas.captureSelection() }
                     }
                     IconButton {
-                        objectName: "peekSelectionButton"
-                        icon.name: "preview"; description: "Peek"
-                        onClicked: root.peekSelection()
+                        objectName: "glossSelectionButton"
+                        icon.name: "gloss"; description: "Gloss"
+                        onClicked: root.glossSelection()
                     }
                     IconButton {
                         objectName: "askSelectionButton"
@@ -566,12 +566,12 @@ Rectangle {
                 }
             }
 
-            PeekPopup {
-                id: peek
+            GlossPopup {
+                id: gloss
                 parent: canvas
             }
             // Reading on, or another document, closes it.
-            Connections { target: canvas; function onSourceChanged() { peek.close() } function onPositionChanged() { if (!canvas.restoring) peek.close() } }
+            Connections { target: canvas; function onSourceChanged() { gloss.close() } function onPositionChanged() { if (!canvas.restoring) gloss.close() } }
 
             ColumnLayout {
                 visible: !canvas.source.toString().length || canvas.error.length > 0

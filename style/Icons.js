@@ -45,6 +45,7 @@ var glyphs = {
     "split": "\ue098",
     "splitDown": "\ue439",
     "symbols": "\ue201",
+    "gloss": "\ue0fe",
     "preview": "\ue0ba",
     "check": "\ue06c",
     "home": "\ue0f5",

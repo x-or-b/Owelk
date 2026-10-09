@@ -578,7 +578,7 @@ Item {
             verify(ai.attachments.some(function(a) { return a.kind === "paper" }))
             ai.showThreads()
         }
-        function test_9zzzzz_peekShowsBesideTheSelection() {
+        function test_9zzzzz_glossShowsBesideTheSelection() {
             verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
             researchStore.ai.provider = "claude"
             researchStore.ai.giveConsent("claude")
@@ -589,22 +589,22 @@ Item {
             c.selectPage(0)
             const reader = workspace.currentReader
             const threads = researchStore.aiThreads().length
-            findChild(reader, "menuPeek").triggered()
-            const peek = findChild(reader, "peekPopup")
-            tryCompare(peek, "opened", true)
-            tryCompare(peek, "streaming", false, 10000)
-            verify(peek.answer.indexOf("Mock answer") >= 0)
+            findChild(reader, "menuGloss").triggered()
+            const gloss = findChild(reader, "glossPopup")
+            tryCompare(gloss, "opened", true)
+            tryCompare(gloss, "streaming", false, 10000)
+            verify(gloss.answer.indexOf("Mock answer") >= 0)
             // Nothing opens in the AI panel and no conversation is kept.
             compare(workspace.aiVisible, false)
             compare(researchStore.aiThreads().length, threads)
-            verify(peek.x >= 0 && peek.x + peek.width <= c.width)
+            verify(gloss.x >= 0 && gloss.x + gloss.width <= c.width)
             // The same words again: at once, without a request.
-            peek.close()
-            reader.peekSelection()
-            tryCompare(peek, "opened", true)
-            verify(!peek.streaming)
-            verify(peek.answer.indexOf("Mock answer") >= 0)
-            peek.close()
+            gloss.close()
+            reader.glossSelection()
+            tryCompare(gloss, "opened", true)
+            verify(!gloss.streaming)
+            verify(gloss.answer.indexOf("Mock answer") >= 0)
+            gloss.close()
             c.clearSelection()
         }
         function test_9zzzzzy_aPageLinkInFrontLeavesABackButton() {

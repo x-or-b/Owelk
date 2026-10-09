@@ -2,12 +2,12 @@ import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 
-// Peek: the selected word explained as used here, or the selected passage translated, in a small popup
+// Gloss: the selected word explained as used here, or the selected passage translated, in a small popup
 // beside the selection. Nothing is kept in a conversation; the last answers are remembered while Owelk
-// runs, so peeking at the same words again is instant.
+// runs, so glossing at the same words again is instant.
 Popup {
     id: root
-    objectName: "peekPopup"
+    objectName: "glossPopup"
     readonly property var ai: researchStore.ai
     property var spec: ({})
     property int request: -1
@@ -45,7 +45,7 @@ Popup {
         }
         if (needsConsent) return
         streaming = true
-        request = ai.peek(spec)
+        request = ai.gloss(spec)
     }
     function remember(text) {
         const next = Object.assign({}, recent)
@@ -82,26 +82,26 @@ Popup {
             Label {
                 visible: root.needsConsent && !root.error.length
                 width: parent.width; wrapMode: Text.Wrap
-                text: "Peek sends the selected words and the sentences around them to "
+                text: "Gloss sends the selected words and the sentences around them to "
                       + (root.providerInfo.sends || root.providerInfo.name || "the AI provider") + "."
                 color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
             }
             Button {
-                objectName: "peekConsent"
+                objectName: "glossConsent"
                 visible: root.needsConsent && !root.error.length
                 primary: true
                 text: "Send"
                 onClicked: { root.ai.giveConsent(root.ai.provider); root.start() }
             }
             Label {
-                objectName: "peekWaiting"
+                objectName: "glossWaiting"
                 visible: root.streaming && !root.answer.length
                 text: "…"
                 color: Theme.textSecondary
             }
             TextEdit {
                 id: answerText
-                objectName: "peekAnswer"
+                objectName: "glossAnswer"
                 visible: root.answer.length > 0
                 width: parent.width - (copy.visible ? copy.width + 4 : 0)
                 readOnly: true; selectByMouse: true
@@ -111,7 +111,7 @@ Popup {
                 selectionColor: Theme.mix(Theme.accent, Theme.field, .65); selectedTextColor: Theme.text
                 IconButton {
                     id: copy
-                    objectName: "peekCopy"
+                    objectName: "glossCopy"
                     visible: !root.streaming
                     x: parent.width + 4; y: -2
                     icon.name: "copy"; description: "Copy"
@@ -119,7 +119,7 @@ Popup {
                 }
             }
             Label {
-                objectName: "peekError"
+                objectName: "glossError"
                 visible: root.error.length > 0
                 width: parent.width; wrapMode: Text.Wrap
                 text: root.error
