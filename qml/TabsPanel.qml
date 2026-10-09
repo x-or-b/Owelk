@@ -7,7 +7,7 @@ import "Platform.js" as Platform
 
 // Vertical tabs: every split's tabs beside the window, with full titles and Edge-style groups.
 // Closed, it is a thin rail of tab icons. Dragging works as in the horizontal bar (move, split,
-// hold over a tab to group); this list is one more place the workspace can drop a tab.
+// hold over a tab to group); this list is one more place a tab can be dropped.
 Rectangle {
     id: root
     objectName: "tabsPanel"

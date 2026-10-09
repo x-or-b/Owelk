@@ -105,19 +105,6 @@ Item {
             mouseClick(visibleChild(panel, "panelCollection-Panel Topic"))
             const view = library()
             tryVerify(function() { return view.filter.collection === topic })
-            // A tab dropped on a workspace row links the paper to that workspace.
-            const ws = researchStore.createWorkspace("Panel Workspace")
-            tryVerify(function() { return visibleChild(panel, "panelWorkspace-Panel Workspace") !== null })
-            waitForPolish(workspace); wait(50)
-            const wsRow = visibleChild(panel, "panelWorkspace-Panel Workspace")
-            const onWs = wsRow.mapToItem(null, wsRow.width / 2, wsRow.height / 2)
-            d.dragTitle = "dragged"
-            // (The Library tab is in front now; drag the paper's tab.)
-            const paperTab = Tree.leaves(d.tree)[0].tabs.find(function(t) { return !t.kind }).id
-            d.dragTab(paperTab, onWs.x, onWs.y)
-            compare(d.dropTarget.workspace, ws)
-            d.finishDrag(false)
-            tryVerify(function() { return (researchStore.workspaceDetails(ws).documents || []).length === 1 })
             // New and renamed collections from the panel.
             mouseClick(visibleChild(panel, "panelNewCollection"))
             const nameDialog = findChild(panel, "panelCollectionName")
@@ -126,7 +113,6 @@ Item {
             nameDialog.accept()
             tryVerify(function() { return visibleChild(panel, "panelCollection-Made in Panel") !== null })
             researchStore.deleteCollection(researchStore.collections().find(function(c) { return c.name === "Made in Panel" }).id)
-            researchStore.deleteWorkspace(ws)
             // Sections fold, and stay folded.
             mouseClick(visibleChild(panel, "collectionsSection"))
             tryCompare(panel, "collectionsOpen", false)

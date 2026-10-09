@@ -30,7 +30,6 @@ Item {
             // Sessions saved by other test files restore a different window size; geometry tests need the default.
             workspace.width = 1440; workspace.height = 930
             workspace.leftDockWidth = 224; workspace.rightDockWidth = 224
-            workspace.activeWorkspace = ""; workspace.workspaceName = ""
             workspace.documents.restore({})
             workspace.filesVisible = true; workspace.shelfVisible = true
             workspace.filesSide = "left"; workspace.capturesSide = "right"
@@ -179,30 +178,6 @@ Item {
             compare(restored.currentReader.pdfReady, false, "Home startup should defer opening PDF engines")
             compare(Tree.leaves(restored.documents.tree)[0].tabs.length, 1)
         }
-        function test_newWorkspaceStartsAtHome() {
-            const id = researchStore.createWorkspace("UI test workspace")
-            workspace.openWorkspace(id)
-            compare(workspace.homeVisible, true)
-            workspace.openDocument(fixtureSource, {page: 1, y: .1, x: 0, zoom: 1})
-            canvas(); workspace.persist()
-            workspace.openWorkspace(researchStore.createWorkspace("Another workspace"))
-            workspace.openWorkspace(id)
-            compare(canvas().currentPage, 1)
-            compare(workspace.homeVisible, false)
-        }
-        function test_homeSearchOpensWorkspace() {
-            const id = researchStore.createWorkspace("Searchable topic 123")
-            workspace.showHome()
-            const query = findChild(workspace, "homeSearch"), results = findChild(workspace, "homeResults")
-            query.text = "Searchable topic 123"
-            tryCompare(results, "count", 1)
-            testInput.keyClick(query, Qt.Key_Return)
-            compare(workspace.activeWorkspace, id)
-            query.text = "no such saved object 987"
-            tryCompare(results, "count", 0)
-            testInput.keyClick(query, Qt.Key_Escape)
-            compare(query.text, "")
-        }
         function test_panelStateRestores() {
             workspace.movePanel("captures", "left"); workspace.movePanel("files", "right")
             workspace.paperFolder = fixtureFolder
@@ -292,55 +267,6 @@ Item {
             compare(button.ToolTip.text, "Close tab")
             mouseClick(button)
             tryCompare(workspace.documents, "hasTabs", false)
-        }
-        function test_workspaceManagerLinksRenameDelete() {
-            workspace.width = 1440
-            const id = researchStore.createWorkspace("Managed topic")
-            workspace.openWorkspace(id)
-            workspace.openDocument(fixtureSource); canvas()
-            workspace.manageWorkspace(id)
-            const manager = findChild(workspace, "workspaceManager")
-            tryCompare(manager, "opened", true)
-            const remove = findChild(manager, "deleteWorkspaceButton")
-            const close = findChild(manager, "closeWorkspaceButton")
-            waitForPolish(manager.contentItem)
-            fuzzyCompare(remove.mapToItem(manager.contentItem, 0, 0).y, close.mapToItem(manager.contentItem, 0, 0).y, 1)
-            compare(manager.details.documents.length, 1)
-            manager.linkDocument(fixtureSource, false)
-            workspace.persist()
-            compare(manager.details.documents.length, 0)
-            compare(workspace.documents.hasTabs, true)
-            manager.linkDocument(fixtureSource, true)
-            compare(manager.details.documents.length, 1)
-            findChild(manager, "workspaceNameEditor").text = "Updated topic"
-            mouseClick(findChild(manager, "renameWorkspaceButton"))
-            compare(workspace.workspaceName, "Updated topic")
-            researchStore.captureRegion(fixtureSource, 0, Qt.rect(.1, .1, .3, .2))
-            tryCompare(researchStore, "busy", false, 10000)
-            const capture = researchStore.captures[0]
-            manager.mode = 1
-            manager.linkCapture(capture.id, true)
-            compare(manager.details.captures.length, 1)
-            manager.linkCapture(capture.id, false)
-            compare(manager.details.captures.length, 0)
-            verify(researchStore.captures.some(function(c) { return c.id === capture.id }))
-            mouseClick(findChild(manager, "deleteWorkspaceButton"))
-            const confirmation = findChild(manager, "deleteWorkspaceDialog")
-            tryCompare(confirmation, "opened", true)
-            waitForPolish(confirmation.contentItem)
-            verify(confirmation.contentItem.width <= confirmation.availableWidth)
-            verify(confirmation.contentItem.implicitHeight <= confirmation.contentItem.height + 1)
-            compare(confirmation.footer.alignment, Qt.AlignRight)
-            const cancel = confirmation.standardButton(Dialog.Cancel)
-            verify(cancel.mapToItem(confirmation.footer, cancel.width, 0).x > confirmation.footer.width / 2)
-            confirmation.reject()
-            compare(workspace.activeWorkspace, id)
-            mouseClick(findChild(manager, "deleteWorkspaceButton"))
-            tryCompare(confirmation, "opened", true); confirmation.accept()
-            tryCompare(manager, "visible", false)
-            compare(workspace.activeWorkspace, "")
-            compare(workspace.documents.hasTabs, true)
-            compare(workspace.currentReader.pdfReady, true)
         }
         function test_newTabButtonUsesClickedGroup() {
             // A restored window is clamped to the offscreen 800px display; make both groups visible.
@@ -822,9 +748,8 @@ Item {
             compare(restored.labels[0].name, "Reading list")
             verify(restored.tabs.every(function(t) { return t.label === restored.labels[0].id }))
             verify(restored.tabs.every(function(t) { return typeof t.documentId === "string" && t.documentId.length > 0 }))
-            // Saved as a workspace and as a collection.
+            // Saved as a collection.
             const before = researchStore.collections().length
-            verify(d.saveTabGroupAsWorkspace(restored.id, restored.labels[0].id).length > 0)
             verify(d.saveTabGroupAsCollection(restored.id, restored.labels[0].id).length > 0)
             compare(researchStore.collections().length, before + 1)
             // Moving a member to another split leaves the group behind.

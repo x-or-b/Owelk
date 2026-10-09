@@ -104,7 +104,7 @@ Rectangle {
     function jumpToPage(page, y) { activated(); canvas.jumpRemembering(page, y || 0, 0) }
     function goBack() { return canvas.goBack() }
     function goForward() { return canvas.goForward() }
-    // Web links in a PDF open in an app tab when the pane belongs to a workspace.
+    // Web links in a PDF open in an app tab when the pane is in a tab group.
     signal linkRequested(url url)
     // AI help: a page translated, or something attached to the AI conversation to ask about (the one open
     // in the AI panel, else a new one about this paper). The composer is shared app-wide.

@@ -8,7 +8,7 @@ ColumnLayout {
     required property var controller
     property url currentSource: ""
     // One row: where to search, plus This PDF in the reader. Library conditions are typed into the
-    // query (tag:, collection:, state:, year:, workspace:) instead of filling the box with menus.
+    // query (tag:, collection:, state:, year:) instead of filling the box with menus.
     Flow {
         Layout.fillWidth: true; Layout.minimumWidth: 0
         spacing: 4

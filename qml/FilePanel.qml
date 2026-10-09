@@ -6,23 +6,20 @@ import Owelk.Ui
 import "WorkspaceTree.js" as Tree
 
 // The Library panel: the bookshelf beside the reader. Collections (drop a tab or a paper on one to
-// file it), workspaces, tags, and the paper folder. Sections fold; the folder takes the rest.
+// file it), tags, and the paper folder. Sections fold; the folder takes the rest.
 Item {
     id: root
     objectName: "libraryPanel"
     property url folder
-    // The document workspace, for tabs dropped on a collection.
-    property var workspace: null
+    // The document area, for tabs dropped on a collection.
+    property var documents: null
     signal libraryFilterRequested(var filter)
-    signal workspaceChosen(string id)
-    signal workspaceManageRequested(string id)
     property var collections: []
     property var tags: []
     property int unsorted: 0
     function refreshShelf() { collections = researchStore.collections(); tags = researchStore.tags(); unsorted = researchStore.unsortedCount() }
     function sectionOpen(name, fallback) { return researchStore.setting("library.section." + name, fallback ? "1" : "0") === "1" }
     property bool collectionsOpen: sectionOpen("collections", true)
-    property bool workspacesOpen: sectionOpen("workspaces", true)
     property bool tagsOpen: sectionOpen("tags", false)
     property bool folderOpen: sectionOpen("folder", true)
     function setSection(name, open) { researchStore.setSetting("library.section." + name, open ? "1" : "0") }
@@ -33,17 +30,10 @@ Item {
     }
     // Tabs dragged over a collection are filed there (PDF tabs only); the tab stays open.
     function claimDrop(id, x, y) {
-        if (!visible || !workspace) return null
-        const strip = Tree.owner(workspace.tree, id)
+        if (!visible || !documents || !collectionsOpen) return null
+        const strip = Tree.owner(documents.tree, id)
         const tab = strip ? strip.tabs.find(function(t) { return t.id === id }) : null
         if (!tab || tab.kind) return null
-        // A workspace row: the paper is linked to that workspace.
-        for (let w = 0; w < workspaceRows.count; ++w) {
-            const item = workspaceRows.itemAt(w), q = item ? item.mapFromItem(null, x, y) : null
-            if (q && q.x >= 0 && q.y >= 0 && q.x <= item.width && q.y <= item.height)
-                return {handler: root, workspace: item.modelData.id, name: item.modelData.name, source: tab.source}
-        }
-        if (!collectionsOpen) return null
         const p = shelf.mapFromItem(null, x, y)
         if (p.x < 0 || p.y < 0 || p.x > shelf.width || p.y > shelf.height) return null
         const i = shelf.indexAt(p.x, p.y + shelf.contentY)
@@ -52,11 +42,9 @@ Item {
         return {handler: root, collection: row.id, name: row.name, source: tab.source}
     }
     function dropTab(id, target) {
-        if (target.workspace) {
-            if (researchStore.setWorkspaceDocument(target.workspace, target.source, true)) researchStore.notify("Linked to " + target.name + ".")
-        } else if (researchStore.setDocumentCollection(target.source, target.collection, true)) researchStore.notify("Added to " + target.name + ".")
+        if (researchStore.setDocumentCollection(target.source, target.collection, true)) researchStore.notify("Added to " + target.name + ".")
     }
-    Component.onDestruction: if (workspace) workspace.removeDropHandler(root)
+    Component.onDestruction: if (documents) documents.removeDropHandler(root)
     // A section heading: a chevron and a name; click folds it.
     component SectionHeader: Item {
         id: heading
@@ -109,7 +97,7 @@ Item {
         }
     }
     onFolderChanged: if (initialized) refresh()
-    Component.onCompleted: { initialized = true; refresh(); refreshShelf(); if (workspace) workspace.addDropHandler(root) }
+    Component.onCompleted: { initialized = true; refresh(); refreshShelf(); if (documents) documents.addDropHandler(root) }
     ListModel { id: rows }
     Connections {
         target: researchStore
@@ -215,7 +203,7 @@ Item {
                 leftPadding: 26 + 12 * (modelData.depth || 0)
                 rightPadding: 34
                 text: modelData.name
-                readonly property bool tabOver: !!root.workspace && !!root.workspace.dropTarget && root.workspace.dropTarget.handler === root && root.workspace.dropTarget.collection === modelData.id
+                readonly property bool tabOver: !!root.documents && !!root.documents.dropTarget && root.documents.dropTarget.handler === root && root.documents.dropTarget.collection === modelData.id
                 highlighted: tabOver || drop.containsDrag
                 onClicked: root.libraryFilterRequested(modelData.unsorted ? {unsorted: true} : {collection: modelData.id})
                 Icon { x: 6 + 12 * (shelfRow.modelData.depth || 0); anchors.verticalCenter: parent.verticalCenter; name: shelfRow.modelData.unsorted ? "filter" : "folder"; size: Theme.fontBody; color: Theme.textTertiary }
@@ -240,33 +228,6 @@ Item {
             Layout.fillWidth: true; leftPadding: 8; wrapMode: Text.Wrap
             text: "Create collections in the Library to file papers by topic."
             font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
-        }
-        // --- Workspaces -----------------------------------------------------------------------
-        SectionHeader {
-            title: "Workspaces"; open: root.workspacesOpen
-            onToggled: { root.workspacesOpen = !root.workspacesOpen; root.setSection("workspaces", root.workspacesOpen) }
-        }
-        Repeater {
-            id: workspaceRows
-            model: root.workspacesOpen ? researchStore.recentWorkspaces.slice(0, 8) : []
-            delegate: ItemDelegate {
-                id: workspaceRow
-                required property var modelData
-                objectName: "panelWorkspace-" + modelData.name
-                Layout.fillWidth: true
-                implicitHeight: Theme.rowHeight
-                leftPadding: 26
-                text: modelData.name
-                onClicked: root.workspaceChosen(modelData.id)
-                highlighted: !!root.workspace && !!root.workspace.dropTarget && root.workspace.dropTarget.handler === root && root.workspace.dropTarget.workspace === modelData.id
-                Icon { x: 6; anchors.verticalCenter: parent.verticalCenter; name: "workspace"; size: Theme.fontBody; color: Theme.textTertiary }
-                TapHandler { acceptedButtons: Qt.RightButton; onTapped: workspaceMenu.popup() }
-                Menu {
-                    id: workspaceMenu
-                    MenuItem { text: "Open"; onTriggered: root.workspaceChosen(workspaceRow.modelData.id) }
-                    MenuItem { text: "Manage Links…"; onTriggered: root.workspaceManageRequested(workspaceRow.modelData.id) }
-                }
-            }
         }
         // --- Tags -----------------------------------------------------------------------------
         SectionHeader {

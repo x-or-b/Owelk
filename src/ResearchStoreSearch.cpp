@@ -86,7 +86,7 @@ struct Query {
     }
 };
 
-// Saved names, notes, excerpts, annotations and workspaces. PDF body text is searched by PaperIndex.
+// Saved names, notes, excerpts and annotations. PDF body text is searched by PaperIndex.
 // Runs on the UI thread for tests and on a worker with its own read-only connection for the app.
 // allowed: when set, only papers with these URLs (library filters) and their saved items are searched.
 QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures, const QList<QUrl> &indexed,
@@ -104,7 +104,7 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
     // Kinds start from a small weight so a strong title match of any kind can still come first.
     const auto add = [&](QVariantMap row, int score) {
         static const QHash<QString, int> weight{{"paper", 12}, {"standalone-note", 8}, {"note", 7}, {"capture", 6},
-            {"highlight", 6}, {"ai", 5}, {"collection", 4}, {"tag", 4}, {"workspace", 4}};
+            {"highlight", 6}, {"ai", 5}, {"collection", 4}, {"tag", 4}};
         row.insert("score", score + weight.value(row.value("kind").toString()));
         results.append(row);
     };
@@ -266,16 +266,6 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QVariantList &captures,
                     query.score(name));
                 ++count;
             }
-        }
-        QSqlQuery workspaces(db);
-        workspaces.exec("SELECT id,name FROM workspaces WHERE id NOT IN (SELECT id FROM deleted_workspaces) ORDER BY "
-                        "opened_at DESC");
-        int count = 0;
-        while (workspaces.next() && count < 20) {
-            const auto name = workspaces.value(1).toString();
-            if (!query.matches({name})) continue;
-            add(QVariantMap{{"kind", "workspace"}, {"title", name}, {"id", workspaces.value(0)}}, query.score(name));
-            ++count;
         }
     }
     // Best first; equal scores keep the order above (recent papers, newest notes).

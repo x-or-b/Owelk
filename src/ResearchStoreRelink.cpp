@@ -181,13 +181,6 @@ bool ResearchStore::applyRelink(const QUrl &source, const QUrl &candidate, const
             || !run("INSERT OR IGNORE INTO reading_positions(document_id,position) SELECT ?,position "
                     "FROM reading_positions WHERE document_id=?",
                 {original, duplicate})
-            || !run("INSERT OR IGNORE INTO workspace_documents(workspace_id,document_id) SELECT workspace_id,? "
-                    "FROM workspace_documents WHERE document_id=?",
-                {original, duplicate})
-            || !run(
-                "INSERT OR IGNORE INTO workspace_document_exclusions(workspace_id,document_id) SELECT workspace_id,? "
-                "FROM workspace_document_exclusions WHERE document_id=?",
-                {original, duplicate})
             || !run(
                 "UPDATE documents SET (title,authors,year,doi,arxiv,metadata_origin,metadata_sha256)="
                 "(SELECT title,authors,year,doi,arxiv,metadata_origin,metadata_sha256 FROM documents WHERE id=?) "
@@ -196,8 +189,7 @@ bool ResearchStore::applyRelink(const QUrl &source, const QUrl &candidate, const
             || !run("UPDATE captures SET document_id=? WHERE document_id=?", {original, duplicate})
             || !run("UPDATE highlights SET document_id=? WHERE document_id=?", {original, duplicate}))
             return abort();
-        for (const auto *table :
-            {"recent_documents", "reading_positions", "workspace_documents", "workspace_document_exclusions"})
+        for (const auto *table : {"recent_documents", "reading_positions"})
             if (!run(QStringLiteral("DELETE FROM %1 WHERE document_id=?").arg(table), {duplicate})) return abort();
         if (!run("DELETE FROM documents WHERE id=?", {duplicate})) return abort();
     }
@@ -214,7 +206,7 @@ bool ResearchStore::applyRelink(const QUrl &source, const QUrl &candidate, const
             QJsonParseError parse;
             const auto doc = QJsonDocument::fromJson(bytes, &parse);
             if (parse.error != QJsonParseError::NoError || !doc.isObject()) {
-                *error = "A saved session or workspace is invalid. Relinking was cancelled without changing it.";
+                *error = "The saved session is invalid. Relinking was cancelled without changing it.";
                 return false;
             }
             if (doc.object().contains("version") && doc.object()["version"].toInt() != 1
@@ -234,7 +226,6 @@ bool ResearchStore::applyRelink(const QUrl &source, const QUrl &candidate, const
         return true;
     };
     if (!updateStates("SELECT key,value FROM settings WHERE key='session'", "UPDATE settings SET value=? WHERE key=?")
-        || !updateStates("SELECT id,state FROM workspaces", "UPDATE workspaces SET state=? WHERE id=?")
         || !run("INSERT INTO source_relinks(old_url,new_url,sha256) VALUES(?,?,?)", {oldUrl, newUrl, hash}))
         return abort();
     if (!m_database.commit()) {

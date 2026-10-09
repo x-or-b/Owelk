@@ -211,22 +211,6 @@ private slots:
         QVERIFY(!caption.contains("Unrelated"));
         QCOMPARE(store.searchKnowledge("kitchen scene").value(0).toMap()["kind"].toString(), QString("capture"));
     }
-    void deletedWorkspaceCanBeRestored()
-    {
-        QTemporaryDir directory;
-        ResearchStore store(directory.filePath("data"));
-        QString error;
-        QVERIFY2(store.initialize(&error), qPrintable(error));
-        const auto id = store.createWorkspace("Hidden topic");
-        QVERIFY(store.deleteWorkspace(id));
-        QVERIFY(store.recentWorkspaces().isEmpty());
-        QCOMPARE(store.deletedWorkspaces().size(), 1);
-        QVERIFY(store.restoreWorkspace(id));
-        QCOMPARE(store.recentWorkspaces().size(), 1);
-        QVERIFY(store.deletedWorkspaces().isEmpty());
-        QVERIFY(!store.restoreWorkspace(id));
-        QVERIFY(!store.loadWorkspace(id).isEmpty());
-    }
     void syncKeepsLibrariesTheSameThroughAFolder()
     {
         QTemporaryDir directory;
@@ -768,8 +752,6 @@ private slots:
         const auto kept = store.captures()[0].toMap()["id"].toString();
         const auto first = store.captures()[1].toMap()["id"].toString();
         const auto second = store.captures()[2].toMap()["id"].toString();
-        const auto workspace = store.createWorkspace("Purge topic");
-        QVERIFY(store.setWorkspaceCapture(workspace, first, true));
         QVERIFY(store.saveCaptureNote(first, "purged note words"));
         QVERIFY(!store.purgeCapture(kept)); // A saved capture is never deleted permanently.
         QVERIFY(store.deleteCapture(first));
@@ -779,7 +761,6 @@ private slots:
         QVERIFY(store.purgeCapture(first));
         QVERIFY(!QFileInfo::exists(trashImage));
         QCOMPARE(store.trashedCaptures().size(), 1);
-        QVERIFY(store.workspaceDetails(workspace)["captures"].toList().isEmpty());
         QVERIFY(!store.restoreCapture(first));
         QCOMPARE(store.emptyCaptureTrash(), 1);
         QVERIFY(store.trashedCaptures().isEmpty());
@@ -1000,12 +981,17 @@ private slots:
             QSqlQuery query(db);
             for (const auto *sql :
                 {"DROP TABLE documents", "DROP TABLE recent_documents", "DROP TABLE reading_positions",
-                    "DROP TABLE workspace_documents", "DROP TABLE workspace_document_exclusions", "DROP TABLE captures",
-                    "DROP TABLE highlights", "DROP TABLE collections", "DROP TABLE collection_documents",
-                    "DROP TABLE tags", "DROP TABLE document_tags", "DROP TABLE notes", "DROP TABLE ai_responses",
-                    "DROP TABLE ai_messages", "DROP TABLE ai_threads", "DROP TABLE links",
-                    "CREATE TABLE recent_documents (url TEXT PRIMARY KEY, opened_at TEXT NOT NULL)",
+                    "DROP TABLE IF EXISTS workspace_documents", "DROP TABLE IF EXISTS workspace_document_exclusions",
+                    "DROP TABLE captures", "DROP TABLE highlights", "DROP TABLE collections",
+                    "DROP TABLE collection_documents", "DROP TABLE tags", "DROP TABLE document_tags",
+                    "DROP TABLE notes", "DROP TABLE ai_responses", "DROP TABLE ai_messages", "DROP TABLE ai_threads",
+                    "DROP TABLE links", "CREATE TABLE recent_documents (url TEXT PRIMARY KEY, opened_at TEXT NOT NULL)",
                     "CREATE TABLE reading_positions (url TEXT PRIMARY KEY, position TEXT NOT NULL)",
+                    "CREATE TABLE workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, state TEXT NOT NULL, "
+                    "opened_at TEXT NOT NULL)",
+                    "CREATE TABLE deleted_workspaces (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
+                    "CREATE TABLE workspace_captures (workspace_id TEXT NOT NULL, capture_id TEXT NOT NULL, "
+                    "PRIMARY KEY(workspace_id,capture_id))",
                     "CREATE TABLE workspace_documents (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "
                     "PRIMARY KEY(workspace_id,url))",
                     "CREATE TABLE workspace_document_exclusions (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "
@@ -1047,7 +1033,10 @@ private slots:
         QCOMPARE(store.captures()[0].toMap()["source"].toUrl(), source);
         QCOMPARE(store.searchKnowledge("kept excerpt").size(), 1);
         QCOMPARE(store.searchKnowledge("kept highlight").size(), 1);
-        QCOMPARE(store.workspaceDetails("w1")["documents"].toList().size(), 1);
+        // Workspaces became collections of their papers.
+        const auto topic = store.collections().first().toMap();
+        QCOMPARE(topic["name"].toString(), QString("Topic"));
+        QCOMPARE(topic["count"].toInt(), 1);
         QCOMPARE(QDir(directory.filePath("data/backups")).entryList({"before-schema-3-*.sqlite3"}).size(), 1);
         // Details are read from the PDF in the background and replace the file name for display.
         QTRY_COMPARE_WITH_TIMEOUT(store.displayName(source), QString("Kept Paper Title"), 10000);
@@ -1109,7 +1098,7 @@ private slots:
         const auto path = directory.filePath("preserved.pdf");
         writeFixture(path);
         const auto source = QUrl::fromLocalFile(path);
-        QString id, workspace, other;
+        QString id;
         QImage pixels;
         {
             ResearchStore store(directory.filePath("data"));
@@ -1121,14 +1110,9 @@ private slots:
             id = capture["id"].toString();
             pixels.load(capture["image"].toUrl().toLocalFile());
             QVERIFY(!pixels.isNull());
-            workspace = store.createWorkspace("Restore topic");
-            other = store.createWorkspace("Other topic");
-            QVERIFY(store.setWorkspaceCapture(workspace, id, true));
-            QVERIFY(store.setWorkspaceCapture(other, id, true));
             QVERIFY(store.saveCaptureNote(id, "Restorable uniquequestion"));
             QVERIFY(store.deleteCapture(id));
             QCOMPARE(store.trashedCaptures().size(), 1);
-            QVERIFY(store.workspaceDetails(workspace)["captures"].toList().isEmpty());
             QVERIFY(store.searchKnowledge("uniquequestion").isEmpty());
         }
         {
@@ -1151,8 +1135,6 @@ private slots:
             QCOMPARE(restored["note"].toString(), "Restorable uniquequestion");
             QCOMPARE(QImage(restored["image"].toUrl().toLocalFile()), pixels);
             QVERIFY(!QFile::exists(trash["image"].toUrl().toLocalFile()));
-            QCOMPARE(store.workspaceDetails(workspace)["captures"].toList().size(), 1);
-            QCOMPARE(store.workspaceDetails(other)["captures"].toList().size(), 1);
             QCOMPARE(store.searchKnowledge("uniquequestion").size(), 1);
             QVERIFY(QFile::rename(path + ".moved", path));
             QSignalSpy ready(&store, &ResearchStore::sourceReady);
@@ -1215,62 +1197,6 @@ private slots:
         QSqlDatabase::removeDatabase(connection);
         QVERIFY(store.restoreCapture(id));
     }
-    void workspaceLinksPersistWithoutDeletingSources()
-    {
-        QTemporaryDir directory;
-        const auto path = directory.filePath("source.pdf");
-        writeFixture(path);
-        const auto source = QUrl::fromLocalFile(path);
-        QString workspaceId, captureId;
-        {
-            ResearchStore store(directory.filePath("data"));
-            QString error;
-            QVERIFY(store.initialize(&error));
-            workspaceId = store.createWorkspace("Topic links");
-            const auto other = store.createWorkspace("Other topic");
-            QVariantMap state{{"workspace", workspaceId}, {"workspaceName", "Topic links"},
-                {"left", QVariantMap{{"source", source.toString()}, {"position", QVariantMap{{"page", 2}}}}}};
-            QVERIFY(store.saveWorkspace(workspaceId, state));
-            QVERIFY(store.saveSession(state));
-            QCOMPARE(store.workspaceDetails(workspaceId)["documents"].toList().size(), 1);
-            QVERIFY(store.setWorkspaceDocument(workspaceId, source, false));
-            QVERIFY(store.saveWorkspace(workspaceId, state)); // Open tab autosave must respect explicit unlink.
-            QVERIFY(store.workspaceDetails(workspaceId)["documents"].toList().isEmpty());
-            QVERIFY(store.setWorkspaceDocument(workspaceId, source, true));
-            QVERIFY(store.setWorkspaceDocument(workspaceId, source, true));
-            QCOMPARE(store.workspaceDetails(workspaceId)["documents"].toList().size(), 1);
-            store.captureRegion(source, 1, QRectF(.1, .1, .3, .2));
-            QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
-            captureId = store.captures()[0].toMap()["id"].toString();
-            QVERIFY(store.saveCaptureNote(captureId, "Keep this note"));
-            QVERIFY(store.setWorkspaceCapture(workspaceId, captureId, true));
-            QVERIFY(store.setWorkspaceCapture(other, captureId, true));
-            QVERIFY(store.setWorkspaceCapture(workspaceId, captureId, false));
-            QCOMPARE(store.workspaceDetails(other)["captures"].toList().size(), 1);
-            QCOMPARE(store.captures()[0].toMap()["note"].toString(), "Keep this note");
-            QVERIFY(store.setWorkspaceCapture(workspaceId, captureId, true));
-            QVERIFY(!store.setWorkspaceCapture(workspaceId, "missing", true));
-            QVERIFY(!store.renameWorkspace(workspaceId, " "));
-            QVERIFY(store.renameWorkspace(workspaceId, "Renamed topic"));
-        }
-        ResearchStore reopened(directory.filePath("data"));
-        QString error;
-        QVERIFY(reopened.initialize(&error));
-        QCOMPARE(reopened.workspaceDetails(workspaceId)["name"].toString(), "Renamed topic");
-        QCOMPARE(reopened.workspaceDetails(workspaceId)["captures"].toList().size(), 1);
-        QCOMPARE(reopened.workspaceDetails(workspaceId)["documents"].toList().size(), 1);
-        const auto before = reopened.loadWorkspace(workspaceId);
-        QVERIFY(reopened.deleteWorkspace(workspaceId));
-        QVERIFY(reopened.workspaceDetails(workspaceId).isEmpty());
-        QVERIFY(reopened.loadWorkspace(workspaceId).isEmpty());
-        QVERIFY(!reopened.saveWorkspace(workspaceId, before));
-        QVERIFY(!reopened.renameWorkspace(workspaceId, "Do not resurrect"));
-        QVERIFY(reopened.session()["workspace"].toString().isEmpty());
-        QCOMPARE(reopened.session()["left"].toMap()["source"].toString(), source.toString());
-        QCOMPARE(reopened.captures()[0].toMap()["note"].toString(), "Keep this note");
-        QVERIFY(QFile::exists(path));
-        QVERIFY(reopened.searchKnowledge("Renamed topic").isEmpty());
-    }
     void removalPreservesOriginalAndCaptureTrash()
     {
         QTemporaryDir directory;
@@ -1308,7 +1234,7 @@ private slots:
         QVERIFY(reopened.recentDocuments().isEmpty());
         QVERIFY(QFileInfo::exists(path));
     }
-    void tabSessionsAndWorkspacesPersist()
+    void tabSessionsPersist()
     {
         QTemporaryDir directory;
         ResearchStore store(directory.path());
@@ -1323,10 +1249,6 @@ private slots:
         QVERIFY(store.saveSession(state));
         QCOMPARE(store.readingPosition(source)["page"].toInt(), 2);
         QCOMPARE(store.continueReading()["id"].toString(), "t1");
-        const auto id = store.createWorkspace("Tabs");
-        QVERIFY(store.saveWorkspace(id, state));
-        QCOMPARE(store.loadWorkspace(id)["tree"].toMap()["tabs"].toList().size(), 2);
-        QCOMPARE(store.recentWorkspaces()[0].toMap()["papers"].toInt(), 1);
     }
     void activePaneOwnsRecentPosition()
     {
@@ -1344,46 +1266,34 @@ private slots:
         QVERIFY(store.saveSession(state));
         QCOMPARE(store.readingPosition(source)["page"].toInt(), 5);
         QCOMPARE(store.continueReading()["position"].toMap()["page"].toInt(), 5);
-        QVERIFY(!store.saveWorkspace("missing", state));
-        QVERIFY(store.saveSession(state)); // A failed workspace write must not leave a transaction open.
     }
-    void homeDataAndWorkspacesSurviveRestart()
+    void homeDataSurvivesRestart()
     {
         QTemporaryDir directory;
         const auto path = directory.filePath("Alpha Paper.pdf");
         writeFixture(path);
         const auto source = QUrl::fromLocalFile(path);
-        QString id;
         {
             ResearchStore store(directory.filePath("data"));
             QString error;
             QVERIFY(store.initialize(&error));
             QVERIFY(store.rememberDocument(source));
-            id = store.createWorkspace("Alpha study");
-            QVERIFY(!id.isEmpty());
-            QVERIFY(store.createWorkspace("  ").isEmpty());
             const QVariantMap position{{"page", 3}, {"y", .2}, {"zoom", 1.4}};
-            const QVariantMap state{{"left", QVariantMap{{"source", source.toString()}, {"position", position}}},
-                {"workspace", id}, {"active", 0}};
+            const QVariantMap state{
+                {"left", QVariantMap{{"source", source.toString()}, {"position", position}}}, {"active", 0}};
             QVERIFY(store.saveSession(state));
-            QVERIFY(store.saveWorkspace(id, state));
             QCOMPARE(store.continueReading().value("position").toMap().value("page").toInt(), 3);
             QCOMPARE(store.readingPosition(source), position);
             const auto results = store.searchKnowledge("ALPHA");
-            QCOMPARE(results.size(), 2);
+            QCOMPARE(results.size(), 1);
             QCOMPARE(results[0].toMap()["kind"].toString(), "paper");
-            QCOMPARE(results[1].toMap()["kind"].toString(), "workspace");
             QVERIFY(store.searchKnowledge("' OR 1=1 --").isEmpty());
             QVERIFY(store.searchKnowledge("").isEmpty());
         }
         ResearchStore reopened(directory.filePath("data"));
         QString error;
         QVERIFY(reopened.initialize(&error));
-        QCOMPARE(reopened.recentWorkspaces().size(), 1);
-        QCOMPARE(reopened.recentWorkspaces()[0].toMap()["papers"].toInt(), 1);
-        const auto workspace = reopened.loadWorkspace(id);
-        QCOMPARE(workspace["workspaceName"].toString(), "Alpha study");
-        QCOMPARE(workspace["left"].toMap()["position"].toMap()["page"].toInt(), 3);
+        QCOMPARE(reopened.continueReading().value("position").toMap().value("page").toInt(), 3);
     }
     void searchRanksTitlesAndMatchesWordsInAnyOrder()
     {
@@ -1793,35 +1703,6 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(done.size(), 2, 10000);
         QCOMPARE(done[1][2].toInt(), 0);
         QCOMPARE(store.libraryDocuments({}).size(), 3);
-    }
-    void deletedWorkspacesCanBeForgotten()
-    {
-        QTemporaryDir directory;
-        ResearchStore store(directory.filePath("data"));
-        QString error;
-        QVERIFY(store.initialize(&error));
-        const auto path = directory.filePath("paper.pdf");
-        writeFixture(path);
-        const auto source = QUrl::fromLocalFile(path);
-        QVERIFY(store.rememberDocument(source));
-        const auto keep = store.createWorkspace("Keep"), first = store.createWorkspace("Old A"),
-                   second = store.createWorkspace("Old B");
-        QVERIFY(store.setWorkspaceDocument(first, source, true));
-        QVERIFY(store.deleteWorkspace(first));
-        QVERIFY(store.deleteWorkspace(second));
-        QCOMPARE(store.deletedWorkspaces().size(), 2);
-        // One, then the rest; only deleted workspaces can be forgotten.
-        QCOMPARE(store.purgeDeletedWorkspaces(first), 1);
-        QCOMPARE(store.deletedWorkspaces().size(), 1);
-        QVERIFY(!store.restoreWorkspace(first));
-        QCOMPARE(store.purgeDeletedWorkspaces(keep), 0);
-        QCOMPARE(store.purgeDeletedWorkspaces(), 1);
-        QVERIFY(store.deletedWorkspaces().isEmpty());
-        const auto recent = store.recentWorkspaces();
-        QVERIFY(
-            std::any_of(recent.cbegin(), recent.cend(), [&](const QVariant &w) { return w.toMap()["id"] == keep; }));
-        // The paper itself stays in the library.
-        QCOMPARE(store.libraryDocuments({}).size(), 1);
     }
     void unsortedPapersAndCollectionSuggestions()
     {

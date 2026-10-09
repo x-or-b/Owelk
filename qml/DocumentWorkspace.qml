@@ -37,9 +37,6 @@ Flickable {
     signal opened()
     signal homeOpenRequested()
     signal homeResultChosen(var result)
-    signal homeWorkspaceChosen(string id)
-    signal homeWorkspaceManageRequested(string id)
-    signal homeWorkspaceCreated(string name)
     // The tab menu's "Organize Tabs with AI…", handled by the window (needs the AI and a dialog).
     signal organizeRequested(string groupId)
     signal compareRequested(string groupId)
@@ -483,19 +480,7 @@ Flickable {
     function closeTabGroup(stripId, labelId) {
         tabGroupTabs(stripId, labelId).map(function(t) { return t.id }).forEach(function(id) { closeTab(id) })
     }
-    // A group worth keeping becomes a workspace (its tabs) or a collection (its papers).
-    function saveTabGroupAsWorkspace(stripId, labelId) {
-        const label = tabLabel(stripId, labelId)
-        if (!label) return ""
-        flush()
-        const tabs = Tree.clone(tabGroupTabs(stripId, labelId)).map(function(t) { delete t.label; return t })
-        const id = researchStore.createWorkspace(label.name)
-        if (!id.length) return ""
-        const strip = Tree.group(tabs)
-        researchStore.saveWorkspace(id, {version: 2, tree: strip, activeGroup: strip.id})
-        researchStore.notify("Saved \u201c" + label.name + "\u201d as a workspace.")
-        return id
-    }
+    // A group worth keeping becomes a collection (its papers).
     function saveTabGroupAsCollection(stripId, labelId) {
         const label = tabLabel(stripId, labelId)
         if (!label) return ""

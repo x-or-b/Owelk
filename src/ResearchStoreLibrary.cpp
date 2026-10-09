@@ -25,7 +25,7 @@ QString newId()
 }
 
 // Documents in scope of the library filters. Keys (all optional): text, state (unread|reading|read),
-// favorite (bool), unsorted (bool: in no collection), collection (id), tag (id), workspace (id), yearFrom, yearTo, sort
+// favorite (bool), unsorted (bool: in no collection), collection (id), tag (id), yearFrom, yearTo, sort
 // (opened|added|title|year).
 QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
 {
@@ -52,10 +52,6 @@ QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
     if (filter.contains("tag")) {
         where << "d.id IN (SELECT document_id FROM document_tags WHERE tag_id=?)";
         args << filter.value("tag").toString();
-    }
-    if (filter.contains("workspace")) {
-        where << "d.id IN (SELECT document_id FROM workspace_documents WHERE workspace_id=?)";
-        args << filter.value("workspace").toString();
     }
     if (filter.contains("yearFrom")) {
         where << "d.year<>'' AND CAST(d.year AS INTEGER)>=?";

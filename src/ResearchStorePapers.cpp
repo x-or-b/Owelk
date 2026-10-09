@@ -392,7 +392,7 @@ int ResearchStore::purgePapers(const QVariantList &sources)
             ok = ok && query.exec();
         };
         for (const auto &id : captures) {
-            for (const auto *table : {"text_captures", "capture_notes", "workspace_captures"})
+            for (const auto *table : {"text_captures", "capture_notes"})
                 run(QStringLiteral("DELETE FROM %1 WHERE capture_id=?").arg(table), {id});
             run("DELETE FROM deleted_captures WHERE id=?", {id});
             run("DELETE FROM links WHERE (from_kind='capture' AND from_id=?) OR (to_kind='capture' AND to_id=?)",
@@ -402,7 +402,7 @@ int ResearchStore::purgePapers(const QVariantList &sources)
             run("DELETE FROM links WHERE (from_kind='highlight' AND from_id=?) OR (to_kind='highlight' AND to_id=?)",
                 {id, id});
         for (const auto *table : {"captures", "highlights", "recent_documents", "reading_positions",
-                 "workspace_documents", "workspace_document_exclusions", "collection_documents", "document_tags"})
+                 "collection_documents", "document_tags"})
             run(QStringLiteral("DELETE FROM %1 WHERE document_id=?").arg(table), {document});
         run("DELETE FROM links WHERE (from_kind='document' AND from_id=?) OR (to_kind='document' AND to_id=?)",
             {document, document});

@@ -11,7 +11,7 @@ Item {
         when: windowShown
         property var fixture
         function init() {
-            workspace.documents.restore({}); workspace.activeWorkspace = ""; workspace.homeVisible = true
+            workspace.documents.restore({}); workspace.homeVisible = true
             fixture = testInput.relinkFixture()
             workspace.openDocument(fixture.source, {page: 3,y: .1,x: 0,zoom: 1.2})
             canvas()

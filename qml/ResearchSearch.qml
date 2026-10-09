@@ -20,15 +20,15 @@ QtObject {
     property string error: ""
     property url sourceFilter: ""
     property string targetFilter: "all"
-    // Library conditions typed into the query: tag:, collection:, state:, year:2020 or year:2018-2022,
-    // workspace:. Names match case-insensitively; quotes allow spaces (tag:"deep learning").
+    // Library conditions typed into the query: tag:, collection:, state:, year:2020 or year:2018-2022.
+    // Names match case-insensitively; quotes allow spaces (tag:"deep learning").
     readonly property var parsed: parseQuery(query)
     readonly property var libraryFilter: parsed.filter
     readonly property var tokenLabels: parsed.labels
     readonly property bool libraryScoped: Object.keys(libraryFilter).length > 0
     function parseQuery(text) {
         const filter = {}, labels = []
-        const pattern = /(^|\s)(tag|collection|state|year|workspace):("([^"]*)"|\S+)/gi
+        const pattern = /(^|\s)(tag|collection|state|year):("([^"]*)"|\S+)/gi
         const lookup = function(list, name) {
             const hit = list.find(function(item) { return item.name.toLowerCase() === name.toLowerCase() })
             return hit ? hit.id : "\u0000missing" // No match narrows to nothing rather than ignoring the condition.
@@ -39,7 +39,6 @@ QtObject {
             if (!value.length) return lead
             if (key === "tag") filter.tag = lookup(researchStore.tags(), value)
             else if (key === "collection") filter.collection = lookup(researchStore.collections(), value)
-            else if (key === "workspace") filter.workspace = lookup(researchStore.recentWorkspaces, value)
             else if (key === "state") filter.state = ["unread", "reading", "read"].indexOf(value.toLowerCase()) >= 0 ? value.toLowerCase() : "\u0000missing"
             else if (key === "year") {
                 const range = value.match(/^(\d{4})(?:-(\d{4}))?$/)
@@ -55,14 +54,14 @@ QtObject {
     // completes the condition in the query (rewrite tells the search field).
     signal rewrite(string text)
     readonly property var completing: {
-        const m = query.match(/(^|\s)(tag|collection|workspace|state):("?)([^"\s]*)$/i)
+        const m = query.match(/(^|\s)(tag|collection|state):("?)([^"\s]*)$/i)
         return m ? {key: m[2].toLowerCase(), partial: m[4], start: m.index + m[1].length} : null
     }
     function completions() {
         const c = completing
         if (!c) return []
         const source = c.key === "tag" ? researchStore.tags() : c.key === "collection" ? researchStore.collections()
-            : c.key === "workspace" ? researchStore.recentWorkspaces : [{name: "unread"}, {name: "reading"}, {name: "read"}]
+            : [{name: "unread"}, {name: "reading"}, {name: "read"}]
         const partial = c.partial.toLowerCase()
         const hits = source.filter(function(item) { return item.name.toLowerCase().indexOf(partial) >= 0 })
         // A finished condition (an exact name) needs no completion.

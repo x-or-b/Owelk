@@ -55,8 +55,6 @@ ApplicationWindow {
     property int navigationMode: 0
     property url paperFolder
     property bool homeVisible: true
-    property string activeWorkspace: ""
-    property string workspaceName: ""
     readonly property var leftPanels: panelsForSide("left")
     readonly property var rightPanels: panelsForSide("right")
     property bool initialized: false
@@ -166,39 +164,20 @@ ApplicationWindow {
         else if (result.kind === "capture") researchStore.openCapture(result.id)
         else if (result.kind === "highlight") researchStore.openHighlight(result.id)
         else if (result.kind === "note") captureNote.begin(result.id)
-        else if (result.kind === "workspace") openWorkspace(result.id)
         else if (result.kind === "standalone-note" && !restoreFailed) documents.openNote(result.id)
         else if (result.kind === "ai") openAiThread(result.id)
         else if (result.kind === "collection" && !restoreFailed) documents.openLibrary({collection: result.id})
         else if (result.kind === "tag" && !restoreFailed) documents.openLibrary({tag: result.id})
         else if (result.kind === "text" && !restoreFailed) { notify("Checking PDF source…"); researchStore.paperIndex.openResult(result.documentId, Number(result.page), result.sha256) }
     }
-    function openWorkspace(id) {
-        if (restoreFailed || !persist()) return
-        const state = researchStore.loadWorkspace(id)
-        if (!state.workspace) return
-        saveTimer.stop(); initialized = false
-        try { documents.restore(state) }
-        catch (error) { initialized = true; notify(error.message); return }
-        activeWorkspace = state.workspace; workspaceName = state.workspaceName || ""
-        paperFolder = state.panels ? state.panels.folder || "" : ""
-        homeVisible = !documents.hasTabs
-        initialized = true; persist()
-    }
-    function manageWorkspace(id) {
-        if (restoreFailed || captureNote.dirty) { notify("Save or discard note edits before managing a workspace."); return }
-        if (id !== activeWorkspace) openWorkspace(id)
-        if (activeWorkspace === id && persist()) workspaceManager.begin(id)
-    }
     function persist() {
         if (!initialized || restoreFailed) return false
         const state = documents.snapshot()
-        Object.assign(state, {shelf: shelfVisible, workspace: activeWorkspace, workspaceName: workspaceName,
-            width: width, height: height, panels: {filesVisible: filesVisible, filesSide: filesSide, capturesSide: capturesSide,
+        Object.assign(state, {shelf: shelfVisible, width: width, height: height, panels: {filesVisible: filesVisible, filesSide: filesSide, capturesSide: capturesSide,
                 documentVisible: documentVisible, documentSide: documentSide, aiVisible: aiVisible, aiSide: aiSide, navigationMode: navigationMode,
                 folder: paperFolder.toString(), leftActive: leftDock.activePanel, rightActive: rightDock.activePanel,
                 leftWidth: leftDockWidth, rightWidth: rightDockWidth}})
-        return researchStore.saveWorkspace(activeWorkspace, state) && researchStore.saveSession(state)
+        return researchStore.saveSession(state)
     }
     function scheduleSave() { if (initialized && !restoreFailed) saveTimer.restart() }
     function notify(text) { notification = text; notificationTimer.restart() }
@@ -226,7 +205,6 @@ ApplicationWindow {
             const list = panelsForSide(side), front = side === "left" ? panels.leftActive : panels.rightActive
             if (list.length > 1) closeOthers(list.indexOf(front) >= 0 ? front : list[0])
         }
-        activeWorkspace = state.workspace || ""; workspaceName = state.workspaceName || ""
         try { documents.restore(state) }
         catch (error) { restoreFailed = true; notification = error.message }
         initialized = true
@@ -475,21 +453,6 @@ ApplicationWindow {
             IconButton { icon.name: "close"; description: "Dismiss"; focusPolicy: Qt.NoFocus; onClicked: duplicateBar.close() }
         }
     }
-    Connections {
-        target: researchStore
-        function onWorkspaceRenamed(id, name) { if (window.activeWorkspace === id) { window.workspaceName = name; window.persist() } }
-        function onWorkspaceDeleted(id) { if (window.activeWorkspace === id) { window.activeWorkspace = ""; window.workspaceName = ""; window.persist() } }
-    }
-    WorkspaceManager {
-        id: workspaceManager
-        currentSource: !window.homeVisible && window.currentReader ? window.currentReader.source : ""
-        onDocumentChosen: function(source) { window.openDocument(source) }
-        onNoteRequested: function(id) { captureNote.begin(id) }
-        onDeleteRequested: function(id) {
-            if (window.persist() && researchStore.deleteWorkspace(id)) close()
-            else error = "Could not delete workspace. Your data is kept."
-        }
-    }
     // Areas are slices separated by 1px edges; an edge darkens under the pointer and drags to resize.
     component ResizeEdge: Rectangle {
         id: edge
@@ -539,10 +502,8 @@ ApplicationWindow {
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
             onFolderChosen: function(folder) { window.paperFolder = folder }
             onDocumentChosen: function(source) { window.openDocument(source) }
-            workspace: documents
+            documents: documents
             onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary(filter) } }
-            onWorkspaceChosen: function(id) { window.openWorkspace(id) }
-            onWorkspaceManageRequested: function(id) { window.manageWorkspace(id) }
             onNoteRequested: function(id) { captureNote.begin(id) }
             onActivePanelChanged: window.scheduleSave()
         }
@@ -560,9 +521,6 @@ ApplicationWindow {
             Layout.fillWidth: true; Layout.fillHeight: true
             onOpenRequested: window.chooseFile()
             onDocumentChosen: function(source, position) { window.openDocument(source, position) }
-            onWorkspaceChosen: function(id) { window.openWorkspace(id) }
-            onWorkspaceManageRequested: function(id) { window.manageWorkspace(id) }
-            onWorkspaceCreated: function(name) { if (!window.restoreFailed) { const id = researchStore.createWorkspace(name); if (id.length) window.openWorkspace(id) } }
             onResultChosen: function(result) { window.openSearchResult(result) }
             onLibraryRequested: if (!window.restoreFailed) documents.openLibrary({})
             onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) documents.openLibrary(filter) }
@@ -582,11 +540,8 @@ ApplicationWindow {
             onOpened: window.homeVisible = false
             onHomeOpenRequested: window.chooseFile()
             onHomeResultChosen: function(result) { window.openSearchResult(result) }
-            onHomeWorkspaceChosen: function(id) { window.openWorkspace(id) }
-            onHomeWorkspaceManageRequested: function(id) { window.manageWorkspace(id) }
             onOrganizeRequested: function(groupId) { window.organizeTabsIn(groupId) }
             onCompareRequested: function(groupId) { window.comparePapersIn(groupId) }
-            onHomeWorkspaceCreated: function(name) { if (!window.restoreFailed) { const id = researchStore.createWorkspace(name); if (id.length) window.openWorkspace(id) } }
         }
         ResizeEdge {
             visible: rightDock.visible
@@ -612,10 +567,8 @@ ApplicationWindow {
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
             onFolderChosen: function(folder) { window.paperFolder = folder }
             onDocumentChosen: function(source) { window.openDocument(source) }
-            workspace: documents
+            documents: documents
             onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary(filter) } }
-            onWorkspaceChosen: function(id) { window.openWorkspace(id) }
-            onWorkspaceManageRequested: function(id) { window.manageWorkspace(id) }
             onNoteRequested: function(id) { captureNote.begin(id) }
             onActivePanelChanged: window.scheduleSave()
         }
@@ -644,17 +597,11 @@ ApplicationWindow {
             }
             Label {
                 Layout.fillWidth: true
-                // A notice, else the open workspace's name; nothing otherwise.
-                text: window.notification.length ? window.notification : researchStore.busy ? "Saving capture…" : window.workspaceName
+                // A notice while there is one.
+                text: window.notification.length ? window.notification : researchStore.busy ? "Saving capture…" : ""
                 elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
             }
             StatusIcon { kind: "search"; description: "Search · " + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }
-            IconButton {
-                objectName: "manageWorkspaceButton"; icon.name: "workspace"
-                visible: window.activeWorkspace.length > 0
-                description: "Workspace"
-                onClicked: window.manageWorkspace(window.activeWorkspace)
-            }
             StatusIcon { kind: "split"; description: "Duplicate to right split · " + Platform.keys("Ctrl+\\"); visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }
             Repeater {
                 model: window.dockPanels.filter(function(p) { return window.panelSide(p) === "right" })

@@ -428,9 +428,6 @@ Rectangle {
                 onOpenRequested: { root.controller.activateGroup(root.groupId); root.controller.homeOpenRequested() }
                 onDocumentChosen: function(source, position) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source, position) }
                 onResultChosen: function(result) { root.controller.activateGroup(root.groupId); root.controller.homeResultChosen(result) }
-                onWorkspaceChosen: function(id) { root.controller.homeWorkspaceChosen(id) }
-                onWorkspaceManageRequested: function(id) { root.controller.homeWorkspaceManageRequested(id) }
-                onWorkspaceCreated: function(name) { root.controller.homeWorkspaceCreated(name) }
                 onLibraryRequested: { root.controller.activateGroup(root.groupId); root.controller.openLibrary({}) }
                 onLibraryFilterRequested: function(filter) { root.controller.activateGroup(root.groupId); root.controller.openLibrary(filter) }
                 onWebRequested: function(url) { root.controller.activateGroup(root.groupId); root.controller.openWeb(url) }
@@ -499,7 +496,6 @@ Rectangle {
                 onObjectRemoved: function(index, item) { colorMenu.removeItem(item) }
             }
         }
-        MenuItem { text: "Save as Workspace"; onTriggered: root.controller.saveTabGroupAsWorkspace(root.groupId, root.menuLabel) }
         MenuItem { text: "Save Papers as Collection"; onTriggered: root.controller.saveTabGroupAsCollection(root.groupId, root.menuLabel) }
         MenuSeparator {}
         MenuItem { text: "Ungroup"; onTriggered: root.controller.ungroupTabs(root.groupId, root.menuLabel) }

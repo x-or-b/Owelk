@@ -29,7 +29,6 @@ class ResearchStore final : public QObject {
     // Bumps when undo/redo history changes (for enabling Undo and Redo).
     Q_PROPERTY(int historyRevision READ historyRevision NOTIFY historyChanged)
     Q_PROPERTY(QString dataDirectory READ dataDirectory CONSTANT)
-    Q_PROPERTY(QVariantList recentWorkspaces READ recentWorkspaces NOTIFY homeChanged)
     Q_PROPERTY(QVariantMap continueReading READ continueReading NOTIFY homeChanged)
     Q_PROPERTY(QObject *paperIndex READ paperIndex CONSTANT)
     // Where "[12]", "Fig. 3" and the like point, for papers without working links (ReferenceFinder).
@@ -322,20 +321,6 @@ public:
     // Same results as searchKnowledge, computed off the UI thread; answered by knowledgeFound(request, rows).
     Q_INVOKABLE int searchKnowledgeAsync(const QString &query, const QUrl &source = QUrl(),
         const QString &target = "all", const QVariant &scopeUrls = QVariant());
-    Q_INVOKABLE QString createWorkspace(const QString &name);
-    Q_INVOKABLE QVariantMap loadWorkspace(const QString &id);
-    Q_INVOKABLE bool saveWorkspace(const QString &id, const QVariantMap &state);
-    Q_INVOKABLE QVariantMap workspaceDetails(const QString &id) const;
-    Q_INVOKABLE bool setWorkspaceDocument(const QString &id, const QUrl &source, bool linked);
-    Q_INVOKABLE bool setWorkspaceCapture(const QString &id, const QString &captureId, bool linked);
-    Q_INVOKABLE bool renameWorkspace(const QString &id, const QString &name);
-    Q_INVOKABLE bool deleteWorkspace(const QString &id);
-    Q_INVOKABLE QVariantList deletedWorkspaces() const;
-    Q_INVOKABLE bool restoreWorkspace(const QString &id);
-    // Forgets a deleted workspace for good (its layout and links; papers, captures and notes stay).
-    // An empty id forgets every deleted workspace. Returns how many were removed.
-    Q_INVOKABLE int purgeDeletedWorkspaces(const QString &id = QString());
-    QVariantList recentWorkspaces() const;
     QVariantMap continueReading() const;
 
 signals:
@@ -376,8 +361,6 @@ signals:
     void webSourceRequested(const QUrl &page);
     void folderLoaded(int requestId, const QUrl &folder, const QVariantList &entries, const QString &error);
     void homeChanged();
-    void workspaceRenamed(const QString &id, const QString &name);
-    void workspaceDeleted(const QString &id);
     void relinkingChanged();
     void copyingPdfsChanged();
     // Papers moved to the Trash: their open tabs close.

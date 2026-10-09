@@ -40,7 +40,7 @@ private slots:
         const auto old = QUrl::fromLocalFile(dir.filePath("old.pdf")),
                    next = QUrl::fromLocalFile(dir.filePath("moved.pdf"));
         writeFixture(old.toLocalFile());
-        QString capture, documentId, workspace;
+        QString capture, documentId;
         {
             ResearchStore store(dir.filePath("data"));
             QString error;
@@ -48,11 +48,6 @@ private slots:
             auto *index = qobject_cast<PaperIndex *>(store.paperIndex());
             QVERIFY(store.rememberDocument(old));
             QVERIFY(store.saveSession(state(old)));
-            workspace = store.createWorkspace("Research");
-            QVERIFY(store.saveWorkspace(workspace, state(old)));
-            const auto unlinked = store.createWorkspace("Unlinked research");
-            QVERIFY(store.saveWorkspace(unlinked, state(old)));
-            QVERIFY(store.setWorkspaceDocument(unlinked, old, false));
             store.captureRegion(old, 0, QRectF(.1, .1, .4, .2));
             QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
             QCOMPARE(store.captures().size(), 1);
@@ -67,9 +62,6 @@ private slots:
             QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 10000);
             QCOMPARE(store.resolvedSource(old), next);
             QCOMPARE(store.session()["left"].toMap()["source"].toString(), next.toString());
-            QCOMPARE(store.loadWorkspace(workspace)["left"].toMap()["source"].toString(), next.toString());
-            QVERIFY(store.saveWorkspace(unlinked, state(old)));
-            QVERIFY(store.workspaceDetails(unlinked)["documents"].toList().isEmpty());
             QCOMPARE(store.readingPosition(next)["page"].toInt(), 3);
             QCOMPARE(store.recentDocuments().first().toMap()["url"].toUrl(), next);
             QCOMPARE(store.captures().first().toMap()["source"].toUrl(), next);

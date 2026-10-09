@@ -26,102 +26,7 @@ Rectangle {
         if (url.length) webRequested(url)
         return url.length > 0
     }
-    readonly property var deletedWorkspaces: (researchStore.recentWorkspaces, researchStore.deletedWorkspaces())
-    Dialog {
-        id: deletedDialog
-        objectName: "deletedWorkspacesDialog"
-        parent: Overlay.overlay
-        anchors.centerIn: parent
-        width: 440
-        modal: true
-        title: "Deleted workspaces"
-        // Restore brings a workspace back; Delete forgets it for good (papers, captures and notes stay).
-        footer: DialogButtonBox {
-            Button {
-                objectName: "emptyDeletedWorkspaces"
-                text: "Delete All…"
-                palette.buttonText: Theme.danger
-                DialogButtonBox.buttonRole: DialogButtonBox.DestructiveRole
-                onClicked: { purgeConfirm.workspace = ""; purgeConfirm.open() }
-            }
-            Button { text: "Done"; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
-        }
-        onAccepted: close()
-        ColumnLayout {
-            width: parent.width
-            spacing: 8
-            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary; text: "A deleted workspace is only hidden. Restore brings back its papers, captures and layout; Delete removes the workspace itself. Papers, captures and notes are never deleted." }
-            // Many deleted workspaces scroll inside the sheet instead of growing past the window.
-            ScrollView {
-                id: deletedScroll
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(deletedRows.implicitHeight, Math.max(120, root.height * .5))
-                visible: root.deletedWorkspaces.length > 0
-                contentWidth: availableWidth
-                clip: true
-            ListGroup {
-                id: deletedRows
-                width: deletedScroll.availableWidth
-                Repeater {
-                    model: root.deletedWorkspaces
-                    delegate: ItemDelegate {
-                        required property var modelData
-                        required property int index
-                        width: parent.width
-                        height: Theme.rowHeight + 4
-                        separator: index < root.deletedWorkspaces.length - 1
-                        rightPadding: 64
-                        text: modelData.name + "  ·  " + modelData.papers + " papers"
-                        Row {
-                            anchors.right: parent.right; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter
-                            spacing: 2
-                            IconButton {
-                                objectName: "restoreWorkspace-" + modelData.id
-                                icon.name: "restore"; description: "Restore"
-                                // Restoring removes this row; finish with the delegate before the list changes.
-                                onClicked: {
-                                    const id = modelData.id
-                                    if (root.deletedWorkspaces.length === 1) deletedDialog.close()
-                                    Qt.callLater(function() { researchStore.restoreWorkspace(id) })
-                                }
-                            }
-                            IconButton {
-                                objectName: "purgeWorkspace-" + modelData.id
-                                icon.name: "trash"; tint: Theme.danger; description: "Delete permanently…"
-                                onClicked: { purgeConfirm.workspace = modelData.id; purgeConfirm.name = modelData.name; purgeConfirm.open() }
-                            }
-                        }
-                    }
-                }
-            }
-            }
-        }
-    }
-    Dialog {
-        id: purgeConfirm
-        objectName: "purgeWorkspaceDialog"
-        parent: Overlay.overlay
-        anchors.centerIn: parent
-        width: 400
-        modal: true
-        property string workspace: ""
-        property string name: ""
-        title: workspace.length ? "Delete \u201c" + name + "\u201d permanently?" : "Delete all " + root.deletedWorkspaces.length + " deleted workspaces?"
-        Label { width: parent.width; wrapMode: Text.Wrap; color: Theme.textSecondary; text: "This cannot be undone. Papers, captures and notes stay in the library." }
-        footer: DialogButtonBox {
-            Button { text: "Cancel"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
-            Button { objectName: "confirmPurgeWorkspace"; text: "Delete"; palette.buttonText: Theme.danger; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
-        }
-        onAccepted: {
-            const id = workspace, all = !workspace.length || root.deletedWorkspaces.length === 1
-            if (all) deletedDialog.close()
-            Qt.callLater(function() { researchStore.purgeDeletedWorkspaces(id) })
-        }
-    }
     signal documentChosen(url source, var position)
-    signal workspaceChosen(string id)
-    signal workspaceManageRequested(string id)
-    signal workspaceCreated(string name)
     signal resultChosen(var result)
     function choose(result) { if (!searchModel.choose(result)) root.resultChosen(result) }
     function search() { searchModel.refresh(); searchResults.currentIndex = searchModel.selectionIndex() }
@@ -152,7 +57,7 @@ Rectangle {
                     objectName: "homeSearch"
                     Layout.fillWidth: true
                     implicitHeight: 40
-                    placeholderText: "Find PDF text, papers, captures or workspaces  ·  tag: collection: workspace:"
+                    placeholderText: "Find PDF text, papers, notes or AI conversations  ·  tag: collection:"
                     selectByMouse: true
                     onAccepted: {
                         let chosenIndex = searchResults.currentIndex
@@ -270,52 +175,6 @@ Rectangle {
                     spacing: 6
                     RowLayout {
                         Layout.fillWidth: true
-                        Label { text: "Recent Workspaces"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold }
-                        Item { Layout.fillWidth: true }
-                        IconButton {
-                            objectName: "deletedWorkspacesButton"
-                            visible: root.deletedWorkspaces.length > 0
-                            icon.name: "trash"
-                            description: "Deleted workspaces"
-                            onClicked: deletedDialog.open()
-                        }
-                        IconButton { icon.name: "add"; description: "New workspace"; onClicked: workspaceDialog.open() }
-                    }
-                    ListGroup {
-                        Layout.fillWidth: true
-                        visible: researchStore.recentWorkspaces.length > 0
-                        Repeater {
-                            model: researchStore.recentWorkspaces
-                            delegate: ItemDelegate {
-                                id: workspaceItem
-                                required property var modelData
-                                required property int index
-                                width: parent.width
-                                height: Theme.rowHeight + 4
-                                separator: index < researchStore.recentWorkspaces.length - 1
-                                text: modelData.name + "  ·  " + modelData.papers + " papers"
-                                onClicked: root.workspaceChosen(modelData.id)
-                                // Right-click for the workspace's actions.
-                                TapHandler { acceptedButtons: Qt.RightButton; onTapped: workspaceMenu.popup() }
-                                Menu {
-                                    id: workspaceMenu
-                                    objectName: "workspaceMenu"
-                                    MenuItem { text: "Open"; onTriggered: root.workspaceChosen(workspaceItem.modelData.id) }
-                                    MenuItem { objectName: "manageWorkspaceOption"; text: "Manage Links…"; onTriggered: root.workspaceManageRequested(workspaceItem.modelData.id) }
-                                }
-                            }
-                        }
-                    }
-                    Label { visible: researchStore.recentWorkspaces.length === 0; text: "No workspaces yet"; color: Theme.textTertiary }
-                    Label { Layout.fillWidth: true; text: "Keep papers, tabs and reading state together by topic."; wrapMode: Text.Wrap; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
-                }
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 1
-                    Layout.alignment: Qt.AlignTop
-                    spacing: 6
-                    RowLayout {
-                        Layout.fillWidth: true
                         Label { text: "Recent Papers"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32; Layout.fillWidth: true }
                         IconButton {
                             objectName: "openLibraryButton"; icon.name: "library"
@@ -348,16 +207,5 @@ Rectangle {
         objectName: "recentPaperMenu"
         recent: true
         onOpenRequested: function(source, position) { root.documentChosen(source, position) }
-    }
-    Dialog {
-        id: workspaceDialog
-        parent: Overlay.overlay
-        anchors.centerIn: parent
-        title: "New workspace"
-        modal: true
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        onOpened: { workspaceName.clear(); workspaceName.forceActiveFocus() }
-        TextField { id: workspaceName; placeholderText: "Workspace name"; maximumLength: 120; onAccepted: workspaceDialog.accept() }
-        onAccepted: root.workspaceCreated(workspaceName.text)
     }
 }

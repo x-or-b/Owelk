@@ -20,11 +20,9 @@ Rectangle {
     signal linkActivated(string link)
     signal aiRequested(var spec)
     signal settingsRequested()
-    // The Library panel's shelf: open the Library filtered, or a workspace.
-    property var workspace: null
+    // The document area (tabs dragged onto a collection) and the Library opened with a filter.
+    property var documents: null
     signal libraryFilterRequested(var filter)
-    signal workspaceChosen(string id)
-    signal workspaceManageRequested(string id)
     function panelName(panel) { return panel === "files" ? "Library" : panel === "captures" ? "Captures" : panel === "ai" ? "AI" : panel === "document" ? "Document" : "" }
     // A slice of the window: no corners or frame; the 1px edge beside the document is the resize
     // edge in Main.qml.
@@ -42,12 +40,10 @@ Rectangle {
         id: files
         FilePanel {
             folder: root.folder
-            workspace: root.workspace
+            documents: root.documents
             onDocumentChosen: function(source) { root.documentChosen(source) }
             onFolderChosen: function(folder) { root.folderChosen(folder) }
             onLibraryFilterRequested: function(filter) { root.libraryFilterRequested(filter) }
-            onWorkspaceChosen: function(id) { root.workspaceChosen(id) }
-            onWorkspaceManageRequested: function(id) { root.workspaceManageRequested(id) }
         }
     }
     Component { id: captures; CaptureShelf { onNoteRequested: function(id) { root.noteRequested(id) }; onAiRequested: function(spec) { root.aiRequested(spec) } } }

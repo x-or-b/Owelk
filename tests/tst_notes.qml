@@ -71,24 +71,6 @@ Item {
             tryVerify(function() { return !researchStore.note(id).deleted })
             workspace.navigationMode = 0
         }
-        function test_restoreDeletedWorkspaceFromHome() {
-            const id = researchStore.createWorkspace("Restorable workspace")
-            verify(researchStore.deleteWorkspace(id))
-            const home = findChild(workspace, "homeView")
-            tryVerify(function() { const b = visualChild(home, "deletedWorkspacesButton"); return b && b.visible })
-            mouseClick(visualChild(home, "deletedWorkspacesButton"))
-            const dialog = findChild(home, "deletedWorkspacesDialog")
-            tryCompare(dialog, "opened", true)
-            tryVerify(function() { return visualChild(dialog.contentItem, "restoreWorkspace-" + id) !== null })
-            // The sheet centres itself as its rows lay out; click once the row stops moving.
-            const restore = visualChild(dialog.contentItem, "restoreWorkspace-" + id)
-            let last = null
-            tryVerify(function() { const at = restore.mapToItem(null, 0, 0), still = last && at.y === last.y; last = at; return still })
-            mouseClick(restore)
-            tryVerify(function() { return researchStore.recentWorkspaces.some(function(w) { return w.id === id }) })
-            dialog.close()
-            researchStore.deleteWorkspace(id)
-        }
         function test_linkPickerInsertsMarkdownLink() {
             const id = workspace.documents.newNote()
             const note = pane()

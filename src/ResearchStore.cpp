@@ -291,6 +291,20 @@ bool ResearchStore::initialize(QString *error)
         {12, {"ALTER TABLE documents ADD COLUMN trashed_at TEXT"}},
         // AI conversations in the Trash (hidden from the list until restored or deleted for good).
         {13, {"ALTER TABLE ai_threads ADD COLUMN trashed_at TEXT"}},
+        // Workspaces are gone: each one with papers becomes a collection of its name (joining a
+        // top-level collection already called that), and their tables go.
+        {14,
+            {"INSERT OR IGNORE INTO collections(id,name,parent_id,created_at) SELECT w.id,w.name,NULL,w.opened_at "
+             "FROM workspaces w WHERE w.id NOT IN (SELECT id FROM deleted_workspaces) "
+             "AND EXISTS(SELECT 1 FROM workspace_documents d WHERE d.workspace_id=w.id) "
+             "AND NOT EXISTS(SELECT 1 FROM collections c WHERE c.parent_id IS NULL AND c.name=w.name)",
+                "INSERT OR IGNORE INTO collection_documents(collection_id,document_id) "
+                "SELECT (SELECT c.id FROM collections c WHERE c.parent_id IS NULL AND c.name=w.name "
+                "ORDER BY c.id=w.id DESC LIMIT 1),d.document_id FROM workspace_documents d "
+                "JOIN workspaces w ON w.id=d.workspace_id WHERE w.id NOT IN (SELECT id FROM deleted_workspaces)",
+                "DROP TABLE workspace_captures", "DROP TABLE workspace_document_exclusions",
+                "DROP TABLE workspace_documents", "DROP TABLE deleted_workspaces", "DROP TABLE workspaces"},
+            {}, true},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     loadDocumentNames();
@@ -560,103 +574,6 @@ QVariantMap ResearchStore::continueReading() const
     if (!source.isLocalFile()) return {};
     reader.insert("name", displayName(source));
     return reader;
-}
-
-QVariantList ResearchStore::recentWorkspaces() const
-{
-    QVariantList results;
-    QSqlQuery query(m_database);
-    query.exec(
-        "SELECT w.id,w.name,(SELECT count(*) FROM workspace_documents d WHERE d.workspace_id=w.id) "
-        "FROM workspaces w WHERE w.id NOT IN (SELECT id FROM deleted_workspaces) ORDER BY w.opened_at DESC LIMIT 12");
-    while (query.next())
-        results.append(QVariantMap{{"id", query.value(0)}, {"name", query.value(1)}, {"papers", query.value(2)}});
-    return results;
-}
-
-QString ResearchStore::createWorkspace(const QString &name)
-{
-    const QString trimmed = name.trimmed();
-    if (trimmed.isEmpty() || trimmed.size() > 120) {
-        emit message(tr("Enter a workspace name (1–120 characters)."));
-        return {};
-    }
-    const QString id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    QSqlQuery query(m_database);
-    query.prepare("INSERT INTO workspaces VALUES(?,?,?,?)");
-    query.addBindValue(id);
-    query.addBindValue(trimmed);
-    query.addBindValue("{}");
-    query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
-    if (!query.exec()) {
-        emit message(query.lastError().text());
-        return {};
-    }
-    emit homeChanged();
-    return id;
-}
-
-QVariantMap ResearchStore::loadWorkspace(const QString &id)
-{
-    QSqlQuery query(m_database);
-    query.prepare("SELECT name,state FROM workspaces WHERE id=? AND id NOT IN (SELECT id FROM deleted_workspaces)");
-    query.addBindValue(id);
-    if (!query.exec() || !query.next()) {
-        emit message(tr("Workspace not found."));
-        return {};
-    }
-    auto state = QJsonDocument::fromJson(query.value(1).toByteArray()).object().toVariantMap();
-    state.insert("workspace", id);
-    state.insert("workspaceName", query.value(0));
-    QSqlQuery touch(m_database);
-    touch.prepare("UPDATE workspaces SET opened_at=? WHERE id=?");
-    touch.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
-    touch.addBindValue(id);
-    touch.exec();
-    emit homeChanged();
-    return state;
-}
-
-bool ResearchStore::saveWorkspace(const QString &id, const QVariantMap &input)
-{
-    const auto state = canonicalState(input);
-    if (id.isEmpty()) return true;
-    if (!m_database.transaction()) {
-        emit message(tr("Cannot begin saving workspace."));
-        return false;
-    }
-    QSqlQuery query(m_database);
-    query.prepare("UPDATE workspaces SET state=? WHERE id=? AND id NOT IN (SELECT id FROM deleted_workspaces)");
-    query.addBindValue(QString::fromUtf8(QJsonDocument::fromVariant(state).toJson(QJsonDocument::Compact)));
-    query.addBindValue(id);
-    if (!query.exec() || query.numRowsAffected() != 1) {
-        m_database.rollback();
-        emit message(tr("Cannot save this workspace."));
-        return false;
-    }
-    for (const auto &value : readers(state)) {
-        const auto source = ensureDocument(QUrl(value.toMap().value("source").toString()));
-        if (source.isEmpty()) continue;
-        QSqlQuery link(m_database);
-        link.prepare("INSERT OR IGNORE INTO workspace_documents(workspace_id,document_id) SELECT ?,? WHERE NOT EXISTS "
-                     "(SELECT 1 FROM workspace_document_exclusions WHERE workspace_id=? AND document_id=?)");
-        link.addBindValue(id);
-        link.addBindValue(source);
-        link.addBindValue(id);
-        link.addBindValue(source);
-        if (!link.exec()) {
-            m_database.rollback();
-            emit message(link.lastError().text());
-            return false;
-        }
-    }
-    if (!m_database.commit()) {
-        m_database.rollback();
-        emit message(tr("Cannot save workspace."));
-        return false;
-    }
-    emit homeChanged();
-    return true;
 }
 
 void ResearchStore::captureRegion(const QUrl &source, int page, const QRectF &requested)
@@ -1315,10 +1232,10 @@ bool ResearchStore::restoreCapture(const QString &id)
         }
         return false;
     }
-    // Only remove the deletion marker; original anchors, notes and workspace links stay intact.
+    // Only remove the deletion marker; original anchors and notes stay intact.
     reloadCaptures();
     recordCapture(id, false);
-    emit message(tr("Capture restored with its note and workspace links."));
+    emit message(tr("Capture restored with its note."));
     return true;
 }
 
@@ -1395,9 +1312,9 @@ int ResearchStore::purgeTrashedCaptures(const QStringList &ids)
         // Only an app-generated PNG named after the capture may be deleted.
         if (!image.isEmpty() && image != id + ".png") return fail();
         if (!image.isEmpty()) images.append(m_directory + "/captures/trash/" + image);
-        for (const auto *sql : {"DELETE FROM workspace_captures WHERE capture_id=?",
-                 "DELETE FROM capture_notes WHERE capture_id=?", "DELETE FROM text_captures WHERE capture_id=?",
-                 "DELETE FROM captures WHERE id=?", "DELETE FROM deleted_captures WHERE id=?"}) {
+        for (const auto *sql :
+            {"DELETE FROM capture_notes WHERE capture_id=?", "DELETE FROM text_captures WHERE capture_id=?",
+                "DELETE FROM captures WHERE id=?", "DELETE FROM deleted_captures WHERE id=?"}) {
             QSqlQuery remove(m_database);
             remove.prepare(sql);
             remove.addBindValue(id);

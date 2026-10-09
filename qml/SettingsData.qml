@@ -83,7 +83,7 @@ ColumnLayout {
     SettingsGroup {
         title: "Backup"
         note: root.result.length ? root.result
-            : "A backup copies the library (papers' details, captures, notes, annotations, AI threads, workspaces) and its images into a folder. Your PDFs stay where they are and are not copied. Automatic backups go to the data folder's backups/auto."
+            : "A backup copies the library (papers' details, notes, annotations, AI threads) and its images into a folder. Your PDFs stay where they are and are not copied. Automatic backups go to the data folder's backups/auto."
         SettingsRow {
             label: "Back up automatically"
             detail: "Once a day; keeps the last 7"

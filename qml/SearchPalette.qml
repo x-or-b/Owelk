@@ -48,7 +48,7 @@ Popup {
             id: searchInput
             objectName: "searchPaletteQuery"
             Layout.fillWidth: true
-            placeholderText: "Search PDF text, papers, captures, AI  ·  narrow with tag: collection: workspace: state: year:"
+            placeholderText: "Search PDF text, papers, notes, AI  ·  narrow with tag: collection: state: year:"
             selectByMouse: true
             onAccepted: {
                 let at = list.currentIndex

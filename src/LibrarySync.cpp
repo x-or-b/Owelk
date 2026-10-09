@@ -36,15 +36,11 @@ struct Table {
 const QList<Table> &tables()
 {
     static const QList<Table> list{{"documents", {"id"}}, {"tags", {"id"}}, {"collections", {"id"}}, {"notes", {"id"}},
-        {"workspaces", {"id"}}, {"deleted_workspaces", {"id"}}, {"captures", {"id"}}, {"deleted_captures", {"id"}},
-        {"text_captures", {"capture_id"}}, {"capture_notes", {"capture_id"}}, {"highlights", {"id"}},
-        {"recent_documents", {"document_id"}}, {"reading_positions", {"document_id"}},
-        {"workspace_documents", {"workspace_id", "document_id"}},
-        {"workspace_document_exclusions", {"workspace_id", "document_id"}},
-        {"workspace_captures", {"workspace_id", "capture_id"}},
-        {"collection_documents", {"collection_id", "document_id"}}, {"document_tags", {"document_id", "tag_id"}},
-        {"links", {"from_kind", "from_id", "to_kind", "to_id"}}, {"ai_threads", {"id"}}, {"ai_messages", {"id"}},
-        {"ai_responses", {"id"}}};
+        {"captures", {"id"}}, {"deleted_captures", {"id"}}, {"text_captures", {"capture_id"}},
+        {"capture_notes", {"capture_id"}}, {"highlights", {"id"}}, {"recent_documents", {"document_id"}},
+        {"reading_positions", {"document_id"}}, {"collection_documents", {"collection_id", "document_id"}},
+        {"document_tags", {"document_id", "tag_id"}}, {"links", {"from_kind", "from_id", "to_kind", "to_id"}},
+        {"ai_threads", {"id"}}, {"ai_messages", {"id"}}, {"ai_responses", {"id"}}};
     return list;
 }
 
@@ -330,9 +326,6 @@ bool Pass::applyChange(const QJsonObject &change)
             const auto kind = refersTo(table, it.key(), row);
             if (!kind.isEmpty()) it.value() = alias(kind, it.value().toString());
         }
-        if (table == "workspaces")
-            for (auto it = m_aliases["document"].cbegin(); it != m_aliases["document"].cend(); ++it)
-                row["state"] = row["state"].toString().replace(it.key(), alias("document", it.key()));
         for (const auto &key : keys) keyMap[key] = row.value(key);
     }
     QVariantList keyValues;
@@ -415,14 +408,13 @@ bool Pass::rekey(const QString &table, const QString &from, const QString &to)
     if (!run("DELETE FROM sync_pause")) return false;
     QList<QPair<QString, QVariantList>> statements;
     if (table == "documents") {
-        for (const auto *child : {"recent_documents", "reading_positions", "workspace_documents",
-                 "workspace_document_exclusions", "collection_documents", "document_tags", "captures", "highlights"})
+        for (const auto *child : {"recent_documents", "reading_positions", "collection_documents", "document_tags",
+                 "captures", "highlights"})
             statements.append(
                 {QStringLiteral("UPDATE OR REPLACE %1 SET document_id=? WHERE document_id=?").arg(child), {to, from}});
         statements.append(
             {"UPDATE OR REPLACE links SET from_id=? WHERE from_kind='document' AND from_id=?", {to, from}});
         statements.append({"UPDATE OR REPLACE links SET to_id=? WHERE to_kind='document' AND to_id=?", {to, from}});
-        statements.append({"UPDATE workspaces SET state=replace(state,?,?) WHERE instr(state,?)>0", {from, to, from}});
     } else {
         statements.append({"UPDATE OR REPLACE document_tags SET tag_id=? WHERE tag_id=?", {to, from}});
     }
