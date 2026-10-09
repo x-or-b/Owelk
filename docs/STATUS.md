@@ -1,6 +1,6 @@
 # 기획서 대비 구현 현황
 
-2026-10-09 기준. 현재는 **PDF 리더 + 웹 탭 + 라이브러리 + 주석·노트와 연결 + 단어·의미 검색 + 탭 그룹 + AI 읽기 보조 + 백업·내보내기 + 폴더 동기화**를 갖춘 Research Workspace입니다. 기획서 v0.1–v0.5와 v1 마무리 항목을 구현했습니다. macOS에서 빌드·자동 검증했고, Linux·Windows는 GitHub Actions CI로 빌드·테스트합니다(실기기 확인은 남음).
+2026-10-10 기준. 현재는 **PDF 리더 + 웹 탭 + 라이브러리 + 주석·노트와 연결 + 단어·의미 검색 + 탭 그룹 + AI 읽기 보조 + 백업·내보내기 + 폴더 동기화**를 갖춘 Research Workspace입니다. 기획서 v0.1–v0.5와 v1 마무리 항목을 구현했습니다. macOS에서 빌드·자동 검증했고, Linux·Windows는 GitHub Actions CI로 빌드·테스트합니다(실기기 확인은 남음).
 
 핵심 원칙은 **가볍고 빠름**입니다. 시작할 때 라이브러리를 훑지 않고, 무거운 작업(본문 색인·OCR·의미 벡터·백업)은 낮은 우선순위 배경 스레드에서 읽는 동안 멈추며, 선택 기능(의미 검색·OCR·주석 PDF)은 켜거나 설치하기 전에는 아무 비용이 없습니다.
 
@@ -8,19 +8,28 @@
 | --- | --- | --- |
 | 1–3. 개요·원칙 | 로컬 저장, 원본 PDF 불변, 출처 검증(SHA-256·파일 스탬프 캐시), 외부 전송은 웹 탭·명시적 조회·동의한 AI·의미 검색 엔진 요청만 | 실제 대형 PDF 성능 실측 |
 | 4. 객체 모델 | 공통 Document ID(PDF·웹, 탭에도 저장), 공통 DocumentAnchor(위치·문장 인용, 하나의 이동 경로) | 앵커 저장 형식 통합(현재는 읽을 때 구성) |
-| 5–6. 실행·Home | 세션 복원, 비정상 종료 감지·안내·편집 초안 복구, Home 검색·웹 검색 | — |
+| 5–6. 실행·Home | 세션 복원, 비정상 종료 감지·안내·편집 초안 복구, Home 검색·웹 검색·이어 읽기 카드·Inbox·최근 노트와 AI 대화 | — |
 | 7–10. 문서·웹·탭 | PDF·암호 PDF·분할·탭 단축키, 웹 탭(진행 막대·프레임 PDF 안내), 이름 있는 탭 그룹(접기·Collection 저장), AI 탭 정리(승인 후 적용) | Reader Mode, 웹 탭 상태 유지, OS 창 분리 |
-| 11. 정리 | 라이브러리(Collection·Tag·읽기 상태·중복·색인 제외), 관련 논문·노트 | Smart Collection |
+| 11. 정리 | 라이브러리(Papers·Notes·Trash, Collection·Tag·읽기 상태·중복·색인 제외), 논문·노트·AI 대화를 함께 담는 휴지통, 관련 논문·노트 | Smart Collection |
 | 12–16. 검색·커맨드 | FTS5 본문(+OCR), 단어 순서 무관·점수 순위, 범위 칩·검색어 조건, 선택적 의미 검색(Ollama·OpenAI), 명령 팔레트 | — |
 | 17–21. 주석·연결 | 5색 주석·코멘트, 영역 표시(캡션 함께), 노트 링크·역링크, 주석 포함 PDF 내보내기(표준 주석). 이전 Captures는 주석·노트로 통합(스키마 15) | Figure 자동 인식 |
 | 22–27. 노트·AI | Markdown 노트, AI 4종(Claude API, OpenAI API, ChatGPT 계정, Ollama), 모델·추론 강도·Fast, 이미지·PDF/웹 영역 첨부(저장 안 함), Thread, 선호 언어, 논문 비교표, 쪽별 번역·논문 요약, 탭·Collection AI 정리 | 라이브러리 전체에 묻기(v0.6) |
-| 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, 공유 폴더를 통한 컴퓨터 간 동기화(Google Drive·Dropbox·Syncthing, 항목별 나중 변경 우선), SQLite(라이브러리 스키마 11, 색인 4, 업그레이드 전 백업), 백업·복원, Markdown·BibTeX 내보내기, 단축키 변경, macOS·Linux·Windows 키 저장소, 로컬 설치 스크립트, 자동 테스트 7묶음 | Linux/Windows 실기기, 배포 패키지 |
+| 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, 공유 폴더를 통한 컴퓨터 간 동기화(Google Drive·Dropbox·Syncthing, 항목별 나중 변경 우선), SQLite(라이브러리 스키마 15, 색인 4, 업그레이드 전 백업), 백업·복원, Markdown·BibTeX 내보내기, 단축키 변경, macOS·Linux·Windows 키 저장소, 로컬 설치 스크립트, 자동 테스트 7묶음 | Linux/Windows 실기기, 배포 패키지 |
 
 ## 우선순위
 
 가볍고 빠름을 먼저 지키고, 기획서 순서보다 실제 사용 중 불편한 부분을 먼저 고칩니다. 기능별 사용법은 [README](../README.md)와 각 문서에, 변경 이력은 git 로그에 있습니다.
 
-## 이번 단계 (2026-10-09): 어려운 부분 읽기 돕기
+## 이번 단계 (2026-10-10): 구조 단순화
+
+- Workspaces 제거: 논문이 있던 워크스페이스는 같은 이름의 Collection이 됩니다(스키마 14, 업그레이드 전 백업).
+- Captures를 주석으로 통합: 문장 캡처는 하이라이트, 영역 캡처는 새 영역 주석(캡션·메모 유지), 웹 캡처는 그림이 든 노트가 됩니다(스키마 15, 같은 ID·링크 유지). 새 `Mark Region` 도구, AI의 PDF·웹 영역 첨부는 저장하지 않는 그림.
+- Document 패널 네 칸: Contents(Outline·Pages), Annotations(이 논문에 대한 노트 + 모든 주석; 리더 옆 메모 열을 대신함), Symbols, Related(Library·Cites·Cited by). 새 노트는 논문 옆 분할에 링크와 함께 열림.
+- AI 답변 Save as Note: 질문 인용, 이 논문의 노트에 덧붙이기. 노트의 AI 링크는 휴지통이면 Restore 안내, 영구 삭제면 회색 `Deleted conversation`.
+- Library: Papers · Notes · Trash, 논문·노트·AI 대화를 함께 담는 휴지통(지울 항목을 링크한 노트가 있으면 먼저 알림, 기간이 지나면 노트도 자동 삭제). Library 패널은 All Papers·Unsorted·Favorites·Collections·Tags·Notes 길잡이.
+- Home: 검색과 웹 검색 아래 이어 읽기 카드, Recent Papers와 Inbox(분류 전 논문 + 넣을 곳 제안), 최근 노트·AI 대화.
+
+## 지난 단계 (2026-10-09): 어려운 부분 읽기 돕기
 
 - 그림·표·알고리즘·수식 위에서 우클릭하면 `Ask AI about Figure 3`처럼 그 대상을 찾아(캡션·번호·영역, 2단 쪽은 단 단위) 이미지와 이름을 AI 대화에 첨부합니다. 열려 있는 대화가 있으면(패널이 숨겨져 있어도) 거기에, 없으면 그 논문으로 새 대화를 엽니다. 선택한 글과 PDF·웹 영역도 같습니다.
 - 우클릭은 상황별로 필요한 것만 보여 줍니다(선택 / 대상 위 / 빈 본문). 채팅 첨부 메뉴는 This Paper · Region of the PDF · Image.
