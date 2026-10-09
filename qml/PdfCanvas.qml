@@ -171,7 +171,7 @@ Item {
     property real targetScrollY: 0
     property int sourceScrollDuration: 800
     // The page scroll bars appear while scrolling or under the pointer and stay this long (ms) after.
-    readonly property int scrollBarHold: 1500
+    readonly property int scrollBarHold: 1000
     function scrollBarShown(bar) { return bar.active || bar.hovered || bar.pressed }
     // Sideways by a number of pixels (Shift+wheel, ←/→), kept within the pages.
     readonly property bool wide: pages.contentWidth > pages.width + 1
@@ -635,7 +635,7 @@ Item {
         flickableDirection: Flickable.AutoFlickDirection
         boundsBehavior: Flickable.StopAtBounds
         cacheBuffer: Math.max(0, height * 0.5)
-        onContentYChanged: { if (!root.restoring) positionTimer.restart(); if ((root.linkPreview || previewShow.running) && !root.restoring && Math.abs(contentY - root.previewContentY) > 24) root.closeLinkPreview() }
+        onContentYChanged: { if (!root.restoring) positionTimer.restart(); if ((root.linkPreview || root.pendingPreview) && !root.restoring && Math.abs(contentY - root.previewContentY) > 24) root.closeLinkPreview() }
         onContentXChanged: if (!root.restoring) positionTimer.restart()
         onMovementEnded: root.updatePosition()
         onMovementStarted: root.stopSourceMotion()
@@ -1192,10 +1192,12 @@ Item {
                     opacity: root.spotlightOpacity
                     scale: root.spotlightScale
                     property rect region: visible ? root.highlight.rect : Qt.rect(0, 0, 0, 0)
-                    x: region.x * paper.width
-                    y: region.y * paper.height
-                    width: region.width * paper.width
-                    height: region.height * paper.height
+                    // A little room around the words, so the frame never covers them.
+                    readonly property real pad: Math.max(5, 4 * root.pageScale)
+                    x: region.x * paper.width - pad
+                    y: region.y * paper.height - pad
+                    width: region.width * paper.width + pad * 2
+                    height: region.height * paper.height + pad * 2
                     color: "transparent"
                     radius: Theme.radius
                     border.color: Theme.captureBorder
@@ -1336,10 +1338,11 @@ Item {
     property var pendingPreview: null
     // Where the pages were scrolled when the preview was asked for: reading on (not layout settling) closes it.
     property real previewContentY: 0
-    function requestLinkPreview(spec) { pendingPreview = spec; previewContentY = pages.contentY; previewHide.stop(); previewShow.restart() }
-    function leaveLinkPreview() { previewShow.stop(); if (!previewHover.hovered) previewHide.restart() }
-    function closeLinkPreview() { previewShow.stop(); previewHide.stop(); linkPreview = null; pendingPreview = null }
-    Timer { id: previewShow; interval: 350; onTriggered: root.linkPreview = root.pendingPreview }
+    // A working link waits for the text lookup: a reference shows its entries, figure or equation; only a
+    // link that is none of these (a section, a page) shows the place it points to (onResolved).
+    function requestLinkPreview(spec) { pendingPreview = spec; previewContentY = pages.contentY; previewHide.stop() }
+    function leaveLinkPreview() { pendingPreview = null; if (!previewHover.hovered) previewHide.restart() }
+    function closeLinkPreview() { previewHide.stop(); linkPreview = null; pendingPreview = null }
     // A citation shows its reference entries as a list (one or several); figures, tables and
     // equations keep the page view.
     function citedEntries(target) {
@@ -1491,7 +1494,7 @@ Item {
                 height: Theme.controlHeight
                 icon.name: "back"
                 text: "Back to p. " + (root.backTarget ? root.backTarget.page + 1 : "")
-                ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: "Back to where you were reading · " + Platform.keys("Alt+Left")
+                ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: "Back · " + Platform.keys("Alt+Left")
                 onClicked: root.goBack()
             }
             IconButton {
@@ -1586,6 +1589,9 @@ Item {
                 if (!fallback && root.hoveredLink) {
                     root.referenceFallback = true
                     root.referenceRequest = researchStore.references.entryAt(root.source, root.hoveredLink.page, root.hoveredLink.location)
+                } else if (fallback && root.hoveredLink && root.pendingPreview && !root.linkPreview) {
+                    // Not a reference at all: the place the link points to.
+                    root.linkPreview = root.pendingPreview
                 }
                 return
             }
@@ -1593,13 +1599,13 @@ Item {
                 // Keep the link's own destination; add what the entry says (for Find Paper and the outline).
                 const shown = root.linkPreview || root.pendingPreview
                 if (!shown || !root.hoveredLink) return
-                previewShow.stop(); previewHide.stop()
+                previewHide.stop()
                 root.linkPreview = Object.assign({}, shown, {kind: target.kind, label: target.label, text: target.text || "", entries: root.citedEntries(target),
                                                              rect: Qt.rect(target.x, target.y, target.width, target.height), float: target.float || null})
                 return
             }
             const half = 8 * root.pageScale
-            previewShow.stop(); previewHide.stop()
+            previewHide.stop()
             root.previewContentY = pages.contentY
             root.linkPreview = {page: target.page, y: target.top, x: spot.viewX, kind: target.kind, top: spot.viewY - half, bottom: spot.viewY + half,
                                 rect: Qt.rect(target.x, target.y, target.width, target.height), label: target.label, text: target.text || "", entries: root.citedEntries(target),
@@ -1812,7 +1818,7 @@ Item {
                     objectName: "findPaperEntry-" + entryRow.index
                     anchors.right: parent.right; anchors.rightMargin: 4; anchors.verticalCenter: parent.verticalCenter
                     icon.name: "search"
-                    description: "Find this paper · its DOI or arXiv page, or a search"
+                    description: "Find paper"
                     onClicked: root.findPaper(entryRow.modelData.text)
                 }
             }
@@ -1854,8 +1860,6 @@ Item {
                 visible: !!previewCard.spec.float
                 anchors.verticalCenter: parent.verticalCenter
                 text: "Explain"
-                ToolTip.visible: hovered; ToolTip.delay: 500
-                ToolTip.text: "A short explanation beside it · every symbol defined"
                 onClicked: {
                     const s = previewCard.spec
                     const target = Object.assign({kind: s.kind, label: s.label, page: s.page}, s.float)
@@ -1869,8 +1873,6 @@ Item {
                 visible: !!previewCard.area
                 anchors.verticalCenter: parent.verticalCenter
                 text: "Ask AI"; icon.name: "ai"
-                ToolTip.visible: hovered; ToolTip.delay: 500
-                ToolTip.text: "Attach the " + (previewCard.spec.kind === "table" ? "table" : "figure") + " with its caption to the AI conversation"
                 onClicked: {
                     const a = previewCard.area, size = pdfDocument.pagePointSize(previewCard.spec.page)
                     const page = previewCard.spec.page
@@ -1887,8 +1889,6 @@ Item {
             anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 6
             text: "Find Paper"
             icon.name: "search"
-            ToolTip.visible: hovered; ToolTip.delay: 500
-            ToolTip.text: "Open its DOI or arXiv page, or search for it · then download the PDF into the Library"
             onClicked: root.findPaper(previewCard.spec.text)
         }
         HoverHandler { id: previewHover; onHoveredChanged: if (!hovered) previewHide.restart() }

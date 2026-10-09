@@ -208,8 +208,14 @@ Item {
             compare(link.page, 2)
             // On "[3]": found from the text, with the entry for Find Paper.
             const y = link.height / 2
+            // The card opens with the entry list, never with the plain page first.
+            let pageFirst = false
+            const watch = function() { if (canvas.linkPreview && !(canvas.linkPreview.entries || []).length) pageFirst = true }
+            canvas.linkPreviewChanged.connect(watch)
             for (let x = link.width - 40; x <= link.width - 8 && !find.visible; x += 6) { mouseMove(link, x, y); wait(450) }
             tryVerify(function() { return card.visible && find.visible }, 5000)
+            canvas.linkPreviewChanged.disconnect(watch)
+            verify(!pageFirst)
             verify(canvas.linkPreview.text.indexOf("The cited paper") >= 0)
             mouseMove(canvas, 4, canvas.height - 4)
             tryCompare(card, "visible", false, 3000)
