@@ -1354,19 +1354,6 @@ Item {
     function adjustable(mark) {
         return mark.kind === "text" || mark.kind === "image" || mark.kind === "draw" || (mark.kind === "comment" && !mark.text)
     }
-    // The adjustable mark under a point (page fractions), topmost first; a stroke only near its ink.
-    function markAt(page, fx, fy, paperItem) {
-        const marks = savedHighlights.filter(function(m) { return m.page === page && root.adjustable(m) && m.rectangles.length === 1 })
-        for (let i = marks.length - 1; i >= 0; --i) {
-            const m = marks[i], r = m.rectangles[0]
-            if (m.kind === "draw") {
-                const near = Stroke.distance(m.drawing || [], fx * paperItem.width, fy * paperItem.height,
-                                             function(p) { return p.x * paperItem.width }, function(p) { return p.y * paperItem.height })
-                if (near <= Math.max(6, 3 * root.pageScale)) return m
-            } else if (fx >= r.x && fx <= r.x + r.width && fy >= r.y && fy <= r.y + r.height) return m
-        }
-        return null
-    }
     function beginMarkEdit(mark) {
         if (!mark) return
         // A change still being saved continues from where it was left, not from the stored box.

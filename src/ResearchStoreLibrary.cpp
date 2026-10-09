@@ -283,13 +283,6 @@ bool ResearchStore::excludedFromIndex(const QUrl &source) const
     return query.exec() && query.next() && query.value(0).toBool();
 }
 
-QStringList ResearchStore::documentIdsInScope(const QVariantMap &filter) const
-{
-    QStringList ids;
-    for (const auto &row : libraryDocuments(filter)) ids << row.toMap().value("id").toString();
-    return ids;
-}
-
 int ResearchStore::unsortedCount() const
 {
     QSqlQuery query(m_database);
@@ -456,34 +449,6 @@ int ResearchStore::removeFromLibrary(const QVariantList &sources)
     emit message(removed == 1 ? QStringLiteral("Removed from the Library. The PDF file was kept.")
                               : QString("Removed %1 papers from the Library. The PDF files were kept.").arg(removed));
     return removed;
-}
-
-int ResearchStore::movePdfsToTrash(const QVariantList &sources)
-{
-    QVariantList moved;
-    QStringList failed;
-    for (const auto &value : sources) {
-        const auto url = resolvedSource(value.toUrl());
-        const auto path = url.toLocalFile();
-        if (!url.isLocalFile() || !QFileInfo(path).isFile()) {
-            failed << QFileInfo(path).fileName();
-            continue;
-        }
-        // To the system Trash only: the file can be put back from there.
-        if (QFile::moveToTrash(path))
-            moved.append(value);
-        else
-            failed << QFileInfo(path).fileName();
-    }
-    if (!moved.isEmpty()) removeFromLibrary(moved);
-    if (!failed.isEmpty())
-        emit message(
-            "Could not move to the Trash: " + failed.join(", ") + ". Nothing else was changed for those files.");
-    else if (!moved.isEmpty())
-        emit message(moved.size() == 1
-                ? QStringLiteral("Moved the PDF to the Trash and removed it from the Library.")
-                : QString("Moved %1 PDFs to the Trash and removed them from the Library.").arg(moved.size()));
-    return int(moved.size());
 }
 
 int ResearchStore::importFolder(const QUrl &folder, const QString &parentCollection, bool foldersAsCollections)

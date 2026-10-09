@@ -265,14 +265,6 @@ Item {
         if (provider === "codex") return "Sign in with ChatGPT in Settings → AI."
         return "Add an API key in Settings → AI."
     }
-    function chooseProvider(provider) {
-        ai.provider = provider
-        error = ""
-        const info = ai.providers.find(function(p) { return p.id === provider }) || ({})
-        if (!info.configured && provider !== "ollama")
-            error = setupHint(provider)
-        else ai.listModels(provider)
-    }
     function chooseModel(provider, model) {
         ai.provider = provider
         ai.setModel(provider, model)

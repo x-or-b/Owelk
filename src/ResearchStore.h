@@ -130,7 +130,6 @@ public:
 
     // Library organisation (ResearchStoreLibrary.cpp). Filters: see libraryDocuments().
     Q_INVOKABLE QVariantList libraryDocuments(const QVariantMap &filter = {}) const;
-    Q_INVOKABLE QStringList documentIdsInScope(const QVariantMap &filter) const;
     Q_INVOKABLE QVariantList collections() const;
     // Papers in no collection (the Library's Unsorted view).
     Q_INVOKABLE int unsortedCount() const;
@@ -149,8 +148,6 @@ public:
     // tree (existing ones with the same name are reused) under parentCollection. Files are not moved.
     // Answered by folderImported(request, added, collections, error).
     Q_INVOKABLE int importFolder(const QUrl &folder, const QString &parentCollection, bool foldersAsCollections);
-    // Moves the PDF files to the system Trash (recoverable there) and removes the papers from the Library.
-    Q_INVOKABLE int movePdfsToTrash(const QVariantList &sources);
     // Collections where similar papers already are, for a paper in none of them (or to add more):
     // answered by collectionsSuggested(request, source, [{id, name}]). No AI; the related-papers
     // search, cached until the library changes.

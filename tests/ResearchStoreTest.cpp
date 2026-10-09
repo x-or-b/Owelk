@@ -1475,9 +1475,6 @@ private slots:
         QVERIFY(QFile::exists(a.toLocalFile()));
         QVERIFY(store.rememberDocument(a));
         QTRY_COMPARE_WITH_TIMEOUT(store.libraryDocuments({}).size(), 2, 2000);
-        // A file that is not there is not "moved to the Trash", and nothing changes.
-        QCOMPARE(store.movePdfsToTrash({QUrl::fromLocalFile(directory.filePath("missing.pdf"))}), 0);
-        QCOMPARE(store.libraryDocuments({}).size(), 2);
     }
     void importAFolderAsCollections()
     {
