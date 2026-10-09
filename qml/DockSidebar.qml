@@ -32,18 +32,6 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
-        // Its name (one panel per dock; the status bar's icons open and close them).
-        Label {
-            objectName: "dockTitle"
-            Layout.fillWidth: true
-            Layout.preferredHeight: Theme.barHeight
-            leftPadding: 12
-            verticalAlignment: Text.AlignVCenter
-            text: root.panelName(root.activePanel)
-            font.pixelSize: Theme.fontSmall
-            font.weight: Font.DemiBold
-            color: Theme.textSecondary
-        }
         Loader {
             Layout.fillWidth: true
             Layout.fillHeight: true
