@@ -273,14 +273,16 @@ Item {
             clip: true
             spacing: 0
             focus: visible
-            model: root.showingTrash ? researchStore.trashedAiThreads() : researchStore.aiThreads()
+            // Read again when threads change and when switching between the threads and the Trash.
+            property int revision: 0
+            model: (revision, root.showingTrash ? researchStore.trashedAiThreads() : researchStore.aiThreads())
             Connections {
                 target: researchStore
-                function onAiThreadsChanged() {
-                    threadList.model = root.showingTrash ? researchStore.trashedAiThreads() : researchStore.aiThreads()
-                    const ids = threadList.model.map(function(t) { return t.id })
-                    root.selectedThreads = root.selectedThreads.filter(function(id) { return ids.indexOf(id) >= 0 })
-                }
+                function onAiThreadsChanged() { threadList.revision++ }
+            }
+            onModelChanged: {
+                const ids = model.map(function(t) { return t.id })
+                root.selectedThreads = root.selectedThreads.filter(function(id) { return ids.indexOf(id) >= 0 })
             }
             Keys.onDeletePressed: if (root.selectedThreads.length && !root.showingTrash) root.trashThreads(root.selectedThreads)
             Keys.onPressed: function(event) {
