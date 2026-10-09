@@ -121,11 +121,11 @@ Rectangle {
     }
     // Gloss: the selected word explained as used here, or the passage translated, beside the selection.
     function glossSelection() {
-        if (!canvas.selectedText.length) return
+        if (!canvas.selectedText.length || !canvas.selectedAnchor) return
         activated()
-        const at = selectionToolbar.visible ? Qt.point(selectionToolbar.x, selectionToolbar.y + selectionToolbar.height)
-                                            : Qt.point(canvas.selectionEnd.x, canvas.selectionEnd.y + 8)
-        gloss.show({source: source, page: selectionPage(), text: canvas.selectedText}, at)
+        const end = canvas.selectedAnchor
+        gloss.anchor = {page: end.page, x: end.to.x, y: end.to.y}
+        gloss.show({source: source, page: selectionPage(), text: canvas.selectedText})
     }
     function askAboutSelection() {
         if (!canvas.selectedText.length) return
@@ -598,9 +598,17 @@ Rectangle {
                 }
             }
 
+            // Gloss sits under the selected words (below the selection toolbar) and moves with the page;
+            // while the words are scrolled out of view it is hidden.
             GlossPopup {
                 id: gloss
                 parent: canvas
+                property var anchor: null
+                readonly property point at: anchor ? canvas.viewPoint(anchor.page, anchor.x, anchor.y) : Qt.point(0, 0)
+                readonly property bool inView: at.y > -8 && at.y < canvas.height + 8
+                x: Math.max(8, Math.min(canvas.width - width - 8, at.x - 24))
+                y: at.y + 52 + height < canvas.height ? at.y + 52 : Math.max(8, at.y - height - 16)
+                opacity: inView ? 1 : 0
             }
             // It stays until Esc or a click outside; another document closes it (it belongs to this one).
             Connections { target: canvas; function onSourceChanged() { gloss.close() } }

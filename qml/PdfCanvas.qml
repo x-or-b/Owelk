@@ -69,6 +69,14 @@ Item {
     }
     // A page's size in PDF points (text boxes fit their font to it).
     function pagePoints(page) { return pdfDocument.pagePointSize(page) }
+    // A point on a page (PDF points) in this view's coordinates; a binding using it follows scrolling and
+    // zoom. Far off screen (the page not laid out) it is above the view.
+    function viewPoint(page, x, y) {
+        const item = pages.itemAtIndex(page), top = pages.contentY, left0 = pages.contentX
+        if (!item) return Qt.point(-1, -1e6)
+        const left = (pages.contentWidth - item.pointSize.width * pageScale) / 2
+        return Qt.point(left + x * pageScale - left0, item.y + y * pageScale - top)
+    }
     property string documentFingerprint: ""
     property var editingMark: null
     // A mark outlined on the page while its note is hovered in the margin.

@@ -50,13 +50,11 @@ Popup {
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     onClosed: if (streaming) { ai.cancel(request); streaming = false }
 
-    // spec: source, page, text. at: the point to show it by (the parent's coordinates).
-    function show(next, at) {
+    // spec: source, page, text. Where it shows is the reader's (it follows the selected words).
+    function show(next) {
         if (streaming) { ai.cancel(request); streaming = false }
         spec = next
         answer = ""; error = ""
-        x = Math.max(8, Math.min(parent.width - width - 8, at.x))
-        y = at.y + 6 + height < parent.height ? at.y + 6 : Math.max(8, at.y - height - 40)
         open()
         if (!models.length) ai.listModels(ai.provider)
         if (recent[key] !== undefined) { answer = recent[key]; return }
