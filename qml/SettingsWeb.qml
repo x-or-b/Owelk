@@ -36,7 +36,7 @@ ColumnLayout {
             ComboBox {
                 objectName: "webPdfNamesBox"
                 Layout.preferredWidth: 260
-                model: ["Paper title (Sun 2026 - Title)", "Name from the website"]
+                model: ["Paper title", "Name from the website"]
                 currentIndex: researchStore.setting("web.pdfNames", "title") === "original" ? 1 : 0
                 onActivated: function(index) { researchStore.setSetting("web.pdfNames", index === 1 ? "original" : "title") }
             }

@@ -206,22 +206,20 @@ QStringList authorNames(const QStringList &lines)
 namespace PaperMetadataText {
 QString fileStem(const PaperMetadata &paper)
 {
-    // Characters Windows, macOS or Linux refuse in a file name become spaces.
-    const auto clean
-        = [](QString text) { return text.replace(QRegularExpression("[\\x00-\\x1f\\\\/:*?\"<>|]"), " ").simplified(); };
-    auto title = clean(paper.title);
+    // "Title: Subtitle" reads as "Title - Subtitle"; characters Windows, macOS or Linux refuse in a file
+    // name become spaces.
+    auto title = QString(paper.title)
+                     .replace(QRegularExpression("\\s*:\\s+"), " - ")
+                     .replace(QRegularExpression("[\\x00-\\x1f\\\\/:*?\"<>|]"), " ")
+                     .simplified();
     if (title.isEmpty()) return {};
-    if (title.size() > 90) {
-        title.truncate(90);
+    if (title.size() > 120) {
+        title.truncate(120);
         const auto space = title.lastIndexOf(' ');
-        if (space > 40) title.truncate(space);
+        if (space > 60) title.truncate(space);
     }
-    while (title.endsWith('.') || title.endsWith(' ')) title.chop(1);
-    const auto first = clean(paper.authors.section(',', 0, 0));
-    QStringList lead;
-    if (!first.isEmpty()) lead.append(first.section(' ', -1));
-    if (!paper.year.isEmpty()) lead.append(paper.year);
-    return lead.isEmpty() ? title : lead.join(' ') + " - " + title;
+    while (title.endsWith('.') || title.endsWith(' ') || title.endsWith('-')) title.chop(1);
+    return title;
 }
 }
 

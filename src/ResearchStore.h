@@ -300,7 +300,7 @@ public:
     // never overwrites an existing file. Returns directory, fileName and url.
     // PDFs go to papers/ while PDFs are kept in Owelk.
     Q_INVOKABLE QVariantMap downloadTarget(const QString &suggestedName, bool pdf = false) const;
-    // A PDF just downloaded into the PDF folder takes its paper's name ("Sun 2026 - Title.pdf") when the
+    // A PDF just downloaded into the PDF folder takes its paper's title as its name ("Title.pdf") when the
     // web.pdfNames setting is "title" (the default) and the PDF names its paper clearly. Answered by
     // downloadNamed(file, named) with the file to open, the same one when the name stays.
     Q_INVOKABLE void nameDownloadedPdf(const QUrl &file);

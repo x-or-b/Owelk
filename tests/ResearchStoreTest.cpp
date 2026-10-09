@@ -1470,10 +1470,11 @@ private slots:
         paper.authors = "Esteban Padilla-Cerdio, Boyang Sun";
         paper.year = "2026";
         QCOMPARE(PaperMetadataText::fileStem(paper),
-            QString("Padilla-Cerdio 2026 - OpenFrontier General Navigation with Visual-Language Grounded Frontiers"));
+            QString("OpenFrontier - General Navigation with Visual-Language Grounded Frontiers"));
         paper.title = QString("What? A/B \"tests\" ") + QString(120, 'x') + "...";
         QVERIFY(!PaperMetadataText::fileStem(paper).contains(QRegularExpression("[?/\"]")));
         QVERIFY(PaperMetadataText::fileStem(paper).size() <= 120);
+        QCOMPARE(PaperMetadataText::fileStem({"A/B Test: Faster.", "", "", "", ""}), QString("A B Test - Faster"));
         QVERIFY(PaperMetadataText::fileStem({}).isEmpty());
 
         QTemporaryDir directory;
@@ -1487,7 +1488,7 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(named.size(), 1, 10000);
         const auto renamed = named.first().at(1).toUrl();
         QCOMPARE(named.first().at(0).toUrl(), download);
-        QCOMPARE(QFileInfo(renamed.toLocalFile()).fileName(), QString("2023 - Downloaded Paper Title.pdf"));
+        QCOMPARE(QFileInfo(renamed.toLocalFile()).fileName(), QString("Downloaded Paper Title.pdf"));
         QVERIFY(!QFileInfo::exists(download.toLocalFile()));
         // A file the Library uses keeps its name, and so does every download when the setting says so.
         QVERIFY(store.rememberDocument(renamed));
