@@ -267,8 +267,6 @@ Dialog {
                 text: "Fit to box"
                 checked: root.fitText
                 onToggled: { root.fitText = checked; root.geometryDirty = true }
-                ToolTip.visible: hovered; ToolTip.delay: 500
-                ToolTip.text: "The largest size that fits the box, never below " + root.minimumFont + " pt"
             }
             Item { Layout.fillWidth: true }
         }

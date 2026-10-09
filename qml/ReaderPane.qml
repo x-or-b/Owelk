@@ -311,7 +311,7 @@ Rectangle {
             }
             Row {
                 anchors.centerIn: parent
-                IconButton { icon.name: "minus"; description:"Zoom out"; onClicked:{root.activated();canvas.zoom(1/1.2)} }
+                IconButton { icon.name: "minus"; description: "Zoom out · " + Platform.keys("Ctrl+-"); onClicked:{root.activated();canvas.zoom(1/1.2)} }
                 // The zoom readout chooses how pages fit: the whole width or a whole page.
                 ToolButton {
                     id: zoomReadout
@@ -320,7 +320,7 @@ Rectangle {
                     text: canvas.fitMode === "page" ? "Page" : Math.round(canvas.zoomFactor * 100) + "%"
                     onClicked: { root.activated(); fitMenu.popup(zoomReadout, 0, zoomReadout.height) }
                     ToolTip.visible: hovered && !fitMenu.visible
-                    ToolTip.text: "View · Ctrl+wheel to zoom"
+                    ToolTip.text: "Zoom"
                     Menu {
                         id: fitMenu
                         objectName: "fitMenu"
@@ -328,7 +328,7 @@ Rectangle {
                         MenuItem { objectName: "fitPageItem"; text: "Fit Page"; checkable: true; checked: canvas.fitMode === "page"; onTriggered: canvas.fitPage() }
                     }
                 }
-                IconButton { icon.name: "add"; description:"Zoom in"; onClicked:{root.activated();canvas.zoom(1.2)} }
+                IconButton { icon.name: "add"; description: "Zoom in · " + Platform.keys("Ctrl+Plus"); onClicked:{root.activated();canvas.zoom(1.2)} }
             }
             // Annotation tools, then capture, then everything else (find, print, export) behind ⋯.
             // Highlight and Draw keep their own colors; the narrow arrow next to each picks one.
@@ -342,28 +342,28 @@ Rectangle {
                     IconButton {
                         id: drawTool
                         objectName:"drawTool";icon.name: "draw";swatch:canvas.drawColor;checked:canvas.tool==="draw"
-                        description:"Draw · Drag on a page · Right-click for color"
+                        description: "Draw"
                         onClicked: root.setTool("draw")
                         TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.chooseInk(drawTool, "draw", false) }
                     }
                     IconButton {
                         id: highlightTool
                         objectName:"highlightTool";icon.name: "highlight";swatch:canvas.markColor;checked:canvas.tool==="highlight"
-                        description: (canvas.selectedAnchor ? "Highlight the selection" : "Highlight · Drag over text") + " · Right-click for color"
+                        description: "Highlight"
                         onClicked: root.useHighlight()
                         TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.chooseInk(highlightTool, "highlight", !!canvas.selectedAnchor) }
                     }
-                    IconButton { objectName:"commentTool";icon.name: "comment";checked:canvas.tool==="comment";description:"Comment · Select text, or click a page";onClicked:root.setTool("comment") }
-                    IconButton { objectName:"textTool";icon.name: "text";checked:canvas.tool==="text";description:"Text box · Click or drag on a page";onClicked:root.setTool("text") }
-                    IconButton { objectName:"imageTool";icon.name: "image";checked:canvas.tool==="image";description:"Image · Drag an area; right-click added images to edit";onClicked:root.setTool("image") }
+                    IconButton { objectName:"commentTool";icon.name: "comment";checked:canvas.tool==="comment";description: "Comment";onClicked:root.setTool("comment") }
+                    IconButton { objectName:"textTool";icon.name: "text";checked:canvas.tool==="text";description: "Text box";onClicked:root.setTool("text") }
+                    IconButton { objectName:"imageTool";icon.name: "image";checked:canvas.tool==="image";description: "Image";onClicked:root.setTool("image") }
                 }
                 Rectangle { visible: readerToolbar.width >= 600; width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
                 IconButton { objectName:"readerCaptureButton";icon.name: "capture";description:"Capture a region · " + Platform.keys("Ctrl+Shift+C");checked:canvas.captureMode;onClicked:root.toggleCapture() }
-                IconButton { objectName:"marginNotesButton";icon.name: "margin";checked:root.marginNotes;description:"Annotations beside the page";onClicked:root.setMarginNotes(!root.marginNotes) }
+                IconButton { objectName:"marginNotesButton";icon.name: "margin";checked:root.marginNotes;description: "Margin notes";onClicked:root.setMarginNotes(!root.marginNotes) }
                 Rectangle { width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
                 IconButton { icon.name: "more";
                     objectName: "readerMoreButton"
-                    description: "Find, print and export"
+                    description: "More"
                     onClicked: moreMenu.popup(this, 0, height)
                     Menu {
                         id: moreMenu
@@ -415,8 +415,8 @@ Rectangle {
                 text: canvas.searchString.length ? (canvas.matchCount ? (canvas.currentMatch + 1) + "/" + canvas.matchCount : "0") : ""
                 color: Theme.textTertiary
             }
-            IconButton { icon.name: "up"; description: "Previous match"; enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(-1) }
-            IconButton { icon.name: "down"; description: "Next match"; enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(1) }
+            IconButton { icon.name: "up"; description: "Previous match · " + Platform.keys("Shift+Return"); enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(-1) }
+            IconButton { icon.name: "down"; description: "Next match · " + Platform.keys("Return"); enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(1) }
             IconButton { icon.name: "close"; description: "Close search · Esc"; onClicked: root.hideSearch() }
         }
 
@@ -505,20 +505,20 @@ Rectangle {
                     x: 8; y: 4; width: parent.width - 16; spacing: 4
                     IconButton {
                         objectName: "highlightSelectionButton"
-                        icon.name: "highlight"; description:"Highlight selection · Choose a color"; swatch:canvas.markColor
+                        icon.name: "highlight"; description: "Highlight"; swatch:canvas.markColor
                         enabled: canvas.selectedAnchor !== null && !researchStore.busy
                         onClicked: { root.activated(); root.chooseHighlightColor(this,true) }
                     }
-                    IconButton { objectName:"commentSelectionButton";icon.name: "comment";description:"Add a comment attached to this selection";enabled:!!canvas.selectedAnchor&&!researchStore.busy;onClicked:root.addComment() }
+                    IconButton { objectName:"commentSelectionButton";icon.name: "comment";description: "Comment";enabled:!!canvas.selectedAnchor&&!researchStore.busy;onClicked:root.addComment() }
                     IconButton {
                         objectName: "saveExcerptButton"
-                        icon.name: "excerpt";description:"Save excerpt · Keep the selected text and its source in Captures"
+                        icon.name: "excerpt";description: "Save excerpt"
                         enabled: canvas.selectedAnchor !== null && !researchStore.busy
                         onClicked: { root.activated(); canvas.captureSelection() }
                     }
                     IconButton {
                         objectName: "aiSelectionButton"
-                        icon.name: "ai"; description: "AI · Explain, translate or ask about the selection"
+                        icon.name: "ai"; description: "AI"
                         onClicked: selectionAiMenu.popup(this, 0, height)
                         Menu {
                             id: selectionAiMenu

@@ -78,15 +78,15 @@ Rectangle {
             TabBar {
                 objectName: "annotationSort"
                 currentIndex: root.sortMode === "type" ? 1 : 0
-                TabButton { objectName: "annotationSortPage"; text: "Page"; width: 48; onClicked: root.setSortMode("page"); ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: "Top to bottom through the paper" }
-                TabButton { objectName: "annotationSortType"; text: "Type"; width: 48; onClicked: root.setSortMode("type"); ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: "Pen, highlights, comments, text, pictures" }
+                TabButton { objectName: "annotationSortPage"; text: "Page"; width: 48; onClicked: root.setSortMode("page") }
+                TabButton { objectName: "annotationSortType"; text: "Type"; width: 48; onClicked: root.setSortMode("type") }
             }
             // New annotation of any kind: a comment is written here; the others are placed on the page.
             IconButton {
                 id: addButton
                 objectName: "newMarginNote"
                 icon.name: "add"
-                description: "New annotation · comment, text box, picture or pen"
+                description: "New annotation"
                 onClicked: addMenu.popup(addButton, 0, addButton.height)
                 Menu {
                     id: addMenu

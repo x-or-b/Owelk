@@ -131,8 +131,6 @@ Rectangle {
                 enabled: researchStore.trashedCaptures.length > 0
                 text: "Empty"
                 palette.buttonText: Theme.danger
-                ToolTip.visible: hovered; ToolTip.delay: 450
-                ToolTip.text: "Delete everything in trash permanently"
                 onClicked: emptyDialog.open()
             }
         }
@@ -265,7 +263,7 @@ Rectangle {
                         }
                         IconButton {
                             objectName: "restoreCapture-" + card.modelData.id
-                            icon.name: "restore"; description: "Restore with note and workspace links"
+                            icon.name: "restore"; description: "Restore"
                             onClicked: { const id = card.modelData.id; Qt.callLater(function() { researchStore.restoreCapture(id) }) }
                         }
                         IconButton {

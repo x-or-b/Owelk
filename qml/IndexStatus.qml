@@ -14,7 +14,7 @@ ToolButton {
     implicitHeight: Theme.controlHeightSmall + 4
     onClicked: details.open()
     ToolTip.visible: hovered
-    ToolTip.text: "Local text index · Status, pause and retry"
+    ToolTip.text: "Text index"
     contentItem: Label { text: root.text; color: Theme.textTertiary; font: root.font; elide: Text.ElideMiddle }
     Dialog {
         id: details

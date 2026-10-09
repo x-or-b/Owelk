@@ -639,7 +639,7 @@ ApplicationWindow {
                     required property string modelData
                     objectName: "dockIcon-" + modelData
                     kind: modelData; dockSide: "left"
-                    description: window.panelName(kind) + " · Right-click to change dock"
+                    description: window.panelName(kind)
                     selected: window.panelShown(kind)
                     onTriggered: window.togglePanel(kind)
                     onDockSideChosen: function(side) { const panel = kind; Qt.callLater(function() { window.movePanel(panel, side) }) }
@@ -654,17 +654,17 @@ ApplicationWindow {
             IconButton {
                 objectName: "manageWorkspaceButton"; icon.name: "workspace"
                 visible: window.activeWorkspace.length > 0
-                description: "Workspace · Linked papers and captures"
+                description: "Workspace"
                 onClicked: window.manageWorkspace(window.activeWorkspace)
             }
-            StatusIcon { kind: "split"; description: "Duplicate tab to right split"; visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }
+            StatusIcon { kind: "split"; description: "Duplicate to right split · " + Platform.keys("Ctrl+\\"); visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }
             Repeater {
                 model: window.dockPanels.filter(function(p) { return window.panelSide(p) === "right" })
                 delegate: StatusIcon {
                     required property string modelData
                     objectName: "dockIcon-" + modelData
                     kind: modelData; dockSide: "right"
-                    description: window.panelName(kind) + " · Right-click to change dock"
+                    description: window.panelName(kind)
                     selected: window.panelShown(kind)
                     onTriggered: window.togglePanel(kind)
                     onDockSideChosen: function(side) { const panel = kind; Qt.callLater(function() { window.movePanel(panel, side) }) }

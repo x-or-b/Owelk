@@ -258,7 +258,7 @@ Rectangle {
                     TapHandler { acceptedButtons: Qt.RightButton; onTapped: { root.menuLabel = tabItem.labelData.id; groupMenu.popup() } }
                     ToolTip.visible: headerHover.hovered && !nameField.visible
                     ToolTip.delay: 500
-                    ToolTip.text: tabItem.isHeader ? (tabItem.labelData.collapsed ? "Show " : "Hide ") + tabItem.modelData.size + " tabs · double-click to rename · right-click for more" : ""
+                    ToolTip.text: tabItem.isHeader ? (tabItem.labelData.collapsed ? "Show " : "Hide ") + tabItem.modelData.size + " tabs" : ""
                 }
 
                 // --- A tab ---------------------------------------------------------------------------

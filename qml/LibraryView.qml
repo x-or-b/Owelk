@@ -434,7 +434,7 @@ Rectangle {
                     id: addButton
                     objectName: "libraryAddPdfs"
                     icon.name: "add"
-                    description: root.filter.collection ? "Add PDFs or a folder · to this collection" : "Add PDFs or a folder to the Library"
+                    description: "Add PDFs or a folder"
                     onClicked: addMenu.popup(addButton, 0, addButton.height)
                     Menu {
                         id: addMenu
@@ -448,7 +448,7 @@ Rectangle {
                     objectName: "libraryOrganize"
                     icon.name: "organize"
                     enabled: (root.selection.length || root.rows.length) >= 2
-                    description: "Organize into collections with AI… · " + (root.selection.length ? "the selected papers" : "the papers listed here")
+                    description: "Organize with AI"
                     onClicked: root.organizeWithAi(root.selection.length ? root.selection : root.rows.map(function(r) { return r.url.toString() }))
                 }
                 // A question to the library (or the collection shown), answered from its papers with the pages linked.
@@ -456,14 +456,14 @@ Rectangle {
                     objectName: "libraryAsk"
                     icon.name: "ai"
                     readonly property var shownCollection: root.filter.collection ? root.collectionRows.find(function(c) { return c.id === root.filter.collection }) || null : null
-                    description: (shownCollection ? "Ask this collection with AI" : "Ask your library with AI") + " · answers cite the papers and pages they come from"
+                    description: shownCollection ? "Ask this collection with AI" : "Ask your library with AI"
                     onClicked: root.askLibraryRequested(shownCollection ? shownCollection.id : "", shownCollection ? shownCollection.name : "")
                 }
                 IconButton {
                     objectName: "exportBibtex"
                     icon.name: "export"
                     enabled: root.rows.length > 0
-                    description: "Export BibTeX… · the papers listed here"
+                    description: "Export BibTeX"
                     onClicked: bibtexDialog.open()
                 }
             }
@@ -544,7 +544,7 @@ Rectangle {
                                 objectName: "suggestion-" + modelData.name
                                 text: "+ " + modelData.name
                                 Layout.maximumWidth: 140
-                                ToolTip.text: "Add to " + modelData.name + " · similar papers are there"
+                                ToolTip.text: "Add to " + modelData.name
                                 onClicked: { const url = paper.modelData.url, id = modelData.id; Qt.callLater(function() { researchStore.setDocumentCollection(url, id, true) }) }
                             }
                         }

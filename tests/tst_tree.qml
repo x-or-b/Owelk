@@ -32,6 +32,8 @@ TestCase {
             compare(Platform.keys("Ctrl+Shift+L"), "⇧⌘L")
             compare(Platform.keys("Ctrl+Alt+\\"), "⌥⌘\\")
             compare(Platform.keys("Ctrl+["), "⌘[")
+            compare(Platform.keys("Alt+Left"), "⌥←")
+            compare(Platform.keys("Ctrl+Plus"), "⌘+")
         } else {
             compare(Platform.keys("Ctrl+Shift+L"), "Ctrl+Shift+L")
         }

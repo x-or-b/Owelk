@@ -110,11 +110,11 @@ Item {
             TabButton { id: thumbnailsTab; objectName: "thumbnailsTab"; icon.name: "thumbnails"; ToolTip.text: "Thumbnails"; onClicked: root.modeChosen(1) }
             TabButton {
                 id: linksTab; objectName: "linksTab"; icon.name: "link"
-                ToolTip.text: "Notes linking to this paper" + (root.backlinks.length ? " · " + root.backlinks.length : "")
+                ToolTip.text: "Linked notes"
                 onClicked: root.modeChosen(2)
             }
-            TabButton { id: relatedTab; objectName: "relatedTab"; icon.name: "related"; ToolTip.text: "Related papers and notes"; onClicked: root.modeChosen(3) }
-            TabButton { id: citationsTab; objectName: "citationsTab"; icon.name: "citations"; ToolTip.text: "Citations: what this paper cites and what cites it"; onClicked: root.modeChosen(4) }
+            TabButton { id: relatedTab; objectName: "relatedTab"; icon.name: "related"; ToolTip.text: "Related"; onClicked: root.modeChosen(3) }
+            TabButton { id: citationsTab; objectName: "citationsTab"; icon.name: "citations"; ToolTip.text: "Citations"; onClicked: root.modeChosen(4) }
         }
         Flickable {
             objectName: "relatedView"
@@ -141,7 +141,7 @@ Item {
                             required property var modelData
                             objectName: "suggestedCollection-" + modelData.name
                             text: "+ " + modelData.name
-                            ToolTip.text: "Add this paper to " + modelData.name + " · similar papers are there"
+                            ToolTip.text: "Add to " + modelData.name
                             onClicked: {
                                 const url = root.reader.source, id = modelData.id
                                 root.suggestedCollections = root.suggestedCollections.filter(function(c) { return c.id !== id })
@@ -225,7 +225,7 @@ Item {
                 IconButton {
                     objectName: "refreshCitations"
                     icon.name: "reload"
-                    description: "Ask Semantic Scholar again" + (root.citations && root.citations.cached ? " · showing saved results" : "")
+                    description: "Refresh"
                     onClicked: root.fetchCitations(true)
                 }
             }
@@ -324,20 +324,43 @@ Item {
             id: outline
             objectName: "pdfOutline"
             anchors.fill: parent
+            anchors.leftMargin: 4; anchors.rightMargin: 4
             model: bookmarks
             clip: true
             columnWidthProvider: function(column) { return width }
             ScrollBar.vertical: ScrollBar {}
-            delegate: TreeViewDelegate {
+            // A list row like the Files panel: a chevron for sections with subsections, the page at the right.
+            delegate: ItemDelegate {
+                id: entry
+                required property TreeView treeView
+                required property bool expanded
+                required property bool hasChildren
+                required property int depth
+                required property int row
                 required property string title
                 required property int page
                 required property point location
-                implicitHeight: 34
                 implicitWidth: outline.width
+                implicitHeight: Theme.rowHeight
+                leftPadding: 22 + depth * 12
+                rightPadding: pageLabel.implicitWidth + 16
                 text: title
+                font.pixelSize: Theme.fontSmall
+                font.weight: depth === 0 ? Font.Medium : Font.Normal
+                palette.text: depth === 0 ? Theme.text : Theme.textSecondary
                 onClicked: root.go(page, location)
-                ToolTip.visible: hovered
-                ToolTip.text: title + " · Page " + (page + 1)
+                Item {
+                    visible: entry.hasChildren
+                    x: 2 + entry.depth * 12; width: 20; height: parent.height
+                    Icon { anchors.centerIn: parent; name: entry.expanded ? "down" : "right"; size: Theme.fontSmall; color: Theme.textTertiary }
+                    TapHandler { onTapped: entry.treeView.toggleExpanded(entry.row) }
+                }
+                Label {
+                    id: pageLabel
+                    anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                    text: entry.page + 1
+                    font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                }
             }
         }
             Label {

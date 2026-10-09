@@ -110,7 +110,7 @@ Rectangle {
                 onClicked: { root.save(); root.preview = !root.preview; if (!root.preview) body.forceActiveFocus() }
             }
             IconButton {
-                objectName: "noteInsertLink"; icon.name: "link"; description: "Insert link to a paper, excerpt or note ([[)"
+                objectName: "noteInsertLink"; icon.name: "link"; description: "Insert link · [["
                 onClicked: { root.preview = false; linkPicker.open() }
             }
         }

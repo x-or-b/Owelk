@@ -150,8 +150,6 @@ Rectangle {
                     checkable: true
                     checked: card.level === modelData.id
                     font.pixelSize: Theme.fontSmall
-                    ToolTip.visible: hovered; ToolTip.delay: 500
-                    ToolTip.text: modelData.id === "easy" ? "Plain words, every symbol defined, with examples" : "Short: the key point and what you need to follow it"
                     onClicked: card.setLevel(modelData.id)
                 }
             }
@@ -241,16 +239,12 @@ Rectangle {
                 primary: true
                 text: "Continue in AI"
                 enabled: card.key.length > 0 && !card.streaming && !card.stopped
-                ToolTip.visible: hovered; ToolTip.delay: 500
-                ToolTip.text: "Ask follow-up questions in the AI panel"
                 onClicked: card.continueInAi()
             }
             Button {
                 objectName: "explainSymbols"
                 visible: card.spec.kind === "equation"
                 text: "All Symbols"
-                ToolTip.visible: hovered; ToolTip.delay: 500
-                ToolTip.text: "Every symbol in this paper, with where it is defined; then point at a symbol to see what it means"
                 onClicked: card.open({source: card.spec.source, kind: "notation", page: card.spec.page}, Qt.rect(card.x, card.y, 0, 0))
             }
             Item { Layout.fillWidth: true }

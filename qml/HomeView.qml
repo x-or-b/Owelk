@@ -245,7 +245,6 @@ Rectangle {
                         objectName: "homeUnsorted"
                         visible: root.unsorted > 0
                         text: "Unsorted  " + root.unsorted
-                        ToolTip.text: "Papers in no collection · file them in the Library"
                         onClicked: root.libraryFilterRequested({unsorted: true})
                     }
                     Repeater {
@@ -277,7 +276,7 @@ Rectangle {
                             objectName: "deletedWorkspacesButton"
                             visible: root.deletedWorkspaces.length > 0
                             icon.name: "trash"
-                            description: "Deleted workspaces (" + root.deletedWorkspaces.length + ") · Restore"
+                            description: "Deleted workspaces"
                             onClicked: deletedDialog.open()
                         }
                         IconButton { icon.name: "add"; description: "New workspace"; onClicked: workspaceDialog.open() }
@@ -320,7 +319,7 @@ Rectangle {
                         Label { text: "Recent Papers"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32; Layout.fillWidth: true }
                         IconButton {
                             objectName: "openLibraryButton"; icon.name: "library"
-                            description: "Library · All papers, collections and tags · " + Platform.keys("Ctrl+Shift+L")
+                            description: "Library · " + Platform.keys("Ctrl+Shift+L")
                             onClicked: root.libraryRequested()
                         }
                     }

@@ -7,6 +7,7 @@ Item {
     id: scene
     width: 800; height: 600
     Button { id: button; text: "Save" }
+    ToolTip { id: tip }
     ToolButton { id: toolButton; y: 50; text: "Filters" }
     TextField { id: field; y: 90; text: "Query" }
     TextArea { id: area; y: 140; text: "Note" }
@@ -62,6 +63,18 @@ Item {
             tryCompare(cut.ToolTip, "visible", true, 2000)
             compare(cut.ToolTip.text, cut.text)
             mouseMove(scene, 700, 500)
+        }
+        function test_tooltipSetsTheShortcutApart() {
+            tip.text = "New tab · ⌘T"
+            compare(tip.keyed[1], "New tab"); compare(tip.keyed[2], "⌘T")
+            compare(tip.contentItem.textFormat, Text.StyledText)
+            tip.text = "Close search · Esc"
+            compare(tip.keyed[2], "Esc")
+            tip.text = "Draw"
+            compare(tip.keyed, null)
+            compare(tip.contentItem.textFormat, Text.PlainText)
+            tip.text = "Ask · answers cite the pages"
+            compare(tip.keyed, null)
         }
         function test_menuFitsItsLongestItem() {
             menu.popup(0, 0)

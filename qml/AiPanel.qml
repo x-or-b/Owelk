@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs as Native
+import "Platform.js" as Platform
 
 // Dock panel for the AI: saved threads, the open conversation, and the composer with the model menu.
 Item {
@@ -443,7 +444,7 @@ Item {
                 id: attachButton
                 objectName: "aiAttachButton"
                 icon.name: "attach"
-                description: "Add context · page, selection, paper, a captured region or an image"
+                description: "Add context"
                 onClicked: attachMenu.popup(attachButton, 0, -attachMenu.implicitHeight)
                 Menu {
                     id: attachMenu
@@ -465,7 +466,7 @@ Item {
                 Layout.maximumWidth: implicitWidth
                 objectName: "aiModelButton"
                 text: root.c ? root.c.modelLabel : ""
-                ToolTip.text: root.c ? root.c.providerInfo.name + " · " + (root.c.providerInfo.kind === "local" ? "stays on this computer" : "sent to " + (root.c.providerInfo.sends || "")) : ""
+                ToolTip.text: "Model"
                 onClicked: { root.c.loadModels(); modelFilter.text = ""; modelMenu.open() }
             }
             Chip {
@@ -478,7 +479,7 @@ Item {
                 compact: bar.width < Theme.fontBody * 22
                 icon.name: "effort"
                 text: root.c ? root.c.effortName(root.c.effectiveEffort) : ""
-                ToolTip.text: (compact ? "Reasoning effort: " + text + " · " : "Reasoning effort · ") + "higher thinks longer and costs more"
+                ToolTip.text: "Reasoning effort"
                 onClicked: effortMenu.popup(effortButton, 0, -effortMenu.implicitHeight)
                 Menu {
                     id: effortMenu
@@ -503,7 +504,7 @@ Item {
                 icon.name: "fast"
                 checkable: true
                 checked: root.c && root.c.effectiveFast
-                description: "Fast mode · faster answers at a higher price"
+                description: "Fast mode"
                 onClicked: root.c.setFast(checked)
             }
             Item { Layout.fillWidth: true; Layout.minimumWidth: 0 }
@@ -515,7 +516,7 @@ Item {
                 readonly property bool stopping: root.c && root.c.streaming
                 icon.name: stopping ? "stop" : "send"
                 glyphSize: stopping ? Theme.fontSmall : Theme.iconSize
-                description: stopping ? "Stop" : "Send · Return"
+                description: stopping ? "Stop" : "Send · " + Platform.keys("Return")
                 enabled: stopping || question.text.trim().length > 0 || (root.c && root.c.attachments.length > 0)
                 onClicked: {
                     if (root.c.streaming) { root.c.stop(); return }

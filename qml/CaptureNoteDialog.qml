@@ -102,7 +102,6 @@ Dialog {
                     if (root.dirty && !root.saveNote()) return
                     root.close(); researchStore.openCapture(root.capture.id)
                 }
-                ToolTip.visible: hovered; ToolTip.text: "Save any edits and view the original PDF"
             }
             Item { Layout.fillWidth: true }
             Button { objectName: "cancelCaptureNote"; text: "Cancel"; onClicked: root.requestClose() }

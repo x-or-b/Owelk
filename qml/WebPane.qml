@@ -138,7 +138,7 @@ Rectangle {
                 IconButton {
                     objectName: "webCapture"; icon.name: "capture"; implicitWidth: 24; checkable: true
                     checked: root.capturing
-                    description: "Capture a region of this page"
+                    description: "Capture a region"
                     onClicked: root.capturing = !root.capturing
                 }
                 Button {
@@ -146,8 +146,6 @@ Rectangle {
                     visible: Tree.arxivPdf(view.url).length > 0
                     text: "Open PDF"
                     Layout.preferredHeight: Theme.controlHeightSmall
-                    ToolTip.visible: hovered; ToolTip.delay: 450
-                    ToolTip.text: "Download this paper and open it in the reader"
                     onClicked: view.url = Tree.arxivPdf(view.url)
                 }
             }
@@ -185,8 +183,6 @@ Rectangle {
                     visible: !root.browserPdf
                     text: "Show Here"
                     implicitHeight: Theme.controlHeight
-                    ToolTip.visible: hovered; ToolTip.delay: 450
-                    ToolTip.text: "Read this PDF in the web tab"
                     onClicked: root.browserPdf = true
                 }
             }

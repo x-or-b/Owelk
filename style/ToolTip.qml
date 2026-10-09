@@ -12,12 +12,16 @@ T.ToolTip {
     padding: 5
     horizontalPadding: 8
     closePolicy: T.Popup.CloseOnEscape | T.Popup.CloseOnPressOutsideParent | T.Popup.CloseOnReleaseOutsideParent
+    // "Name · ⌘T": the name, then its shortcut set apart in a lighter colour.
+    readonly property var keyed: /^(.+) · ((?:[⌘⌥⇧⌃]+|(?:(?:Ctrl|Alt|Shift|Meta)\+)+)\S{1,8}|Esc|↩|Return|\[\[)$/.exec(text)
+    function escaped(value) { return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") }
     contentItem: Text {
-        text: control.text
+        text: control.keyed ? control.escaped(control.keyed[1]) + "&nbsp;&nbsp;<font color=\"" + Theme.textSecondary + "\">" + control.escaped(control.keyed[2]) + "</font>"
+                            : control.text
         font.pixelSize: Theme.fontSmall
         wrapMode: Text.Wrap
         color: Theme.text
-        textFormat: Text.PlainText
+        textFormat: control.keyed ? Text.StyledText : Text.PlainText
     }
     // Long descriptions wrap instead of running off the window.
     contentWidth: Math.min(contentItem.implicitWidth, 360)
