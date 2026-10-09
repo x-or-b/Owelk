@@ -403,6 +403,31 @@ private slots:
         QVERIFY(ResearchStore::passageRegion(pdf, 1, "Research finding 5.4: occlusion links observation").isEmpty());
         QVERIFY(ResearchStore::passageRegion(pdf, 9, "Research finding").isEmpty());
     }
+    void figurePreviewsCoverTheFigureAndItsCaption()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("figure.pdf");
+        writeFixture(path, "Figure Paper");
+        QPdfDocument pdf;
+        QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+        // The fixture: body text down to y ~ 392, the chart at 430-595, the caption line at ~613-626,
+        // then more text at 678.
+        const auto all = pdf.getAllText(0).text();
+        const auto at = all.indexOf("Figure 1.");
+        QVERIFY(at >= 0);
+        const auto caption = pdf.getSelectionAtIndex(0, int(at), 20).boundingRectangle();
+        QVERIFY(!caption.isEmpty());
+        const auto region = ReferenceFinder::floatRegion(pdf, 0, caption, false);
+        QVERIFY(!region.isEmpty());
+        const QRectF area(
+            region["x"].toDouble(), region["y"].toDouble(), region["width"].toDouble(), region["height"].toDouble());
+        QVERIFY2(area.top() > 380 && area.top() < 430, qPrintable(QString::number(area.top())));
+        QVERIFY2(area.bottom() >= caption.bottom() && area.bottom() < 660, qPrintable(QString::number(area.bottom())));
+        QVERIFY2(
+            area.left() < 40 && area.right() > 340, qPrintable(QString("%1 %2").arg(area.left()).arg(area.right())));
+        QVERIFY2(region["caption"].toString().startsWith("Figure 1. Capture this chart"),
+            qPrintable(region["caption"].toString()));
+    }
     void notesLinksBacklinksAndTrash()
     {
         QTemporaryDir directory;

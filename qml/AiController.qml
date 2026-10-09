@@ -78,7 +78,7 @@ Item {
     readonly property bool readerCapturing: !!reader && !!reader.capturing
     // Esc ends capture mode without a capture; the save itself is asynchronous, so wait a moment.
     onReaderCapturingChanged: if (!readerCapturing && captureWanted) captureGrace.restart()
-    Timer { id: captureGrace; interval: 4000; onTriggered: root.captureWanted = false }
+    Timer { id: captureGrace; interval: 4000; onTriggered: { root.captureWanted = false; root.figureWanted = false } }
     function captureRegion() {
         if (!reader || !reader.pdfReady) { error = "Open a PDF to capture a region."; return false }
         error = ""
@@ -89,6 +89,14 @@ Item {
     }
     // Called for every saved capture; takes the one the panel asked for.
     function takeCapture(id) {
+        if (figureWanted) {
+            figureWanted = false
+            const shot = researchStore.captures.find(function(c) { return c.id === id })
+            if (!shot) return false
+            spec = {action: "figure", scope: "none", captureId: id, source: shot.source, page: shot.page}
+            send("")
+            return true
+        }
         if (!captureWanted) return false
         captureWanted = false
         captureGrace.stop()
@@ -154,12 +162,21 @@ Item {
         answer = ""; error = ""; pendingQuestion = ""; usedModel = ""; truncated = false
         thinkingText = ""; thinkingSeconds = 0
     }
+    // A figure asked about from its preview: captured first (with its caption), then explained.
+    property bool figureWanted: false
     // A reader or capture action starts a new thread about that material.
     function begin(next) {
         reset()
         threadId = ""; thread = ({})
-        spec = Object.assign({}, next)
         conversationOpen = true
+        if (next.region) {
+            spec = {source: next.source, scope: "none", page: next.page}
+            figureWanted = true
+            captureGrace.restart()
+            researchStore.captureRegion(next.source, next.page, next.region)
+            return
+        }
+        spec = Object.assign({}, next)
         if (spec.action === "ask") focusRequested()
         else send("")
     }

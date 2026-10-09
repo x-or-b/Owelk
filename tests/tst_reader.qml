@@ -285,6 +285,25 @@ Item {
             let shown = rest(referenceFigure)
             compare(canvas.linkPreview.kind, "figure")
             verify(!findChild(card, "linkPreviewList").visible, "figures keep the page view")
+            // The whole figure with its caption, without an outline; the card zooms in small steps.
+            verify(!!canvas.linkPreview.float, "the figure's region was found")
+            verify(canvas.linkPreview.float.caption.length > 0)
+            verify(!findChild(card, "linkPreviewTarget").visible)
+            compare(card.zoom, 1)
+            mouseClick(findChild(card, "linkPreviewZoomIn"))
+            fuzzyCompare(card.zoom, 1.1, .001)
+            mouseClick(findChild(card, "linkPreviewZoomOut"))
+            fuzzyCompare(card.zoom, 1, .001)
+            // Ask AI hands the figure's region (with its caption) to the AI panel.
+            let asked = null
+            const ask = function(page, region) { asked = {page: page, region: region} }
+            canvas.figureAiRequested.connect(ask)
+            mouseClick(findChild(card, "linkPreviewAskAi"))
+            canvas.figureAiRequested.disconnect(ask)
+            verify(asked !== null)
+            verify(asked.region.width > 0 && asked.region.height > 0)
+            tryCompare(card, "visible", false)
+            shown = rest(referenceFigure)
             verify(shown.target > card.height * .55, "caption low in the card: " + shown.target + " / " + card.height)
             // The card scrolls on its own; the page behind it does not move.
             const before = shown.flick.contentY, pageY = findChild(canvas, "pageList").contentY

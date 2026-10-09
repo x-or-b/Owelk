@@ -37,6 +37,11 @@ public:
     static QVariantMap referenceAt(const QString &text, qsizetype index);
     static QVariantMap locate(
         const QStringList &pages, const QVariantMap &reference, int fromPage, qsizetype fromIndex);
+    // A figure or table around its caption's first line (PDF points): the whole caption, and the figure
+    // above it (a table: below it) up to the nearest paragraph of body text. {x, y, width, height,
+    // caption (its text)}, or {} when the page has no text to go by. Figure and table previews show
+    // this area, and Ask AI sends it.
+    static QVariantMap floatRegion(QPdfDocument &pdf, int page, const QRectF &captionLine, bool table);
 
 signals:
     void resolved(int request, const QVariantMap &target);

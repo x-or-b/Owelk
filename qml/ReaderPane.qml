@@ -431,6 +431,10 @@ Rectangle {
                     else {canvas.tool="";annotationEditor.begin(canvas,spec,null)}
                 }
                 onPositionChanged: root.changed()
+                onFigureAiRequested: function(page, rect) {
+                    root.activated()
+                    root.aiRequested({action: "figure", scope: "none", source: root.source, page: page, region: rect})
+                }
                 onRegionSelected: function(page, rect) {
                     researchStore.captureRegion(source, page, rect)
                     captureMode = false

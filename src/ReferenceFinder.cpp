@@ -1,5 +1,6 @@
 #include "ReferenceFinder.h"
 #include "PdfAccess.h"
+#include "SelectionGeometry.h"
 
 #include <QFileInfo>
 #include <QPdfDocument>
@@ -148,6 +149,13 @@ QVariantMap ReferenceFinder::find(const QString &path, int page, const QPointF &
     if (reference.isEmpty()) return {};
     auto found = describe(pdf, texts, locate(texts, reference, page, reference["start"].toLongLong()));
     if (found.isEmpty()) return {};
+    // Figures and tables: the whole float with its caption, not just the caption's first line.
+    if (reference["kind"] == "figure" || reference["kind"] == "table") {
+        const auto region = floatRegion(pdf, found["page"].toInt(),
+            QRectF(found["x"].toDouble(), found["y"].toDouble(), found["width"].toDouble(), found["height"].toDouble()),
+            reference["kind"] == "table");
+        if (!region.isEmpty()) found.insert("float", region);
+    }
     found.insert("kind", reference["kind"]);
     found.insert("label", reference["label"]);
     // Several papers cited together ([3, 5], [12–14]): each one's entry, in order.
@@ -399,4 +407,92 @@ QVariantMap ReferenceFinder::locate(
         }
     }
     return {};
+}
+
+QVariantMap ReferenceFinder::floatRegion(QPdfDocument &pdf, int page, const QRectF &captionLine, bool table)
+{
+    if (page < 0 || page >= pdf.pageCount() || captionLine.isEmpty()) return {};
+    const auto size = pdf.pagePointSize(page);
+    SelectionGeometry geometry;
+    QList<QRectF> lines;
+    for (const auto &value : geometry.lineRectangles(pdf.getAllText(page).bounds())) lines << value.toRectF();
+    if (lines.isEmpty()) return {};
+    std::sort(lines.begin(), lines.end(), [](const QRectF &a, const QRectF &b) { return a.top() < b.top(); });
+    // The caption's column: on a two-column page (many lines in each half) its half, unless the caption
+    // spans both; otherwise the whole width.
+    const qreal w = size.width();
+    int leftLines = 0, rightLines = 0;
+    for (const auto &line : lines) {
+        if (line.right() <= w * .55)
+            ++leftLines;
+        else if (line.left() >= w * .45)
+            ++rightLines;
+    }
+    qreal left = 0, right = w;
+    if (leftLines >= 6 && rightLines >= 6) {
+        if (captionLine.right() <= w * .56)
+            right = w * .5;
+        else if (captionLine.left() >= w * .44)
+            left = w * .5;
+    }
+    const auto inColumn = [&](const QRectF &r) { return r.center().x() >= left && r.center().x() <= right; };
+    // The column's text block: figures sit within it.
+    qreal blockLeft = captionLine.left(), blockRight = captionLine.right();
+    for (const auto &line : lines)
+        if (inColumn(line)) {
+            blockLeft = std::min(blockLeft, line.left());
+            blockRight = std::max(blockRight, line.right());
+        }
+    const qreal lineHeight = std::max<qreal>(6, captionLine.height());
+    const qreal blockWidth = blockRight - blockLeft;
+    // The caption: its first line and the lines that follow closely below it.
+    QRectF caption = captionLine;
+    for (const auto &line : lines) {
+        if (!inColumn(line) || line.bottom() < captionLine.top()) continue;
+        // The rest of the first line.
+        if (line.top() < captionLine.top() + lineHeight * .5) {
+            caption |= line;
+            continue;
+        }
+        if (line.top() - caption.bottom() > lineHeight * .9) break;
+        caption |= line;
+    }
+    // Body text: a long line with another long one just above or below it (labels in a figure are short).
+    const auto isLong = [&](const QRectF &r) { return inColumn(r) && r.width() >= blockWidth * .6; };
+    const auto paragraphLine = [&](qsizetype i) {
+        if (!isLong(lines[i])) return false;
+        for (const auto j : {i - 1, i + 1})
+            if (j >= 0 && j < lines.size() && isLong(lines[j])
+                && std::abs(lines[j].top() - lines[i].top()) < std::max(lineHeight, lines[i].height()) * 2)
+                return true;
+        return false;
+    };
+    qreal top = caption.top(), bottom = caption.bottom();
+    if (!table) {
+        // The figure above its caption, up to the body text before it (or the page's top margin).
+        top = std::min<qreal>(caption.top(), 24);
+        for (qsizetype i = lines.size() - 1; i >= 0; --i)
+            if (lines[i].bottom() <= caption.top() - 2 && paragraphLine(i)) {
+                top = lines[i].bottom() + 4;
+                break;
+            }
+    } else {
+        // The table below its caption, down to the body text after it (or the page's bottom margin).
+        bottom = std::max<qreal>(caption.bottom(), size.height() - 24);
+        for (qsizetype i = 0; i < lines.size(); ++i)
+            if (lines[i].top() >= caption.bottom() + lineHeight * 1.5 && paragraphLine(i)) {
+                bottom = lines[i].top() - 4;
+                break;
+            }
+    }
+    // Across: the column's text block, a little wider for drawings at its edges.
+    const qreal from = std::max<qreal>(0, blockLeft - 8), to = std::min<qreal>(w, blockRight + 8);
+    // From inside the first line's first glyph to inside the last line's last one.
+    const qreal inset = std::min<qreal>(3, caption.height() / 3);
+    const auto text = pdf.getSelection(page, QPointF(caption.left() + 1, caption.top() + inset),
+                             QPointF(caption.right() - 1, caption.bottom() - inset))
+                          .text()
+                          .simplified();
+    return {{"x", from}, {"y", top}, {"width", to - from}, {"height", bottom - top}, {"captionTop", caption.top()},
+        {"captionBottom", caption.bottom()}, {"caption", text}};
 }

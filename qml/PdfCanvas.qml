@@ -157,6 +157,8 @@ Item {
     signal positionChanged()
     signal activated()
     signal regionSelected(int page, rect normalizedRegion)
+    // Ask AI on a figure or table preview: its region with the caption (page-relative).
+    signal figureAiRequested(int page, rect normalizedRegion)
 
     // Previous and next page (Cmd+[ / Cmd+], the toolbar arrows and the mouse's side buttons).
     function previousPage() { if (ready && currentPage > 0) jump(currentPage - 1, 0, 0) }
@@ -1477,7 +1479,7 @@ Item {
                 if (!shown || !root.hoveredLink) return
                 previewShow.stop(); previewHide.stop()
                 root.linkPreview = Object.assign({}, shown, {kind: target.kind, label: target.label, text: target.text || "", entries: root.citedEntries(target),
-                                                             rect: Qt.rect(target.x, target.y, target.width, target.height)})
+                                                             rect: Qt.rect(target.x, target.y, target.width, target.height), float: target.float || null})
                 return
             }
             const half = 8 * root.pageScale
@@ -1485,7 +1487,7 @@ Item {
             root.previewContentY = pages.contentY
             root.linkPreview = {page: target.page, y: target.top, x: spot.viewX, kind: target.kind, top: spot.viewY - half, bottom: spot.viewY + half,
                                 rect: Qt.rect(target.x, target.y, target.width, target.height), label: target.label, text: target.text || "", entries: root.citedEntries(target),
-                                fromText: true, anchorX: spot.viewX, anchorY: spot.viewY}
+                                fromText: true, anchorX: spot.viewX, anchorY: spot.viewY, float: target.float || null}
         }
     }
     Timer { id: previewHide; interval: 250; onTriggered: if (!previewHover.hovered) root.linkPreview = null }
@@ -1499,8 +1501,26 @@ Item {
         readonly property bool showsFloat: spec.kind === "figure" || spec.kind === "table"
         // A citation ([5], [3, 5], [12–14], Vaswani et al.): its reference entries as a list instead of the page.
         readonly property bool showsList: !!spec.entries && spec.entries.length > 0
+        // A figure or table found with its caption (ReferenceFinder::floatRegion): shown whole, fitted to
+        // the card, with no outline; the reader can zoom inside the card and ask AI about it.
+        readonly property var area: showsFloat && spec.float ? spec.float : null
+        readonly property real fitScale: area ? (width - 16) / Math.max(1, area.width) : 1
+        property real zoom: 1
+        onSpecChanged: zoom = 1
+        function setZoom(next) {
+            const flick = previewLoader.item
+            const fx = flick ? (flick.contentX + flick.width / 2) / Math.max(1, flick.contentWidth) : .5
+            const fy = flick ? (flick.contentY + flick.height / 2) / Math.max(1, flick.contentHeight) : .5
+            zoom = Math.max(.4, Math.min(5, next))
+            // The middle of the card stays on the same spot of the figure.
+            if (flick) Qt.callLater(function() {
+                flick.contentX = Math.max(0, Math.min(flick.contentWidth - flick.width, fx * flick.contentWidth - flick.width / 2))
+                flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, fy * flick.contentHeight - flick.height / 2))
+            })
+        }
         width: Math.min(560, root.width - 32)
         height: showsList ? Math.min(entryList.contentHeight + 12, root.height * .45)
+              : area ? Math.min(root.height * .75, Math.max(180, area.height * fitScale + 16 + 40))
               : showsFloat ? Math.min(420, root.height * .62) : Math.min(240, root.height * .45)
         // Below the reference when there is room, otherwise above it.
         x: Math.max(8, Math.min(root.width - width - 8, spec.x - 40))
@@ -1514,16 +1534,20 @@ Item {
         // Created only while shown, so references cost nothing until hovered. The page scrolls inside
         // the card (wheel, trackpad or drag) to see more around the target.
         Loader {
+            id: previewLoader
             active: previewCard.visible && !previewCard.showsList
             anchors.fill: parent
+            anchors.bottomMargin: previewCard.showsFloat ? 40 : 0
             sourceComponent: Flickable {
                 id: previewFlick
                 objectName: "linkPreviewFlick"
                 readonly property size points: pdfDocument.pagePointSize(previewCard.spec.page)
                 readonly property rect area: previewCard.spec.rect || Qt.rect(0, 0, 0, 0)
-                // A caption line is about as wide as its column: zoom so that column fills the card.
-                readonly property real zoom: previewCard.showsFloat && area.width > 0 && points.width > 0
-                    ? Math.max(1, Math.min(2.2, points.width / (Math.max(area.width, points.width * .42) + 28))) : 1
+                // A found figure or table fills the card's width; otherwise a caption line is about as wide
+                // as its column, so that column fills the card. The reader's zoom comes on top.
+                readonly property real zoom: (previewCard.area ? points.width * previewCard.fitScale / Math.max(1, width)
+                    : previewCard.showsFloat && area.width > 0 && points.width > 0
+                    ? Math.max(1, Math.min(2.2, points.width / (Math.max(area.width, points.width * .42) + 28))) : 1) * previewCard.zoom
                 readonly property real scale: width * zoom / Math.max(1, points.width)
                 contentWidth: page.width; contentHeight: page.height
                 boundsBehavior: Flickable.StopAtBounds
@@ -1533,6 +1557,11 @@ Item {
                 // table below. Anything else: the target a little below the top, with context above.
                 function place() {
                     const s = scale, a = area
+                    if (previewCard.area) {
+                        contentX = Math.max(0, Math.min(contentWidth - width, previewCard.area.x * s - 8))
+                        contentY = Math.max(0, Math.min(contentHeight - height, previewCard.area.y * s - 8))
+                        return
+                    }
                     let x = previewCard.showsFloat && a.width > 0 ? a.x * s - 14 : 0
                     let y = previewCard.spec.kind === "figure" && a.height > 0 ? (a.y + a.height) * s + 18 - height
                           : previewCard.spec.kind === "table" && a.height > 0 ? a.y * s - 14
@@ -1542,6 +1571,28 @@ Item {
                 }
                 Component.onCompleted: place()
                 Connections { target: previewCard; function onSpecChanged() { Qt.callLater(previewFlick.place) } }
+                // Pinch or Ctrl+wheel over the card zooms the card, not the page behind it.
+                PinchHandler {
+                    target: null
+                    acceptedDevices: PointerDevice.TouchPad | PointerDevice.TouchScreen
+                    rotationAxis.enabled: false
+                    property real startZoom: 1
+                    onActiveChanged: if (active) startZoom = previewCard.zoom
+                    onActiveScaleChanged: if (active) previewCard.setZoom(startZoom * activeScale)
+                }
+                WheelHandler {
+                    target: null
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    acceptedModifiers: Qt.platform.os === "osx" ? Qt.MetaModifier : Qt.ControlModifier
+                    onWheel: function(event) { previewCard.setZoom(previewCard.zoom * Math.pow(1.0015, event.angleDelta.y)) }
+                }
+                WheelHandler {
+                    target: null
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    acceptedModifiers: Qt.ControlModifier
+                    enabled: Qt.platform.os === "osx"
+                    onWheel: function(event) { previewCard.setZoom(previewCard.zoom * Math.pow(1.0015, event.angleDelta.y)) }
+                }
                 PdfPageImage {
                     id: page
                     objectName: "linkPreviewPage"
@@ -1558,7 +1609,7 @@ Item {
                     Rectangle {
                         objectName: "linkPreviewTarget"
                         readonly property rect area: previewFlick.area
-                        visible: area.width > 0
+                        visible: area.width > 0 && !previewCard.area
                         x: area.x * previewFlick.scale - 3; y: area.y * previewFlick.scale - 2
                         width: area.width * previewFlick.scale + 6; height: area.height * previewFlick.scale + 4
                         radius: Theme.radiusSmall
@@ -1625,6 +1676,41 @@ Item {
             radius: Theme.radiusSmall
             color: Theme.raised; border.color: Theme.separator
             Label { id: goLabel; anchors.centerIn: parent; text: (previewCard.spec.label ? previewCard.spec.label + " · " : "") + "p. " + (previewCard.spec.page + 1) + " · click to go"; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
+        }
+        // Figures and tables: zoom out and in by small steps, and ask AI about the figure with its caption.
+        Row {
+            objectName: "linkPreviewZoom"
+            visible: previewCard.showsFloat
+            anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 6
+            spacing: 2
+            IconButton {
+                objectName: "linkPreviewZoomOut"; icon.name: "minus"; description: "Zoom out"
+                tint: previewCard.ink; onClicked: previewCard.setZoom(previewCard.zoom / 1.1)
+            }
+            Label {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 40; horizontalAlignment: Text.AlignHCenter
+                text: Math.round(previewCard.zoom * 100) + "%"
+                font.pixelSize: Theme.fontCaption; color: previewCard.ink
+            }
+            IconButton {
+                objectName: "linkPreviewZoomIn"; icon.name: "add"; description: "Zoom in"
+                tint: previewCard.ink; onClicked: previewCard.setZoom(previewCard.zoom * 1.1)
+            }
+            Button {
+                objectName: "linkPreviewAskAi"
+                visible: !!previewCard.area
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Ask AI"; icon.name: "ai"
+                ToolTip.visible: hovered; ToolTip.delay: 500
+                ToolTip.text: "Send the " + (previewCard.spec.kind === "table" ? "table" : "figure") + " and its caption to the AI panel (saved as a capture)"
+                onClicked: {
+                    const a = previewCard.area, size = pdfDocument.pagePointSize(previewCard.spec.page)
+                    const page = previewCard.spec.page
+                    root.closeLinkPreview()
+                    root.figureAiRequested(page, Qt.rect(a.x / size.width, a.y / size.height, a.width / size.width, a.height / size.height))
+                }
+            }
         }
         // A cited paper: look it up (its DOI or arXiv page, or a search for the entry), in a web tab.
         Button {
