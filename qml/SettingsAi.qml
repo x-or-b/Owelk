@@ -46,6 +46,26 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            label: "Explanations"
+            detail: "How Explain and other answers are written · also switchable on each Explain card"
+            ComboBox {
+                objectName: "aiExplainLevelBox"
+                Layout.preferredWidth: 200
+                model: ["Easy, with examples", "Brief"]
+                currentIndex: researchStore.setting("ai.explainLevel", "easy") === "brief" ? 1 : 0
+                onActivated: function(index) { researchStore.setSetting("ai.explainLevel", index === 1 ? "brief" : "easy") }
+            }
+        }
+        SettingsRow {
+            label: "Symbol hints"
+            detail: "Once a paper's symbols are listed (right-click › Symbols in This Paper), pointing at one shows its meaning"
+            Switch {
+                objectName: "aiSymbolHints"
+                checked: researchStore.setting("ai.symbolHints", "1") === "1"
+                onToggled: researchStore.setSetting("ai.symbolHints", checked ? "1" : "0")
+            }
+        }
+        SettingsRow {
             label: "Show thinking"
             detail: "A short summary of the model's reasoning, folded above each answer"
             Switch {

@@ -50,21 +50,42 @@ AiPrompt buildAiPrompt(
                                         "clearer.")
                              .arg(target);
 
+    // The reader's level (Settings → AI): most readers are students meeting the field's notation for the
+    // first time.
+    if (action != "translate" && action != "notation") {
+        if (materials.level == "brief")
+            prompt.system += " Be brief, for a reader who knows the basics of the field: the key point first, "
+                             "then only what is needed to follow it; define unfamiliar symbols in a few words and "
+                             "skip examples unless asked.";
+        else
+            prompt.system += " Write for a student new to this field (an undergraduate or first-year graduate "
+                             "student): plain words and short sentences; define each symbol and technical term the "
+                             "first time it appears; give the intuition before the formal statement; and add a "
+                             "small concrete example, with simple numbers or an everyday analogy, where it helps. "
+                             "Do not assume background the paper does not explain; when you add it, say that it "
+                             "is background knowledge.";
+    }
     // Paper text comes with page numbers: answers point to their places, which Owelk turns into links.
     if ((!materials.pageText.isEmpty() || !materials.paperText.isEmpty()) && action != "translate")
         prompt.system += " When a statement draws on the paper, cite its place right after it as [p. N: \"exact "
                          "words\"], where N is the page number marked in the material and the words are a short phrase "
                          "(about 4 to 12 words) copied exactly from that page.";
-    QStringList parts;
+    QStringList parts, context;
     QStringList paper;
     if (!materials.title.isEmpty()) paper << "Title: " + materials.title;
     if (!materials.authors.isEmpty()) paper << "Authors: " + materials.authors;
     if (!materials.year.isEmpty()) paper << "Year: " + materials.year;
-    if (!paper.isEmpty()) parts << "<paper>\n" + paper.join('\n') + "\n</paper>";
-
-    // The selection is the point of the request, so it is kept before page and paper text.
-    int remaining = budget;
+    // The paper's details and text open the request and never depend on the rest, so a provider can
+    // reuse them for every question about this paper (prompt caching).
+    if (!paper.isEmpty())
+        (materials.paperText.isEmpty() ? parts : context) << "<paper>\n" + paper.join('\n') + "\n</paper>";
     bool cut = false;
+    int paperBudget = budget;
+    if (!materials.paperText.isEmpty())
+        context << "<paper_text>\n" + clip(materials.paperText, paperBudget, cut) + "\n</paper_text>";
+
+    // The selection is the point of the request, so it is kept before page text.
+    int remaining = budget;
     if (!materials.selection.isEmpty())
         parts << "<selection>\n" + clip(materials.selection, remaining, cut) + "\n</selection>";
     if (!materials.quote.isEmpty())
@@ -76,8 +97,6 @@ AiPrompt buildAiPrompt(
         parts << QStringLiteral("<page%1>\n")
                      .arg(materials.pageNumber ? QStringLiteral(" number=\"%1\"").arg(materials.pageNumber) : QString())
                 + clip(materials.pageText, remaining, cut) + "\n</page>";
-    if (!materials.paperText.isEmpty())
-        parts << "<paper_text>\n" + clip(materials.paperText, remaining, cut) + "\n</paper_text>";
     if (!materials.libraryText.isEmpty())
         parts << "<library_passages>\n" + clip(materials.libraryText, remaining, cut) + "\n</library_passages>";
     prompt.truncated = cut;
@@ -85,9 +104,10 @@ AiPrompt buildAiPrompt(
     // Translation needs a target: the preferred language, or English when that is "same as paper".
     const auto into = target.isEmpty() ? QStringLiteral("English") : target;
     QString task;
+    const auto about = materials.label.isEmpty() ? QString() : " (" + materials.label + ")";
     if (action == "explain")
-        task = "Explain the selected passage: what it says, why it matters in this paper, and any terms or notation a "
-               "graduate student might need.";
+        task = "Explain the selected passage: what it says, why it matters in this paper, and the terms and notation "
+               "it relies on.";
     else if (action == "translate")
         task
             = QStringLiteral("Translate the selected passage into %1. Give only the translation, faithful and natural; "
@@ -104,16 +124,42 @@ AiPrompt buildAiPrompt(
                "without saying that you are doing so.\n\nQuestion: "
             + question.trimmed();
     else if (action == "figure")
-        task = "Explain the attached figure or table: what it shows, how to read it, and what it implies for the "
-               "paper's argument.";
+        task = "Explain the attached figure or table" + about
+            + ": start with one sentence on what it shows; then how to read it (axes, legend, colours, symbols, "
+              "rows and columns); then what it implies for the paper's argument.";
+    else if (action == "equation")
+        task = "The attached image shows a displayed equation from the paper" + about
+            + ". Explain it in this order:\n1. The equation in LaTeX, as a display formula.\n2. In one or two "
+              "sentences, what it computes or states, and why the paper needs it.\n3. A table with the columns "
+              "Symbol | Meaning | Where defined, with every symbol, operator and special notation in it (also "
+              "operators the paper defines itself, such as ⊞, and sets or groups such as SE(3) or ℝⁿ). Under Where "
+              "defined, cite the paper's definition as [p. N: \"exact words\"], or write Background when the "
+              "paper uses it without defining it.\n4. A short Background section that explains those background "
+              "notions.\n5. The equation step by step: what each part does and how the parts combine.";
+    else if (action == "algorithm")
+        task = "The attached image shows an algorithm or code from the paper" + about
+            + ". Explain: its purpose in one or two sentences; its inputs and outputs; then a walk through it in "
+              "order (by line number where it has them, grouping simple lines); and where the paper defines the "
+              "helper functions, symbols and thresholds it uses, cited as [p. N: \"exact words\"].";
+    else if (action == "notation")
+        task = QStringLiteral(
+            "List the mathematical symbols and notation this paper uses, as JSON only, with no other text:\n"
+            "{\"symbols\": [{\"symbol\": \"LaTeX of the symbol\", \"text\": [\"how it appears in the "
+            "paper text above, e.g. ωm or ⊞\"], \"meaning\": \"what it means here, in a short phrase in "
+            "%1\", \"page\": page number where the paper defines it, or null, \"background\": true when "
+            "the paper uses it without defining it}]}\nInclude variables, operators the paper defines, sets, "
+            "groups, functions and accents (hats, tildes, bars); at most 80 entries, the most important first.")
+                   .arg(target.isEmpty() ? QStringLiteral("the paper's language") : target);
     else
         task = question.trimmed().isEmpty() ? QStringLiteral("Help me understand this material.") : question.trimmed();
     if (action != "ask" && action != "library" && !question.trimmed().isEmpty())
         task += "\n\nAdditional request: " + question.trimmed();
     if (!materials.quote.isEmpty()) task += "\n\nThe request is about the passage quoted from this conversation.";
-    if (materials.hasImage && action != "figure") task += "\n\nAn image from the paper is attached.";
+    if (materials.hasImage && action != "figure" && action != "equation" && action != "algorithm")
+        task += "\n\nAn image from the paper is attached.";
     if (cut) task += "\n\n(Some material was shortened to fit; mention it if the answer depends on the missing part.)";
     parts << task;
+    prompt.context = context.join("\n\n");
     prompt.text = parts.join("\n\n");
     return prompt;
 }

@@ -157,6 +157,10 @@ void AnthropicProvider::start(const AiRequest &request)
 {
     m_model = request.model;
     QJsonArray content;
+    // The paper first, with its own cache mark: later questions about it read it from the cache.
+    if (!request.context.isEmpty())
+        content.append(QJsonObject{
+            {"type", "text"}, {"text", request.context}, {"cache_control", QJsonObject{{"type", "ephemeral"}}}});
     for (const auto &image : request.images)
         content.append(QJsonObject{{"type", "image"},
             {"source",
@@ -246,7 +250,7 @@ OpenAiProvider::OpenAiProvider(QNetworkAccessManager *network, const QUrl &base,
 void OpenAiProvider::start(const AiRequest &request)
 {
     m_model = request.model;
-    QJsonArray content{QJsonObject{{"type", "input_text"}, {"text", request.text}}};
+    QJsonArray content{QJsonObject{{"type", "input_text"}, {"text", request.fullText()}}};
     for (const auto &image : request.images)
         content.append(QJsonObject{{"type", "input_image"},
             {"image_url", "data:" + image.mediaType + ";base64," + QString::fromLatin1(image.data.toBase64())}});
@@ -324,7 +328,7 @@ void OllamaProvider::start(const AiRequest &request)
     m_model = request.model;
     QJsonArray images;
     for (const auto &image : request.images) images.append(QString::fromLatin1(image.data.toBase64()));
-    QJsonObject user{{"role", "user"}, {"content", request.text}};
+    QJsonObject user{{"role", "user"}, {"content", request.fullText()}};
     if (!images.isEmpty()) user.insert("images", images);
     QJsonArray messages{QJsonObject{{"role", "system"}, {"content", request.system}}};
     for (const auto &turn : request.history) messages.append(QJsonObject{{"role", turn.role}, {"content", turn.text}});
@@ -529,12 +533,12 @@ void CodexProvider::start(const AiRequest &request)
         {"developerInstructions", request.system}};
     if (!request.model.isEmpty()) thread.insert("model", request.model);
     // Each Owelk request is a fresh read-only thread, so earlier turns travel inside the text.
-    QString text = request.text;
+    QString text = request.fullText();
     if (!request.history.isEmpty()) {
         QStringList lines{"Earlier in this conversation:"};
         for (const auto &turn : request.history)
             lines << (turn.role == "user" ? "Reader: " : "Assistant: ") + turn.text;
-        text = lines.join("\n\n") + "\n\nNew request:\n" + request.text;
+        text = lines.join("\n\n") + "\n\nNew request:\n" + request.fullText();
     }
     QJsonArray input{QJsonObject{{"type", "text"}, {"text", text}}};
     for (const auto &image : request.images)

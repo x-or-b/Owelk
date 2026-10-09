@@ -172,6 +172,17 @@ Item {
     // joins the conversation instead (attachFigure).
     function begin(next) {
         if (next.region) { attachFigure(next); return }
+        // Continue in AI from an Explain card: its thread, with the figure ready for the next question.
+        if (next.continueThread) {
+            if (!openThread(next.continueThread)) return
+            if (next.image && attachImage(next.image)) {
+                const copy = images.slice()
+                copy[copy.length - 1] = Object.assign({}, copy[copy.length - 1], {name: next.label || "Figure"})
+                images = copy
+            }
+            focusRequested()
+            return
+        }
         reset()
         threadId = ""; thread = ({})
         conversationOpen = true

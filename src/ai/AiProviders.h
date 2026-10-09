@@ -28,7 +28,10 @@ struct AiTurn {
 struct AiRequest {
     QString system;
     QList<AiTurn> history;
-    QString text;
+    // context: material that stays the same across requests (a paper's text), sent first and cached
+    // where the provider allows; text: the rest. fullText() is both, for providers without caching.
+    QString context, text;
+    QString fullText() const { return context.isEmpty() ? text : context + "\n\n" + text; }
     QList<AiImage> images;
     QString model;
     // Reasoning effort (provider's own level names, e.g. low…max) and the faster, pricier tier.

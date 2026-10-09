@@ -51,7 +51,9 @@ Item {
     // Highlight (also comments), drawing and text-box inks are separate and remembered; text starts navy.
     readonly property bool invertPages: Theme.invertPages && Theme.canInvertPages
     // The pointer is on a reference preview: drags, pinches and Ctrl+wheel belong to the card, not the page.
-    readonly property bool overPreview: previewCard.visible && previewHover.hovered
+    // An Explain card (ExplainCard, placed over this view) the pointer is on: the same.
+    property bool overCard: false
+    readonly property bool overPreview: (previewCard.visible && previewHover.hovered) || overCard
     readonly property string defaultTextColor: "#1d3a5c"
     property string markColor: savedInk("highlightColor")
     property string drawColor: savedInk("drawColor")
@@ -69,12 +71,22 @@ Item {
     }
     // A page's size in PDF points (text boxes fit their font to it).
     function pagePoints(page) { return pdfDocument.pagePointSize(page) }
+    // A box on a page (PDF points) in this view's coordinates; empty while that page is not laid out.
+    function viewRect(page, x, y, width, height) {
+        const item = pages.itemAtIndex(page)
+        if (!item) return Qt.rect(0, 0, 0, 0)
+        const left = (pages.contentWidth - item.pointSize.width * pageScale) / 2
+        return Qt.rect(left + x * pageScale - pages.contentX, item.y + y * pageScale - pages.contentY, width * pageScale, height * pageScale)
+    }
     property string documentFingerprint: ""
     property var editingMark: null
     // A mark outlined on the page while its note is hovered in the margin.
     property string focusedMark: ""
     property point markMenuPosition: Qt.point(0, 0)
-    signal contextRequested(point position, int page)
+    // pagePoint: where on the page, in PDF points (for Explain: the figure or equation there).
+    signal contextRequested(point position, int page, point pagePoint)
+    // Explain on a figure, table or equation preview: the object found (ReferenceFinder) and where the card was.
+    signal explainRequested(var target, rect anchor)
     signal externalLinkRequested(url url)
     signal editRequested(var record, var selection)
     signal annotationPlaced(int page, var rectangle, var points)
@@ -98,13 +110,14 @@ Item {
         savedHighlights = []; highlightError = ""
         highlightRequest = ready ? researchStore.loadHighlights(source) : -1
     }
-    onReadyChanged: refreshHighlights()
+    onReadyChanged: { refreshHighlights(); loadSymbols() }
     onSourceChanged: {
         savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null; documentFingerprint = ""; tool = ""
         backStack = []; forwardStack = []; selectedMarkId = ""; markEdit = null
         closeLinkPreview(); hoveredLink = null; restSpot = null
         // PdfDocument may become Ready synchronously before this handler resets the request.
         Qt.callLater(refreshHighlights)
+        Qt.callLater(loadSymbols)
     }
     Connections {
         target: researchStore
@@ -881,7 +894,7 @@ Item {
                     cursorShape: !root.captureMode && (!root.tool.length || root.tool === "highlight")
                         && containsMouse && pageHolder.overText(mouseX / root.pageScale, mouseY / root.pageScale)
                         ? Qt.IBeamCursor : Qt.ArrowCursor
-                    onClicked: function(mouse) { root.contextRequested(mapToItem(root, mouse.x, mouse.y), pageHolder.index) }
+                    onClicked: function(mouse) { root.contextRequested(mapToItem(root, mouse.x, mouse.y), pageHolder.index, Qt.point(mouse.x / root.pageScale, mouse.y / root.pageScale)) }
                 }
                 Repeater {
                     model: root.savedHighlights.filter(function(h) { return h.page === pageHolder.index })
@@ -1505,6 +1518,7 @@ Item {
     property bool referenceFallback: false
     function restOn(page, point, viewPoint) {
         if (!ready || captureMode || tool.length || selecting || pinching) { referenceRest.stop(); return }
+        if (symbolHint && Math.abs(viewPoint.x - symbolHint.x) + Math.abs(viewPoint.y - symbolHint.y) > 6) symbolHint = null
         // Moving off the reference that opened the card lets it go (unless the pointer goes into the card).
         if (linkPreview && linkPreview.fromText && Math.abs(viewPoint.x - linkPreview.anchorX) + Math.abs(viewPoint.y - linkPreview.anchorY) > 18) leaveLinkPreview()
         restSpot = {page: page, x: point.x, y: point.y, viewX: viewPoint.x, viewY: viewPoint.y}
@@ -1513,11 +1527,51 @@ Item {
     function leaveRest() {
         referenceRest.stop()
         restSpot = null
+        symbolHint = null
         if (linkPreview && linkPreview.fromText) leaveLinkPreview()
     }
     function resolveReference(spot) {
         referenceFallback = false
         referenceRequest = researchStore.references.resolve(source, spot.page, Qt.point(spot.x, spot.y))
+        if (symbols.length && symbolHints) symbolRequest = researchStore.references.wordAt(source, spot.page, Qt.point(spot.x, spot.y))
+    }
+    // Symbol hints: once the paper's symbols are listed (Explain › Symbols in This Paper), resting on one
+    // shows what it means. [{symbol (LaTeX), text (as printed), meaning, page (0: background)}]
+    property var symbols: []
+    property bool symbolHints: researchStore.setting("ai.symbolHints", "1") === "1"
+    property int symbolRequest: -1
+    // {entry, x, y}: the symbol shown and where the pointer rested.
+    property var symbolHint: null
+    function loadSymbols() { symbols = ready ? researchStore.ai.notation(source) : []; symbolHint = null }
+    Connections {
+        target: researchStore.ai
+        function onNotationChanged(paper) { if (researchStore.sameSource(paper, root.source)) root.loadSymbols() }
+    }
+    Connections {
+        target: researchStore
+        function onSettingsChanged() { root.symbolHints = researchStore.setting("ai.symbolHints", "1") === "1" }
+    }
+    // The symbol for the word under the pointer: the word as printed, a shorter start of it (ωmi for
+    // ωm), or a Greek letter or operator inside it. Plain words never match ("a" and "I" are words).
+    function symbolFor(word) {
+        const w = (word.word || "").replace(/[.,;:]+$/, ""), glyph = word.glyph || ""
+        if (!w.length || /^(a|A|I)$/.test(w)) return null
+        const printed = function(form) { return symbols.find(function(s) { return (s.text || []).indexOf(form) >= 0 }) || null }
+        let found = printed(w)
+        for (let n = w.length - 1; !found && n >= 1 && w.length <= 8; --n) {
+            const start = w.slice(0, n)
+            if (n >= 2 || /[^\x00-\x7F]/.test(start)) found = printed(start)
+        }
+        if (!found && /[^\x00-\x7F]/.test(glyph)) found = printed(glyph)
+        return found
+    }
+    Connections {
+        target: researchStore.references
+        function onWordFound(request, word) {
+            if (request !== root.symbolRequest || !root.restSpot) return
+            const entry = word.word ? root.symbolFor(word) : null
+            root.symbolHint = entry ? {entry: entry, x: root.restSpot.viewX, y: root.restSpot.viewY} : null
+        }
     }
     Timer { id: referenceRest; interval: 350; onTriggered: if (root.restSpot) root.resolveReference(root.restSpot) }
     Connections {
@@ -1553,6 +1607,32 @@ Item {
         }
     }
     Timer { id: previewHide; interval: 250; onTriggered: if (!previewHover.hovered) root.linkPreview = null }
+    Rectangle {
+        id: symbolTip
+        objectName: "symbolHint"
+        visible: root.symbolHint !== null && root.linkPreview === null
+        z: 58
+        readonly property var entry: root.symbolHint ? root.symbolHint.entry : ({})
+        width: Math.min(320, symbolText.contentWidth + 16)
+        height: symbolText.contentHeight + 10
+        x: root.symbolHint ? Math.max(8, Math.min(root.width - width - 8, root.symbolHint.x + 10)) : 0
+        y: root.symbolHint ? (root.symbolHint.y + 18 + height < root.height ? root.symbolHint.y + 18 : root.symbolHint.y - height - 10) : 0
+        radius: Theme.radius
+        color: Theme.raised
+        border.color: Theme.border
+        Text {
+            id: symbolText
+            x: 8; y: 5
+            width: 304
+            wrapMode: Text.Wrap
+            textFormat: Text.RichText
+            text: symbolTip.visible ? researchStore.markdownHtml("$" + symbolTip.entry.symbol + "$ \u2014 " + symbolTip.entry.meaning
+                                                                 + (symbolTip.entry.page > 0 ? " · *p. " + symbolTip.entry.page + "*" : " · *background*"),
+                                                                 Theme.accent, Theme.text, Theme.fontSmall) : ""
+            color: Theme.text
+            font.pixelSize: Theme.fontSmall
+        }
+    }
     Rectangle {
         id: previewCard
         objectName: "linkPreview"
@@ -1746,24 +1826,43 @@ Item {
             Label { id: goLabel; anchors.centerIn: parent; text: (previewCard.spec.label ? previewCard.spec.label + " · " : "") + "p. " + (previewCard.spec.page + 1) + " · click to go"; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
         }
         // Figures and tables: zoom out and in by small steps, and ask AI about the figure with its caption.
+        // Figures, tables and equations: Explain, in a card of its own.
         Row {
             objectName: "linkPreviewZoom"
-            visible: previewCard.showsFloat
+            visible: previewCard.showsFloat || (previewCard.spec.kind === "equation" && !!previewCard.spec.float)
             anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 6
             spacing: 2
             IconButton {
                 objectName: "linkPreviewZoomOut"; icon.name: "minus"; description: "Zoom out"
+                visible: previewCard.showsFloat
                 tint: previewCard.ink; onClicked: previewCard.setZoom(previewCard.zoom / 1.1)
             }
             Label {
                 anchors.verticalCenter: parent.verticalCenter
+                visible: previewCard.showsFloat
                 width: 40; horizontalAlignment: Text.AlignHCenter
                 text: Math.round(previewCard.zoom * 100) + "%"
                 font.pixelSize: Theme.fontCaption; color: previewCard.ink
             }
             IconButton {
                 objectName: "linkPreviewZoomIn"; icon.name: "add"; description: "Zoom in"
+                visible: previewCard.showsFloat
                 tint: previewCard.ink; onClicked: previewCard.setZoom(previewCard.zoom * 1.1)
+            }
+            Button {
+                objectName: "linkPreviewExplain"
+                visible: !!previewCard.spec.float
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Explain"
+                ToolTip.visible: hovered; ToolTip.delay: 500
+                ToolTip.text: "A short explanation beside it · every symbol defined"
+                onClicked: {
+                    const s = previewCard.spec
+                    const target = Object.assign({kind: s.kind, label: s.label, page: s.page}, s.float)
+                    const anchor = Qt.rect(previewCard.x, previewCard.y, 0, 0)
+                    root.closeLinkPreview()
+                    root.explainRequested(target, anchor)
+                }
             }
             Button {
                 objectName: "linkPreviewAskAi"

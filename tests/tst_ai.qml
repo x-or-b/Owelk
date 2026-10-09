@@ -48,7 +48,7 @@ Item {
             const ai = findChild(workspace, "aiController")
             compare(workspace.aiVisible, false)
             // Without a key the panel explains what is missing and sends nothing.
-            findChild(workspace.currentReader, "aiExplainSelection").triggered()
+            findChild(workspace.currentReader, "aiTranslateSelection").triggered()
             tryCompare(workspace, "aiVisible", true)
             compare(workspace.aiSide, "right") // The AI panel docks on the right by default.
             tryCompare(findChild(workspace, "rightDock"), "activePanel", "ai")
@@ -68,7 +68,7 @@ Item {
             verify(ai.threadId.length > 0)
             compare(ai.messages.length, 2)
             compare(ai.messages[1].content, "Mock answer about **occlusion**.")
-            compare(ai.messages[0].display, "Explain")
+            compare(ai.messages[0].display, "Translate")
             const hits = researchStore.searchKnowledge("Mock answer")
             verify(hits.some(function(h) { return h.kind === "ai" && h.id === ai.threadId }))
             const paper = researchStore.documentLinkId(fixtureSource)
@@ -551,6 +551,77 @@ Item {
             compare(ai.messages[0].display, "Summarize")
             verify(ai.messages[0].context.attachments.indexOf("paper") >= 0)
             verify(!findChild(p, "aiTranslateNext").visible)
+        }
+        function test_9zzzzz_explainCardBesideTheFigure() {
+            verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
+            researchStore.ai.provider = "claude"
+            researchStore.ai.giveConsent("claude")
+            researchStore.setSetting("ai.explainLevel", "easy")
+            workspace.aiVisible = false
+            workspace.documents.restore({})
+            workspace.openDocument(fixtureSource)
+            const c = canvas()
+            c.clearSelection()
+            const ai = findChild(workspace, "aiController"), reader = workspace.currentReader
+            // Right-click on the chart: the menu offers to explain that figure.
+            c.contextRequested(Qt.point(200, 200), 0, Qt.point(250, 520))
+            const explain = findChild(reader, "menuExplainAi")
+            tryCompare(explain, "text", "Explain Figure 1", 5000)
+            explain.triggered()
+            const card = findChild(reader, "explainCard")
+            tryCompare(card, "visible", true)
+            compare(card.title, "Figure 1")
+            tryCompare(card, "streaming", false, 10000)
+            verify(card.answer.indexOf("Mock answer") >= 0)
+            verify(card.key.length > 0)
+            compare(workspace.aiVisible, false) // Nothing opens in the AI panel until asked.
+            const threads = researchStore.aiThreads().length
+            // The other level is a new explanation; switching back shows the kept one at once.
+            mouseClick(findChild(card, "explainLevel-brief"))
+            compare(researchStore.setting("ai.explainLevel"), "brief")
+            tryCompare(card, "streaming", false, 10000)
+            mouseClick(findChild(card, "explainLevel-easy"))
+            tryCompare(card, "cached", true, 5000)
+            compare(researchStore.aiThreads().length, threads)
+            // Continue in AI: the thread opens in the panel with the explanation and the figure attached.
+            mouseClick(findChild(card, "explainContinue"))
+            tryCompare(workspace, "aiVisible", true)
+            compare(card.visible, false)
+            tryCompare(ai, "conversationOpen", true)
+            compare(ai.messages.length, 2)
+            compare(ai.messages[0].display, "Explain Figure 1")
+            compare(ai.images.length, 1)
+            compare(researchStore.aiThreads().length, threads + 1)
+            // Without a figure under the pointer the item asks about the paper, as before.
+            c.contextRequested(Qt.point(200, 200), 0, Qt.point(120, 230))
+            wait(300)
+            compare(explain.text, "Explain with AI…")
+            findChild(reader, "selectionContextMenu").close()
+            ai.showThreads()
+            researchStore.setSetting("ai.explainLevel", "easy")
+        }
+        function test_9zzzzzz_symbolHintsMatchWhatIsPrinted() {
+            workspace.documents.restore({})
+            workspace.openDocument(fixtureSource)
+            const c = canvas()
+            c.symbols = [{symbol: "\\omega_m", text: ["ωm"], meaning: "angular velocity", page: 2},
+                         {symbol: "\\boxplus", text: ["⊞"], meaning: "adds a small change to a state", page: 2},
+                         {symbol: "b", text: ["b"], meaning: "IMU bias", page: 0}]
+            // As printed, a longer run of it (ωmi: ω, m, then the index), an operator inside a run.
+            compare(c.symbolFor({word: "ωm,", glyph: "ω"}).meaning, "angular velocity")
+            compare(c.symbolFor({word: "ωmi", glyph: "m"}).meaning, "angular velocity")
+            compare(c.symbolFor({word: "x⊞δx", glyph: "⊞"}).symbol, "\\boxplus")
+            compare(c.symbolFor({word: "b", glyph: "b"}).page, 0)
+            // Words are not symbols.
+            compare(c.symbolFor({word: "a", glyph: "a"}), null)
+            compare(c.symbolFor({word: "bias", glyph: "b"}), null)
+            c.symbolHint = {entry: c.symbols[0], x: 100, y: 100}
+            const tip = findChild(c, "symbolHint")
+            verify(tip.visible)
+            verify(tip.width > 40 && tip.width <= 320)
+            c.leaveRest()
+            verify(!tip.visible)
+            c.symbols = []
         }
     }
 }

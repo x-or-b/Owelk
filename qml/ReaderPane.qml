@@ -118,6 +118,28 @@ Rectangle {
         if (action === "translate" && scope === "page") { spec.fresh = true; spec.label = "Translate page " + (spec.page + 1) }
         aiRequested(spec)
     }
+    // Explain: a card beside the figure, table, algorithm, equation or selection (ExplainCard).
+    signal appLinkRequested(string link)
+    function explainObject(target, anchor) {
+        activated()
+        const size = canvas.pagePoints(target.page)
+        const region = Qt.rect(target.x / size.width, target.y / size.height, target.width / size.width, target.height / size.height)
+        explainCard.open({source: source, kind: target.kind, label: target.label, page: target.page, region: region, caption: target.caption || ""},
+                         anchor || canvas.viewRect(target.page, target.x, target.y, target.width, target.height))
+    }
+    function explainSelection() {
+        if (!canvas.selectedText.length) return
+        activated()
+        const anchor = canvas.selectedAnchor
+        const page = anchor ? (anchor.segments ? anchor.segments[0].page : anchor.page) : canvas.currentPage
+        const end = canvas.selectionEnd
+        explainCard.open({source: source, kind: "selection", page: page, selection: canvas.selectedText},
+                         Qt.rect(end.x - 220, end.y - 4, 440, 16))
+    }
+    function explainSymbols() {
+        activated()
+        explainCard.open({source: source, kind: "notation", page: canvas.currentPage}, Qt.rect(canvas.width, 48, 0, 0))
+    }
     function copySelection() { canvas.copySelection() }
     function captureSelection() { canvas.captureSelection() }
     function highlightSelection() { canvas.highlightSelection() }
@@ -180,6 +202,10 @@ Rectangle {
         id: selectionMenu
         objectName: "selectionContextMenu"
         property int page: 0
+        // The figure, table, algorithm or equation under the pointer (found while the menu opens).
+        property var object: null
+        property int objectRequest: -1
+        onClosed: objectRequest = -1
         MenuItem { objectName:"selectionCopy"; text:"Copy"; enabled:!!canvas.selectedText; onTriggered:canvas.copySelection() }
         MenuItem { text:"Select All on Page"; onTriggered:canvas.selectPage(selectionMenu.page) }
         MenuSeparator {}
@@ -189,10 +215,15 @@ Rectangle {
         MenuSeparator {}
         // With a selection they act on it; without one: a new thread to ask in, this page translated
         // (then the next, from the AI panel), the whole paper summarized.
-        MenuItem { objectName:"menuExplainAi"; text:canvas.selectedText ? "Explain with AI" : "Explain with AI…"; onTriggered:canvas.selectedText ? root.requestAi("explain", "selection") : root.requestAi("ask", "paper") }
+        MenuItem {
+            objectName: "menuExplainAi"
+            text: canvas.selectedText ? "Explain with AI" : selectionMenu.object ? "Explain " + selectionMenu.object.label : "Explain with AI…"
+            onTriggered: canvas.selectedText ? root.explainSelection() : selectionMenu.object ? root.explainObject(selectionMenu.object) : root.requestAi("ask", "paper")
+        }
         MenuItem { objectName:"menuTranslateAi"; text:canvas.selectedText ? "Translate with AI" : "Translate This Page with AI"; onTriggered:root.requestAi("translate", canvas.selectedText ? "selection" : "page") }
         MenuItem { objectName:"menuSummarizeAi"; text:canvas.selectedText ? "Summarize with AI" : "Summarize Paper with AI"; onTriggered:root.requestAi("summarize", canvas.selectedText ? "selection" : "paper") }
         MenuItem { text:canvas.selectedText ? "Ask AI about the Selection…" : "Ask AI about This Page…"; onTriggered:root.requestAi("ask", canvas.selectedText ? "selection" : "page") }
+        MenuItem { objectName: "menuExplainSymbols"; text: "Symbols in This Paper"; onTriggered: root.explainSymbols() }
         MenuSeparator {}
         MenuItem { text:"Capture a Region"; onTriggered:root.startCapture() }
     }
@@ -416,7 +447,13 @@ Rectangle {
                 anchors.rightMargin: root.marginShown ? margin.width : 0
                 onActivated: root.activated()
                 onExternalLinkRequested: function(url) { if (root.managed) root.linkRequested(url); else Qt.openUrlExternally(url) }
-                onContextRequested: function(position,page) { root.activated(); selectionMenu.page=page; selectionMenu.popup(canvas,position.x,position.y) }
+                onContextRequested: function(position,page,pagePoint) {
+                    root.activated(); selectionMenu.page=page
+                    selectionMenu.object = null
+                    selectionMenu.objectRequest = canvas.selectedText ? -1 : researchStore.references.objectAt(source, page, pagePoint)
+                    selectionMenu.popup(canvas,position.x,position.y)
+                }
+                onExplainRequested: function(target, anchor) { root.explainObject(target, anchor) }
                 onEditRequested: function(record,selection) {
                     root.activated()
                     // With the notes open, a comment or a highlight's note is written beside the page.
@@ -486,7 +523,7 @@ Rectangle {
                         Menu {
                             id: selectionAiMenu
                             objectName: "selectionAiMenu"
-                            MenuItem { objectName: "aiExplainSelection"; text: "Explain"; onTriggered: root.requestAi("explain", "selection") }
+                            MenuItem { objectName: "aiExplainSelection"; text: "Explain"; onTriggered: root.explainSelection() }
                             MenuItem { objectName: "aiTranslateSelection"; text: "Translate"; onTriggered: root.requestAi("translate", "selection") }
                             MenuItem { text: "Summarize"; onTriggered: root.requestAi("summarize", "selection") }
                             MenuItem { text: "Ask…"; onTriggered: root.requestAi("ask", "selection") }
@@ -494,6 +531,21 @@ Rectangle {
                     }
                 }
             }
+
+            ExplainCard {
+                id: explainCard
+                parent: canvas
+                onContinueRequested: function(thread, image, label) { root.aiRequested({continueThread: thread, image: image, label: label}) }
+                onLinkActivated: function(link) { if (root.managed) root.appLinkRequested(link) }
+                onGoRequested: function(page, top) { canvas.jumpRemembering(page, top, 0) }
+            }
+            Connections {
+                target: researchStore.references
+                function onObjectFound(request, target) {
+                    if (request === selectionMenu.objectRequest && target.page !== undefined) selectionMenu.object = target
+                }
+            }
+            Connections { target: canvas; function onSourceChanged() { explainCard.close() } }
 
             ColumnLayout {
                 visible: !canvas.source.toString().length || canvas.error.length > 0

@@ -600,6 +600,96 @@ private slots:
         QVERIFY(!followUp.contains("thinking"));
         ai->clearApiKey("claude");
     }
+    void explainCardsAreKeptAndContinueAsThreads()
+    {
+        QTemporaryDir directory;
+        const auto pdf = directory.filePath("explain.pdf");
+        writeFixture(pdf, "Explain Paper", 2);
+        const auto source = QUrl::fromLocalFile(pdf);
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QVERIFY(store.rememberDocument(source));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        MockServer server;
+        const auto answer = [&](const QString &text) {
+            server.chunks = {
+                MockServer::sse("content_block_delta",
+                    {{"type", "content_block_delta"}, {"delta", QJsonObject{{"type", "text_delta"}, {"text", text}}}}),
+                MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        };
+        answer("It shows $x$ [p. 1: \"Research finding 1.1\"].");
+        store.setSetting("ai.baseUrl.claude", server.base().toString());
+        ai->setProvider("claude");
+        ai->giveConsent("claude");
+        QVERIFY(ai->setApiKey("claude", "sk-ant-explain-test"));
+        QSignalSpy finished(ai, &AiService::finished), failed(ai, &AiService::failed);
+        const QVariantMap figure{{"source", source}, {"kind", "figure"}, {"label", "Figure 1"}, {"page", 0},
+            {"region", QRectF(0.05, 0.5, 0.9, 0.25)}, {"caption", "Figure 1. Capture this chart"}};
+        ai->explain(figure);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 10000);
+        QCOMPARE(failed.size(), 0);
+        auto details = finished[0][2].toMap();
+        const auto key = details["key"].toString();
+        QVERIFY(!key.isEmpty());
+        QVERIFY(!details["cached"].toBool());
+        // The paper first (cached by the provider), then the figure, then the task with the reader's level.
+        const auto content = server.seen[0].body["messages"].toArray().last().toObject()["content"].toArray();
+        QCOMPARE(content[0].toObject()["cache_control"].toObject()["type"].toString(), QString("ephemeral"));
+        QVERIFY(content[0].toObject()["text"].toString().contains("<paper_text>"));
+        QCOMPARE(content[1].toObject()["type"].toString(), QString("image"));
+        QVERIFY(content[2].toObject()["text"].toString().contains("Figure 1, page 1"));
+        QVERIFY(server.seen[0].body["system"].toString().contains("new to this field"));
+        // Page citations become links; no thread is made for a card.
+        QVERIFY(finished[0][1].toString().contains("owelk://document/"));
+        QVERIFY(store.aiThreads().isEmpty());
+        // Opened again: the kept answer, without a request. Another level is a new explanation.
+        ai->explain(figure);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 10000);
+        QVERIFY(finished[1][2].toMap()["cached"].toBool());
+        QCOMPARE(finished[1][1].toString(), finished[0][1].toString());
+        QCOMPARE(server.seen.size(), 1);
+        auto brief = figure;
+        brief.insert("level", "brief");
+        ai->explain(brief);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 3, 10000);
+        QCOMPARE(server.seen.size(), 2);
+        QVERIFY(server.seen[1].body["system"].toString().contains("Be brief"));
+        // Continue in AI: a thread whose first turn is the material and the explanation; once only.
+        const auto thread = ai->continueExplanation(key);
+        QVERIFY(!thread.isEmpty());
+        QCOMPARE(ai->continueExplanation(key), thread);
+        const auto messages = store.aiThread(thread)["messages"].toList();
+        QCOMPARE(messages.size(), 2);
+        QCOMPARE(messages[0].toMap()["display"].toString(), QString("Explain Figure 1"));
+        QVERIFY(messages[0].toMap()["content"].toString().contains("<paper_text>"));
+        QCOMPARE(messages[1].toMap()["content"].toString(), finished[0][1].toString());
+        QVERIFY(ai->continueExplanation("not-a-key").isEmpty());
+
+        // The paper's symbols: a list for hints, shown as a table with links to their definitions.
+        answer("```json\n{\"symbols\": [{\"symbol\": \"\\\\omega_m\", \"text\": [\"ωm\"], \"meaning\": \"angular "
+               "velocity\", "
+               "\"page\": 2, \"background\": false}, {\"symbol\": \"SE_2(3)\", \"text\": \"SE2(3)\", \"meaning\": "
+               "\"extended poses\", \"page\": null, \"background\": true}]}\n```");
+        QSignalSpy notation(ai, &AiService::notationChanged);
+        QVERIFY(ai->notation(source).isEmpty());
+        ai->explain({{"source", source}, {"kind", "notation"}, {"page", 0}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 4, 10000);
+        QCOMPARE(notation.size(), 1);
+        const auto table = finished[3][1].toString();
+        QVERIFY2(table.contains("| $\\omega_m$ | angular velocity | [p. 2](owelk://document/"), qPrintable(table));
+        QVERIFY(table.contains("| Background |"));
+        const auto symbols = ai->notation(source);
+        QCOMPARE(symbols.size(), 2);
+        QCOMPARE(symbols[0].toMap()["text"].toStringList(), QStringList{"ωm"});
+        QCOMPARE(symbols[1].toMap()["page"].toInt(), 0);
+        // A symbol list that does not come back is an error, not an empty list.
+        answer("Sorry, no list.");
+        ai->explain({{"source", source}, {"kind", "notation"}, {"page", 0}, {"refresh", true}});
+        QTRY_COMPARE_WITH_TIMEOUT(failed.size(), 1, 10000);
+        QCOMPARE(ai->notation(source).size(), 2);
+        ai->clearApiKey("claude");
+    }
     void stoppedAnswersKeepWhatArrived()
     {
         QTemporaryDir directory;

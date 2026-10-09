@@ -41,6 +41,19 @@ public:
     // scope (selection|page|paper|none), selection, captureId, noteIds. Returns a request id.
     // threadId continues a conversation (earlier turns are sent along); empty starts a new thread.
     Q_INVOKABLE int ask(const QVariantMap &spec);
+    // Explain card: a short explanation of a figure, table, algorithm, equation, selection or the paper's
+    // symbols, kept per paper, place and level so opening it again is instant and free. No thread is made.
+    // spec: source, kind (figure | table | algorithm | equation | selection | notation), label, page,
+    // region (page-relative; figures, tables, algorithms, equations), caption, selection, level (easy |
+    // brief; default: the setting ai.explainLevel), refresh (ask again). Streams like ask and ends with
+    // finished(request, text, {key, cached, image, provider, model, stopped}) or failed.
+    Q_INVOKABLE int explain(const QVariantMap &spec);
+    // A thread in the AI panel that goes on from an explanation (its material and answer are the first
+    // turn); the same thread when continued before. Empty when the explanation is gone.
+    Q_INVOKABLE QString continueExplanation(const QString &key);
+    // The paper's symbol list, for hints on hover: [{symbol (LaTeX), text (as printed), meaning, page
+    // (1-based, 0: background)}], or [] until it is made (explain with kind "notation").
+    Q_INVOKABLE QVariantList notation(const QUrl &source);
     // Models the provider offers: Claude's current lineup, the OpenAI/Ollama/Codex lists from the service.
     Q_INVOKABLE void listModels(const QString &provider);
     Q_INVOKABLE void cancel(int request);
@@ -86,6 +99,7 @@ signals:
     void ollamaModelsLoaded(const QStringList &models);
     // models: [{id, name}]
     void modelsLoaded(const QString &provider, const QVariantList &models);
+    void notationChanged(const QUrl &source);
 
 private:
     QString keyAccount(const QString &provider) const;
@@ -93,6 +107,12 @@ private:
     AiProvider *createProvider(const QString &provider, QString *error);
     QString attachmentDirectory() const;
     void run(int request, const QString &provider, const QVariantMap &spec, const QVariantMap &prepared);
+    // Explanations live in <data>/ai-explanations, one JSON file each, named by a hash of their key.
+    QString explanationKey(const QVariantMap &spec) const;
+    QVariantMap explanation(const QString &key) const;
+    bool keepExplanation(const QVariantMap &entry) const;
+    void finishExplanation(int request, const QVariantMap &spec, const QString &sent, const QString &answer,
+        const QString &provider, const QString &model, bool stopped);
     // "Ask your library": search terms from the question (one short request), then the matching passages.
     void retrieveLibrary(int request, const QString &provider, QVariantMap spec, QVariantMap prepared);
     // Shared by tab and paper organization: items are named <prefix>1…N in the prompt, and the
