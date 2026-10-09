@@ -289,6 +289,10 @@ Item {
             verify(!!canvas.linkPreview.float, "the figure's region was found")
             verify(canvas.linkPreview.float.caption.length > 0)
             verify(!findChild(card, "linkPreviewTarget").visible)
+            // On the card, drags, pinches and Ctrl+wheel are the card's: the page behind stays put.
+            mouseMove(card, card.width / 2, card.height / 2)
+            tryCompare(canvas, "overPreview", true)
+            verify(!findChild(canvas, "pageList").interactive)
             compare(card.zoom, 1)
             mouseClick(findChild(card, "linkPreviewZoomIn"))
             fuzzyCompare(card.zoom, 1.1, .001)

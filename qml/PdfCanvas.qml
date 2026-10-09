@@ -50,6 +50,8 @@ Item {
     property string tool: ""
     // Highlight (also comments), drawing and text-box inks are separate and remembered; text starts navy.
     readonly property bool invertPages: Theme.invertPages && Theme.canInvertPages
+    // The pointer is on a reference preview: drags, pinches and Ctrl+wheel belong to the card, not the page.
+    readonly property bool overPreview: previewCard.visible && previewHover.hovered
     readonly property string defaultTextColor: "#1d3a5c"
     property string markColor: savedInk("highlightColor")
     property string drawColor: savedInk("drawColor")
@@ -597,9 +599,8 @@ Item {
         id: pages
         objectName: "pageList"
         anchors.fill: parent
-        anchors.rightMargin: 16
-        anchors.bottomMargin: 14
         clip: true
+        interactive: !root.overPreview
         spacing: 16
         topMargin: 16
         bottomMargin: 16
@@ -618,10 +619,16 @@ Item {
             objectName: "pdfVerticalScrollBar"
             parent: root; z: 50
             x: root.width - width; y: 0; width: 16; height: pages.height
-            policy: ScrollBar.AlwaysOn; interactive: true; minimumSize: .05; padding: 3
+            policy: ScrollBar.AsNeeded; interactive: true; minimumSize: .05; padding: 3
             onPressedChanged: if (pressed) root.stopSourceMotion()
             background: Item {}
-            contentItem: Rectangle { implicitWidth: 8; implicitHeight: 36; radius: 4; color: parent.pressed ? Theme.scrollHandlePressed : parent.hovered ? Theme.scrollHandleHover : Theme.scrollHandle }
+            // Over the pages, shown only while scrolling or under the pointer.
+            contentItem: Rectangle {
+                implicitWidth: 8; implicitHeight: 36; radius: 4
+                color: parent.pressed ? Theme.scrollHandlePressed : parent.hovered ? Theme.scrollHandleHover : Theme.scrollHandle
+                opacity: parent.active || parent.hovered || parent.pressed ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 200 } }
+            }
         }
         ScrollBar.horizontal: ScrollBar {
             objectName: "pdfHorizontalScrollBar"
@@ -630,18 +637,23 @@ Item {
             policy: ScrollBar.AsNeeded; interactive: true; minimumSize: .05; padding: 3
             onPressedChanged: if (pressed) root.stopSourceMotion()
             background: Item {}
-            contentItem: Rectangle { implicitWidth: 36; implicitHeight: 8; radius: 4; color: parent.pressed ? Theme.scrollHandlePressed : parent.hovered ? Theme.scrollHandleHover : Theme.scrollHandle }
+            contentItem: Rectangle {
+                implicitWidth: 36; implicitHeight: 8; radius: 4
+                color: parent.pressed ? Theme.scrollHandlePressed : parent.hovered ? Theme.scrollHandleHover : Theme.scrollHandle
+                opacity: parent.active || parent.hovered || parent.pressed ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 200 } }
+            }
         }
         WheelHandler {
             target: null
-            enabled: root.ready
+            enabled: root.ready && !root.overPreview
             acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
             acceptedModifiers: Qt.ControlModifier
             onWheel: function(event) { root.zoomByWheel(event) }
         }
         WheelHandler {
             target: null
-            enabled: root.ready && Qt.platform.os === "osx"
+            enabled: root.ready && !root.overPreview && Qt.platform.os === "osx"
             acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
             // Qt maps the physical macOS Control key to MetaModifier.
             acceptedModifiers: Qt.MetaModifier
@@ -1036,7 +1048,7 @@ Item {
                     target: null
                     // Off while a mark is pressed or its frame dragged, so it cannot take that drag over.
                     enabled: !root.captureMode && !root.pinching && (!root.tool.length || root.tool === "highlight")
-                             && !root.markEdit && !root.markPressed
+                             && !root.markEdit && !root.markPressed && !root.overPreview
                     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad | PointerDevice.Stylus
                     onCentroidChanged: {
                         if (active) root.trackSelectionDrag(pageHolder, selection.mapToItem(root, centroid.position.x, centroid.position.y), centroid.pressPosition)
@@ -1219,7 +1231,7 @@ Item {
     PinchHandler {
         id: pinch
         target: null
-        enabled: root.ready
+        enabled: root.ready && (!root.overPreview || active)
         acceptedDevices: PointerDevice.TouchPad | PointerDevice.TouchScreen
         rotationAxis.enabled: false
         onActiveScaleChanged: if (active) root.updatePinch(activeScale, centroid.position)
