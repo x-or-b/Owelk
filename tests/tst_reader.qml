@@ -274,6 +274,17 @@ Item {
             canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000)
         }
+        function test_scrollHandlesFollowThePages() {
+            const bar = findChild(canvas, "pdfVerticalScrollBar")
+            const light = canvas.scrollHandleColor(bar)
+            verify(Qt.colorEqual(light, Theme.mix(Theme.paper, Theme.paperInk, .45)))
+            if (Theme.canInvertPages) {
+                const before = Theme.invertPages
+                Theme.invertPages = true
+                verify(Qt.colorEqual(canvas.scrollHandleColor(bar), Theme.mix(Theme.paperInverted, Theme.paperInkInverted, .45)))
+                Theme.invertPages = before
+            }
+        }
         function test_sidewaysScrollWithoutATrackpad() {
             canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 2.5})
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)

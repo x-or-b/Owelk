@@ -164,6 +164,12 @@ Item {
     // The page scroll bars appear while scrolling or under the pointer and stay this long (ms) after.
     readonly property int scrollBarHold: 1000
     function scrollBarShown(bar) { return bar.active || bar.hovered || bar.pressed }
+    // The handles lie over the pages, so they follow the pages (Dark pages), not the app theme: ink of
+    // the page's own colour, stronger under the pointer and while dragged.
+    function scrollHandleColor(bar) {
+        const ink = invertPages ? Theme.paperInkInverted : Theme.paperInk, paper = invertPages ? Theme.paperInverted : Theme.paper
+        return Theme.mix(paper, ink, bar.pressed ? .75 : bar.hovered ? .62 : .45)
+    }
     // Sideways by a number of pixels (Shift+wheel, ←/→), kept within the pages.
     readonly property bool wide: pages.contentWidth > pages.width + 1
     function scrollAcross(pixels) {
@@ -641,7 +647,7 @@ Item {
             contentItem: Rectangle {
                 id: verticalHandle
                 implicitWidth: 8; implicitHeight: 36; radius: 4
-                color: parent.pressed ? Theme.scrollHandlePressed : parent.hovered ? Theme.scrollHandleHover : Theme.scrollHandle
+                color: root.scrollHandleColor(parent)
                 opacity: 0
                 states: State {
                     name: "shown"
@@ -667,7 +673,7 @@ Item {
             contentItem: Rectangle {
                 id: horizontalHandle
                 implicitWidth: 36; implicitHeight: 8; radius: 4
-                color: parent.pressed ? Theme.scrollHandlePressed : parent.hovered ? Theme.scrollHandleHover : Theme.scrollHandle
+                color: root.scrollHandleColor(parent)
                 opacity: 0
                 states: State {
                     name: "shown"

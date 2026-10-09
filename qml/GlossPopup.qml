@@ -11,8 +11,6 @@ Popup {
     objectName: "glossPopup"
     readonly property var ai: researchStore.ai
     property var spec: ({})
-    // Where the reader was when it opened (the reader closes it once the page moves on).
-    property var openedAt: null
     property int request: -1
     property bool streaming: false
     property string answer: ""
