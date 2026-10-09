@@ -24,12 +24,22 @@ ColumnLayout {
     SettingsGroup {
         title: "PDFs"
         note: (root.keepsPdfs ? "Downloaded PDFs go to Owelk's own PDF folder (Settings › Data); other files go to the folder above. " : "")
-            + "Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where highlights, captures and notes work."
+            + "A downloaded PDF is named after its paper when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where highlights, captures and notes work."
         SettingsRow {
             label: root.keepsPdfs ? "Other downloads to" : "Download to"
             wide: true
             TextField { id: folderField; objectName: "downloadFolderField"; Layout.fillWidth: true; readOnly: true; text: root.folder() }
             IconButton { icon.name: "open"; description: "Choose a folder…"; onClicked: folderDialog.open() }
+        }
+        SettingsRow {
+            label: "Name PDFs"
+            ComboBox {
+                objectName: "webPdfNamesBox"
+                Layout.preferredWidth: 260
+                model: ["Paper title (Sun 2026 - Title)", "Name from the website"]
+                currentIndex: researchStore.setting("web.pdfNames", "title") === "original" ? 1 : 0
+                onActivated: function(index) { researchStore.setSetting("web.pdfNames", index === 1 ? "original" : "title") }
+            }
         }
         SettingsRow {
             label: "PDF links"

@@ -28,4 +28,7 @@ QString findDoi(const QString &text);
 QString findArxiv(const QString &text);
 // Person names from the lines between a title and its abstract; affiliations and footnote marks are dropped.
 QStringList authorNames(const QStringList &lines);
+// A readable file name (without .pdf) for a paper: "Surname Year - Title", safe on every system.
+// Empty when the title is unknown.
+QString fileStem(const PaperMetadata &paper);
 }

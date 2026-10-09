@@ -1,4 +1,5 @@
 #include "FileFingerprint.h"
+#include "PaperMetadata.h"
 #include "PaperIndex.h"
 #include "ResearchStore.h"
 #include "WorkerConnection.h"
@@ -135,6 +136,38 @@ void ResearchStore::relocatePapers()
     }
     QDir().rmdir(m_directory + "/papers"); // Only when nothing else is left in it.
     if (moved) m_startupMessage = QString("Owelk's PDFs now live in %1.").arg(QDir::toNativeSeparators(m_papers));
+}
+
+void ResearchStore::nameDownloadedPdf(const QUrl &file)
+{
+    const auto path = file.toLocalFile();
+    if (setting("web.pdfNames", "title") != "title" || !file.isLocalFile() || !path.startsWith(papersFolder() + "/")) {
+        QMetaObject::invokeMethod(this, [this, file] { emit downloadNamed(file, file); }, Qt::QueuedConnection);
+        return;
+    }
+    using Named = QPair<QString, QString>; // File name stem, content hash.
+    auto *watcher = new QFutureWatcher<Named>(this);
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, file, path] {
+        watcher->deleteLater();
+        const auto [stem, hash] = watcher->result();
+        auto named = file;
+        // A file the Library already uses keeps its name; only a fresh download is renamed.
+        QSqlQuery known(m_database);
+        known.prepare("SELECT 1 FROM documents WHERE url=?");
+        known.addBindValue(file.toString());
+        const bool used = known.exec() && known.next();
+        if (!used && !stem.isEmpty() && stem != QFileInfo(path).completeBaseName() && QFileInfo(path).isFile()) {
+            const auto target = uniqueFile(papersFolder(), stem + ".pdf");
+            if (QFile::rename(path, target)) {
+                if (!hash.isEmpty()) FileFingerprint::remember(target, FileFingerprint::stamp(target), hash);
+                named = QUrl::fromLocalFile(target);
+            }
+        }
+        emit downloadNamed(file, named);
+    });
+    watcher->setFuture(QtConcurrent::run(&m_metadataWorkers, [path] {
+        return Named(PaperMetadataText::fileStem(extractPaperMetadata(path)), FileFingerprint::sha256(path));
+    }));
 }
 
 QUrl ResearchStore::papersFolderUrl() const

@@ -85,7 +85,15 @@ Rectangle {
                     // A PDF shown in this tab opens beside it; the tab stays on the page.
                     if (pdf) {
                         root.downloadOpening = true
-                        Qt.callLater(function() { root.downloadOpening = false; root.controller.openDownloaded(root.tabId, target.url, replace && !fetched) })
+                        // Opens under the paper's name once the store has read it (Settings › Web).
+                        const named = function(file, to) {
+                            if (file.toString() !== target.url.toString()) return
+                            researchStore.downloadNamed.disconnect(named)
+                            root.downloadOpening = false
+                            root.controller.openDownloaded(root.tabId, to, replace && !fetched)
+                        }
+                        researchStore.downloadNamed.connect(named)
+                        researchStore.nameDownloadedPdf(target.url)
                     } else researchStore.notify("Saved " + target.fileName + " to " + target.directory)
                 } else if (download.state === WebEngineDownloadRequest.DownloadInterrupted) {
                     researchStore.notify("Download failed: " + download.interruptReasonString)

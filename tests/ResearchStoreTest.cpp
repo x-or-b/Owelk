@@ -1304,6 +1304,44 @@ private slots:
         QCOMPARE(close[0].toMap()["id"].toString(), twin);
         QVERIFY(store.relatedNotes(unrelated).isEmpty());
     }
+    void downloadedPdfsTakeTheirPaperName()
+    {
+        PaperMetadata paper;
+        paper.title = "OpenFrontier: General Navigation with Visual-Language Grounded Frontiers";
+        paper.authors = "Esteban Padilla-Cerdio, Boyang Sun";
+        paper.year = "2026";
+        QCOMPARE(PaperMetadataText::fileStem(paper),
+            QString("Padilla-Cerdio 2026 - OpenFrontier General Navigation with Visual-Language Grounded Frontiers"));
+        paper.title = QString("What? A/B \"tests\" ") + QString(120, 'x') + "...";
+        QVERIFY(!PaperMetadataText::fileStem(paper).contains(QRegularExpression("[?/\"]")));
+        QVERIFY(PaperMetadataText::fileStem(paper).size() <= 120);
+        QVERIFY(PaperMetadataText::fileStem({}).isEmpty());
+
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QSignalSpy named(&store, &ResearchStore::downloadNamed);
+        const auto download = store.downloadTarget("2305.01234v2.pdf", true)["url"].toUrl();
+        writeFixture(download.toLocalFile(), "Downloaded Paper Title");
+        store.nameDownloadedPdf(download);
+        QTRY_COMPARE_WITH_TIMEOUT(named.size(), 1, 10000);
+        const auto renamed = named.first().at(1).toUrl();
+        QCOMPARE(named.first().at(0).toUrl(), download);
+        QCOMPARE(QFileInfo(renamed.toLocalFile()).fileName(), QString("2023 - Downloaded Paper Title.pdf"));
+        QVERIFY(!QFileInfo::exists(download.toLocalFile()));
+        // A file the Library uses keeps its name, and so does every download when the setting says so.
+        QVERIFY(store.rememberDocument(renamed));
+        store.nameDownloadedPdf(renamed);
+        QTRY_COMPARE_WITH_TIMEOUT(named.size(), 2, 10000);
+        QCOMPARE(named.last().at(1).toUrl(), renamed);
+        QVERIFY(store.setSetting("web.pdfNames", "original"));
+        const auto other = store.downloadTarget("other.pdf", true)["url"].toUrl();
+        writeFixture(other.toLocalFile(), "Another Paper Title");
+        store.nameDownloadedPdf(other);
+        QTRY_COMPARE_WITH_TIMEOUT(named.size(), 3, 10000);
+        QCOMPARE(named.last().at(1).toUrl(), other);
+    }
     void keptPdfsAreCopiedIntoTheLibrary()
     {
         QTemporaryDir directory;
