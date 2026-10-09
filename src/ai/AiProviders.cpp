@@ -211,6 +211,7 @@ bool AnthropicProvider::handle(const QString &event, const QJsonObject &data)
         const auto reason = data.value("delta").toObject().value("stop_reason").toString();
         if (!reason.isEmpty()) m_stopReason = reason;
     } else if (event == "message_stop") {
+        m_cutOff = m_stopReason == "max_tokens";
         if (m_stopReason == "refusal") {
             // A declined answer is discarded, even if part of it streamed.
             fail("Claude declined this request. Rephrase it or try another provider.");
@@ -288,6 +289,8 @@ bool OpenAiProvider::handle(const QString &event, const QJsonObject &data)
         const auto response = data.value("response").toObject();
         const auto message = response.value("error").toObject().value("message").toString();
         if (event == "response.incomplete" && !m_text.isEmpty()) {
+            m_cutOff
+                = response.value("incomplete_details").toObject().value("reason").toString() == "max_output_tokens";
             finish(response.value("model").toString(m_model));
             return false;
         }
@@ -341,6 +344,7 @@ bool OllamaProvider::handle(const QString &, const QJsonObject &data)
         emit delta(text);
     }
     if (data.value("done").toBool()) {
+        m_cutOff = data.value("done_reason").toString() == "length";
         finish(data.value("model").toString(m_model));
         return false;
     }

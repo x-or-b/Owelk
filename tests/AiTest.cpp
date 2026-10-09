@@ -230,6 +230,17 @@ private slots:
         QVERIFY(!server.seen.last().body.contains("thinking"));
         request.model = "claude-opus-5-5";
         request.thinkingSummary = false;
+        // An answer that hit the output limit is kept and marked as cut off.
+        server.chunks
+            = {MockServer::sse("content_block_delta",
+                   {{"type", "content_block_delta"}, {"delta", QJsonObject{{"type", "text_delta"}, {"text", "Long"}}}}),
+                MockServer::sse("message_delta",
+                    {{"type", "message_delta"}, {"delta", QJsonObject{{"stop_reason", "max_tokens"}}}}),
+                MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        auto *limited = new AnthropicProvider(&network, server.base(), "k", this);
+        QCOMPARE(run(limited, request).text, QString("Long"));
+        QVERIFY(limited->cutOff());
+        QCOMPARE(server.seen.last().body["max_tokens"].toInt(), 64000);
         // A refusal discards partial text.
         server.chunks = {
             MockServer::sse("content_block_delta",

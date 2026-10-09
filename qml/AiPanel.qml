@@ -209,6 +209,12 @@ Item {
                     Layout.fillWidth: true
                     text: visible ? researchStore.markdownHtml(message.modelData.content, Theme.accent) : ""
                 }
+                Label {
+                    objectName: "aiCutOff-" + message.index
+                    visible: message.modelData.role === "assistant" && !!(message.modelData.context || {}).cutOff
+                    text: "Stopped at the length limit."
+                    textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
+                }
                 RowLayout {
                     visible: message.modelData.role === "assistant"
                     spacing: 0

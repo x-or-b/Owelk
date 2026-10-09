@@ -34,7 +34,8 @@ struct AiRequest {
     // Reasoning effort (provider's own level names, e.g. low…max) and the faster, pricier tier.
     QString effort;
     bool fast = false;
-    int maxTokens = 16000;
+    // A ceiling, not a target (only what is written is billed); thinking counts toward it.
+    int maxTokens = 64000;
     // Ask for a readable summary of the model's reasoning, streamed through thinkingDelta.
     bool thinkingSummary = false;
 };
@@ -46,12 +47,17 @@ public:
     using QObject::QObject;
     virtual void start(const AiRequest &request) = 0;
     virtual void cancel() = 0;
+    // The answer stopped at the output limit (read after finished).
+    bool cutOff() const { return m_cutOff; }
 signals:
     void delta(const QString &text);
     // Summarized reasoning, shown apart from the answer and never sent back to the model.
     void thinkingDelta(const QString &text);
     void finished(const QString &text, const QString &model);
     void failed(const QString &error);
+
+protected:
+    bool m_cutOff = false;
 };
 
 // Server-sent events (Claude, OpenAI) or newline-delimited JSON (Ollama) over one HTTP POST.

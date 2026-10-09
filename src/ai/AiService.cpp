@@ -344,7 +344,8 @@ void AiService::retrieveLibrary(int request, const QString &id, QVariantMap spec
                   "not English): key technical words and short phrases, abbreviations spelled both ways.";
     call.text = question;
     call.model = model(id);
-    call.maxTokens = 300;
+    // Room for the thinking that current models always do.
+    call.maxTokens = 2000;
     m_running.insert(request, provider);
     connect(provider, &AiProvider::finished, this,
         [this, request, id, spec, prepared, provider, question](const QString &text, const QString &) mutable {
@@ -504,7 +505,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         emit delta(request, text);
     });
     connect(provider, &AiProvider::finished, this,
-        [this, request, id, prompt, spec, done, threadId, thought, attached = materials](
+        [this, request, id, prompt, spec, done, threadId, thought, provider, attached = materials](
             const QString &answer, const QString &used) {
             done();
             const auto text
@@ -536,6 +537,8 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
                 const auto ms = thought->untilAnswer >= 0 ? thought->untilAnswer : thought->clock.elapsed();
                 answerContext.insert("thinkingSeconds", qMax<qint64>(1, (ms + 500) / 1000));
             }
+            const bool cutOff = provider->cutOff();
+            if (cutOff) answerContext.insert("cutOff", true);
             m_store->appendAiMessage(threadId,
                 {{"role", "assistant"}, {"content", text}, {"model", usedModel}, {"provider", id},
                     {"context", answerContext}});
@@ -543,7 +546,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
                 {{"provider", id}, {"model", usedModel}, {"prompt", prompt.text}, {"threadId", threadId},
                     {"action", spec.value("action")}, {"question", spec.value("question")},
                     {"source", spec.value("source")}, {"page", spec.value("page")},
-                    {"captureId", spec.value("captureId")}});
+                    {"captureId", spec.value("captureId")}, {"cutOff", cutOff}});
         });
     connect(provider, &AiProvider::failed, this,
         [this, request, done, id, spec, prepared, summary = call.thinkingSummary](const QString &message) {
@@ -638,7 +641,7 @@ int AiService::suggestGroups(const QVariantList &items, const QString &prefix, c
     call.system = system;
     call.text = text + "\n\n" + lines.join("\n\n");
     call.model = model(id);
-    call.maxTokens = 3000;
+    call.maxTokens = 8000;
     m_running.insert(request, provider);
     emit busyChanged();
     const auto done = [this, request, provider] {
@@ -732,7 +735,7 @@ int AiService::comparePapers(const QVariantList &papers, const QStringList &aspe
                 : QStringLiteral(" Write in %1; keep technical terms in their original form.").arg(language));
     call.text = "Aspects: " + columns.join(", ") + "\n\n" + parts.join("\n\n");
     call.model = model(id);
-    call.maxTokens = 6000;
+    call.maxTokens = 16000;
     m_running.insert(request, provider);
     emit busyChanged();
     const auto done = [this, request, provider] {
@@ -777,7 +780,8 @@ void AiService::testConnection(const QString &id)
     call.system = "Reply with the single word: ok";
     call.text = "Connection test.";
     call.model = model(id);
-    call.maxTokens = 64;
+    // A small limit would go to thinking before the answer.
+    call.maxTokens = 512;
     provider->start(call);
 }
 
