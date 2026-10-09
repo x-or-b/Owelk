@@ -385,6 +385,24 @@ private slots:
         // Without math the HTML is what Qt makes of the Markdown.
         QVERIFY(!store.markdownHtml("Plain **text**", "#3366cc").contains("image://"));
     }
+    void quotedPassagesAreFoundOnTheirPage()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("quoted.pdf");
+        writeFixture(path, "Quoted Paper");
+        QPdfDocument pdf;
+        QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+        // Line 4 of page 2 is at y = 189 + 3 * 20 points on an A4 page (842 points high).
+        const auto region = ResearchStore::passageRegion(pdf, 1, "Research finding 2.4: occlusion links observation");
+        QVERIFY(!region.isEmpty());
+        QVERIFY(region.y() > 0.27 && region.y() < 0.31);
+        // Case, quotes and a changed ending still find the place; text from another page does not.
+        QVERIFY(
+            !ResearchStore::passageRegion(pdf, 1, "\u201cresearch FINDING 2.4: occlusion links something else\u201d")
+                .isEmpty());
+        QVERIFY(ResearchStore::passageRegion(pdf, 1, "Research finding 5.4: occlusion links observation").isEmpty());
+        QVERIFY(ResearchStore::passageRegion(pdf, 9, "Research finding").isEmpty());
+    }
     void notesLinksBacklinksAndTrash()
     {
         QTemporaryDir directory;

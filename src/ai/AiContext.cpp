@@ -50,6 +50,11 @@ AiPrompt buildAiPrompt(
                                         "clearer.")
                              .arg(target);
 
+    // Paper text comes with page numbers: answers point to their places, which Owelk turns into links.
+    if ((!materials.pageText.isEmpty() || !materials.paperText.isEmpty()) && action != "translate")
+        prompt.system += " When a statement draws on the paper, cite its place right after it as [p. N: \"exact "
+                         "words\"], where N is the page number marked in the material and the words are a short phrase "
+                         "(about 4 to 12 words) copied exactly from that page.";
     QStringList parts;
     QStringList paper;
     if (!materials.title.isEmpty()) paper << "Title: " + materials.title;

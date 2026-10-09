@@ -283,6 +283,12 @@ public:
     // way to show it: verify the source, then move the reader there.
     Q_INVOKABLE QVariantMap anchor(const QString &item, const QString &id) const;
     Q_INVOKABLE void revealAnchor(const QVariantMap &anchor);
+    // A place an AI answer cites ([p. N: "exact words"]): the paper opens at that page and the words
+    // light up once found (answered through sourceReady; nothing more happens when they are not found).
+    Q_INVOKABLE void revealPassage(const QUrl &source, int page, const QString &phrase);
+    // Where a quoted phrase sits on a page, in page-relative coordinates; empty when it is not there.
+    // Case, spacing and line-end hyphens are ignored; a long quote is matched by its opening words.
+    static QRectF passageRegion(QPdfDocument &pdf, int page, const QString &phrase);
     Q_INVOKABLE void openHighlight(const QString &id);
     Q_INVOKABLE void openCapture(const QString &id);
     Q_INVOKABLE void copyText(const QString &text);

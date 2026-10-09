@@ -687,6 +687,8 @@ private slots:
         QVERIFY(text.contains("Title: Service Paper"));
         QVERIFY(text.contains("<page number=\"3\">"));
         QVERIFY(text.contains("Research finding 3.1"));
+        // Page text comes with the request to cite places.
+        QVERIFY(server.seen[0].body["system"].toString().contains("[p. N: \"exact words\"]"));
         QVERIFY(server.seen[0].body["system"].toString().contains("Korean"));
         // Saved answers are searchable knowledge objects linked to the paper.
         auto details = finished[0][2].toMap();
@@ -762,6 +764,20 @@ private slots:
         QSignalSpy models(ai, &AiService::modelsLoaded);
         ai->listModels("claude");
         QCOMPARE(models[0][1].toList()[0].toMap()["id"].toString(), QString("claude-opus-5-5"));
+        // Page citations in an answer about the paper become links to the page and the quoted words.
+        server.chunks
+            = {MockServer::sse("content_block_delta",
+                   {{"type", "content_block_delta"},
+                       {"delta",
+                           QJsonObject{{"type", "text_delta"},
+                               {"text", "Occlusion matters [p. 3: \u201cResearch finding 3.1\u201d]; see [p. 4]."}}}}),
+                MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        ai->ask(spec);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 5, 10000);
+        const auto paper = store.documentLinkId(QUrl::fromLocalFile(pdf));
+        QVERIFY(finished[4][1].toString().contains(
+            "[p. 3](owelk://document/" + paper + "#page=3&q=Research%20finding%203.1)"));
+        QVERIFY(finished[4][1].toString().contains("[p. 4](owelk://document/" + paper + "#page=4)"));
         QVERIFY(store.deleteAiThread(threadId));
         QVERIFY(store.aiThread(threadId).isEmpty());
         QVERIFY(ai->clearApiKey("claude"));

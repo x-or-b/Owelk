@@ -398,6 +398,25 @@ void AiService::retrieveLibrary(int request, const QString &id, QVariantMap spec
 }
 
 // "[2]" in a library answer becomes a link to that paper's page, and the sources are listed below it.
+// [p. 3: "exact words"] (or [p. 3], [pp. 3-4]) in an answer about one paper: a link that opens the
+// paper at that page and lights up the words (DocumentWorkspace.openLink, ResearchStore::revealPassage).
+static QString withPageLinks(const QString &answer, const QString &documentId)
+{
+    static const QRegularExpression cite(
+        R"re(\[pp?\.\s*(\d{1,4})(?:\s*[-\x{2013}]\s*\d{1,4})?(?:\s*[:,]\s*["\x{201c}]([^"\x{201d}\]]{3,240})["\x{201d}])?\](?!\())re");
+    QString linked;
+    qsizetype last = 0;
+    for (auto it = cite.globalMatch(answer); it.hasNext();) {
+        const auto m = it.next();
+        auto link = QStringLiteral("owelk://document/%1#page=%2").arg(documentId, m.captured(1));
+        if (!m.captured(2).isEmpty())
+            link += "&q=" + QString::fromLatin1(QUrl::toPercentEncoding(m.captured(2).simplified()));
+        linked += answer.mid(last, m.capturedStart() - last) + QStringLiteral("[p. %1](%2)").arg(m.captured(1), link);
+        last = m.capturedEnd();
+    }
+    return linked + answer.mid(last);
+}
+
 static QString withSourceLinks(const QString &answer, const QVariantList &sources)
 {
     QHash<int, QString> links;
@@ -509,7 +528,12 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     const auto store = [this, request, id, prompt, spec, done, threadId, thought, provider, attached = materials](
                            const QString &answer, const QString &used, bool stopped) {
         done();
-        const auto text = spec.contains("sources") ? withSourceLinks(answer, spec.value("sources").toList()) : answer;
+        auto text = spec.contains("sources") ? withSourceLinks(answer, spec.value("sources").toList()) : answer;
+        // Page citations in an answer about one paper become links to those places.
+        if (!spec.contains("sources") && (!attached.pageText.isEmpty() || !attached.paperText.isEmpty())) {
+            const auto document = m_store->documentLinkId(spec.value("source").toUrl());
+            if (!document.isEmpty()) text = withPageLinks(text, document);
+        }
         // Question and answer are stored together, so a thread always alternates them.
         const auto usedModel = used.isEmpty() ? model(id) : used;
         static const QHash<QString, QString> labels{{"explain", "Explain"}, {"translate", "Translate"},
