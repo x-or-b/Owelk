@@ -1507,6 +1507,8 @@ Item {
         y: spec.bottom + height + 12 < root.height ? spec.bottom + 6 : Math.max(8, spec.top - height - 6)
         radius: Theme.radiusLarge
         color: root.invertPages ? Theme.paperInverted : Theme.paper
+        // The card is a piece of page: its text is ink for that paper, not the app theme's text colour.
+        readonly property color ink: root.invertPages ? Theme.paperInkInverted : Theme.paperInk
         border.color: Theme.border
         clip: true
         // Created only while shown, so references cost nothing until hovered. The page scrolls inside
@@ -1588,7 +1590,8 @@ Item {
                 width: ListView.view.width
                 height: entryText.implicitHeight + 12
                 radius: Theme.radiusSmall
-                color: entryHover.hovered ? Theme.hover : modelData.current ? Theme.selected : "transparent"
+                color: entryHover.hovered ? Theme.mix(previewCard.color, previewCard.ink, .08)
+                     : modelData.current ? Theme.mix(previewCard.color, previewCard.ink, .14) : "transparent"
                 HoverHandler { id: entryHover }
                 // Click: go to that entry.
                 TapHandler {
@@ -1602,10 +1605,11 @@ Item {
                     text: "<b>" + entryRow.modelData.label + "</b> " + entryRow.modelData.text.replace(/^\s*(\[\d+\]|\d{1,3}\.)\s*/, "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
                     textFormat: Text.StyledText
                     wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight
-                    font.pixelSize: Theme.fontSmall; color: Theme.text
+                    font.pixelSize: Theme.fontSmall; color: previewCard.ink
                 }
                 IconButton {
                     id: findEntry
+                    tint: previewCard.ink
                     objectName: "findPaperEntry-" + entryRow.index
                     anchors.right: parent.right; anchors.rightMargin: 4; anchors.verticalCenter: parent.verticalCenter
                     icon.name: "search"

@@ -39,6 +39,10 @@ class Theme : public QObject {
     Q_PROPERTY(QColor pdfBackdrop MEMBER m_pdfBackdrop NOTIFY changed)
     Q_PROPERTY(QColor paper MEMBER m_paper CONSTANT) // the PDF page itself
     Q_PROPERTY(QColor paperInverted MEMBER m_paperInverted CONSTANT) // a white page with Invert pages on
+    // Text drawn on a page-coloured surface (reference previews): dark ink on paper, light ink on an
+    // inverted page, whatever the app theme.
+    Q_PROPERTY(QColor paperInk MEMBER m_paperInk CONSTANT)
+    Q_PROPERTY(QColor paperInkInverted MEMBER m_paperInkInverted CONSTANT)
     // Text and glyphs.
     Q_PROPERTY(QColor text MEMBER m_text NOTIFY changed)
     Q_PROPERTY(QColor textSecondary MEMBER m_textSecondary NOTIFY changed)
@@ -168,7 +172,7 @@ private:
     QString m_appIcon = "paper";
     void showAppIcon(bool finderToo);
     QColor m_window, m_sidebar, m_content, m_raised, m_field, m_control, m_pdfBackdrop, m_paper{Qt::white},
-        m_paperInverted{"#121212"};
+        m_paperInverted{"#121212"}, m_paperInk{"#1f1f1f"}, m_paperInkInverted{"#e6e6e6"};
     QColor m_text, m_textSecondary, m_textTertiary, m_textDisabled, m_icon, m_onAccent;
     QColor m_separator, m_border, m_hover, m_pressed, m_selected, m_selectedText, m_focus;
     QColor m_accent, m_accentHover, m_accentBorder, m_danger;

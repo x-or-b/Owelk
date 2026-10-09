@@ -246,6 +246,8 @@ Item {
             const list = findChild(card, "linkPreviewList")
             verify(list.visible)
             tryCompare(list, "count", 3)
+            // Entries are ink for the card's paper, not the theme's text colour.
+            verify(Qt.colorEqual(card.ink, Theme.paperInk))
             verify(!findChild(card, "findPaperButton").visible)
             // Each entry can be looked up on its own.
             reader.managed = true
