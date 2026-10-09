@@ -747,10 +747,14 @@ Flickable {
             required property var model
             objectName: "splitHandle-" + model.nodeId
             x: model.x; y: model.y; width: model.width; height: model.height
+            z: 2
             color: resize.containsMouse || resize.pressed ? Theme.border : Theme.separator
             MouseArea {
                 id: resize
+                // A 1px edge with room to grab on both sides.
                 anchors.fill: parent
+                anchors.leftMargin: model.horizontal ? -3 : 0; anchors.rightMargin: model.horizontal ? -3 : 0
+                anchors.topMargin: model.horizontal ? 0 : -3; anchors.bottomMargin: model.horizontal ? 0 : -3
                 hoverEnabled: true
                 cursorShape: model.horizontal ? Qt.SplitHCursor : Qt.SplitVCursor
                 property real origin

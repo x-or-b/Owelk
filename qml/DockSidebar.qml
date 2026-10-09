@@ -25,13 +25,12 @@ Rectangle {
     signal workspaceChosen(string id)
     signal workspaceManageRequested(string id)
     function panelName(panel) { return panel === "files" ? "Library" : panel === "captures" ? "Captures" : panel === "ai" ? "AI" : panel === "document" ? "Document" : "" }
+    // A slice of the window: no corners or frame; the 1px edge beside the document is the resize
+    // edge in Main.qml.
     color: Theme.sidebar
-    border.color: Theme.separator
-    radius: Theme.radius
     onPanelsChanged: if (panels.indexOf(activePanel) < 0) activePanel = panels.length ? panels[0] : ""
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 1
         spacing: 0
         // One panel: its name. Several: a segmented control of their icons.
         Label {

@@ -492,9 +492,28 @@ ApplicationWindow {
             else error = "Could not delete workspace. Your data is kept."
         }
     }
+    // Areas are slices separated by 1px edges; an edge darkens under the pointer and drags to resize.
+    component ResizeEdge: Rectangle {
+        id: edge
+        property alias area: grip
+        signal moved(real delta)
+        property real initialWidth
+        Layout.preferredWidth: 1; Layout.fillHeight: true
+        z: 2
+        color: grip.containsMouse || grip.pressed ? Theme.border : Theme.separator
+        MouseArea {
+            id: grip
+            anchors.fill: parent; anchors.leftMargin: -3; anchors.rightMargin: -3
+            hoverEnabled: true; cursorShape: Qt.SplitHCursor
+            preventStealing: true
+            property real origin
+            onPressed: function(mouse) { origin = mapToItem(window.contentItem, mouse.x, mouse.y).x; edge.moved(0) }
+            onPositionChanged: function(mouse) { if (pressed) edge.moved(mapToItem(window.contentItem, mouse.x, mouse.y).x - origin) }
+        }
+    }
     RowLayout {
         anchors.fill: parent
-        spacing: 1
+        spacing: 0
         TabsPanel {
             id: tabsPanel
             visible: Theme.verticalTabs && !window.restoreFailed
@@ -529,22 +548,12 @@ ApplicationWindow {
             onNoteRequested: function(id) { captureNote.begin(id) }
             onActivePanelChanged: window.scheduleSave()
         }
-        Rectangle {
+        ResizeEdge {
             visible: leftDock.visible
-            Layout.preferredWidth: 6; Layout.fillHeight: true
-            color: leftResize.containsMouse || leftResize.pressed ? Theme.border : Theme.separator
-            MouseArea {
-                id: leftResize
-                objectName: "leftDockResize"
-                anchors.fill: parent
-                hoverEnabled: true; cursorShape: Qt.SplitHCursor
-                preventStealing: true
-                property real origin
-                property real initialWidth
-                onPressed: function(mouse) { origin = mapToItem(window.contentItem, mouse.x, mouse.y).x; initialWidth = leftDock.width }
-                onPositionChanged: function(mouse) {
-                    if (pressed) window.leftDockWidth = window.dockWidth(initialWidth + mapToItem(window.contentItem, mouse.x, mouse.y).x - origin)
-                }
+            area.objectName: "leftDockResize"
+            onMoved: function(delta) {
+                if (delta === 0) initialWidth = leftDock.width
+                window.leftDockWidth = window.dockWidth(initialWidth + delta)
             }
         }
         HomeView {
@@ -581,22 +590,12 @@ ApplicationWindow {
             onCompareRequested: function(groupId) { window.comparePapersIn(groupId) }
             onHomeWorkspaceCreated: function(name) { if (!window.restoreFailed) { const id = researchStore.createWorkspace(name); if (id.length) window.openWorkspace(id) } }
         }
-        Rectangle {
+        ResizeEdge {
             visible: rightDock.visible
-            Layout.preferredWidth: 6; Layout.fillHeight: true
-            color: rightResize.containsMouse || rightResize.pressed ? Theme.border : Theme.separator
-            MouseArea {
-                id: rightResize
-                objectName: "rightDockResize"
-                anchors.fill: parent
-                hoverEnabled: true; cursorShape: Qt.SplitHCursor
-                preventStealing: true
-                property real origin
-                property real initialWidth
-                onPressed: function(mouse) { origin = mapToItem(window.contentItem, mouse.x, mouse.y).x; initialWidth = rightDock.width }
-                onPositionChanged: function(mouse) {
-                    if (pressed) window.rightDockWidth = window.dockWidth(initialWidth - mapToItem(window.contentItem, mouse.x, mouse.y).x + origin)
-                }
+            area.objectName: "rightDockResize"
+            onMoved: function(delta) {
+                if (delta === 0) initialWidth = rightDock.width
+                window.rightDockWidth = window.dockWidth(initialWidth - delta)
             }
         }
         DockSidebar {
@@ -628,6 +627,7 @@ ApplicationWindow {
         objectName: "statusBar"
         height: 29
         color: Theme.sidebar
+        Rectangle { width: parent.width; height: 1; color: Theme.separator } // The edge above it.
         RowLayout {
             anchors.fill: parent
             anchors.leftMargin: 4; anchors.rightMargin: 4

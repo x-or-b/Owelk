@@ -524,6 +524,20 @@ Item {
             compare(d.tree.tabs[0].id, first)
             compare(d.tree.tabs[1].id, second)
         }
+        function test_areasAreSlicesWithHairlineEdges() {
+            // Panels and documents are square slices; a resize edge is 1px with a wider grab area.
+            workspace.filesVisible = true
+            const left = findChild(workspace, "leftDock")
+            tryCompare(left, "visible", true)
+            compare(left.radius, 0)
+            const grip = findChild(workspace, "leftDockResize")
+            compare(grip.parent.width, 1)
+            verify(grip.width >= 7)
+            workspace.documents.openDocument(fixtureSource); canvas()
+            const group = findChild(workspace.documents, "group-" + workspace.documents.activeGroup)
+            compare(group.radius, 0)
+            compare(workspace.currentReader.radius, 0)
+        }
         function test_resizeSplitPreservesTabs() {
             const d = workspace.documents
             d.openDocument(fixtureSource); canvas()

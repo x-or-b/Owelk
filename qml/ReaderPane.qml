@@ -61,8 +61,6 @@ Rectangle {
     signal documentOpened()
     signal fileChosen(url source)
     color: Theme.pdfBackdrop
-    border.color: isActive ? Theme.border : Theme.separator
-    radius: Theme.radius
 
     function chooseFile() { fileDialog.open() }
     function cancelReveal() { revealTimer.stop(); sourceToReveal = null }
@@ -216,7 +214,6 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 1
         spacing: 0
 
         Rectangle {
@@ -224,7 +221,6 @@ Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: visible ? Theme.barHeight + 8 : 0
             color: Theme.content
-            radius: Theme.radius
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 12
@@ -254,7 +250,7 @@ Rectangle {
             objectName: "readerToolbar"
             Layout.preferredHeight: visible ? Theme.barHeight : 0
             color: Theme.window
-            radius: Theme.radius
+            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.separator }
             RowLayout {
                 anchors.left: parent.left; anchors.leftMargin: 4; anchors.verticalCenter: parent.verticalCenter
                 spacing: 3

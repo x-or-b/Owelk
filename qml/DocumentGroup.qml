@@ -67,7 +67,6 @@ Rectangle {
     property string menuLabel: ""
     objectName: "group-" + groupId
     color: Theme.window
-    radius: Theme.radius
     clip: true
     function refresh() {
         if (!pane) return

@@ -165,22 +165,24 @@ function split(node, target, added, edge) {
     return replace(node, target, {kind: "split", id: id("split"), axis: edge === "top" || edge === "bottom" ? "vertical" : "horizontal",
         ratio: .5, first: before ? added : old, second: before ? old : added})
 }
+// Split groups meet at a 1px edge (the handle widens its grab area beyond it).
+var splitGap = 1
 function minimum(node) {
     if (node.kind === "group") return {width: 440, height: 280}
     const a = minimum(node.first), b = minimum(node.second)
-    return node.axis === "horizontal" ? {width: a.width + b.width + 6, height: Math.max(a.height, b.height)}
-        : {width: Math.max(a.width, b.width), height: a.height + b.height + 6}
+    return node.axis === "horizontal" ? {width: a.width + b.width + splitGap, height: Math.max(a.height, b.height)}
+        : {width: Math.max(a.width, b.width), height: a.height + b.height + splitGap}
 }
 function geometry(node, x, y, width, height, groups, handles) {
     if (node.kind === "group") { groups.push({node: node, x: x, y: y, width: width, height: height}); return }
     const horizontal = node.axis === "horizontal"
     const a = minimum(node.first), b = minimum(node.second)
-    const span = (horizontal ? width : height) - 6
+    const span = (horizontal ? width : height) - splitGap
     const first = Math.max(horizontal ? a.width : a.height, Math.min(span - (horizontal ? b.width : b.height), span * node.ratio))
     handles.push({nodeId: node.id, horizontal: horizontal, x: x + (horizontal ? first : 0), y: y + (horizontal ? 0 : first),
-        width: horizontal ? 6 : width, height: horizontal ? height : 6, span: span})
+        width: horizontal ? splitGap : width, height: horizontal ? height : splitGap, span: span})
     geometry(node.first, x, y, horizontal ? first : width, horizontal ? height : first, groups, handles)
-    geometry(node.second, x + (horizontal ? first + 6 : 0), y + (horizontal ? 0 : first + 6), horizontal ? span - first : width, horizontal ? height : span - first, groups, handles)
+    geometry(node.second, x + (horizontal ? first + splitGap : 0), y + (horizontal ? 0 : first + splitGap), horizontal ? span - first : width, horizontal ? height : span - first, groups, handles)
 }
 function validate(node, ids, depth) {
     if (!node || depth > 128 || typeof node.id !== "string" || !node.id || ids[node.id]) return false
