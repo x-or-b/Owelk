@@ -39,7 +39,6 @@ var glyphs = {
     "text": "\ue198",
     "image": "\ue0f6",
     "outline": "\ue408",
-    "thumbnails": "\ue0ff",
     "related": "\ue125",
     "split": "\ue098",
     "splitDown": "\ue439",
@@ -59,7 +58,7 @@ var glyphs = {
     "play": "\ue13c",
     "fast": "\ue1b4",
     "effort": "\ue1bf",
-    "margin": "\ue431",
+    "annotations": "\ue575",
     "sidebar": "\ue12a",
     "key": "\ue4a3",
     "settings": "\ue154",
@@ -73,7 +72,6 @@ var glyphs = {
     "ok": "\ue226",
     "filter": "\ue460",
     "history": "\ue1f5",
-    "citations": "\ue542",
     "organize": "\ue33c"
 }
 function glyph(name) { return glyphs[name] || "" }

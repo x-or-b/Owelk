@@ -233,6 +233,7 @@ Item {
     }
     function send(question) {
         error = ""
+        if (thread.trashed) { error = "Restore this conversation to continue it."; return false }
         const provider = ai.provider
         if (!providerInfo.configured && provider !== "ollama") {
             error = setupHint(provider)
@@ -274,16 +275,32 @@ Item {
         conversationOpen = false
     }
     function renameThread(id, title) { return researchStore.renameAiThread(id, title) }
-    function saveAsNote(index) {
+    // A conversation opened from a note while it is in the Trash comes back to the threads.
+    function restoreThread() {
+        if (!threadId.length || !researchStore.trashAiThreads([threadId], false)) return false
+        thread = researchStore.aiThread(threadId)
+        return true
+    }
+    // Notes about the paper this conversation is about: where an answer can be added.
+    function paperNotes() {
+        if (!thread.source || !thread.source.toString().length) return []
+        return researchStore.backlinks("document", researchStore.documentLinkId(thread.source)).filter(function(b) { return b.kind === "note" })
+    }
+    // An answer as a note: the question quoted above it, then links to the conversation and the paper.
+    // Into a new note, or added to the end of one (noteId).
+    function saveAsNote(index, noteId) {
         const message = messages[index]
         if (!message || message.role !== "assistant" || !threadId.length) return ""
-        const lines = [message.content, "", "---", "- " + researchStore.markdownLink("ai", threadId)]
+        const asked = index > 0 && messages[index - 1].role === "user" ? (messages[index - 1].display || messages[index - 1].content || "").trim() : ""
+        const lines = asked.length ? ["> " + asked.split("\n").join("\n> "), ""] : []
+        lines.push(message.content, "", "---", "- " + researchStore.markdownLink("ai", threadId))
         if (thread.source && thread.source.toString().length) {
             const paper = researchStore.documentLinkId(thread.source)
             if (paper.length) lines.push("- " + researchStore.markdownLink("document", paper))
         }
-        const note = researchStore.createNote(thread.title || "AI", lines.join("\n") + "\n")
-        if (note.length) { researchStore.addLink("note", note, "ai", threadId); researchStore.notify("Saved as a note with links to its sources.") }
+        const text = lines.join("\n")
+        const note = noteId ? (researchStore.appendToNote(noteId, text) ? noteId : "") : researchStore.createNote(thread.title || "AI", text + "\n")
+        if (note.length) researchStore.notify(noteId ? "Added to the note." : "Saved as a note with links to its sources.")
         return note
     }
     Connections {

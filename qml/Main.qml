@@ -75,7 +75,7 @@ ApplicationWindow {
     readonly property var dockPanels: ["files", "document", "ai"]
     function panelSide(panel) { return panel === "files" ? filesSide : panel === "ai" ? aiSide : documentSide }
     function panelShown(panel) { return panel === "files" ? filesVisible : panel === "ai" ? aiVisible : documentVisible }
-    function panelName(panel) { return panel === "files" ? "Library" : panel === "ai" ? "AI threads" : "Document outline and thumbnails" }
+    function panelName(panel) { return panel === "files" ? "Library" : panel === "ai" ? "AI threads" : "Document: contents, annotations, symbols and related papers" }
     function setPanelShown(panel, shown) {
         if (panel === "files") filesVisible = shown
         else if (panel === "ai") aiVisible = shown
@@ -90,6 +90,12 @@ ApplicationWindow {
     function showAi() { setPanelShown("ai", true); closeOthers("ai") }
     function askAi(spec) { showAi(); aiController.begin(spec) }
     function openAiThread(id) { if (aiController.openThread(id)) showAi() }
+    // The Document panel's Annotations view (the reader toolbar button opens and closes it).
+    function toggleAnnotations() {
+        if (documentVisible && navigationMode === 1) { documentVisible = false; return }
+        navigationMode = 1
+        setPanelShown("document", true); closeOthers("document")
+    }
     // The AI panel shows this thread right now (panel open and in front in its dock).
     function aiThreadInView(id) {
         const dock = aiSide === "left" ? leftDock : rightDock
@@ -189,7 +195,7 @@ ApplicationWindow {
         documentSide = panels.documentSide === "right" ? "right" : "left"
         aiVisible = !!panels.aiVisible
         aiSide = panels.aiSide === "left" ? "left" : "right"
-        navigationMode = [0, 1, 2, 3, 4].indexOf(panels.navigationMode) >= 0 ? panels.navigationMode : 0
+        navigationMode = [0, 1, 2, 3].indexOf(panels.navigationMode) >= 0 ? panels.navigationMode : 0
         paperFolder = panels.folder || ""
         // Sessions from when a dock held several panels keep the one in front.
         for (const side of ["left", "right"]) {
@@ -286,6 +292,8 @@ ApplicationWindow {
             case "/highlight": if (!window.homeVisible && window.currentReader) window.currentReader.highlightSelection(); break
             case "/files": window.togglePanel("files"); break
             case "/document": window.togglePanel("document"); break
+            case "/annotations": window.toggleAnnotations(); break
+            case "/paper note": if (window.currentReader) documents.newNoteFor(window.currentReader.source); break
             case "/close tab": documents.closeActiveTab(); break
             case "/new tab": if (!window.restoreFailed) documents.newHomeTab(); break
             case "/reopen tab": documents.reopenClosedTab(); break
@@ -475,6 +483,7 @@ ApplicationWindow {
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
+            onNewNoteRequested: function(source) { if (!window.restoreFailed) documents.newNoteFor(source) }
             onAiRequested: function(spec) { window.askAi(spec) }
             visible: panels.length > 0
             Layout.preferredWidth: window.dockWidth(window.leftDockWidth); Layout.fillHeight: true
@@ -514,6 +523,7 @@ ApplicationWindow {
             onChanged: window.scheduleSave()
             onEmpty: window.showHome()
             onAiRequested: function(spec) { window.askAi(spec) }
+            onAnnotationsToggled: window.toggleAnnotations()
             onAiResponseRequested: function(id) { window.openAiThread(id) }
             onOpened: window.homeVisible = false
             onHomeOpenRequested: window.chooseFile()
@@ -539,6 +549,7 @@ ApplicationWindow {
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
+            onNewNoteRequested: function(source) { if (!window.restoreFailed) documents.newNoteFor(source) }
             onAiRequested: function(spec) { window.askAi(spec) }
             visible: panels.length > 0
             Layout.preferredWidth: window.dockWidth(window.rightDockWidth); Layout.fillHeight: true

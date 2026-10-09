@@ -261,6 +261,34 @@ Flickable {
         Qt.callLater(function() { const view = root.groupView(root.activeGroup); if (view) view.focusNoteTitle() })
         return id
     }
+    // A note beside its paper: in the split next to the paper's (one is made on the right when there is none).
+    function openNoteBeside(noteId, source) {
+        const row = researchStore.note(noteId)
+        if (!row.id || row.deleted) return false
+        const list = Tree.leaves(tree)
+        for (let i = 0; i < list.length; ++i) {
+            const existing = list[i].tabs.find(function(t) { return t.kind === "note" && t.noteId === noteId })
+            if (existing) { activateTab(existing.id); return true }
+        }
+        prepare()
+        const shows = function(g) { return g.tabs.some(function(t) { return t.id === g.activeTab && researchStore.sameSource(t.source, source) }) }
+        const paper = Tree.find(tree, activeGroup) && shows(Tree.find(tree, activeGroup)) ? Tree.find(tree, activeGroup) : list.find(shows) || list[0]
+        const t = Tree.noteTab(noteId, row.title)
+        const beside = list.length > 1 ? list[(list.indexOf(paper) + 1) % list.length] : null
+        if (beside) { beside.tabs.push(t); beside.activeTab = t.id; activeGroup = beside.id }
+        else { const added = Tree.group([t]); tree = Tree.split(tree, paper.id, added, "right"); activeGroup = added.id }
+        sync(); changed(); opened()
+        return true
+    }
+    // A new note about a paper: named after it, linking to it, open beside it.
+    function newNoteFor(source) {
+        const paper = researchStore.documentLinkId(source)
+        if (!paper.length) return ""
+        const id = researchStore.createNote(researchStore.displayName(source), researchStore.markdownLink("document", paper) + "\n\n")
+        if (!id.length || !openNoteBeside(id, source)) return ""
+        Qt.callLater(function() { const view = root.groupView(root.activeGroup); if (view) view.focusNoteBody() })
+        return id
+    }
     function updateNoteTab(noteId, title) {
         let touched = false
         const list = Tree.leaves(tree)
@@ -300,6 +328,7 @@ Flickable {
     }
     signal aiResponseRequested(string id)
     signal aiRequested(var spec)
+    signal annotationsToggled()
     // One library tab per group: reuse it (or the Home tab in front) and apply the filter.
     // One Library tab in the window: opening it again shows that tab (wherever it is) with the filter.
     function openLibrary(filter) {

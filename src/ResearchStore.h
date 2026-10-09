@@ -161,6 +161,11 @@ public:
     Q_INVOKABLE bool deleteNote(const QString &id);
     Q_INVOKABLE bool restoreNote(const QString &id);
     Q_INVOKABLE bool purgeNote(const QString &id);
+    // Adds Markdown at the end of a note (a blank line before it). A note open with unsaved edits
+    // takes the same text through noteAppended, so neither side loses words.
+    Q_INVOKABLE bool appendToNote(const QString &noteId, const QString &markdown);
+    // Takes a note's links to this paper and to its annotations out of its text (their words stay).
+    Q_INVOKABLE bool unlinkNote(const QString &noteId, const QUrl &source);
     Q_INVOKABLE bool addLink(
         const QString &fromKind, const QString &fromId, const QString &toKind, const QString &toId);
     Q_INVOKABLE QVariantMap linkTarget(const QString &kind, const QString &id) const;
@@ -212,9 +217,10 @@ public:
     Q_INVOKABLE QVariantList linkCandidates(const QString &query) const;
     Q_INVOKABLE QString documentLinkId(const QUrl &source);
     // Markdown as rich text: links in linkColor, LaTeX math ($…$, $$…$$, \(…\), \[…\]) as images in
-    // textColor at the text's pixel size (see MathRenderer.h).
+    // textColor at the text's pixel size (see MathRenderer.h). A link to an AI conversation deleted for
+    // good reads "Deleted conversation" in mutedColor.
     Q_INVOKABLE QString markdownHtml(const QString &markdown, const QString &linkColor,
-        const QString &textColor = QString(), int pixelSize = 0) const;
+        const QString &textColor = QString(), int pixelSize = 0, const QString &mutedColor = QString()) const;
     // Plain text of rich text made by markdownHtml (a selection's HTML), with formulas as their LaTeX.
     Q_INVOKABLE QString plainTextWithMath(const QString &html) const;
     // "[title](owelk://kind/id)" for inserting into a note.
@@ -230,12 +236,9 @@ public:
     Q_INVOKABLE int trashAiThreads(const QStringList &ids, bool trashed = true);
     Q_INVOKABLE int purgeAiThreads(const QStringList &ids);
     Q_INVOKABLE int emptyAiTrash();
+    // A thread with its messages; trashed while it is in the Trash.
     Q_INVOKABLE QVariantMap aiThread(const QString &id) const;
     Q_INVOKABLE bool renameAiThread(const QString &id, const QString &title);
-    Q_INVOKABLE bool deleteAiThread(const QString &id);
-    // Saved AI answers. response: provider, model, action, question, answer, prompt, source, page.
-    Q_INVOKABLE QString saveAiResponse(const QVariantMap &response);
-    Q_INVOKABLE QVariantMap aiResponse(const QString &id) const;
     Q_INVOKABLE bool appendNoteLink(const QString &noteId, const QString &kind, const QString &id);
     int documentsRevision() const { return m_documentsRevision; }
     Q_INVOKABLE bool sameSource(const QUrl &first, const QUrl &second) const { return first == second; }
@@ -311,6 +314,7 @@ signals:
     void documentsChanged();
     void settingsChanged();
     void notesChanged();
+    void noteAppended(const QString &noteId, const QString &markdown);
     void linksChanged();
     void relatedFound(int request, const QVariantList &papers, const QVariantList &notes);
     void collectionsSuggested(int request, const QUrl &source, const QVariantList &suggestions);
@@ -403,6 +407,7 @@ private:
     bool m_replaying = false;
     int m_historyRevision = 0;
     QVariantMap annotationState(const QString &id) const;
+    bool deleteAiThread(const QString &id);
     void revealAnchor(const QVariantMap &anchor);
     bool applyAnnotationState(const QString &id, const QVariantMap &state);
     void recordAnnotation(const QString &id, const QVariantMap &before, const QString &label);

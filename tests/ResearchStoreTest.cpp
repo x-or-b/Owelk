@@ -1409,11 +1409,19 @@ private slots:
         QVERIFY(std::none_of(
             hits.cbegin(), hits.cend(), [&](const QVariant &hit) { return hit.toMap()["id"].toString() == ids[0]; }));
         QCOMPARE(store.aiThread(ids[0])["messages"].toList().size(), 1);
+        // A note linking to one shows where it is: in the Trash, or (deleted for good) greyed.
+        const auto linked = "[First](owelk://ai/" + ids[0] + ") and [Second](owelk://ai/" + ids[1] + ")";
+        QVERIFY(store.aiThread(ids[0])["trashed"].toBool());
+        QVERIFY(store.linkTarget("ai", ids[0])["trashed"].toBool());
         // Restored as it was; deleted for good only from the Trash.
         QCOMPARE(store.trashAiThreads({ids[0]}, false), 1);
+        QVERIFY(!store.aiThread(ids[0])["trashed"].toBool());
         QCOMPARE(store.aiThreads().size(), 2);
         QCOMPARE(store.emptyAiTrash(), 1);
         QVERIFY(store.aiThread(ids[1]).isEmpty());
+        const auto html = store.markdownHtml(linked, "#0000aa", "#111111", 14, "#999999");
+        QCOMPARE(html.count("owelk://ai/"), 1);
+        QVERIFY(html.contains("Deleted conversation"));
         QVERIFY(store.trashedAiThreads().isEmpty());
         QCOMPARE(store.aiThreads().size(), 2);
     }

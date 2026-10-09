@@ -12,6 +12,7 @@ Rectangle {
     property bool managed: false
     property alias source: canvas.source
     property alias pdfDocument: canvas.document
+    property alias pdfCanvas: canvas
     readonly property bool pdfReady: canvas.ready
     readonly property int currentPage: canvas.currentPage
     readonly property int pageCount: canvas.pageCount
@@ -47,13 +48,14 @@ Rectangle {
     function addComment() {
         if (!canvas.selectedAnchor) return
         activated()
-        if (marginShown) margin.beginDraft({page: canvas.selectedAnchor.page, selection: canvas.selectedAnchor})
+        if (annotationList) annotationList.beginDraft({page: canvas.selectedAnchor.page, selection: canvas.selectedAnchor})
         else annotationEditor.begin(canvas, {kind:"comment",page:canvas.selectedAnchor.page}, canvas.selectedAnchor)
     }
-    // Notes beside the page (remembered); shown when the pane has room for them.
-    property bool marginNotes: researchStore.setting("reader.marginNotes") === "1"
-    readonly property bool marginShown: marginNotes && canvas.ready && root.width >= 560
-    function setMarginNotes(on) { marginNotes = on; researchStore.setSetting("reader.marginNotes", on ? "1" : "0") }
+    // The Annotations list of the Document panel, while it shows this paper (the panel sets it): new
+    // comments are written there instead of in a dialog.
+    property var annotationList: null
+    // The toolbar button opens and closes that list.
+    signal annotationsToggled()
     function printDocument() { researchStore.printDocument(canvas.source, canvas.documentFingerprint, canvas.pageCount) }
     signal activated()
     signal changed()
@@ -369,7 +371,7 @@ Rectangle {
                 }
                 IconButton { icon.name: "add"; description: "Zoom in · " + Platform.keys("Ctrl+Plus"); onClicked:{root.activated();canvas.zoom(1.2)} }
             }
-            // Annotation tools, then margin notes, then everything else (find, print, export) behind ⋯.
+            // Annotation tools, then the Annotations list, then everything else (find, print, export) behind ⋯.
             // Highlight and Draw keep their own colors; the narrow arrow next to each picks one.
             Row {
                 anchors.right:parent.right;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter
@@ -399,7 +401,7 @@ Rectangle {
                     IconButton { objectName:"areaTool";icon.name: "area";checked:canvas.tool==="area";description: "Mark region";onClicked:root.setTool("area") }
                 }
                 Rectangle { visible: readerToolbar.width >= 600; width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
-                IconButton { objectName:"marginNotesButton";icon.name: "margin";checked:root.marginNotes;description: "Margin notes";onClicked:root.setMarginNotes(!root.marginNotes) }
+                IconButton { objectName:"annotationsButton";icon.name: "annotations";checked:root.annotationList !== null;description: "Annotations";onClicked:root.annotationsToggled() }
                 Rectangle { width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
                 IconButton { icon.name: "more";
                     objectName: "readerMoreButton"
@@ -518,15 +520,14 @@ Rectangle {
                 id: canvas
                 objectName: "pdfCanvas" + root.paneIndex
                 anchors.fill: parent
-                anchors.rightMargin: root.marginShown ? margin.width : 0
                 onActivated: root.activated()
                 onExternalLinkRequested: function(url) { if (root.managed) root.linkRequested(url); else Qt.openUrlExternally(url) }
                 onContextPressed: function(page, pagePoint) { root.prepareContext(page, pagePoint) }
                 onContextRequested: function(position, page, pagePoint) { root.openContext(position, page, pagePoint) }
                 onEditRequested: function(record,selection) {
                     root.activated()
-                    // With the notes open, a comment or a highlight's note is written beside the page.
-                    if (root.marginShown && !selection && (record.kind === "comment" || record.kind === "highlight")) margin.edit(record.id)
+                    // With the Annotations list open, a comment or a highlight's note is written there.
+                    if (root.annotationList && !selection && (record.kind === "comment" || record.kind === "highlight")) root.annotationList.edit(record.id)
                     else annotationEditor.begin(canvas,record,selection)
                 }
                 onAnnotationPlaced: function(page,rectangle,points) {
@@ -535,7 +536,7 @@ Rectangle {
                     // A pen stroke and a marked region are kept at once (a region's comment is added later).
                     if(kind==="draw")researchStore.saveAnnotation(canvas.source,page,spec)
                     else if(kind==="area"){canvas.tool="";researchStore.saveAnnotation(canvas.source,page,spec)}
-                    else if(kind==="comment"&&root.marginShown){canvas.tool="";margin.beginDraft({page:page,rectangle:rectangle})}
+                    else if(kind==="comment"&&root.annotationList){canvas.tool="";root.annotationList.beginDraft({page:page,rectangle:rectangle})}
                     else {canvas.tool="";annotationEditor.begin(canvas,spec,null)}
                 }
                 onPositionChanged: root.changed()
@@ -554,15 +555,6 @@ Rectangle {
                 }
             }
 
-            MarginNotes {
-                id: margin
-                visible: root.marginShown
-                anchors.right: parent.right
-                width: Math.min(300, Math.max(220, parent.width * .28)); height: parent.height
-                canvas: canvas
-                source: root.source
-                z: 4
-            }
             Rectangle {
                 id: selectionToolbar
                 objectName: "selectionToolbar"

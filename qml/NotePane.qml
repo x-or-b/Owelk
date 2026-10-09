@@ -42,12 +42,19 @@ Rectangle {
         return true
     }
     function focusTitle() { preview = false; titleField.forceActiveFocus() }
+    function focusBody() { preview = false; body.cursorPosition = body.length; body.forceActiveFocus() }
     onNoteIdChanged: { save(); if (noteId.length) load() }
     Component.onDestruction: save()
     Timer { id: autosave; interval: 600; onTriggered: root.save() }
     Connections {
         target: researchStore
-        // Links appended from an annotation's "Link to Note…" arrive while the note is open.
+        // Text added from elsewhere (Link to Note…, an AI answer) while there are unsaved edits joins them,
+        // so the next save keeps both; without edits the note simply reloads (below).
+        function onNoteAppended(noteId, markdown) {
+            if (!root.dirty || noteId !== root.loadedId) return
+            const kept = body.text.replace(/\n+$/, "")
+            body.text = kept + (kept.length ? "\n\n" : "") + markdown.trim() + "\n"
+        }
         function onNotesChanged() {
             if (root.dirty || !root.noteId.length) return
             const row = researchStore.note(root.noteId)
@@ -141,7 +148,7 @@ Rectangle {
             Text {
                 objectName: "notePreview"
                 width: parent.width
-                text: root.preview ? researchStore.markdownHtml(body.text.length ? body.text : "*Empty note*", Theme.accent, Theme.text, Theme.fontHeadline) : ""
+                text: root.preview ? researchStore.markdownHtml(body.text.length ? body.text : "*Empty note*", Theme.accent, Theme.text, Theme.fontHeadline, Theme.textTertiary) : ""
                 textFormat: Text.RichText
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontHeadline

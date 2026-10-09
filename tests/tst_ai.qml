@@ -89,9 +89,24 @@ Item {
             tryVerify(function() { return ai.messages.length === 4 }, 10000)
             compare(ai.threadId, thread)
             compare(ai.messages[2].display, "Why does it matter?")
-            // Saving an answer as a note links back to the thread.
-            mouseClick(findChild(p, "aiSaveNote-3"))
+            // Saving an answer as a note quotes the question and links back to the thread and the paper.
+            const before = researchStore.backlinks("document", paper).filter(function(b) { return b.kind === "note" }).length
+            if (before === 0) mouseClick(findChild(p, "aiSaveNote-3"))
+            else { ai.saveAsNote(3) }
+            let saved = null
+            tryVerify(function() { saved = researchStore.backlinks("document", paper).filter(function(b) { return b.kind === "note" }); return saved.length === before + 1 })
+            const note = saved[0].id
+            verify(researchStore.note(note).body.indexOf("> Why does it matter?\n\nMock answer") === 0, researchStore.note(note).body)
             verify(researchStore.searchKnowledge("Mock answer").some(function(h) { return h.kind === "note" }))
+            // With a note about the paper, the button offers adding to it.
+            const saveButton = findChild(p, "aiSaveNote-3")
+            mouseClick(saveButton)
+            const menu = findChild(saveButton, "aiSaveNoteMenu")
+            tryCompare(menu, "opened", true)
+            verify(menu.count >= 3)
+            menu.itemAt(2).triggered()
+            menu.close()
+            tryVerify(function() { return researchStore.note(note).body.split("Mock answer").length === 3 })
         }
         function test_2_threadsListReopensWithoutANewRequest() {
             const ai = findChild(workspace, "aiController")

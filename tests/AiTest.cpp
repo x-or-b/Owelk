@@ -818,12 +818,7 @@ private slots:
         // Page text comes with the request to cite places.
         QVERIFY(server.seen[0].body["system"].toString().contains("[p. N: \"exact words\"]"));
         QVERIFY(server.seen[0].body["system"].toString().contains("language of the reader's request"));
-        // Saved answers are searchable knowledge objects linked to the paper.
-        auto details = finished[0][2].toMap();
-        details.insert("answer", finished[0][1].toString());
-        const auto id = store.saveAiResponse(details);
-        QVERIFY(!id.isEmpty());
-        QCOMPARE(store.aiResponse(id)["answer"].toString(), QString("Page answer"));
+        // The answer is kept as a thread: searchable and linked to the paper.
         QCOMPARE(store.searchKnowledge("Page answer").value(0).toMap()["kind"].toString(), QString("ai"));
         QCOMPARE(
             store.backlinks("document", store.documentLinkId(QUrl::fromLocalFile(pdf)))[0].toMap()["kind"].toString(),
@@ -906,7 +901,7 @@ private slots:
         QVERIFY(finished[4][1].toString().contains(
             "[p. 3](owelk://document/" + paper + "#page=3&q=Research%20finding%203.1)"));
         QVERIFY(finished[4][1].toString().contains("[p. 4](owelk://document/" + paper + "#page=4)"));
-        QVERIFY(store.deleteAiThread(threadId));
+        QCOMPARE(store.purgeAiThreads({threadId}), 1);
         QVERIFY(store.aiThread(threadId).isEmpty());
         QVERIFY(ai->clearApiKey("claude"));
         QVERIFY(!ai->hasApiKey("claude"));

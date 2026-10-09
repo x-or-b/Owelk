@@ -52,7 +52,6 @@ comment message-square
 text type
 image image
 outline list-tree
-thumbnails layout-grid
 related network
 split columns-2
 splitDown rows-2
@@ -72,7 +71,7 @@ pause pause
 play play
 fast zap
 effort gauge
-margin panel-right
+annotations message-square-text
 sidebar panel-left
 key key-round
 settings settings
@@ -86,7 +85,6 @@ alert circle-alert
 ok circle-check
 filter list-filter
 history history
-citations waypoints
 organize folder-tree
 """
 

@@ -86,11 +86,13 @@ QVariantList ResearchStore::aiThreads() const
 QVariantMap ResearchStore::aiThread(const QString &id) const
 {
     QSqlQuery query(m_database);
-    query.prepare("SELECT title,provider,model,source,created_at,updated_at FROM ai_threads WHERE id=?");
+    query.prepare(
+        "SELECT title,provider,model,source,created_at,updated_at,trashed_at IS NOT NULL FROM ai_threads WHERE id=?");
     query.addBindValue(id);
     if (!query.exec() || !query.next()) return {};
     QVariantMap thread{{"id", id}, {"title", query.value(0)}, {"provider", query.value(1)}, {"model", query.value(2)},
-        {"source", QUrl(query.value(3).toString())}, {"createdAt", query.value(4)}, {"updatedAt", query.value(5)}};
+        {"source", QUrl(query.value(3).toString())}, {"createdAt", query.value(4)}, {"updatedAt", query.value(5)},
+        {"trashed", query.value(6).toBool()}};
     QSqlQuery messages(m_database);
     messages.prepare("SELECT id,role,content,display,context_json,model,created_at FROM ai_messages WHERE thread_id=? "
                      "ORDER BY created_at, role DESC");
@@ -212,35 +214,4 @@ bool ResearchStore::deleteAiThread(const QString &id)
     emit aiThreadsChanged();
     emit linksChanged();
     return true;
-}
-
-QString ResearchStore::saveAiResponse(const QVariantMap &response)
-{
-    // A single question and answer as a one-turn thread.
-    const auto answer = response.value("answer").toString();
-    if (answer.trimmed().isEmpty() || answer.size() > 400000) return {};
-    const auto question = response.value("question").toString().simplified();
-    const auto id = createAiThread({{"title", question.isEmpty() ? response.value("action").toString() : question},
-        {"provider", response.value("provider")}, {"model", response.value("model")},
-        {"source", response.value("source")}});
-    if (id.isEmpty()) return {};
-    const QVariantMap context{{"page", response.value("page")}};
-    appendAiMessage(id,
-        {{"role", "user"},
-            {"content", response.value("prompt").toString().isEmpty() ? question : response.value("prompt")},
-            {"display", question}, {"context", context}});
-    appendAiMessage(id, {{"role", "assistant"}, {"content", answer}, {"model", response.value("model")}});
-    return id;
-}
-
-QVariantMap ResearchStore::aiResponse(const QString &id) const
-{
-    const auto thread = aiThread(id);
-    if (thread.isEmpty()) return {};
-    QString answer;
-    for (const auto &value : thread.value("messages").toList())
-        if (value.toMap().value("role") == "assistant") answer = value.toMap().value("content").toString();
-    auto result = thread;
-    result.insert("answer", answer);
-    return result;
 }

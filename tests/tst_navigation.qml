@@ -13,7 +13,7 @@ Item {
         name: "PdfNavigation"
         when: windowShown
         function init() {
-            panel.reader = reader; panel.mode = 0
+            panel.reader = reader; panel.mode = 0; panel.setContents("outline"); panel.relatedSide = 0
             reader.openFile(outlineSource)
             tryCompare(reader, "pdfReady", true)
             tryCompare(findChild(reader, "pdfCanvas0"), "restoring", false)
@@ -23,8 +23,9 @@ Item {
             verify(researchStore.updateDocumentDetails(outlineSource, {title: "Outline Fixture", doi: "10.1/outline"}))
             researchStore.setSetting("citations.baseUrl", testInput.webFixture("/graph/v1").toString())
             const spy = createTemporaryObject(linkSpyComponent, panel)
-            mouseClick(findChild(panel, "citationsTab"))
-            compare(panel.mode, 4)
+            mouseClick(findChild(panel, "relatedTab"))
+            compare(panel.mode, 3)
+            mouseClick(findChild(panel, "citesTab"))
             // Nothing is sent until asked.
             const find = findChild(panel, "findCitations")
             tryCompare(find, "visible", true)
@@ -44,12 +45,13 @@ Item {
             compare(spy.count, 1)
             compare(spy.signalArguments[0][0], "https://arxiv.org/abs/1801.00001")
             // Coming back shows the saved results without asking again.
-            mouseClick(findChild(panel, "outlineTab"))
-            mouseClick(findChild(panel, "citationsTab"))
+            mouseClick(findChild(panel, "contentsTab"))
+            mouseClick(findChild(panel, "relatedTab"))
             tryCompare(list, "count", 1)
             verify(panel.citations.cached)
             verify(!find.visible)
-            mouseClick(findChild(panel, "outlineTab"))
+            compare(findChild(panel, "citesTab").text, "Cites 1")
+            mouseClick(findChild(panel, "contentsTab"))
         }
         function test_nestedOutlineAndDestination() {
             const tree = findChild(panel, "pdfOutline")
@@ -66,20 +68,48 @@ Item {
             tryCompare(canvas, "restoring", false)
             verify(canvas.position().y > .3)
         }
-        function test_modesAreIconSegments() {
-            const outline = findChild(panel, "outlineTab"), thumbnails = findChild(panel, "thumbnailsTab")
+        function test_fourViewsAsIconSegments() {
+            const contents = findChild(panel, "contentsTab"), annotations = findChild(panel, "annotationsTab")
             // The current segment is raised; the others are flat until hovered. Icons say what each is.
-            verify(outline.checked && !thumbnails.checked)
-            verify(outline.background.color.a > 0)
-            compare(thumbnails.background.color.a, 0)
-            compare(thumbnails.icon.name, "thumbnails")
-            compare(thumbnails.ToolTip.text, "Thumbnails")
-            mouseClick(thumbnails)
+            verify(contents.checked && !annotations.checked)
+            verify(contents.background.color.a > 0)
+            compare(annotations.background.color.a, 0)
+            compare(annotations.icon.name, "annotations")
+            compare(annotations.ToolTip.text, "Annotations")
+            compare(findChild(panel, "navigationMode").count, 4)
+            // Contents switches between the outline and the pages, and remembers it.
+            mouseClick(findChild(panel, "pagesTab"))
+            compare(panel.contents, "pages")
+            compare(researchStore.setting("document.contents"), "pages")
+            mouseClick(findChild(panel, "outlineTab"))
+            compare(panel.contents, "outline")
+            mouseClick(annotations)
             compare(panel.mode, 1)
-            verify(thumbnails.checked && !outline.checked)
+            verify(annotations.checked && !contents.checked)
+        }
+        function test_annotationsShowNotesAboutThePaperAndItsMarks() {
+            const spy = createTemporaryObject(linkSpyComponent, panel)
+            const paper = researchStore.documentLinkId(outlineSource)
+            const note = researchStore.createNote("About the outline", "See " + researchStore.markdownLink("document", paper) + " again")
+            mouseClick(findChild(panel, "annotationsTab"))
+            // The reader writes new comments into this list while it shows.
+            tryVerify(function() { return reader.annotationList !== null })
+            compare(reader.annotationList.objectName, "annotationList")
+            tryVerify(function() { return findChild(panel, "linkedNote-0") !== null })
+            compare(findChild(panel, "linkedNote-0").text, "About the outline")
+            mouseClick(findChild(panel, "linkedNote-0"))
+            compare(spy.signalArguments[0][0], "owelk://note/" + note)
+            // Unlinking keeps the words, without the link.
+            verify(researchStore.unlinkNote(note, outlineSource))
+            compare(researchStore.note(note).body, "See " + researchStore.displayName(outlineSource) + " again")
+            tryVerify(function() { return findChild(panel, "linkedNote-0") === null })
+            researchStore.deleteNote(note); researchStore.purgeNote(note)
+            // Another view: the reader writes in dialogs again.
+            mouseClick(findChild(panel, "contentsTab"))
+            tryCompare(reader, "annotationList", null)
         }
         function test_thumbnailsReuseReaderAndJump() {
-            panel.mode = 1
+            panel.setContents("pages")
             const list = findChild(panel, "pdfThumbnails")
             tryCompare(list, "count", 3)
             tryVerify(function() { return list.height > 0 })
@@ -103,7 +133,7 @@ Item {
             list.positionViewAtIndex(2, ListView.Contain); list.forceLayout()
             mouseClick(list.itemAtIndex(2))
             tryCompare(reader, "currentPage", 2)
-            panel.mode = 0
+            panel.setContents("outline")
             tryCompare(list, "count", 0, 5000)
         }
         function test_symbolsAreListedWithWhereTheyAreDefined() {
@@ -131,7 +161,7 @@ Item {
             // Background knowledge has no place in the paper to go to.
             verify(!findChild(panel, "symbolRow-1").enabled)
             panel.symbols = []
-            mouseClick(findChild(panel, "outlineTab"))
+            mouseClick(findChild(panel, "contentsTab"))
         }
         function test_switchPdfAndNoOutline() {
             reader.openFile(fixtureSource)
@@ -144,7 +174,7 @@ Item {
             const center = empty.mapToItem(panel, empty.width / 2, empty.height / 2)
             verify(Math.abs(center.x - panel.width / 2) < 2)
             verify(center.y > panel.height / 3 && center.y < panel.height * .8)
-            panel.mode = 1
+            panel.setContents("pages")
             tryCompare(findChild(panel, "pdfThumbnails"), "count", 8)
             panel.reader = null
             compare(panel.ready, false)

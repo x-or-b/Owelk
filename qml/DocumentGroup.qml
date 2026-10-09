@@ -16,6 +16,7 @@ Rectangle {
     readonly property bool isWeb: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "web" })
     readonly property bool isNote: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "note" })
     function focusNoteTitle() { if (noteLoader.item) noteLoader.item.focusTitle() }
+    function focusNoteBody() { if (noteLoader.item) noteLoader.item.focusBody() }
     readonly property bool isLibrary: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "library" })
     readonly property var activeTabData: groupData.tabs.find(function(t) { return t.id === groupData.activeTab }) || null
     // Web tabs keep their page (scroll, forms, back history) when you switch away and back: the most
@@ -417,6 +418,7 @@ Rectangle {
             onActivated: root.controller.activateGroup(root.groupId)
             onFileChosen: function(source) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source) }
             onAiRequested: function(spec) { root.controller.aiRequested(spec) }
+            onAnnotationsToggled: root.controller.annotationsToggled()
             onLinkRequested: function(url) { root.controller.activateGroup(root.groupId); root.controller.openWeb(url.toString(), true) }
             onChanged: if (!root.controller.syncing) root.controller.changed()
         }

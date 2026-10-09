@@ -5,18 +5,21 @@ import Owelk.Ui
 import "Platform.js" as Platform
 import "StrokePath.js" as Stroke
 
-// Annotations beside the page: every mark on the paper — pen, highlights, comments, text boxes,
-// pictures and marked regions — in page order (top to bottom) or grouped by kind. Hover one to outline its place on the
-// page, click to go there; comments and highlight notes are written and edited in place, text boxes in
-// their editor. They are the same annotations as on the page, so export, search and undo work on them.
-Rectangle {
+// A paper's annotations in the Document panel: every mark on it — pen, highlights, comments, text
+// boxes, pictures and marked regions — in page order (top to bottom) or grouped by kind. Hover one to
+// outline its place on the page, click to go there; comments and highlight notes are written and
+// edited in place, text boxes and regions in their editor. They are the same annotations as on the
+// page, so export, search and undo work on them.
+Item {
     id: root
-    objectName: "marginNotes"
+    objectName: "annotationList"
     required property var canvas
     property url source
     // The note being written for a new place: {page, selection} or {page, rectangle}.
     property var draft: null
     property string editingId: ""
+    // Another paper in front: a half-written note there is not carried over.
+    onCanvasChanged: { draft = null; editingId = "" }
     // "page": top to bottom through the paper; "type": pen, highlights, comments, text, pictures.
     property string sortMode: researchStore.setting("annotations.sort", "page") === "type" ? "type" : "page"
     function setSortMode(mode) { sortMode = mode; researchStore.setSetting("annotations.sort", mode) }
@@ -28,7 +31,6 @@ Rectangle {
             const byPlace = a.page - b.page || ((a.rectangles[0] || {}).y || 0) - ((b.rectangles[0] || {}).y || 0)
             return root.sortMode === "type" ? root.kinds.indexOf(a.kind) - root.kinds.indexOf(b.kind) || byPlace : byPlace
         })
-    color: Theme.sidebar
     // Comments go straight into the list (on the selection, or a place clicked next); other kinds use their
     // page tool: click or drag on the page, as with the toolbar.
     function newAnnotation(kind) {
@@ -60,15 +62,13 @@ Rectangle {
         }
         draft = null
     }
-    Rectangle { anchors.left: parent.left; width: 1; height: parent.height; color: Theme.separator }
     ColumnLayout {
         anchors.fill: parent
-        anchors.leftMargin: 1
         spacing: 0
         RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.barHeight
-            Layout.leftMargin: 12; Layout.rightMargin: 6
+            Layout.leftMargin: 4; Layout.rightMargin: 0
             Label {
                 Layout.fillWidth: true
                 text: "Annotations" + (root.notes.length ? "  " + root.notes.length : "")
@@ -84,7 +84,7 @@ Rectangle {
             // New annotation of any kind: a comment is written here; the others are placed on the page.
             IconButton {
                 id: addButton
-                objectName: "newMarginNote"
+                objectName: "newAnnotation"
                 icon.name: "add"
                 description: "New annotation"
                 onClicked: addMenu.popup(addButton, 0, addButton.height)
@@ -105,7 +105,7 @@ Rectangle {
         }
         ListView {
             id: list
-            objectName: "marginNoteList"
+            objectName: "annotationListView"
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -133,7 +133,7 @@ Rectangle {
                 required property var modelData
                 required property int index
                 width: list.width
-                objectName: "marginNote-" + modelData.id
+                objectName: "annotation-" + modelData.id
                 noteId: modelData.id
                 kind: modelData.kind
                 record: modelData
@@ -215,14 +215,13 @@ Rectangle {
             spacing: 4
             Label {
                 visible: card.heading.length > 0
-                Layout.leftMargin: 14; Layout.topMargin: 6
+                Layout.leftMargin: 4; Layout.topMargin: 6
                 text: card.heading
                 font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold
                 color: card.current && card.headingIsPage ? Theme.text : Theme.textTertiary
             }
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: 8; Layout.rightMargin: 8
                 implicitHeight: inner.implicitHeight + 16
                 radius: Theme.radius
                 color: Theme.content
@@ -237,7 +236,7 @@ Rectangle {
                     MenuItem { visible: card.kind !== "draw" && card.kind !== "image"; height: visible ? implicitHeight : 0; text: "Edit"; onTriggered: card.editRequested() }
                     MenuItem { visible: card.body.length > 0; height: visible ? implicitHeight : 0; text: "Copy Text"; onTriggered: researchStore.copyText(card.body) }
                     MenuSeparator {}
-                    MenuItem { objectName: "removeMarginNote"; text: "Delete"; palette.windowText: Theme.danger; onTriggered: card.removeRequested() }
+                    MenuItem { objectName: "removeAnnotation"; text: "Delete"; palette.windowText: Theme.danger; onTriggered: card.removeRequested() }
                 }
                 ColumnLayout {
                     id: inner
@@ -271,7 +270,7 @@ Rectangle {
                         }
                     }
                     Image {
-                        objectName: "marginPicture-" + card.noteId
+                        objectName: "annotationPicture-" + card.noteId
                         visible: card.kind === "image" && status === Image.Ready
                         Layout.fillWidth: true
                         Layout.preferredHeight: visible ? Math.min(90, implicitHeight) : 0
@@ -282,7 +281,7 @@ Rectangle {
                         asynchronous: true
                     }
                     Canvas {
-                        objectName: "marginDrawing-" + card.noteId
+                        objectName: "annotationDrawing-" + card.noteId
                         visible: card.kind === "draw"
                         Layout.fillWidth: true
                         Layout.preferredHeight: visible ? 44 : 0
@@ -312,7 +311,7 @@ Rectangle {
                     }
                     TextArea {
                         id: editor
-                        objectName: "marginNoteEditor"
+                        objectName: "annotationNoteEditor"
                         visible: card.editing
                         Layout.fillWidth: true
                         text: card.body

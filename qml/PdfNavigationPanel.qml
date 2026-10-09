@@ -5,11 +5,19 @@ import QtQuick.Layouts
 import QtQuick.Pdf
 import "WorkspaceTree.js" as Tree
 
+// The Document panel: the paper in front, in four views (mode): 0 Contents (outline or pages), 1
+// Annotations (notes about it, then its annotations), 2 Symbols, 3 Related (similar papers in the
+// Library, what it cites, what cites it).
 Item {
     id: root
     objectName: "pdfNavigationPanel"
     property var reader: null
     property int mode: 0
+    // Contents shows the outline or the pages; remembered.
+    property string contents: researchStore.setting("document.contents", "outline") === "pages" ? "pages" : "outline"
+    function setContents(value) { contents = value; researchStore.setSetting("document.contents", value) }
+    // Related: 0 in the Library, 1 papers it cites, 2 papers citing it.
+    property int relatedSide: 0
     readonly property bool invertPages: Theme.invertPages && Theme.canInvertPages
     // Thumbnails are drawn for the panel width once a resize pauses (scaled meanwhile).
     property real drawnWidth: 0
@@ -17,10 +25,11 @@ Item {
     Timer { id: drawnSettle; interval: 140; onTriggered: root.drawnWidth = root.width }
     signal modeChosen(int mode)
     signal linkActivated(string link)
+    signal newNoteRequested(url source)
     // Notes that link to this paper or to its annotations.
-    readonly property var backlinks: {
+    readonly property var linkedNotes: {
         const revision = linkRevision
-        return root.reader && root.reader.source.toString().length ? researchStore.backlinks("document", researchStore.documentLinkId(root.reader.source)) : []
+        return mode === 1 && ready ? researchStore.backlinks("document", researchStore.documentLinkId(reader.source)).filter(function(b) { return b.kind === "note" }) : []
     }
     property int linkRevision: 0
     Connections {
@@ -29,22 +38,29 @@ Item {
         function onNotesChanged() { root.linkRevision++ }
     }
     readonly property bool ready: !!reader && reader.pdfReady
-    // Related papers and notes: asked for only while the Related tab is showing.
+    // The reader writes new comments into the Annotations list while it shows this paper.
+    readonly property var annotationList: annotationLoader.item
+    property var listedReader: null
+    function updateListing() {
+        const next = annotationList && reader ? reader : null
+        if (listedReader && listedReader !== next) listedReader.annotationList = null
+        listedReader = next
+        if (next) next.annotationList = annotationList
+    }
+    onAnnotationListChanged: updateListing()
+    onReaderChanged: updateListing()
+    Component.onDestruction: if (listedReader) listedReader.annotationList = null
+    // Related papers and notes: asked for only while that view is showing.
     property var relatedPapers: []
     property var relatedNotes: []
     property int relatedRequest: -1
     property bool relatedLoading: false
-    // Collections this paper probably belongs in (from where similar papers are).
-    property var suggestedCollections: []
-    property int suggestRequest: -1
-    readonly property string relatedSource: ready && mode === 3 ? reader.source.toString() : ""
+    readonly property string relatedSource: ready && mode === 3 && relatedSide === 0 ? reader.source.toString() : ""
     onRelatedSourceChanged: {
         relatedPapers = []; relatedNotes = []
         if (!relatedSource.length) { relatedRequest = -1; relatedLoading = false; return }
         relatedLoading = true
         relatedRequest = researchStore.relatedTo(reader.source)
-        suggestedCollections = []
-        suggestRequest = researchStore.suggestCollections(reader.source)
     }
     Connections {
         target: researchStore
@@ -52,14 +68,12 @@ Item {
             if (request !== root.relatedRequest) return
             root.relatedPapers = papers; root.relatedNotes = notes; root.relatedLoading = false
         }
-        function onCollectionsSuggested(request, source, list) { if (request === root.suggestRequest) root.suggestedCollections = list }
     }
-    // Citations (Semantic Scholar): shown from the cache when the tab opens; fetched only on request.
+    // Citations (Semantic Scholar): shown from the cache when Related opens; fetched only on request.
     property var citations: null
     property int citationsRequest: -1
     property bool citationsLoading: false
-    property int citationsSide: 0
-    readonly property string citationsSource: ready && mode === 4 ? reader.source.toString() : ""
+    readonly property string citationsSource: ready && mode === 3 ? reader.source.toString() : ""
     onCitationsSourceChanged: {
         citations = null; citationsLoading = false; citationsRequest = -1
         if (citationsSource.length) citationsRequest = researchStore.loadCitations(reader.source, false, true)
@@ -68,7 +82,8 @@ Item {
         citationsLoading = true
         citationsRequest = researchStore.loadCitations(reader.source, refresh, false)
     }
-    readonly property var citationRows: citations ? (citationsSide === 0 ? citations.references || [] : citations.citedBy || []) : []
+    readonly property bool citationsLoaded: !!citations && !citations.notLoaded && !citations.error
+    readonly property var citationRows: citations ? (relatedSide === 1 ? citations.references || [] : citations.citedBy || []) : []
     function openCitation(row) {
         if (row.inLibrary) root.linkActivated("owelk://document/" + researchStore.documentLinkId(row.inLibrary))
         else if (row.url) root.linkActivated(row.url)
@@ -146,38 +161,97 @@ Item {
             objectName: "navigationMode"
             Layout.fillWidth: true
             currentIndex: root.mode
-            TabButton { id: outlineTab; objectName: "outlineTab"; icon.name: "outline"; ToolTip.text: "Outline"; onClicked: root.modeChosen(0) }
-            TabButton { id: thumbnailsTab; objectName: "thumbnailsTab"; icon.name: "thumbnails"; ToolTip.text: "Thumbnails"; onClicked: root.modeChosen(1) }
-            TabButton { id: symbolsTab; objectName: "symbolsTab"; icon.name: "symbols"; ToolTip.text: "Symbols"; onClicked: root.modeChosen(2) }
-            TabButton { id: relatedTab; objectName: "relatedTab"; icon.name: "related"; ToolTip.text: "Related"; onClicked: root.modeChosen(3) }
-            TabButton { id: citationsTab; objectName: "citationsTab"; icon.name: "citations"; ToolTip.text: "Citations"; onClicked: root.modeChosen(4) }
+            TabButton { objectName: "contentsTab"; icon.name: "outline"; ToolTip.text: "Contents"; onClicked: root.modeChosen(0) }
+            TabButton { objectName: "annotationsTab"; icon.name: "annotations"; ToolTip.text: "Annotations"; onClicked: root.modeChosen(1) }
+            TabButton { objectName: "symbolsTab"; icon.name: "symbols"; ToolTip.text: "Symbols"; onClicked: root.modeChosen(2) }
+            TabButton { objectName: "relatedTab"; icon.name: "related"; ToolTip.text: "Related"; onClicked: root.modeChosen(3) }
+        }
+        // Each view's own choices, in the same small switch.
+        TabBar {
+            objectName: "contentsMode"
+            visible: root.mode === 0 && root.ready
+            Layout.fillWidth: true
+            currentIndex: root.contents === "pages" ? 1 : 0
+            TabButton { objectName: "outlineTab"; text: "Outline"; onClicked: root.setContents("outline") }
+            TabButton { objectName: "pagesTab"; text: "Pages"; onClicked: root.setContents("pages") }
+        }
+        TabBar {
+            objectName: "relatedMode"
+            visible: root.mode === 3 && root.ready
+            Layout.fillWidth: true
+            currentIndex: root.relatedSide
+            TabButton { objectName: "libraryRelatedTab"; text: "Library"; onClicked: root.relatedSide = 0 }
+            TabButton { objectName: "citesTab"; text: "Cites" + (root.citationsLoaded ? " " + (root.citations.references || []).length : ""); onClicked: root.relatedSide = 1 }
+            TabButton { objectName: "citedByTab"; text: "Cited by" + (root.citationsLoaded ? " " + (root.citations.citedBy || []).length : ""); onClicked: root.relatedSide = 2 }
+        }
+        ColumnLayout {
+            objectName: "annotationsView"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.mode === 1 && root.ready
+            spacing: 2
+            // Notes about this paper (linking to it or its annotations): open one, write a new one beside it.
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.leftMargin: 4
+                Label { Layout.fillWidth: true; text: "Notes"; font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold; color: Theme.textSecondary }
+                IconButton {
+                    objectName: "newPaperNote"
+                    icon.name: "add"; description: "New note about this paper"
+                    onClicked: root.newNoteRequested(root.reader.source)
+                }
+            }
+            Repeater {
+                model: root.linkedNotes
+                delegate: ItemDelegate {
+                    id: linkedNote
+                    required property var modelData
+                    required property int index
+                    objectName: "linkedNote-" + index
+                    Layout.fillWidth: true
+                    text: modelData.title
+                    font.pixelSize: Theme.fontSmall
+                    icon.name: "note"
+                    onClicked: root.linkActivated("owelk://note/" + modelData.id)
+                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: linkedNoteMenu.popup() }
+                    Menu {
+                        id: linkedNoteMenu
+                        MenuItem { text: "Open"; onTriggered: root.linkActivated("owelk://note/" + linkedNote.modelData.id) }
+                        MenuItem {
+                            objectName: "unlinkNote"
+                            text: "Unlink from This Paper"
+                            onTriggered: { const id = linkedNote.modelData.id, paper = root.reader.source; Qt.callLater(function() { researchStore.unlinkNote(id, paper) }) }
+                        }
+                    }
+                }
+            }
+            Label {
+                visible: !root.linkedNotes.length
+                Layout.fillWidth: true; Layout.leftMargin: 4
+                wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+                text: "No notes about this paper yet."
+            }
+            Rectangle { Layout.fillWidth: true; Layout.topMargin: 6; Layout.bottomMargin: 2; height: 1; color: Theme.separator }
+            Loader {
+                id: annotationLoader
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                active: root.mode === 1 && root.ready
+                sourceComponent: AnnotationList { canvas: root.reader.pdfCanvas; source: root.reader.source }
+            }
         }
         Flickable {
             objectName: "relatedView"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.mode === 3 && root.ready
+            visible: root.mode === 3 && root.relatedSide === 0 && root.ready
             clip: true
             contentHeight: relatedColumn.implicitHeight
             ColumnLayout {
                 id: relatedColumn
                 width: parent.width
                 spacing: 2
-                // Notes linking to this paper or to its annotations.
-                Label { visible: root.backlinks.length > 0; text: "Linked notes"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4 }
-                Repeater {
-                    model: root.backlinks
-                    delegate: ItemDelegate {
-                        required property var modelData
-                        required property int index
-                        objectName: "backlink-" + index
-                        Layout.fillWidth: true
-                        text: modelData.title
-                        font.pixelSize: Theme.fontSmall
-                        onClicked: root.linkActivated("owelk://" + modelData.kind + "/" + modelData.id)
-                    }
-                }
-                Label { text: "Similar papers"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: root.backlinks.length ? 10 : 4 }
+                Label { text: "Similar papers"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4 }
                 Repeater {
                     model: root.relatedPapers
                     delegate: ItemDelegate {
@@ -198,8 +272,7 @@ Item {
                 }
                 Label { text: "Similar notes"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 10 }
                 Repeater {
-                    // Notes linked above are not repeated.
-                    model: root.relatedNotes.filter(function(n) { return !root.backlinks.some(function(b) { return b.kind === "note" && b.id === n.id }) })
+                    model: root.relatedNotes
                     delegate: ItemDelegate {
                         required property var modelData
                         Layout.fillWidth: true
@@ -213,38 +286,15 @@ Item {
                     Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                     text: "No notes share this paper's key words."
                 }
-                Label {
-                    visible: root.suggestedCollections.length > 0
-                    text: "Add to collection"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 10
-                }
-                Flow {
-                    visible: root.suggestedCollections.length > 0
-                    Layout.fillWidth: true; Layout.bottomMargin: 6
-                    spacing: 4
-                    Repeater {
-                        model: root.suggestedCollections
-                        delegate: Chip {
-                            required property var modelData
-                            objectName: "suggestedCollection-" + modelData.name
-                            text: "+ " + modelData.name
-                            ToolTip.text: "Add to " + modelData.name
-                            onClicked: {
-                                const url = root.reader.source, id = modelData.id
-                                root.suggestedCollections = root.suggestedCollections.filter(function(c) { return c.id !== id })
-                                researchStore.setDocumentCollection(url, id, true)
-                            }
-                        }
-                    }
-                }
             }
         }
         ColumnLayout {
             objectName: "citationsView"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.mode === 4 && root.ready
+            visible: root.mode === 3 && root.relatedSide > 0 && root.ready
             spacing: 6
-            readonly property bool loaded: !!root.citations && !root.citations.notLoaded && !root.citations.error
+            readonly property bool loaded: root.citationsLoaded
             // Before anything is fetched: what the button sends.
             Label {
                 visible: !parent.loaded && !root.citationsLoading
@@ -266,12 +316,9 @@ Item {
             RowLayout {
                 visible: parent.loaded
                 Layout.fillWidth: true
-                TabBar {
-                    objectName: "citationsSide"
+                Label {
                     Layout.fillWidth: true
-                    currentIndex: root.citationsSide
-                    TabButton { objectName: "citesTab"; text: "Cites " + (root.citations && root.citations.references ? root.citations.references.length : 0); onClicked: root.citationsSide = 0 }
-                    TabButton { objectName: "citedByTab"; text: "Cited by " + (root.citations && root.citations.citedBy ? root.citations.citedBy.length : 0); onClicked: root.citationsSide = 1 }
+                    text: "From Semantic Scholar"; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                 }
                 IconButton {
                     objectName: "refreshCitations"
@@ -327,7 +374,7 @@ Item {
                     anchors.centerIn: parent; width: parent.width - 16
                     visible: parent.count === 0
                     horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
-                    text: root.citationsSide === 0 ? "Semantic Scholar lists no references for this paper." : "No citing papers are known yet."
+                    text: root.relatedSide === 1 ? "Semantic Scholar lists no references for this paper." : "No citing papers are known yet."
                 }
             }
             // Before the list exists, this takes the rest of the height so the panel keeps its layout.
@@ -434,7 +481,7 @@ Item {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.mode === 0 && root.ready
+            visible: root.mode === 0 && root.contents === "outline" && root.ready
         TreeView {
             id: outline
             objectName: "pdfOutline"
@@ -483,7 +530,7 @@ Item {
                 anchors.centerIn: parent
                 width: Math.max(0, parent.width - 24)
                 visible: outline.rows === 0
-                text: "This PDF has no embedded outline.\nUse Thumbnails to navigate."
+                text: "This PDF has no embedded outline.\nUse Pages to navigate."
                 wrapMode: Text.Wrap
                 horizontalAlignment: Text.AlignHCenter
                 color: Theme.textTertiary
@@ -494,7 +541,7 @@ Item {
             objectName: "pdfThumbnails"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.mode === 1 && root.ready
+            visible: root.mode === 0 && root.contents === "pages" && root.ready
             model: visible ? root.reader.pageCount : 0
             currentIndex: root.ready ? root.reader.currentPage : -1
             onCurrentIndexChanged: if (visible && currentIndex >= 0) Qt.callLater(function() { thumbs.positionViewAtIndex(thumbs.currentIndex, ListView.Contain) })
@@ -544,7 +591,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: !root.ready
-            text: root.reader && root.reader.source.toString().length ? "PDF is unavailable or still loading." : "Open a PDF to see its outline and pages."
+            text: root.reader && root.reader.source.toString().length ? "PDF is unavailable or still loading." : "Open a PDF to see its contents, annotations and related papers."
             wrapMode: Text.Wrap
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter

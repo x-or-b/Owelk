@@ -17,6 +17,7 @@ Rectangle {
     signal documentChosen(url source)
     signal folderChosen(url folder)
     signal linkActivated(string link)
+    signal newNoteRequested(url source)
     signal aiRequested(var spec)
     signal settingsRequested()
     // The document area (tabs dragged onto a collection) and the Library opened with a filter.
@@ -53,6 +54,7 @@ Rectangle {
             mode: root.navigationMode
             onModeChosen: function(mode) { root.navigationModeChosen(mode) }
             onLinkActivated: function(link) { root.linkActivated(link) }
+            onNewNoteRequested: function(source) { root.newNoteRequested(source) }
         }
     }
 }

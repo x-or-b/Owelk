@@ -247,8 +247,8 @@ QString takePictures(const QString &markdown, const QString &directory, QStringL
 }
 } // namespace
 
-QString ResearchStore::markdownHtml(
-    const QString &markdown, const QString &linkColor, const QString &textColor, int pixelSize) const
+QString ResearchStore::markdownHtml(const QString &markdown, const QString &linkColor, const QString &textColor,
+    int pixelSize, const QString &mutedColor) const
 {
     QList<MathSpan> math;
     QStringList pictures;
@@ -259,6 +259,19 @@ QString ResearchStore::markdownHtml(
     auto html = document.toHtml();
     static const QRegularExpression blue("color:\\s*#0000ff", QRegularExpression::CaseInsensitiveOption);
     if (QColor::isValidColorName(linkColor)) html.replace(blue, "color:" + linkColor);
+    // A conversation deleted for good leaves its link's place, greyed, not a link that goes nowhere.
+    static const QRegularExpression aiLink(R"re(<a href="owelk://ai/([A-Za-z0-9\-]+)"[^>]*>.*?</a>)re");
+    QString linked;
+    qsizetype from = 0;
+    for (auto it = aiLink.globalMatch(html); it.hasNext();) {
+        const auto m = it.next();
+        if (!linkTarget("ai", m.captured(1)).isEmpty()) continue;
+        linked += html.mid(from, m.capturedStart() - from)
+            + QStringLiteral("<span style=\"color:%1\">Deleted conversation</span>")
+                  .arg(QColor::isValidColorName(mutedColor) ? mutedColor : QStringLiteral("gray"));
+        from = m.capturedEnd();
+    }
+    if (from) html = linked + html.mid(from);
     for (qsizetype i = 0; i < pictures.size(); ++i) {
         // At its own size, up to a column's width; the height follows.
         const auto size = QImageReader(QUrl(pictures[i]).toLocalFile()).size();
@@ -332,18 +345,57 @@ QString ResearchStore::markdownLink(const QString &kind, const QString &id) cons
     return QStringLiteral("[%1](owelk://%2/%3)").arg(title, kind, id);
 }
 
+bool ResearchStore::appendToNote(const QString &noteId, const QString &markdown)
+{
+    const auto row = note(noteId);
+    if (row.isEmpty() || row["deleted"].toBool() || markdown.trimmed().isEmpty()) return false;
+    auto body = row["body"].toString();
+    while (body.endsWith('\n')) body.chop(1);
+    const auto added = (body.isEmpty() ? QString() : QStringLiteral("\n\n")) + markdown.trimmed() + '\n';
+    if (!saveNote(noteId, row["title"].toString(), body + added)) return false;
+    emit noteAppended(noteId, added);
+    return true;
+}
+
 bool ResearchStore::appendNoteLink(const QString &noteId, const QString &kind, const QString &id)
 {
     const auto row = note(noteId);
     const auto link = markdownLink(kind, id);
     if (row.isEmpty() || row["deleted"].toBool() || link.isEmpty()) return false;
-    auto body = row["body"].toString();
-    if (body.contains("owelk://" + kind + "/" + id)) return true; // Already linked.
-    if (!body.isEmpty() && !body.endsWith('\n')) body += '\n';
-    body += "- " + link + '\n';
-    if (!saveNote(noteId, row["title"].toString(), body)) return false;
+    if (row["body"].toString().contains("owelk://" + kind + "/" + id)) return true; // Already linked.
+    if (!appendToNote(noteId, "- " + link)) return false;
     emit message("Linked in note.");
     return true;
+}
+
+bool ResearchStore::unlinkNote(const QString &noteId, const QUrl &source)
+{
+    const auto row = note(noteId);
+    const auto document = findDocument(source);
+    if (row.isEmpty() || row["deleted"].toBool() || document.isEmpty()) return false;
+    QStringList targets{"document/" + document};
+    QSqlQuery marks(m_database);
+    marks.prepare("SELECT id FROM highlights WHERE document_id=?");
+    marks.addBindValue(document);
+    if (marks.exec())
+        while (marks.next()) targets << "highlight/" + marks.value(0).toString();
+    // [words](owelk://…) keeps its words; a bare owelk://… goes, with a list dash left empty by it.
+    auto body = row["body"].toString();
+    static const QRegularExpression link(
+        R"(\[([^\]\n]*)\]\(owelk://((?:document|highlight)/[A-Za-z0-9\-]+)(?:#[^)]*)?\))");
+    QString kept;
+    qsizetype last = 0;
+    for (auto it = link.globalMatch(body); it.hasNext();) {
+        const auto m = it.next();
+        if (!targets.contains(m.captured(2))) continue;
+        kept += body.mid(last, m.capturedStart() - last) + m.captured(1);
+        last = m.capturedEnd();
+    }
+    body = kept + body.mid(last);
+    for (const auto &target : std::as_const(targets)) body.remove("owelk://" + target);
+    body.replace(QRegularExpression(R"((?m)^[ \t]*[-*][ \t]*$\n?)"), QString());
+    if (body == row["body"].toString()) return true;
+    return saveNote(noteId, row["title"].toString(), body);
 }
 
 QVariantMap ResearchStore::linkTarget(const QString &kind, const QString &id) const
@@ -375,10 +427,11 @@ QVariantMap ResearchStore::linkTarget(const QString &kind, const QString &id) co
                     + displayName(url) + " · p. " + QString::number(query.value(1).toInt() + 1)}};
     }
     if (kind == "ai") {
-        query.prepare("SELECT title FROM ai_threads WHERE id=?");
+        query.prepare("SELECT title,trashed_at IS NOT NULL FROM ai_threads WHERE id=?");
         query.addBindValue(id);
         if (!query.exec() || !query.next()) return {};
-        return {{"kind", kind}, {"id", id}, {"title", "AI · " + query.value(0).toString().simplified().left(80)}};
+        return {{"kind", kind}, {"id", id}, {"title", "AI · " + query.value(0).toString().simplified().left(80)},
+            {"trashed", query.value(1).toBool()}};
     }
     return {};
 }

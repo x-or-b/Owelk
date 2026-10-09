@@ -358,6 +358,24 @@ Item {
                 onClicked: { purgeDialog.ids = []; purgeDialog.open() }
             }
         }
+        // A conversation opened from a note while it is in the Trash: readable, continued once restored.
+        RowLayout {
+            objectName: "aiTrashedBanner"
+            visible: !root.showingThreads && !!root.c && !!root.c.thread.trashed
+            Layout.fillWidth: true
+            Layout.leftMargin: 10; Layout.rightMargin: 6; Layout.topMargin: 6
+            Label {
+                Layout.fillWidth: true
+                text: "This conversation is in the Trash."
+                wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
+            }
+            Button {
+                objectName: "aiRestoreThread"
+                text: "Restore"
+                implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                onClicked: root.c.restoreThread()
+            }
+        }
         // The conversation: earlier turns, then the streaming answer. Mouse drags select text (the
         // wheel and trackpad scroll); the view follows a streaming answer only while at the bottom.
         ListView {
@@ -439,10 +457,34 @@ Item {
                     visible: message.modelData.role === "assistant"
                     spacing: 0
                     IconButton { icon.name: "copy"; description: "Copy answer"; glyphSize: Theme.fontBody; onClicked: researchStore.copyText(message.modelData.content) }
+                    // A new note, or one of the notes about this paper (a menu when there are some).
                     IconButton {
+                        id: saveNoteButton
                         objectName: "aiSaveNote-" + message.index
                         icon.name: "note"; description: "Save as note"; glyphSize: Theme.fontBody
-                        onClicked: root.c.saveAsNote(message.index)
+                        onClicked: {
+                            const notes = root.c.paperNotes()
+                            if (!notes.length) { root.c.saveAsNote(message.index); return }
+                            saveNoteMenu.notes = notes
+                            saveNoteMenu.popup(saveNoteButton, 0, saveNoteButton.height)
+                        }
+                        Menu {
+                            id: saveNoteMenu
+                            objectName: "aiSaveNoteMenu"
+                            property var notes: []
+                            MenuItem { objectName: "aiSaveNewNote"; text: "New Note"; onTriggered: root.c.saveAsNote(message.index) }
+                            MenuSeparator {}
+                            Instantiator {
+                                model: saveNoteMenu.notes
+                                delegate: MenuItem {
+                                    required property var modelData
+                                    text: "Add to \u201c" + modelData.title + "\u201d"
+                                    onTriggered: root.c.saveAsNote(message.index, modelData.id)
+                                }
+                                onObjectAdded: function(index, item) { saveNoteMenu.insertItem(index + 2, item) }
+                                onObjectRemoved: function(index, item) { saveNoteMenu.removeItem(item) }
+                            }
+                        }
                     }
                     IconButton {
                         objectName: "aiToQuestion-" + message.index

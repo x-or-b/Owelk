@@ -22,12 +22,12 @@
 - HEIC/HEIF is accepted, including uppercase extensions. macOS uses ImageIO for bounded, orientation-aware decoding in both asynchronous previews and saved PNGs. On Windows/Linux, HEIC requires an installed Qt-compatible decoder; otherwise a conversion message is shown. Original image files are kept unchanged.
 - Removal is soft deletion. An annotation trash UI remains future work.
 
-## Notes beside the page
+## The Annotations list
 
-- The Notes button (toolbar, after the annotation tools) shows a column beside the page with the paper's comments and the highlights that have a note, in page order under page headings. The setting is remembered; the column appears when the pane is at least 560px wide.
-- A note is linked to a selection (its quote is shown with the ink) or to a spot on the page (+, then click the page). With the column open, adding a comment or clicking a comment marker on the page writes it in the column instead of a dialog. Cmd+Return saves, Esc cancels, leaving the field saves.
-- Hovering a note outlines its place on the page; clicking a note scrolls there. While reading, the column follows the current page. Right-click a note for Go to, Edit, Copy Note and Delete Note.
-- Notes are the same comment annotations as on the page: search, export (Markdown, annotated PDF), print markers and undo all include them.
+- The Document panel's Annotations view lists every mark on the paper (pen, highlights, comments, text boxes, pictures, regions), by page or by kind; the choice is remembered. Above it are the notes about the paper (notes linking to it or its annotations) with + for a new one beside the paper and Unlink from This Paper. The toolbar's Annotations button opens and closes this view.
+- A note is linked to a selection (its quote is shown with the ink) or to a spot on the page (+, then click the page). While the list is open, adding a comment or clicking a comment marker on the page writes it in the list instead of a dialog. Cmd+Return saves, Esc cancels, leaving the field saves. Another paper in front drops a half-written note.
+- Hovering an entry outlines its place on the page; clicking scrolls there. While reading, the list follows the current page. Right-click an entry for Go to, Edit, Copy Text and Delete.
+- They are the same annotations as on the page: search, export (Markdown, annotated PDF), print markers and undo all include them.
 
 ## Undo and redo
 

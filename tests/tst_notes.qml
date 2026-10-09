@@ -52,11 +52,20 @@ Item {
             // Links in a note open their source.
             verify(workspace.documents.openLink("owelk://document/" + paper))
             tryVerify(function() { return activeTab().kind === undefined && researchStore.sameSource(activeTab().source, fixtureSource) })
-            // The Document panel lists notes linking to the paper first under Related.
-            workspace.navigationMode = 3
+            // The Document panel's Annotations view lists notes linking to the paper.
+            workspace.navigationMode = 1
             workspace.togglePanel("document")
             tryCompare(findChild(workspace, "leftDock"), "activePanel", "document")
-            tryVerify(function() { const related = findChild(workspace, "relatedView"); return related && visualChild(related.contentItem, "backlink-0") !== null }, 5000)
+            tryVerify(function() { const view = findChild(workspace, "annotationsView"); return view && visualChild(view, "linkedNote-0") !== null }, 5000)
+            // A new note about the paper opens beside it, linking to it.
+            const leaves = Tree.leaves(workspace.documents.tree).length
+            const beside = workspace.documents.newNoteFor(fixtureSource)
+            verify(beside.length > 0)
+            compare(Tree.leaves(workspace.documents.tree).length, leaves + 1)
+            verify(researchStore.note(beside).body.indexOf("owelk://document/" + paper) >= 0)
+            compare(activeTab().noteId, beside)
+            workspace.documents.closeNoteTabs(beside)
+            researchStore.deleteNote(beside); researchStore.purgeNote(beside)
             workspace.togglePanel("document")
             // Trash closes its tab; restore and purge from the library.
             verify(workspace.documents.openNote(id))

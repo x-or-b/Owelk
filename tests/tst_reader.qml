@@ -4,9 +4,12 @@ import Owelk.Ui
 import "../qml" as App
 
 Item {
+    id: scene
     width: 820
     height: 720
     property var canvas: null
+    // The Document panel's Annotations list, beside the reader as the panel would hold it.
+    Component { id: annotationListComponent; App.AnnotationList { x: 540; width: 280; height: 700; z: 10 } }
     App.ReaderPane {
         id: reader
         anchors.fill: parent
@@ -515,24 +518,22 @@ Item {
             tryCompare(more, "visible", false)
             researchStore.setSetting("drawColor", ""); researchStore.setSetting("highlightColor", "")
         }
-        function test_marginNotesLinkToThePageAndUndo() {
+        function test_annotationListLinksToThePageAndUndo() {
             const unique = testInput.relinkFixture(true).candidate
             canvas.openFile(unique, {page:0,zoom:1})
             tryCompare(canvas,"ready",true); tryCompare(canvas,"restoring",false)
             tryVerify(function(){return canvas.documentFingerprint.length>0})
-            reader.setMarginNotes(true)
-            const margin = findChild(reader, "marginNotes")
-            tryCompare(margin, "visible", true)
-            verify(canvas.width < reader.width - 200, "the page makes room for the notes")
-            // A note on a selection is written beside the page.
+            const margin = createTemporaryObject(annotationListComponent, scene, {canvas: canvas, source: canvas.source})
+            reader.annotationList = margin
+            // With the list open, a note on a selection is written there.
             const paper=findChild(canvas,"paperPage0"),bounds=fixtureTextBounds
             const from=paper.mapToItem(canvas,bounds.x*canvas.pageScale,(bounds.y+bounds.height/2)*canvas.pageScale)
             testInput.pointerDrag(canvas,from,Qt.point(from.x+bounds.width*canvas.pageScale*.6,from.y),false)
             tryVerify(function(){return canvas.selectedText.length>0})
             reader.addComment()
             verify(margin.draft !== null)
-            tryVerify(function() { const e = findChild(margin, "marginNoteEditor"); return e && e.activeFocus })
-            const editor = findChild(margin, "marginNoteEditor")
+            tryVerify(function() { const e = findChild(margin, "annotationNoteEditor"); return e && e.activeFocus })
+            const editor = findChild(margin, "annotationNoteEditor")
             editor.text = "Why does this hold?"
             keyClick(Qt.Key_Return, Qt.ControlModifier)
             tryVerify(function() { return margin.notes.length === 1 }, 10000)
@@ -540,12 +541,12 @@ Item {
             compare(note.body, "Why does this hold?")
             verify(note.text.length > 0, "linked to the selected text")
             // Hovering the note outlines its place on the page.
-            tryVerify(function() { return findChild(margin, "marginNote-" + note.id) !== null })
-            const card = findChild(margin, "marginNote-" + note.id)
+            tryVerify(function() { return findChild(margin, "annotation-" + note.id) !== null })
+            const card = findChild(margin, "annotation-" + note.id)
             waitForPolish(margin); wait(50)
             mouseMove(card, card.width / 2, card.height / 2)
             tryCompare(canvas, "focusedMark", note.id)
-            // The page's comment marker opens the note in the margin, not a dialog.
+            // The page's comment marker opens the note in the list, not a dialog.
             const marker = findChild(canvas, "commentMarker-" + note.id + "-0")
             mouseClick(marker)
             compare(margin.editingId, note.id)
@@ -563,21 +564,21 @@ Item {
             const start = area.mapToItem(canvas, area.width * .6, area.height * .5)
             testInput.pointerDrag(canvas, start, Qt.point(start.x + 50, start.y + 20), false)
             tryVerify(function() { return canvas.savedHighlights.some(function(m) { return m.kind === "draw" }) }, 10000)
-            // Every kind of mark is listed beside the page: by place, or by kind (pen first).
+            // Every kind of mark is listed: by place, or by kind (pen first).
             tryVerify(function() { return margin.notes.length === 2 })
             compare(margin.notes[0].kind, "comment") // higher on the page
             mouseClick(findChild(margin, "annotationSortType"))
             compare(margin.sortMode, "type")
             compare(margin.notes[0].kind, "draw")
             compare(researchStore.setting("annotations.sort"), "type")
-            tryVerify(function() { const d = findChild(margin, "marginDrawing-" + margin.notes[0].id); return d !== null && d.visible })
+            tryVerify(function() { const d = findChild(margin, "annotationDrawing-" + margin.notes[0].id); return d !== null && d.visible })
             mouseClick(findChild(margin, "annotationSortPage"))
             compare(margin.notes[0].kind, "comment")
             canvas.tool = ""; canvas.forceActiveFocus()
             keyClick(Qt.Key_Z, Qt.ControlModifier)
             tryVerify(function() { return !canvas.savedHighlights.some(function(m) { return m.kind === "draw" }) }, 10000)
             // + offers every kind: a text box, picture or pen uses its page tool.
-            mouseClick(findChild(margin, "newMarginNote"))
+            mouseClick(findChild(margin, "newAnnotation"))
             const addMenu = findChild(margin, "newAnnotationMenu")
             tryCompare(addMenu, "opened", true)
             mouseClick(findChild(addMenu, "newTextItem"))
@@ -587,7 +588,7 @@ Item {
             const tools = findChild(reader, "annotationTools")
             compare(tools.children[0].objectName, "drawTool")
             compare(tools.children[1].objectName, "highlightTool")
-            reader.setMarginNotes(false)
+            reader.annotationList = null
             for (const m of canvas.savedHighlights) researchStore.removeHighlight(m.id)
         }
         function test_textBoxesPicturesAndStrokesMoveAndResize() {
