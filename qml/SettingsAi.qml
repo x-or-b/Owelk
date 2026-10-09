@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Owelk.Ui
+import "AiNames.js" as AiNames
 
 ColumnLayout {
     id: root
@@ -16,20 +17,34 @@ ColumnLayout {
     property string testResult: ""
     property bool testOk: false
     property var codexAccount: ({})
-    property var ollamaModels: []
+    // The provider's models, as the AI panel offers them: [{id, name, efforts, defaultEffort}].
+    property var models: []
+    property bool modelsLoaded: false
+    property bool otherModel: false
+    readonly property string chatModel: (ai.providers, current.model || "")
+    readonly property var chatInfo: models.find(function(m) { return m.id === root.chatModel }) || ({})
+    readonly property string glossChoice: (ai.providers, ai.glossChoice(currentId))
+    readonly property string glossEffort: (ai.providers, ai.glossEffort(currentId))
+    readonly property var glossInfo: models.find(function(m) { return m.id === (root.glossChoice === "auto" ? root.ai.glossModel(root.currentId) : root.glossChoice) }) || ({})
+    property int settingsRevision: 0
     Connections {
         target: root.ai
         function onConnectionTested(provider, ok, detail) { root.testOk = ok; root.testResult = detail }
         function onCodexAccountChanged(account) { root.codexAccount = account }
-        function onOllamaModelsLoaded(models) { root.ollamaModels = models }
+        function onModelsLoaded(provider, list) {
+            if (provider !== root.currentId) return
+            root.models = list; root.modelsLoaded = true
+        }
     }
-    // Re-read the account or local models when the provider changes, not when its details refresh.
+    Connections { target: researchStore; function onSettingsChanged() { root.settingsRevision++ } }
+    // Re-read the account and the models when the provider changes, not when its details refresh.
     readonly property string currentId: current.id || ""
     onCurrentIdChanged: refreshProvider()
     function refreshProvider() {
         testResult = ""
+        models = []; modelsLoaded = false; otherModel = false
         if (currentId === "codex") ai.refreshCodexAccount()
-        if (currentId === "ollama") ai.listOllamaModels()
+        if (currentId.length) ai.listModels(currentId)
     }
     Component.onCompleted: refreshProvider()
     SettingsGroup {
@@ -68,17 +83,6 @@ ColumnLayout {
                 placeholderText: "Optional"
                 text: researchStore.setting("ai.instructions")
                 onEditingFinished: researchStore.setSetting("ai.instructions", text.trim().slice(0, 2000))
-            }
-        }
-        SettingsRow {
-            label: "Gloss model"
-            detail: "Gloss explains a selected word or translates a passage beside it"
-            ComboBox {
-                objectName: "aiGlossModelBox"
-                Layout.preferredWidth: 200
-                model: ["Fast (automatic)", "Same as chat"]
-                currentIndex: researchStore.setting("ai.glossModel", "auto") === "chat" ? 1 : 0
-                onActivated: function(index) { researchStore.setSetting("ai.glossModel", index === 1 ? "chat" : "auto") }
             }
         }
         SettingsRow {
@@ -159,25 +163,81 @@ ColumnLayout {
             TextField {
                 Layout.fillWidth: true
                 text: researchStore.setting("ai.baseUrl.ollama", "http://127.0.0.1:11434/")
-                onEditingFinished: { researchStore.setSetting("ai.baseUrl.ollama", text.trim()); root.ai.listOllamaModels() }
+                onEditingFinished: { researchStore.setSetting("ai.baseUrl.ollama", text.trim()); root.ai.listModels("ollama") }
+            }
+        }
+        // The model and reasoning effort the AI panel starts with (the same choice as its model menu).
+        SettingsRow {
+            label: "Model"
+            ComboBox {
+                id: modelBox
+                objectName: "aiModelBox"
+                Layout.preferredWidth: 220
+                readonly property int at: root.models.findIndex(function(m) { return m.id === root.chatModel })
+                readonly property var names: (root.models.length ? root.models.map(function(m) { return m.name }) : [root.modelsLoaded ? "Default model" : "Loading…"]).concat(["Other…"])
+                // A model typed by name (not in the list) shows as Other….
+                readonly property bool custom: root.otherModel || (root.models.length > 0 && at < 0 && root.chatModel.length > 0)
+                model: names
+                currentIndex: custom ? names.length - 1 : Math.max(0, at)
+                onActivated: function(index) {
+                    root.otherModel = index === names.length - 1
+                    if (root.otherModel) { modelField.forceActiveFocus(); return }
+                    root.ai.setModel(root.currentId, root.models.length ? root.models[index].id : "")
+                }
             }
         }
         SettingsRow {
-            label: "Model"
+            visible: modelBox.custom
+            label: "Model name"
             wide: true
             TextField {
                 id: modelField
                 objectName: "aiModelField"
                 Layout.fillWidth: true
-                text: root.current.model || ""
-                placeholderText: root.current.id === "codex" ? "Account default" : root.current.defaultModel || "Model name"
-                onEditingFinished: root.ai.setModel(root.current.id, text)
+                text: root.chatModel
+                placeholderText: root.current.defaultModel || "Model name"
+                onEditingFinished: root.ai.setModel(root.currentId, text.trim())
             }
+        }
+        SettingsRow {
+            visible: (root.chatInfo.efforts || []).length > 0
+            label: "Reasoning"
+            detail: "Higher thinks longer and costs more"
             ComboBox {
-                visible: root.current.id === "ollama" && root.ollamaModels.length > 0
+                objectName: "aiEffortBox"
                 Layout.preferredWidth: 160
-                model: root.ollamaModels
-                onActivated: function(index) { root.ai.setModel("ollama", root.ollamaModels[index]); modelField.text = root.ollamaModels[index] }
+                readonly property var efforts: root.chatInfo.efforts || []
+                readonly property string chosen: (root.settingsRevision, researchStore.setting("ai.effort." + root.currentId, ""))
+                model: efforts.map(function(e) { return AiNames.effortName(e) })
+                currentIndex: Math.max(0, efforts.indexOf(efforts.indexOf(chosen) >= 0 ? chosen : (root.chatInfo.defaultEffort || efforts[0])))
+                onActivated: function(index) { researchStore.setSetting("ai.effort." + root.currentId, efforts[index]) }
+            }
+        }
+        // Gloss (a word's meaning or a passage's translation beside the selection): quick by default.
+        SettingsRow {
+            label: "Gloss model"
+            ComboBox {
+                objectName: "aiGlossModelBox"
+                Layout.preferredWidth: 220
+                model: ["Fast (automatic)"].concat(root.models.map(function(m) { return m.name }))
+                currentIndex: root.glossChoice === "auto" ? 0 : root.models.findIndex(function(m) { return m.id === root.glossChoice }) + 1
+                onActivated: function(index) { root.ai.setGloss(root.currentId, index === 0 ? "" : root.models[index - 1].id, root.glossEffort) }
+            }
+        }
+        SettingsRow {
+            visible: (root.glossInfo.efforts || []).length > 0
+            label: "Gloss reasoning"
+            ComboBox {
+                id: glossEffortBox
+                objectName: "aiGlossEffortBox"
+                Layout.preferredWidth: 160
+                readonly property var efforts: root.glossInfo.efforts || []
+                model: efforts.map(function(e) { return AiNames.effortName(e) })
+                // Set after the list changes (a binding would fight the list resetting it).
+                function sync() { currentIndex = Math.max(0, efforts.indexOf(root.glossEffort)) }
+                onModelChanged: Qt.callLater(sync)
+                Connections { target: root; function onGlossEffortChanged() { glossEffortBox.sync() } }
+                onActivated: function(index) { root.ai.setGloss(root.currentId, root.glossChoice === "auto" ? "" : root.glossChoice, efforts[index]) }
             }
         }
         SettingsRow {

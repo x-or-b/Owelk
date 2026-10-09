@@ -713,12 +713,16 @@ private slots:
         QVERIFY(!text.contains("<paper_text>"));
         QVERIFY(text.contains("what it means in this passage"));
         QVERIFY(store.aiThreads().isEmpty());
-        // A passage: its translation; with the chat model when chosen.
-        store.setSetting("ai.glossModel", "chat");
+        // A passage: its translation; with the model and effort chosen for Gloss.
+        ai->setGloss("claude", "claude-sonnet-5-5", "medium");
+        QCOMPARE(ai->glossChoice("claude"), QString("claude-sonnet-5-5"));
         ai->gloss({{"source", source}, {"page", 0},
             {"text", "Research finding 1.1: occlusion links observation to context."}});
         QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 10000);
-        QCOMPARE(server.seen[1].body["model"].toString(), ai->model("claude"));
+        QCOMPARE(server.seen[1].body["model"].toString(), QString("claude-sonnet-5-5"));
+        QCOMPARE(server.seen[1].body["output_config"].toObject()["effort"].toString(), QString("medium"));
+        ai->setGloss("claude", "", "low");
+        QCOMPARE(ai->glossModel("claude"), QString("claude-haiku-5-5"));
         QVERIFY(QJsonDocument(server.seen[1].body).toJson().contains("Translate the selection into Korean"));
         QVERIFY(store.aiThreads().isEmpty());
         ai->clearApiKey("claude");

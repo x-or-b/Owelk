@@ -597,11 +597,31 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     provider->start(call);
 }
 
+QString AiService::glossChoice(const QString &provider) const
+{
+    return m_store->setting("ai.glossModel." + provider, "auto");
+}
+
 QString AiService::glossModel(const QString &provider) const
 {
-    // Claude has a small, fast model; elsewhere the chosen model answers with little reasoning.
-    if (provider == "claude" && m_store->setting("ai.glossModel", "auto") == "auto") return "claude-haiku-5-5";
-    return model(provider);
+    const auto choice = glossChoice(provider);
+    if (choice != "auto" && !choice.isEmpty()) return choice;
+    // Claude has a small, fast model; elsewhere the chosen chat model answers with little reasoning.
+    return provider == "claude" ? QStringLiteral("claude-haiku-5-5") : model(provider);
+}
+
+QString AiService::glossEffort(const QString &provider) const
+{
+    return m_store->setting("ai.glossEffort." + provider, "low");
+}
+
+void AiService::setGloss(const QString &provider, const QString &model, const QString &effort)
+{
+    if (!info(provider)) return;
+    m_store->setSetting("ai.glossModel." + provider, model.isEmpty() ? QStringLiteral("auto") : model.left(120));
+    static const QRegularExpression level("^[a-z_-]{1,16}$");
+    if (level.match(effort).hasMatch()) m_store->setSetting("ai.glossEffort." + provider, effort);
+    emit providersChanged();
 }
 
 int AiService::gloss(const QVariantMap &spec)
@@ -650,7 +670,8 @@ int AiService::gloss(const QVariantMap &spec)
                                      "natural; keep equations, symbols and citation markers unchanged.")
                           .arg(into));
         call.model = glossModel(id);
-        if (id != "claude") call.effort = "low";
+        // Providers ignore an effort the model does not have.
+        call.effort = glossEffort(id);
         call.maxTokens = 1500;
         m_running.insert(request, provider);
         const auto done = [this, request, provider] {
@@ -1031,20 +1052,6 @@ void AiService::codexSignIn()
 void AiService::codexSignOut()
 {
     m_codex->call("account/logout", {}, [this](const QJsonValue &, const QString &) { refreshCodexAccount(); });
-}
-
-void AiService::listOllamaModels()
-{
-    auto *reply = m_network->get(QNetworkRequest(baseUrl("ollama").resolved(QUrl("api/tags"))));
-    connect(reply, &QNetworkReply::finished, this, [this, reply] {
-        reply->deleteLater();
-        QStringList models;
-        for (const auto &value : QJsonDocument::fromJson(reply->readAll()).object().value("models").toArray())
-            models << value.toObject().value("name").toString();
-        if (models.isEmpty() && reply->error() != QNetworkReply::NoError)
-            m_store->notify("Ollama is not running on this Mac (" + baseUrl("ollama").toString() + ").");
-        emit ollamaModelsLoaded(models);
-    });
 }
 
 void AiService::listModels(const QString &provider)

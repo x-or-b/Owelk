@@ -47,8 +47,12 @@ public:
     // text and the sentences around it are sent. Streams delta(request, text) and ends with
     // finished(request, text, {model}) or failed.
     Q_INVOKABLE int gloss(const QVariantMap &spec);
-    // The model Gloss uses with a provider: Settings → AI › Gloss model, "auto" (a fast one) or "chat".
+    // What Gloss uses with a provider (Settings → AI, or the Gloss popup): a model, or "auto" for a fast one
+    // (Claude Haiku; elsewhere the chat model), and a reasoning effort (default low).
     Q_INVOKABLE QString glossModel(const QString &provider) const;
+    Q_INVOKABLE QString glossChoice(const QString &provider) const;
+    Q_INVOKABLE QString glossEffort(const QString &provider) const;
+    Q_INVOKABLE void setGloss(const QString &provider, const QString &model, const QString &effort);
     // The paper's symbols, asked for on request (Document panel › Symbols) and kept per paper and answer
     // language. Ends with notationChanged(source) and finished(request, "", {symbols}), or failed.
     Q_INVOKABLE int findSymbols(const QUrl &source);
@@ -74,7 +78,6 @@ public:
     Q_INVOKABLE void refreshCodexAccount();
     Q_INVOKABLE void codexSignIn();
     Q_INVOKABLE void codexSignOut();
-    Q_INVOKABLE void listOllamaModels();
     // A pasted screenshot: saved under the data folder and returned as a file URL (empty if none).
     bool clipboardHasImage() const;
     Q_INVOKABLE QString saveClipboardImage();
@@ -97,7 +100,6 @@ signals:
     void comparisonDelta(int request, const QString &text);
     void papersCompared(int request, const QString &markdown, const QString &error);
     void codexAccountChanged(const QVariantMap &account);
-    void ollamaModelsLoaded(const QStringList &models);
     // models: [{id, name}]
     void modelsLoaded(const QString &provider, const QVariantList &models);
     void notationChanged(const QUrl &source);

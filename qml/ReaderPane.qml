@@ -570,8 +570,16 @@ Rectangle {
                 id: gloss
                 parent: canvas
             }
-            // Reading on, or another document, closes it.
-            Connections { target: canvas; function onSourceChanged() { gloss.close() } function onPositionChanged() { if (!canvas.restoring) gloss.close() } }
+            // Reading on (the page moving a little), or another document, closes it.
+            Connections {
+                target: canvas
+                function onSourceChanged() { gloss.close() }
+                function onPositionChanged() {
+                    const from = gloss.openedAt, now = canvas.position()
+                    if (gloss.opened && from && !canvas.restoring && Math.abs(now.page + now.y - from.page - from.y) > .03) gloss.close()
+                }
+            }
+            Connections { target: gloss; function onOpened() { gloss.openedAt = canvas.position() } }
 
             ColumnLayout {
                 visible: !canvas.source.toString().length || canvas.error.length > 0

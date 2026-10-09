@@ -2,6 +2,7 @@ import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "AiNames.js" as AiNames
 
 // The AI conversation behind the AI panel. Lives outside the dock so switching panels or docks
 // never drops a streaming answer. Every turn is kept as a thread; follow-ups send earlier turns along.
@@ -38,7 +39,8 @@ Item {
     property int thinkingSeconds: 0
     property double askedAt: 0
     property bool showThinking: researchStore.setting("ai.showThinking", "1") === "1"
-    Connections { target: researchStore; function onSettingsChanged() { root.showThinking = researchStore.setting("ai.showThinking", "1") === "1" } }
+    // Settings → AI may change these too.
+    Connections { target: researchStore; function onSettingsChanged() { root.showThinking = researchStore.setting("ai.showThinking", "1") === "1"; root.loadSelection() } }
     // One line for "Thinking · …": the latest heading of the summary, else its latest sentence.
     function thinkingHeadline(text) {
         const headings = text.match(/\*\*([^*\n]+)\*\*/g) || []
@@ -109,10 +111,7 @@ Item {
     }
     function setEffort(value) { effort = value; researchStore.setSetting("ai.effort." + ai.provider, value) }
     function setFast(on) { fast = on; researchStore.setSetting("ai.fast." + ai.provider, on ? "1" : "") }
-    function effortName(value) {
-        const names = {minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "Extra high", max: "Max", ultra: "Ultra"}
-        return names[value] || (value ? value.charAt(0).toUpperCase() + value.slice(1) : "")
-    }
+    function effortName(value) { return AiNames.effortName(value) }
     function companyName(provider) {
         return ({claude: "Anthropic", openai: "OpenAI", codex: "ChatGPT account", ollama: "Ollama (this computer)"})[provider] || provider
     }

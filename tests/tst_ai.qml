@@ -604,6 +604,16 @@ Item {
             compare(workspace.aiVisible, false)
             compare(researchStore.aiThreads().length, threads)
             verify(gloss.x >= 0 && gloss.x + gloss.width <= c.width)
+            // Its model chip: the fast model by default; another one (and its effort) asks again.
+            tryVerify(function() { return gloss.models.length > 0 })
+            compare(findChild(gloss.contentItem, "glossModelButton").text, "Haiku 5.5")
+            gloss.choose("claude-sonnet-5-5", "low")
+            compare(researchStore.ai.glossChoice("claude"), "claude-sonnet-5-5")
+            tryCompare(findChild(gloss.contentItem, "glossModelButton"), "text", "Sonnet 5.5 · Low")
+            tryCompare(gloss, "streaming", false, 10000)
+            verify(gloss.answer.indexOf("Mock answer") >= 0)
+            gloss.choose("", "low")
+            tryCompare(gloss, "streaming", false, 10000)
             // The same words again: at once, without a request.
             gloss.close()
             reader.glossSelection()

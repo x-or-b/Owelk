@@ -104,11 +104,32 @@ Item {
             instructions.text = "  Put English terms in brackets.  "
             instructions.editingFinished()
             compare(researchStore.setting("ai.instructions"), "Put English terms in brackets.")
+            // Models are chosen from the provider's list, as in the AI panel: the chat model and its
+            // reasoning, and Gloss's own.
+            const before = researchStore.ai.provider, chatModel = researchStore.ai.model("claude")
+            researchStore.ai.provider = "claude"
+            const models = findChild(settings, "aiModelBox")
+            tryVerify(function() { return models.count > 2 })
+            models.activated(1)
+            compare(researchStore.ai.model("claude"), "claude-sonnet-5-5")
+            const effort = findChild(settings, "aiEffortBox")
+            tryCompare(effort, "visible", true)
+            effort.activated(effort.model.indexOf("High"))
+            compare(researchStore.setting("ai.effort.claude"), "high")
+            // Other… takes a model name.
+            models.activated(models.count - 1)
+            tryCompare(findChild(settings, "aiModelField"), "visible", true)
             const gloss = findChild(settings, "aiGlossModelBox")
             compare(gloss.currentIndex, 0)
-            gloss.activated(1)
-            compare(researchStore.setting("ai.glossModel"), "chat")
+            compare(findChild(settings, "aiGlossEffortBox").visible, false) // Haiku has no effort levels.
+            gloss.activated(2)
+            compare(researchStore.ai.glossChoice("claude"), "claude-sonnet-5-5")
+            tryCompare(findChild(settings, "aiGlossEffortBox"), "visible", true)
             gloss.activated(0)
+            compare(researchStore.ai.glossChoice("claude"), "auto")
+            researchStore.ai.setModel("claude", chatModel)
+            researchStore.setSetting("ai.effort.claude", "")
+            researchStore.ai.provider = before
             researchStore.setSetting("ai.instructions", "")
             settings.close()
         }
