@@ -70,7 +70,7 @@ Item {
                 id: summaryText
                 objectName: "aiThoughtText"
                 x: 10; width: parent.width - 10
-                text: parent.visible ? researchStore.markdownHtml(fold.summary, Theme.accent) : ""
+                text: parent.visible ? researchStore.markdownHtml(fold.summary, Theme.accent, Theme.textSecondary, Theme.fontSmall) : ""
                 color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
             }
         }
@@ -207,7 +207,7 @@ Item {
                     visible: message.modelData.role === "assistant"
                     objectName: "aiMessage-" + message.index
                     Layout.fillWidth: true
-                    text: visible ? researchStore.markdownHtml(message.modelData.content, Theme.accent) : ""
+                    text: visible ? researchStore.markdownHtml(message.modelData.content, Theme.accent, Theme.text, Theme.fontBody) : ""
                 }
                 Label {
                     objectName: "aiCutOff-" + message.index
@@ -253,7 +253,7 @@ Item {
                     objectName: "aiAnswer"
                     visible: root.c && root.c.answer.length > 0
                     Layout.fillWidth: true
-                    text: root.c && root.c.answer.length ? researchStore.markdownHtml(root.c.answer, Theme.accent) : ""
+                    text: root.c && root.c.answer.length ? researchStore.markdownHtml(root.c.answer, Theme.accent, Theme.text, Theme.fontBody) : ""
                     onTextChanged: conversation.follow()
                 }
                 Label {

@@ -1,6 +1,7 @@
 #include "ResearchStore.h"
 #include "AppInstance.h"
 #include "AnnotationImageProvider.h"
+#include "MathImageProvider.h"
 #include "SelectionGeometry.h"
 #include "Theme.h"
 #include <QCommandLineParser>
@@ -64,6 +65,7 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "Theme", &theme);
     QQmlApplicationEngine engine;
     engine.addImageProvider("annotation", new AnnotationImageProvider);
+    engine.addImageProvider("math", new MathImageProvider);
     engine.rootContext()->setContextProperty("selectionGeometry", &selectionGeometry);
     engine.rootContext()->setContextProperty("researchStore", &store);
     engine.rootContext()->setContextProperty("initialFiles", initialFiles);

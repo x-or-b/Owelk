@@ -141,7 +141,7 @@ Rectangle {
             Text {
                 objectName: "notePreview"
                 width: parent.width
-                text: root.preview ? researchStore.markdownHtml(body.text.length ? body.text : "*Empty note*", Theme.accent) : ""
+                text: root.preview ? researchStore.markdownHtml(body.text.length ? body.text : "*Empty note*", Theme.accent, Theme.text, Theme.fontHeadline) : ""
                 textFormat: Text.RichText
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontHeadline

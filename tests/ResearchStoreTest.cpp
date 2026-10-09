@@ -1,5 +1,6 @@
 #include "ResearchStore.h"
 #include "LibrarySync.h"
+#include "MathRenderer.h"
 #include "WorkerConnection.h"
 #include "PaperIndex.h"
 #include "ReferenceFinder.h"
@@ -346,6 +347,38 @@ private slots:
             QCOMPARE(quiet.received, 0);
         }
         QCOMPARE(scalar(ubuntu, "SELECT count(*) FROM documents").toInt(), 1);
+    }
+    void markdownShowsMathAsImages()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        const auto html = store.markdownHtml("Energy $E=mc^2$ with $a_1 \\cdot b_2$ and\n\n$$\\frac{a}{b}$$\n\n"
+                                             "Cost $5 and $10, `$PATH`, \\$x\\$ and $$still open",
+            "#3366cc", "#202020", 14);
+        // Three formulas become images (the display one centred); _ inside math is not emphasis.
+        QCOMPARE(html.count("image://math/"), 3);
+        QVERIFY(html.contains("align=\"center\""));
+        QVERIFY(!html.contains("<em>") && !html.contains("font-style:italic"));
+        // Prices, code, escaped dollars and an unclosed formula stay text.
+        QVERIFY(html.contains("$5 and $10"));
+        QVERIFY(html.contains("$PATH"));
+        QVERIFY(html.contains("$x$"));
+        QVERIFY(html.contains("$$still open"));
+        // The images are real drawings in the text colour, at twice the shown size.
+        static const QRegularExpression image(R"re(image://math/(\w+)" width="(\d+)" height="(\d+)")re");
+        const auto m = image.match(html);
+        QVERIFY(m.hasMatch());
+        const auto drawn = MathRenderer::cached(m.captured(1));
+        QVERIFY(!drawn.isNull());
+        QCOMPARE(drawn.width(), m.captured(2).toInt() * 2);
+        bool inked = false;
+        for (int y = 0; y < drawn.height() && !inked; ++y)
+            for (int x = 0; x < drawn.width() && !inked; ++x) inked = qAlpha(drawn.pixel(x, y)) > 128;
+        QVERIFY(inked);
+        // Without math the HTML is what Qt makes of the Markdown.
+        QVERIFY(!store.markdownHtml("Plain **text**", "#3366cc").contains("image://"));
     }
     void notesLinksBacklinksAndTrash()
     {

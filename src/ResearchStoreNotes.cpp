@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "MathRenderer.h"
 #include <QDir>
 #include <QStandardPaths>
 #include <QProcess>
@@ -186,15 +187,93 @@ QString ResearchStore::documentLinkId(const QUrl &source)
     return ensureDocument(source);
 }
 
-QString ResearchStore::markdownHtml(const QString &markdown, const QString &linkColor) const
+namespace {
+struct MathSpan {
+    QString latex, original;
+    bool display;
+};
+
+// Math is taken out before the Markdown is read (its _, * and \\ would turn into emphasis and line
+// breaks) and comes back as images. Code blocks and `code` are left alone. The rules follow Pandoc:
+// $…$ needs no space just inside and no digit right after (so "$5 and $10" stays text); $$…$$,
+// \[…\] and \(…\) always count. An unclosed formula (an answer still streaming) stays text.
+QString takeMath(const QString &markdown, QList<MathSpan> *found)
 {
+    static const QRegularExpression code(R"((?ms)^[ \t]*(```|~~~)[^\n]*\n.*?^[ \t]*\1[ \t]*$|`[^`\n]+`)");
+    static const QRegularExpression math(R"(\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\))"
+                                         R"(|(?<![\\$\w])\$(?![\s$])((?:\\.|[^$\\\n])+?)(?<![\s\\])\$(?!\d))");
+    QList<QPair<qsizetype, qsizetype>> skip;
+    for (auto it = code.globalMatch(markdown); it.hasNext();) {
+        const auto m = it.next();
+        skip.append({m.capturedStart(), m.capturedEnd()});
+    }
+    QString out;
+    qsizetype last = 0;
+    for (auto it = math.globalMatch(markdown); it.hasNext();) {
+        const auto m = it.next();
+        const bool inCode = std::any_of(skip.cbegin(), skip.cend(),
+            [&](const auto &range) { return m.capturedStart() < range.second && m.capturedEnd() > range.first; });
+        if (inCode || m.capturedStart() < last) continue;
+        int group = 1;
+        while (group < 4 && m.capturedStart(group) < 0) ++group;
+        out += markdown.mid(last, m.capturedStart() - last);
+        out += QStringLiteral("OWELKMATH%1X").arg(found->size());
+        found->append({m.captured(group), m.captured(), group <= 2});
+        last = m.capturedEnd();
+    }
+    return found->isEmpty() ? markdown : out + markdown.mid(last);
+}
+} // namespace
+
+QString ResearchStore::markdownHtml(
+    const QString &markdown, const QString &linkColor, const QString &textColor, int pixelSize) const
+{
+    QList<MathSpan> math;
+    const auto prepared = takeMath(markdown, &math);
     // Markdown rendered as rich text bakes Qt's default link blue into the HTML; use the app accent instead.
     QTextDocument document;
-    document.setMarkdown(markdown);
+    document.setMarkdown(prepared);
     auto html = document.toHtml();
     static const QRegularExpression blue("color:\\s*#0000ff", QRegularExpression::CaseInsensitiveOption);
     if (QColor::isValidColorName(linkColor)) html.replace(blue, "color:" + linkColor);
-    return html;
+    if (math.isEmpty()) return html;
+    const QColor ink = QColor::isValidColorName(textColor) ? QColor(textColor) : QColor("#1d1d1f");
+    const int size = pixelSize > 0 ? pixelSize : 14;
+    const auto image = [&](int index, bool display) {
+        const auto &span = math[index];
+        QSize shown;
+        const auto key = MathRenderer::render(span.latex, display, size, ink, &shown);
+        if (key.isEmpty()) return span.original.toHtmlEscaped(); // Unreadable: shown as written.
+        return QStringLiteral("<img src=\"image://math/%1\" width=\"%2\" height=\"%3\" align=\"middle\" />")
+            .arg(key)
+            .arg(shown.width())
+            .arg(shown.height());
+    };
+    // A display formula alone in its paragraph is centred; anywhere else it sits in the line.
+    static const QRegularExpression alone(R"(<p([^>]*)>\s*OWELKMATH(\d+)X\s*</p>)");
+    QString centred;
+    qsizetype last = 0;
+    for (auto it = alone.globalMatch(html); it.hasNext();) {
+        const auto m = it.next();
+        const int index = m.captured(2).toInt();
+        if (index >= math.size() || !math[index].display) continue;
+        // Qt does not centre a paragraph holding only an image; spaces on both sides fix that.
+        centred += html.mid(last, m.capturedStart() - last) + "<p align=\"center\"" + m.captured(1) + ">&nbsp;"
+            + image(index, true) + "&nbsp;</p>";
+        last = m.capturedEnd();
+    }
+    html = centred + html.mid(last);
+    static const QRegularExpression token("OWELKMATH(\\d+)X");
+    QString out;
+    last = 0;
+    for (auto it = token.globalMatch(html); it.hasNext();) {
+        const auto m = it.next();
+        const int index = m.captured(1).toInt();
+        out += html.mid(last, m.capturedStart() - last)
+            + (index < math.size() ? image(index, math[index].display) : m.captured());
+        last = m.capturedEnd();
+    }
+    return out + html.mid(last);
 }
 
 QString ResearchStore::markdownLink(const QString &kind, const QString &id) const

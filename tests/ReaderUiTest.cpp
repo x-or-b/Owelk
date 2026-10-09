@@ -1,5 +1,6 @@
 #include "ResearchStore.h"
 #include "AnnotationImageProvider.h"
+#include "MathImageProvider.h"
 #include "SelectionGeometry.h"
 #include "Theme.h"
 #include "AppInstance.h"
@@ -151,6 +152,7 @@ public slots:
     void qmlEngineAvailable(QQmlEngine *engine)
     {
         engine->addImageProvider("annotation", new AnnotationImageProvider);
+        engine->addImageProvider("math", new MathImageProvider);
         engine->rootContext()->setContextProperty("initialFiles", QVariantList{});
         engine->rootContext()->setContextProperty(
             "fixtureFolder", QUrl::fromLocalFile(m_directory.filePath("library")));

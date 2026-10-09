@@ -39,7 +39,7 @@ AiPrompt buildAiPrompt(
         "You are a research reading assistant inside Owelk, a paper reader. Help the reader understand the paper "
         "from the material provided. Ground answers in that material; when it does not contain the answer, say so "
         "and separate general knowledge from what the paper states. Keep technical terms, symbols and citations "
-        "exact. Use concise Markdown.");
+        "exact. Use concise Markdown. Write math as LaTeX: $...$ inline and $$...$$ on its own line for display.");
     // A typed question is answered in its own language; one-click actions use the preferred language.
     if (!question.trimmed().isEmpty())
         prompt.system += QStringLiteral(" Answer in the language of the reader's request.");
