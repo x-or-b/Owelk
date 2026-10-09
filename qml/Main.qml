@@ -87,8 +87,13 @@ ApplicationWindow {
         else if (panel === "ai") aiVisible = shown
         else documentVisible = shown
     }
+    // One panel per dock: opening one (or moving it into a dock) closes the other there.
+    function closeOthers(panel) {
+        const side = panelSide(panel)
+        dockPanels.forEach(function(other) { if (other !== panel && panelShown(other) && panelSide(other) === side) setPanelShown(other, false) })
+    }
     // Reader and capture actions bring the AI panel forward and start a thread there.
-    function showAi() { setPanelShown("ai", true); movePanel("ai", aiSide) }
+    function showAi() { setPanelShown("ai", true); closeOthers("ai") }
     function askAi(spec) { showAi(); aiController.begin(spec) }
     function openAiThread(id) { if (aiController.openThread(id)) showAi() }
     // The AI panel shows this thread right now (panel open and in front in its dock).
@@ -97,28 +102,17 @@ ApplicationWindow {
         return aiVisible && dock.activePanel === "ai" && aiController.conversationOpen && aiController.threadId === id
     }
     function togglePanel(panel) {
-        const side = panelSide(panel)
-        const dock = side === "left" ? leftDock : rightDock
         const shown = panelShown(panel)
-        if (shown && dock.activePanel === panel) {
-            setPanelShown(panel, false)
-        } else {
-            setPanelShown(panel, true)
-            movePanel(panel, side)
-        }
+        setPanelShown(panel, !shown)
+        if (!shown) closeOthers(panel)
     }
     function movePanel(panel, side) {
         if (side !== "left" && side !== "right") return
-        const stays = panelSide(panel) === side
         if (panel === "files") filesSide = side
         if (panel === "captures") capturesSide = side
         if (panel === "document") documentSide = side
         if (panel === "ai") aiSide = side
-        // At once when the panel is already in that dock (so a quick second click hides it); after a
-        // move, once the docks' panel lists have caught up.
-        const dock = side === "left" ? leftDock : rightDock
-        if (stays && dock.panels.indexOf(panel) >= 0) dock.activePanel = panel
-        Qt.callLater(function() { dock.activePanel = panel })
+        if (panelShown(panel)) closeOthers(panel)
     }
     // Tab switching must not discard an annotation that is still being edited.
     readonly property bool canSwitchTabs: documents.hasTabs && !restoreFailed && !(currentReader && currentReader.annotationDirty)
@@ -227,8 +221,11 @@ ApplicationWindow {
         aiSide = panels.aiSide === "left" ? "left" : "right"
         navigationMode = [0, 1, 2, 3, 4].indexOf(panels.navigationMode) >= 0 ? panels.navigationMode : 0
         paperFolder = panels.folder || ""
-        if (leftPanels.indexOf(panels.leftActive) >= 0) leftDock.activePanel = panels.leftActive
-        if (rightPanels.indexOf(panels.rightActive) >= 0) rightDock.activePanel = panels.rightActive
+        // Sessions from when a dock held several panels keep the one in front.
+        for (const side of ["left", "right"]) {
+            const list = panelsForSide(side), front = side === "left" ? panels.leftActive : panels.rightActive
+            if (list.length > 1) closeOthers(list.indexOf(front) >= 0 ? front : list[0])
+        }
         activeWorkspace = state.workspace || ""; workspaceName = state.workspaceName || ""
         try { documents.restore(state) }
         catch (error) { restoreFailed = true; notification = error.message }

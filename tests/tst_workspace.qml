@@ -137,6 +137,22 @@ Item {
             mouseClick(icon)
             compare(workspace.shelfVisible, false)
         }
+        function test_oneOpenPanelPerDock() {
+            workspace.filesVisible = true; workspace.filesSide = "left"
+            workspace.documentVisible = false; workspace.documentSide = "left"
+            workspace.togglePanel("document")
+            compare(workspace.documentVisible, true)
+            compare(workspace.filesVisible, false)
+            compare(workspace.leftPanels, ["document"])
+            compare(findChild(workspace, "leftDock").activePanel, "document")
+            // Its dock icon shows it open with the accent colour, without a fill.
+            const icon = visualChild(findChild(workspace, "statusBar"), "dockIcon-document")
+            verify(Qt.colorEqual(icon.tint, Theme.accent))
+            verify(!icon.checked)
+            workspace.togglePanel("files")
+            compare(workspace.documentVisible, false)
+            compare(workspace.leftPanels, ["files"])
+        }
         function test_hiddenPanelMovesWithoutOpening() {
             workspace.shelfVisible = false
             workspace.movePanel("captures", "left")
@@ -196,13 +212,16 @@ Item {
             compare(restored.capturesSide, "left"); compare(restored.filesSide, "right")
             compare(restored.paperFolder.toString(), fixtureFolder.toString())
         }
-        function test_toggleSharedDock() {
+        function test_movingAnOpenPanelIntoADockReplacesItsPanel() {
+            workspace.filesVisible = true; workspace.filesSide = "left"; workspace.shelfVisible = true
             workspace.movePanel("captures", "left")
             tryCompare(findChild(workspace, "leftDock"), "activePanel", "captures")
+            compare(workspace.filesVisible, false)
             workspace.togglePanel("files")
             tryCompare(findChild(workspace, "leftDock"), "activePanel", "files")
+            compare(workspace.shelfVisible, false)
             workspace.togglePanel("files")
-            compare(workspace.filesVisible, false); compare(workspace.shelfVisible, true)
+            compare(workspace.filesVisible, false); compare(workspace.shelfVisible, false)
         }
         function test_tabIndependentPositionsAndShortcutClose() {
             const d = workspace.documents
@@ -868,7 +887,7 @@ Item {
             workspace.documents.joinAll()
             while (workspace.documents.hasTabs) workspace.documents.closeActiveTab()
             compare(workspace.homeVisible, true)
-            const emptyPanel = findChild(workspace, "pdfNavigationPanel")
+            const emptyPanel = findChild(findChild(workspace, "rightDock"), "pdfNavigationPanel")
             compare(emptyPanel.ready, false)
         }
         function test_tabMenuFollowsTheTabAndClosesOthers() {

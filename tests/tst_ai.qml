@@ -592,6 +592,7 @@ Item {
             workspace.documents.restore({})
             workspace.openDocument(fixtureSource)
             const c = canvas()
+            wait(400) // The pages settle at their new width (the AI panel just closed) before selecting.
             c.selectPage(0)
             const reader = workspace.currentReader
             const threads = researchStore.aiThreads().length

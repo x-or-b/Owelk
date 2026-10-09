@@ -22,7 +22,7 @@ T.TabButton {
             anchors.centerIn: parent
             visible: control.icon.name.length > 0 && !control.text.length
             name: control.icon.name
-            color: control.checked ? Theme.text : Theme.textSecondary
+            color: control.checked ? Theme.selectedText : Theme.textSecondary
         }
         Text {
             id: label
@@ -30,7 +30,7 @@ T.TabButton {
             visible: control.text.length > 0
             text: control.text
             font: control.font
-            color: !control.enabled ? Theme.textDisabled : control.checked ? Theme.text : Theme.textSecondary
+            color: !control.enabled ? Theme.textDisabled : control.checked ? Theme.selectedText : Theme.textSecondary
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
@@ -43,8 +43,9 @@ T.TabButton {
     background: Rectangle {
         implicitHeight: Theme.controlHeight - 4
         radius: Theme.radius - 2
-        color: control.checked ? (Theme.dark ? Theme.mix(Theme.control, Theme.text, .16) : Theme.content) : control.hovered ? Theme.hover : "transparent"
-        border.width: control.checked && !Theme.dark ? 1 : control.visualFocus ? 2 : 0
-        border.color: control.visualFocus ? Theme.focus : Theme.separator
+        // The chosen segment is marked like other selections (accent tint).
+        color: control.checked ? Theme.selected : control.hovered ? Theme.hover : "transparent"
+        border.width: control.visualFocus ? 2 : 0
+        border.color: Theme.focus
     }
 }

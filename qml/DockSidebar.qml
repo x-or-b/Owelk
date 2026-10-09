@@ -7,7 +7,8 @@ Rectangle {
     id: root
     property string side: "left"
     property var panels: []
-    property string activePanel: panels.length ? panels[0] : ""
+    // One panel per dock (Main.qml closes the other when one opens).
+    readonly property string activePanel: panels.length ? panels[0] : ""
     property url folder
     property var reader: null
     property var aiController: null
@@ -28,13 +29,12 @@ Rectangle {
     // A slice of the window: no corners or frame; the 1px edge beside the document is the resize
     // edge in Main.qml.
     color: Theme.sidebar
-    onPanelsChanged: if (panels.indexOf(activePanel) < 0) activePanel = panels.length ? panels[0] : ""
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
-        // One panel: its name. Several: a segmented control of their icons.
+        // Its name (one panel per dock; the status bar's icons open and close them).
         Label {
-            visible: root.panels.length === 1
+            objectName: "dockTitle"
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.barHeight
             leftPadding: 12
@@ -43,24 +43,6 @@ Rectangle {
             font.pixelSize: Theme.fontSmall
             font.weight: Font.DemiBold
             color: Theme.textSecondary
-        }
-        TabBar {
-            objectName: "dockTabs"
-            visible: root.panels.length > 1
-            Layout.fillWidth: true
-            Layout.margins: 6
-            Layout.bottomMargin: 2
-            currentIndex: root.panels.indexOf(root.activePanel)
-            Repeater {
-                model: root.panels
-                delegate: TabButton {
-                    required property string modelData
-                    objectName: "dockTab-" + modelData
-                    icon.name: ({files: "library", captures: "capture", document: "document", ai: "ai"})[modelData]
-                    ToolTip.text: root.panelName(modelData)
-                    onClicked: root.activePanel = modelData
-                }
-            }
         }
         Loader {
             Layout.fillWidth: true

@@ -11,7 +11,8 @@ IconButton {
     signal triggered()
     signal dockSideChosen(string side)
     icon.name: ({files: "library", captures: "capture", document: "document", ai: "ai", split: "split", search: "search"})[kind] || kind
-    checked: selected
+    // Open (a panel) or on: the icon in the accent colour, no fill.
+    tint: selected ? Theme.accent : Theme.icon
     checkable: false
     onClicked: triggered()
     Keys.onMenuPressed: if (dockSide.length) dockMenu.popup()
