@@ -249,7 +249,7 @@ Item {
             tryCompare(fast, "visible", false)
             compare(ai.effectiveFast, false)
             compare(effort.visible, true)
-            pickModel(p, "aiModel-claude-claude-haiku-4-5")
+            pickModel(p, "aiModel-claude-claude-haiku-5-5")
             tryCompare(effort, "visible", false)
             pickModel(p, "aiModel-claude-claude-opus-5-5")
             tryCompare(fast, "visible", true)
@@ -577,6 +577,35 @@ Item {
             compare(ai.images.length, 1)
             verify(ai.attachments.some(function(a) { return a.kind === "paper" }))
             ai.showThreads()
+        }
+        function test_9zzzzz_peekShowsBesideTheSelection() {
+            verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
+            researchStore.ai.provider = "claude"
+            researchStore.ai.giveConsent("claude")
+            workspace.aiVisible = false
+            workspace.documents.restore({})
+            workspace.openDocument(fixtureSource)
+            const c = canvas()
+            c.selectPage(0)
+            const reader = workspace.currentReader
+            const threads = researchStore.aiThreads().length
+            findChild(reader, "menuPeek").triggered()
+            const peek = findChild(reader, "peekPopup")
+            tryCompare(peek, "opened", true)
+            tryCompare(peek, "streaming", false, 10000)
+            verify(peek.answer.indexOf("Mock answer") >= 0)
+            // Nothing opens in the AI panel and no conversation is kept.
+            compare(workspace.aiVisible, false)
+            compare(researchStore.aiThreads().length, threads)
+            verify(peek.x >= 0 && peek.x + peek.width <= c.width)
+            // The same words again: at once, without a request.
+            peek.close()
+            reader.peekSelection()
+            tryCompare(peek, "opened", true)
+            verify(!peek.streaming)
+            verify(peek.answer.indexOf("Mock answer") >= 0)
+            peek.close()
+            c.clearSelection()
         }
         function test_9zzzzzz_symbolHintsMatchWhatIsPrinted() {
             workspace.documents.restore({})

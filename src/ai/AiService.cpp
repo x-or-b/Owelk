@@ -590,6 +590,95 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     provider->start(call);
 }
 
+QString AiService::peekModel(const QString &provider) const
+{
+    // Claude has a small, fast model; elsewhere the chosen model answers with little reasoning.
+    if (provider == "claude" && m_store->setting("ai.peekModel", "auto") == "auto") return "claude-haiku-5-5";
+    return model(provider);
+}
+
+int AiService::peek(const QVariantMap &spec)
+{
+    const int request = ++m_nextRequest;
+    const auto id = provider();
+    const auto fail = [this, request](const QString &error) {
+        QMetaObject::invokeMethod(this, [this, request, error] { emit failed(request, error); }, Qt::QueuedConnection);
+        return request;
+    };
+    if (!info(id)) return fail("Choose an AI provider in Settings → AI.");
+    if (!consented(id)) return fail("Review what is sent to this provider before the first request.");
+    const auto text = spec.value("text").toString().simplified().left(1500);
+    if (text.isEmpty()) return fail("Select a word or a passage.");
+    m_running.insert(request, nullptr);
+    emit busyChanged();
+    const auto url = m_store->resolvedSource(spec.value("source").toUrl());
+    const int page = spec.value("page").toInt();
+    auto *watcher = new QFutureWatcher<QString>(this);
+    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, request, id, text] {
+        const auto context = watcher->result();
+        watcher->deleteLater();
+        if (!m_running.contains(request)) return; // Stopped while reading.
+        QString error;
+        auto *provider = createProvider(id, &error);
+        if (!provider) {
+            m_running.remove(request);
+            emit busyChanged();
+            emit failed(request, error);
+            return;
+        }
+        const auto language = aiLanguageName(m_store->setting("aiLanguage", "ko"));
+        const auto into = language.isEmpty() ? QStringLiteral("English") : language;
+        // A word or a short phrase: what it means here; anything longer: its translation.
+        const bool term = text.split(' ', Qt::SkipEmptyParts).size() <= 3 && text.size() <= 48;
+        AiRequest call;
+        call.system = QStringLiteral("You are Peek, a quick reading aid in a paper reader. Answer at once, briefly, "
+                                     "in %1, with no headings or preamble. Keep math as LaTeX in $...$.")
+                          .arg(into);
+        call.text = (context.isEmpty() ? QString() : "<passage>\n" + context + "\n</passage>\n\n") + "<selection>\n"
+            + text + "\n</selection>\n\n"
+            + (term ? QStringLiteral("Give the selected term in %1 first, as \"**term** — translation\"; then, in one "
+                                     "or two short sentences, what it means in this passage.")
+                          .arg(into)
+                    : QStringLiteral("Translate the selection into %1. Give only the translation, faithful and "
+                                     "natural; keep equations, symbols and citation markers unchanged.")
+                          .arg(into));
+        call.model = peekModel(id);
+        if (id != "claude") call.effort = "low";
+        call.maxTokens = 1500;
+        m_running.insert(request, provider);
+        const auto done = [this, request, provider] {
+            m_running.remove(request);
+            provider->deleteLater();
+            emit busyChanged();
+        };
+        connect(
+            provider, &AiProvider::delta, this, [this, request](const QString &part) { emit delta(request, part); });
+        connect(
+            provider, &AiProvider::finished, this, [this, request, done](const QString &answer, const QString &used) {
+                done();
+                emit finished(request, answer, {{"model", used}});
+            });
+        connect(provider, &AiProvider::failed, this, [this, request, done](const QString &message) {
+            done();
+            emit failed(request, message);
+        });
+        provider->start(call);
+    });
+    // The sentences around the selection, from its page: enough to tell which sense a word has.
+    watcher->setFuture(QtConcurrent::run([url, page, text] {
+        QPdfDocument pdf;
+        if (!url.isLocalFile() || PdfAccess::load(pdf, url.toLocalFile()) != QPdfDocument::Error::None || page < 0
+            || page >= pdf.pageCount())
+            return QString();
+        const auto all = pdf.getAllText(page).text().simplified();
+        const auto at = all.indexOf(text.left(60));
+        if (at < 0) return QString();
+        const auto from = std::max<qsizetype>(0, at - 400);
+        return all.mid(from, at + text.size() + 400 - from);
+    }));
+    return request;
+}
+
 QString AiService::symbolsFile(const QUrl &source) const
 {
     const auto url = m_store->resolvedSource(source);
@@ -962,7 +1051,7 @@ void AiService::listModels(const QString &provider)
                  {"defaultEffort", "medium"}, {"fast", true}},
                 QVariantMap{{"id", "claude-sonnet-5-5"}, {"name", "Claude Sonnet 5.5"}, {"efforts", levels},
                     {"defaultEffort", "medium"}, {"fast", false}},
-                QVariantMap{{"id", "claude-haiku-4-5"}, {"name", "Claude Haiku 4.5"}, {"efforts", QStringList()}},
+                QVariantMap{{"id", "claude-haiku-5-5"}, {"name", "Claude Haiku 5.5"}, {"efforts", QStringList()}},
                 QVariantMap{{"id", "claude-fable-5-1"}, {"name", "Claude Fable 5.1"}, {"efforts", levels},
                     {"defaultEffort", "medium"}, {"fast", false}}});
         return;

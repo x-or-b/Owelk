@@ -57,6 +57,31 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            label: "Instructions"
+            detail: "Added to every question, for example: \"Put English terms in brackets\" or \"I know Kalman filters\""
+            wide: true
+            TextArea {
+                objectName: "aiInstructions"
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.max(60, implicitHeight)
+                wrapMode: TextEdit.Wrap
+                placeholderText: "Optional"
+                text: researchStore.setting("ai.instructions")
+                onEditingFinished: researchStore.setSetting("ai.instructions", text.trim().slice(0, 2000))
+            }
+        }
+        SettingsRow {
+            label: "Peek model"
+            detail: "Peek explains a selected word or translates a passage beside it"
+            ComboBox {
+                objectName: "aiPeekModelBox"
+                Layout.preferredWidth: 200
+                model: ["Fast (automatic)", "Same as chat"]
+                currentIndex: researchStore.setting("ai.peekModel", "auto") === "chat" ? 1 : 0
+                onActivated: function(index) { researchStore.setSetting("ai.peekModel", index === 1 ? "chat" : "auto") }
+            }
+        }
+        SettingsRow {
             label: "Symbol hints"
             detail: "Once a paper's symbols are listed (Document panel › Symbols), pointing at one shows its meaning"
             Switch {

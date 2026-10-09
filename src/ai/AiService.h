@@ -42,6 +42,13 @@ public:
     // images from a paper). Returns a request id.
     // threadId continues a conversation (earlier turns are sent along); empty starts a new thread.
     Q_INVOKABLE int ask(const QVariantMap &spec);
+    // Peek: a word or phrase explained as used here, or a passage translated, into the reader's language;
+    // quick (a fast model, little reasoning) and kept nowhere. spec: source, page (0-based), text. Only the
+    // text and the sentences around it are sent. Streams delta(request, text) and ends with
+    // finished(request, text, {model}) or failed.
+    Q_INVOKABLE int peek(const QVariantMap &spec);
+    // The model Peek uses with a provider: Settings → AI › Peek model, "auto" (a fast one) or "chat".
+    Q_INVOKABLE QString peekModel(const QString &provider) const;
     // The paper's symbols, asked for on request (Document panel › Symbols) and kept per paper and answer
     // language. Ends with notationChanged(source) and finished(request, "", {symbols}), or failed.
     Q_INVOKABLE int findSymbols(const QUrl &source);

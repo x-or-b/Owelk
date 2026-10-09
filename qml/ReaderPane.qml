@@ -119,11 +119,13 @@ Rectangle {
         const anchor = canvas.selectedAnchor
         return anchor ? (anchor.segments ? anchor.segments[0].page : anchor.page) : canvas.currentPage
     }
-    // For now in the AI panel.
-    function translateSelection() {
+    // Peek: the selected word explained as used here, or the passage translated, beside the selection.
+    function peekSelection() {
         if (!canvas.selectedText.length) return
         activated()
-        aiRequested({action: "translate", scope: "selection", source: source, page: selectionPage(), selection: canvas.selectedText})
+        const at = selectionToolbar.visible ? Qt.point(selectionToolbar.x, selectionToolbar.y + selectionToolbar.height)
+                                            : Qt.point(canvas.selectionEnd.x, canvas.selectionEnd.y + 8)
+        peek.show({source: source, page: selectionPage(), text: canvas.selectedText}, at)
     }
     function askAboutSelection() {
         if (!canvas.selectedText.length) return
@@ -244,7 +246,7 @@ Rectangle {
         MenuItem { text: "Add Comment…"; enabled: !!canvas.selectedAnchor; onTriggered: root.addComment() }
         MenuItem { text: "Save Excerpt"; enabled: !!canvas.selectedAnchor; onTriggered: canvas.captureSelection() }
         MenuSeparator {}
-        MenuItem { objectName: "menuTranslateSelection"; text: "Translate with AI"; onTriggered: root.translateSelection() }
+        MenuItem { objectName: "menuPeek"; text: "Peek"; onTriggered: root.peekSelection() }
         MenuItem { objectName: "menuAskSelection"; text: "Ask AI about Selection"; onTriggered: root.askAboutSelection() }
     }
     Menu {
@@ -527,12 +529,13 @@ Rectangle {
                 z: 4
             }
             Rectangle {
+                id: selectionToolbar
                 objectName: "selectionToolbar"
                 z: 5
                 visible: canvas.selectedText.length > 0 && !canvas.selecting && canvas.selectionEnd.y >= 0 && canvas.selectionEnd.y <= canvas.height && !annotationEditor.visible && !selectionMenu.visible
                 x: Math.max(4,Math.min(canvas.width-width-20,canvas.selectionEnd.x+8))
                 y: Math.max(4,canvas.selectionEnd.y+height+12>parent.height?canvas.selectionEnd.y-height-8:canvas.selectionEnd.y+8)
-                width: 140; height: 34
+                width: selectionActions.implicitWidth + 16; height: 34
                 color: Theme.raised; border.color: Theme.border; radius: Theme.radiusLarge
                 Row {
                     id: selectionActions
@@ -551,9 +554,9 @@ Rectangle {
                         onClicked: { root.activated(); canvas.captureSelection() }
                     }
                     IconButton {
-                        objectName: "translateSelectionButton"
-                        icon.name: "globe"; description: "Translate"
-                        onClicked: root.translateSelection()
+                        objectName: "peekSelectionButton"
+                        icon.name: "preview"; description: "Peek"
+                        onClicked: root.peekSelection()
                     }
                     IconButton {
                         objectName: "askSelectionButton"
@@ -562,6 +565,13 @@ Rectangle {
                     }
                 }
             }
+
+            PeekPopup {
+                id: peek
+                parent: canvas
+            }
+            // Reading on, or another document, closes it.
+            Connections { target: canvas; function onSourceChanged() { peek.close() } function onPositionChanged() { if (!canvas.restoring) peek.close() } }
 
             ColumnLayout {
                 visible: !canvas.source.toString().length || canvas.error.length > 0

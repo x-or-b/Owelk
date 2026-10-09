@@ -97,6 +97,21 @@ Item {
             researchStore.ai.provider = before
             spy.destroy()
         }
+        function test_aiInstructionsAndPeekModelAreKept() {
+            settings.openPage("ai"); tryCompare(settings, "opened", true)
+            tryVerify(function() { return findChild(settings, "aiInstructions") !== null })
+            const instructions = findChild(settings, "aiInstructions")
+            instructions.text = "  Put English terms in brackets.  "
+            instructions.editingFinished()
+            compare(researchStore.setting("ai.instructions"), "Put English terms in brackets.")
+            const peek = findChild(settings, "aiPeekModelBox")
+            compare(peek.currentIndex, 0)
+            peek.activated(1)
+            compare(researchStore.setting("ai.peekModel"), "chat")
+            peek.activated(0)
+            researchStore.setSetting("ai.instructions", "")
+            settings.close()
+        }
         function test_darkPagesOnlyWhileOn() {
             if (!Theme.canInvertPages) skip("built without Qt ShaderTools")
             reader.visible = true
