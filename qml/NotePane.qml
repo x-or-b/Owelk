@@ -23,6 +23,7 @@ Rectangle {
     color: Theme.content
     function load() {
         loadedId = noteId
+        researchStore.markOpened("note", noteId)
         const row = researchStore.note(noteId)
         loading = true
         titleField.text = row.title || ""

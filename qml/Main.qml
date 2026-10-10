@@ -483,7 +483,7 @@ ApplicationWindow {
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
-            onNewNoteRequested: function(source) { if (!window.restoreFailed) documents.newNoteFor(source) }
+            onNewNoteRequested: function(source) { if (!window.restoreFailed) { if (source.toString().length) documents.newNoteFor(source); else documents.newNote() } }
             onAiRequested: function(spec) { window.askAi(spec) }
             visible: panels.length > 0
             Layout.preferredWidth: window.dockWidth(window.leftDockWidth); Layout.fillHeight: true
@@ -512,6 +512,7 @@ ApplicationWindow {
             onLibraryRequested: if (!window.restoreFailed) documents.openLibrary({})
             onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) documents.openLibrary(filter) }
             onWebRequested: function(url) { if (!window.restoreFailed) documents.openWeb(url, true) }
+            onNewNoteRequested: if (!window.restoreFailed) documents.newNote()
         }
         DocumentWorkspace {
             id: documents
@@ -549,7 +550,7 @@ ApplicationWindow {
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
             onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
-            onNewNoteRequested: function(source) { if (!window.restoreFailed) documents.newNoteFor(source) }
+            onNewNoteRequested: function(source) { if (!window.restoreFailed) { if (source.toString().length) documents.newNoteFor(source); else documents.newNote() } }
             onAiRequested: function(spec) { window.askAi(spec) }
             visible: panels.length > 0
             Layout.preferredWidth: window.dockWidth(window.rightDockWidth); Layout.fillHeight: true

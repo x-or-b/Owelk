@@ -16,6 +16,14 @@ ColumnLayout {
     Connections { target: researchStore; function onOcrChanged() { root.ocr = researchStore.ocrStatus() } }
     // Meaning search: off by default; an engine embeds the library in the background.
     SettingsGroup {
+        title: "PDF text index"
+        note: "The words of the PDFs you open, kept on this computer for search. Click for each PDF's state, pause, or retry."
+        SettingsRow {
+            label: "Status"
+            IndexStatus { Layout.fillWidth: true }
+        }
+    }
+    SettingsGroup {
         title: "Meaning search"
         note: "Finds passages, notes and answers by meaning as well as by words; results appear under \"Similar meaning\". Keyword search always works without it. "
             + "Ollama runs on this computer (install it, then `ollama pull nomic-embed-text`). OpenAI uses your OpenAI API key and is billed per use. Indexing pauses while you read."

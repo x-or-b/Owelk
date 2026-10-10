@@ -375,6 +375,10 @@ bool ResearchStore::initialize(QString *error)
                 return true;
             },
             true},
+        // When notes, AI conversations and collections were last opened on this computer (Home's order).
+        {16,
+            {"CREATE TABLE IF NOT EXISTS recent_items (kind TEXT NOT NULL, id TEXT NOT NULL, opened_at TEXT NOT NULL, "
+             "PRIMARY KEY(kind,id))"}},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     loadDocumentNames();

@@ -202,26 +202,34 @@ Item {
             compare(workspace.homeVisible, false)
             compare(canvas().currentPage, 2)
         }
-        function test_homeListsNotesConversationsAndInbox() {
-            const note = researchStore.createNote("Home note", "body")
+        function test_homeListsLastOpenedFirst() {
+            const older = researchStore.createNote("Older note", "body")
+            wait(5)
+            const newer = researchStore.createNote("Newer note", "body")
             const thread = researchStore.createAiThread({title: "Home question", provider: "claude", model: "m"})
             verify(researchStore.appendAiMessage(thread, {role: "user", content: "Home question"}))
-            const unsorted = testInput.copyFixture("inbox paper.pdf")
-            verify(researchStore.addDocuments([unsorted], "") === 1)
+            const first = researchStore.createCollection("Home A"), second = researchStore.createCollection("Home B")
+            wait(5)
+            // Opening the older note and the second collection brings them to the top.
+            researchStore.markOpened("note", older)
+            researchStore.markOpened("collection", second)
             workspace.showHome()
             const home = findChild(workspace, "homeView")
-            tryVerify(function() { return home.recentNotes.some(function(n) { return n.id === note }) })
-            tryVerify(function() { return home.recentThreads.some(function(t) { return t.id === thread }) })
-            tryVerify(function() { return home.inbox.some(function(p) { return researchStore.sameSource(p.url, unsorted) }) })
-            compare(findChild(home, "homeNote-0").text, "Home note")
-            compare(findChild(home, "homeThread-0").text, "Home question")
+            home.refreshLists()
+            compare(home.recentNotes[0].id, older)
+            compare(home.recentCollections[0].id, second)
+            verify(home.recentThreads.some(function(t) { return t.id === thread }))
+            compare(findChild(home, "homeNote-0").text, "Older note")
+            // The box holds just its rows inside a slot of fixed height.
+            const row = findChild(home, "homeNote-0"), box = row.ListView.view.parent
+            verify(box.height < box.parent.height)
             // A note opens in a tab (the row may be below the fold).
-            findChild(home, "homeNote-0").clicked()
-            tryVerify(function() { const g = Tree.find(workspace.documents.tree, workspace.documents.activeGroup); return g && g.tabs.some(function(t) { return t.id === g.activeTab && t.noteId === note }) })
-            workspace.documents.closeNoteTabs(note)
-            researchStore.deleteNote(note); researchStore.purgeNote(note)
+            row.clicked()
+            tryVerify(function() { const g = Tree.find(workspace.documents.tree, workspace.documents.activeGroup); return g && g.tabs.some(function(t) { return t.id === g.activeTab && t.noteId === older }) })
+            workspace.documents.closeNoteTabs(older)
+            for (const id of [older, newer]) { researchStore.deleteNote(id); researchStore.purgeNote(id) }
             researchStore.purgeAiThreads([thread])
-            researchStore.deletePapers([unsorted]); researchStore.emptyTrash()
+            researchStore.deleteCollection(first); researchStore.deleteCollection(second)
         }
         function test_alwaysStartsAtHome() {
             workspace.openDocument(fixtureSource)

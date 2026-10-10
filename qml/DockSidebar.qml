@@ -45,6 +45,7 @@ Rectangle {
             onFolderChosen: function(folder) { root.folderChosen(folder) }
             onLibraryFilterRequested: function(filter) { root.libraryFilterRequested(filter) }
             onNoteChosen: function(id) { root.linkActivated("owelk://note/" + id) }
+            onNewNoteRequested: root.newNoteRequested("")
         }
     }
     Component {

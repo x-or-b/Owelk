@@ -17,18 +17,17 @@ Rectangle {
     signal libraryRequested()
     // Unsorted chosen on Home: the Library opens filtered to it.
     signal libraryFilterRequested(var filter)
-    // What Home lists, read again when papers, notes or conversations change (and when shown).
+    // What Home lists, last opened first; read again when papers, notes or conversations change (and when shown).
+    property var recentCollections: []
     property var recentNotes: []
     property var recentThreads: []
-    property var inbox: []
-    property int unsorted: 0
     function refreshLists() {
         if (!visible) return
-        recentNotes = researchStore.notes(false).slice(0, 5)
-        recentThreads = researchStore.aiThreads().slice(0, 5)
-        unsorted = researchStore.unsortedCount()
-        inbox = unsorted ? researchStore.libraryDocuments({unsorted: true, sort: "added"}).slice(0, 30) : []
+        recentCollections = researchStore.recentItems("collection", 50)
+        recentNotes = researchStore.recentItems("note", 50)
+        recentThreads = researchStore.recentItems("ai", 50)
     }
+    signal newNoteRequested()
     onVisibleChanged: refreshLists()
     Component.onCompleted: refreshLists()
     Timer { id: listsLater; interval: 150; onTriggered: root.refreshLists() }
@@ -55,25 +54,43 @@ Rectangle {
         if (searchResults.currentIndex >= 0) searchResults.positionViewAtIndex(searchResults.currentIndex, ListView.Contain)
     }
     function focusSearch() { searchInput.forceActiveFocus(); searchInput.selectAll() }
-    // A rounded list box (like ListGroup) of a fixed height: seven recent-paper rows; longer lists scroll.
-    component ListBox: Rectangle {
+    // A list in a slot of fixed height (rows rows): the rounded box grows with its rows up to the slot,
+    // then scrolls, so the page keeps its layout however long each list is.
+    readonly property real rowStep: Theme.rowHeight + 4
+    component ListBox: Item {
+        id: slot
         property alias model: boxList.model
         property alias delegate: boxList.delegate
         property string empty: ""
+        property int rows: 7
         Layout.fillWidth: true
-        Layout.preferredHeight: 7 * (Theme.rowHeight + 4) + 6 + 8
-        radius: Theme.radiusLarge
-        color: Theme.content
-        border.color: Theme.separator
-        ListView {
-            id: boxList
-            anchors.fill: parent; anchors.margins: 4
-            clip: true
-            spacing: 1
-            boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar {}
+        Layout.preferredHeight: rows * root.rowStep + rows - 1 + 8
+        Rectangle {
+            width: parent.width
+            height: boxList.count ? Math.min(slot.height, boxList.contentHeight + 8) : root.rowStep + 8
+            radius: Theme.radiusLarge
+            color: Theme.content
+            border.color: Theme.separator
+            ListView {
+                id: boxList
+                anchors.fill: parent; anchors.margins: 4
+                clip: true
+                spacing: 1
+                boundsBehavior: Flickable.StopAtBounds
+                ScrollBar.vertical: ScrollBar {}
+            }
+            Label { anchors.centerIn: parent; visible: boxList.count === 0; text: slot.empty; color: Theme.textTertiary }
         }
-        Label { anchors.centerIn: parent; visible: boxList.count === 0; text: parent.empty; color: Theme.textTertiary }
+    }
+    // A box heading, with an optional + on the right.
+    component BoxHeading: RowLayout {
+        property alias text: heading.text
+        property alias adding: add.visible
+        property alias addDescription: add.description
+        signal added()
+        Layout.fillWidth: true
+        Label { id: heading; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32; Layout.fillWidth: true }
+        IconButton { id: add; visible: false; icon.name: "add"; onClicked: parent.added() }
     }
     Flickable {
         anchors.fill: parent
@@ -92,6 +109,7 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: 8
                 Label { text: "Search your research"; font.pixelSize: Theme.fontTitle; font.weight: Font.Medium; color: Theme.text }
+                SearchFilters { Layout.fillWidth: true; controller: searchModel }
                 TextField {
                     id: searchInput
                     objectName: "homeSearch"
@@ -108,23 +126,8 @@ Rectangle {
                     Keys.onUpPressed: searchResults.currentIndex = Math.max(0, searchResults.currentIndex - 1)
                     Keys.onEscapePressed: clear()
                 }
-                SearchFilters { Layout.fillWidth: true; controller: searchModel }
-                // The web, from the same page: an address opens it, words search with the chosen engine.
-                TextField {
-                    id: webInput
-                    objectName: "homeWebSearch"
-                    Layout.fillWidth: true
-                    implicitHeight: Theme.controlHeight + 6
-                    leftPadding: 30
-                    placeholderText: "Search the web or enter an address  ·  " + (researchStore.setting("searchEngine", "").indexOf("google.com/search") >= 0 ? "Google" : researchStore.setting("searchEngine", "").indexOf("duckduckgo") >= 0 ? "DuckDuckGo" : researchStore.setting("searchEngine", "").indexOf("arxiv") >= 0 ? "arXiv" : "Google Scholar")
-                    selectByMouse: true
-                    font.pixelSize: Theme.fontBody
-                    onAccepted: if (root.searchWeb(text)) clear()
-                    Keys.onEscapePressed: clear()
-                    // A globe: the web, not the library.
-                    Icon { x: 9; anchors.verticalCenter: parent.verticalCenter; name: "globe"; size: Theme.fontBody + 1; color: Theme.textTertiary }
-                }
-                IndexStatus { Layout.fillWidth: true }
+                // Only while PDFs are being indexed or some cannot be read (details in Settings › Search).
+                IndexStatus { Layout.fillWidth: true; quiet: true }
                 Label { Layout.fillWidth: true; visible: searchModel.error.length > 0; text: "PDF text search failed: " + searchModel.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
                 ListView {
                     id: searchResults
@@ -143,6 +146,27 @@ Rectangle {
                         onClicked: root.choose(modelData)
                     }
                     Label { anchors.centerIn: parent; visible: searchResults.count === 0; text: searchModel.waiting ? "Searching PDF text…" : searchModel.error.length ? "Text search failed. Try again." : "No matching saved items"; color: Theme.textTertiary }
+                }
+                // The web, from the same page: an address opens it, words search with the chosen engine.
+                TextField {
+                    id: webInput
+                    objectName: "homeWebSearch"
+                    Layout.fillWidth: true
+                    implicitHeight: Theme.controlHeight + 6
+                    leftPadding: 30
+                    placeholderText: "Search the web or enter an address  ·  " + (researchStore.setting("searchEngine", "").indexOf("google.com/search") >= 0 ? "Google" : researchStore.setting("searchEngine", "").indexOf("duckduckgo") >= 0 ? "DuckDuckGo" : researchStore.setting("searchEngine", "").indexOf("arxiv") >= 0 ? "arXiv" : "Google Scholar")
+                    selectByMouse: true
+                    font.pixelSize: Theme.fontBody
+                    onAccepted: if (root.searchWeb(text)) clear()
+                    Keys.onEscapePressed: clear()
+                    // A globe: the web, not the library.
+                    Icon { x: 9; anchors.verticalCenter: parent.verticalCenter; name: "globe"; size: Theme.fontBody + 1; color: Theme.textTertiary }
+                }
+                // Starting points: a PDF from disk, or the Library for the whole collection.
+                RowLayout {
+                    spacing: 6
+                    Button { objectName: "homeOpenPdf"; flat: true; text: "Open PDF…"; onClicked: root.openRequested() }
+                    Button { objectName: "homeOpenLibrary"; flat: true; text: "Library"; onClicked: root.libraryRequested() }
                 }
             }
             // The paper last read, as a card: click anywhere on it to go back to the page.
@@ -190,163 +214,107 @@ Rectangle {
                     }
                 }
             }
-            // What is waiting and what was read: the papers still to file beside recent papers, each in a
-            // box seven recent papers tall (scrolling past that).
-            RowLayout {
+            // Collections and recent papers, then notes and AI conversations; all last opened first.
+            GridLayout {
                 Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
-                spacing: 28
-                // Inbox: papers in no collection yet, newest first, with where similar papers already are.
+                columns: 2
+                columnSpacing: 28
+                rowSpacing: 18
                 ColumnLayout {
-                    objectName: "homeInbox"
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 1
-                    Layout.alignment: Qt.AlignTop
+                    objectName: "homeCollections"
+                    Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.alignment: Qt.AlignTop
                     spacing: 6
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Label { text: "Inbox"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32; Layout.fillWidth: true }
-                        Button {
-                            objectName: "homeUnsorted"
-                            visible: root.unsorted > 0
-                            flat: true
-                            text: "All Unsorted  " + root.unsorted
-                            font.pixelSize: Theme.fontSmall
-                            onClicked: root.libraryFilterRequested({unsorted: true})
-                        }
-                    }
+                    BoxHeading { text: "Collections" }
                     ListBox {
-                        model: root.inbox
-                        empty: "Every paper is in a collection."
+                        model: root.recentCollections
+                        empty: "No collections yet"
                         delegate: ItemDelegate {
-                            id: waiting
                             required property var modelData
                             required property int index
-                            objectName: "homeInbox-" + index
+                            objectName: "homeCollection-" + index
                             width: ListView.view.width
-                            separator: index < root.inbox.length - 1
-                            onClicked: root.documentChosen(modelData.url, modelData.position)
-                            // Up to two collections where similar papers already are.
-                            property var suggestions: []
-                            property int request: -1
-                            Component.onCompleted: request = researchStore.suggestCollections(modelData.url)
-                            Connections {
-                                target: researchStore
-                                enabled: waiting.request >= 0
-                                function onCollectionsSuggested(request, source, list) { if (request === waiting.request) waiting.suggestions = list }
-                            }
-                            contentItem: Column {
-                                spacing: 4
-                                Label { width: parent.width; text: waiting.modelData.name; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
-                                Label {
-                                    visible: !waiting.suggestions.length
-                                    width: parent.width
-                                    text: [waiting.modelData.authors, waiting.modelData.year].filter(function(t) { return t && String(t).length }).join("  ·  ") || " "
-                                    elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
-                                }
-                                Flow {
-                                    visible: waiting.suggestions.length > 0
-                                    width: parent.width
-                                    spacing: 4
-                                    Repeater {
-                                        model: waiting.suggestions
-                                        delegate: Chip {
-                                            required property var modelData
-                                            objectName: "homeSuggestion-" + modelData.name
-                                            text: "+ " + modelData.name
-                                            ToolTip.text: "Add to " + modelData.name
-                                            onClicked: { const url = waiting.modelData.url, id = modelData.id; Qt.callLater(function() { researchStore.setDocumentCollection(url, id, true) }) }
-                                        }
-                                    }
-                                }
+                            height: root.rowStep
+                            separator: index < root.recentCollections.length - 1
+                            rightPadding: 40
+                            text: modelData.name
+                            onClicked: root.libraryFilterRequested({collection: modelData.id})
+                            Label {
+                                anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter
+                                text: parent.modelData.count; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                             }
                         }
                     }
                 }
                 ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 1
-                    Layout.alignment: Qt.AlignTop
+                    Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.alignment: Qt.AlignTop
                     spacing: 6
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Label { text: "Recent Papers"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32; Layout.fillWidth: true }
-                        IconButton {
-                            objectName: "openLibraryButton"; icon.name: "library"
-                            description: "Library · " + Platform.keys("Ctrl+Shift+L")
-                            onClicked: root.libraryRequested()
-                        }
-                    }
+                    BoxHeading { text: "Recent Papers" }
                     ListBox {
                         model: researchStore.recentDocuments
                         empty: "No recent papers"
                         delegate: RecentPaperDelegate {
                             required property int index
                             width: ListView.view.width
-                            height: Theme.rowHeight + 4
+                            height: root.rowStep
                             separator: index < researchStore.recentDocuments.length - 1
                             onDocumentChosen: function(source, position) { root.documentChosen(source, position) }
                             onMenuRequested: function(row) { recentMenu.show(row) }
                         }
                     }
                 }
-            }
-            // Recent notes and AI conversations.
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
-                spacing: 28
                 ColumnLayout {
                     objectName: "homeNotes"
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 1
-                    Layout.alignment: Qt.AlignTop
+                    Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.alignment: Qt.AlignTop
                     spacing: 6
-                    Label { text: "Recent Notes"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32 }
-                    ListGroup {
-                        Layout.fillWidth: true
-                        visible: root.recentNotes.length > 0
-                        Repeater {
-                            model: root.recentNotes
-                            delegate: ItemDelegate {
-                                required property var modelData
-                                required property int index
-                                objectName: "homeNote-" + index
-                                width: parent.width
-                                height: Theme.rowHeight + 4
-                                separator: index < root.recentNotes.length - 1
-                                text: modelData.title
-                                onClicked: root.resultChosen({kind: "note", id: modelData.id})
-                            }
+                    BoxHeading { objectName: "homeNotesHeading"; text: "Notes"; adding: true; addDescription: "New note"; onAdded: root.newNoteRequested() }
+                    ListBox {
+                        rows: 5
+                        model: root.recentNotes
+                        empty: "No notes yet"
+                        delegate: ItemDelegate {
+                            required property var modelData
+                            required property int index
+                            objectName: "homeNote-" + index
+                            width: ListView.view.width
+                            height: root.rowStep
+                            separator: index < root.recentNotes.length - 1
+                            text: modelData.title
+                            onClicked: root.resultChosen({kind: "note", id: modelData.id})
                         }
                     }
-                    Label { visible: root.recentNotes.length === 0; text: "No notes yet"; color: Theme.textTertiary }
                 }
                 ColumnLayout {
                     objectName: "homeThreads"
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 1
-                    Layout.alignment: Qt.AlignTop
+                    Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.alignment: Qt.AlignTop
                     spacing: 6
-                    Label { text: "Recent AI Conversations"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32 }
-                    ListGroup {
-                        Layout.fillWidth: true
-                        visible: root.recentThreads.length > 0
-                        Repeater {
-                            model: root.recentThreads
-                            delegate: ItemDelegate {
-                                required property var modelData
-                                required property int index
-                                objectName: "homeThread-" + index
-                                width: parent.width
-                                height: Theme.rowHeight + 4
-                                separator: index < root.recentThreads.length - 1
-                                text: modelData.title
-                                onClicked: root.resultChosen({kind: "ai", id: modelData.id})
+                    BoxHeading { text: "AI Conversations" }
+                    ListBox {
+                        rows: 5
+                        model: root.recentThreads
+                        empty: "No conversations yet"
+                        // The question, and the paper it was about.
+                        delegate: ItemDelegate {
+                            id: threadRow
+                            required property var modelData
+                            required property int index
+                            objectName: "homeThread-" + index
+                            width: ListView.view.width
+                            height: root.rowStep
+                            separator: index < root.recentThreads.length - 1
+                            text: modelData.title
+                            onClicked: root.resultChosen({kind: "ai", id: modelData.id})
+                            contentItem: RowLayout {
+                                spacing: 8
+                                Label { Layout.fillWidth: true; text: threadRow.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                                Label {
+                                    visible: text.length > 0
+                                    Layout.maximumWidth: threadRow.width * .4
+                                    text: threadRow.modelData.paper || ""
+                                    elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                }
                             }
                         }
                     }
-                    Label { visible: root.recentThreads.length === 0; text: "No conversations yet"; color: Theme.textTertiary }
                 }
             }
         }

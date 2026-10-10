@@ -89,6 +89,7 @@ Rectangle {
     function setFilter(next) { filter = next; selection = []; selectionAnchor = -1; filterEdited(next); refresh() }
     function selected(key, value) { return key === "all" ? Object.keys(filter).length === 0 : filter[key] === value }
     onQueryChanged: refreshTimer.restart()
+    onFilterChanged: if (filter.collection) researchStore.markOpened("collection", filter.collection)
     onSortChanged: refresh()
     Component.onCompleted: refresh()
     Timer { id: refreshTimer; interval: 120; onTriggered: root.refresh() }

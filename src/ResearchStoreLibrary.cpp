@@ -87,6 +87,53 @@ QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
     return rows;
 }
 
+void ResearchStore::markOpened(const QString &kind, const QString &id)
+{
+    if (!QStringList{"note", "ai", "collection"}.contains(kind) || id.isEmpty()) return;
+    QSqlQuery query(m_database);
+    query.prepare("INSERT OR REPLACE INTO recent_items(kind,id,opened_at) VALUES(?,?,?)");
+    query.addBindValue(kind);
+    query.addBindValue(id);
+    query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+    query.exec();
+}
+
+QVariantList ResearchStore::recentItems(const QString &kind, int limit) const
+{
+    QVariantList rows;
+    QSqlQuery query(m_database);
+    if (kind == "note")
+        query.prepare("SELECT n.id,n.title FROM notes n LEFT JOIN recent_items r ON r.kind='note' AND r.id=n.id "
+                      "WHERE n.deleted_at IS NULL ORDER BY max(coalesce(r.opened_at,''),n.updated_at) DESC LIMIT ?");
+    else if (kind == "ai")
+        query.prepare("SELECT t.id,t.title,t.source FROM ai_threads t LEFT JOIN recent_items r ON r.kind='ai' AND "
+                      "r.id=t.id WHERE t.trashed_at IS NULL ORDER BY max(coalesce(r.opened_at,''),t.updated_at) DESC "
+                      "LIMIT ?");
+    else if (kind == "collection")
+        query.prepare(
+            "SELECT c.id,c.name,(SELECT count(*) FROM collection_documents cd JOIN documents d ON d.id=cd.document_id "
+            "WHERE cd.collection_id=c.id AND d.removed_at IS NULL),max(coalesce(r.opened_at,''),coalesce((SELECT "
+            "max(rd.opened_at) FROM collection_documents cd JOIN recent_documents rd ON rd.document_id=cd.document_id "
+            "WHERE cd.collection_id=c.id),'')) AS last FROM collections c LEFT JOIN recent_items r ON "
+            "r.kind='collection' AND r.id=c.id ORDER BY last DESC, c.name COLLATE NOCASE LIMIT ?");
+    else
+        return rows;
+    query.addBindValue(limit);
+    if (!query.exec()) return rows;
+    while (query.next()) {
+        if (kind == "note")
+            rows.append(QVariantMap{{"id", query.value(0)},
+                {"title", query.value(1).toString().isEmpty() ? "Untitled note" : query.value(1).toString()}});
+        else if (kind == "ai") {
+            const QUrl source(query.value(2).toString());
+            rows.append(QVariantMap{{"id", query.value(0)}, {"title", query.value(1)},
+                {"paper", source.isLocalFile() ? displayName(source) : QString()}});
+        } else
+            rows.append(QVariantMap{{"id", query.value(0)}, {"name", query.value(1)}, {"count", query.value(2)}});
+    }
+    return rows;
+}
+
 QVariantList ResearchStore::collections() const
 {
     QVariantList rows;

@@ -193,6 +193,7 @@ Item {
         if (!saved.id) return false
         reset()
         threadId = id; thread = saved
+        researchStore.markOpened("ai", id)
         conversationOpen = true
         // Continue with the model the thread used, when that provider is still set up.
         const info = ai.providers.find(function(p) { return p.id === saved.provider }) || ({})
@@ -308,7 +309,7 @@ Item {
         function onStarted(id, thread, provider, model, cut) {
             if (id !== root.request) return
             root.usedModel = model; root.truncated = cut
-            if (root.threadId !== thread) { root.threadId = thread; root.thread = researchStore.aiThread(thread) }
+            if (root.threadId !== thread) { root.threadId = thread; root.thread = researchStore.aiThread(thread); researchStore.markOpened("ai", thread) }
         }
         function onThinking(id, text) { if (id === root.request) root.thinkingText += text }
         function onDelta(id, text) {

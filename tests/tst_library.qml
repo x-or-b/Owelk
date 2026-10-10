@@ -38,7 +38,7 @@ Item {
             verify(researchStore.setReadingState(second, "read"))
             const home = findChild(workspace, "homeView")
             waitForPolish(home); wait(50) // Home lists many papers in a full run; click once laid out.
-            mouseClick(visualChild(home, "openLibraryButton"))
+            mouseClick(visualChild(home, "homeOpenLibrary"))
             compare(activeTab().kind, "library")
             const view = library()
             tryVerify(function() { return view.rows.length >= 2 })
@@ -105,9 +105,12 @@ Item {
             mouseClick(visibleChild(panel, "panelCollection-Panel Topic"))
             const view = library()
             tryVerify(function() { return view.filter.collection === topic })
+            // Favorites unfold in the panel; Open Library goes to the whole Library.
             mouseClick(visibleChild(panel, "panelFavorites"))
-            tryVerify(function() { return view.filter.favorite === true })
-            mouseClick(visibleChild(panel, "panelAllPapers"))
+            tryCompare(panel, "favoritesOpen", true)
+            mouseClick(visibleChild(panel, "panelFavorites"))
+            tryCompare(panel, "favoritesOpen", false)
+            mouseClick(visibleChild(panel, "panelOpenLibrary"))
             tryVerify(function() { return Object.keys(view.filter).length === 0 })
             // New and renamed collections from the panel.
             mouseClick(visibleChild(panel, "panelNewCollection"))

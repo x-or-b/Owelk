@@ -5,9 +5,9 @@ import QtQuick.Dialogs
 import Owelk.Ui
 import "WorkspaceTree.js" as Tree
 
-// The Library panel: a navigator beside the reader. All Papers, Unsorted and Favorites open the Library
-// tab with that list; then collections (drop a tab or a paper on one to file it), tags, recent notes and
-// the paper folder. Sections fold; the folder takes the rest.
+// The Library panel: the Library made compact beside the reader. Open Library goes to the Library tab
+// (for detailed work); Favorites unfolds the favorite papers; then collections (drop a tab or a paper
+// on one to file it), tags, recent notes and the paper folder. Sections fold; the folder takes the rest.
 Item {
     id: root
     objectName: "libraryPanel"
@@ -16,16 +16,22 @@ Item {
     property var documents: null
     signal libraryFilterRequested(var filter)
     signal noteChosen(string id)
+    signal newNoteRequested()
     property var collections: []
     property var tags: []
     property var notes: []
-    property int unsorted: 0
-    function refreshShelf() { collections = researchStore.collections(); tags = researchStore.tags(); unsorted = researchStore.unsortedCount() }
+    property var favorites: []
+    function refreshShelf() {
+        collections = researchStore.collections(); tags = researchStore.tags()
+        favorites = favoritesOpen ? researchStore.libraryDocuments({favorite: true, sort: "opened"}) : []
+    }
     function refreshNotes() { notes = researchStore.notes(false).slice(0, 5) }
     function sectionOpen(name, fallback) { return researchStore.setting("library.section." + name, fallback ? "1" : "0") === "1" }
     property bool collectionsOpen: sectionOpen("collections", true)
     property bool tagsOpen: sectionOpen("tags", false)
     property bool notesOpen: sectionOpen("notes", true)
+    property bool favoritesOpen: sectionOpen("favorites", false)
+    onFavoritesOpenChanged: refreshShelf()
     property bool folderOpen: sectionOpen("folder", true)
     function setSection(name, open) { researchStore.setSetting("library.section." + name, open ? "1" : "0") }
     Connections {
@@ -186,11 +192,12 @@ Item {
         property string glyph
         property var count
         property int depth: 0
+        property color glyphColor: Theme.textTertiary
         Layout.fillWidth: true
         implicitHeight: Theme.rowHeight
         leftPadding: 26 + 12 * depth
         rightPadding: 34
-        Icon { x: 6 + 12 * navRow.depth; anchors.verticalCenter: parent.verticalCenter; name: navRow.glyph; size: Theme.fontBody; color: Theme.textTertiary }
+        Icon { x: 6 + 12 * navRow.depth; anchors.verticalCenter: parent.verticalCenter; name: navRow.glyph; size: Theme.fontBody; color: navRow.glyphColor }
         Label {
             visible: navRow.count !== undefined
             anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
@@ -201,10 +208,33 @@ Item {
         anchors.fill: parent
         anchors.margins: 8
         spacing: 2
-        // --- Papers ---------------------------------------------------------------------------
-        NavigatorRow { objectName: "panelAllPapers"; glyph: "library"; text: "All Papers"; onClicked: root.libraryFilterRequested({}) }
-        NavigatorRow { objectName: "panelUnsorted"; glyph: "filter"; text: "Unsorted"; count: root.unsorted; onClicked: root.libraryFilterRequested({unsorted: true}) }
-        NavigatorRow { objectName: "panelFavorites"; glyph: "star"; text: "Favorites"; onClicked: root.libraryFilterRequested({favorite: true}) }
+        // --- Library and favorites ------------------------------------------------------------
+        NavigatorRow { objectName: "panelOpenLibrary"; glyph: "library"; text: "Open Library"; onClicked: root.libraryFilterRequested({}) }
+        // Favorites unfold here (up to ten; the rest in the Library); the star stays the sign.
+        NavigatorRow {
+            objectName: "panelFavorites"
+            glyph: "star"; text: "Favorites"
+            glyphColor: root.favoritesOpen ? Theme.accent : Theme.textTertiary
+            onClicked: { root.favoritesOpen = !root.favoritesOpen; root.setSection("favorites", root.favoritesOpen) }
+        }
+        Repeater {
+            model: root.favoritesOpen ? root.favorites.slice(0, 10) : []
+            delegate: NavigatorRow {
+                required property var modelData
+                required property int index
+                objectName: "panelFavorite-" + index
+                depth: 1; glyph: "document"; text: modelData.name
+                onClicked: root.documentChosen(modelData.url)
+            }
+        }
+        NavigatorRow {
+            objectName: "panelAllFavorites"
+            visible: root.favoritesOpen && (root.favorites.length > 10 || !root.favorites.length)
+            depth: 1; glyph: "more"
+            text: root.favorites.length ? "All Favorites  " + root.favorites.length : "No favorites yet"
+            enabled: root.favorites.length > 0
+            onClicked: root.libraryFilterRequested({favorite: true})
+        }
         Item { implicitHeight: 4 }
         // --- Collections ----------------------------------------------------------------------
         SectionHeader {
@@ -280,6 +310,7 @@ Item {
             objectName: "notesSection"
             title: "Notes"; open: root.notesOpen
             onToggled: { root.notesOpen = !root.notesOpen; root.setSection("notes", root.notesOpen) }
+            IconButton { objectName: "panelNewNote"; icon.name: "add"; description: "New note"; width: 22; height: 22; glyphSize: Theme.fontBody; onClicked: root.newNoteRequested() }
         }
         Repeater {
             model: root.notesOpen ? root.notes : []

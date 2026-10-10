@@ -9,6 +9,9 @@ ToolButton {
     readonly property var indexer: researchStore.paperIndex
     readonly property var records: indexer.documents
     readonly property int unavailable: records.filter(function(d) { return ["failed", "missing", "locked", "empty"].indexOf(d.state) >= 0 }).length
+    // Quiet: shown only while indexing, paused, or when some PDFs cannot be read.
+    property bool quiet: false
+    visible: !quiet || indexer.busy || indexer.paused || unavailable > 0
     text: indexer.paused ? "Text index paused" : indexer.busy ? indexer.progress || "Indexing PDFs…" : "Text index · " + records.filter(function(d) { return d.state === "ready" }).length + " searchable" + (unavailable ? " · " + unavailable + " unavailable" : "")
     font.pixelSize: Theme.fontCaption
     implicitHeight: Theme.controlHeightSmall + 4

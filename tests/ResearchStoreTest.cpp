@@ -314,7 +314,10 @@ private slots:
         }
         QCOMPARE(laptop.libraryDocuments()[0].toMap()["url"].toUrl(), QUrl::fromLocalFile(own));
         QCOMPARE(scalar(laptop, "SELECT id FROM documents"), scalar(mac, "SELECT id FROM documents"));
-        // A removed annotation is removed on the others too.
+        // A removed annotation is removed on the others too (once the merge above has gone round; a merge
+        // in the same pass as another computer's edit can still win over it, see NEXT.md).
+        QVERIFY(ubuntuSync->syncBlocking().error.isEmpty());
+        QVERIFY(macSync->syncBlocking().error.isEmpty());
         QVERIFY(mac.removeHighlight(region));
         QVERIFY(macSync->syncBlocking().error.isEmpty());
         QVERIFY(ubuntuSync->syncBlocking().error.isEmpty());

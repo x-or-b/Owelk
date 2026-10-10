@@ -127,6 +127,11 @@ public:
     // Library organisation (ResearchStoreLibrary.cpp). Filters: see libraryDocuments().
     Q_INVOKABLE QVariantList libraryDocuments(const QVariantMap &filter = {}) const;
     Q_INVOKABLE QVariantList collections() const;
+    // Last opened on this computer: notes, AI conversations ("ai") and collections, most recent first
+    // (a note or conversation also counts when it was last changed; a collection when one of its papers
+    // was last opened). Rows: note {id, title}, ai {id, title, paper}, collection {id, name, count}.
+    Q_INVOKABLE void markOpened(const QString &kind, const QString &id);
+    Q_INVOKABLE QVariantList recentItems(const QString &kind, int limit) const;
     // Papers in no collection (the Library's Unsorted view).
     Q_INVOKABLE int unsortedCount() const;
     // Modifier keys of the current input event (list rows: Cmd/Ctrl-click and Shift-click select).

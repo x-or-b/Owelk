@@ -433,6 +433,7 @@ Rectangle {
                 onLibraryRequested: { root.controller.activateGroup(root.groupId); root.controller.openLibrary({}) }
                 onLibraryFilterRequested: function(filter) { root.controller.activateGroup(root.groupId); root.controller.openLibrary(filter) }
                 onWebRequested: function(url) { root.controller.activateGroup(root.groupId); root.controller.openWeb(url) }
+                onNewNoteRequested: { root.controller.activateGroup(root.groupId); root.controller.newNote() }
                 TapHandler { onPressedChanged: if (pressed) root.controller.activateGroup(root.groupId) }
             }
         }
