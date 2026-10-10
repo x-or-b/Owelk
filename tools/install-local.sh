@@ -67,8 +67,7 @@ install_macos() {
     touch "$target"
     # Finder's Open With and the Dock pick up the new copy (and its icon).
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$target" || true
-    say "Done. Open Owelk from ~/Applications, Spotlight or Launchpad."
-    echo "To open PDFs with it by default: Finder → a PDF → Get Info → Open with: Owelk → Change All."
+    say "Done."
 }
 
 install_linux() {
@@ -118,9 +117,8 @@ EOF
     sed "s|^Exec=.*|Exec=$home/bin/owelk %F|" "$ROOT/resources/app/owelk.desktop" > "$home/share/applications/owelk.desktop"
     update-desktop-database "$home/share/applications" >/dev/null 2>&1 || true
     gtk-update-icon-cache -q "$home/share/icons/hicolor" >/dev/null 2>&1 || true
-    say "Done. Owelk is in the app menu, or run: owelk"
+    say "Done."
     case ":$PATH:" in *":$home/bin:"*) ;; *) echo "($home/bin is not on PATH; the menu entry works regardless.)" ;; esac
-    echo "To open PDFs with it by default: xdg-mime default owelk.desktop application/pdf"
 }
 
 case "$(uname -s)" in
