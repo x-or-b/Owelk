@@ -395,6 +395,15 @@ bool Pass::rekey(const QString &table, const QString &from, const QString &to)
     // References move with the triggers on, so the other computers hear about them.
     if (!run("DELETE FROM sync_pause")) return false;
     QList<QPair<QString, QVariantList>> statements;
+    // Annotations moved onto the merged paper keep (just past) their version time instead of taking now:
+    // the move is no edit of theirs, so an edit made meanwhile on another computer, read in the same
+    // pass, still wins. Rows with a local change not sent yet keep that change's time.
+    if (table == "documents"
+        && (!run("CREATE TEMP TABLE IF NOT EXISTS sync_moved(key TEXT PRIMARY KEY)") || !run("DELETE FROM sync_moved")
+            || !run("INSERT INTO sync_moved SELECT json_array(id) FROM highlights WHERE document_id=? AND "
+                    "json_array(id) NOT IN (SELECT key FROM sync_dirty WHERE tbl='highlights')",
+                {from})))
+        return false;
     if (table == "documents") {
         for (const auto *child :
             {"recent_documents", "reading_positions", "collection_documents", "document_tags", "highlights"})
@@ -408,6 +417,11 @@ bool Pass::rekey(const QString &table, const QString &from, const QString &to)
     }
     for (const auto &[sql, args] : std::as_const(statements))
         if (!run(sql, args)) return false;
+    if (table == "documents"
+        && !run("UPDATE sync_dirty SET time=(SELECT r.time+1 FROM sync_rows r WHERE r.tbl='highlights' AND "
+                "r.key=sync_dirty.key) WHERE tbl='highlights' AND key IN (SELECT key FROM sync_moved) AND "
+                "EXISTS(SELECT 1 FROM sync_rows r WHERE r.tbl='highlights' AND r.key=sync_dirty.key)"))
+        return false;
     // The row itself takes the incoming ID quietly; the old ID is announced as gone.
     if (!run("INSERT INTO sync_pause(paused) VALUES(1)") || !run("UPDATE " + table + " SET id=? WHERE id=?", {to, from})
         || !run("INSERT OR REPLACE INTO sync_dirty(tbl,key,time,device) VALUES(?,?," + nowMs + ",NULL)",

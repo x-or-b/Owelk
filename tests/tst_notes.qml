@@ -80,6 +80,20 @@ Item {
             tryVerify(function() { return !researchStore.note(id).deleted })
             workspace.navigationMode = 0
         }
+        function test_emptyNewNoteIsNotKept() {
+            const empty = workspace.documents.newNote()
+            verify(empty.length > 0)
+            workspace.documents.closeActiveTab()
+            tryVerify(function() { return researchStore.note(empty).id === undefined })
+            // One with words stays, typed text included.
+            const kept = workspace.documents.newNote()
+            tryVerify(function() { return findChild(pane(), "noteBody") !== null })
+            findChild(pane(), "noteBody").text = "a thought"
+            workspace.documents.closeActiveTab()
+            wait(50)
+            compare(researchStore.note(kept).body, "a thought")
+            researchStore.deleteNote(kept); researchStore.purgeNote(kept)
+        }
         function test_linkPickerInsertsMarkdownLink() {
             const id = workspace.documents.newNote()
             const note = pane()

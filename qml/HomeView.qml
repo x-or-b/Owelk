@@ -54,12 +54,12 @@ Rectangle {
         if (searchResults.currentIndex >= 0) searchResults.positionViewAtIndex(searchResults.currentIndex, ListView.Contain)
     }
     function focusSearch() { searchInput.forceActiveFocus(); searchInput.selectAll() }
-    // A list in a slot of fixed height (rows rows): the rounded box grows with its rows up to the slot,
-    // then scrolls, so the page keeps its layout however long each list is.
+    // A list in a slot of fixed height (rows rows): the rounded box grows with its rows up to the slot and
+    // shows no more (the rest is in the Library), so the page keeps its layout however long each list is.
     readonly property real rowStep: Theme.rowHeight + 4
     component ListBox: Item {
         id: slot
-        property alias model: boxList.model
+        property var model: []
         property alias delegate: boxList.delegate
         property string empty: ""
         property int rows: 7
@@ -74,23 +74,41 @@ Rectangle {
             ListView {
                 id: boxList
                 anchors.fill: parent; anchors.margins: 4
-                clip: true
+                interactive: false
                 spacing: 1
-                boundsBehavior: Flickable.StopAtBounds
-                ScrollBar.vertical: ScrollBar {}
+                model: slot.model.slice(0, slot.rows)
             }
             Label { anchors.centerIn: parent; visible: boxList.count === 0; text: slot.empty; color: Theme.textTertiary }
         }
     }
-    // A box heading, with an optional + on the right.
+    // A box heading, with an optional + on the right. A heading that goes somewhere (opened) shows a
+    // chevron and the hover colour.
     component BoxHeading: RowLayout {
+        id: boxHeading
         property alias text: heading.text
         property alias adding: add.visible
         property alias addDescription: add.description
+        property bool goes: false
         signal added()
+        signal opened()
         Layout.fillWidth: true
-        Label { id: heading; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32; Layout.fillWidth: true }
-        IconButton { id: add; visible: false; icon.name: "add"; onClicked: parent.added() }
+        Layout.preferredHeight: 32
+        Item {
+            Layout.fillWidth: true; Layout.fillHeight: true
+            Row {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 4
+                Label {
+                    id: heading
+                    font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold
+                    color: boxHeading.goes && headingHover.hovered ? Theme.accent : Theme.text
+                }
+                Icon { visible: boxHeading.goes; anchors.verticalCenter: parent.verticalCenter; name: "right"; size: Theme.fontBody; color: headingHover.hovered ? Theme.accent : Theme.textTertiary }
+                HoverHandler { id: headingHover; enabled: boxHeading.goes; cursorShape: Qt.PointingHandCursor }
+                TapHandler { enabled: boxHeading.goes; onTapped: boxHeading.opened() }
+            }
+        }
+        IconButton { id: add; visible: false; icon.name: "add"; onClicked: boxHeading.added() }
     }
     Flickable {
         anchors.fill: parent
@@ -224,7 +242,7 @@ Rectangle {
                     objectName: "homeCollections"
                     Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.alignment: Qt.AlignTop
                     spacing: 6
-                    BoxHeading { text: "Collections" }
+                    BoxHeading { objectName: "homeCollectionsHeading"; text: "Collections"; goes: true; onOpened: root.libraryFilterRequested({}) }
                     ListBox {
                         model: root.recentCollections
                         empty: "No collections yet"
@@ -234,7 +252,7 @@ Rectangle {
                             objectName: "homeCollection-" + index
                             width: ListView.view.width
                             height: root.rowStep
-                            separator: index < root.recentCollections.length - 1
+                            separator: index < Math.min(7, root.recentCollections.length) - 1
                             rightPadding: 40
                             text: modelData.name
                             onClicked: root.libraryFilterRequested({collection: modelData.id})
@@ -256,7 +274,7 @@ Rectangle {
                             required property int index
                             width: ListView.view.width
                             height: root.rowStep
-                            separator: index < researchStore.recentDocuments.length - 1
+                            separator: index < Math.min(7, researchStore.recentDocuments.length) - 1
                             onDocumentChosen: function(source, position) { root.documentChosen(source, position) }
                             onMenuRequested: function(row) { recentMenu.show(row) }
                         }
@@ -266,7 +284,7 @@ Rectangle {
                     objectName: "homeNotes"
                     Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.alignment: Qt.AlignTop
                     spacing: 6
-                    BoxHeading { objectName: "homeNotesHeading"; text: "Notes"; adding: true; addDescription: "New note"; onAdded: root.newNoteRequested() }
+                    BoxHeading { objectName: "homeNotesHeading"; text: "Notes"; goes: true; onOpened: root.libraryFilterRequested({view: "notes"}); adding: true; addDescription: "New note"; onAdded: root.newNoteRequested() }
                     ListBox {
                         rows: 5
                         model: root.recentNotes
@@ -277,7 +295,7 @@ Rectangle {
                             objectName: "homeNote-" + index
                             width: ListView.view.width
                             height: root.rowStep
-                            separator: index < root.recentNotes.length - 1
+                            separator: index < Math.min(5, root.recentNotes.length) - 1
                             text: modelData.title
                             onClicked: root.resultChosen({kind: "note", id: modelData.id})
                         }
@@ -300,7 +318,7 @@ Rectangle {
                             objectName: "homeThread-" + index
                             width: ListView.view.width
                             height: root.rowStep
-                            separator: index < root.recentThreads.length - 1
+                            separator: index < Math.min(5, root.recentThreads.length) - 1
                             text: modelData.title
                             onClicked: root.resultChosen({kind: "ai", id: modelData.id})
                             contentItem: RowLayout {

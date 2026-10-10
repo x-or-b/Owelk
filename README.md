@@ -152,7 +152,8 @@ Settings → Appearance → Tabs에서 `Horizontal`(기본) / `Vertical`을 고�
 - 범위 칩 아래 검색창, 그 바로 아래에 결과가 뜹니다. 본문 색인 상태는 색인 중이거나 읽지 못한 PDF가 있을 때만 한 줄로 보이고, 자세한 내용은 Settings → Search의 `PDF text index`에 있습니다.
 - 그 아래 `Search the web or enter an address` 칸은 주소를 열거나 설정한 검색 엔진으로 웹을 검색합니다(웹 탭). `Open PDF…`와 `Library` 버튼이 이어집니다.
 - **Continue Reading** 카드(제목·저자·연도·쪽)를 누르면 마지막 활성 문서의 페이지·스크롤·배율을 복원합니다. 최근 PDF도 개별 읽기 위치를 기억합니다.
-- 아래는 네 칸입니다: **Collections | Recent Papers**(7줄 자리), **Notes | AI Conversations**(5줄 자리, Notes의 `+`는 새 노트). 모두 이 컴퓨터에서 마지막으로 연 순서이고(노트·대화는 마지막으로 고친 때도 셈, Collection은 그 안의 논문을 연 때도 셈), 칸 상자는 항목 수만큼 커지다가 자리를 넘으면 안에서 스크롤합니다.
+- 아래는 네 칸입니다: **Collections | Recent Papers**(7개), **Notes | AI Conversations**(5개, Notes의 `+`는 새 노트). 모두 이 컴퓨터에서 마지막으로 연 순서이고(노트·대화는 마지막으로 고친 때도 셈, Collection은 그 안의 논문을 연 때도 셈), 칸 상자는 항목 수만큼만 커집니다. `Collections ›`·`Notes ›` 제목을 누르면 Library의 Papers·Notes로 갑니다.
+- Settings → Appearance → `On launch`에서 실행할 때 Home을 띄울지, 지난 탭으로 바로 갈지 고릅니다.
 - 이름 검색은 최근 표시 개수 밖의 저장된 항목도 찾습니다(종류별 최대 20개 결과). 본문은 논문별 3개 미리보기이며 더 보기로 확장합니다.
 - 네이티브 다중 창과 새 창 전용 Home 흐름은 아직 없습니다. 같은 데이터 폴더를 여러 앱 인스턴스에서 동시에 열지 마세요.
 
@@ -196,7 +197,7 @@ PDF의 문서 정보와 첫 페이지에서 제목·저자·연도·DOI·arXiv I
 
 ## 노트와 연결
 
-- `⇧⌘N`(File → New Note) 또는 명령 팔레트 `new note`로 PDF와 별개인 Markdown 노트를 탭으로 엽니다. 입력을 멈추면 0.6초 뒤 자동 저장합니다. `Preview`로 렌더링된 노트를 보고 링크를 누르면 원본(논문·주석·다른 노트)으로 이동합니다.
+- `⇧⌘N`(File → New Note) 또는 명령 팔레트 `new note`로 PDF와 별개인 Markdown 노트를 탭으로 엽니다. 입력을 멈추면 0.6초 뒤 자동 저장합니다. 제목도 내용도 없이 탭을 닫은 노트는 남기지 않습니다. `Preview`로 렌더링된 노트를 보고 링크를 누르면 원본(논문·주석·다른 노트)으로 이동합니다.
 - 본문에 `[[`를 입력하거나 링크 아이콘을 누르면 논문·주석·노트를 찾아 `[제목](owelk://종류/ID)` 링크를 넣습니다.
 - 주석 우클릭 → `Link to Note…`로 기존 노트 끝이나 새 노트에 링크를 추가합니다.
 - Document 패널 Annotations의 위쪽은 지금 논문(또는 그 주석)을 링크한 노트를, 노트 아래 `Linked from`은 그 노트를 링크한 항목을 보여 줍니다. 명령 `New Note about This Paper`도 이 논문 링크가 든 노트를 옆 분할에 엽니다.

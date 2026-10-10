@@ -139,6 +139,18 @@ ColumnLayout {
                 TabButton { objectName: "verticalTabsOption"; text: "Vertical"; width: 96; onClicked: Theme.verticalTabs = true }
             }
         }
+        // What a new launch shows: Home (the tabs wait behind it) or the tabs as they were left.
+        SettingsRow {
+            label: "On launch"
+            TabBar {
+                id: startupBar
+                objectName: "startupView"
+                property string chosen: researchStore.setting("startup.view", "home")
+                currentIndex: chosen === "tabs" ? 1 : 0
+                TabButton { text: "Home"; width: 96; onClicked: { startupBar.chosen = "home"; researchStore.setSetting("startup.view", "home") } }
+                TabButton { objectName: "startupTabsOption"; text: "Last Tabs"; width: 96; onClicked: { startupBar.chosen = "tabs"; researchStore.setSetting("startup.view", "tabs") } }
+            }
+        }
     }
     SettingsGroup {
         title: "Text"

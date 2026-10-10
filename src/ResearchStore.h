@@ -172,6 +172,8 @@ public:
     Q_INVOKABLE bool deleteNote(const QString &id);
     Q_INVOKABLE bool restoreNote(const QString &id);
     Q_INVOKABLE bool purgeNote(const QString &id);
+    // A note with neither title nor text is deleted outright (a New Note left as it was); false otherwise.
+    Q_INVOKABLE bool discardEmptyNote(const QString &id);
     // Adds Markdown at the end of a note (a blank line before it). A note open with unsaved edits
     // takes the same text through noteAppended, so neither side loses words.
     Q_INVOKABLE bool appendToNote(const QString &noteId, const QString &markdown);

@@ -422,6 +422,9 @@ Flickable {
     function closeTab(id) {
         const g = Tree.owner(tree, id)
         if (!g) return
+        // A note being edited is saved first, so what is kept (or found empty) is what was typed.
+        const view = groupView(g.id)
+        if (view && g.activeTab === id && view.isNote) view.saveNote()
         prepare()
         const at = g.tabs.findIndex(function(t) { return t.id === id })
         closedTabs = closedTabs.concat([{groupId: g.id, tab: Tree.clone(g.tabs[at])}]).slice(-20)
@@ -430,6 +433,11 @@ Flickable {
         tree = Tree.prune(tree) || Tree.group([])
         if (!Tree.find(tree, activeGroup)) activeGroup = Tree.leaves(tree)[0].id
         sync(); changed()
+        // A note left without a title or a word is not kept (after its editor has saved).
+        const closed = closedTabs[closedTabs.length - 1].tab
+        if (closed.kind === "note") Qt.callLater(function() {
+            if (researchStore.discardEmptyNote(closed.noteId)) root.closedTabs = root.closedTabs.filter(function(c) { return c.tab.noteId !== closed.noteId })
+        })
         if (!Tree.leaves(tree).some(function(g) { return g.tabs.length })) empty()
     }
     // --- Named tab groups (inside one tab strip) ---------------------------------------------

@@ -208,7 +208,8 @@ ApplicationWindow {
         // Files from the command line, Finder or a second launch made before the window was ready.
         const external = initialFiles.concat(typeof appInstance !== "undefined" ? appInstance.takePending() : [])
         if (!restoreFailed) for (let i = 0; i < external.length; ++i) documents.openDocument(external[i])
-        homeVisible = restoreFailed || external.length === 0
+        // Home, unless the reader chose to come back to the last tabs (Settings › Appearance) and there are some.
+        homeVisible = restoreFailed || (external.length === 0 && !(researchStore.setting("startup.view", "home") === "tabs" && documents.hasTabs))
         if (!restoreFailed) persist()
         // After a restore or an unexpected exit, say what happened.
         if (!restoreFailed && researchStore.startupMessage.length) notify(researchStore.startupMessage)

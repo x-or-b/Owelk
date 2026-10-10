@@ -120,6 +120,20 @@ bool ResearchStore::restoreNote(const QString &id)
     return true;
 }
 
+bool ResearchStore::discardEmptyNote(const QString &id)
+{
+    QSqlQuery query(m_database);
+    query.prepare("DELETE FROM notes WHERE id=? AND trim(title)='' AND trim(body)=''");
+    query.addBindValue(id);
+    if (!query.exec() || query.numRowsAffected() != 1) return false;
+    query.prepare("DELETE FROM links WHERE (from_kind='note' AND from_id=?) OR (to_kind='note' AND to_id=?)");
+    query.addBindValue(id);
+    query.addBindValue(id);
+    query.exec();
+    emit notesChanged();
+    return true;
+}
+
 bool ResearchStore::purgeNote(const QString &id)
 {
     // Only a note already in trash can be deleted permanently; links from and to it go with it.

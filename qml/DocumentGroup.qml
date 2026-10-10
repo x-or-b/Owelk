@@ -17,6 +17,7 @@ Rectangle {
     readonly property bool isNote: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "note" })
     function focusNoteTitle() { if (noteLoader.item) noteLoader.item.focusTitle() }
     function focusNoteBody() { if (noteLoader.item) noteLoader.item.focusBody() }
+    function saveNote() { if (noteLoader.item) noteLoader.item.save() }
     readonly property bool isLibrary: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "library" })
     readonly property var activeTabData: groupData.tabs.find(function(t) { return t.id === groupData.activeTab }) || null
     // Web tabs keep their page (scroll, forms, back history) when you switch away and back: the most
