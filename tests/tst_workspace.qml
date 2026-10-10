@@ -231,6 +231,24 @@ Item {
             researchStore.purgeAiThreads([thread])
             researchStore.deleteCollection(first); researchStore.deleteCollection(second)
         }
+        function test_controlTabGoesBackAndForth() {
+            const d = workspace.documents
+            d.openDocument(fixtureSource, null, true); canvas()
+            const first = d.tree.activeTab || Tree.find(d.tree, d.activeGroup).activeTab
+            d.openDocument(outlineSource, null, true); canvas()
+            const second = Tree.find(d.tree, d.activeGroup).activeTab
+            d.openDocument(fixtureSource, null, true); canvas()
+            const third = Tree.find(d.tree, d.activeGroup).activeTab
+            researchStore.setSetting("tabs.controlTab", "recent")
+            workspace.controlTab(1)
+            compare(Tree.find(d.tree, d.activeGroup).activeTab, second)
+            workspace.controlTab(1)
+            compare(Tree.find(d.tree, d.activeGroup).activeTab, third)
+            researchStore.setSetting("tabs.controlTab", "next")
+            workspace.controlTab(1)
+            verify(Tree.find(d.tree, d.activeGroup).activeTab !== third)
+            verify(first.length > 0)
+        }
         function test_alwaysStartsAtHome() {
             workspace.openDocument(fixtureSource)
             canvas(); workspace.persist()

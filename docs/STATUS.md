@@ -27,7 +27,7 @@
 - Document 패널 네 칸: Contents(Outline·Pages), Annotations(이 논문에 대한 노트 + 모든 주석; 리더 옆 메모 열을 대신함), Symbols, Related(Library·Cites·Cited by). 새 노트는 논문 옆 분할에 링크와 함께 열림.
 - AI 답변 Save as Note: 질문 인용, 이 논문의 노트에 덧붙이기. 노트의 AI 링크는 휴지통이면 Restore 안내, 영구 삭제면 회색 `Deleted conversation`.
 - Library: Papers · Notes · Trash, 논문·노트·AI 대화를 함께 담는 휴지통(지울 항목을 링크한 노트가 있으면 먼저 알림, 기간이 지나면 노트도 자동 삭제). Library 패널은 Open Library·펼쳐지는 Favorites·Collections·Tags·Notes(+).
-- Home: 검색과 웹 검색, Open PDF·Library 버튼, 이어 읽기 카드, Collections | Recent Papers, Notes | AI Conversations(마지막으로 연 순서, 고정 자리 안에서 상자가 항목 수만큼). 본문 색인 상태는 색인 중·실패일 때만 보이고 Settings → Search로 옮김.
+- Home: 검색과 웹 검색, 이어 읽기 카드, Collections | Recent Papers, Notes | AI Conversations(마지막으로 연 순서, 고정 자리 안에서 상자가 항목 수만큼). 본문 색인 상태는 색인 중·실패일 때만 보이고 Settings → Search로 옮김.
 
 ## 지난 단계 (2026-10-09): 어려운 부분 읽기 돕기
 

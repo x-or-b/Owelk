@@ -94,6 +94,21 @@ Item {
             compare(researchStore.note(kept).body, "a thought")
             researchStore.deleteNote(kept); researchStore.purgeNote(kept)
         }
+        function test_doneClosesTheNoteAndGoesBack() {
+            workspace.documents.openDocument(fixtureSource, null, true)
+            tryVerify(function() { return activeTab() && activeTab().kind === undefined })
+            const paperTab = activeTab().id
+            const id = workspace.documents.newNote()
+            tryVerify(function() { return findChild(pane(), "noteBody") !== null })
+            findChild(pane(), "noteBody").text = "done here"
+            compare(findChild(pane(), "noteSaved").opacity, 0)
+            const done = findChild(pane(), "noteDone")
+            waitForPolish(done); wait(30)
+            mouseClick(done)
+            tryVerify(function() { return activeTab() && activeTab().id === paperTab }, 3000, JSON.stringify(activeTab()) + " " + paperTab + " " + researchStore.note(id).body)
+            compare(researchStore.note(id).body, "done here")
+            researchStore.deleteNote(id); researchStore.purgeNote(id)
+        }
         function test_linkPickerInsertsMarkdownLink() {
             const id = workspace.documents.newNote()
             const note = pane()

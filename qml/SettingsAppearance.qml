@@ -139,6 +139,18 @@ ColumnLayout {
                 TabButton { objectName: "verticalTabsOption"; text: "Vertical"; width: 96; onClicked: Theme.verticalTabs = true }
             }
         }
+        // Control+Tab: through the tabs in order, or back and forth between the last two used.
+        SettingsRow {
+            label: Qt.platform.os === "osx" ? "\u2303Tab" : "Ctrl+Tab"
+            TabBar {
+                id: controlTabBar
+                objectName: "controlTabMode"
+                property string chosen: researchStore.setting("tabs.controlTab", "next")
+                currentIndex: chosen === "recent" ? 1 : 0
+                TabButton { text: "Next Tab"; width: 96; onClicked: { controlTabBar.chosen = "next"; researchStore.setSetting("tabs.controlTab", "next") } }
+                TabButton { objectName: "controlTabRecent"; text: "Last Used"; width: 96; onClicked: { controlTabBar.chosen = "recent"; researchStore.setSetting("tabs.controlTab", "recent") } }
+            }
+        }
         // What a new launch shows: Home (the tabs wait behind it) or the tabs as they were left.
         SettingsRow {
             label: "On launch"

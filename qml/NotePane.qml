@@ -38,9 +38,19 @@ Rectangle {
         if (!dirty || !loadedId.length) return true
         if (!researchStore.saveNote(loadedId, titleField.text, body.text)) return false
         dirty = false
+        savedMark.restart()
         controller.updateNoteTab(loadedId, titleField.text)
         related = researchStore.relatedNotes(loadedId)
         return true
+    }
+    // Done (or Esc): saved, the tab closes and the one before comes back (an empty note is not kept).
+    function done() { if (save()) controller.finishNote(loadedId) }
+    Timer { id: savedMark; interval: 1500 }
+    Shortcut {
+        objectName: "noteDoneShortcut"
+        sequence: "Escape"
+        enabled: root.isActive && root.visible && !linkPicker.opened
+        onActivated: root.done()
     }
     function focusTitle() { preview = false; titleField.forceActiveFocus() }
     function focusBody() { preview = false; body.cursorPosition = body.length; body.forceActiveFocus() }
@@ -121,6 +131,15 @@ Rectangle {
                 objectName: "noteInsertLink"; icon.name: "link"; description: "Insert link · [["
                 onClicked: { root.preview = false; linkPicker.open() }
             }
+            // Saving is automatic; a quiet word says it happened.
+            Label {
+                objectName: "noteSaved"
+                text: "Saved"
+                opacity: savedMark.running ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 200 } }
+                font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+            }
+            Button { objectName: "noteDone"; text: "Done"; onClicked: root.done() }
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }
         ScrollView {

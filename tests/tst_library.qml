@@ -38,7 +38,7 @@ Item {
             verify(researchStore.setReadingState(second, "read"))
             const home = findChild(workspace, "homeView")
             waitForPolish(home); wait(50) // Home lists many papers in a full run; click once laid out.
-            mouseClick(visualChild(home, "homeOpenLibrary"))
+            findChild(home, "homeRecentHeading").opened()
             compare(activeTab().kind, "library")
             const view = library()
             tryVerify(function() { return view.rows.length >= 2 })

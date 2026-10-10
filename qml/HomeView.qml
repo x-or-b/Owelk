@@ -180,19 +180,16 @@ Rectangle {
                     // A globe: the web, not the library.
                     Icon { x: 9; anchors.verticalCenter: parent.verticalCenter; name: "globe"; size: Theme.fontBody + 1; color: Theme.textTertiary }
                 }
-                // Starting points: a PDF from disk, or the Library for the whole collection.
-                RowLayout {
-                    spacing: 6
-                    Button { objectName: "homeOpenPdf"; flat: true; text: "Open PDF…"; onClicked: root.openRequested() }
-                    Button { objectName: "homeOpenLibrary"; flat: true; text: "Library"; onClicked: root.libraryRequested() }
-                }
             }
             // The paper last read, as a card: click anywhere on it to go back to the page.
             ItemDelegate {
                 id: continueCard
                 objectName: "continueReading"
                 Layout.fillWidth: true
-                implicitHeight: continueColumn.implicitHeight + 32
+                // The same room above and below the card (the headings below sit in a taller row), and the
+                // same padding inside on every side.
+                Layout.topMargin: (32 - Theme.fontHeadline * 1.3) / 2
+                padding: 18
                 readonly property var details: root.continuation.source ? (researchStore.documentsRevision, researchStore.documentDetails(root.continuation.source)) : ({})
                 onClicked: {
                     if (root.continuation.source) root.documentChosen(root.continuation.source, root.continuation.position)
@@ -266,7 +263,12 @@ Rectangle {
                 ColumnLayout {
                     Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.alignment: Qt.AlignTop
                     spacing: 6
-                    BoxHeading { text: "Recent Papers" }
+                    // The heading goes to the Library; + opens a PDF from disk.
+                    BoxHeading {
+                        objectName: "homeRecentHeading"
+                        text: "Recent Papers"; goes: true; onOpened: root.libraryRequested()
+                        adding: true; addDescription: "Open PDF…"; onAdded: root.openRequested()
+                    }
                     ListBox {
                         model: researchStore.recentDocuments
                         empty: "No recent papers"

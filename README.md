@@ -25,7 +25,7 @@ open -n /Users/gyu/Documents/Owelk/build/owelk.app --args --data-dir /Users/gyu/
 
 ## 현재 기능
 
-- Home: 검색과 웹 검색, Open PDF·Library 버튼, Continue Reading 카드, Collections·Recent Papers·Notes·AI Conversations(마지막으로 연 순서)
+- Home: 검색과 웹 검색, Continue Reading 카드, Collections·Recent Papers·Notes·AI Conversations(마지막으로 연 순서)
 - UI 모서리는 공통 5px이며, 원문 위치·탭 × 호버 테두리는 Cmd+K의 파란색 `#426b9a`입니다. [디자인 토큰](docs/DESIGN.md).
 - 열린 PDF의 백그라운드 본문 인덱싱, 문맥·페이지 검색 결과, 원본 지문 검증 후 이동
 - 옮겨진 원본 PDF 재연결: 동일 파일 검증 후 탭·읽기 위치·주석·Collection 유지
@@ -86,7 +86,7 @@ Document 패널 Related의 `Cites`·`Cited by`에서 이 논문이 인용한 논
 
 - PDF를 열면 활성 그룹에 탭이 추가됩니다. 같은 그룹에 이미 열린 원본이면 해당 탭을 선택합니다. 비활성 탭은 상태만 보존하고 각 그룹의 활성 문서만 PDF 리더에 로드합니다.
 - `⌘/Ctrl+W`, 탭의 `×`, 가운데 버튼 클릭, 탭 우클릭 → Close Tab으로 닫습니다. 원본 PDF·최근 목록은 유지합니다. 마지막 탭을 닫으면 Home으로 돌아갑니다. 열린 탭 위에 Home을 띄운 상태에서 `⌘/Ctrl+W`는 탭으로 돌아가고, 닫을 탭이 하나도 없으면 다른 Mac 앱처럼 창을 닫습니다(세션은 저장됨).
-- 탭 이동: `⌘⌥→ / ⌘⌥←`(메뉴 File → Next/Previous Tab), `⌘⇧] / ⌘⇧[`, `Control+Tab / Control+Shift+Tab`은 현재 그룹 안에서 순환합니다. `⌘1`–`⌘8`은 해당 순서의 탭, `⌘9`는 마지막 탭입니다. 각 탭의 읽기 위치는 그대로입니다. 분할이 화면보다 넓어 바깥이 스크롤될 때 활성 그룹이 가려져 있으면 자동으로 보이게 이동합니다.
+- 탭 이동: `⌘⌥→ / ⌘⌥←`(메뉴 File → Next/Previous Tab), `⌘⇧] / ⌘⇧[`, `Control+Tab / Control+Shift+Tab`은 현재 그룹 안에서 순환합니다. Settings → Appearance → Tabs의 `⌃Tab`을 `Last Used`로 바꾸면 `Control+Tab`이 마지막으로 쓴 두 탭 사이를 오갑니다. `⌘1`–`⌘8`은 해당 순서의 탭, `⌘9`는 마지막 탭입니다. 각 탭의 읽기 위치는 그대로입니다. 분할이 화면보다 넓어 바깥이 스크롤될 때 활성 그룹이 가려져 있으면 자동으로 보이게 이동합니다.
 - 분할: `⌘\`는 현재 탭을 오른쪽 분할에, `⌘⌥\`는 아래 분할에 복제합니다. `⌘⇧⌥→ / ⌘⇧⌥↓`는 현재 탭을 오른쪽/아래 새 분할로 옮깁니다(그룹에 탭이 둘 이상일 때). `⌘⌥↓ / ⌘⌥↑`는 다음/이전 분할로 이동합니다. View 메뉴와 명령 팔레트(`move right`, `next split` 등)에도 있습니다.
 - `⌘/Ctrl+T`는 현재 그룹에 독립된 Home 탭을 만듭니다. 여기서 새 PDF를 열면 해당 Home 탭을 PDF 탭으로 바꾸며, 이미 열린 PDF는 기존 탭을 재사용합니다. Home 탭도 닫기·다시 열기·이동·분할·세션 복원이 가능합니다. 앱 시작은 기존처럼 전체 Home 화면입니다.
 - 탭 줄 오른쪽 `+`를 클릭해도 해당 그룹에 새 Home 탭을 만듭니다. Home 탭에서 아무것도 열지 않고 다른 탭으로 가면 그 Home 탭은 저절로 닫혀 쌓이지 않습니다(그 분할의 유일한 탭이면 남음). Library는 창 전체에 탭 하나만 열리고, 다시 열면 그 탭으로 가서 필터만 바꿉니다.
@@ -150,9 +150,9 @@ Settings → Appearance → Tabs에서 `Horizontal`(기본) / `Vertical`을 고�
 - 앱은 항상 Home으로 시작합니다. 이전 탭과 분할은 보존하되 리더의 PDF 로드·렌더링은 Continue Reading 등으로 읽기를 시작할 때 수행합니다. 본문 인덱싱은 Home에서도 별도 백그라운드 작업으로 PDF를 읽을 수 있습니다. 하단 집 아이콘은 제거했습니다. 필요할 때 View → Home, `⌘/Ctrl+Shift+H`, 명령 `View: Go to Home`으로 돌아갈 수 있습니다.
 - 중앙 검색은 앱에서 연 PDF의 **본문·파일명**, **주석·노트·AI 대화**, **Collection·Tag 이름**을 찾습니다. 본문 결과에는 문맥·페이지를 표시하고 클릭 또는 방향키·Enter로 원문 페이지를 엽니다. 폴더 전체 PDF를 자동 등록하지는 않습니다.
 - 범위 칩 아래 검색창, 그 바로 아래에 결과가 뜹니다. 본문 색인 상태는 색인 중이거나 읽지 못한 PDF가 있을 때만 한 줄로 보이고, 자세한 내용은 Settings → Search의 `PDF text index`에 있습니다.
-- 그 아래 `Search the web or enter an address` 칸은 주소를 열거나 설정한 검색 엔진으로 웹을 검색합니다(웹 탭). `Open PDF…`와 `Library` 버튼이 이어집니다.
+- 그 아래 `Search the web or enter an address` 칸은 주소를 열거나 설정한 검색 엔진으로 웹을 검색합니다(웹 탭).
 - **Continue Reading** 카드(제목·저자·연도·쪽)를 누르면 마지막 활성 문서의 페이지·스크롤·배율을 복원합니다. 최근 PDF도 개별 읽기 위치를 기억합니다.
-- 아래는 네 칸입니다: **Collections | Recent Papers**(7개), **Notes | AI Conversations**(5개, Notes의 `+`는 새 노트). 모두 이 컴퓨터에서 마지막으로 연 순서이고(노트·대화는 마지막으로 고친 때도 셈, Collection은 그 안의 논문을 연 때도 셈), 칸 상자는 항목 수만큼만 커집니다. `Collections ›`·`Notes ›` 제목을 누르면 Library의 Papers·Notes로 갑니다.
+- 아래는 네 칸입니다: **Collections | Recent Papers**(7개), **Notes | AI Conversations**(5개, Notes의 `+`는 새 노트). 모두 이 컴퓨터에서 마지막으로 연 순서이고(노트·대화는 마지막으로 고친 때도 셈, Collection은 그 안의 논문을 연 때도 셈), 칸 상자는 항목 수만큼만 커집니다. `Collections ›`·`Recent Papers ›`·`Notes ›` 제목을 누르면 Library의 Papers·Notes로 가고, Recent Papers의 `+`는 PDF를 엽니다.
 - Settings → Appearance → `On launch`에서 실행할 때 Home을 띄울지, 지난 탭으로 바로 갈지 고릅니다.
 - 이름 검색은 최근 표시 개수 밖의 저장된 항목도 찾습니다(종류별 최대 20개 결과). 본문은 논문별 3개 미리보기이며 더 보기로 확장합니다.
 - 네이티브 다중 창과 새 창 전용 Home 흐름은 아직 없습니다. 같은 데이터 폴더를 여러 앱 인스턴스에서 동시에 열지 마세요.
@@ -197,7 +197,7 @@ PDF의 문서 정보와 첫 페이지에서 제목·저자·연도·DOI·arXiv I
 
 ## 노트와 연결
 
-- `⇧⌘N`(File → New Note) 또는 명령 팔레트 `new note`로 PDF와 별개인 Markdown 노트를 탭으로 엽니다. 입력을 멈추면 0.6초 뒤 자동 저장합니다. 제목도 내용도 없이 탭을 닫은 노트는 남기지 않습니다. `Preview`로 렌더링된 노트를 보고 링크를 누르면 원본(논문·주석·다른 노트)으로 이동합니다.
+- `⇧⌘N`(File → New Note) 또는 명령 팔레트 `new note`로 PDF와 별개인 Markdown 노트를 탭으로 엽니다. 입력을 멈추면 0.6초 뒤 자동 저장합니다. 제목도 내용도 없이 탭을 닫은 노트는 남기지 않습니다. 저장되면 제목 옆에 `Saved`가 잠깐 보이고, `Done`(또는 `Esc`)은 노트 탭을 닫고 그 전에 보던 탭으로 돌아갑니다. `Preview`로 렌더링된 노트를 보고 링크를 누르면 원본(논문·주석·다른 노트)으로 이동합니다.
 - 본문에 `[[`를 입력하거나 링크 아이콘을 누르면 논문·주석·노트를 찾아 `[제목](owelk://종류/ID)` 링크를 넣습니다.
 - 주석 우클릭 → `Link to Note…`로 기존 노트 끝이나 새 노트에 링크를 추가합니다.
 - Document 패널 Annotations의 위쪽은 지금 논문(또는 그 주석)을 링크한 노트를, 노트 아래 `Linked from`은 그 노트를 링크한 항목을 보여 줍니다. 명령 `New Note about This Paper`도 이 논문 링크가 든 노트를 옆 분할에 엽니다.

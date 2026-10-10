@@ -154,6 +154,27 @@ Flickable {
         NumberAnimation { id: revealX; target: root; property: "contentX"; duration: 180; easing.type: Easing.OutCubic }
         NumberAnimation { id: revealY; target: root; property: "contentY"; duration: 180; easing.type: Easing.OutCubic }
     }
+    // The tab in front, and the one before it (Ctrl+Tab between the last two, a note's Done).
+    property string currentTab: ""
+    property string previousTab: ""
+    onChanged: {
+        const g = Tree.find(tree, activeGroup)
+        const now = g ? g.activeTab || "" : ""
+        if (now === currentTab) return
+        if (currentTab.length) previousTab = currentTab
+        currentTab = now
+    }
+    function switchToPreviousTab() {
+        if (!previousTab.length || !Tree.owner(tree, previousTab)) return false
+        activateTab(previousTab)
+        return true
+    }
+    // Done in a note: its tab closes and the tab used before it comes back.
+    function finishNote(noteId) {
+        const back = previousTab
+        closeNoteTabs(noteId)
+        if (back.length && Tree.owner(tree, back)) activateTab(back)
+    }
     function activateTab(id) {
         const g = Tree.owner(tree, id)
         if (!g) return

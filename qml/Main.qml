@@ -117,16 +117,31 @@ ApplicationWindow {
     readonly property bool canSwitchTabs: documents.hasTabs && !restoreFailed && !(currentReader && currentReader.annotationDirty)
     // Browser conventions alongside the menu shortcuts: Cmd+Shift+] / [, Control+Tab, Cmd+1…9 (9 = last tab).
     Shortcut {
-        sequences: ["Ctrl+Shift+]", Qt.platform.os === "osx" ? "Meta+Tab" : "Ctrl+Tab"]
+        sequence: "Ctrl+Shift+]"
         enabled: window.canSwitchTabs
         onActivated: documents.cycleTab(1)
-        onActivatedAmbiguously: documents.cycleTab(1)
     }
     Shortcut {
-        sequences: ["Ctrl+Shift+[", Qt.platform.os === "osx" ? "Meta+Shift+Tab" : "Ctrl+Shift+Tab"]
+        sequence: "Ctrl+Shift+["
         enabled: window.canSwitchTabs
         onActivated: documents.cycleTab(-1)
-        onActivatedAmbiguously: documents.cycleTab(-1)
+    }
+    // Control+Tab: the next tab, or back and forth between the last two (Settings › Appearance › Tabs).
+    function controlTab(step) {
+        if (researchStore.setting("tabs.controlTab", "next") === "recent" && documents.switchToPreviousTab()) return
+        documents.cycleTab(step)
+    }
+    Shortcut {
+        sequence: Qt.platform.os === "osx" ? "Meta+Tab" : "Ctrl+Tab"
+        enabled: window.canSwitchTabs
+        onActivated: window.controlTab(1)
+        onActivatedAmbiguously: window.controlTab(1)
+    }
+    Shortcut {
+        sequence: Qt.platform.os === "osx" ? "Meta+Shift+Tab" : "Ctrl+Shift+Tab"
+        enabled: window.canSwitchTabs
+        onActivated: window.controlTab(-1)
+        onActivatedAmbiguously: window.controlTab(-1)
     }
     Instantiator {
         model: 9
