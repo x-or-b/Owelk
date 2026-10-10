@@ -129,6 +129,19 @@ Rectangle {
             clip: true
             model: root.rows
             ScrollBar.vertical: ScrollBar {}
+            // Closed to a rail, a new tab is added under the last one.
+            footer: Item {
+                width: list.width
+                height: root.open ? 0 : root.rowHeight
+                IconButton {
+                    visible: !root.open
+                    objectName: "tabsRailNewTab"
+                    anchors.centerIn: parent
+                    icon.name: "add"
+                    description: "New tab · " + Platform.keys("Ctrl+T")
+                    onClicked: root.controller.newHomeTab()
+                }
+            }
             // Right-click on the list's empty space: the same menu as the tab bar, for the active split.
             TapHandler { acceptedButtons: Qt.RightButton; onTapped: stripMenu.show(root.controller.activeGroup) }
             delegate: Item {

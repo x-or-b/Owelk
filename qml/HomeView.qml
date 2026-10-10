@@ -27,7 +27,7 @@ Rectangle {
         recentNotes = researchStore.notes(false).slice(0, 5)
         recentThreads = researchStore.aiThreads().slice(0, 5)
         unsorted = researchStore.unsortedCount()
-        inbox = unsorted ? researchStore.libraryDocuments({unsorted: true, sort: "added"}).slice(0, 5) : []
+        inbox = unsorted ? researchStore.libraryDocuments({unsorted: true, sort: "added"}).slice(0, 30) : []
     }
     onVisibleChanged: refreshLists()
     Component.onCompleted: refreshLists()
@@ -55,6 +55,26 @@ Rectangle {
         if (searchResults.currentIndex >= 0) searchResults.positionViewAtIndex(searchResults.currentIndex, ListView.Contain)
     }
     function focusSearch() { searchInput.forceActiveFocus(); searchInput.selectAll() }
+    // A rounded list box (like ListGroup) of a fixed height: seven recent-paper rows; longer lists scroll.
+    component ListBox: Rectangle {
+        property alias model: boxList.model
+        property alias delegate: boxList.delegate
+        property string empty: ""
+        Layout.fillWidth: true
+        Layout.preferredHeight: 7 * (Theme.rowHeight + 4) + 6 + 8
+        radius: Theme.radiusLarge
+        color: Theme.content
+        border.color: Theme.separator
+        ListView {
+            id: boxList
+            anchors.fill: parent; anchors.margins: 4
+            clip: true
+            spacing: 1
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar {}
+        }
+        Label { anchors.centerIn: parent; visible: boxList.count === 0; text: parent.empty; color: Theme.textTertiary }
+    }
     Flickable {
         anchors.fill: parent
         clip: true
@@ -170,42 +190,12 @@ Rectangle {
                     }
                 }
             }
-            // What was read and what is waiting: recent papers beside the papers still to file.
+            // What is waiting and what was read: the papers still to file beside recent papers, each in a
+            // box seven recent papers tall (scrolling past that).
             RowLayout {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
                 spacing: 28
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 1
-                    Layout.alignment: Qt.AlignTop
-                    spacing: 6
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Label { text: "Recent Papers"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32; Layout.fillWidth: true }
-                        IconButton {
-                            objectName: "openLibraryButton"; icon.name: "library"
-                            description: "Library · " + Platform.keys("Ctrl+Shift+L")
-                            onClicked: root.libraryRequested()
-                        }
-                    }
-                    ListGroup {
-                        Layout.fillWidth: true
-                        visible: researchStore.recentDocuments.length > 0
-                        Repeater {
-                            model: researchStore.recentDocuments.slice(0, 8)
-                            delegate: RecentPaperDelegate {
-                                required property int index
-                                width: parent.width
-                                height: Theme.rowHeight + 4
-                                separator: index < Math.min(8, researchStore.recentDocuments.length) - 1
-                                onDocumentChosen: function(source, position) { root.documentChosen(source, position) }
-                                onMenuRequested: function(row) { recentMenu.show(row) }
-                            }
-                        }
-                    }
-                    Label { visible: researchStore.recentDocuments.length === 0; text: "No recent papers"; color: Theme.textTertiary }
-                }
                 // Inbox: papers in no collection yet, newest first, with where similar papers already are.
                 ColumnLayout {
                     objectName: "homeInbox"
@@ -225,56 +215,80 @@ Rectangle {
                             onClicked: root.libraryFilterRequested({unsorted: true})
                         }
                     }
-                    ListGroup {
-                        Layout.fillWidth: true
-                        visible: root.inbox.length > 0
-                        Repeater {
-                            model: root.inbox
-                            delegate: ItemDelegate {
-                                id: waiting
-                                required property var modelData
-                                required property int index
-                                objectName: "homeInbox-" + index
-                                width: parent.width
-                                height: Theme.rowHeightTall
-                                separator: index < root.inbox.length - 1
-                                onClicked: root.documentChosen(modelData.url, modelData.position)
-                                // Up to two collections where similar papers already are.
-                                property var suggestions: []
-                                property int request: -1
-                                Component.onCompleted: request = researchStore.suggestCollections(modelData.url)
-                                Connections {
-                                    target: researchStore
-                                    enabled: waiting.request >= 0
-                                    function onCollectionsSuggested(request, source, list) { if (request === waiting.request) waiting.suggestions = list }
+                    ListBox {
+                        model: root.inbox
+                        empty: "Every paper is in a collection."
+                        delegate: ItemDelegate {
+                            id: waiting
+                            required property var modelData
+                            required property int index
+                            objectName: "homeInbox-" + index
+                            width: ListView.view.width
+                            separator: index < root.inbox.length - 1
+                            onClicked: root.documentChosen(modelData.url, modelData.position)
+                            // Up to two collections where similar papers already are.
+                            property var suggestions: []
+                            property int request: -1
+                            Component.onCompleted: request = researchStore.suggestCollections(modelData.url)
+                            Connections {
+                                target: researchStore
+                                enabled: waiting.request >= 0
+                                function onCollectionsSuggested(request, source, list) { if (request === waiting.request) waiting.suggestions = list }
+                            }
+                            contentItem: Column {
+                                spacing: 4
+                                Label { width: parent.width; text: waiting.modelData.name; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                                Label {
+                                    visible: !waiting.suggestions.length
+                                    width: parent.width
+                                    text: [waiting.modelData.authors, waiting.modelData.year].filter(function(t) { return t && String(t).length }).join("  ·  ") || " "
+                                    elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                                 }
-                                contentItem: ColumnLayout {
-                                    spacing: 3
-                                    Label { Layout.fillWidth: true; text: waiting.modelData.name; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
-                                    Flow {
-                                        Layout.fillWidth: true
-                                        spacing: 4
-                                        Label {
-                                            visible: !waiting.suggestions.length
-                                            text: [waiting.modelData.authors, waiting.modelData.year].filter(function(t) { return t && String(t).length }).join("  ·  ") || " "
-                                            elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
-                                        }
-                                        Repeater {
-                                            model: waiting.suggestions
-                                            delegate: Chip {
-                                                required property var modelData
-                                                objectName: "homeSuggestion-" + modelData.name
-                                                text: "+ " + modelData.name
-                                                ToolTip.text: "Add to " + modelData.name
-                                                onClicked: { const url = waiting.modelData.url, id = modelData.id; Qt.callLater(function() { researchStore.setDocumentCollection(url, id, true) }) }
-                                            }
+                                Flow {
+                                    visible: waiting.suggestions.length > 0
+                                    width: parent.width
+                                    spacing: 4
+                                    Repeater {
+                                        model: waiting.suggestions
+                                        delegate: Chip {
+                                            required property var modelData
+                                            objectName: "homeSuggestion-" + modelData.name
+                                            text: "+ " + modelData.name
+                                            ToolTip.text: "Add to " + modelData.name
+                                            onClicked: { const url = waiting.modelData.url, id = modelData.id; Qt.callLater(function() { researchStore.setDocumentCollection(url, id, true) }) }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                    Label { visible: root.inbox.length === 0; text: "Every paper is in a collection."; color: Theme.textTertiary }
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+                    Layout.alignment: Qt.AlignTop
+                    spacing: 6
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label { text: "Recent Papers"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; Layout.preferredHeight: 32; Layout.fillWidth: true }
+                        IconButton {
+                            objectName: "openLibraryButton"; icon.name: "library"
+                            description: "Library · " + Platform.keys("Ctrl+Shift+L")
+                            onClicked: root.libraryRequested()
+                        }
+                    }
+                    ListBox {
+                        model: researchStore.recentDocuments
+                        empty: "No recent papers"
+                        delegate: RecentPaperDelegate {
+                            required property int index
+                            width: ListView.view.width
+                            height: Theme.rowHeight + 4
+                            separator: index < researchStore.recentDocuments.length - 1
+                            onDocumentChosen: function(source, position) { root.documentChosen(source, position) }
+                            onMenuRequested: function(row) { recentMenu.show(row) }
+                        }
+                    }
                 }
             }
             // Recent notes and AI conversations.

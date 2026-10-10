@@ -151,7 +151,7 @@ Settings → Appearance → Tabs에서 `Horizontal`(기본) / `Vertical`을 고�
 - 중앙 검색은 앱에서 연 PDF의 **본문·파일명**, **주석·노트·AI 대화**, **Collection·Tag 이름**을 찾습니다. 본문 결과에는 문맥·페이지를 표시하고 클릭 또는 방향키·Enter로 원문 페이지를 엽니다. 폴더 전체 PDF를 자동 등록하지는 않습니다.
 - 검색창 아래 `Search the web or enter an address` 칸은 주소를 열거나 설정한 검색 엔진으로 웹을 검색합니다(웹 탭).
 - **Continue Reading** 카드(제목·저자·연도·쪽)를 누르면 마지막 활성 문서의 페이지·스크롤·배율을 복원합니다. 최근 PDF도 개별 읽기 위치를 기억합니다.
-- **Recent Papers**(최근 8개) 옆의 **Inbox**는 아직 어느 Collection에도 없는 논문을 새로 추가된 순으로 5개 보여 주고, 각 논문 아래에 `+ SLAM`처럼 비슷한 논문이 있는 Collection을 제안합니다(누르면 바로 넣음). `All Unsorted N`은 Library의 Unsorted를 엽니다.
+- **Inbox**(왼쪽)와 **Recent Papers**(오른쪽)는 최근 논문 7줄 높이의 상자이며 넘치면 상자 안에서 스크롤합니다. Inbox는 아직 어느 Collection에도 없는 논문을 새로 추가된 순으로 보여 주고, 각 논문 아래에 `+ SLAM`처럼 비슷한 논문이 있는 Collection을 제안합니다(누르면 바로 넣음). `All Unsorted N`은 Library의 Unsorted를 엽니다.
 - **Recent Notes**와 **Recent AI Conversations**는 최근 5개씩이며 누르면 노트 탭이나 AI 패널에서 엽니다.
 - 이름 검색은 최근 표시 개수 밖의 저장된 항목도 찾습니다(종류별 최대 20개 결과). 본문은 논문별 3개 미리보기이며 더 보기로 확장합니다.
 - 네이티브 다중 창과 새 창 전용 Home 흐름은 아직 없습니다. 같은 데이터 폴더를 여러 앱 인스턴스에서 동시에 열지 마세요.

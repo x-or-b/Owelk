@@ -926,8 +926,7 @@ Item {
                                 readonly property var shown: index === 0 && root.markEdit && root.markEdit.id === persistentMark.modelData.id ? root.markEdit.rect : modelData
                                 x: shown.x * paper.width; y: shown.y * paper.height
                                 width: shown.width * paper.width; height: shown.height * paper.height
-                                // Highlights tint the text; comments (and notes beside the page) only outline their place;
-                                // a marked region is outlined over a faint tint.
+                                // Highlights tint the text; comments and marked regions only outline their place.
                                 Rectangle {
                                     objectName: "markShape-" + persistentMark.modelData.id
                                     readonly property bool area: persistentMark.modelData.kind === "area"
@@ -936,7 +935,7 @@ Item {
                                     anchors.fill: parent
                                     visible: persistentMark.modelData.kind === "highlight" || outline
                                     radius: outline ? 2 : 0
-                                    color: area ? Qt.rgba(ink.r, ink.g, ink.b, .06) : outline ? "transparent" : Qt.rgba(ink.r, ink.g, ink.b, .28)
+                                    color: outline ? "transparent" : Qt.rgba(ink.r, ink.g, ink.b, .28)
                                     border.width: outline ? 1.5 : 0
                                     border.color: ink
                                 }
