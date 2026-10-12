@@ -664,8 +664,6 @@ ApplicationWindow {
             anchors.fill: parent
             anchors.leftMargin: 4; anchors.rightMargin: 4
             spacing: 2
-            // Search stays at the far left, whatever panels sit beside it.
-            StatusIcon { objectName: "statusSearch"; kind: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }
             Repeater {
                 model: window.panelIcons("left")
                 delegate: StatusIcon {
@@ -678,6 +676,8 @@ ApplicationWindow {
                     onDockSideChosen: function(side) { const panel = kind; Qt.callLater(function() { window.movePanel(panel, side) }) }
                 }
             }
+            // Search closes the left group, after the panels there (Threads stays at the edge).
+            StatusIcon { objectName: "statusSearch"; kind: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }
             Label {
                 Layout.fillWidth: true
                 // A notice while there is one.
