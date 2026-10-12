@@ -47,6 +47,12 @@ ApplicationWindow {
     property string documentSide: "left"
     property bool aiVisible: false
     property string aiSide: "right"
+    // Threads (chats by paper and collection) is a panel of its own, always on the outer side of its
+    // dock, so beside the AI panel it is the farther one; it opens and closes on its own.
+    property bool threadsVisible: false
+    property string threadsSide: "left"
+    property real threadsWidth: 220
+    function threadsPanelWidth(value) { return Math.max(160, Math.min(value, 420, (width - 360) / 3)) }
     property real leftDockWidth: 224
     property real rightDockWidth: 224
     function dockWidth(value) { return Math.max(160, Math.min(value, 560, (width - 360) / 2)) }
@@ -73,23 +79,38 @@ ApplicationWindow {
         return panels
     }
     readonly property var dockPanels: ["files", "document", "ai"]
-    function panelSide(panel) { return panel === "files" ? filesSide : panel === "ai" ? aiSide : documentSide }
-    function panelShown(panel) { return panel === "files" ? filesVisible : panel === "ai" ? aiVisible : documentVisible }
-    function panelName(panel) { return panel === "files" ? qsTr("Library") : panel === "ai" ? qsTr("AI threads") : qsTr("Document: contents, annotations, symbols and related papers") }
+    function panelSide(panel) { return panel === "files" ? filesSide : panel === "ai" ? aiSide : panel === "threads" ? threadsSide : documentSide }
+    function panelShown(panel) { return panel === "files" ? filesVisible : panel === "ai" ? aiVisible : panel === "threads" ? threadsVisible : documentVisible }
+    function panelName(panel) { return panel === "files" ? qsTr("Library") : panel === "ai" ? qsTr("AI chat") : panel === "threads" ? qsTr("Threads: AI chats by paper and collection") : qsTr("Document: contents, annotations, symbols and related papers") }
     function setPanelShown(panel, shown) {
         if (panel === "files") filesVisible = shown
         else if (panel === "ai") aiVisible = shown
+        else if (panel === "threads") threadsVisible = shown
         else documentVisible = shown
+    }
+    // Status bar icons in the order of the panels on screen: Threads at the outer end.
+    function panelIcons(side) {
+        const docked = dockPanels.filter(function(p) { return panelSide(p) === side })
+        if (threadsSide !== side) return docked
+        return side === "left" ? ["threads"].concat(docked) : docked.concat(["threads"])
     }
     // One panel per dock: opening one (or moving it into a dock) closes the other there.
     function closeOthers(panel) {
+        if (panel === "threads") return
         const side = panelSide(panel)
         dockPanels.forEach(function(other) { if (other !== panel && panelShown(other) && panelSide(other) === side) setPanelShown(other, false) })
     }
     // Reader actions bring the AI panel forward and start a thread there.
     function showAi() { setPanelShown("ai", true); closeOthers("ai") }
     function askAi(spec) { showAi(); aiController.begin(spec) }
-    function openAiThread(id) { if (aiController.openThread(id)) showAi() }
+    // within: {collection, collectionName} when chosen in a collection's Thread.
+    function openAiThread(id, within) { if (aiController.openThread(id, within)) showAi() }
+    // A new chat: about a paper (the one in the reader when none is given) or asked of a collection.
+    function newAiChat(spec) {
+        if (spec && spec.collection) { askAi({action: "ask", scope: "library", collection: spec.collection, collectionName: spec.collectionName}); return }
+        showAi()
+        aiController.newThread(spec && spec.source ? spec.source : undefined)
+    }
     // The Document panel's Annotations view (the reader toolbar button opens and closes it).
     function toggleAnnotations() {
         if (documentVisible && navigationMode === 1) { documentVisible = false; return }
@@ -111,6 +132,7 @@ ApplicationWindow {
         if (panel === "files") filesSide = side
         if (panel === "document") documentSide = side
         if (panel === "ai") aiSide = side
+        if (panel === "threads") threadsSide = side
         if (panelShown(panel)) closeOthers(panel)
     }
     // Tab switching must not discard an annotation that is still being edited.
@@ -189,6 +211,7 @@ ApplicationWindow {
         const state = documents.snapshot()
         Object.assign(state, {width: width, height: height, panels: {filesVisible: filesVisible, filesSide: filesSide,
                 documentVisible: documentVisible, documentSide: documentSide, aiVisible: aiVisible, aiSide: aiSide, navigationMode: navigationMode,
+                threadsVisible: threadsVisible, threadsSide: threadsSide, threadsWidth: threadsWidth,
                 folder: paperFolder.toString(), leftActive: leftDock.activePanel, rightActive: rightDock.activePanel,
                 leftWidth: leftDockWidth, rightWidth: rightDockWidth}})
         return researchStore.saveSession(state)
@@ -210,6 +233,9 @@ ApplicationWindow {
         documentSide = panels.documentSide === "right" ? "right" : "left"
         aiVisible = !!panels.aiVisible
         aiSide = panels.aiSide === "left" ? "left" : "right"
+        threadsVisible = !!panels.threadsVisible
+        threadsSide = panels.threadsSide === "right" ? "right" : "left"
+        threadsWidth = Number(panels.threadsWidth) || 220
         navigationMode = [0, 1, 2, 3].indexOf(panels.navigationMode) >= 0 ? panels.navigationMode : 0
         paperFolder = panels.folder || ""
         // Sessions from when a dock held several panels keep the one in front.
@@ -258,6 +284,9 @@ ApplicationWindow {
     onNavigationModeChanged: scheduleSave()
     onPaperFolderChanged: scheduleSave()
     onLeftDockWidthChanged: scheduleSave()
+    onThreadsVisibleChanged: scheduleSave()
+    onThreadsSideChanged: scheduleSave()
+    onThreadsWidthChanged: scheduleSave()
     onRightDockWidthChanged: scheduleSave()
     Timer { id: saveTimer; interval: 500; onTriggered: window.persist() }
     Timer { id: notificationTimer; interval: 6500; onTriggered: if (!window.restoreFailed) window.notification = "" }
@@ -308,6 +337,7 @@ ApplicationWindow {
             case "/highlight": if (!window.homeVisible && window.currentReader) window.currentReader.highlightSelection(); break
             case "/files": window.togglePanel("files"); break
             case "/document": window.togglePanel("document"); break
+            case "/threads": window.togglePanel("threads"); break
             case "/annotations": window.toggleAnnotations(); break
             case "/paper note": if (window.currentReader) documents.newNoteFor(window.currentReader.source); break
             case "/close tab": documents.closeActiveTab(); break
@@ -489,12 +519,31 @@ ApplicationWindow {
             onTabChosen: window.homeVisible = false
             Layout.preferredWidth: implicitWidth; Layout.fillHeight: true
         }
+        Loader {
+            id: leftThreads
+            objectName: "leftThreads"
+            active: window.threadsVisible && window.threadsSide === "left"
+            visible: active
+            sourceComponent: threadsPanel
+            Layout.preferredWidth: window.threadsPanelWidth(window.threadsWidth); Layout.fillHeight: true
+            Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
+        }
+        ResizeEdge {
+            visible: leftThreads.active
+            area.objectName: "leftThreadsResize"
+            onMoved: function(delta) {
+                if (delta === 0) initialWidth = leftThreads.width
+                window.threadsWidth = window.threadsPanelWidth(initialWidth + delta)
+            }
+        }
         DockSidebar {
             id: leftDock
             objectName: "leftDock"
             side: "left"; panels: window.leftPanels; folder: window.paperFolder
             reader: window.homeVisible ? null : window.currentReader
             aiController: aiController
+            threadsOpen: window.threadsVisible
+            onThreadsToggled: window.togglePanel("threads")
             onSettingsRequested: settingsDialog.openPage("ai")
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
@@ -562,6 +611,8 @@ ApplicationWindow {
             side: "right"; panels: window.rightPanels; folder: window.paperFolder
             reader: window.homeVisible ? null : window.currentReader
             aiController: aiController
+            threadsOpen: window.threadsVisible
+            onThreadsToggled: window.togglePanel("threads")
             onSettingsRequested: settingsDialog.openPage("ai")
             navigationMode: window.navigationMode
             onNavigationModeChosen: function(mode) { window.navigationMode = mode }
@@ -577,6 +628,35 @@ ApplicationWindow {
             onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary(filter) } }
             onActivePanelChanged: window.scheduleSave()
         }
+        ResizeEdge {
+            visible: rightThreads.active
+            area.objectName: "rightThreadsResize"
+            onMoved: function(delta) {
+                if (delta === 0) initialWidth = rightThreads.width
+                window.threadsWidth = window.threadsPanelWidth(initialWidth - delta)
+            }
+        }
+        Loader {
+            id: rightThreads
+            objectName: "rightThreads"
+            active: window.threadsVisible && window.threadsSide === "right"
+            visible: active
+            sourceComponent: threadsPanel
+            Layout.preferredWidth: window.threadsPanelWidth(window.threadsWidth); Layout.fillHeight: true
+            Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
+        }
+    }
+    Component {
+        id: threadsPanel
+        ThreadsPanel {
+            controller: aiController
+            reader: window.homeVisible ? null : window.currentReader
+            onChatChosen: function(id, within) { window.openAiThread(id, within) }
+            onNewChatRequested: function(spec) { window.newAiChat(spec) }
+            onPaperRequested: function(source) { window.openDocument(source) }
+            onCollectionRequested: function(id) { if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary({collection: id}) } }
+            onTrashRequested: if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary({view: "trash"}) }
+        }
     }
     footer: Rectangle {
         id: statusBar
@@ -589,7 +669,7 @@ ApplicationWindow {
             anchors.leftMargin: 4; anchors.rightMargin: 4
             spacing: 2
             Repeater {
-                model: window.dockPanels.filter(function(p) { return window.panelSide(p) === "left" })
+                model: window.panelIcons("left")
                 delegate: StatusIcon {
                     required property string modelData
                     objectName: "dockIcon-" + modelData
@@ -609,7 +689,7 @@ ApplicationWindow {
             StatusIcon { kind: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }
             StatusIcon { kind: "split"; description: qsTr("Duplicate to right split · ") + Platform.keys("Ctrl+\\"); visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }
             Repeater {
-                model: window.dockPanels.filter(function(p) { return window.panelSide(p) === "right" })
+                model: window.panelIcons("right")
                 delegate: StatusIcon {
                     required property string modelData
                     objectName: "dockIcon-" + modelData

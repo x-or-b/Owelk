@@ -5,35 +5,17 @@ import QtQuick.Layouts
 import QtQuick.Dialogs as Native
 import "Platform.js" as Platform
 
-// Dock panel for the AI: saved threads, the open conversation, and the composer with the model menu.
+// Dock panel for the AI: the open chat and the composer with the model menu. Saved chats are in the
+// Threads panel (ThreadsPanel.qml), which the button at the top opens.
 Item {
     id: root
     objectName: "aiPanel"
     property var controller: null
     readonly property var c: controller
-    readonly property bool showingThreads: !c || !c.conversationOpen
-    // Threads chosen in the list (Cmd/Ctrl-click, Shift-click), and where a Shift range starts.
-    property var selectedThreads: []
-    property int selectionAnchor: -1
-    function toggleThread(id, index) {
-        selectedThreads = selectedThreads.indexOf(id) >= 0 ? selectedThreads.filter(function(t) { return t !== id }) : selectedThreads.concat([id])
-        selectionAnchor = index
-    }
-    function selectThreadRange(index) {
-        const from = selectionAnchor < 0 ? index : selectionAnchor
-        const rows = threadList.model.slice(Math.min(from, index), Math.max(from, index) + 1)
-        selectedThreads = rows.map(function(t) { return t.id })
-    }
-    function trashThreads(ids) {
-        if (!ids.length) return
-        if (ids.indexOf(c.threadId) >= 0) c.showThreads()
-        selectedThreads = []
-        researchStore.trashAiThreads(ids)
-    }
+    property bool threadsOpen: false
+    signal threadsToggled()
     signal linkActivated(string link)
     signal settingsRequested()
-    // Conversations moved to the Trash are in the Library's Trash, with papers and notes.
-    signal trashRequested()
     function focusQuestion() { question.forceActiveFocus() }
     Connections { target: root.c; function onFocusRequested() { root.focusQuestion() } }
     // Opened to ask about something just attached (or a new thread): the question box is ready.
@@ -242,108 +224,24 @@ Item {
             spacing: 2
             IconButton {
                 objectName: "aiThreadsButton"
-                icon.name: "back"; description: qsTr("All threads")
-                visible: !root.showingThreads
-                onClicked: root.c.showThreads()
+                icon.name: "threads"; description: root.threadsOpen ? qsTr("Hide Threads") : qsTr("Show Threads")
+                tint: root.threadsOpen ? Theme.accent : Theme.icon
+                onClicked: root.threadsToggled()
             }
             Label {
                 objectName: "aiThreadTitle"
                 Layout.fillWidth: true; Layout.minimumWidth: 0
-                text: root.showingThreads ? qsTr("Threads") : (root.c.thread.title || qsTr("New thread"))
+                text: root.c && root.c.threadId.length ? (root.c.thread.title || qsTr("Chat")) : qsTr("New Chat")
                 elide: Text.ElideRight; textFormat: Text.PlainText
                 font.pixelSize: Theme.fontBody; font.weight: Font.DemiBold; color: Theme.text
             }
-            IconButton {
-                objectName: "aiTrashButton"
-                visible: root.showingThreads
-                icon.name: "trash"; description: qsTr("Trash (in the Library)")
-                onClicked: root.trashRequested()
-            }
-            IconButton { objectName: "aiNewThread"; icon.name: "add"; description: qsTr("New thread"); onClicked: { root.c.newThread(); root.focusQuestion() } }
+            IconButton { objectName: "aiNewThread"; icon.name: "add"; description: qsTr("New chat"); onClicked: { root.c.newThread(); root.focusQuestion() } }
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }
-        // Saved threads, newest first. Click opens; Cmd/Ctrl-click and Shift-click select
-        // several; Delete or the right-click menu moves them to the Trash.
-        ListView {
-            id: threadList
-            objectName: "aiThreadList"
-            Layout.minimumWidth: 0
-            visible: root.showingThreads
-            Layout.fillWidth: true; Layout.fillHeight: true
-            clip: true
-            spacing: 0
-            focus: visible
-            // Read again when threads change.
-            property int revision: 0
-            model: (revision, researchStore.aiThreads())
-            Connections {
-                target: researchStore
-                function onAiThreadsChanged() { threadList.revision++ }
-            }
-            onModelChanged: {
-                const ids = model.map(function(t) { return t.id })
-                root.selectedThreads = root.selectedThreads.filter(function(id) { return ids.indexOf(id) >= 0 })
-            }
-            Keys.onDeletePressed: if (root.selectedThreads.length) root.trashThreads(root.selectedThreads)
-            Keys.onPressed: function(event) {
-                if (event.key === Qt.Key_Backspace && root.selectedThreads.length) { root.trashThreads(root.selectedThreads); event.accepted = true }
-            }
-            delegate: ItemDelegate {
-                id: row
-                required property var modelData
-                required property int index
-                readonly property bool chosen: root.selectedThreads.indexOf(modelData.id) >= 0
-                objectName: "aiThread-" + index
-                width: ListView.view.width
-                height: Theme.rowHeightTall
-                highlighted: chosen
-                separator: index < threadList.count - 1
-                onClicked: {
-                    threadList.forceActiveFocus()
-                    const mods = threadList.clickModifiers
-                    if (mods & (Qt.ControlModifier | Qt.MetaModifier)) root.toggleThread(row.modelData.id, row.index)
-                    else if (mods & Qt.ShiftModifier) root.selectThreadRange(row.index)
-                    else { root.selectedThreads = []; const id = row.modelData.id; Qt.callLater(function() { root.c.openThread(id) }) }
-                }
-                TapHandler {
-                    acceptedButtons: Qt.LeftButton
-                    acceptedModifiers: Qt.KeyboardModifierMask
-                    // Only notes the keys held; the click itself goes to the row.
-                    onPressedChanged: if (pressed) threadList.clickModifiers = point.modifiers
-                }
-                TapHandler {
-                    acceptedButtons: Qt.RightButton
-                    onTapped: {
-                        if (!row.chosen) root.selectedThreads = [row.modelData.id]
-                        threadMenu.ids = root.selectedThreads.slice()
-                        threadMenu.row = row.modelData
-                        threadMenu.popup()
-                    }
-                }
-                contentItem: ColumnLayout {
-                    spacing: 1
-                    Label { Layout.fillWidth: true; text: row.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: row.chosen ? Theme.selectedText : Theme.text }
-                    Label {
-                        Layout.fillWidth: true
-                        text: Math.ceil(row.modelData.messages / 2) + (row.modelData.messages > 2 ? qsTr(" turns") : qsTr(" turn")) + " · " + row.modelData.model
-                        elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: Theme.fontCaption
-                    }
-                }
-            }
-            property int clickModifiers: 0
-            Label {
-                anchors.centerIn: parent
-                width: parent.width - 16
-                visible: threadList.count === 0
-                text: qsTr("Ask about a selection, page or figure, or start a new thread with +.")
-                wrapMode: Text.WrapAtWordBoundaryOrAnywhere; horizontalAlignment: Text.AlignHCenter
-                color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
-            }
-        }
         // A conversation opened from a note while it is in the Trash: readable, continued once restored.
         RowLayout {
             objectName: "aiTrashedBanner"
-            visible: !root.showingThreads && !!root.c && !!root.c.thread.trashed
+            visible: !!root.c && !!root.c.thread.trashed
             Layout.fillWidth: true
             Layout.leftMargin: 10; Layout.rightMargin: 6; Layout.topMargin: 6
             Label {
@@ -364,7 +262,6 @@ Item {
             id: conversation
             objectName: "aiConversation"
             Layout.minimumWidth: 0
-            visible: !root.showingThreads
             Layout.fillWidth: true; Layout.fillHeight: true
             clip: true
             spacing: 10
@@ -523,6 +420,15 @@ Item {
                     onClicked: root.settingsRequested()
                 }
             }
+            Label {
+                objectName: "aiEmptyHint"
+                anchors.centerIn: parent
+                width: parent.width - 16
+                visible: conversation.count === 0 && !!root.c && !root.c.streaming && !root.c.pendingQuestion.length && !root.c.error.length
+                text: qsTr("Ask about the paper, or a selection, page or figure. Earlier chats are in Threads.")
+                wrapMode: Text.WrapAtWordBoundaryOrAnywhere; horizontalAlignment: Text.AlignHCenter
+                color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
+            }
             // Scrolled up while newer text sits below: one click back to the latest.
             IconButton {
                 id: toLatest
@@ -581,6 +487,8 @@ Item {
                     wrapMode: TextEdit.Wrap
                     font.pixelSize: Theme.fontSmall
                     rightPadding: composer.tall ? 28 : 8
+                    // Typing with nothing open starts a chat about the paper in the reader (its chip shows).
+                    onActiveFocusChanged: if (activeFocus && root.c) root.c.ensureConversation()
                     // Return sends, Shift+Return adds a line; pasting an image attaches it.
                     Keys.onPressed: function(event) {
                         if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
@@ -815,35 +723,5 @@ Item {
                 }
             }
         }
-    }
-    // One menu for the thread list: what it offers depends on how many are selected.
-    Menu {
-        id: threadMenu
-        objectName: "aiThreadMenu"
-        property var ids: []
-        property var row: ({})
-        MenuItem {
-            visible: threadMenu.ids.length === 1
-            height: visible ? implicitHeight : 0
-            text: qsTr("Rename…")
-            onTriggered: { renameDialog.threadId = threadMenu.row.id; renameField.text = threadMenu.row.title; renameDialog.open() }
-        }
-        MenuItem {
-            objectName: "trashThreadOption"
-            text: threadMenu.ids.length > 1 ? qsTr("Move ") + threadMenu.ids.length + qsTr(" to Trash") : qsTr("Move to Trash")
-            onTriggered: root.trashThreads(threadMenu.ids)
-        }
-    }
-    Dialog {
-        id: renameDialog
-        parent: Overlay.overlay
-        anchors.centerIn: parent
-        width: 360
-        modal: true
-        title: qsTr("Rename Thread")
-        property string threadId: ""
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        TextField { id: renameField; objectName: "aiRenameField"; width: parent.width; onAccepted: renameDialog.accept() }
-        onAccepted: root.c.renameThread(threadId, renameField.text)
     }
 }

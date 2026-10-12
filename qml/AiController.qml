@@ -56,7 +56,8 @@ Item {
     }
     // provider id → [{id, name}] as the providers report them.
     property var models: ({})
-    // Whether the panel shows a conversation (open thread or a new one) rather than the thread list.
+    // Whether a conversation is open (a saved chat or a new one); otherwise the AI panel waits empty and
+    // the first question starts one about the paper in the reader.
     property bool conversationOpen: false
     signal focusRequested()
     // An answer came in: the thread, its title and the answer's opening words (plain text).
@@ -188,7 +189,9 @@ Item {
         conversationOpen = true
         focusRequested()
     }
-    function openThread(id) {
+    // A saved chat. Chosen in a collection's Thread (within: {collection, collectionName}), or filed under a
+    // collection and about no paper, its next questions are asked of the collection's papers.
+    function openThread(id, within) {
         const saved = researchStore.aiThread(id)
         if (!saved.id) return false
         reset()
@@ -201,8 +204,20 @@ Item {
             ai.provider = saved.provider
             if (saved.model) ai.setModel(saved.provider, saved.model)
         }
-        spec = saved.source && saved.source.toString().length ? {source: saved.source, scope: "none"} : ({})
+        const filed = (saved.collections || [])[0]
+        const hasPaper = saved.source && saved.source.toString().length > 0
+        if (within && within.collection) spec = {scope: "library", collection: within.collection, collectionName: within.collectionName || ""}
+        else if (hasPaper) spec = {source: saved.source, scope: "none"}
+        else if (filed) spec = {scope: "library", collection: filed.id, collectionName: filed.name}
+        else spec = ({})
         return true
+    }
+    // The AI panel's question box was reached with nothing open: a new chat about the paper in the reader.
+    function ensureConversation() {
+        if (conversationOpen) return
+        threadId = ""; thread = ({})
+        spec = reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "paper", page: reader.currentPage || 0} : ({})
+        conversationOpen = true
     }
     // This paper again, after its chip was removed.
     function attachPaper() {
@@ -227,12 +242,18 @@ Item {
             return
         }
         if (kind === "quote") delete next.quote
-        if (kind === "library") { spec = reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "paper"} : ({}); return }
+        // Without the collection: back to the chat's own paper, else the one in the reader.
+        if (kind === "library") {
+            if (thread.source && thread.source.toString().length) spec = {source: thread.source, scope: "none"}
+            else spec = reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "paper"} : ({})
+            return
+        }
         if (kind === "selection") next.selection = ""
         if (kind === "page") next.scope = "none"
         spec = next
     }
     function send(question) {
+        ensureConversation()
         error = ""
         if (thread.trashed) { error = qsTr("Restore this conversation to continue it."); return false }
         const provider = ai.provider
@@ -269,6 +290,7 @@ Item {
         ai.provider = provider
         ai.setModel(provider, model)
     }
+    // Closes the open conversation (the panel waits empty).
     function showThreads() {
         reset()
         images = []

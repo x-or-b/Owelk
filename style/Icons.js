@@ -32,6 +32,7 @@ var glyphs = {
     "attach": "\ue12d",
     "star": "\ue176",
     "ai": "\ue412",
+    "threads": "\ue40d",
     "area": "\ue257",
     "highlight": "\ue0f4",
     "draw": "\ue130",
@@ -71,6 +72,7 @@ var glyphs = {
     "alert": "\ue077",
     "ok": "\ue226",
     "filter": "\ue460",
+    "sort": "\ue37d",
     "history": "\ue1f5",
     "organize": "\ue33c"
 }

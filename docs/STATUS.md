@@ -13,7 +13,7 @@
 | 11. 정리 | 라이브러리(Papers·Notes·Trash, Collection·Tag·읽기 상태·중복·색인 제외), 논문·노트·AI 대화를 함께 담는 휴지통, 관련 논문·노트 | Smart Collection |
 | 12–16. 검색·커맨드 | FTS5 본문(+OCR), 단어 순서 무관·점수 순위, 범위 칩·검색어 조건, 선택적 의미 검색(Ollama·OpenAI), 명령 팔레트 | — |
 | 17–21. 주석·연결 | 5색 주석·코멘트, 영역 표시(캡션 함께), 노트 링크·역링크, 주석 포함 PDF 내보내기(표준 주석). 이전 Captures는 주석·노트로 통합(스키마 15) | Figure 자동 인식 |
-| 22–27. 노트·AI | Markdown 노트, AI 4종(Claude API, OpenAI API, ChatGPT 계정, Ollama), 모델·추론 강도·Fast, 이미지·PDF/웹 영역 첨부(저장 안 함), Thread, 선호 언어, 논문 비교표, 쪽별 번역·논문 요약, 탭·Collection AI 정리 | 라이브러리 전체에 묻기(v0.6) |
+| 22–27. 노트·AI | Markdown 노트, AI 4종(Claude API, OpenAI API, ChatGPT 계정, Ollama), 모델·추론 강도·Fast, 이미지·PDF/웹 영역 첨부(저장 안 함), Threads 패널(채팅을 논문·Collection별로 묶음, 최근·이름 정렬, 검색), 선호 언어, 논문 비교표, 쪽별 번역·논문 요약, 탭·Collection AI 정리 | 라이브러리 전체에 묻기(v0.6) |
 | 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, 공유 폴더를 통한 컴퓨터 간 동기화(Google Drive·Dropbox·Syncthing, 항목별 나중 변경 우선), SQLite(라이브러리 스키마 16, 색인 4, 업그레이드 전 백업), 백업·복원, Markdown·BibTeX 내보내기, 단축키 변경, macOS·Linux·Windows 키 저장소, 로컬 설치 스크립트, 자동 테스트 7묶음 | Linux/Windows 실기기, 배포 패키지 |
 
 ## 우선순위

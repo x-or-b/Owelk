@@ -169,28 +169,12 @@
         <translation> 텍스트</translation>
     </message>
     <message>
-        <source> to Trash</source>
-        <translation> 투 트래시</translation>
-    </message>
-    <message>
-        <source> turn</source>
-        <translation> 턴</translation>
-    </message>
-    <message>
-        <source> turns</source>
-        <translation> 턴스</translation>
-    </message>
-    <message>
         <source>Add context</source>
         <translation>애드 콘텍스트</translation>
     </message>
     <message>
         <source>Add to “</source>
         <translation>애드 투 “</translation>
-    </message>
-    <message>
-        <source>All threads</source>
-        <translation>올 스레즈</translation>
     </message>
     <message>
         <source>Ask About This</source>
@@ -201,8 +185,8 @@
         <translation>애스크 어 팔로-업…</translation>
     </message>
     <message>
-        <source>Ask about a selection, page or figure, or start a new thread with +.</source>
-        <translation>애스크 어바웃 어 셀렉션, 페이지 오어 피겨, 오어 스타트 어 뉴 스레드 위드 +.</translation>
+        <source>Ask about the paper, or a selection, page or figure. Earlier chats are in Threads.</source>
+        <translation>애스크 어바웃 더 페이퍼, 오어 어 셀렉션, 페이지 오어 피겨. 얼리어 챗스 아 인 스레즈.</translation>
     </message>
     <message>
         <source>Ask about the paper…</source>
@@ -225,6 +209,10 @@
         <translation>백 투 더 퀘스천</translation>
     </message>
     <message>
+        <source>Chat</source>
+        <translation>챗</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>카피</translation>
     </message>
@@ -243,6 +231,10 @@
     <message>
         <source>Go to the latest</source>
         <translation>고 투 더 레이티스트</translation>
+    </message>
+    <message>
+        <source>Hide Threads</source>
+        <translation>하이드 스레즈</translation>
     </message>
     <message>
         <source>Image</source>
@@ -269,20 +261,16 @@
         <translation>모델</translation>
     </message>
     <message>
-        <source>Move </source>
-        <translation>무브 </translation>
-    </message>
-    <message>
-        <source>Move to Trash</source>
-        <translation>무브 투 트래시</translation>
+        <source>New Chat</source>
+        <translation>뉴 챗</translation>
     </message>
     <message>
         <source>New Note</source>
         <translation>뉴 노트</translation>
     </message>
     <message>
-        <source>New thread</source>
-        <translation>뉴 스레드</translation>
+        <source>New chat</source>
+        <translation>뉴 챗</translation>
     </message>
     <message>
         <source>Open Settings…</source>
@@ -313,14 +301,6 @@
         <translation>리무브</translation>
     </message>
     <message>
-        <source>Rename Thread</source>
-        <translation>리네임 스레드</translation>
-    </message>
-    <message>
-        <source>Rename…</source>
-        <translation>리네임…</translation>
-    </message>
-    <message>
         <source>Restore</source>
         <translation>리스토어</translation>
     </message>
@@ -347,6 +327,10 @@
     <message>
         <source>Set up </source>
         <translation>셋 업 </translation>
+    </message>
+    <message>
+        <source>Show Threads</source>
+        <translation>쇼 스레즈</translation>
     </message>
     <message>
         <source>Smaller question box</source>
@@ -385,16 +369,8 @@
         <translation>소트 포 </translation>
     </message>
     <message>
-        <source>Threads</source>
-        <translation>스레즈</translation>
-    </message>
-    <message>
         <source>Translate Page </source>
         <translation>트랜슬레이트 페이지 </translation>
-    </message>
-    <message>
-        <source>Trash (in the Library)</source>
-        <translation>트래시 (인 더 라이브러리)</translation>
     </message>
     <message>
         <source>s </source>
@@ -653,6 +629,10 @@
         <translation>패널: 토글 파일스</translation>
     </message>
     <message>
+        <source>Panel: Toggle Threads</source>
+        <translation>패널: 토글 스레즈</translation>
+    </message>
+    <message>
         <source>Search commands</source>
         <translation>서치 커맨즈</translation>
     </message>
@@ -802,8 +782,8 @@
 <context>
     <name>DockSidebar</name>
     <message>
-        <source>AI</source>
-        <translation>에이아이</translation>
+        <source>AI chat</source>
+        <translation>에이아이 챗</translation>
     </message>
     <message>
         <source>Document</source>
@@ -1696,8 +1676,8 @@ Same file as another library entry</source>
 <context>
     <name>Main</name>
     <message>
-        <source>AI threads</source>
-        <translation>에이아이 스레즈</translation>
+        <source>AI chat</source>
+        <translation>에이아이 챗</translation>
     </message>
     <message>
         <source>Back to Previous Spot</source>
@@ -1886,6 +1866,10 @@ Same file as another library entry</source>
     <message>
         <source>This PDF is already in your Library</source>
         <translation>디스 피디에프 이즈 올레디 인 유어 라이브러리</translation>
+    </message>
+    <message>
+        <source>Threads: AI chats by paper and collection</source>
+        <translation>스레즈: 에이아이 챗스 바이 페이퍼 앤드 컬렉션</translation>
     </message>
     <message>
         <source>Use Existing</source>
@@ -4612,6 +4596,93 @@ You can open the same document twice.</source>
     <message>
         <source>Undo</source>
         <translation>언두</translation>
+    </message>
+</context>
+<context>
+    <name>ThreadsPanel</name>
+    <message>
+        <source> to Trash</source>
+        <translation> 투 트래시</translation>
+    </message>
+    <message>
+        <source>Ask about a selection, page or figure, or start a chat with +.</source>
+        <translation>애스크 어바웃 어 셀렉션, 페이지 오어 피겨, 오어 스타트 어 챗 위드 +.</translation>
+    </message>
+    <message>
+        <source>By Name</source>
+        <translation>바이 네임</translation>
+    </message>
+    <message>
+        <source>Collections</source>
+        <translation>컬렉션스</translation>
+    </message>
+    <message>
+        <source>Move </source>
+        <translation>무브 </translation>
+    </message>
+    <message>
+        <source>Move to Trash</source>
+        <translation>무브 투 트래시</translation>
+    </message>
+    <message>
+        <source>New Chat Here</source>
+        <translation>뉴 챗 히어</translation>
+    </message>
+    <message>
+        <source>New chat</source>
+        <translation>뉴 챗</translation>
+    </message>
+    <message>
+        <source>No chat matches.</source>
+        <translation>노 챗 매치스.</translation>
+    </message>
+    <message>
+        <source>Open Paper</source>
+        <translation>오픈 페이퍼</translation>
+    </message>
+    <message>
+        <source>Other</source>
+        <translation>아더</translation>
+    </message>
+    <message>
+        <source>Papers</source>
+        <translation>페이퍼스</translation>
+    </message>
+    <message>
+        <source>Recent First</source>
+        <translation>리센트 퍼스트</translation>
+    </message>
+    <message>
+        <source>Rename Chat</source>
+        <translation>리네임 챗</translation>
+    </message>
+    <message>
+        <source>Rename…</source>
+        <translation>리네임…</translation>
+    </message>
+    <message>
+        <source>Search chats</source>
+        <translation>서치 챗스</translation>
+    </message>
+    <message>
+        <source>Show in Library</source>
+        <translation>쇼 인 라이브러리</translation>
+    </message>
+    <message>
+        <source>Sort</source>
+        <translation>소트</translation>
+    </message>
+    <message>
+        <source>This Paper</source>
+        <translation>디스 페이퍼</translation>
+    </message>
+    <message>
+        <source>Threads</source>
+        <translation>스레즈</translation>
+    </message>
+    <message>
+        <source>Trash (in the Library)</source>
+        <translation>트래시 (인 더 라이브러리)</translation>
     </message>
 </context>
 <context>

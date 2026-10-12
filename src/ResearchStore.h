@@ -242,7 +242,12 @@ public:
     // display (typed), context, model, provider.
     Q_INVOKABLE QString createAiThread(const QVariantMap &thread);
     Q_INVOKABLE bool appendAiMessage(const QString &threadId, const QVariantMap &message);
-    Q_INVOKABLE QVariantList aiThreads() const;
+    // Newest (last opened or answered) first, each with its paper (document, paper) and the collections it
+    // belongs to: chosen for it, or holding its paper. With words, only conversations whose title, questions
+    // or answers contain them. (The interface calls a conversation a chat and groups chats as Threads.)
+    Q_INVOKABLE QVariantList aiThreads(const QString &words = QString()) const;
+    // Files a conversation under a collection (member true) or takes it out; its paper's collections stay.
+    Q_INVOKABLE bool setAiThreadCollection(const QString &id, const QString &collectionId, bool member);
     // Conversations to the Trash (trashed true) or back (false), and deleted for good.
     Q_INVOKABLE int trashAiThreads(const QStringList &ids, bool trashed = true);
     Q_INVOKABLE int purgeAiThreads(const QStringList &ids);

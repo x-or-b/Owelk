@@ -2,6 +2,7 @@
 #include "UiText.h"
 
 #include <QDateTime>
+#include <QHash>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSqlQuery>
@@ -37,6 +38,9 @@ QString ResearchStore::createAiThread(const QVariantMap &thread)
     // A thread about a paper links to it, so the paper's Links tab finds the conversation.
     const auto document = findDocument(source);
     if (!document.isEmpty()) addLink("ai", id, "document", document);
+    // One asked of a collection is filed under it.
+    const auto collection = thread.value("collection").toString();
+    if (!collection.isEmpty()) setAiThreadCollection(id, collection, true);
     emit aiThreadsChanged();
     return id;
 }
@@ -70,18 +74,65 @@ bool ResearchStore::appendAiMessage(const QString &threadId, const QVariantMap &
     return true;
 }
 
-QVariantList ResearchStore::aiThreads() const
+QVariantList ResearchStore::aiThreads(const QString &words) const
 {
     QVariantList rows;
+    QString filter;
+    const auto needle = words.simplified();
+    if (!needle.isEmpty())
+        filter = " AND (t.title LIKE ? ESCAPE '\\' OR EXISTS(SELECT 1 FROM ai_messages m WHERE m.thread_id=t.id AND "
+                 "((m.role='user' AND m.display LIKE ? ESCAPE '\\') OR (m.role='assistant' AND m.content LIKE ? "
+                 "ESCAPE '\\'))))";
     QSqlQuery query(m_database);
-    query.exec(
-        "SELECT t.id,t.title,t.provider,t.model,t.source,t.updated_at,(SELECT count(*) FROM ai_messages m "
-        "WHERE m.thread_id=t.id) FROM ai_threads t WHERE t.trashed_at IS NULL ORDER BY t.updated_at DESC LIMIT 500");
-    while (query.next())
+    query.prepare("SELECT t.id,t.title,t.provider,t.model,t.source,t.updated_at,(SELECT count(*) FROM ai_messages m "
+                  "WHERE m.thread_id=t.id),max(coalesce(r.opened_at,''),t.updated_at) AS last,(SELECT l.to_id FROM "
+                  "links l WHERE l.from_kind='ai' AND l.from_id=t.id AND l.to_kind='document' LIMIT 1),(SELECT "
+                  "group_concat(l.to_id,char(31)) FROM links l WHERE l.from_kind='ai' AND l.from_id=t.id AND "
+                  "l.to_kind='collection') FROM ai_threads t LEFT JOIN recent_items r ON r.kind='ai' AND r.id=t.id "
+                  "WHERE t.trashed_at IS NULL"
+        + filter + " ORDER BY last DESC LIMIT 2000");
+    if (!needle.isEmpty()) {
+        auto escaped = needle;
+        escaped.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        for (int i = 0; i < 3; ++i) query.addBindValue("%" + escaped + "%");
+    }
+    if (!query.exec()) return rows;
+    // The collections each paper is in, read once.
+    QHash<QString, QStringList> paperCollections;
+    QSqlQuery members(m_database);
+    if (members.exec("SELECT cd.document_id,cd.collection_id FROM collection_documents cd WHERE cd.document_id IN "
+                     "(SELECT to_id FROM links WHERE from_kind='ai' AND to_kind='document')"))
+        while (members.next()) paperCollections[members.value(0).toString()] << members.value(1).toString();
+    while (query.next()) {
+        const QUrl source(query.value(4).toString());
+        const auto document = query.value(8).toString();
+        const auto chosen = query.value(9).toString().split(QChar(31), Qt::SkipEmptyParts);
+        auto collections = chosen;
+        for (const auto &id : paperCollections.value(document))
+            if (!collections.contains(id)) collections << id;
         rows.append(QVariantMap{{"id", query.value(0)}, {"title", query.value(1)}, {"provider", query.value(2)},
-            {"model", query.value(3)}, {"source", QUrl(query.value(4).toString())}, {"updatedAt", query.value(5)},
-            {"messages", query.value(6)}});
+            {"model", query.value(3)}, {"source", source}, {"updatedAt", query.value(5)}, {"messages", query.value(6)},
+            {"openedAt", query.value(7)}, {"document", document},
+            {"paper", source.isLocalFile() ? displayName(source) : QString()}, {"collections", collections},
+            {"chosenCollections", chosen}});
+    }
     return rows;
+}
+
+bool ResearchStore::setAiThreadCollection(const QString &id, const QString &collectionId, bool member)
+{
+    if (id.isEmpty() || collectionId.isEmpty()) return false;
+    QSqlQuery query(m_database);
+    query.prepare(member ? "INSERT OR IGNORE INTO links SELECT 'ai',t.id,'collection',c.id,? FROM ai_threads t, "
+                           "collections c WHERE t.id=? AND c.id=?"
+                         : "DELETE FROM links WHERE from_kind='ai' AND from_id=? AND to_kind='collection' AND to_id=?");
+    if (member) query.addBindValue(now());
+    query.addBindValue(id);
+    query.addBindValue(collectionId);
+    if (!query.exec() || query.numRowsAffected() != 1) return false;
+    emit aiThreadsChanged();
+    emit linksChanged();
+    return true;
 }
 
 QVariantMap ResearchStore::aiThread(const QString &id) const
@@ -106,6 +157,15 @@ QVariantMap ResearchStore::aiThread(const QString &id) const
                 {"context", QJsonDocument::fromJson(messages.value(4).toByteArray()).toVariant()},
                 {"model", messages.value(5)}, {"createdAt", messages.value(6)}});
     thread.insert("messages", list);
+    // The collections it is filed under (not the ones its paper is in).
+    QSqlQuery filed(m_database);
+    filed.prepare("SELECT c.id,c.name FROM links l JOIN collections c ON c.id=l.to_id WHERE l.from_kind='ai' AND "
+                  "l.from_id=? AND l.to_kind='collection' ORDER BY c.name COLLATE NOCASE");
+    filed.addBindValue(id);
+    QVariantList collections;
+    if (filed.exec())
+        while (filed.next()) collections.append(QVariantMap{{"id", filed.value(0)}, {"name", filed.value(1)}});
+    thread.insert("collections", collections);
     return thread;
 }
 

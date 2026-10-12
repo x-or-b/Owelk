@@ -1443,6 +1443,57 @@ private slots:
         QCOMPARE(store.trashCount(), 0);
         QCOMPARE(store.aiThreads().size(), 2);
     }
+    void aiChatsGatherByPaperAndCollection()
+    {
+        QTemporaryDir directory;
+        const auto pdf = QUrl::fromLocalFile(directory.filePath("paper.pdf"));
+        writeFixture(pdf.toLocalFile(), "Grouped Paper");
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QVERIFY(store.setSetting("library.keepPdfs", "0"));
+        QVERIFY(store.rememberDocument(pdf));
+        const auto methods = store.createCollection("Methods");
+        QVERIFY(store.setDocumentCollection(pdf, methods, true));
+        const auto chat = [&](const char *title, const QVariantMap &extra = {}) {
+            QVariantMap thread{{"title", title}, {"provider", "claude"}, {"model", "m"}};
+            thread.insert(extra);
+            return store.createAiThread(thread);
+        };
+        const auto onPaper = chat("About the paper", {{"source", pdf}});
+        const auto asked = chat("Asked of Methods", {{"collection", methods}});
+        const auto filed = chat("Filed later");
+        const auto loose = chat("Loose");
+        QVERIFY(store.appendAiMessage(
+            loose, {{"role", "assistant"}, {"content", "Transformer depth matters, 100% of the time."}}));
+        const auto row = [&](const QString &id, const QString &words = {}) {
+            for (const auto &value : store.aiThreads(words))
+                if (value.toMap()["id"].toString() == id) return value.toMap();
+            return QVariantMap();
+        };
+        // A paper's chat is in the paper's collections without being filed there.
+        QCOMPARE(row(onPaper)["paper"].toString(), store.displayName(pdf));
+        QCOMPARE(row(onPaper)["collections"].toStringList(), QStringList{methods});
+        QVERIFY(row(onPaper)["chosenCollections"].toStringList().isEmpty());
+        // A chat asked of a collection is filed under it; others can be filed and taken out.
+        QCOMPARE(row(asked)["chosenCollections"].toStringList(), QStringList{methods});
+        QCOMPARE(store.aiThread(asked)["collections"].toList().value(0).toMap()["name"].toString(), QString("Methods"));
+        QVERIFY(row(filed)["collections"].toStringList().isEmpty());
+        QVERIFY(store.setAiThreadCollection(filed, methods, true));
+        QCOMPARE(row(filed)["collections"].toStringList(), QStringList{methods});
+        QVERIFY(store.setAiThreadCollection(filed, methods, false));
+        QVERIFY(row(filed)["collections"].toStringList().isEmpty());
+        QVERIFY(!store.setAiThreadCollection(filed, "missing", true));
+        // Search finds the words of titles and answers; % and _ are plain characters.
+        QCOMPARE(store.aiThreads("transformer").size(), 1);
+        QCOMPARE(store.aiThreads("100%").size(), 1);
+        QCOMPARE(store.aiThreads("Methods").size(), 1);
+        QVERIFY(store.aiThreads("no_such").isEmpty());
+        // A deleted collection lets go of its chats; they stay.
+        QVERIFY(store.deleteCollection(methods));
+        QVERIFY(row(asked)["collections"].toStringList().isEmpty());
+        QCOMPARE(store.aiThreads().size(), 4);
+    }
     void oneTrashForPapersNotesAndConversations()
     {
         QTemporaryDir directory;

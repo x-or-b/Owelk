@@ -33,6 +33,7 @@ Popup {
         {command: "/organize tabs", title: qsTr("Tabs: Organize with AI…"), enabled: hasDocument},
         {command: "/ask library", title: qsTr("AI: Ask Your Library…"), enabled: true},
         {command: "/document", title: qsTr("Panel: Toggle Document"), enabled: true},
+        {command: "/threads", title: qsTr("Panel: Toggle Threads"), enabled: true},
         {command: "/annotations", title: qsTr("Panel: Annotations of This Paper"), enabled: hasDocument},
         {command: "/paper note", title: qsTr("Note: New Note about This Paper"), enabled: hasDocument},
         {command: "/split right", title: qsTr("Split: Duplicate Tab Right"), enabled: hasDocument},

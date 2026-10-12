@@ -108,21 +108,39 @@ Item {
             menu.close()
             tryVerify(function() { return researchStore.note(note).body.split("Mock answer").length === 3 })
         }
-        function test_2_threadsListReopensWithoutANewRequest() {
+        function threadsList() {
+            tryVerify(function() { return findChild(workspace, "threadsPanel") !== null })
+            const list = findChild(findChild(workspace, "threadsPanel"), "threadsList")
+            waitForPolish(list)
+            return list
+        }
+        function rowIndex(list, test) {
+            for (let i = 0; i < list.model.length; ++i) if (test(list.model[i])) return i
+            return -1
+        }
+        function test_2_threadsPanelReopensWithoutANewRequest() {
             const ai = findChild(workspace, "aiController")
             const p = panel()
             const thread = ai.threadId
+            researchStore.setSetting("threads.sort", "recent")
+            // The AI panel's button opens Threads, a panel of its own: the AI panel stays open.
             mouseClick(findChild(p, "aiThreadsButton"))
-            const list = findChild(p, "aiThreadList")
-            tryCompare(list, "visible", true)
-            tryVerify(function() { return list.count >= 1 && list.itemAtIndex(0) !== null })
-            waitForPolish(list)
-            mouseClick(list.itemAtIndex(0))
+            tryCompare(workspace, "threadsVisible", true)
+            compare(workspace.threadsSide, "left")
+            compare(workspace.aiVisible, true)
+            const list = threadsList()
+            // The chat about the paper in the reader comes first, under This Paper.
+            tryVerify(function() { return list.count >= 2 && list.itemAtIndex(1) !== null })
+            compare(list.model[0].key, "here")
+            compare(list.model[1].chat.id, thread)
+            ai.showThreads()
+            mouseClick(list.itemAtIndex(1))
             tryCompare(ai, "threadId", thread)
             compare(ai.messages.length, 4)
             compare(ai.streaming, false)
+            verify(list.itemAtIndex(1).current) // The open chat is marked.
             // Search results and owelk://ai links open the thread in the panel too.
-            mouseClick(findChild(p, "aiThreadsButton"))
+            ai.showThreads()
             workspace.openSearchResult({kind: "ai", id: thread})
             tryCompare(ai, "threadId", thread)
             verify(workspace.documents.openLink("owelk://ai/" + thread))
@@ -217,6 +235,75 @@ Item {
             waitForPolish(menu.contentItem); wait(30)
             mouseClick(row)
             tryCompare(menu, "visible", false)
+        }
+        function test_2a_threadsGatherBySortAndSearch() {
+            const ai = findChild(workspace, "aiController")
+            const thread = ai.threadId
+            workspace.threadsVisible = true
+            const list = threadsList(), threads = findChild(workspace, "threadsPanel")
+            // Filed under a collection, the chat shows in its Thread (folded until clicked).
+            const name = "Thread test " + Date.now()
+            const collection = researchStore.createCollection(name)
+            verify(researchStore.setAiThreadCollection(thread, collection, true))
+            let group = -1
+            tryVerify(function() { group = rowIndex(list, function(r) { return r.type === "group" && r.id === collection }); return group >= 0 })
+            compare(list.model[group].open, false)
+            tryVerify(function() { return list.itemAtIndex(group) !== null })
+            mouseClick(list.itemAtIndex(group))
+            tryVerify(function() { return list.model[group].open })
+            compare(list.model[group + 1].chat.id, thread)
+            // Opened there, the next question is asked of the collection; × goes back to the chat's paper.
+            ai.showThreads()
+            tryVerify(function() { return list.itemAtIndex(group + 1) !== null })
+            mouseClick(list.itemAtIndex(group + 1))
+            tryCompare(ai, "threadId", thread)
+            compare(ai.spec.scope, "library")
+            compare(ai.spec.collection, collection)
+            verify(ai.attachments.some(function(a) { return a.kind === "library" }))
+            ai.detach("library")
+            compare(ai.spec.scope, "none")
+            verify(researchStore.sameSource(ai.spec.source, fixtureSource))
+            // Sorted by name or by the latest; the search keeps chats whose words match.
+            const zeta = researchStore.createAiThread({title: "Zeta chat", provider: "claude", model: "m", source: fixtureSource})
+            const alpha = researchStore.createAiThread({title: "Alpha chat", provider: "claude", model: "m", source: fixtureSource})
+            const here = function() { return list.model.filter(function(r) { return r.type === "chat" && r.depth === 0 && r.chat.source.toString() === fixtureSource.toString() }).map(function(r) { return r.chat }) }
+            tryVerify(function() { return here().length >= 3 })
+            threads.setSort("name")
+            const named = here().map(function(c) { return c.title })
+            compare(named, named.slice().sort(function(a, b) { return a.localeCompare(b) }))
+            threads.setSort("recent")
+            const opened = here().map(function(c) { return c.openedAt })
+            compare(opened, opened.slice().sort().reverse())
+            const search = findChild(threads, "threadsSearch")
+            search.text = "Alpha chat"
+            tryVerify(function() { const chats = list.model.filter(function(r) { return r.type === "chat" }); return chats.length === 1 && chats[0].chat.id === alpha })
+            search.text = ""
+            // Threads moves by right-click like the other panels and stays on the outer side.
+            const icon = visualChild(findChild(workspace, "statusBar"), "dockIcon-threads")
+            mouseClick(icon, 15, 14, Qt.RightButton)
+            const menu = findChild(icon, "dockMenu-threads")
+            tryCompare(menu, "opened", true)
+            mouseClick(findChild(menu, "rightDockOption"))
+            tryCompare(workspace, "threadsSide", "right")
+            tryCompare(findChild(workspace, "rightThreads"), "active", true)
+            compare(workspace.aiSide, "right")
+            waitForPolish(workspace)
+            verify(findChild(workspace, "rightThreads").x > findChild(workspace, "rightDock").x)
+            compare(workspace.panelIcons("right")[workspace.panelIcons("right").length - 1], "threads")
+            workspace.movePanel("ai", "left")
+            workspace.movePanel("threads", "left")
+            tryCompare(findChild(workspace, "leftThreads"), "active", true)
+            waitForPolish(workspace)
+            verify(findChild(workspace, "leftThreads").x < findChild(workspace, "leftDock").x)
+            compare(workspace.panelIcons("left")[0], "threads")
+            workspace.persist()
+            compare(researchStore.session.panels.threadsSide, "left")
+            compare(researchStore.session.panels.threadsVisible, true)
+            // Back as it was for the tests after this one.
+            workspace.movePanel("ai", "right")
+            workspace.threadsVisible = false
+            researchStore.trashAiThreads([zeta, alpha])
+            researchStore.deleteCollection(collection)
         }
         function test_3_modelPickerOffersEffortAndFastWhereTheModelHasThem() {
             const ai = findChild(workspace, "aiController")

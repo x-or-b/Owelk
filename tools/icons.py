@@ -45,6 +45,7 @@ stop square
 attach paperclip
 star star
 ai sparkles
+threads messages-square
 area scan
 highlight highlighter
 draw pen-line
@@ -84,6 +85,7 @@ reading book-open
 alert circle-alert
 ok circle-check
 filter list-filter
+sort arrow-up-down
 history history
 organize folder-tree
 """

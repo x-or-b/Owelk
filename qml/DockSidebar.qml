@@ -12,6 +12,9 @@ Rectangle {
     property url folder
     property var reader: null
     property var aiController: null
+    // The Threads panel (outside the docks) is open; the AI panel's button opens and closes it.
+    property bool threadsOpen: false
+    signal threadsToggled()
     property int navigationMode: 0
     signal navigationModeChosen(int mode)
     signal documentChosen(url source)
@@ -23,7 +26,7 @@ Rectangle {
     // The document area (tabs dragged onto a collection) and the Library opened with a filter.
     property var documents: null
     signal libraryFilterRequested(var filter)
-    function panelName(panel) { return panel === "files" ? qsTr("Library") : panel === "ai" ? qsTr("AI") : panel === "document" ? qsTr("Document") : "" }
+    function panelName(panel) { return panel === "files" ? qsTr("Library") : panel === "ai" ? qsTr("AI chat") : panel === "document" ? qsTr("Document") : "" }
     // A slice of the window: no corners or frame; the 1px edge beside the document is the resize
     // edge in Main.qml.
     color: Theme.sidebar
@@ -52,9 +55,10 @@ Rectangle {
         id: aiPanel
         AiPanel {
             controller: root.aiController
+            threadsOpen: root.threadsOpen
+            onThreadsToggled: root.threadsToggled()
             onLinkActivated: function(link) { root.linkActivated(link) }
             onSettingsRequested: root.settingsRequested()
-            onTrashRequested: root.libraryFilterRequested({view: "trash"})
         }
     }
     Component {
