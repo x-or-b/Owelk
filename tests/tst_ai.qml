@@ -33,9 +33,11 @@ Item {
             for (let i = 0; i < children.length; ++i) { const found = visualChild(children[i], name); if (found) return found }
             return null
         }
+        // The AI panel in the dock it is in now (one just closed elsewhere may not be gone yet).
         function panel() {
-            tryVerify(function() { return findChild(workspace, "aiPanel") !== null })
-            const p = findChild(workspace, "aiPanel")
+            const dock = function() { return findChild(workspace, workspace.aiSide === "left" ? "leftDock" : "rightDock") }
+            tryVerify(function() { return findChild(dock(), "aiPanel") !== null })
+            const p = findChild(dock(), "aiPanel")
             waitForPolish(p)
             return p
         }
@@ -50,7 +52,20 @@ Item {
             // Ask AI about Selection: the selection joins a new conversation about this paper; nothing is sent.
             findChild(workspace.currentReader, "menuAskSelection").triggered()
             tryCompare(workspace, "aiVisible", true)
-            compare(workspace.aiSide, "right") // The AI panel docks on the right by default.
+            // On first start the AI docks on the left with Threads; Library and Document on the right.
+            compare(workspace.aiSide, "left")
+            compare(workspace.threadsSide, "left")
+            compare(workspace.filesSide, "right")
+            compare(workspace.documentSide, "right")
+            tryCompare(findChild(workspace, "leftDock"), "activePanel", "ai")
+            // Status bar icons: Threads, AI chat, Library, Document from the left; the right side mirrored.
+            workspace.filesSide = "left"
+            compare(workspace.panelIcons("left"), ["threads", "ai", "files"])
+            compare(workspace.panelIcons("right"), ["document"])
+            workspace.aiSide = "right"; workspace.filesSide = "right"
+            compare(workspace.panelIcons("right"), ["document", "files", "ai"])
+            // The tests below were written with the Library on the left and the AI on the right.
+            workspace.filesSide = "left"
             tryCompare(findChild(workspace, "rightDock"), "activePanel", "ai")
             const p = panel()
             compare(ai.threadId, "")
@@ -326,7 +341,7 @@ Item {
             // Back as it was for the tests after this one.
             workspace.movePanel("ai", "right")
             workspace.threadsVisible = false
-            researchStore.trashAiThreads([asked])
+            researchStore.purgeAiThreads([asked]) // Gone for good: the Trash is counted by later test files.
             ai.openThread(thread)
         }
         function test_2b_papersAndCollectionsAttachFromTheChat() {

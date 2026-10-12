@@ -42,11 +42,12 @@ ApplicationWindow {
     property bool tabsPanelOpen: researchStore.setting("tabs.panelOpen", "1") === "1"
     function setTabsPanel(open) { tabsPanelOpen = open; researchStore.setSetting("tabs.panelOpen", open ? "1" : "0") }
     property bool filesVisible: true
-    property string filesSide: "left"
+    // First start: Threads and the AI on the left, Document and Library on the right.
+    property string filesSide: "right"
     property bool documentVisible: false
-    property string documentSide: "left"
+    property string documentSide: "right"
     property bool aiVisible: false
-    property string aiSide: "right"
+    property string aiSide: "left"
     // Threads (folders of AI chats) is a panel of its own, always on the outer side of its
     // dock, so beside the AI panel it is the farther one; it opens and closes on its own.
     property bool threadsVisible: false
@@ -88,11 +89,11 @@ ApplicationWindow {
         else if (panel === "threads") threadsVisible = shown
         else documentVisible = shown
     }
-    // Status bar icons in the order of the panels on screen: Threads at the outer end.
+    // Left to right: Threads, AI chat, Library, Document; the right side the other way round, Threads last.
+    readonly property var panelOrder: ["threads", "ai", "files", "document"]
     function panelIcons(side) {
-        const docked = dockPanels.filter(function(p) { return panelSide(p) === side })
-        if (threadsSide !== side) return docked
-        return side === "left" ? ["threads"].concat(docked) : docked.concat(["threads"])
+        const order = side === "left" ? panelOrder : panelOrder.slice().reverse()
+        return order.filter(function(p) { return panelSide(p) === side })
     }
     // One panel per dock: opening one (or moving it into a dock) closes the other there.
     function closeOthers(panel) {
@@ -226,11 +227,11 @@ ApplicationWindow {
         leftDockWidth = Number(panels.leftWidth) || 224
         rightDockWidth = Number(panels.rightWidth) || 224
         filesVisible = panels.filesVisible === undefined ? true : panels.filesVisible
-        filesSide = panels.filesSide === "right" ? "right" : "left"
+        filesSide = panels.filesSide === "left" ? "left" : "right"
         documentVisible = !!panels.documentVisible
-        documentSide = panels.documentSide === "right" ? "right" : "left"
+        documentSide = panels.documentSide === "left" ? "left" : "right"
         aiVisible = !!panels.aiVisible
-        aiSide = panels.aiSide === "left" ? "left" : "right"
+        aiSide = panels.aiSide === "right" ? "right" : "left"
         threadsVisible = !!panels.threadsVisible
         threadsSide = panels.threadsSide === "right" ? "right" : "left"
         threadsWidth = Number(panels.threadsWidth) || 220
