@@ -67,7 +67,7 @@ QtObject {
         // A finished condition (an exact name) needs no completion.
         if (hits.length === 1 && hits[0].name.toLowerCase() === partial) return []
         return hits.slice(0, 12).map(function(item) {
-            const value = /\s/.test(item.name) ? 'qsTr("' + item.name + '")' : item.name
+            const value = /\s/.test(item.name) ? '"' + item.name + '"' : item.name
             return {kind: "complete", key: c.key, title: item.name, count: item.count !== undefined ? item.count : item.papers,
                     token: c.key + ":" + value}
         })
