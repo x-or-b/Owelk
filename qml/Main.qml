@@ -664,6 +664,8 @@ ApplicationWindow {
             anchors.fill: parent
             anchors.leftMargin: 4; anchors.rightMargin: 4
             spacing: 2
+            // Search stays at the far left, whatever panels sit beside it.
+            StatusIcon { objectName: "statusSearch"; kind: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }
             Repeater {
                 model: window.panelIcons("left")
                 delegate: StatusIcon {
@@ -682,7 +684,6 @@ ApplicationWindow {
                 text: window.notification.length ? window.notification : researchStore.busy ? qsTr("Saving…") : ""
                 elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
             }
-            StatusIcon { kind: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }
             StatusIcon { kind: "split"; description: qsTr("Duplicate to right split · ") + Platform.keys("Ctrl+\\"); visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }
             Repeater {
                 model: window.panelIcons("right")
