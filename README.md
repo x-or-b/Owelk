@@ -14,6 +14,8 @@ tools/install-local.sh --clean  # rebuild from scratch
 
 - **macOS** uses Homebrew's Qt and installs to `~/Applications/Owelk.app`.
 - **Linux** (Ubuntu 24.04 and similar) fetches Qt 6.11 into `~/Qt` once (about 1.5 GB) and adds a menu entry.
+- **Windows** (10/11, x64): `powershell -ExecutionPolicy Bypass -File tools\install-local.ps1` (`-Clean` to rebuild).
+  It sets up the build tools with winget, fetches Qt 6.11 into `%USERPROFILE%\Qt` once, and adds a Start menu entry.
 - Your library, notes and settings live in the app data folder, so reinstalling keeps them.
 
 Nice to have: [Tesseract](https://github.com/tesseract-ocr/tesseract) for scanned PDFs,
