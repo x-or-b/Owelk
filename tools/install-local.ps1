@@ -5,7 +5,7 @@
 #   powershell -ExecutionPolicy Bypass -File tools\install-local.ps1 -Clean    start the build from scratch
 #   powershell -ExecutionPolicy Bypass -File tools\install-local.ps1 -Yes      do not ask before installing tools
 #
-# Windows 10/11 on x64. Needs Visual Studio 2022 Build Tools (C++) and Python 3; missing ones are
+# Windows 10/11 on x64. Needs Visual Studio 2022 Build Tools (C++) and Python 3.10+; missing ones are
 # installed with winget (after asking). The official Qt 6.11 goes to %USERPROFILE%\Qt (about 2 GB,
 # once); Owelk is built with MSVC and installed to %LOCALAPPDATA%\Programs\Owelk with a Start menu entry.
 # Unlike macOS and Linux the Qt libraries are copied next to the program: Windows has no other way to
@@ -15,6 +15,9 @@ $ErrorActionPreference = 'Stop'
 
 $QtVersion = if ($env:OWELK_QT_VERSION) { $env:OWELK_QT_VERSION } else { '6.11.3' }
 $QtModules = @('qtpdf', 'qtwebengine', 'qtwebchannel', 'qtpositioning', 'qtimageformats', 'qtshadertools')
+# The Qt downloader. Qt 6.11 for Windows sits in a new folder layout that the 3.3.0 release cannot read
+# yet; this commit can. Back to plain `aqtinstall` once a newer release is out.
+$AqtSource = 'https://github.com/miurahr/aqtinstall/archive/076e1659807d0b362a3ed684d54c2e9c775eb9c7.zip'
 $Root = Split-Path -Parent $PSScriptRoot
 $Build = Join-Path $Root 'build-release'
 
@@ -35,6 +38,22 @@ function Winget([string]$id, [string[]]$extra = @()) {
     & winget install --id $id -e --accept-package-agreements --accept-source-agreements @extra
     if ($LASTEXITCODE -ne 0) { Fail "winget could not install $id." }
     Update-Path
+}
+
+# A Python 3.10 or newer (what the Qt downloader needs): the py launcher, or python on PATH.
+function Test-Python([string]$exe, [string[]]$extra) {
+    & $exe @extra -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'
+    return $LASTEXITCODE -eq 0
+}
+function Find-Python {
+    foreach ($candidate in @('py', 'python')) {
+        $command = Get-Command $candidate -ErrorAction SilentlyContinue
+        # The "python" that only opens the Microsoft Store lives in WindowsApps; it cannot run anything.
+        if (-not $command -or $command.Source -like '*\WindowsApps\*') { continue }
+        $extra = if ($candidate -eq 'py') { @('-3') } else { @() }
+        if (Test-Python $command.Source $extra) { $script:PythonExe = $command.Source; $script:PythonArgs = $extra; return $true }
+    }
+    return $false
 }
 
 if ($Help) { Get-Content $PSCommandPath | Select-Object -First 12 | ForEach-Object { $_ -replace '^# ?', '' }; exit 0 }
@@ -67,29 +86,24 @@ foreach ($tool in @('cmake', 'ninja')) {
 # --- Qt 6.11 in %USERPROFILE%\Qt (or OWELK_QT=C:\path\to\Qt\<version>\msvc2022_64) ---------------------
 $qt = if ($env:OWELK_QT) { $env:OWELK_QT } else { Join-Path $HOME "Qt\$QtVersion\msvc2022_64" }
 if (-not (Test-Path (Join-Path $qt 'bin\qmake.exe'))) {
-    $python = $null
-    foreach ($candidate in @('py', 'python')) {
-        $command = Get-Command $candidate -ErrorAction SilentlyContinue
-        # The "python" that only opens the Microsoft Store lives in WindowsApps; it cannot run anything.
-        if ($command -and $command.Source -notlike '*\WindowsApps\*') { $python = $command.Source; break }
-    }
-    if (-not $python) {
-        Say 'Python 3 is needed once, to download Qt.'
-        if (-not (Ask 'Install Python 3.12 with winget?')) { Fail 'Install Python 3 and run this again.' }
+    if (-not (Find-Python)) {
+        Say 'Python 3.10 or newer is needed once, to download Qt.'
+        if (-not (Ask 'Install Python 3.12 with winget?')) { Fail 'Install Python 3.10 or newer and run this again.' }
         Winget 'Python.Python.3.12'
-        $python = (Get-Command py -ErrorAction SilentlyContinue).Source
-        if (-not $python) { Fail 'Python is installed but not found yet. Open a new PowerShell window and run this again.' }
+        if (-not (Find-Python)) { Fail 'Python is installed but not found yet. Open a new PowerShell window and run this again.' }
     }
     Say "Downloading Qt $QtVersion into $HOME\Qt (about 2 GB, once)"
     $tools = Join-Path $env:LOCALAPPDATA 'Owelk\install-tools'
-    if (-not (Test-Path (Join-Path $tools 'venv\Scripts\python.exe'))) {
-        if ((Split-Path -Leaf $python) -eq 'py.exe') { & $python -3 -m venv (Join-Path $tools 'venv') } else { & $python -m venv (Join-Path $tools 'venv') }
+    $venvPython = Join-Path $tools 'venv\Scripts\python.exe'
+    # A virtual environment left by an older Python is made again.
+    if ((Test-Path $venvPython) -and -not (Test-Python $venvPython @())) { Remove-Item -Recurse -Force (Join-Path $tools 'venv') }
+    if (-not (Test-Path $venvPython)) {
+        & $script:PythonExe @script:PythonArgs -m venv (Join-Path $tools 'venv')
         if ($LASTEXITCODE -ne 0) { Fail 'Could not set up Python for the Qt download.' }
     }
-    $venv = Join-Path $tools 'venv\Scripts'
-    & (Join-Path $venv 'python.exe') -m pip install --quiet --upgrade aqtinstall
+    & $venvPython -m pip install --quiet --upgrade $AqtSource
     if ($LASTEXITCODE -ne 0) { Fail 'Could not install aqtinstall (the Qt downloader).' }
-    & (Join-Path $venv 'aqt.exe') install-qt windows desktop $QtVersion win64_msvc2022_64 -m @QtModules -O (Join-Path $HOME 'Qt')
+    & (Join-Path $tools 'venv\Scripts\aqt.exe') install-qt windows desktop $QtVersion win64_msvc2022_64 -m @QtModules -O (Join-Path $HOME 'Qt')
     if ($LASTEXITCODE -ne 0) { Fail "Could not download Qt $QtVersion." }
 }
 
