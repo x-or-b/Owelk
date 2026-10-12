@@ -2953,13 +2953,6 @@ Same file as another library entry</source>
     </message>
 </context>
 <context>
-    <name>PaletteMatch</name>
-    <message>
-        <source>' + color + '</source>
-        <translation>' + 컬러 + '</translation>
-    </message>
-</context>
-<context>
     <name>PaperDetailsDialog</name>
     <message>
         <source>Authors</source>
@@ -3719,10 +3712,6 @@ You can open the same document twice.</source>
 </context>
 <context>
     <name>ResearchSearch</name>
-    <message>
-        <source>' + item.name + '</source>
-        <translation>' + 아이템.네임 + '</translation>
-    </message>
     <message>
         <source>Similar meaning</source>
         <translation>시밀러 미닝</translation>

@@ -82,7 +82,7 @@ ApplicationWindow {
     readonly property var dockPanels: ["files", "document", "ai"]
     function panelSide(panel) { return panel === "files" ? filesSide : panel === "ai" ? aiSide : panel === "threads" ? threadsSide : documentSide }
     function panelShown(panel) { return panel === "files" ? filesVisible : panel === "ai" ? aiVisible : panel === "threads" ? threadsVisible : documentVisible }
-    function panelName(panel) { return panel === "files" ? qsTr("Library") : panel === "ai" ? qsTr("AI chat") : panel === "threads" ? qsTr("Threads: folders of AI chats") : qsTr("Document: contents, annotations, symbols and related papers") }
+    function panelName(panel) { return panel === "files" ? qsTr("Library") : panel === "ai" ? qsTr("AI chat") : panel === "threads" ? qsTr("Threads") : qsTr("Document: contents, annotations, symbols and related papers") }
     function setPanelShown(panel, shown) {
         if (panel === "files") filesVisible = shown
         else if (panel === "ai") aiVisible = shown
