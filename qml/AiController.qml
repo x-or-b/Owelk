@@ -100,8 +100,13 @@ Item {
         return true
     }
     readonly property string selectionProvider: ai.provider
-    onSelectionProviderChanged: loadSelection()
-    Component.onCompleted: { loadSelection(); loadModels() }
+    onSelectionProviderChanged: { loadSelection(); checkAccount() }
+    Component.onCompleted: { loadSelection(); loadModels(); checkAccount() }
+    // The ChatGPT sign-in lives with Codex and survives quitting; ask Codex again at start and on switching
+    // to it, or the account would look signed out until Settings › AI is opened.
+    function checkAccount() { if (ai.provider === "codex" && !providerInfo.configured) ai.refreshCodexAccount() }
+    // Once the account is known, its models come too.
+    Connections { target: root.ai; function onProvidersChanged() { if (root.ai.provider === "codex" && root.providerInfo.configured && !root.models.codex) root.ai.listModels("codex") } }
     function loadSelection() {
         effort = researchStore.setting("ai.effort." + ai.provider, "")
         fast = researchStore.setting("ai.fast." + ai.provider, "") === "1"
