@@ -1936,8 +1936,8 @@ Same file as another library entry</source>
         <translation>디스 피디에프 이즈 올레디 인 유어 라이브러리</translation>
     </message>
     <message>
-        <source>Threads: folders of AI chats</source>
-        <translation>스레즈: 폴더스 오브 에이아이 챗스</translation>
+        <source>Threads</source>
+        <translation>스레즈</translation>
     </message>
     <message>
         <source>Use Existing</source>
