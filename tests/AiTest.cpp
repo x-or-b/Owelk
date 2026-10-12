@@ -568,9 +568,9 @@ private slots:
         QVERIFY(linked.contains("[p. 2](owelk://document/" + store.documentLinkId(papers[0]) + "#page=2"));
         const auto thread = finished[0][2].toMap()["threadId"].toString();
         // The other paper finds the chat among its links; the question keeps what went with it.
-        QVERIFY(std::any_of(store.backlinks("document", store.documentLinkId(papers[1])).cbegin(),
-            store.backlinks("document", store.documentLinkId(papers[1])).cend(),
-            [&](const QVariant &b) { return b.toMap()["id"].toString() == thread; }));
+        const auto links = store.backlinks("document", store.documentLinkId(papers[1]));
+        QVERIFY(std::any_of(
+            links.cbegin(), links.cend(), [&](const QVariant &b) { return b.toMap()["id"].toString() == thread; }));
         const auto asked = store.aiThread(thread)["messages"].toList()[0].toMap()["context"].toMap();
         QCOMPARE(asked["papers"].toStringList(), QStringList{"Beta Paper"});
         // Five papers: too many to read; the passages come from those five only.

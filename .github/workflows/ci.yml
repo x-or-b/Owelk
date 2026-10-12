@@ -92,4 +92,4 @@ jobs:
       - name: Failed checks
         if: failure()
         shell: bash
-        run: grep -hE "FAIL!|Loc:|QFATAL|Actual|Expected" build/Testing/Temporary/LastTest.log | head -100 || true
+        run: grep -hE "FAIL!|Loc:|QFATAL|Actual|Expected" build/test-results/*.txt build/Testing/Temporary/LastTest.log | head -150 || true
