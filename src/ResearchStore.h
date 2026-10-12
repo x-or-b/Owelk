@@ -197,7 +197,10 @@ public:
     // Passages from the Library for a question: the best pages for the terms (at most two per paper),
     // each as {n, documentId, source, title, year, page (0-based), excerpt}.
     // With a collection, only its papers (and those of its sub-collections).
-    QVariantList libraryPassages(const QStringList &terms, int limit, const QString &collection = QString());
+    // Passages for a question: from a collection (and these papers too), from these papers, or (neither given)
+    // from the whole library.
+    QVariantList libraryPassages(const QStringList &terms, int limit, const QString &collection = QString(),
+        const QStringList &documents = QStringList());
     Q_INVOKABLE QVariantMap paperExcerpt(const QUrl &source, int opening = 5000, int closing = 2500);
     // Encrypted PDFs: the viewer hands over a password that worked, so indexing, annotations,
     // printing and AI can open the file too. keep: also store it in the system keyring.

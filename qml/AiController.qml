@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "AiNames.js" as AiNames
+import "WorkspaceTree.js" as Tree
 
 // The AI conversation behind the AI panel. Lives outside the dock so switching panels or docks
 // never drops a streaming answer. Every turn is kept as a thread; follow-ups send earlier turns along.
@@ -12,6 +13,20 @@ Item {
     visible: false
     readonly property var ai: researchStore.ai
     property var reader: null
+    // The tabs (DocumentWorkspace): PDFs open in them come first when attaching papers.
+    property var workspace: null
+    function openTabPapers() {
+        if (!workspace || !workspace.tree) return []
+        const seen = {}, list = []
+        Tree.leaves(workspace.tree).forEach(function(group) {
+            group.tabs.forEach(function(tab) {
+                if (tab.kind || !tab.source || seen[tab.source]) return
+                seen[tab.source] = true
+                list.push(tab.source)
+            })
+        })
+        return list
+    }
     property string threadId: ""
     property var thread: ({})
     readonly property var messages: thread.messages || []
@@ -154,9 +169,42 @@ Item {
             list.push({kind: "quote", label: qsTr("Quote · ") + flat.slice(0, 60) + (flat.length > 60 ? "…" : ""), detail: s.quote})
         }
         if (s.scope === "page") list.push({kind: "page", label: qsTr("Page ") + (Number(s.page) + 1) + qsTr(" text")})
+        ;(s.papers || []).forEach(function(url, index) { list.push({kind: "extra", index: index, label: qsTr("Paper · ") + researchStore.displayName(url)}) })
         if (s.scope === "library") list.push({kind: "library", label: (s.collection ? qsTr("Collection · ") + s.collectionName : qsTr("Whole library")) + qsTr(" · passages that answer the question")})
+        else if (searchesPapers(s)) list.push({kind: "passages", fixed: true, label: qsTr("Several papers · passages that answer the question")})
         images.forEach(function(image, index) { list.push({kind: "image", index: index, label: image.name, url: image.url}) })
         return list
+    }
+    // Several papers are read whole up to three; past that (or once a chat has searched them) each question
+    // gets the passages that answer it, as for a collection (AiService::ask).
+    function searchesPapers(s) {
+        const reads = (s.scope === "paper" && s.source && s.source.toString().length ? 1 : 0) + (s.papers || []).length
+        return s.scope !== "library" && (reads > 3 || (!!s.searchPapers && (s.papers || []).length > 0))
+    }
+    // Papers chosen to go with the next question: open tabs, the Library, drops. The first becomes the chat's
+    // own paper when it has none yet; the rest are P2, P3… for citations.
+    function attachPapers(urls) {
+        ensureConversation()
+        const next = Object.assign({}, spec), list = (next.papers || []).slice()
+        for (const value of urls) {
+            const url = value.toString()
+            if (!/\.pdf$/i.test(url) && !/^file:/.test(url)) continue
+            if (next.source && next.source.toString().length && researchStore.sameSource(next.source, url)) continue
+            if ((!next.source || !next.source.toString().length) && next.scope !== "library") { next.source = url; next.scope = "paper"; continue }
+            if (list.indexOf(url) < 0 && list.length < 40) list.push(url)
+        }
+        next.papers = list
+        spec = next
+        focusRequested()
+    }
+    // A collection (id and name), or the whole library (no id): each question gets the passages that answer it.
+    function attachCollection(id, name) {
+        ensureConversation()
+        const next = Object.assign({}, spec)
+        next.scope = "library"; next.collection = id || ""; next.collectionName = name || ""
+        delete next.page
+        spec = next
+        focusRequested()
     }
     function stop() { if (streaming) ai.cancel(request) }
     function reset() {
@@ -204,8 +252,22 @@ Item {
             ai.provider = saved.provider
             if (saved.model) ai.setModel(saved.provider, saved.model)
         }
-        spec = saved.source && saved.source.toString().length ? {source: saved.source, scope: "none"} : ({})
+        spec = continuing(saved)
         return true
+    }
+    // What a saved chat goes on asking: its paper (already in the conversation) and, when its last question
+    // searched a collection, the library or several papers, the same again.
+    function continuing(saved) {
+        const next = saved.source && saved.source.toString().length ? {source: saved.source, scope: "none"} : ({})
+        const asked = (saved.messages || []).filter(function(m) { return m.role === "user" })
+        const context = asked.length ? asked[asked.length - 1].context || {} : {}
+        if ((context.attachments || []).indexOf("library") < 0) return next
+        const papers = (context.searchUrls || []).filter(function(url) { return !next.source || !researchStore.sameSource(next.source, url) })
+        if (context.wholeLibrary) Object.assign(next, {scope: "library", collection: "", collectionName: ""})
+        else if (context.collection) Object.assign(next, {scope: "library", collection: context.collection, collectionName: context.collectionName || ""})
+        else if (papers.length) next.searchPapers = true
+        if (papers.length) next.papers = papers
+        return next
     }
     // The AI panel's question box was reached with nothing open: a new chat about the paper in the reader.
     function ensureConversation() {
@@ -217,6 +279,8 @@ Item {
     // This paper again, after its chip was removed.
     function attachPaper() {
         if (!reader || !reader.source.toString().length) return
+        // A chat about another paper takes this one as one more.
+        if (spec.source && spec.source.toString().length && !researchStore.sameSource(spec.source, reader.source)) { attachPapers([reader.source]); return }
         spec = Object.assign({}, spec, {source: reader.source, scope: "paper"})
     }
     // A passage from an answer (Ask About This), sent with the next question as its own material.
@@ -237,13 +301,16 @@ Item {
             return
         }
         if (kind === "quote") delete next.quote
-        // Without the collection: back to the chat's own paper, else the one in the reader.
+        if (kind === "extra") next.papers = (next.papers || []).filter(function(_, i) { return i !== index })
+        // Without the collection: the chat's paper again (already in the conversation, or read now), else the
+        // one in the reader.
         if (kind === "library") {
-            const back = thread.source && thread.source.toString().length ? {source: thread.source, scope: "none"}
-                       : reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "paper"} : ({})
-            if (spec.folder) back.folder = spec.folder
-            spec = back
-            return
+            delete next.collection; delete next.collectionName
+            if (!next.source || !next.source.toString().length) {
+                if (reader && reader.source && reader.source.toString().length) next.source = reader.source
+            }
+            const inThread = next.source && thread.source && researchStore.sameSource(thread.source, next.source)
+            next.scope = !next.source || !next.source.toString().length ? "none" : inThread ? "none" : "paper"
         }
         if (kind === "selection") next.selection = ""
         if (kind === "page") next.scope = "none"
@@ -343,9 +410,14 @@ Item {
             root.answer = ""; root.pendingQuestion = ""; root.thinkingText = ""
             root.answered(root.threadId, root.thread.title || "AI",
                           text.replace(/\]\([^)]*\)/g, "]").replace(/[#*_`>|]/g, "").replace(/\s+/g, " ").trim().slice(0, 160))
-            // The material went with this turn; follow-ups reuse it through the thread.
-            root.spec = root.spec.scope === "library" ? {scope: "library", collection: root.spec.collection || "", collectionName: root.spec.collectionName || ""}
-                      : root.spec.source ? {source: root.spec.source, scope: "none"} : ({})
+            // The material went with this turn; follow-ups reuse it through the thread. What is searched (a
+            // collection, the library, several papers) is searched again for each question.
+            const sent = root.spec, searched = sent.scope === "library" || root.searchesPapers(sent)
+            const next = sent.source ? {source: sent.source, scope: "none"} : ({})
+            if (sent.scope === "library") Object.assign(next, {scope: "library", collection: sent.collection || "", collectionName: sent.collectionName || ""})
+            else if (searched) next.searchPapers = true
+            if (searched && (sent.papers || []).length) next.papers = sent.papers
+            root.spec = next
         }
         function onFailed(id, message) {
             if (id !== root.request) return

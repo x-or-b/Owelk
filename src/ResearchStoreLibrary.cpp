@@ -73,7 +73,9 @@ QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
                   "WHERE dt.document_id=d.id),"
                   "(d.sha256<>'' AND EXISTS(SELECT 1 FROM documents o WHERE o.sha256=d.sha256 AND o.id<>d.id)) "
                   "FROM documents d LEFT JOIN recent_documents r ON r.document_id=d.id WHERE "
-        + where.join(" AND ") + " ORDER BY " + order);
+        + where.join(" AND ") + " ORDER BY " + order
+        + (filter.contains("limit") ? QStringLiteral(" LIMIT %1").arg(qMax(1, filter.value("limit").toInt()))
+                                    : QString()));
     for (const auto &arg : args) query.addBindValue(arg);
     QVariantList rows;
     if (!query.exec()) return rows;

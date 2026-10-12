@@ -113,7 +113,11 @@ Item {
             else if (kind.indexOf("page ") === 0) list.push({kind: "page", label: qsTr("Page ") + kind.slice(5) + qsTr(" text")})
             else if (kind === "selection") list.push({kind: kind, label: qsTr("Selection · ") + flat(context.selection), detail: context.selection || ""})
             else if (kind === "quote") list.push({kind: kind, label: qsTr("Quote · ") + flat(context.quote), detail: context.quote || ""})
-            else if (kind === "library") list.push({kind: kind, label: qsTr("Library passages")})
+            else if (kind === "papers") (context.papers || []).forEach(function(name) { list.push({kind: "paper", label: qsTr("Paper · ") + name}) })
+            else if (kind === "library")
+                list.push({kind: kind, label: context.collectionName ? qsTr("Collection · ") + context.collectionName
+                                             : !context.wholeLibrary && (context.searched || []).length > 1 ? qsTr("Passages from ") + context.searched.length + qsTr(" papers")
+                                             : qsTr("Library passages")})
             else if (kind === "image") {
                 const names = context.images || [], files = context.imageFiles || []
                 for (let i = 0; i < Math.max(1, names.length, files.length); ++i)
@@ -456,8 +460,8 @@ Item {
                 model: root.c ? root.c.attachments : []
                 delegate: AttachmentChip {
                     required property int index
-                    objectName: "aiChip-" + modelData.kind + (modelData.kind === "image" ? "-" + modelData.index : "")
-                    removable: true
+                    objectName: "aiChip-" + modelData.kind + (modelData.kind === "image" || modelData.kind === "extra" ? "-" + modelData.index : "")
+                    removable: !modelData.fixed
                     onRemoved: { const kind = modelData.kind, at = modelData.index; Qt.callLater(function() { root.c.detach(kind, at) }) }
                 }
             }
@@ -525,6 +529,10 @@ Item {
                 Menu {
                     id: attachMenu
                     MenuItem { objectName: "aiAttachPaper"; text: qsTr("This Paper"); enabled: root.c && root.c.reader !== null && root.c.reader.source.toString().length > 0; onTriggered: root.c.attachPaper() }
+                    MenuItem { objectName: "aiAttachPapers"; text: qsTr("Papers…"); onTriggered: picker.begin("papers") }
+                    MenuItem { objectName: "aiAttachCollection"; text: qsTr("Collection…"); onTriggered: picker.begin("collection") }
+                    MenuItem { objectName: "aiAttachLibrary"; text: qsTr("Whole Library"); onTriggered: root.c.attachCollection("", "") }
+                    MenuSeparator {}
                     MenuItem { objectName: "aiAttachRegion"; text: qsTr("Region of the PDF…"); enabled: root.c && root.c.reader !== null; onTriggered: root.c.captureRegion() }
                     MenuItem { objectName: "aiAttachImage"; text: qsTr("Image…"); onTriggered: imageDialog.open() }
                 }
@@ -597,13 +605,141 @@ Item {
             }
         }
     }
-    // Images dropped on the panel are attached to the next question.
+    // Images, PDFs and papers dragged from the Library are attached to the next question.
     DropArea {
         anchors.fill: parent
-        keys: ["text/uri-list"]
+        keys: ["text/uri-list", "owelk/paper"]
         onDropped: function(drop) {
-            for (const url of drop.urls) root.c.attachImage(url)
+            if (drop.source && drop.source.paperUrls) root.c.attachPapers(drop.source.paperUrls)
+            else {
+                const pdfs = drop.urls.filter(function(url) { return /\.pdf$/i.test(url.toString()) })
+                if (pdfs.length) root.c.attachPapers(pdfs)
+                for (const url of drop.urls) root.c.attachImage(url)
+            }
             drop.accept()
+        }
+    }
+    // Papers (open tabs first, then the Library; several can be chosen) or a collection, to ask about.
+    Popup {
+        id: picker
+        objectName: "aiPicker"
+        property string mode: "papers"
+        property var chosen: []
+        function begin(what) { mode = what; chosen = []; pickerFilter.text = ""; open() }
+        function toggle(url) { chosen = chosen.indexOf(url) >= 0 ? chosen.filter(function(u) { return u !== url }) : chosen.concat([url]) }
+        function attach() {
+            if (!chosen.length) return
+            const urls = chosen.slice()
+            close()
+            root.c.attachPapers(urls)
+        }
+        function choose(row) {
+            if (mode === "papers") toggle(row.url)
+            else { close(); root.c.attachCollection(row.id, row.name) }
+        }
+        parent: attachButton
+        y: -height - 4
+        margins: 6
+        width: Math.max(240, Math.min(320, root.width))
+        padding: 8
+        onOpened: pickerFilter.forceActiveFocus()
+        readonly property string needle: pickerFilter.text.trim()
+        readonly property var rows: {
+            if (!visible || !root.c) return []
+            const words = needle.toLowerCase()
+            const match = function(name) { return !words.length || name.toLowerCase().indexOf(words) >= 0 }
+            if (mode === "collection")
+                return researchStore.collections().filter(function(c) { return match(c.name) })
+                    .map(function(c) { return {type: "collection", id: c.id, name: c.name, count: c.count} })
+            const current = root.c.spec, list = [], seen = {}
+            const taken = function(url) {
+                return (!!current.source && researchStore.sameSource(current.source, url)) || (current.papers || []).some(function(p) { return researchStore.sameSource(p, url) })
+            }
+            const tabs = root.c.openTabPapers().filter(function(url) { return !taken(url) })
+                .map(function(url) { return {type: "paper", url: url, name: researchStore.displayName(url)} }).filter(function(r) { return match(r.name) })
+            if (tabs.length) list.push({type: "section", name: qsTr("Open Tabs")})
+            tabs.forEach(function(r) { seen[r.url] = true; list.push(r) })
+            const library = researchStore.libraryDocuments({text: needle, limit: 40})
+                .map(function(d) { return {type: "paper", url: d.url.toString(), name: d.name} })
+                .filter(function(r) { return !seen[r.url] && !taken(r.url) })
+            if (library.length) list.push({type: "section", name: qsTr("Library")})
+            library.forEach(function(r) { list.push(r) })
+            return list
+        }
+        contentItem: ColumnLayout {
+            spacing: 4
+            TextField {
+                id: pickerFilter
+                objectName: "aiPickerFilter"
+                Layout.fillWidth: true
+                implicitHeight: Theme.controlHeight
+                font.pixelSize: Theme.fontSmall
+                placeholderText: picker.mode === "papers" ? qsTr("Search papers") : qsTr("Search collections")
+                Keys.onEscapePressed: picker.close()
+                Keys.onReturnPressed: {
+                    if (picker.mode === "papers") picker.attach()
+                    else { const first = picker.rows.find(function(r) { return r.type === "collection" }); if (first) picker.choose(first) }
+                }
+            }
+            ListView {
+                id: pickerList
+                objectName: "aiPickerList"
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(300, Math.max(contentHeight, Theme.rowHeight))
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                model: picker.rows
+                delegate: ItemDelegate {
+                    id: pick
+                    required property var modelData
+                    required property int index
+                    readonly property bool section: modelData.type === "section"
+                    readonly property bool picked: modelData.type === "paper" && picker.chosen.indexOf(modelData.url) >= 0
+                    objectName: "aiPick-" + index
+                    width: ListView.view.width
+                    implicitHeight: Theme.rowHeight - 2
+                    enabled: !section
+                    highlighted: picked
+                    leftPadding: section ? 4 : 26
+                    contentItem: Label {
+                        text: pick.modelData.name
+                        elide: Text.ElideRight; textFormat: Text.PlainText
+                        font.pixelSize: pick.section ? Theme.fontCaption : Theme.fontSmall
+                        font.weight: pick.section ? Font.DemiBold : Font.Normal
+                        color: pick.section ? Theme.textTertiary : pick.picked ? Theme.selectedText : Theme.text
+                    }
+                    Icon {
+                        visible: !pick.section
+                        x: 6; anchors.verticalCenter: parent.verticalCenter
+                        name: pick.modelData.type === "collection" ? "folder" : pick.picked ? "check" : "document"
+                        size: Theme.fontBody; color: pick.picked ? Theme.selectedText : Theme.textTertiary
+                    }
+                    onClicked: picker.choose(modelData)
+                }
+                Label {
+                    anchors.centerIn: parent
+                    visible: pickerList.count === 0
+                    text: picker.mode === "papers" ? qsTr("No paper found.") : qsTr("No collection found.")
+                    color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
+                }
+            }
+            RowLayout {
+                visible: picker.mode === "papers"
+                Layout.fillWidth: true
+                Label {
+                    Layout.fillWidth: true
+                    text: picker.chosen.length ? picker.chosen.length + qsTr(" chosen") : qsTr("Up to 3 are read whole; more are searched.")
+                    elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                }
+                Button {
+                    objectName: "aiPickerAttach"
+                    text: qsTr("Attach")
+                    highlighted: true
+                    enabled: picker.chosen.length > 0
+                    implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                    onClicked: picker.attach()
+                }
+            }
         }
     }
     Native.FileDialog {

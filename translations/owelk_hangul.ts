@@ -96,6 +96,10 @@
         <translation>센드 투 </translation>
     </message>
     <message>
+        <source>Several papers · passages that answer the question</source>
+        <translation>세버럴 페이퍼스 · 패시지스 댓 앤서 더 퀘스천</translation>
+    </message>
+    <message>
         <source>Sign in with ChatGPT in Settings → AI.</source>
         <translation>사인 인 위드 챗지피티 인 세팅스 → 에이아이.</translation>
     </message>
@@ -165,6 +169,14 @@
 <context>
     <name>AiPanel</name>
     <message>
+        <source> chosen</source>
+        <translation> 초즌</translation>
+    </message>
+    <message>
+        <source> papers</source>
+        <translation> 페이퍼스</translation>
+    </message>
+    <message>
         <source> text</source>
         <translation> 텍스트</translation>
     </message>
@@ -201,6 +213,10 @@
         <translation>애스크 유어 라이브러리…</translation>
     </message>
     <message>
+        <source>Attach</source>
+        <translation>어태치</translation>
+    </message>
+    <message>
         <source>Attach images</source>
         <translation>어태치 이미지스</translation>
     </message>
@@ -211,6 +227,14 @@
     <message>
         <source>Chat</source>
         <translation>챗</translation>
+    </message>
+    <message>
+        <source>Collection · </source>
+        <translation>컬렉션 · </translation>
+    </message>
+    <message>
+        <source>Collection…</source>
+        <translation>컬렉션…</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -249,6 +273,10 @@
         <translation>라저 퀘스천 박스</translation>
     </message>
     <message>
+        <source>Library</source>
+        <translation>라이브러리</translation>
+    </message>
+    <message>
         <source>Library passages</source>
         <translation>라이브러리 패시지스</translation>
     </message>
@@ -273,8 +301,20 @@
         <translation>뉴 챗</translation>
     </message>
     <message>
+        <source>No collection found.</source>
+        <translation>노 컬렉션 파운드.</translation>
+    </message>
+    <message>
+        <source>No paper found.</source>
+        <translation>노 페이퍼 파운드.</translation>
+    </message>
+    <message>
         <source>Open Settings…</source>
         <translation>오픈 세팅스…</translation>
+    </message>
+    <message>
+        <source>Open Tabs</source>
+        <translation>오픈 탭스</translation>
     </message>
     <message>
         <source>Page </source>
@@ -283,6 +323,18 @@
     <message>
         <source>Paper</source>
         <translation>페이퍼</translation>
+    </message>
+    <message>
+        <source>Paper · </source>
+        <translation>페이퍼 · </translation>
+    </message>
+    <message>
+        <source>Papers…</source>
+        <translation>페이퍼스…</translation>
+    </message>
+    <message>
+        <source>Passages from </source>
+        <translation>패시지스 프롬 </translation>
     </message>
     <message>
         <source>Quote · </source>
@@ -309,8 +361,16 @@
         <translation>세이브 애즈 노트</translation>
     </message>
     <message>
+        <source>Search collections</source>
+        <translation>서치 컬렉션스</translation>
+    </message>
+    <message>
         <source>Search models</source>
         <translation>서치 모델스</translation>
+    </message>
+    <message>
+        <source>Search papers</source>
+        <translation>서치 페이퍼스</translation>
     </message>
     <message>
         <source>Select All</source>
@@ -371,6 +431,14 @@
     <message>
         <source>Translate Page </source>
         <translation>트랜슬레이트 페이지 </translation>
+    </message>
+    <message>
+        <source>Up to 3 are read whole; more are searched.</source>
+        <translation>업 투 3 아 리드 홀; 모어 아 서치트.</translation>
+    </message>
+    <message>
+        <source>Whole Library</source>
+        <translation>홀 라이브러리</translation>
     </message>
     <message>
         <source>s </source>
@@ -2870,6 +2938,18 @@ Same file as another library entry</source>
     <message>
         <source>You sort a researcher's papers into a few topic collections. Use short, specific names (2-5 words) in the language of the paper titles. When papers fit a collection that already exists, use its exact name. Leave a paper out when it fits no group, and do not make a group for a single paper unless it fits an existing collection. Reply with JSON only: {"groups": [{"name": "…", "papers": ["p1", "p2"]}]}.</source>
         <translation>유 소트 어 리서처스 페이퍼스 인투 어 퓨 토픽 컬렉션스. 유즈 쇼트, 스페시픽 네임스 (2-5 워즈) 인 더 랭귀지 오브 더 페이퍼 타이틀스. 웬 페이퍼스 핏 어 컬렉션 댓 올레디 이그지스츠, 유즈 잇츠 이그잭트 네임. 리브 어 페이퍼 아웃 웬 잇 핏츠 노 그룹, 앤드 두 낫 메이크 어 그룹 포 어 싱글 페이퍼 언레스 잇 핏츠 언 이그지스팅 컬렉션. 리플라이 위드 제이슨 온리: {"그룹스": [{"네임": "…", "페이퍼스": ["피1", "피2"]}]}.</translation>
+    </message>
+    <message>
+        <source>these papers</source>
+        <translation>디즈 페이퍼스</translation>
+    </message>
+    <message>
+        <source>this collection</source>
+        <translation>디스 컬렉션</translation>
+    </message>
+    <message>
+        <source>your library</source>
+        <translation>유어 라이브러리</translation>
     </message>
 </context>
 <context>

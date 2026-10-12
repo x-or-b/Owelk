@@ -430,7 +430,7 @@ ApplicationWindow {
         organizeTabs.active = true
         organizeTabs.item.begin(groupId || documents.activeGroup)
     }
-    AiController { id: aiController; reader: window.homeVisible ? null : window.currentReader }
+    AiController { id: aiController; reader: window.homeVisible ? null : window.currentReader; workspace: documents }
     // Same bytes as another library entry: offer the existing copy without merging anything silently.
     // A notice, not a dialog: it never takes keyboard focus from the reader.
     Rectangle {

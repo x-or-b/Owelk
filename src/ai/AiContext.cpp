@@ -69,7 +69,14 @@ AiPrompt buildAiPrompt(
                 + materials.instructions.trimmed();
     }
     // Paper text comes with page numbers: answers point to their places, which Owelk turns into links.
-    if ((!materials.pageText.isEmpty() || !materials.paperText.isEmpty()) && action != "translate")
+    if (materials.paperMarkers.size() > 1 && action != "translate")
+        prompt.system += " The material holds several papers, each opened by a line such as \"=== P2: Title ===\" ("
+            + materials.paperMarkers.join("; ")
+            + "; a paper whose text is not repeated was sent earlier in the conversation). When a statement draws on "
+              "a paper, cite its place right after it as [P2 p. N: \"exact words\"], where P2 is that paper's marker, "
+              "N is the page number marked in its text and the words are a short phrase (about 4 to 12 words) "
+              "copied exactly from that page. Say which paper each point comes from.";
+    else if ((!materials.pageText.isEmpty() || !materials.paperText.isEmpty()) && action != "translate")
         prompt.system += " When a statement draws on the paper, cite its place right after it as [p. N: \"exact "
                          "words\"], where N is the page number marked in the material and the words are a short phrase "
                          "(about 4 to 12 words) copied exactly from that page.";

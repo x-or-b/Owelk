@@ -514,6 +514,87 @@ private slots:
         QVERIFY(text.contains("**Sources**"));
         QVERIFY(ai->clearApiKey("claude"));
     }
+    void severalPapersAreReadOrSearched()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *index = qobject_cast<PaperIndex *>(store.paperIndex());
+        QList<QUrl> papers;
+        for (const auto *name : {"Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta"}) {
+            const auto pdf = directory.filePath(QString(name) + ".pdf");
+            writeFixture(pdf, QString(name) + " Paper", 2);
+            papers << QUrl::fromLocalFile(pdf);
+            QVERIFY(store.rememberDocument(papers.last()));
+            index->enqueue(papers.last());
+        }
+        QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 20000);
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        MockServer server;
+        const auto answer = [&](const QString &text) {
+            server.chunks = {
+                MockServer::sse("content_block_delta",
+                    {{"type", "content_block_delta"}, {"delta", QJsonObject{{"type", "text_delta"}, {"text", text}}}}),
+                MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        };
+        store.setSetting("ai.baseUrl.claude", server.base().toString());
+        ai->setProvider("claude");
+        QVERIFY(ai->setApiKey("claude", "sk-ant-several"));
+        ai->giveConsent("claude");
+        QSignalSpy finished(ai, &AiService::finished), failed(ai, &AiService::failed);
+        const auto lastText = [&] {
+            return server.seen.last()
+                .body["messages"]
+                .toArray()
+                .last()
+                .toObject()["content"]
+                .toArray()[0]
+                .toObject()["text"]
+                .toString();
+        };
+        // Two papers: both read, each opened by its marker; a citation names the paper and links to it.
+        answer("Beta differs [P2 p. 1: \"Research finding 1.1\"] from Alpha [p. 2].");
+        ai->ask({{"source", papers[0]}, {"scope", "paper"}, {"papers", QVariantList{papers[1].toString()}},
+            {"question", "How do they differ?"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size() + failed.size(), 1, 10000);
+        QVERIFY2(failed.isEmpty(), failed.isEmpty() ? "" : qPrintable(failed[0][1].toString()));
+        QVERIFY(lastText().contains("=== P1: Alpha Paper ==="));
+        QVERIFY(lastText().contains("=== P2: Beta Paper ==="));
+        QVERIFY(server.seen.last().body["system"].toString().contains("[P2 p. N:"));
+        const auto linked = finished[0][1].toString();
+        QVERIFY2(linked.contains("[P2 p. 1](owelk://document/" + store.documentLinkId(papers[1]) + "#page=1"),
+            qPrintable(linked));
+        QVERIFY(linked.contains("[p. 2](owelk://document/" + store.documentLinkId(papers[0]) + "#page=2"));
+        const auto thread = finished[0][2].toMap()["threadId"].toString();
+        // The other paper finds the chat among its links; the question keeps what went with it.
+        QVERIFY(std::any_of(store.backlinks("document", store.documentLinkId(papers[1])).cbegin(),
+            store.backlinks("document", store.documentLinkId(papers[1])).cend(),
+            [&](const QVariant &b) { return b.toMap()["id"].toString() == thread; }));
+        const auto asked = store.aiThread(thread)["messages"].toList()[0].toMap()["context"].toMap();
+        QCOMPARE(asked["papers"].toStringList(), QStringList{"Beta Paper"});
+        // Five papers: too many to read; the passages come from those five only.
+        answer("occlusion, context [1]");
+        QVariantList five;
+        for (int i = 1; i < 5; ++i) five << papers[i].toString();
+        ai->ask({{"source", papers[0]}, {"scope", "paper"}, {"papers", five}, {"question", "Where is occlusion?"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size() + failed.size(), 2, 10000);
+        QVERIFY2(failed.isEmpty(), failed.isEmpty() ? "" : qPrintable(failed[0][1].toString()));
+        const auto sent = lastText()
+            + server.seen.last()
+                  .body["messages"]
+                  .toArray()
+                  .last()
+                  .toObject()["content"]
+                  .toArray()
+                  .last()
+                  .toObject()["text"]
+                  .toString();
+        QVERIFY(sent.contains("<library_passages>"));
+        QVERIFY(!sent.contains("Zeta Paper"));
+        QVERIFY(!sent.contains("=== P1"));
+        QVERIFY(ai->clearApiKey("claude"));
+    }
     void organizePapersSuggestsCollectionsWithoutApplying()
     {
         QTemporaryDir directory;

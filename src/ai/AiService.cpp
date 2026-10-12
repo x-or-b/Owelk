@@ -220,7 +220,61 @@ int AiService::ask(const QVariantMap &input)
     }
     // Gather on the UI thread what the store knows; PDF text and images are read on a worker.
     const QUrl source = spec.value("source").toUrl();
+    // Other papers attached to this turn, after the chat's own (P1): P2, P3… Up to three papers are read
+    // whole (sharing one paper's room); more, or a collection or the whole library, are searched for the
+    // passages that answer the question.
+    QList<QUrl> others;
+    for (const auto &value : spec.value("papers").toList()) {
+        const QUrl url(value.toString());
+        if (url.isLocalFile() && url != source && !others.contains(url) && others.size() < 60) others << url;
+    }
+    for (const auto &url : std::as_const(others))
+        m_store->addLink("ai", spec.value("threadId").toString(), "document", m_store->documentLinkId(url));
+    QList<QUrl> toRead;
+    if (spec.value("scope").toString() == "paper" && source.isLocalFile()) toRead << source;
+    toRead += others;
+    const bool wholeLibrary
+        = spec.value("scope").toString() == "library" && spec.value("collection").toString().isEmpty();
+    if (spec.value("scope").toString() == "library" || toRead.size() > 3 || spec.value("searchPapers").toBool()) {
+        // Searched together with the chat's own paper. The whole library already holds them all.
+        QList<QUrl> searched;
+        if (source.isLocalFile()) searched << source;
+        for (const auto &url : std::as_const(others))
+            if (!searched.contains(url)) searched << url;
+        QStringList documents, names, urls;
+        for (const auto &url : std::as_const(searched)) {
+            if (!wholeLibrary) documents << m_store->documentLinkId(url);
+            names << m_store->displayName(url);
+            if (url != source) urls << url.toString();
+        }
+        spec.insert("searchDocuments", documents);
+        spec.insert(
+            "searchedNames", wholeLibrary || spec.value("collection").toString().isEmpty() ? names : QStringList());
+        // Kept with the question, so the chat goes on asking the same papers when it is opened again.
+        spec.insert("searchUrls", urls);
+        spec.insert("wholeLibrary", wholeLibrary);
+        spec.insert("scope", "library");
+        toRead.clear();
+        others.clear();
+    }
+    // With other papers each one has a marker (P1 is the chat's own), so a page citation says which paper.
+    QList<QUrl> numbered;
+    if (source.isLocalFile()) numbered << source;
+    numbered += others;
+    QStringList markers, readNames, documents;
+    for (int i = 0; i < numbered.size(); ++i) {
+        documents << m_store->documentLinkId(numbered[i]);
+        if (!others.isEmpty()) markers << QStringLiteral("P%1: %2").arg(i + 1).arg(m_store->displayName(numbered[i]));
+    }
+    QList<QPair<QUrl, QString>> reads;
+    for (const auto &url : std::as_const(toRead)) {
+        reads.append({url, others.isEmpty() ? QString() : markers.value(numbered.indexOf(url))});
+        if (url != source) readNames << m_store->displayName(url);
+    }
+    spec.insert("pageDocuments", documents);
+    spec.insert("paperNames", readNames);
     QVariantMap prepared;
+    prepared.insert("paperMarkers", markers);
     if (source.isValid() && !source.isEmpty()) {
         const auto details = m_store->documentDetails(source);
         prepared.insert({{"title", m_store->displayName(source)}, {"authors", details.value("authors")},
@@ -248,6 +302,8 @@ int AiService::ask(const QVariantMap &input)
     const auto pdfSource = spec.value("source").toUrl();
     const auto scope = spec.value("scope").toString();
     const int page = spec.value("page").toInt();
+    // One paper gets the leading pages up to 80,000 characters; several share what fits one request.
+    const int perPaper = reads.size() > 1 ? 58000 / int(reads.size()) : 80000;
     auto *watcher = new QFutureWatcher<Material>(this);
     connect(watcher, &QFutureWatcher<Material>::finished, this, [this, watcher, request, id, spec, prepared] {
         const auto material = watcher->result();
@@ -271,20 +327,27 @@ int AiService::ask(const QVariantMap &input)
         else
             run(request, id, spec, next);
     });
-    watcher->setFuture(QtConcurrent::run([pdfSource, scope, page, userImages, attachments] {
+    watcher->setFuture(QtConcurrent::run([pdfSource, scope, page, reads, perPaper, userImages, attachments] {
         Material material;
-        if (pdfSource.isLocalFile() && (scope == "page" || scope == "paper")) {
+        if (pdfSource.isLocalFile() && scope == "page") {
             QPdfDocument pdf;
             if (PdfAccess::load(pdf, pdfSource.toLocalFile()) != QPdfDocument::Error::None) {
                 material.error = ui("Cannot read the PDF for this request.");
                 return material;
             }
-            if (scope == "page" && page >= 0 && page < pdf.pageCount()) material.pageText = pdfText(pdf, page);
-            if (scope == "paper") {
-                // Leading pages carry the abstract, method and results; the budget trims the rest.
-                for (int i = 0; i < pdf.pageCount() && material.paperText.size() < 80000; ++i)
-                    material.paperText += QStringLiteral("[Page %1] ").arg(i + 1) + pdfText(pdf, i) + "\n";
+            if (page >= 0 && page < pdf.pageCount()) material.pageText = pdfText(pdf, page);
+        }
+        for (const auto &[url, marker] : reads) {
+            QPdfDocument pdf;
+            if (PdfAccess::load(pdf, url.toLocalFile()) != QPdfDocument::Error::None) {
+                material.error = ui("Cannot read the PDF for this request.");
+                return material;
             }
+            // Leading pages carry the abstract, method and results; the budget trims the rest.
+            QString text;
+            for (int i = 0; i < pdf.pageCount() && text.size() < perPaper; ++i)
+                text += QStringLiteral("[Page %1] ").arg(i + 1) + pdfText(pdf, i) + "\n";
+            material.paperText += marker.isEmpty() ? text : "=== " + marker + " ===\n" + text + "\n";
         }
         // Any common format becomes a PNG at most 1568 px on its long side (what vision models use);
         // the copy in the attachments folder is what file-based providers read.
@@ -345,14 +408,17 @@ void AiService::retrieveLibrary(int request, const QString &id, QVariantMap spec
             for (const auto &word : question.split(QRegularExpression("[^\\w-]+"), Qt::SkipEmptyParts))
                 if (word.size() >= 4 && !terms.contains(word, Qt::CaseInsensitive)) terms << word;
             const auto collection = spec.value("collection").toString();
-            const auto passages = m_store->libraryPassages(terms.mid(0, 20), 8, collection);
+            const auto papers = spec.value("searchDocuments").toStringList();
+            const auto passages = m_store->libraryPassages(terms.mid(0, 20), 8, collection, papers);
             if (passages.isEmpty()) {
                 m_running.remove(request);
                 emit busyChanged();
                 emit failed(request,
                     QString(ui("No passage in %1 matches this question. Only papers whose text is indexed are "
                                "searched; try other words."))
-                        .arg(collection.isEmpty() ? "your library" : "this collection"));
+                        .arg(!collection.isEmpty() ? ui("this collection")
+                                : papers.isEmpty() ? ui("your library")
+                                                   : ui("these papers")));
                 return;
             }
             QStringList blocks;
@@ -383,20 +449,25 @@ void AiService::retrieveLibrary(int request, const QString &id, QVariantMap spec
 }
 
 // "[2]" in a library answer becomes a link to that paper's page, and the sources are listed below it.
-// [p. 3: "exact words"] (or [p. 3], [pp. 3-4]) in an answer about one paper: a link that opens the
-// paper at that page and lights up the words (DocumentWorkspace.openLink, ResearchStore::revealPassage).
-static QString withPageLinks(const QString &answer, const QString &documentId)
+// [p. 3: "exact words"] (or [p. 3], [pp. 3-4]) in an answer about a paper: a link that opens the paper at
+// that page and lights up the words (DocumentWorkspace.openLink, ResearchStore::revealPassage). With several
+// papers the citation names one, [P2 p. 3: "…"]; documents are P1, P2… in order.
+static QString withPageLinks(const QString &answer, const QStringList &documents)
 {
     static const QRegularExpression cite(
-        R"re(\[pp?\.\s*(\d{1,4})(?:\s*[-\x{2013}]\s*\d{1,4})?(?:\s*[:,]\s*["\x{201c}]([^"\x{201d}\]]{3,240})["\x{201d}])?\](?!\())re");
+        R"re(\[(?:P(\d{1,2})[\s,]*)?pp?\.\s*(\d{1,4})(?:\s*[-\x{2013}]\s*\d{1,4})?(?:\s*[:,]\s*["\x{201c}]([^"\x{201d}\]]{3,240})["\x{201d}])?\](?!\())re");
     QString linked;
     qsizetype last = 0;
     for (auto it = cite.globalMatch(answer); it.hasNext();) {
         const auto m = it.next();
-        auto link = QStringLiteral("owelk://document/%1#page=%2").arg(documentId, m.captured(1));
-        if (!m.captured(2).isEmpty())
-            link += "&q=" + QString::fromLatin1(QUrl::toPercentEncoding(m.captured(2).simplified()));
-        linked += answer.mid(last, m.capturedStart() - last) + QStringLiteral("[p. %1](%2)").arg(m.captured(1), link);
+        const auto paper = m.captured(1).isEmpty() ? 1 : m.captured(1).toInt();
+        const auto document = documents.value(paper - 1);
+        if (document.isEmpty()) continue;
+        auto link = QStringLiteral("owelk://document/%1#page=%2").arg(document, m.captured(2));
+        if (!m.captured(3).isEmpty())
+            link += "&q=" + QString::fromLatin1(QUrl::toPercentEncoding(m.captured(3).simplified()));
+        const auto label = (m.captured(1).isEmpty() ? QString() : "P" + m.captured(1) + " ") + "p. " + m.captured(2);
+        linked += answer.mid(last, m.capturedStart() - last) + QStringLiteral("[%1](%2)").arg(label, link);
         last = m.capturedEnd();
     }
     return linked + answer.mid(last);
@@ -453,6 +524,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     materials.quote = spec.value("quote").toString().left(4000);
     materials.pageText = prepared.value("pageText").toString();
     materials.paperText = prepared.value("paperText").toString();
+    if (!materials.paperText.isEmpty()) materials.paperMarkers = prepared.value("paperMarkers").toStringList();
     materials.libraryText = prepared.value("libraryText").toString();
     materials.notes = prepared.value("notes").toStringList();
     materials.pageNumber = spec.value("scope").toString() == "page" ? spec.value("page").toInt() + 1 : 0;
@@ -525,11 +597,9 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
                            sentImages](const QString &answer, const QString &used, bool stopped) {
         done();
         auto text = spec.contains("sources") ? withSourceLinks(answer, spec.value("sources").toList()) : answer;
-        // Page citations in an answer about one paper become links to those places.
-        if (!spec.contains("sources") && (!attached.pageText.isEmpty() || !attached.paperText.isEmpty())) {
-            const auto document = m_store->documentLinkId(spec.value("source").toUrl());
-            if (!document.isEmpty()) text = withPageLinks(text, document);
-        }
+        // Page citations in an answer about papers become links to those places.
+        if (!spec.contains("sources") && (!attached.pageText.isEmpty() || !attached.paperText.isEmpty()))
+            text = withPageLinks(text, spec.value("pageDocuments").toStringList());
         const auto usedModel = used.isEmpty() ? model(id) : used;
         const auto sent = prompt.context.isEmpty() ? prompt.text : prompt.context + "\n\n" + prompt.text;
         if (spec.value("symbols").toBool()) {
@@ -546,6 +616,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         if (!attached.pageText.isEmpty()) attachments << QStringLiteral("page %1").arg(attached.pageNumber);
         if (!attached.paperText.isEmpty()) attachments << "paper";
         if (attached.hasImage) attachments << "image";
+        if (!spec.value("paperNames").toStringList().isEmpty()) attachments << "papers";
         if (!attached.libraryText.isEmpty()) attachments << "library";
         if (!attached.quote.isEmpty()) attachments << "quote";
         m_store->appendAiMessage(threadId,
@@ -553,6 +624,9 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
                 {"context",
                     QVariantMap{{"attachments", attachments}, {"selection", attached.selection.left(400)},
                         {"quote", attached.quote.left(400)}, {"page", spec.value("page")},
+                        {"papers", spec.value("paperNames")}, {"searched", spec.value("searchedNames")},
+                        {"searchUrls", spec.value("searchUrls")}, {"wholeLibrary", spec.value("wholeLibrary")},
+                        {"collection", spec.value("collection")}, {"collectionName", spec.value("collectionName")},
                         {"images", spec.value("imageNames").toStringList().mid(0, sentImages.size())},
                         {"imageFiles", sentImages}}}});
         // The reasoning summary sits in the answer's context: shown folded, never copied or resent.

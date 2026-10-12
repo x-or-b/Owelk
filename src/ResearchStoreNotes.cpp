@@ -632,9 +632,10 @@ QString ResearchStore::paperOpening(const QUrl &source, int characters)
     return document.isEmpty() ? QString() : m_index->openingText(document, qBound(0, characters, 2000));
 }
 
-QVariantList ResearchStore::libraryPassages(const QStringList &terms, int limit, const QString &collection)
+QVariantList ResearchStore::libraryPassages(
+    const QStringList &terms, int limit, const QString &collection, const QStringList &papers)
 {
-    QStringList documents;
+    QStringList documents = papers;
     if (!collection.isEmpty()) {
         QSqlQuery members(m_database);
         members.prepare("WITH RECURSIVE tree(id) AS (SELECT ? UNION SELECT c.id FROM collections c JOIN tree ON "
@@ -642,7 +643,8 @@ QVariantList ResearchStore::libraryPassages(const QStringList &terms, int limit,
                         "collection_id IN tree");
         members.addBindValue(collection);
         if (members.exec())
-            while (members.next()) documents << members.value(0).toString();
+            while (members.next())
+                if (!documents.contains(members.value(0).toString())) documents << members.value(0).toString();
         if (documents.isEmpty()) return {};
     }
     QVariantList passages;

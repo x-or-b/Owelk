@@ -11,6 +11,8 @@ struct AiMaterials {
     QString pageText; // The current page.
     QString paperText; // Leading pages of the paper (for "Ask about paper").
     QString libraryText; // Passages from several papers, each marked [n] (for "Ask your library").
+    // Several papers in paperText, each opened by "=== P2: Title ===": "P1: Title", "P2: Title"…
+    QStringList paperMarkers;
     QStringList notes;
     int pageNumber = 0; // 1-based; 0 when unknown.
     bool hasImage = false;
