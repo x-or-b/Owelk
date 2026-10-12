@@ -611,6 +611,7 @@ Item {
                 tryVerify(function(){return canvas.savedHighlights.length===before+1},10000)
                 return canvas.savedHighlights[canvas.savedHighlights.length-1]
             }
+            // The list is read again after each save, so a mark can be missing for a moment.
             function mark(id){return canvas.savedHighlights.find(function(m){return m.id===id})}
             function centre(r){return Qt.point((r.x+r.width/2)*paper.width,(r.y+r.height/2)*paper.height)}
             // Drag a handle by (dx, dy) page pixels; the handle moves with the frame, so moves are given on the page.
@@ -640,7 +641,7 @@ Item {
             const x=mark(text.id).rectangles[0].x
             const move=findChild(frame,"markMove0")
             drag(move,60,2)
-            tryVerify(function(){return mark(text.id).rectangles[0].x>x+.02},10000)
+            tryVerify(function(){const m=mark(text.id);return !!m&&m.rectangles[0].x>x+.02},10000)
             // A picture keeps its shape.
             const picture=make({kind:"image",imageSource:fixtureImage.toString(),rectangles:[{x:.55,y:.3,width:.2,height:.1}]})
             const shape=function(r){return (r.height*paper.height)/(r.width*paper.width)}
@@ -649,7 +650,7 @@ Item {
             compare(canvas.selectedMarkId,picture.id)
             const pc=findChild(frame,"markHandle-bottomRight")
             drag(pc,40,0)
-            tryVerify(function(){return mark(picture.id).rectangles[0].width>.2},10000)
+            tryVerify(function(){const m=mark(picture.id);return !!m&&m.rectangles[0].width>.2},10000)
             verify(Math.abs(shape(mark(picture.id).rectangles[0])-ratio)<.02)
             // A stroke is picked by its ink and scales with its box.
             reader.setTool("draw"); waitForPolish(reader)
@@ -664,7 +665,7 @@ Item {
             compare(canvas.selectedMarkId,stroke.id)
             const sc=findChild(frame,"markHandle-bottomRight")
             drag(sc,60,40)
-            tryVerify(function(){return mark(stroke.id).rectangles[0].width>stroke.rectangles[0].width*1.3},10000)
+            tryVerify(function(){const m=mark(stroke.id);return !!m&&m.rectangles[0].width>stroke.rectangles[0].width*1.3},10000)
             const r=mark(stroke.id).rectangles[0]
             verify(mark(stroke.id).drawing.every(function(p){return p.x>=r.x-.001&&p.x<=r.x+r.width+.001&&p.y>=r.y-.001&&p.y<=r.y+r.height+.001}))
             // Delete removes the selected mark; undo brings it back. Esc lets go.

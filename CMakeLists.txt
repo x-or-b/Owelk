@@ -146,4 +146,7 @@ if(BUILD_TESTING)
     target_compile_definitions(owelk_ui_tests PRIVATE QUICK_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests")
     add_test(NAME reader_interactions COMMAND owelk_ui_tests)
     set_tests_properties(reader_interactions PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+    # Console programs on Windows (qt_add_executable makes GUI ones), so results reach CTest and the terminal.
+    set_target_properties(owelk_tests owelk_index_tests owelk_relink_tests owelk_annotation_tests owelk_ai_tests
+        owelk_semantic_tests owelk_fixtures owelk_ui_tests PROPERTIES WIN32_EXECUTABLE FALSE)
 endif()

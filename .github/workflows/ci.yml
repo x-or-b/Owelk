@@ -26,7 +26,8 @@ jobs:
     continue-on-error: ${{ matrix.optional == true }}
     env:
       QTWEBENGINE_DISABLE_SANDBOX: 1
-      QTWEBENGINE_CHROMIUM_FLAGS: --no-sandbox
+      # No GPU on the runners (Windows' web engine otherwise stops trying to make one).
+      QTWEBENGINE_CHROMIUM_FLAGS: --no-sandbox --disable-gpu
     steps:
       - uses: actions/checkout@v4
 
