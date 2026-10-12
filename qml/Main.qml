@@ -47,7 +47,7 @@ ApplicationWindow {
     property string documentSide: "left"
     property bool aiVisible: false
     property string aiSide: "right"
-    // Threads (chats by paper and collection) is a panel of its own, always on the outer side of its
+    // Threads (folders of AI chats) is a panel of its own, always on the outer side of its
     // dock, so beside the AI panel it is the farther one; it opens and closes on its own.
     property bool threadsVisible: false
     property string threadsSide: "left"
@@ -81,7 +81,7 @@ ApplicationWindow {
     readonly property var dockPanels: ["files", "document", "ai"]
     function panelSide(panel) { return panel === "files" ? filesSide : panel === "ai" ? aiSide : panel === "threads" ? threadsSide : documentSide }
     function panelShown(panel) { return panel === "files" ? filesVisible : panel === "ai" ? aiVisible : panel === "threads" ? threadsVisible : documentVisible }
-    function panelName(panel) { return panel === "files" ? qsTr("Library") : panel === "ai" ? qsTr("AI chat") : panel === "threads" ? qsTr("Threads: AI chats by paper and collection") : qsTr("Document: contents, annotations, symbols and related papers") }
+    function panelName(panel) { return panel === "files" ? qsTr("Library") : panel === "ai" ? qsTr("AI chat") : panel === "threads" ? qsTr("Threads: folders of AI chats") : qsTr("Document: contents, annotations, symbols and related papers") }
     function setPanelShown(panel, shown) {
         if (panel === "files") filesVisible = shown
         else if (panel === "ai") aiVisible = shown
@@ -103,13 +103,11 @@ ApplicationWindow {
     // Reader actions bring the AI panel forward and start a thread there.
     function showAi() { setPanelShown("ai", true); closeOthers("ai") }
     function askAi(spec) { showAi(); aiController.begin(spec) }
-    // within: {collection, collectionName} when chosen in a collection's Thread.
-    function openAiThread(id, within) { if (aiController.openThread(id, within)) showAi() }
-    // A new chat: about a paper (the one in the reader when none is given) or asked of a collection.
+    function openAiThread(id) { if (aiController.openThread(id)) showAi() }
+    // A new chat from the Threads panel, in the Thread it was asked for (spec.folder).
     function newAiChat(spec) {
-        if (spec && spec.collection) { askAi({action: "ask", scope: "library", collection: spec.collection, collectionName: spec.collectionName}); return }
         showAi()
-        aiController.newThread(spec && spec.source ? spec.source : undefined)
+        aiController.newThread(undefined, spec && spec.folder ? spec.folder : "")
     }
     // The Document panel's Annotations view (the reader toolbar button opens and closes it).
     function toggleAnnotations() {
@@ -650,11 +648,8 @@ ApplicationWindow {
         id: threadsPanel
         ThreadsPanel {
             controller: aiController
-            reader: window.homeVisible ? null : window.currentReader
-            onChatChosen: function(id, within) { window.openAiThread(id, within) }
+            onChatChosen: function(id) { window.openAiThread(id) }
             onNewChatRequested: function(spec) { window.newAiChat(spec) }
-            onPaperRequested: function(source) { window.openDocument(source) }
-            onCollectionRequested: function(id) { if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary({collection: id}) } }
             onTrashRequested: if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary({view: "trash"}) }
         }
     }

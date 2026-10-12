@@ -1868,8 +1868,8 @@ Same file as another library entry</source>
         <translation>디스 피디에프 이즈 올레디 인 유어 라이브러리</translation>
     </message>
     <message>
-        <source>Threads: AI chats by paper and collection</source>
-        <translation>스레즈: 에이아이 챗스 바이 페이퍼 앤드 컬렉션</translation>
+        <source>Threads: folders of AI chats</source>
+        <translation>스레즈: 폴더스 오브 에이아이 챗스</translation>
     </message>
     <message>
         <source>Use Existing</source>
@@ -2834,6 +2834,10 @@ Same file as another library entry</source>
     <message>
         <source>Untitled note</source>
         <translation>언타이틀드 노트</translation>
+    </message>
+    <message>
+        <source>Untitled thread</source>
+        <translation>언타이틀드 스레드</translation>
     </message>
     <message>
         <source>Upgrading %1 would lose rows. Nothing was changed.</source>
@@ -4601,52 +4605,56 @@ You can open the same document twice.</source>
 <context>
     <name>ThreadsPanel</name>
     <message>
-        <source> to Trash</source>
-        <translation> 투 트래시</translation>
+        <source> chats</source>
+        <translation> 챗스</translation>
     </message>
     <message>
-        <source>Ask about a selection, page or figure, or start a chat with +.</source>
-        <translation>애스크 어바웃 어 셀렉션, 페이지 오어 피겨, 오어 스타트 어 챗 위드 +.</translation>
+        <source> to Trash</source>
+        <translation> 투 트래시</translation>
     </message>
     <message>
         <source>By Name</source>
         <translation>바이 네임</translation>
     </message>
     <message>
-        <source>Collections</source>
-        <translation>컬렉션스</translation>
+        <source>Chats about a paper gather in its Thread. Make your own Threads with +.</source>
+        <translation>챗스 어바웃 어 페이퍼 개더 인 잇츠 스레드. 메이크 유어 오운 스레즈 위드 +.</translation>
+    </message>
+    <message>
+        <source>Delete Thread</source>
+        <translation>딜리트 스레드</translation>
     </message>
     <message>
         <source>Move </source>
         <translation>무브 </translation>
     </message>
     <message>
+        <source>Move To</source>
+        <translation>무브 투</translation>
+    </message>
+    <message>
         <source>Move to Trash</source>
         <translation>무브 투 트래시</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>네임</translation>
     </message>
     <message>
         <source>New Chat Here</source>
         <translation>뉴 챗 히어</translation>
     </message>
     <message>
-        <source>New chat</source>
-        <translation>뉴 챗</translation>
+        <source>New Thread</source>
+        <translation>뉴 스레드</translation>
+    </message>
+    <message>
+        <source>New chat in this Thread</source>
+        <translation>뉴 챗 인 디스 스레드</translation>
     </message>
     <message>
         <source>No chat matches.</source>
         <translation>노 챗 매치스.</translation>
-    </message>
-    <message>
-        <source>Open Paper</source>
-        <translation>오픈 페이퍼</translation>
-    </message>
-    <message>
-        <source>Other</source>
-        <translation>아더</translation>
-    </message>
-    <message>
-        <source>Papers</source>
-        <translation>페이퍼스</translation>
     </message>
     <message>
         <source>Recent First</source>
@@ -4657,6 +4665,10 @@ You can open the same document twice.</source>
         <translation>리네임 챗</translation>
     </message>
     <message>
+        <source>Rename Thread</source>
+        <translation>리네임 스레드</translation>
+    </message>
+    <message>
         <source>Rename…</source>
         <translation>리네임…</translation>
     </message>
@@ -4665,16 +4677,8 @@ You can open the same document twice.</source>
         <translation>서치 챗스</translation>
     </message>
     <message>
-        <source>Show in Library</source>
-        <translation>쇼 인 라이브러리</translation>
-    </message>
-    <message>
         <source>Sort</source>
         <translation>소트</translation>
-    </message>
-    <message>
-        <source>This Paper</source>
-        <translation>디스 페이퍼</translation>
     </message>
     <message>
         <source>Threads</source>
@@ -4683,6 +4687,10 @@ You can open the same document twice.</source>
     <message>
         <source>Trash (in the Library)</source>
         <translation>트래시 (인 더 라이브러리)</translation>
+    </message>
+    <message>
+        <source>Unfiled</source>
+        <translation>언파일드</translation>
     </message>
 </context>
 <context>

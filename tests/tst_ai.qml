@@ -129,16 +129,18 @@ Item {
             compare(workspace.threadsSide, "left")
             compare(workspace.aiVisible, true)
             const list = threadsList()
-            // The chat about the paper in the reader comes first, under This Paper.
-            tryVerify(function() { return list.count >= 2 && list.itemAtIndex(1) !== null })
-            compare(list.model[0].key, "here")
-            compare(list.model[1].chat.id, thread)
+            // The chat about the paper is in the paper's Thread, unfolded because it is open.
+            let at = -1
+            tryVerify(function() { at = rowIndex(list, function(r) { return r.type === "chat" && r.chat.id === thread }); return at > 0 && list.itemAtIndex(at) !== null })
+            const paperThread = list.model[at].folder
+            compare(paperThread, "document:" + researchStore.documentLinkId(fixtureSource))
+            compare(list.model[rowIndex(list, function(r) { return r.type === "group" && r.id === paperThread })].name, researchStore.displayName(fixtureSource))
             ai.showThreads()
-            mouseClick(list.itemAtIndex(1))
+            mouseClick(list.itemAtIndex(at))
             tryCompare(ai, "threadId", thread)
             compare(ai.messages.length, 4)
             compare(ai.streaming, false)
-            verify(list.itemAtIndex(1).current) // The open chat is marked.
+            verify(list.itemAtIndex(at).current) // The open chat is marked.
             // Search results and owelk://ai links open the thread in the panel too.
             ai.showThreads()
             workspace.openSearchResult({kind: "ai", id: thread})
@@ -236,48 +238,70 @@ Item {
             mouseClick(row)
             tryCompare(menu, "visible", false)
         }
-        function test_2a_threadsGatherBySortAndSearch() {
+        function test_2a_threadsAreFoldersOfChats() {
             const ai = findChild(workspace, "aiController")
             const thread = ai.threadId
             workspace.threadsVisible = true
             const list = threadsList(), threads = findChild(workspace, "threadsPanel")
-            // Filed under a collection, the chat shows in its Thread (folded until clicked).
-            const name = "Thread test " + Date.now()
-            const collection = researchStore.createCollection(name)
-            verify(researchStore.setAiThreadCollection(thread, collection, true))
-            let group = -1
-            tryVerify(function() { group = rowIndex(list, function(r) { return r.type === "group" && r.id === collection }); return group >= 0 })
-            compare(list.model[group].open, false)
-            tryVerify(function() { return list.itemAtIndex(group) !== null })
-            mouseClick(list.itemAtIndex(group))
-            tryVerify(function() { return list.model[group].open })
-            compare(list.model[group + 1].chat.id, thread)
-            // Opened there, the next question is asked of the collection; × goes back to the chat's paper.
-            ai.showThreads()
-            tryVerify(function() { return list.itemAtIndex(group + 1) !== null })
-            mouseClick(list.itemAtIndex(group + 1))
-            tryCompare(ai, "threadId", thread)
-            compare(ai.spec.scope, "library")
-            compare(ai.spec.collection, collection)
-            verify(ai.attachments.some(function(a) { return a.kind === "library" }))
-            ai.detach("library")
-            compare(ai.spec.scope, "none")
-            verify(researchStore.sameSource(ai.spec.source, fixtureSource))
+            const groupAt = function(id) { return rowIndex(list, function(r) { return r.type === "group" && r.id === id }) }
+            const chatAt = function(id) { return rowIndex(list, function(r) { return r.type === "chat" && r.chat.id === id }) }
+            const paperThread = researchStore.aiThread(thread).folder
+            // + names a new Thread and starts a chat in it; the first answer keeps the chat there.
+            mouseClick(findChild(threads, "threadsNewThread"))
+            const dialog = findChild(threads, "threadsNameDialog")
+            tryCompare(dialog, "opened", true)
+            const name = "Thesis " + Date.now()
+            findChild(threads, "threadsNameField").text = name
+            dialog.accept()
+            let folder = ""
+            tryVerify(function() { const g = list.model.find(function(r) { return r.type === "group" && r.name === name }); folder = g ? g.id : ""; return folder.length > 0 })
+            compare(ai.threadId, "")
+            compare(ai.spec.folder, folder)
+            verify(ai.attachments.some(function(a) { return a.kind === "paper" }))
+            verify(ai.send("Where does this belong?"))
+            tryVerify(function() { return !ai.streaming && ai.threadId.length > 0 }, 10000)
+            const asked = ai.threadId
+            compare(researchStore.aiThread(asked).folder, folder)
+            tryVerify(function() { return chatAt(asked) > groupAt(folder) && groupAt(folder) >= 0 })
+            // A chat dragged onto another Thread moves there.
+            const from = chatAt(thread)
+            tryVerify(function() { return list.itemAtIndex(chatAt(thread)) !== null && list.itemAtIndex(groupAt(folder)) !== null })
+            waitForPolish(list)
+            const source = list.itemAtIndex(chatAt(thread)), target = list.itemAtIndex(groupAt(folder))
+            testInput.pointerDrag(threads, source.mapToItem(threads, 40, source.height / 2), target.mapToItem(threads, 40, target.height / 2), false)
+            tryVerify(function() { return researchStore.aiThread(thread).folder === folder })
+            // Its menu moves it back; Shift-click chooses both chats in the Thread, and both move at once.
+            threads.moveChats([thread], paperThread)
+            compare(researchStore.aiThread(thread).folder, paperThread)
+            threads.moveChats([thread], folder)
+            tryVerify(function() { return chatAt(thread) > groupAt(folder) && chatAt(asked) > groupAt(folder) })
+            threads.selectedChats = []
+            threads.selectionAnchor = chatAt(asked)
+            threads.selectRange(chatAt(thread))
+            compare(threads.selectedChats.length, 2)
+            // Renamed; then deleted: its chats stay, unfiled.
+            verify(researchStore.renameAiFolder(folder, name + " renamed"))
+            tryVerify(function() { return groupAt(folder) >= 0 && list.model[groupAt(folder)].name === name + " renamed" })
+            tryVerify(function() { return list.itemAtIndex(groupAt(folder)) !== null })
+            mouseClick(list.itemAtIndex(groupAt(folder)), 40, 10, Qt.RightButton)
+            const groupMenu = findChild(threads, "threadsGroupMenu")
+            tryCompare(groupMenu, "opened", true)
+            findChild(groupMenu, "threadsGroupDelete").triggered()
+            groupMenu.close()
+            tryVerify(function() { return groupAt(folder) < 0 })
+            compare(researchStore.aiThread(thread).folder, "")
+            compare(researchStore.aiThread(asked).folder, "")
+            verify(groupAt("") >= 0) // Unfiled
             // Sorted by name or by the latest; the search keeps chats whose words match.
-            const zeta = researchStore.createAiThread({title: "Zeta chat", provider: "claude", model: "m", source: fixtureSource})
-            const alpha = researchStore.createAiThread({title: "Alpha chat", provider: "claude", model: "m", source: fixtureSource})
-            const here = function() { return list.model.filter(function(r) { return r.type === "chat" && r.depth === 0 && r.chat.source.toString() === fixtureSource.toString() }).map(function(r) { return r.chat }) }
-            tryVerify(function() { return here().length >= 3 })
             threads.setSort("name")
-            const named = here().map(function(c) { return c.title })
-            compare(named, named.slice().sort(function(a, b) { return a.localeCompare(b) }))
+            const names = list.model.filter(function(r) { return r.type === "group" && r.id.length }).map(function(r) { return r.name })
+            compare(names, names.slice().sort(function(a, b) { return a.localeCompare(b) }))
             threads.setSort("recent")
-            const opened = here().map(function(c) { return c.openedAt })
-            compare(opened, opened.slice().sort().reverse())
             const search = findChild(threads, "threadsSearch")
-            search.text = "Alpha chat"
-            tryVerify(function() { const chats = list.model.filter(function(r) { return r.type === "chat" }); return chats.length === 1 && chats[0].chat.id === alpha })
+            search.text = "Where does this belong"
+            tryVerify(function() { const chats = list.model.filter(function(r) { return r.type === "chat" }); return chats.length === 1 && chats[0].chat.id === asked })
             search.text = ""
+            threads.moveChats([thread], paperThread)
             // Threads moves by right-click like the other panels and stays on the outer side.
             const icon = visualChild(findChild(workspace, "statusBar"), "dockIcon-threads")
             mouseClick(icon, 15, 14, Qt.RightButton)
@@ -302,8 +326,8 @@ Item {
             // Back as it was for the tests after this one.
             workspace.movePanel("ai", "right")
             workspace.threadsVisible = false
-            researchStore.trashAiThreads([zeta, alpha])
-            researchStore.deleteCollection(collection)
+            researchStore.trashAiThreads([asked])
+            ai.openThread(thread)
         }
         function test_3_modelPickerOffersEffortAndFastWhereTheModelHasThem() {
             const ai = findChild(workspace, "aiController")

@@ -211,10 +211,10 @@ int AiService::ask(const QVariantMap &input)
             title = question.left(80);
         else if (source.isValid() && !source.isEmpty())
             title += " · " + m_store->displayName(source);
-        const auto thread
-            = m_store->createAiThread({{"title", title}, {"provider", id}, {"model", model(id)}, {"source", source},
-                {"collection",
-                    spec.value("scope").toString() == "library" ? spec.value("collection").toString() : QString()}});
+        const auto thread = m_store->createAiThread({{"title", title}, {"provider", id}, {"model", model(id)},
+            {"source", source}, {"folder", spec.value("folder").toString()},
+            {"collection",
+                spec.value("scope").toString() == "library" ? spec.value("collection").toString() : QString()}});
         if (thread.isEmpty()) return fail(ui("Cannot start an AI thread."));
         spec.insert("threadId", thread);
     }

@@ -39,8 +39,8 @@ const QList<Table> &tables()
     static const QList<Table> list{{"documents", {"id"}}, {"tags", {"id"}}, {"collections", {"id"}}, {"notes", {"id"}},
         {"highlights", {"id"}}, {"recent_documents", {"document_id"}}, {"reading_positions", {"document_id"}},
         {"collection_documents", {"collection_id", "document_id"}}, {"document_tags", {"document_id", "tag_id"}},
-        {"links", {"from_kind", "from_id", "to_kind", "to_id"}}, {"ai_threads", {"id"}}, {"ai_messages", {"id"}},
-        {"ai_responses", {"id"}}};
+        {"links", {"from_kind", "from_id", "to_kind", "to_id"}}, {"ai_folders", {"id"}}, {"ai_threads", {"id"}},
+        {"ai_messages", {"id"}}, {"ai_responses", {"id"}}};
     return list;
 }
 
@@ -310,17 +310,25 @@ bool Pass::applyChange(const QJsonObject &change)
     auto row = change.value("r").toObject().toVariantMap();
     QVariantMap keyMap;
     for (int i = 0; i < keys.size(); ++i) keyMap.insert(keys[i], keyArray[i].toVariant());
+    // A paper's own folder of AI chats is named after the paper's ID ("document:<id>").
+    const auto paperFolder = [this](const QVariant &value) {
+        const auto text = value.toString();
+        return text.startsWith("document:") ? QVariant("document:" + alias("document", text.mid(9))) : value;
+    };
     if (removal) {
         // A paper or tag merged into another one here: its removal is that merge, not a deletion.
         for (const auto &key : keys) {
             const auto kind = refersTo(table, key, keyMap);
             if (!kind.isEmpty() && alias(kind, keyMap[key].toString()) != keyMap[key].toString()) return true;
         }
+        if (table == "ai_folders" && paperFolder(keyMap["id"]) != keyMap["id"]) return true;
     } else {
         for (auto it = row.begin(); it != row.end(); ++it) {
             const auto kind = refersTo(table, it.key(), row);
             if (!kind.isEmpty()) it.value() = alias(kind, it.value().toString());
         }
+        if (table == "ai_folders" && row.contains("id")) row["id"] = paperFolder(row["id"]);
+        if (table == "ai_threads" && row.contains("folder_id")) row["folder_id"] = paperFolder(row["folder_id"]);
         for (const auto &key : keys) keyMap[key] = row.value(key);
     }
     QVariantList keyValues;
@@ -413,6 +421,11 @@ bool Pass::rekey(const QString &table, const QString &from, const QString &to)
         statements.append(
             {"UPDATE OR REPLACE links SET from_id=? WHERE from_kind='document' AND from_id=?", {to, from}});
         statements.append({"UPDATE OR REPLACE links SET to_id=? WHERE to_kind='document' AND to_id=?", {to, from}});
+        // The paper's own folder of AI chats takes the paper's new ID with it.
+        statements.append({"UPDATE OR IGNORE ai_folders SET id='document:'||? WHERE id='document:'||?", {to, from}});
+        statements.append(
+            {"UPDATE ai_threads SET folder_id='document:'||? WHERE folder_id='document:'||?", {to, from}});
+        statements.append({"DELETE FROM ai_folders WHERE id='document:'||?", {from}});
     } else {
         statements.append({"UPDATE OR REPLACE document_tags SET tag_id=? WHERE tag_id=?", {to, from}});
     }

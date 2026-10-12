@@ -250,6 +250,17 @@ private slots:
         const auto robots = mac.createCollection("Robots");
         QVERIFY(mac.setDocumentCollection(source, robots, true));
         QVERIFY(mac.setReadingState(source, "read"));
+        // AI chats travel in their Threads: the paper's own and one made by hand.
+        const QVariantMap chat{{"provider", "claude"}, {"model", "m"}};
+        auto about = chat;
+        about.insert({{"title", "About drift"}, {"source", source}});
+        const auto macChat = mac.createAiThread(about);
+        const auto looseChat = mac.createAiThread(chat);
+        const auto thesis = mac.createAiFolder("Thesis");
+        QCOMPARE(mac.moveAiThreads({looseChat}, thesis), 1);
+        const auto folderOf = [&](const ResearchStore &store, const QString &id) {
+            return scalar(store, "SELECT folder_id FROM ai_threads WHERE id='" + id + "'").toString();
+        };
         auto *macSync = mac.librarySync();
         QCOMPARE(macSync->setFolder(QUrl::fromLocalFile(drive)), QString());
         QVERIFY2(macSync->syncBlocking().error.isEmpty(), qPrintable(macSync->status()));
@@ -275,6 +286,9 @@ private slots:
         QCOMPARE(scalar(ubuntu, "SELECT body FROM highlights WHERE kind='text'").toString(),
             QString("Check the drift term"));
         QCOMPARE(scalar(ubuntu, "SELECT count(*) FROM highlights WHERE kind='area' AND deleted_at IS NULL").toInt(), 1);
+        QCOMPARE(folderOf(ubuntu, macChat), "document:" + scalar(ubuntu, "SELECT id FROM documents").toString());
+        QCOMPARE(folderOf(ubuntu, looseChat), thesis);
+        QCOMPARE(scalar(ubuntu, "SELECT name FROM ai_folders WHERE id='" + thesis + "'").toString(), QString("Thesis"));
 
         // Edits travel back, and of two edits to the same note the later one wins on both.
         QVERIFY(ubuntu.saveNote(note, "Idea from Ubuntu", "Radar drift"));
@@ -302,6 +316,8 @@ private slots:
         QVERIFY(laptop.rememberDocument(QUrl::fromLocalFile(own)));
         QTRY_VERIFY_WITH_TIMEOUT(!scalar(laptop, "SELECT sha256 FROM documents").toString().isEmpty(), 10000);
         annotate(laptop, QUrl::fromLocalFile(own), "Laptop remark");
+        about.insert("source", QUrl::fromLocalFile(own));
+        const auto laptopChat = laptop.createAiThread(about);
         QCOMPARE(laptop.librarySync()->setFolder(QUrl::fromLocalFile(drive)), QString());
         QVERIFY(laptop.librarySync()->syncBlocking().error.isEmpty());
         for (auto *store : {&laptop, &mac}) {
@@ -314,6 +330,10 @@ private slots:
         }
         QCOMPARE(laptop.libraryDocuments()[0].toMap()["url"].toUrl(), QUrl::fromLocalFile(own));
         QCOMPARE(scalar(laptop, "SELECT id FROM documents"), scalar(mac, "SELECT id FROM documents"));
+        // The paper's Thread merges with it: one Thread, holding the laptop's chat too.
+        const auto paperThread = "document:" + scalar(mac, "SELECT id FROM documents").toString();
+        QCOMPARE(folderOf(laptop, laptopChat), paperThread);
+        QCOMPARE(scalar(laptop, "SELECT count(*) FROM ai_folders WHERE id LIKE 'document:%'").toInt(), 1);
         // A removed annotation is removed on the others too, even when they merge the papers in the same
         // pass as they read the removal.
         QVERIFY(mac.removeHighlight(region));
@@ -330,6 +350,10 @@ private slots:
             QCOMPARE(quiet.received, 0);
         }
         QCOMPARE(scalar(ubuntu, "SELECT count(*) FROM documents").toInt(), 1);
+        for (auto *store : {&mac, &ubuntu}) {
+            QCOMPARE(folderOf(*store, laptopChat), paperThread);
+            QCOMPARE(scalar(*store, "SELECT count(*) FROM ai_folders WHERE id LIKE 'document:%'").toInt(), 1);
+        }
     }
     void markdownShowsMathAsImages()
     {
@@ -940,40 +964,40 @@ private slots:
             db.setDatabaseName(directory.filePath("data/owelk.sqlite3"));
             QVERIFY(db.open());
             QSqlQuery query(db);
-            for (const auto *sql :
-                {"DROP TABLE documents", "DROP TABLE recent_documents", "DROP TABLE reading_positions",
-                    "DROP TABLE IF EXISTS workspace_documents", "DROP TABLE IF EXISTS workspace_document_exclusions",
-                    "DROP TABLE IF EXISTS captures", "DROP TABLE highlights", "DROP TABLE collections",
-                    "DROP TABLE collection_documents", "DROP TABLE tags", "DROP TABLE document_tags",
-                    "DROP TABLE notes", "DROP TABLE ai_responses", "DROP TABLE ai_messages", "DROP TABLE ai_threads",
-                    "DROP TABLE links", "CREATE TABLE recent_documents (url TEXT PRIMARY KEY, opened_at TEXT NOT NULL)",
-                    "CREATE TABLE reading_positions (url TEXT PRIMARY KEY, position TEXT NOT NULL)",
-                    "CREATE TABLE workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, state TEXT NOT NULL, "
-                    "opened_at TEXT NOT NULL)",
-                    "CREATE TABLE deleted_workspaces (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
-                    "CREATE TABLE workspace_captures (workspace_id TEXT NOT NULL, capture_id TEXT NOT NULL, "
-                    "PRIMARY KEY(workspace_id,capture_id))",
-                    "CREATE TABLE workspace_documents (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "
-                    "PRIMARY KEY(workspace_id,url))",
-                    "CREATE TABLE workspace_document_exclusions (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "
-                    "PRIMARY KEY(workspace_id,url))",
-                    "CREATE TABLE captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
-                    "page INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT "
-                    "NULL, "
-                    "image TEXT NOT NULL, created_at TEXT NOT NULL)",
-                    "CREATE TABLE IF NOT EXISTS text_captures (capture_id TEXT PRIMARY KEY, text TEXT NOT NULL, "
-                    "start_index INTEGER NOT NULL, end_index INTEGER NOT NULL, prefix TEXT NOT NULL, suffix TEXT NOT "
-                    "NULL)",
-                    "CREATE TABLE IF NOT EXISTS capture_notes (capture_id TEXT PRIMARY KEY, body TEXT NOT NULL, "
-                    "updated_at TEXT NOT NULL)",
-                    "CREATE TABLE IF NOT EXISTS deleted_captures (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
-                    "CREATE TABLE highlights (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
-                    "page INTEGER NOT NULL,text TEXT NOT NULL,rectangles TEXT NOT NULL,start_index INTEGER NOT NULL,"
-                    "end_index INTEGER NOT NULL,created_at TEXT NOT NULL,deleted_at TEXT,color TEXT NOT NULL DEFAULT "
-                    "'#426b9a',kind TEXT NOT NULL DEFAULT 'highlight',body TEXT NOT NULL DEFAULT '',image TEXT NOT "
-                    "NULL "
-                    "DEFAULT '',drawing TEXT NOT NULL DEFAULT '[]')",
-                    "PRAGMA user_version=2"})
+            for (const auto *sql : {"DROP TABLE documents", "DROP TABLE recent_documents",
+                     "DROP TABLE reading_positions", "DROP TABLE IF EXISTS workspace_documents",
+                     "DROP TABLE IF EXISTS workspace_document_exclusions", "DROP TABLE IF EXISTS captures",
+                     "DROP TABLE highlights", "DROP TABLE collections", "DROP TABLE collection_documents",
+                     "DROP TABLE tags", "DROP TABLE document_tags", "DROP TABLE notes", "DROP TABLE ai_responses",
+                     "DROP TABLE ai_messages", "DROP TABLE ai_threads", "DROP TABLE ai_folders", "DROP TABLE links",
+                     "CREATE TABLE recent_documents (url TEXT PRIMARY KEY, opened_at TEXT NOT NULL)",
+                     "CREATE TABLE reading_positions (url TEXT PRIMARY KEY, position TEXT NOT NULL)",
+                     "CREATE TABLE workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, state TEXT NOT NULL, "
+                     "opened_at TEXT NOT NULL)",
+                     "CREATE TABLE deleted_workspaces (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
+                     "CREATE TABLE workspace_captures (workspace_id TEXT NOT NULL, capture_id TEXT NOT NULL, "
+                     "PRIMARY KEY(workspace_id,capture_id))",
+                     "CREATE TABLE workspace_documents (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "
+                     "PRIMARY KEY(workspace_id,url))",
+                     "CREATE TABLE workspace_document_exclusions (workspace_id TEXT NOT NULL, url TEXT NOT NULL, "
+                     "PRIMARY KEY(workspace_id,url))",
+                     "CREATE TABLE captures (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
+                     "page INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT "
+                     "NULL, "
+                     "image TEXT NOT NULL, created_at TEXT NOT NULL)",
+                     "CREATE TABLE IF NOT EXISTS text_captures (capture_id TEXT PRIMARY KEY, text TEXT NOT NULL, "
+                     "start_index INTEGER NOT NULL, end_index INTEGER NOT NULL, prefix TEXT NOT NULL, suffix TEXT NOT "
+                     "NULL)",
+                     "CREATE TABLE IF NOT EXISTS capture_notes (capture_id TEXT PRIMARY KEY, body TEXT NOT NULL, "
+                     "updated_at TEXT NOT NULL)",
+                     "CREATE TABLE IF NOT EXISTS deleted_captures (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL)",
+                     "CREATE TABLE highlights (id TEXT PRIMARY KEY, source TEXT NOT NULL, sha256 TEXT NOT NULL, "
+                     "page INTEGER NOT NULL,text TEXT NOT NULL,rectangles TEXT NOT NULL,start_index INTEGER NOT NULL,"
+                     "end_index INTEGER NOT NULL,created_at TEXT NOT NULL,deleted_at TEXT,color TEXT NOT NULL DEFAULT "
+                     "'#426b9a',kind TEXT NOT NULL DEFAULT 'highlight',body TEXT NOT NULL DEFAULT '',image TEXT NOT "
+                     "NULL "
+                     "DEFAULT '',drawing TEXT NOT NULL DEFAULT '[]')",
+                     "PRAGMA user_version=2"})
                 QVERIFY2(query.exec(sql), qPrintable(query.lastError().text()));
             for (const auto *sql : {"INSERT INTO recent_documents VALUES('%1','2026-09-01')",
                      "INSERT INTO reading_positions VALUES('%1','{\"page\":5,\"y\":0.25}')",
@@ -1041,7 +1065,7 @@ private slots:
             db.setDatabaseName(data + "/owelk.sqlite3");
             QVERIFY(db.open());
             QSqlQuery query(db);
-            const QStringList statements{
+            const QStringList statements{"DROP TABLE ai_folders", "ALTER TABLE ai_threads DROP COLUMN folder_id",
                 "CREATE TABLE captures (id TEXT PRIMARY KEY, document_id TEXT NOT NULL, sha256 TEXT NOT NULL, page "
                 "INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT NULL, image "
                 "TEXT NOT NULL, created_at TEXT NOT NULL, caption TEXT NOT NULL DEFAULT '', anchor_kind TEXT NOT NULL "
@@ -1122,6 +1146,58 @@ private slots:
             (QStringList{"highlight|excerpt", "note|web"}));
         QCOMPARE(rows("SELECT name FROM sqlite_master WHERE name LIKE '%capture%'"), QStringList{});
         QVERIFY(QFileInfo::exists(data + "/captures/web.png")); // The old files stay where they were.
+    }
+    void aiChatsMoveIntoThreadsOnUpgrade()
+    {
+        QTemporaryDir directory;
+        const auto data = directory.filePath("data");
+        const auto pdf = QUrl::fromLocalFile(directory.filePath("paper.pdf"));
+        writeFixture(pdf.toLocalFile());
+        QString paperChat, filedChat, looseChat, methods, paper;
+        {
+            ResearchStore fresh(data);
+            QString error;
+            QVERIFY2(fresh.initialize(&error), qPrintable(error));
+            QVERIFY(fresh.rememberDocument(pdf));
+            paper = fresh.documentLinkId(pdf);
+            methods = fresh.createCollection("Methods");
+            const QVariantMap base{{"provider", "claude"}, {"model", "m"}};
+            auto about = base;
+            about.insert({{"title", "About"}, {"source", pdf}});
+            paperChat = fresh.createAiThread(about);
+            filedChat = fresh.createAiThread(base);
+            looseChat = fresh.createAiThread(base);
+        }
+        {
+            // As schema 16 had it: no folders; a chat filed under a collection by a link.
+            auto db = QSqlDatabase::addDatabase("QSQLITE", "v16");
+            db.setDatabaseName(data + "/owelk.sqlite3");
+            QVERIFY(db.open());
+            QSqlQuery query(db);
+            for (const auto &sql :
+                {QString("DROP TABLE ai_folders"), QString("ALTER TABLE ai_threads DROP COLUMN folder_id"),
+                    "INSERT INTO links VALUES('ai','" + filedChat + "','collection','" + methods + "','2026-10-12')",
+                    QString("PRAGMA user_version=16")})
+                QVERIFY2(query.exec(sql), qPrintable(query.lastError().text() + sql));
+            db.close();
+        }
+        QSqlDatabase::removeDatabase("v16");
+        ResearchStore store(data);
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QCOMPARE(QDir(data + "/backups").entryList({"before-schema-17-*.sqlite3"}).size(), 1);
+        QMap<QString, QString> folders;
+        for (const auto &value : store.aiThreads())
+            folders.insert(value.toMap()["id"].toString(), value.toMap()["folder"].toString());
+        QCOMPARE(folders.value(paperChat), "document:" + paper);
+        QCOMPARE(folders.value(filedChat), "collection:" + methods);
+        QCOMPARE(folders.value(looseChat), QString());
+        QCOMPARE(store.aiFolders().size(), 2);
+        // The collection links are gone (the chat lives in the collection's Thread now).
+        WorkerConnection db(data + "/owelk.sqlite3", true);
+        QSqlQuery links(db.db);
+        QVERIFY(links.exec("SELECT count(*) FROM links WHERE to_kind='collection'") && links.next());
+        QCOMPARE(links.value(0).toInt(), 0);
     }
     void unversionedDataMigratesInPlaceAndNewerIsRefused()
     {
@@ -1443,7 +1519,7 @@ private slots:
         QCOMPARE(store.trashCount(), 0);
         QCOMPARE(store.aiThreads().size(), 2);
     }
-    void aiChatsGatherByPaperAndCollection()
+    void aiChatsLiveInThreads()
     {
         QTemporaryDir directory;
         const auto pdf = QUrl::fromLocalFile(directory.filePath("paper.pdf"));
@@ -1454,45 +1530,59 @@ private slots:
         QVERIFY(store.setSetting("library.keepPdfs", "0"));
         QVERIFY(store.rememberDocument(pdf));
         const auto methods = store.createCollection("Methods");
-        QVERIFY(store.setDocumentCollection(pdf, methods, true));
         const auto chat = [&](const char *title, const QVariantMap &extra = {}) {
             QVariantMap thread{{"title", title}, {"provider", "claude"}, {"model", "m"}};
             thread.insert(extra);
             return store.createAiThread(thread);
         };
-        const auto onPaper = chat("About the paper", {{"source", pdf}});
+        const auto folderOf = [&](const QString &id) {
+            for (const auto &value : store.aiThreads())
+                if (value.toMap()["id"].toString() == id) return value.toMap()["folder"].toString();
+            return QStringLiteral("missing");
+        };
+        const auto folderName = [&](const QString &id) {
+            for (const auto &value : store.aiFolders())
+                if (value.toMap()["id"].toString() == id) return value.toMap()["name"].toString();
+            return QString();
+        };
+        // A paper's chats start in its own Thread, named after the paper; the same one for every chat.
+        const auto first = chat("About the paper", {{"source", pdf}});
+        const auto second = chat("More about it", {{"source", pdf}});
+        const auto paperThread = folderOf(first);
+        QCOMPARE(paperThread, "document:" + store.documentLinkId(pdf));
+        QCOMPARE(folderOf(second), paperThread);
+        QCOMPARE(folderName(paperThread), store.displayName(pdf));
+        // A chat asked of a collection starts in the collection's Thread; one about nothing, unfiled.
         const auto asked = chat("Asked of Methods", {{"collection", methods}});
-        const auto filed = chat("Filed later");
+        QCOMPARE(folderOf(asked), "collection:" + methods);
+        QCOMPARE(folderName("collection:" + methods), QString("Methods"));
         const auto loose = chat("Loose");
+        QCOMPARE(folderOf(loose), QString());
+        // Threads of one's own: made, chats moved in (a chat started there stays there), renamed.
+        const auto thesis = store.createAiFolder("  Thesis  ");
+        QCOMPARE(folderName(thesis), QString("Thesis"));
+        QCOMPARE(chat("Begun in Thesis", {{"source", pdf}, {"folder", thesis}}).isEmpty(), false);
+        QCOMPARE(store.moveAiThreads({loose, first}, thesis), 2);
+        QCOMPARE(folderOf(loose), thesis);
+        QCOMPARE(store.moveAiThreads({loose}, thesis), 0);
+        QCOMPARE(store.moveAiThreads({loose}, "missing"), 0);
+        QVERIFY(store.renameAiFolder(paperThread, "My paper"));
+        QCOMPARE(folderName(paperThread), QString("My paper"));
+        QVERIFY(!store.renameAiFolder(thesis, "  "));
+        // A deleted Thread lets its chats go unfiled; a deleted collection's Thread keeps its name.
+        QVERIFY(store.deleteAiFolder(thesis));
+        QCOMPARE(folderOf(loose), QString());
+        QCOMPARE(folderOf(first), QString());
+        QCOMPARE(store.aiThreads().size(), 5);
+        QVERIFY(store.deleteCollection(methods));
+        QCOMPARE(folderName("collection:" + methods), QString("Methods"));
+        // Search finds the words of titles and answers; % and _ are plain characters.
         QVERIFY(store.appendAiMessage(
             loose, {{"role", "assistant"}, {"content", "Transformer depth matters, 100% of the time."}}));
-        const auto row = [&](const QString &id, const QString &words = {}) {
-            for (const auto &value : store.aiThreads(words))
-                if (value.toMap()["id"].toString() == id) return value.toMap();
-            return QVariantMap();
-        };
-        // A paper's chat is in the paper's collections without being filed there.
-        QCOMPARE(row(onPaper)["paper"].toString(), store.displayName(pdf));
-        QCOMPARE(row(onPaper)["collections"].toStringList(), QStringList{methods});
-        QVERIFY(row(onPaper)["chosenCollections"].toStringList().isEmpty());
-        // A chat asked of a collection is filed under it; others can be filed and taken out.
-        QCOMPARE(row(asked)["chosenCollections"].toStringList(), QStringList{methods});
-        QCOMPARE(store.aiThread(asked)["collections"].toList().value(0).toMap()["name"].toString(), QString("Methods"));
-        QVERIFY(row(filed)["collections"].toStringList().isEmpty());
-        QVERIFY(store.setAiThreadCollection(filed, methods, true));
-        QCOMPARE(row(filed)["collections"].toStringList(), QStringList{methods});
-        QVERIFY(store.setAiThreadCollection(filed, methods, false));
-        QVERIFY(row(filed)["collections"].toStringList().isEmpty());
-        QVERIFY(!store.setAiThreadCollection(filed, "missing", true));
-        // Search finds the words of titles and answers; % and _ are plain characters.
         QCOMPARE(store.aiThreads("transformer").size(), 1);
         QCOMPARE(store.aiThreads("100%").size(), 1);
         QCOMPARE(store.aiThreads("Methods").size(), 1);
         QVERIFY(store.aiThreads("no_such").isEmpty());
-        // A deleted collection lets go of its chats; they stay.
-        QVERIFY(store.deleteCollection(methods));
-        QVERIFY(row(asked)["collections"].toStringList().isEmpty());
-        QCOMPARE(store.aiThreads().size(), 4);
     }
     void oneTrashForPapersNotesAndConversations()
     {

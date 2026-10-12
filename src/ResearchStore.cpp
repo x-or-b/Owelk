@@ -380,6 +380,20 @@ bool ResearchStore::initialize(QString *error)
         {16,
             {"CREATE TABLE IF NOT EXISTS recent_items (kind TEXT NOT NULL, id TEXT NOT NULL, opened_at TEXT NOT NULL, "
              "PRIMARY KEY(kind,id))"}},
+        // Threads: folders of AI conversations. A paper's (or collection's) own folder has a fixed ID and no name
+        // of its own; each conversation about a paper starts in its paper's folder, the rest unfiled.
+        {17,
+            {"CREATE TABLE ai_folders (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, "
+             "updated_at TEXT NOT NULL)",
+                "ALTER TABLE ai_threads ADD COLUMN folder_id TEXT",
+                "UPDATE ai_threads SET folder_id=coalesce((SELECT 'document:'||l.to_id FROM links l WHERE "
+                "l.from_kind='ai' AND l.from_id=ai_threads.id AND l.to_kind='document' LIMIT 1),(SELECT "
+                "'collection:'||l.to_id FROM links l WHERE l.from_kind='ai' AND l.from_id=ai_threads.id AND "
+                "l.to_kind='collection' LIMIT 1))",
+                "INSERT OR IGNORE INTO ai_folders(id,name,created_at,updated_at) SELECT folder_id,'',min(created_at),"
+                "max(updated_at) FROM ai_threads WHERE folder_id IS NOT NULL GROUP BY folder_id",
+                "DELETE FROM links WHERE from_kind='ai' AND to_kind='collection'"},
+            {}, true},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     loadDocumentNames();

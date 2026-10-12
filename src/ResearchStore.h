@@ -242,12 +242,19 @@ public:
     // display (typed), context, model, provider.
     Q_INVOKABLE QString createAiThread(const QVariantMap &thread);
     Q_INVOKABLE bool appendAiMessage(const QString &threadId, const QVariantMap &message);
-    // Newest (last opened or answered) first, each with its paper (document, paper) and the collections it
-    // belongs to: chosen for it, or holding its paper. With words, only conversations whose title, questions
-    // or answers contain them. (The interface calls a conversation a chat and groups chats as Threads.)
+    // Newest (last opened or answered) first, each with its paper (document, paper) and its folder ("" when
+    // unfiled). With words, only conversations whose title, questions or answers contain them. (The interface
+    // calls a conversation a chat and a folder of chats a Thread.)
     Q_INVOKABLE QVariantList aiThreads(const QString &words = QString()) const;
-    // Files a conversation under a collection (member true) or takes it out; its paper's collections stay.
-    Q_INVOKABLE bool setAiThreadCollection(const QString &id, const QString &collectionId, bool member);
+    // Folders of conversations: id, name (a paper's or collection's own folder shows its current name until
+    // renamed), paper (its source, for a paper's folder), createdAt, updatedAt.
+    Q_INVOKABLE QVariantList aiFolders() const;
+    Q_INVOKABLE QString createAiFolder(const QString &name);
+    Q_INVOKABLE bool renameAiFolder(const QString &id, const QString &name);
+    // The folder goes; its conversations stay, unfiled.
+    Q_INVOKABLE bool deleteAiFolder(const QString &id);
+    // Into a folder ("" takes them out of any); answers how many moved.
+    Q_INVOKABLE int moveAiThreads(const QStringList &ids, const QString &folderId);
     // Conversations to the Trash (trashed true) or back (false), and deleted for good.
     Q_INVOKABLE int trashAiThreads(const QStringList &ids, bool trashed = true);
     Q_INVOKABLE int purgeAiThreads(const QStringList &ids);

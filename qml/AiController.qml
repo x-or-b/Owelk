@@ -180,18 +180,18 @@ Item {
         if (spec.action === "ask") focusRequested()
         else send("")
     }
-    // A new conversation about the given paper (or the one in the reader).
-    function newThread(source) {
+    // A new conversation about the given paper (or the one in the reader); kept in the given Thread (folder)
+    // rather than its paper's.
+    function newThread(source, folder) {
         reset()
         threadId = ""; thread = ({})
         const paper = source !== undefined && source.toString().length ? source : reader && reader.source ? reader.source : ""
         spec = paper.toString().length ? {source: paper, scope: "paper", page: reader && researchStore.sameSource(reader.source, paper) ? reader.currentPage || 0 : 0} : ({})
+        if (folder) spec.folder = folder
         conversationOpen = true
         focusRequested()
     }
-    // A saved chat. Chosen in a collection's Thread (within: {collection, collectionName}), or filed under a
-    // collection and about no paper, its next questions are asked of the collection's papers.
-    function openThread(id, within) {
+    function openThread(id) {
         const saved = researchStore.aiThread(id)
         if (!saved.id) return false
         reset()
@@ -204,12 +204,7 @@ Item {
             ai.provider = saved.provider
             if (saved.model) ai.setModel(saved.provider, saved.model)
         }
-        const filed = (saved.collections || [])[0]
-        const hasPaper = saved.source && saved.source.toString().length > 0
-        if (within && within.collection) spec = {scope: "library", collection: within.collection, collectionName: within.collectionName || ""}
-        else if (hasPaper) spec = {source: saved.source, scope: "none"}
-        else if (filed) spec = {scope: "library", collection: filed.id, collectionName: filed.name}
-        else spec = ({})
+        spec = saved.source && saved.source.toString().length ? {source: saved.source, scope: "none"} : ({})
         return true
     }
     // The AI panel's question box was reached with nothing open: a new chat about the paper in the reader.
@@ -244,8 +239,10 @@ Item {
         if (kind === "quote") delete next.quote
         // Without the collection: back to the chat's own paper, else the one in the reader.
         if (kind === "library") {
-            if (thread.source && thread.source.toString().length) spec = {source: thread.source, scope: "none"}
-            else spec = reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "paper"} : ({})
+            const back = thread.source && thread.source.toString().length ? {source: thread.source, scope: "none"}
+                       : reader && reader.source && reader.source.toString().length ? {source: reader.source, scope: "paper"} : ({})
+            if (spec.folder) back.folder = spec.folder
+            spec = back
             return
         }
         if (kind === "selection") next.selection = ""

@@ -210,15 +210,16 @@ bool ResearchStore::deleteCollection(const QString &id)
         "UPDATE collections SET parent_id=(SELECT parent_id FROM collections WHERE id=?) WHERE parent_id=?");
     reparent.addBindValue(id);
     reparent.addBindValue(id);
-    // Chats filed under it stay (with their papers, or among the other chats).
+    // Its own folder of AI chats keeps the name it showed.
     const bool ok = reparent.exec() && run("DELETE FROM collection_documents WHERE collection_id=?")
-        && run("DELETE FROM links WHERE to_kind='collection' AND to_id=?") && run("DELETE FROM collections WHERE id=?");
+        && run("UPDATE ai_folders SET name=(SELECT c.name FROM collections c WHERE c.id=substr(ai_folders.id,12)) "
+               "WHERE id='collection:'||? AND name=''")
+        && run("DELETE FROM collections WHERE id=?");
     if (!ok || !m_database.commit()) {
         m_database.rollback();
         return false;
     }
     announceDocumentsChanged();
-    emit aiThreadsChanged();
     return true;
 }
 

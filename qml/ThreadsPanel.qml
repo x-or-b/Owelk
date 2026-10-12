@@ -3,43 +3,43 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Owelk.Ui
 
-// Threads: AI chats gathered by paper and by collection, in a panel of their own beside the AI panel
-// (Main.qml keeps it on the outer side). A chat opens in the AI panel; opened from a collection, its next
-// questions are asked of the collection's papers.
+// Threads: folders of AI chats, in a panel of their own beside the AI panel (Main.qml keeps it on the
+// outer side). A chat about a paper starts in its paper's Thread; others start in the Thread they were
+// begun in, or unfiled. Threads can be made, renamed and deleted (their chats stay, unfiled); chats move
+// by dragging or from their menu.
 Rectangle {
     id: root
     objectName: "threadsPanel"
     property var controller: null
-    property var reader: null
-    signal chatChosen(string id, var within)
-    // {source} for a paper (empty: the one in the reader), {collection, collectionName} for a collection.
+    signal chatChosen(string id)
+    // {folder}: a new chat in that Thread ("" or none: as a chat from the AI panel would start).
     signal newChatRequested(var spec)
-    signal paperRequested(url source)
-    signal collectionRequested(string id)
     signal trashRequested()
     color: Theme.sidebar
 
     property string sort: researchStore.setting("threads.sort", "recent")
     function setSort(value) { sort = value; researchStore.setSetting("threads.sort", value) }
-    // Groups unfolded, by key ("collection:<id>", "paper:<id>"), remembered between sessions.
+    // Threads unfolded (by folder ID; "unfiled" for the chats in none), remembered between sessions.
     property var openGroups: {
         try { return JSON.parse(researchStore.setting("threads.open", "{}")) || ({}) } catch (e) { return ({}) }
     }
-    function toggleGroup(key) {
+    function setGroupOpen(key, open) {
+        if (!!openGroups[key] === open) return
         const next = Object.assign({}, openGroups)
-        if (next[key]) delete next[key]
-        else next[key] = true
+        if (open) next[key] = true
+        else delete next[key]
         openGroups = next
         researchStore.setSetting("threads.open", JSON.stringify(next))
     }
+    function groupKey(folder) { return folder.length ? folder : "unfiled" }
     property var chats: []
-    property var collectionList: []
+    property var folders: []
     // Chats whose words match the search (by id); null while there is no search.
     property var matched: null
     readonly property string needle: search.text.trim()
     function refresh() {
         chats = researchStore.aiThreads()
-        collectionList = researchStore.collections()
+        folders = researchStore.aiFolders()
         if (!needle.length) { matched = null; return }
         const found = {}
         researchStore.aiThreads(needle).forEach(function(chat) { found[chat.id] = true })
@@ -52,9 +52,20 @@ Rectangle {
         function onAiThreadsChanged() { refreshTimer.restart() }
         function onDocumentsChanged() { refreshTimer.restart() }
     }
+    // The open chat's Thread unfolds, so the chat shows where it is.
+    function revealCurrent() {
+        const id = controller ? controller.threadId : ""
+        const chat = id.length ? chats.find(function(c) { return c.id === id }) : null
+        if (chat) setGroupOpen(groupKey(chat.folder), true)
+    }
+    Connections { target: root.controller; function onThreadIdChanged() { root.revealCurrent() } }
+    onChatsChanged: {
+        const ids = chats.map(function(c) { return c.id })
+        selectedChats = selectedChats.filter(function(id) { return ids.indexOf(id) >= 0 })
+        revealCurrent()
+    }
     Component.onCompleted: refresh()
 
-    readonly property string paperKey: reader && reader.source ? reader.source.toString() : ""
     function byChat(a, b) {
         if (sort === "name") return a.title.localeCompare(b.title)
         return a.openedAt < b.openedAt ? 1 : a.openedAt > b.openedAt ? -1 : 0
@@ -63,57 +74,32 @@ Rectangle {
         if (sort === "name") return a.name.localeCompare(b.name)
         return a.latest < b.latest ? 1 : a.latest > b.latest ? -1 : 0
     }
-    // The list as rows: section headings, groups (folded or not) and chats.
+    // Threads by name, for the Move To menu.
+    readonly property var foldersByName: folders.slice().sort(function(a, b) { return a.name.localeCompare(b.name) })
+    // The list as rows: each Thread (folded or not) with its chats, then the unfiled chats.
     readonly property var rows: {
         const words = needle.toLowerCase(), found = matched
         const hit = function(chat) { return !found || !!found[chat.id] }
-        const named = function(name) { return words.length > 0 && (name || "").toLowerCase().indexOf(words) >= 0 }
-        const group = function(kind, id, name, members, extra) {
-            const list = named(name) ? members : members.filter(hit)
-            if (!list.length) return null
+        const members = {}
+        chats.forEach(function(chat) { (members[chat.folder] = members[chat.folder] || []).push(chat) })
+        const group = function(id, name, updatedAt) {
+            const all = members[id] || []
+            const named = words.length > 0 && name.toLowerCase().indexOf(words) >= 0
+            const list = named ? all.slice() : all.filter(hit)
             list.sort(byChat)
-            const latest = list.reduce(function(m, c) { return c.openedAt > m ? c.openedAt : m }, "")
-            return Object.assign({type: "group", kind: kind, id: id, key: kind + ":" + id, name: name, chats: list, latest: latest}, extra || {})
+            const latest = list.reduce(function(m, c) { return c.openedAt > m ? c.openedAt : m }, updatedAt || "")
+            return {type: "group", id: id, key: groupKey(id), name: name, chats: list, latest: latest, count: all.length, named: named}
         }
-        const here = paperKey.length ? chats.filter(function(c) { return c.source.toString() === paperKey }) : []
-        const collections = collectionList.map(function(c) {
-            return group("collection", c.id, c.name, chats.filter(function(chat) { return chat.collections.indexOf(c.id) >= 0 }))
-        }).filter(function(g) { return g !== null }).sort(byGroup)
-        const papers = {}
-        chats.forEach(function(chat) {
-            const source = chat.source.toString()
-            if (!source.length || source === paperKey) return
-            const key = chat.document || source
-            if (!papers[key]) papers[key] = {source: chat.source, name: chat.paper || source.replace(/^.*\//, ""), list: []}
-            papers[key].list.push(chat)
-        })
-        const paperGroups = Object.keys(papers).map(function(key) {
-            return group("paper", key, papers[key].name, papers[key].list, {source: papers[key].source})
-        }).filter(function(g) { return g !== null }).sort(byGroup)
-        const other = chats.filter(function(c) { return !c.source.toString().length && !c.collections.length && hit(c) }).sort(byChat)
+        const groups = folders.map(function(f) { return group(f.id, f.name, f.updatedAt) })
+            .filter(function(g) { return !words.length || g.named || g.chats.length }).sort(byGroup)
+        const unfiled = group("", qsTr("Unfiled"), "")
+        if ((!words.length && (groups.length || unfiled.count)) || unfiled.chats.length) groups.push(unfiled)
         const list = []
-        const section = function(key, title) { list.push({type: "section", key: key, title: title}) }
-        const chatRow = function(chat, depth, within) { list.push({type: "chat", key: chat.id + "/" + list.length, chat: chat, depth: depth, within: within || null}) }
-        const shownHere = here.filter(function(c) { return hit(c) || named(c.paper) }).sort(byChat)
-        if (shownHere.length) {
-            section("here", qsTr("This Paper"))
-            shownHere.forEach(function(chat) { chatRow(chat, 0) })
-        }
-        const addGroups = function(groups) {
-            groups.forEach(function(g) {
-                const open = words.length > 0 || !!openGroups[g.key]
-                list.push(Object.assign({}, g, {open: open, count: g.chats.length}))
-                if (open) g.chats.forEach(function(chat) {
-                    chatRow(chat, 1, g.kind === "collection" ? {collection: g.id, collectionName: g.name} : null)
-                })
-            })
-        }
-        if (collections.length) { section("collections", qsTr("Collections")); addGroups(collections) }
-        if (paperGroups.length) { section("papers", qsTr("Papers")); addGroups(paperGroups) }
-        if (other.length) {
-            section("other", qsTr("Other"))
-            other.forEach(function(chat) { chatRow(chat, 0) })
-        }
+        groups.forEach(function(g) {
+            const open = (words.length > 0 && g.chats.length > 0) || !!openGroups[g.key]
+            list.push(Object.assign({}, g, {open: open}))
+            if (open) g.chats.forEach(function(chat) { list.push({type: "chat", key: chat.id, chat: chat, folder: g.id}) })
+        })
         return list
     }
 
@@ -126,11 +112,8 @@ Rectangle {
     }
     function selectRange(index) {
         const from = selectionAnchor < 0 ? index : selectionAnchor
-        const ids = []
-        rows.slice(Math.min(from, index), Math.max(from, index) + 1).forEach(function(row) {
-            if (row.type === "chat" && ids.indexOf(row.chat.id) < 0) ids.push(row.chat.id)
-        })
-        selectedChats = ids
+        selectedChats = rows.slice(Math.min(from, index), Math.max(from, index) + 1)
+            .filter(function(row) { return row.type === "chat" }).map(function(row) { return row.chat.id })
     }
     function trashChats(ids) {
         if (!ids.length) return
@@ -138,9 +121,16 @@ Rectangle {
         selectedChats = []
         researchStore.trashAiThreads(ids)
     }
-    onChatsChanged: {
-        const ids = chats.map(function(c) { return c.id })
-        selectedChats = selectedChats.filter(function(id) { return ids.indexOf(id) >= 0 })
+    function moveChats(ids, folder) {
+        if (researchStore.moveAiThreads(ids, folder)) setGroupOpen(groupKey(folder), true)
+    }
+    // A new Thread, named, with a new chat in it.
+    function newThread(name) {
+        const id = researchStore.createAiFolder(name)
+        if (!id.length) return ""
+        setGroupOpen(id, true)
+        newChatRequested({folder: id})
+        return id
     }
 
     ColumnLayout {
@@ -169,7 +159,7 @@ Rectangle {
                 }
             }
             IconButton { objectName: "threadsTrash"; icon.name: "trash"; description: qsTr("Trash (in the Library)"); onClicked: root.trashRequested() }
-            IconButton { objectName: "threadsNewChat"; icon.name: "add"; description: qsTr("New chat"); onClicked: root.newChatRequested({}) }
+            IconButton { objectName: "threadsNewThread"; icon.name: "add"; description: qsTr("New Thread"); onClicked: nameDialog.begin("new", "", "") }
         }
         TextField {
             id: search
@@ -180,13 +170,15 @@ Rectangle {
             placeholderText: qsTr("Search chats")
             Keys.onEscapePressed: text = ""
         }
-        // Click opens a chat; Cmd/Ctrl-click and Shift-click choose several; Delete or the right-click
-        // menu moves them to the Trash.
+        // Click opens a chat or folds a Thread; Cmd/Ctrl-click and Shift-click choose several chats; a drag
+        // moves them to another Thread; Delete or the right-click menu moves them to the Trash.
         ListView {
             id: list
             objectName: "threadsList"
             Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumWidth: 0
             clip: true
+            // Mouse drags move chats; the wheel and trackpad scroll.
+            acceptedButtons: Qt.NoButton
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar {}
             model: root.rows
@@ -195,118 +187,158 @@ Rectangle {
             Keys.onPressed: function(event) {
                 if (event.key === Qt.Key_Backspace && root.selectedChats.length) { root.trashChats(root.selectedChats); event.accepted = true }
             }
-            delegate: Item {
-                id: entry
+            delegate: ItemDelegate {
+                id: row
                 required property var modelData
                 required property int index
-                readonly property string type: modelData.type
-                readonly property bool chosen: type === "chat" && root.selectedChats.indexOf(modelData.chat.id) >= 0
-                readonly property bool current: type === "chat" && !!root.controller && root.controller.threadId === modelData.chat.id
+                readonly property bool isGroup: modelData.type === "group"
+                readonly property bool chosen: !isGroup && root.selectedChats.indexOf(modelData.chat.id) >= 0
+                readonly property bool current: !isGroup && !!root.controller && root.controller.threadId === modelData.chat.id
+                objectName: isGroup ? "threadsGroup-" + modelData.name : "threadsChat-" + index
                 width: ListView.view.width
-                height: type === "section" ? Theme.rowHeight + (index > 0 ? 4 : 0) : Theme.rowHeight
-                Label {
-                    visible: entry.type === "section"
-                    anchors.left: parent.left; anchors.leftMargin: 6; anchors.bottom: parent.bottom; anchors.bottomMargin: 4
-                    text: entry.modelData.title || ""
-                    font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textSecondary
+                height: Theme.rowHeight
+                highlighted: chosen || current
+                leftPadding: isGroup ? 22 : 30
+                rightPadding: isGroup ? 30 : 8
+                contentItem: Label {
+                    text: row.isGroup ? row.modelData.name : row.modelData.chat.title
+                    elide: Text.ElideRight; textFormat: Text.PlainText
+                    color: row.highlighted ? Theme.selectedText : row.isGroup && !row.modelData.id.length ? Theme.textSecondary : Theme.text
                 }
-                ItemDelegate {
-                    id: row
-                    objectName: entry.type === "group" ? "threadsGroup-" + entry.modelData.name : entry.type === "chat" ? "threadsChat-" + entry.index : ""
-                    visible: entry.type !== "section"
-                    anchors.fill: parent
-                    highlighted: entry.chosen || entry.current
-                    leftPadding: entry.type === "group" ? 22 : entry.modelData.depth ? 30 : 8
-                    rightPadding: entry.type === "group" ? 30 : 8
-                    contentItem: Label {
-                        text: entry.type === "group" ? entry.modelData.name : entry.type === "chat" ? entry.modelData.chat.title : ""
-                        elide: Text.ElideRight; textFormat: Text.PlainText
-                        color: row.highlighted ? Theme.selectedText : Theme.text
+                Icon {
+                    visible: row.isGroup
+                    x: 6; anchors.verticalCenter: parent.verticalCenter
+                    name: row.isGroup && row.modelData.open ? "down" : "right"; size: Theme.fontSmall; color: Theme.textTertiary
+                }
+                // A Thread's count; under the pointer, a + for a new chat in it.
+                Label {
+                    visible: row.isGroup && !row.hovered
+                    anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                    text: row.isGroup ? row.modelData.count : ""; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                }
+                IconButton {
+                    objectName: "threadsGroupAdd"
+                    visible: row.isGroup && row.hovered
+                    anchors.right: parent.right; anchors.rightMargin: 2; anchors.verticalCenter: parent.verticalCenter
+                    width: 22; height: 22; glyphSize: Theme.fontBody
+                    icon.name: "add"; description: qsTr("New chat in this Thread")
+                    onClicked: root.newChatRequested({folder: row.modelData.id})
+                }
+                ToolTip.visible: hovered && !isGroup && !dragHandler.active
+                ToolTip.delay: 600
+                ToolTip.text: isGroup ? "" : modelData.chat.title + (modelData.chat.paper ? "\n" + modelData.chat.paper : "")
+                onClicked: {
+                    list.forceActiveFocus()
+                    if (isGroup) { root.setGroupOpen(modelData.key, !modelData.open); return }
+                    const mods = list.clickModifiers
+                    const id = modelData.chat.id
+                    if (mods & (Qt.ControlModifier | Qt.MetaModifier)) root.toggleChat(id, index)
+                    else if (mods & Qt.ShiftModifier) root.selectRange(index)
+                    else { root.selectedChats = []; root.selectionAnchor = index; Qt.callLater(function() { root.chatChosen(id) }) }
+                }
+                TapHandler {
+                    acceptedButtons: Qt.LeftButton
+                    acceptedModifiers: Qt.KeyboardModifierMask
+                    // Only notes the keys held; the click itself goes to the row.
+                    onPressedChanged: if (pressed) list.clickModifiers = point.modifiers
+                }
+                TapHandler {
+                    acceptedButtons: Qt.RightButton
+                    onTapped: {
+                        if (row.isGroup) { groupMenu.group = row.modelData; groupMenu.popup(); return }
+                        if (!row.chosen) root.selectedChats = [row.modelData.chat.id]
+                        chatMenu.ids = root.selectedChats.slice()
+                        chatMenu.chat = row.modelData.chat
+                        chatMenu.popup()
                     }
-                    Icon {
-                        visible: entry.type === "group"
-                        x: 6; anchors.verticalCenter: parent.verticalCenter
-                        name: entry.modelData.open ? "down" : "right"; size: Theme.fontSmall; color: Theme.textTertiary
-                    }
-                    Label {
-                        visible: entry.type === "group"
-                        anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                        text: entry.modelData.count || ""; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
-                    }
-                    ToolTip.visible: hovered && entry.type === "chat"
-                    ToolTip.delay: 600
-                    ToolTip.text: entry.type === "chat" ? entry.modelData.chat.title + (entry.modelData.chat.paper ? "\n" + entry.modelData.chat.paper : "") : ""
-                    onClicked: {
-                        list.forceActiveFocus()
-                        if (entry.type === "group") { root.toggleGroup(entry.modelData.key); return }
-                        const mods = list.clickModifiers
-                        const id = entry.modelData.chat.id, within = entry.modelData.within
-                        if (mods & (Qt.ControlModifier | Qt.MetaModifier)) root.toggleChat(id, entry.index)
-                        else if (mods & Qt.ShiftModifier) root.selectRange(entry.index)
-                        else { root.selectedChats = []; root.selectionAnchor = entry.index; Qt.callLater(function() { root.chatChosen(id, within) }) }
-                    }
-                    TapHandler {
-                        acceptedButtons: Qt.LeftButton
-                        acceptedModifiers: Qt.KeyboardModifierMask
-                        // Only notes the keys held; the click itself goes to the row.
-                        onPressedChanged: if (pressed) list.clickModifiers = point.modifiers
-                    }
-                    TapHandler {
-                        acceptedButtons: Qt.RightButton
-                        onTapped: {
-                            if (entry.type === "group") { groupMenu.group = entry.modelData; groupMenu.popup(); return }
-                            if (!entry.chosen) root.selectedChats = [entry.modelData.chat.id]
-                            chatMenu.ids = root.selectedChats.slice()
-                            chatMenu.chat = entry.modelData.chat
-                            chatMenu.popup()
+                }
+                // Dragging a chosen chat moves every chosen one.
+                DragHandler {
+                    id: dragHandler
+                    enabled: !row.isGroup
+                    target: null
+                    onActiveChanged: {
+                        if (active) {
+                            const id = row.modelData.chat.id
+                            dragProxy.ids = root.selectedChats.indexOf(id) >= 0 ? root.selectedChats.slice() : [id]
+                            dragProxy.title = dragProxy.ids.length > 1 ? dragProxy.ids.length + qsTr(" chats") : row.modelData.chat.title
+                        } else if (dragProxy.Drag.active) {
+                            dragProxy.Drag.drop()
+                            dragProxy.ids = []
                         }
                     }
+                    onCentroidChanged: if (active) {
+                        const at = row.mapToItem(root, centroid.position.x, centroid.position.y)
+                        dragProxy.x = at.x + 8; dragProxy.y = at.y - dragProxy.height / 2
+                    }
+                }
+                DropArea {
+                    anchors.fill: parent
+                    enabled: row.isGroup
+                    keys: ["owelk/chats"]
+                    onDropped: function(drop) { root.moveChats(drop.source.ids, row.modelData.id) }
+                    Rectangle { anchors.fill: parent; color: "transparent"; border.color: Theme.accent; radius: Theme.radius; visible: parent.containsDrag }
                 }
             }
             Label {
                 anchors.centerIn: parent
                 width: parent.width - 16
                 visible: list.count === 0
-                text: root.needle.length ? qsTr("No chat matches.") : qsTr("Ask about a selection, page or figure, or start a chat with +.")
+                text: root.needle.length ? qsTr("No chat matches.") : qsTr("Chats about a paper gather in its Thread. Make your own Threads with +.")
                 wrapMode: Text.WrapAtWordBoundaryOrAnywhere; horizontalAlignment: Text.AlignHCenter
                 color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
             }
         }
     }
-    // A chat: rename it, file it under collections (its paper's collections are fixed), or trash it.
+    // What follows the pointer while chats are dragged to another Thread.
+    Rectangle {
+        id: dragProxy
+        objectName: "threadsDragProxy"
+        property var ids: []
+        property string title
+        visible: ids.length > 0
+        width: Math.min(root.width - 16, proxyLabel.implicitWidth + 16); height: Theme.rowHeight
+        radius: Theme.radius; color: Theme.raised; border.color: Theme.border
+        Drag.active: ids.length > 0
+        Drag.keys: ["owelk/chats"]
+        Drag.source: dragProxy
+        Drag.hotSpot: Qt.point(0, height / 2)
+        Label {
+            id: proxyLabel
+            anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
+            verticalAlignment: Text.AlignVCenter
+            text: dragProxy.title; elide: Text.ElideRight; textFormat: Text.PlainText
+            font.pixelSize: Theme.fontSmall; color: Theme.text
+        }
+    }
+    // A chat: rename it, move it (or every chosen one) to another Thread, or trash it.
     Menu {
         id: chatMenu
         objectName: "threadsChatMenu"
         property var ids: []
         property var chat: ({})
-        readonly property bool single: ids.length === 1
         MenuItem {
-            visible: chatMenu.single
+            visible: chatMenu.ids.length === 1
             height: visible ? implicitHeight : 0
             text: qsTr("Rename…")
-            onTriggered: { renameDialog.chatId = chatMenu.chat.id; renameField.text = chatMenu.chat.title; renameDialog.open() }
+            onTriggered: nameDialog.begin("chat", chatMenu.chat.id, chatMenu.chat.title)
         }
         Menu {
-            id: fileMenu
-            objectName: "threadsFileMenu"
-            title: qsTr("Collections")
-            enabled: chatMenu.single && root.collectionList.length > 0
+            id: moveMenu
+            objectName: "threadsMoveMenu"
+            title: qsTr("Move To")
             Instantiator {
-                model: chatMenu.single ? root.collectionList : []
+                model: root.foldersByName.concat([{id: "", name: qsTr("Unfiled")}])
                 delegate: MenuItem {
                     required property var modelData
-                    readonly property var chat: chatMenu.chat
-                    readonly property bool chosen: (chat.chosenCollections || []).indexOf(modelData.id) >= 0
-                    objectName: "threadsFile-" + modelData.name
+                    objectName: "threadsMoveTo-" + modelData.name
                     text: modelData.name
                     checkable: true
-                    checked: (chat.collections || []).indexOf(modelData.id) >= 0
-                    // Filed through its paper: taken out by taking the paper out of the collection.
-                    enabled: chosen || !checked
-                    onTriggered: researchStore.setAiThreadCollection(chat.id, modelData.id, !chosen)
+                    checked: chatMenu.ids.length === 1 && chatMenu.chat.folder === modelData.id
+                    onTriggered: root.moveChats(chatMenu.ids, modelData.id)
                 }
-                onObjectAdded: function(index, item) { fileMenu.insertItem(index, item) }
-                onObjectRemoved: function(index, item) { fileMenu.removeItem(item) }
+                onObjectAdded: function(index, item) { moveMenu.insertItem(index, item) }
+                onObjectRemoved: function(index, item) { moveMenu.removeItem(item) }
             }
         }
         MenuSeparator {}
@@ -316,33 +348,49 @@ Rectangle {
             onTriggered: root.trashChats(chatMenu.ids)
         }
     }
+    // A Thread: a new chat in it, a new name, or gone (its chats stay, unfiled).
     Menu {
         id: groupMenu
         objectName: "threadsGroupMenu"
         property var group: ({})
+        readonly property bool folder: !!group.id && group.id.length > 0
+        MenuItem { objectName: "threadsGroupNewChat"; text: qsTr("New Chat Here"); onTriggered: root.newChatRequested({folder: groupMenu.group.id}) }
         MenuItem {
-            objectName: "threadsGroupNewChat"
-            text: qsTr("New Chat Here")
-            onTriggered: root.newChatRequested(groupMenu.group.kind === "collection" ? {collection: groupMenu.group.id, collectionName: groupMenu.group.name} : {source: groupMenu.group.source})
+            objectName: "threadsGroupRename"
+            visible: groupMenu.folder; height: visible ? implicitHeight : 0
+            text: qsTr("Rename…")
+            onTriggered: nameDialog.begin("folder", groupMenu.group.id, groupMenu.group.name)
         }
         MenuItem {
-            text: groupMenu.group.kind === "collection" ? qsTr("Show in Library") : qsTr("Open Paper")
-            onTriggered: {
-                if (groupMenu.group.kind === "collection") root.collectionRequested(groupMenu.group.id)
-                else root.paperRequested(groupMenu.group.source)
-            }
+            objectName: "threadsGroupDelete"
+            visible: groupMenu.folder; height: visible ? implicitHeight : 0
+            text: qsTr("Delete Thread")
+            onTriggered: researchStore.deleteAiFolder(groupMenu.group.id)
         }
     }
+    // Names a new Thread, or renames a Thread or a chat.
     Dialog {
-        id: renameDialog
+        id: nameDialog
+        objectName: "threadsNameDialog"
         parent: Overlay.overlay
         anchors.centerIn: parent
         width: 360
         modal: true
-        title: qsTr("Rename Chat")
-        property string chatId: ""
+        property string kind: ""
+        property string target: ""
+        function begin(what, id, name) {
+            kind = what; target = id
+            nameField.text = name
+            open()
+            nameField.selectAll(); nameField.forceActiveFocus()
+        }
+        title: kind === "chat" ? qsTr("Rename Chat") : kind === "folder" ? qsTr("Rename Thread") : qsTr("New Thread")
         standardButtons: Dialog.Ok | Dialog.Cancel
-        TextField { id: renameField; objectName: "threadsRenameField"; width: parent.width; onAccepted: renameDialog.accept() }
-        onAccepted: researchStore.renameAiThread(chatId, renameField.text)
+        TextField { id: nameField; objectName: "threadsNameField"; width: parent.width; placeholderText: qsTr("Name"); onAccepted: nameDialog.accept() }
+        onAccepted: {
+            if (kind === "chat") researchStore.renameAiThread(target, nameField.text)
+            else if (kind === "folder") researchStore.renameAiFolder(target, nameField.text)
+            else root.newThread(nameField.text)
+        }
     }
 }
