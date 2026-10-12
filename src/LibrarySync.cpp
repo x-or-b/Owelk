@@ -1,4 +1,5 @@
 #include "LibrarySync.h"
+#include "UiText.h"
 #include "WorkerConnection.h"
 
 #include <QCoreApplication>
@@ -610,7 +611,7 @@ bool Pass::writeSegments(const QByteArray &lines)
 {
     const auto folder = m_folder + "/devices/" + m_device;
     if (!QDir().mkpath(folder)) {
-        outcome.error = "Cannot write to the sync folder.";
+        outcome.error = ui("Cannot write to the sync folder.");
         return false;
     }
     if (!QFileInfo::exists(folder + "/device.json")) {
@@ -636,7 +637,7 @@ bool Pass::writeSegments(const QByteArray &lines)
     while (start < lines.size()) {
         QFile file(folder + "/" + segmentName(sequence));
         if (!file.open(QIODevice::Append)) {
-            outcome.error = "Cannot write to the sync folder.";
+            outcome.error = ui("Cannot write to the sync folder.");
             return false;
         }
         // Whole lines up to the size limit (at least one line per file).
@@ -647,7 +648,7 @@ bool Pass::writeSegments(const QByteArray &lines)
             end = next;
         }
         if (file.write(lines.mid(start, end - start)) != end - start || !file.flush()) {
-            outcome.error = "Cannot write to the sync folder.";
+            outcome.error = ui("Cannot write to the sync folder.");
             return false;
         }
         start = end;
@@ -703,8 +704,8 @@ LibrarySync::Outcome runPass(const QString &data, const QString &papers, const Q
 {
     if (!markerMatches(folder, library)) {
         LibrarySync::Outcome outcome;
-        outcome.error
-            = "The sync folder is not available. Check that its sync program (Google Drive, Dropbox, …) is running.";
+        outcome.error = ui(
+            "The sync folder is not available. Check that its sync program (Google Drive, Dropbox, …) is running.");
         return outcome;
     }
     WorkerConnection connection(data + "/owelk.sqlite3");
@@ -854,9 +855,8 @@ void LibrarySync::finished(const Outcome &outcome)
     if (!outcome.error.isEmpty())
         m_status = outcome.error;
     else
-        m_status = "Synced at " + QLocale().toString(QTime::currentTime(), QLocale::ShortFormat)
-            + (outcome.waiting ? QStringLiteral(" · waiting for %1 files from the folder").arg(outcome.waiting)
-                               : QString());
+        m_status = ui("Synced at ") + QLocale().toString(QTime::currentTime(), QLocale::ShortFormat)
+            + (outcome.waiting ? ui(" · waiting for %1 files from the folder").arg(outcome.waiting) : QString());
     emit changed();
     if (outcome.received || !outcome.newSources.isEmpty()) emit received(outcome.tables, outcome.newSources);
     if (m_again) {

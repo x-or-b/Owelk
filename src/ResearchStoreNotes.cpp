@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "UiText.h"
 #include "MathRenderer.h"
 #include <QDir>
 #include <QStandardPaths>
@@ -43,7 +44,7 @@ QString ResearchStore::createNote(const QString &title, const QString &body)
     query.addBindValue(now());
     query.addBindValue(now());
     if (!query.exec()) {
-        emit message("Cannot create note.");
+        emit message(ui("Cannot create note."));
         return {};
     }
     syncNoteLinks(id, body);
@@ -64,7 +65,7 @@ QVariantMap ResearchStore::note(const QString &id) const
 bool ResearchStore::saveNote(const QString &id, const QString &title, const QString &body)
 {
     if (body.size() > 200000) {
-        emit message("Notes can contain up to 200,000 characters.");
+        emit message(ui("Notes can contain up to 200,000 characters."));
         return false;
     }
     QSqlQuery query(m_database);
@@ -74,7 +75,7 @@ bool ResearchStore::saveNote(const QString &id, const QString &title, const QStr
     query.addBindValue(now());
     query.addBindValue(id);
     if (!query.exec() || query.numRowsAffected() != 1) {
-        emit message("Cannot save note. It may have been deleted.");
+        emit message(ui("Cannot save note. It may have been deleted."));
         return false;
     }
     syncNoteLinks(id, body);
@@ -92,7 +93,7 @@ QVariantList ResearchStore::notes(bool trashed) const
             .arg(trashed ? "NOT" : "", trashed ? "deleted_at" : "updated_at"));
     while (query.next())
         rows.append(QVariantMap{{"id", query.value(0)},
-            {"title", query.value(1).toString().isEmpty() ? "Untitled note" : query.value(1)},
+            {"title", query.value(1).toString().isEmpty() ? ui("Untitled note") : query.value(1)},
             {"snippet", query.value(2).toString().simplified()}, {"updatedAt", query.value(3)},
             {"deletedAt", query.value(4)}});
     return rows;
@@ -106,7 +107,7 @@ bool ResearchStore::deleteNote(const QString &id)
     query.addBindValue(id);
     if (!query.exec() || query.numRowsAffected() != 1) return false;
     emit notesChanged();
-    emit message("Note moved to trash.");
+    emit message(ui("Note moved to trash."));
     return true;
 }
 
@@ -281,8 +282,9 @@ QString ResearchStore::markdownHtml(const QString &markdown, const QString &link
         const auto m = it.next();
         if (!linkTarget("ai", m.captured(1)).isEmpty()) continue;
         linked += html.mid(from, m.capturedStart() - from)
-            + QStringLiteral("<span style=\"color:%1\">Deleted conversation</span>")
-                  .arg(QColor::isValidColorName(mutedColor) ? mutedColor : QStringLiteral("gray"));
+            + QStringLiteral("<span style=\"color:%1\">%2</span>")
+                  .arg(QColor::isValidColorName(mutedColor) ? mutedColor : QStringLiteral("gray"),
+                      ui("Deleted conversation").toHtmlEscaped());
         from = m.capturedEnd();
     }
     if (from) html = linked + html.mid(from);
@@ -378,7 +380,7 @@ bool ResearchStore::appendNoteLink(const QString &noteId, const QString &kind, c
     if (row.isEmpty() || row["deleted"].toBool() || link.isEmpty()) return false;
     if (row["body"].toString().contains("owelk://" + kind + "/" + id)) return true; // Already linked.
     if (!appendToNote(noteId, "- " + link)) return false;
-    emit message("Linked in note.");
+    emit message(ui("Linked in note."));
     return true;
 }
 
@@ -419,7 +421,8 @@ QVariantMap ResearchStore::linkTarget(const QString &kind, const QString &id) co
         const auto row = note(id);
         if (row.isEmpty()) return {};
         return {{"kind", kind}, {"id", id},
-            {"title", row["title"].toString().isEmpty() ? "Untitled note" : row["title"]}, {"deleted", row["deleted"]}};
+            {"title", row["title"].toString().isEmpty() ? ui("Untitled note") : row["title"]},
+            {"deleted", row["deleted"]}};
     }
     if (kind == "document") {
         query.prepare("SELECT url FROM documents WHERE id=?");
@@ -444,7 +447,7 @@ QVariantMap ResearchStore::linkTarget(const QString &kind, const QString &id) co
         query.prepare("SELECT title,trashed_at IS NOT NULL FROM ai_threads WHERE id=?");
         query.addBindValue(id);
         if (!query.exec() || !query.next()) return {};
-        return {{"kind", kind}, {"id", id}, {"title", "AI · " + query.value(0).toString().simplified().left(80)},
+        return {{"kind", kind}, {"id", id}, {"title", ui("AI · ") + query.value(0).toString().simplified().left(80)},
             {"trashed", query.value(1).toBool()}};
     }
     return {};
@@ -544,8 +547,8 @@ QVariantList ResearchStore::notesSharing(const QStringList &terms, const QString
         if (shared < needed) continue;
         const auto title = query.value(1).toString();
         scored.append({shared,
-            QVariantMap{{"kind", "note"}, {"id", query.value(0)},
-                {"title", title.isEmpty() ? QStringLiteral("Untitled") : title}}});
+            QVariantMap{
+                {"kind", "note"}, {"id", query.value(0)}, {"title", title.isEmpty() ? ui("Untitled") : title}}});
     }
     std::stable_sort(scored.begin(), scored.end(), [](const auto &a, const auto &b) { return a.first > b.first; });
     QVariantList notes;

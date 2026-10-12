@@ -242,7 +242,7 @@ Rectangle {
                         padding: 1; leftPadding: 6; rightPadding: 6
                         font.pixelSize: Theme.fontSmall
                         maximumLength: 120
-                        placeholderText: "Name this group"
+                        placeholderText: qsTr("Name this group")
                         // The strip is rebuilt as tabs change, so a new label may already be open when made.
                         function claim() { if (visible) { text = tabItem.labelData.name; forceActiveFocus(); selectAll() } }
                         onVisibleChanged: claim()
@@ -260,7 +260,7 @@ Rectangle {
                     TapHandler { acceptedButtons: Qt.RightButton; onTapped: { root.menuLabel = tabItem.labelData.id; groupMenu.popup() } }
                     ToolTip.visible: headerHover.hovered && !nameField.visible
                     ToolTip.delay: 500
-                    ToolTip.text: tabItem.isHeader ? (tabItem.labelData.collapsed ? "Show " : "Hide ") + tabItem.modelData.size + " tabs" : ""
+                    ToolTip.text: tabItem.isHeader ? (tabItem.labelData.collapsed ? qsTr("Show ") : qsTr("Hide ")) + tabItem.modelData.size + qsTr(" tabs") : ""
                 }
 
                 // --- A tab ---------------------------------------------------------------------------
@@ -341,21 +341,21 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     width: Theme.controlHeightSmall - 2; height: width; glyphSize: Theme.fontBody
                     icon.name: "close"
-                    description: "Close tab"
+                    description: qsTr("Close tab")
                     onClicked: { const id = tabItem.tabData.id; Qt.callLater(function() { root.controller.closeTab(id) }) }
                 }
                 ToolTip.visible: !tabItem.isHeader && pointer.containsMouse && !pointer.pressed
                 ToolTip.delay: 500
                 ToolTip.text: tabItem.isHeader ? "" : tabItem.title + (tabItem.tabData.kind === "web" ? "\n" + tabItem.tabData.source : tabItem.tabData.source && tabItem.tabData.source.length ? "\n" + researchStore.localPath(tabItem.tabData.source) : "")
             }
-            Label { visible: !tabs.count; anchors.centerIn: parent; text: "No open tabs"; color: Theme.textTertiary }
+            Label { visible: !tabs.count; anchors.centerIn: parent; text: qsTr("No open tabs"); color: Theme.textTertiary }
         }
         IconButton {
             id: newTabButton
             objectName: "newTabButton"
             Layout.rightMargin: 4
             icon.name: "add"
-            description: "New tab · " + Platform.keys("Ctrl+T")
+            description: qsTr("New tab · ") + Platform.keys("Ctrl+T")
             onClicked: { root.controller.activateGroup(root.groupId); root.controller.newHomeTab() }
         }
         }
@@ -446,35 +446,35 @@ Rectangle {
         readonly property string kind: root.menuTabData ? (root.menuTabData.kind || "pdf") : ""
         readonly property string path: kind === "pdf" ? researchStore.localPath(root.menuTabData.source) : ""
         function itemIndex(item) { for (let i = 0; i < count; ++i) if (itemAt(i) === item) return i; return count }
-        MenuItem { visible: tabMenu.kind === "web"; height: visible ? implicitHeight : 0; text: "Open in Browser"; onTriggered: Qt.openUrlExternally(root.menuTabData.source) }
-        MenuItem { visible: tabMenu.kind === "web"; height: visible ? implicitHeight : 0; text: "Copy Address"; onTriggered: researchStore.copyText(root.menuTabData.source) }
-        MenuItem { visible: tabMenu.kind === "pdf"; height: visible ? implicitHeight : 0; text: "Copy File Path"; onTriggered: researchStore.copyText(tabMenu.path) }
-        MenuItem { visible: tabMenu.kind === "pdf"; height: visible ? implicitHeight : 0; text: Qt.platform.os === "osx" ? "Show in Finder" : "Show in Folder"; onTriggered: Qt.openUrlExternally(researchStore.fileUrl(tabMenu.path.substring(0, tabMenu.path.lastIndexOf("/")))) }
-        MenuItem { visible: tabMenu.kind === "note"; height: visible ? implicitHeight : 0; text: "Copy Markdown"; onTriggered: researchStore.copyText(researchStore.note(root.menuTabData.noteId).body || "") }
+        MenuItem { visible: tabMenu.kind === "web"; height: visible ? implicitHeight : 0; text: qsTr("Open in Browser"); onTriggered: Qt.openUrlExternally(root.menuTabData.source) }
+        MenuItem { visible: tabMenu.kind === "web"; height: visible ? implicitHeight : 0; text: qsTr("Copy Address"); onTriggered: researchStore.copyText(root.menuTabData.source) }
+        MenuItem { visible: tabMenu.kind === "pdf"; height: visible ? implicitHeight : 0; text: qsTr("Copy File Path"); onTriggered: researchStore.copyText(tabMenu.path) }
+        MenuItem { visible: tabMenu.kind === "pdf"; height: visible ? implicitHeight : 0; text: Qt.platform.os === "osx" ? qsTr("Show in Finder") : qsTr("Show in Folder"); onTriggered: Qt.openUrlExternally(researchStore.fileUrl(tabMenu.path.substring(0, tabMenu.path.lastIndexOf("/")))) }
+        MenuItem { visible: tabMenu.kind === "note"; height: visible ? implicitHeight : 0; text: qsTr("Copy Markdown"); onTriggered: researchStore.copyText(researchStore.note(root.menuTabData.noteId).body || "") }
         MenuSeparator { visible: ["web", "pdf", "note"].indexOf(tabMenu.kind) >= 0; height: visible ? implicitHeight : 0 }
-        MenuItem { text: "Duplicate to Right Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("right") } }
-        MenuItem { text: "Duplicate to Bottom Split"; onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("bottom") } }
+        MenuItem { text: qsTr("Duplicate to Right Split"); onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("right") } }
+        MenuItem { text: qsTr("Duplicate to Bottom Split"); onTriggered: { root.controller.activateTab(root.menuTab); root.controller.duplicateSplit("bottom") } }
         MenuSeparator {}
-        MenuItem { id: newGroupItem; objectName: "newTabGroupOption"; text: "Add to New Group"; onTriggered: { const tab = root.menuTab; Qt.callLater(function() { root.controller.newTabGroup([tab]) }) } }
+        MenuItem { id: newGroupItem; objectName: "newTabGroupOption"; text: qsTr("Add to New Group"); onTriggered: { const tab = root.menuTab; Qt.callLater(function() { root.controller.newTabGroup([tab]) }) } }
         Instantiator {
             model: root.labels.filter(function(l) { return !root.menuTabData || root.menuTabData.label !== l.id })
             delegate: MenuItem {
                 required property var modelData
-                text: "Add to \u201c" + modelData.name + "\u201d"
+                text: qsTr("Add to \u201c") + modelData.name + "\u201d"
                 onTriggered: { const tab = root.menuTab, label = modelData.id; Qt.callLater(function() { root.controller.addTabToGroup(tab, label) }) }
             }
             onObjectAdded: function(index, item) { tabMenu.insertItem(tabMenu.itemIndex(newGroupItem) + 1 + index, item) }
             onObjectRemoved: function(index, item) { tabMenu.removeItem(item) }
         }
-        MenuItem { visible: !!root.menuTabData && !!root.menuTabData.label; height: visible ? implicitHeight : 0; text: "Remove from Group"; onTriggered: root.controller.removeTabFromGroup(root.menuTab) }
-        MenuItem { objectName: "organizeTabsOption"; text: "Organize Tabs with AI…"; onTriggered: root.controller.organizeRequested(root.groupId) }
+        MenuItem { visible: !!root.menuTabData && !!root.menuTabData.label; height: visible ? implicitHeight : 0; text: qsTr("Remove from Group"); onTriggered: root.controller.removeTabFromGroup(root.menuTab) }
+        MenuItem { objectName: "organizeTabsOption"; text: qsTr("Organize Tabs with AI…"); onTriggered: root.controller.organizeRequested(root.groupId) }
         MenuSeparator {}
-        MenuItem { objectName: "closeOtherTabsOption"; text: "Close Other Tabs"; enabled: root.groupData.tabs.length > 1; onTriggered: { const id = root.menuTab; Qt.callLater(function() { root.controller.closeOtherTabs(id) }) } }
-        MenuItem { objectName: "closeTabOption"; text: "Close Tab"; onTriggered: { const id = root.menuTab; Qt.callLater(function() { root.controller.closeTab(id) }) } }
+        MenuItem { objectName: "closeOtherTabsOption"; text: qsTr("Close Other Tabs"); enabled: root.groupData.tabs.length > 1; onTriggered: { const id = root.menuTab; Qt.callLater(function() { root.controller.closeOtherTabs(id) }) } }
+        MenuItem { objectName: "closeTabOption"; text: qsTr("Close Tab"); onTriggered: { const id = root.menuTab; Qt.callLater(function() { root.controller.closeTab(id) }) } }
         MenuSeparator { visible: tabMenu.kind === "note"; height: visible ? implicitHeight : 0 }
         MenuItem {
             visible: tabMenu.kind === "note"; height: visible ? implicitHeight : 0
-            text: "Move Note to Trash"
+            text: qsTr("Move Note to Trash")
             palette.windowText: Theme.danger
             onTriggered: { const id = root.menuTabData.noteId; if (researchStore.deleteNote(id)) root.controller.closeNoteTabs(id) }
         }
@@ -483,10 +483,10 @@ Rectangle {
     Menu {
         id: groupMenu
         objectName: "tabGroupMenu"
-        MenuItem { text: "Rename"; onTriggered: root.editingLabel = root.menuLabel }
+        MenuItem { text: qsTr("Rename"); onTriggered: root.editingLabel = root.menuLabel }
         Menu {
             id: colorMenu
-            title: "Color"
+            title: qsTr("Color")
             Instantiator {
                 model: Theme.accents
                 delegate: MenuItem {
@@ -500,10 +500,10 @@ Rectangle {
                 onObjectRemoved: function(index, item) { colorMenu.removeItem(item) }
             }
         }
-        MenuItem { text: "Save Papers as Collection"; onTriggered: root.controller.saveTabGroupAsCollection(root.groupId, root.menuLabel) }
+        MenuItem { text: qsTr("Save Papers as Collection"); onTriggered: root.controller.saveTabGroupAsCollection(root.groupId, root.menuLabel) }
         MenuSeparator {}
-        MenuItem { text: "Ungroup"; onTriggered: root.controller.ungroupTabs(root.groupId, root.menuLabel) }
-        MenuItem { text: "Close Group's Tabs"; onTriggered: { const label = root.menuLabel; Qt.callLater(function() { root.controller.closeTabGroup(root.groupId, label) }) } }
+        MenuItem { text: qsTr("Ungroup"); onTriggered: root.controller.ungroupTabs(root.groupId, root.menuLabel) }
+        MenuItem { text: qsTr("Close Group's Tabs"); onTriggered: { const label = root.menuLabel; Qt.callLater(function() { root.controller.closeTabGroup(root.groupId, label) }) } }
     }
     Rectangle {
         readonly property var target: root.controller.dropTarget

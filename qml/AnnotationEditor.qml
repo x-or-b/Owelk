@@ -46,7 +46,7 @@ Dialog {
     height: Math.min(520, parent.height - 32)
     modal: true
     closePolicy: Popup.NoAutoClose
-    title: record.kind === "image" ? "Image annotation" : record.kind === "text" ? "Text box" : record.kind === "area" ? "Region" : "Comment"
+    title: record.kind === "image" ? qsTr("Image annotation") : record.kind === "text" ? qsTr("Text box") : record.kind === "area" ? qsTr("Region") : qsTr("Comment")
     function begin(canvas, data, anchor) {
         readerCanvas = canvas;
         source = canvas.source;
@@ -157,9 +157,9 @@ Dialog {
             objectName: "annotationDraftBar"
             visible: root.savedDraft.length > 0
             Layout.fillWidth: true
-            Label { Layout.fillWidth: true; text: "Unsaved text from last time is kept."; color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
-            Button { objectName: "restoreAnnotationDraft"; text: "Restore"; onClicked: { body.text = root.savedDraft; root.savedDraft = "" } }
-            Button { text: "Discard"; onClicked: { researchStore.clearDraft(root.draftKey); root.savedDraft = "" } }
+            Label { Layout.fillWidth: true; text: qsTr("Unsaved text from last time is kept."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
+            Button { objectName: "restoreAnnotationDraft"; text: qsTr("Restore"); onClicked: { body.text = root.savedDraft; root.savedDraft = "" } }
+            Button { text: qsTr("Discard"); onClicked: { researchStore.clearDraft(root.draftKey); root.savedDraft = "" } }
         }
         ScrollView {
             Layout.fillWidth: true
@@ -168,7 +168,7 @@ Dialog {
             TextArea {
                 id: body
                 objectName: "annotationBody"
-                placeholderText: root.record.kind === "text" ? "Enter text…" : "Write a comment…"
+                placeholderText: root.record.kind === "text" ? "Enter text…" : qsTr("Write a comment…")
                 textFormat: TextEdit.PlainText
                 wrapMode: TextEdit.Wrap
                 selectByMouse: true
@@ -188,7 +188,7 @@ Dialog {
         }
         Button {
             visible: root.record.kind === "image"
-            text: "Choose / Replace Image…"
+            text: qsTr("Choose / Replace Image…")
             enabled: !root.saving
             onClicked: imageDialog.open()
         }
@@ -197,16 +197,16 @@ Dialog {
             columns: 4
             Layout.fillWidth: true
             Label {
-                text: "X %"
+                text: qsTr("X %")
             }
             Label {
-                text: "Y %"
+                text: qsTr("Y %")
             }
             Label {
-                text: "Width %"
+                text: qsTr("Width %")
             }
             Label {
-                text: "Height %"
+                text: qsTr("Height %")
             }
             TextField {
                 id: left
@@ -254,7 +254,7 @@ Dialog {
             objectName: "textSizeRow"
             visible: root.record.kind === "text"
             Layout.fillWidth: true
-            Label { text: "Size"; color: Theme.textSecondary }
+            Label { text: qsTr("Size"); color: Theme.textSecondary }
             SpinBox {
                 id: fontSpin
                 objectName: "textFontSize"
@@ -265,7 +265,7 @@ Dialog {
             Label { text: "pt"; color: Theme.textTertiary }
             CheckBox {
                 objectName: "textFitBox"
-                text: "Fit to box"
+                text: qsTr("Fit to box")
                 checked: root.fitText
                 onToggled: { root.fitText = checked; root.geometryDirty = true }
             }
@@ -277,8 +277,8 @@ Dialog {
                 objectName: "annotationColorWell"
                 implicitWidth: Theme.iconButton; implicitHeight: Theme.iconButton
                 padding: 4
-                ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: "Color"
-                Accessible.name: "Color"
+                ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: qsTr("Color")
+                Accessible.name: qsTr("Color")
                 contentItem: Rectangle { radius: width / 2; color: root.selectedColor }
                 onClicked: colors.open()
             }
@@ -287,13 +287,13 @@ Dialog {
             }
             Button {
                 objectName: "cancelAnnotation"
-                text: "Cancel"
+                text: qsTr("Cancel")
                 enabled: !root.saving
                 onClicked: root.requestClose()
             }
             Button {
                 objectName: "saveAnnotation"
-                text: root.saving ? "Saving…" : "Save"
+                text: root.saving ? qsTr("Saving…") : qsTr("Save")
                 enabled: !root.saving && !researchStore.busy
                 onClicked: root.save()
             }
@@ -315,7 +315,7 @@ Dialog {
         id: discard
         parent: Overlay.overlay
         anchors.centerIn: parent
-        title: "Discard annotation edits?"
+        title: qsTr("Discard annotation edits?")
         modal: true
         standardButtons: Dialog.Discard | Dialog.Cancel
         onDiscarded: { researchStore.clearDraft(root.draftKey); root.close() }

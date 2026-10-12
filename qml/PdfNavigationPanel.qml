@@ -111,7 +111,7 @@ Item {
     function findSymbols() {
         symbolsError = ""
         if (!aiProvider.configured && researchStore.ai.provider !== "ollama") {
-            symbolsError = researchStore.ai.provider === "codex" ? "Sign in with ChatGPT in Settings → AI." : "Add an API key in Settings → AI."
+            symbolsError = researchStore.ai.provider === "codex" ? qsTr("Sign in with ChatGPT in Settings → AI.") : qsTr("Add an API key in Settings → AI.")
             return
         }
         // Pressing the button, under the note on what is sent, is the agreement.
@@ -151,7 +151,7 @@ Item {
         spacing: 8
         Label {
             Layout.fillWidth: true
-            text: root.reader && root.reader.source.toString().length ? (researchStore.documentsRevision, researchStore.displayName(root.reader.source)) : "No active PDF"
+            text: root.reader && root.reader.source.toString().length ? (researchStore.documentsRevision, researchStore.displayName(root.reader.source)) : qsTr("No active PDF")
             textFormat: Text.PlainText
             elide: Text.ElideMiddle
             font.pixelSize: Theme.fontSmall
@@ -161,10 +161,10 @@ Item {
             objectName: "navigationMode"
             Layout.fillWidth: true
             currentIndex: root.mode
-            TabButton { objectName: "contentsTab"; icon.name: "outline"; ToolTip.text: "Contents"; onClicked: root.modeChosen(0) }
-            TabButton { objectName: "annotationsTab"; icon.name: "annotations"; ToolTip.text: "Annotations"; onClicked: root.modeChosen(1) }
-            TabButton { objectName: "symbolsTab"; icon.name: "symbols"; ToolTip.text: "Symbols"; onClicked: root.modeChosen(2) }
-            TabButton { objectName: "relatedTab"; icon.name: "related"; ToolTip.text: "Related"; onClicked: root.modeChosen(3) }
+            TabButton { objectName: "contentsTab"; icon.name: "outline"; ToolTip.text: qsTr("Contents"); onClicked: root.modeChosen(0) }
+            TabButton { objectName: "annotationsTab"; icon.name: "annotations"; ToolTip.text: qsTr("Annotations"); onClicked: root.modeChosen(1) }
+            TabButton { objectName: "symbolsTab"; icon.name: "symbols"; ToolTip.text: qsTr("Symbols"); onClicked: root.modeChosen(2) }
+            TabButton { objectName: "relatedTab"; icon.name: "related"; ToolTip.text: qsTr("Related"); onClicked: root.modeChosen(3) }
         }
         // Each view's own choices, in the same small switch.
         TabBar {
@@ -172,17 +172,17 @@ Item {
             visible: root.mode === 0 && root.ready
             Layout.fillWidth: true
             currentIndex: root.contents === "pages" ? 1 : 0
-            TabButton { objectName: "outlineTab"; text: "Outline"; onClicked: root.setContents("outline") }
-            TabButton { objectName: "pagesTab"; text: "Pages"; onClicked: root.setContents("pages") }
+            TabButton { objectName: "outlineTab"; text: qsTr("Outline"); onClicked: root.setContents("outline") }
+            TabButton { objectName: "pagesTab"; text: qsTr("Pages"); onClicked: root.setContents("pages") }
         }
         TabBar {
             objectName: "relatedMode"
             visible: root.mode === 3 && root.ready
             Layout.fillWidth: true
             currentIndex: root.relatedSide
-            TabButton { objectName: "libraryRelatedTab"; text: "Library"; onClicked: root.relatedSide = 0 }
-            TabButton { objectName: "citesTab"; text: "Cites" + (root.citationsLoaded ? " " + (root.citations.references || []).length : ""); onClicked: root.relatedSide = 1 }
-            TabButton { objectName: "citedByTab"; text: "Cited by" + (root.citationsLoaded ? " " + (root.citations.citedBy || []).length : ""); onClicked: root.relatedSide = 2 }
+            TabButton { objectName: "libraryRelatedTab"; text: qsTr("Library"); onClicked: root.relatedSide = 0 }
+            TabButton { objectName: "citesTab"; text: qsTr("Cites") + (root.citationsLoaded ? " " + (root.citations.references || []).length : ""); onClicked: root.relatedSide = 1 }
+            TabButton { objectName: "citedByTab"; text: qsTr("Cited by") + (root.citationsLoaded ? " " + (root.citations.citedBy || []).length : ""); onClicked: root.relatedSide = 2 }
         }
         ColumnLayout {
             objectName: "annotationsView"
@@ -194,10 +194,10 @@ Item {
             RowLayout {
                 Layout.fillWidth: true
                 Layout.leftMargin: 4
-                Label { Layout.fillWidth: true; text: "Notes"; font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold; color: Theme.textSecondary }
+                Label { Layout.fillWidth: true; text: qsTr("Notes"); font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold; color: Theme.textSecondary }
                 IconButton {
                     objectName: "newPaperNote"
-                    icon.name: "add"; description: "New note about this paper"
+                    icon.name: "add"; description: qsTr("New note about this paper")
                     onClicked: root.newNoteRequested(root.reader.source)
                 }
             }
@@ -215,10 +215,10 @@ Item {
                     TapHandler { acceptedButtons: Qt.RightButton; onTapped: linkedNoteMenu.popup() }
                     Menu {
                         id: linkedNoteMenu
-                        MenuItem { text: "Open"; onTriggered: root.linkActivated("owelk://note/" + linkedNote.modelData.id) }
+                        MenuItem { text: qsTr("Open"); onTriggered: root.linkActivated("owelk://note/" + linkedNote.modelData.id) }
                         MenuItem {
                             objectName: "unlinkNote"
-                            text: "Unlink from This Paper"
+                            text: qsTr("Unlink from This Paper")
                             onTriggered: { const id = linkedNote.modelData.id, paper = root.reader.source; Qt.callLater(function() { researchStore.unlinkNote(id, paper) }) }
                         }
                     }
@@ -228,7 +228,7 @@ Item {
                 visible: !root.linkedNotes.length
                 Layout.fillWidth: true; Layout.leftMargin: 4
                 wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
-                text: "No notes about this paper yet."
+                text: qsTr("No notes about this paper yet.")
             }
             Rectangle { Layout.fillWidth: true; Layout.topMargin: 6; Layout.bottomMargin: 2; height: 1; color: Theme.separator }
             Loader {
@@ -250,7 +250,7 @@ Item {
                 id: relatedColumn
                 width: parent.width
                 spacing: 2
-                Label { text: "Similar papers"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4 }
+                Label { text: qsTr("Similar papers"); font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 4 }
                 Repeater {
                     model: root.relatedPapers
                     delegate: ItemDelegate {
@@ -267,9 +267,9 @@ Item {
                 Label {
                     visible: !root.relatedPapers.length
                     Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
-                    text: root.relatedLoading ? "Looking for related papers…" : "No related papers in the library yet."
+                    text: root.relatedLoading ? qsTr("Looking for related papers…") : qsTr("No related papers in the library yet.")
                 }
-                Label { text: "Similar notes"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 10 }
+                Label { text: qsTr("Similar notes"); font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary; Layout.topMargin: 10 }
                 Repeater {
                     model: root.relatedNotes
                     delegate: ItemDelegate {
@@ -283,7 +283,7 @@ Item {
                 Label {
                     visible: !root.relatedNotes.length && !root.relatedLoading
                     Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
-                    text: "No notes share this paper's key words."
+                    text: qsTr("No notes share this paper's key words.")
                 }
             }
         }
@@ -300,29 +300,29 @@ Item {
                 Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall
                 color: root.citations && root.citations.error ? Theme.danger : Theme.textTertiary
                 text: root.citations && root.citations.error ? root.citations.error
-                    : "Papers this one cites and papers citing it, from Semantic Scholar. Sends this paper's DOI, arXiv ID or title."
+                    : qsTr("Papers this one cites and papers citing it, from Semantic Scholar. Sends this paper's DOI, arXiv ID or title.")
             }
             Button {
                 objectName: "findCitations"
                 visible: !parent.loaded && !root.citationsLoading
-                text: root.citations && root.citations.error ? "Try Again" : "Find Citations"
+                text: root.citations && root.citations.error ? qsTr("Try Again") : qsTr("Find Citations")
                 onClicked: root.fetchCitations(!!(root.citations && root.citations.error))
             }
             Label {
                 visible: root.citationsLoading
-                text: "Asking Semantic Scholar…"; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+                text: qsTr("Asking Semantic Scholar…"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
             }
             RowLayout {
                 visible: parent.loaded
                 Layout.fillWidth: true
                 Label {
                     Layout.fillWidth: true
-                    text: "From Semantic Scholar"; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                    text: qsTr("From Semantic Scholar"); font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                 }
                 IconButton {
                     objectName: "refreshCitations"
                     icon.name: "reload"
-                    description: "Refresh"
+                    description: qsTr("Refresh")
                     onClicked: root.fetchCitations(true)
                 }
             }
@@ -346,7 +346,7 @@ Item {
                     onClicked: root.openCitation(modelData)
                     TapHandler { acceptedButtons: Qt.RightButton; onTapped: { citationMenu.row = citation.modelData; citationMenu.popup() } }
                     ToolTip.visible: hovered; ToolTip.delay: 600
-                    ToolTip.text: modelData.inLibrary ? "In your Library · click to open" : "Open " + modelData.url
+                    ToolTip.text: modelData.inLibrary ? qsTr("In your Library · click to open") : qsTr("Open ") + modelData.url
                     contentItem: ColumnLayout {
                         spacing: 1
                         Label {
@@ -360,11 +360,11 @@ Item {
                                 Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText
                                 font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                                 text: [citation.modelData.authors, citation.modelData.year,
-                                       citation.modelData.citations ? citation.modelData.citations + " citations" : ""].filter(function(t) { return !!t }).join(" · ")
+                                       citation.modelData.citations ? citation.modelData.citations + qsTr(" citations") : ""].filter(function(t) { return !!t }).join(" · ")
                             }
                             Label {
                                 visible: !!citation.modelData.inLibrary
-                                text: "In Library"; font.pixelSize: Theme.fontCaption; color: Theme.accent
+                                text: qsTr("In Library"); font.pixelSize: Theme.fontCaption; color: Theme.accent
                             }
                         }
                     }
@@ -373,7 +373,7 @@ Item {
                     anchors.centerIn: parent; width: parent.width - 16
                     visible: parent.count === 0
                     horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
-                    text: root.relatedSide === 1 ? "Semantic Scholar lists no references for this paper." : "No citing papers are known yet."
+                    text: root.relatedSide === 1 ? qsTr("Semantic Scholar lists no references for this paper.") : qsTr("No citing papers are known yet.")
                 }
             }
             // Before the list exists, this takes the rest of the height so the panel keeps its layout.
@@ -381,13 +381,13 @@ Item {
             Menu {
                 id: citationMenu
                 property var row: ({})
-                MenuItem { text: citationMenu.row.inLibrary ? "Open" : "Open Page"; onTriggered: root.openCitation(citationMenu.row) }
+                MenuItem { text: citationMenu.row.inLibrary ? qsTr("Open") : qsTr("Open Page"); onTriggered: root.openCitation(citationMenu.row) }
                 MenuItem {
-                    text: "Find Paper"
+                    text: qsTr("Find Paper")
                     onTriggered: root.linkActivated(Tree.referenceUrl([citationMenu.row.authors, citationMenu.row.title, citationMenu.row.year].join(" "),
                                                                      researchStore.setting("searchEngine", "https://scholar.google.com/scholar?q=%s")))
                 }
-                MenuItem { text: "Copy Title"; onTriggered: researchStore.copyText(citationMenu.row.title) }
+                MenuItem { text: qsTr("Copy Title"); onTriggered: researchStore.copyText(citationMenu.row.title) }
             }
         }
         ColumnLayout {
@@ -401,20 +401,20 @@ Item {
             Label {
                 visible: !parent.loaded && !root.symbolsLoading
                 Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
-                text: "The symbols this paper uses: what each means and where it is defined. Sends the paper's text to "
-                      + (root.aiProvider.sends || root.aiProvider.name || "the AI provider") + "."
+                text: qsTr("The symbols this paper uses: what each means and where it is defined. Sends the paper's text to ")
+                      + (root.aiProvider.sends || root.aiProvider.name || qsTr("the AI provider")) + "."
             }
             Button {
                 objectName: "findSymbols"
                 visible: !parent.loaded && !root.symbolsLoading
-                text: root.symbolsError.length ? "Try Again" : "Find Symbols"
+                text: root.symbolsError.length ? qsTr("Try Again") : qsTr("Find Symbols")
                 onClicked: root.findSymbols()
             }
             RowLayout {
                 visible: root.symbolsLoading
                 Layout.fillWidth: true
-                Label { Layout.fillWidth: true; text: "Finding symbols…"; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
-                IconButton { objectName: "stopSymbols"; icon.name: "stop"; description: "Stop"; onClicked: researchStore.ai.cancel(root.symbolsRequest) }
+                Label { Layout.fillWidth: true; text: qsTr("Finding symbols…"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
+                IconButton { objectName: "stopSymbols"; icon.name: "stop"; description: qsTr("Stop"); onClicked: researchStore.ai.cancel(root.symbolsRequest) }
             }
             Label {
                 objectName: "symbolsError"
@@ -425,8 +425,8 @@ Item {
             RowLayout {
                 visible: parent.loaded && !root.symbolsLoading
                 Layout.fillWidth: true
-                Label { Layout.fillWidth: true; text: root.symbols.length + " symbols"; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
-                IconButton { objectName: "refreshSymbols"; icon.name: "reload"; description: "Refresh"; onClicked: root.findSymbols() }
+                Label { Layout.fillWidth: true; text: root.symbols.length + qsTr(" symbols"); font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                IconButton { objectName: "refreshSymbols"; icon.name: "reload"; description: qsTr("Refresh"); onClicked: root.findSymbols() }
             }
             ListView {
                 objectName: "symbolList"
@@ -467,7 +467,7 @@ Item {
                                 wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.text
                             }
                             Label {
-                                text: symbolRow.modelData.page > 0 ? "p. " + symbolRow.modelData.page : "Background"
+                                text: symbolRow.modelData.page > 0 ? qsTr("p. ") + symbolRow.modelData.page : qsTr("Background")
                                 font.pixelSize: Theme.fontCaption
                                 color: symbolRow.modelData.page > 0 && symbolRow.hovered ? Theme.accent : Theme.textTertiary
                             }
@@ -529,7 +529,7 @@ Item {
                 anchors.centerIn: parent
                 width: Math.max(0, parent.width - 24)
                 visible: outline.rows === 0
-                text: "This PDF has no embedded outline.\nUse Pages to navigate."
+                text: qsTr("This PDF has no embedded outline.\nUse Pages to navigate.")
                 wrapMode: Text.Wrap
                 horizontalAlignment: Text.AlignHCenter
                 color: Theme.textTertiary
@@ -590,7 +590,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: !root.ready
-            text: root.reader && root.reader.source.toString().length ? "PDF is unavailable or still loading." : "Open a PDF to see its contents, annotations and related papers."
+            text: root.reader && root.reader.source.toString().length ? qsTr("PDF is unavailable or still loading.") : qsTr("Open a PDF to see its contents, annotations and related papers.")
             wrapMode: Text.Wrap
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter

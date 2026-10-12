@@ -12,10 +12,10 @@ ColumnLayout {
     Flow {
         Layout.fillWidth: true; Layout.minimumWidth: 0
         spacing: 4
-        IconButton { icon.name: "back"; description: "Back to the previous search"; visible: root.controller.history.length > 0; onClicked: root.controller.back() }
+        IconButton { icon.name: "back"; description: qsTr("Back to the previous search"); visible: root.controller.history.length > 0; onClicked: root.controller.back() }
         Repeater {
-            model: [{value: "all", name: "All"}, {value: "text", name: "PDF text"}, {value: "filename", name: "Papers"},
-                    {value: "notes", name: "Notes"}, {value: "ai", name: "AI"}]
+            model: [{value: "all", name: qsTr("All")}, {value: "text", name: qsTr("PDF text")}, {value: "filename", name: qsTr("Papers")},
+                    {value: "notes", name: qsTr("Notes")}, {value: "ai", name: qsTr("AI")}]
             delegate: Chip {
                 required property var modelData
                 objectName: "searchTarget-" + modelData.value
@@ -28,7 +28,7 @@ ColumnLayout {
         Chip {
             objectName: "currentPdfFilter"
             visible: root.currentSource.toString().length > 0
-            text: "This PDF"
+            text: qsTr("This PDF")
             checkable: true
             checked: root.currentSource.toString().length > 0 && researchStore.sameSource(root.controller.sourceFilter, root.currentSource)
             onClicked: root.controller.sourceFilter = checked ? root.currentSource : ""

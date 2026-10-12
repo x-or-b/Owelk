@@ -52,7 +52,7 @@ Rectangle {
         const page = view.title || view.url.toString()
         view.grabToImage(function(result) {
             const file = researchStore.ai.saveViewImage(result.image, region)
-            if (file.length) root.controller.aiRequested({attach: true, image: file, name: "Web · " + page, about: "part of the web page " + page})
+            if (file.length) root.controller.aiRequested({attach: true, image: file, name: qsTr("Web · ") + page, about: "part of the web page " + page})
         })
     }
     function open(url) {
@@ -97,11 +97,11 @@ Rectangle {
                         }
                         researchStore.downloadNamed.connect(named)
                         researchStore.nameDownloadedPdf(target.url)
-                    } else researchStore.notify("Saved " + target.fileName + " to " + target.directory)
+                    } else researchStore.notify(qsTr("Saved ") + target.fileName + qsTr(" to ") + target.directory)
                 } else if (download.state === WebEngineDownloadRequest.DownloadInterrupted) {
-                    researchStore.notify("Download failed: " + download.interruptReasonString)
+                    researchStore.notify(qsTr("Download failed: ") + download.interruptReasonString)
                 } else if (download.state === WebEngineDownloadRequest.DownloadCancelled) {
-                    researchStore.notify("Download cancelled.")
+                    researchStore.notify(qsTr("Download cancelled."))
                 }
             })
             root.download = download
@@ -119,18 +119,18 @@ Rectangle {
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 4; anchors.rightMargin: 4
                 spacing: 2
-                IconButton { objectName: "webBack"; icon.name: "back"; implicitWidth: 24; description: "Back"; enabled: view.canGoBack; onClicked: view.goBack() }
-                IconButton { objectName: "webForward"; icon.name: "forward"; implicitWidth: 24; description: "Forward"; enabled: view.canGoForward; onClicked: view.goForward() }
+                IconButton { objectName: "webBack"; icon.name: "back"; implicitWidth: 24; description: qsTr("Back"); enabled: view.canGoBack; onClicked: view.goBack() }
+                IconButton { objectName: "webForward"; icon.name: "forward"; implicitWidth: 24; description: qsTr("Forward"); enabled: view.canGoForward; onClicked: view.goForward() }
                 IconButton {
                     objectName: "webReload"; icon.name: view.loading ? "close" : "reload"; implicitWidth: 24
-                    description: view.loading ? "Stop" : "Reload"
+                    description: view.loading ? qsTr("Stop") : qsTr("Reload")
                     onClicked: view.loading ? view.stop() : view.reload()
                 }
                 TextField {
                     id: address
                     objectName: "webAddress"
                     Layout.fillWidth: true; Layout.preferredHeight: Theme.controlHeightSmall
-                    placeholderText: "Address or search"
+                    placeholderText: qsTr("Address or search")
                     selectByMouse: true
                     font.pixelSize: Theme.fontSmall
                     text: activeFocus ? text : view.url.toString()
@@ -141,13 +141,13 @@ Rectangle {
                 IconButton {
                     objectName: "webCapture"; icon.name: "ai"; implicitWidth: 24; checkable: true
                     checked: root.capturing
-                    description: "Ask AI about part of the page"
+                    description: qsTr("Ask AI about part of the page")
                     onClicked: root.capturing = !root.capturing
                 }
                 Button {
                     objectName: "webOpenArxivPdf"
                     visible: Tree.arxivPdf(view.url).length > 0
-                    text: "Open PDF"
+                    text: qsTr("Open PDF")
                     Layout.preferredHeight: Theme.controlHeightSmall
                     onClicked: view.url = Tree.arxivPdf(view.url)
                 }
@@ -172,19 +172,19 @@ Rectangle {
                 Label {
                     Layout.fillWidth: true; Layout.minimumWidth: 0
                     elide: Text.ElideRight; font.pixelSize: Theme.fontSmall; color: Theme.text
-                    text: root.browserPdf ? "Reading the PDF in this tab. Annotations and notes work in the reader."
-                                          : "This page shows a PDF."
+                    text: root.browserPdf ? qsTr("Reading the PDF in this tab. Annotations and notes work in the reader.")
+                                          : qsTr("This page shows a PDF.")
                 }
                 Button {
                     objectName: "webOpenInReader"
-                    text: "Open in Reader"; highlighted: true
+                    text: qsTr("Open in Reader"); highlighted: true
                     implicitHeight: Theme.controlHeight
                     onClicked: root.openPdfInReader()
                 }
                 Button {
                     objectName: "webShowPdfHere"
                     visible: !root.browserPdf
-                    text: "Show Here"
+                    text: qsTr("Show Here")
                     implicitHeight: Theme.controlHeight
                     onClicked: root.browserPdf = true
                 }
@@ -201,7 +201,7 @@ Rectangle {
             color: Theme.sidebar
             readonly property real received: root.download ? root.download.receivedBytes : 0
             readonly property real total: root.download ? root.download.totalBytes : 0
-            function size(bytes) { return bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(bytes / 1024)) + " KB" }
+            function size(bytes) { return bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + qsTr(" MB") : Math.max(1, Math.round(bytes / 1024)) + qsTr(" KB") }
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 4
                 spacing: 8
@@ -210,8 +210,8 @@ Rectangle {
                     objectName: "webDownloadLabel"
                     Layout.fillWidth: true; Layout.minimumWidth: 0
                     elide: Text.ElideMiddle; font.pixelSize: Theme.fontSmall; color: Theme.text; textFormat: Text.PlainText
-                    text: root.downloadOpening ? "Opening in the reader…"
-                        : root.download ? "Downloading " + root.download.downloadFileName
+                    text: root.downloadOpening ? qsTr("Opening in the reader…")
+                        : root.download ? qsTr("Downloading ") + root.download.downloadFileName
                           + (downloadBar.total > 0 ? " · " + downloadBar.size(downloadBar.total)
                              : downloadBar.received > 0 ? " · " + downloadBar.size(downloadBar.received) : "")
                         : ""
@@ -235,7 +235,7 @@ Rectangle {
                 IconButton {
                     objectName: "webDownloadCancel"
                     visible: root.download !== null
-                    icon.name: "close"; description: "Cancel download"
+                    icon.name: "close"; description: qsTr("Cancel download")
                     onClicked: root.download.cancel()
                 }
             }

@@ -42,7 +42,7 @@ Dialog {
                 anchors.margins: 10
                 anchors.topMargin: 14
                 spacing: 2
-                Label { text: "Settings"; leftPadding: 8; bottomPadding: 8; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold }
+                Label { text: qsTr("Settings"); leftPadding: 8; bottomPadding: 8; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold }
                 Repeater {
                     model: root.pages
                     delegate: ItemDelegate {
@@ -71,7 +71,7 @@ Dialog {
                 objectName: "closeSettings"
                 anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 10
                 z: 2
-                icon.name: "close"; description: "Close · Esc"
+                icon.name: "close"; description: qsTr("Close · Esc")
                 onClicked: root.close()
             }
             ScrollView {

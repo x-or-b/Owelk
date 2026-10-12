@@ -23,7 +23,7 @@ Rectangle {
     // The document area (tabs dragged onto a collection) and the Library opened with a filter.
     property var documents: null
     signal libraryFilterRequested(var filter)
-    function panelName(panel) { return panel === "files" ? "Library" : panel === "ai" ? "AI" : panel === "document" ? "Document" : "" }
+    function panelName(panel) { return panel === "files" ? qsTr("Library") : panel === "ai" ? qsTr("AI") : panel === "document" ? qsTr("Document") : "" }
     // A slice of the window: no corners or frame; the 1px edge beside the document is the resize
     // edge in Main.qml.
     color: Theme.sidebar

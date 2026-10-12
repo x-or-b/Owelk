@@ -174,7 +174,7 @@ Rectangle {
 
     FileDialog {
         id: fileDialog
-        title: "Open PDF"
+        title: qsTr("Open PDF")
         nameFilters: ["PDF documents (*.pdf)"]
         onAccepted: { if (root.managed) root.fileChosen(selectedFile); else root.openFile(selectedFile) }
     }
@@ -242,45 +242,45 @@ Rectangle {
     Menu {
         id: selectionMenu
         objectName: "selectionContextMenu"
-        MenuItem { objectName: "selectionCopy"; text: "Copy"; onTriggered: canvas.copySelection() }
-        MenuItem { text: "Highlight…"; enabled: !!canvas.selectedAnchor; onTriggered: root.chooseHighlightColor(pageField, true) }
-        MenuItem { text: "Add Comment…"; enabled: !!canvas.selectedAnchor; onTriggered: root.addComment() }
+        MenuItem { objectName: "selectionCopy"; text: qsTr("Copy"); onTriggered: canvas.copySelection() }
+        MenuItem { text: qsTr("Highlight…"); enabled: !!canvas.selectedAnchor; onTriggered: root.chooseHighlightColor(pageField, true) }
+        MenuItem { text: qsTr("Add Comment…"); enabled: !!canvas.selectedAnchor; onTriggered: root.addComment() }
         MenuSeparator {}
-        MenuItem { objectName: "menuGloss"; text: "Gloss"; onTriggered: root.glossSelection() }
-        MenuItem { objectName: "menuAskSelection"; text: "Ask AI about Selection"; onTriggered: root.askAboutSelection() }
+        MenuItem { objectName: "menuGloss"; text: qsTr("Gloss"); onTriggered: root.glossSelection() }
+        MenuItem { objectName: "menuAskSelection"; text: qsTr("Ask AI about Selection"); onTriggered: root.askAboutSelection() }
     }
     Menu {
         id: objectMenu
         objectName: "objectContextMenu"
         MenuItem {
             objectName: "menuAskObject"
-            text: root.contextObject ? "Ask AI about " + root.contextObject.label : ""
+            text: root.contextObject ? qsTr("Ask AI about ") + root.contextObject.label : ""
             onTriggered: root.askAboutObject(root.contextObject)
         }
         MenuSeparator {}
-        MenuItem { text: "Mark Region"; onTriggered: root.setTool("area") }
+        MenuItem { text: qsTr("Mark Region"); onTriggered: root.setTool("area") }
     }
     Menu {
         id: pageMenu
         objectName: "pageContextMenu"
-        MenuItem { objectName: "menuTranslatePage"; text: "Translate This Page with AI"; onTriggered: root.translatePage() }
+        MenuItem { objectName: "menuTranslatePage"; text: qsTr("Translate This Page with AI"); onTriggered: root.translatePage() }
         MenuSeparator {}
-        MenuItem { text: "Select All on Page"; onTriggered: canvas.selectPage(root.contextPage) }
-        MenuItem { text: "Mark Region"; onTriggered: root.setTool("area") }
+        MenuItem { text: qsTr("Select All on Page"); onTriggered: canvas.selectPage(root.contextPage) }
+        MenuItem { text: qsTr("Mark Region"); onTriggered: root.setTool("area") }
     }
     Loader { id: paperDetails; active: false; sourceComponent: PaperDetailsDialog {} }
     FileDialog {
         id: annotatedFile
-        title: "Save a copy with annotations"
+        title: qsTr("Save a copy with annotations")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "pdf"
         nameFilters: ["PDF (*.pdf)"]
-        currentFile: researchStore.fileUrl(researchStore.localPath(root.source).replace(/\.pdf$/i, "") + " (annotated).pdf")
+        currentFile: researchStore.fileUrl(researchStore.localPath(root.source).replace(/\.pdf$/i, "") + qsTr(" (annotated).pdf"))
         onAccepted: researchStore.exportAnnotatedPdf(root.source, canvas.documentFingerprint, researchStore.localPath(selectedFile))
     }
     FolderDialog {
         id: markdownFolder
-        title: "Export annotations as Markdown to…"
+        title: qsTr("Export annotations as Markdown to…")
         onAccepted: researchStore.exportPaperMarkdown(root.source, researchStore.localPath(selectedFolder))
     }
 
@@ -306,12 +306,12 @@ Rectangle {
                 }
                 Label {
                     Layout.fillWidth: true
-                    text: root.source.toString().length ? (researchStore.documentsRevision, researchStore.displayName(root.source)) : "No document"
+                    text: root.source.toString().length ? (researchStore.documentsRevision, researchStore.displayName(root.source)) : qsTr("No document")
                     elide: Text.ElideMiddle
                     color: Theme.text
                     font.weight: Font.Medium
                 }
-                Button { text: "Open"; onClicked: root.chooseFile() }
+                Button { text: qsTr("Open"); onClicked: root.chooseFile() }
             }
         }
 
@@ -328,12 +328,12 @@ Rectangle {
                 spacing: 3
                 IconButton {
                     objectName: "previousPage"; icon.name: "back"; implicitWidth: 24
-                    description: "Previous page · " + Platform.keys("Ctrl+["); enabled: canvas.currentPage > 0
+                    description: qsTr("Previous page · ") + Platform.keys("Ctrl+["); enabled: canvas.currentPage > 0
                     onClicked: { root.activated(); canvas.previousPage() }
                 }
                 IconButton {
                     objectName: "nextPage"; icon.name: "forward"; implicitWidth: 24
-                    description: "Next page · " + Platform.keys("Ctrl+]"); enabled: canvas.currentPage < canvas.pageCount - 1
+                    description: qsTr("Next page · ") + Platform.keys("Ctrl+]"); enabled: canvas.currentPage < canvas.pageCount - 1
                     onClicked: { root.activated(); canvas.nextPage() }
                 }
                 TextField {
@@ -352,24 +352,24 @@ Rectangle {
             }
             Row {
                 anchors.centerIn: parent
-                IconButton { icon.name: "minus"; description: "Zoom out · " + Platform.keys("Ctrl+-"); onClicked:{root.activated();canvas.zoom(1/1.2)} }
+                IconButton { icon.name: "minus"; description: qsTr("Zoom out · ") + Platform.keys("Ctrl+-"); onClicked:{root.activated();canvas.zoom(1/1.2)} }
                 // The zoom readout chooses how pages fit: the whole width or a whole page.
                 ToolButton {
                     id: zoomReadout
                     objectName: "zoomReadout"
                     height:Theme.controlHeightSmall; width:Math.max(implicitWidth, Theme.fontBody * 4.5); hoverEnabled:true
-                    text: canvas.fitMode === "page" ? "Page" : Math.round(canvas.zoomFactor * 100) + "%"
+                    text: canvas.fitMode === "page" ? qsTr("Page") : Math.round(canvas.zoomFactor * 100) + "%"
                     onClicked: { root.activated(); fitMenu.popup(zoomReadout, 0, zoomReadout.height) }
                     ToolTip.visible: hovered && !fitMenu.visible
-                    ToolTip.text: "Zoom"
+                    ToolTip.text: qsTr("Zoom")
                     Menu {
                         id: fitMenu
                         objectName: "fitMenu"
-                        MenuItem { objectName: "fitWidthItem"; text: "Fit Width"; checkable: true; checked: canvas.fitMode === "width"; onTriggered: canvas.fitWidth() }
-                        MenuItem { objectName: "fitPageItem"; text: "Fit Page"; checkable: true; checked: canvas.fitMode === "page"; onTriggered: canvas.fitPage() }
+                        MenuItem { objectName: "fitWidthItem"; text: qsTr("Fit Width"); checkable: true; checked: canvas.fitMode === "width"; onTriggered: canvas.fitWidth() }
+                        MenuItem { objectName: "fitPageItem"; text: qsTr("Fit Page"); checkable: true; checked: canvas.fitMode === "page"; onTriggered: canvas.fitPage() }
                     }
                 }
-                IconButton { icon.name: "add"; description: "Zoom in · " + Platform.keys("Ctrl+Plus"); onClicked:{root.activated();canvas.zoom(1.2)} }
+                IconButton { icon.name: "add"; description: qsTr("Zoom in · ") + Platform.keys("Ctrl+Plus"); onClicked:{root.activated();canvas.zoom(1.2)} }
             }
             // Annotation tools, then the Annotations list, then everything else (find, print, export) behind ⋯.
             // Highlight and Draw keep their own colors; the narrow arrow next to each picks one.
@@ -384,47 +384,47 @@ Rectangle {
                     IconButton {
                         id: drawTool
                         objectName:"drawTool";icon.name: "draw";swatch:canvas.drawColor;checked:canvas.tool==="draw"
-                        description: "Draw"
+                        description: qsTr("Draw")
                         onClicked: root.setTool("draw")
                         TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.chooseInk(drawTool, "draw", false) }
                     }
                     IconButton {
                         id: highlightTool
                         objectName:"highlightTool";icon.name: "highlight";swatch:canvas.markColor;checked:canvas.tool==="highlight"
-                        description: "Highlight"
+                        description: qsTr("Highlight")
                         onClicked: root.useHighlight()
                         TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.chooseInk(highlightTool, "highlight", !!canvas.selectedAnchor) }
                     }
-                    IconButton { objectName:"commentTool";icon.name: "comment";checked:canvas.tool==="comment";description: "Comment";onClicked:root.setTool("comment") }
-                    IconButton { objectName:"textTool";icon.name: "text";checked:canvas.tool==="text";description: "Text box";onClicked:root.setTool("text") }
-                    IconButton { objectName:"imageTool";icon.name: "image";checked:canvas.tool==="image";description: "Image";onClicked:root.setTool("image") }
-                    IconButton { objectName:"areaTool";icon.name: "area";checked:canvas.tool==="area";description: "Mark region";onClicked:root.setTool("area") }
+                    IconButton { objectName:"commentTool";icon.name: "comment";checked:canvas.tool==="comment";description: qsTr("Comment");onClicked:root.setTool("comment") }
+                    IconButton { objectName:"textTool";icon.name: "text";checked:canvas.tool==="text";description: qsTr("Text box");onClicked:root.setTool("text") }
+                    IconButton { objectName:"imageTool";icon.name: "image";checked:canvas.tool==="image";description: qsTr("Image");onClicked:root.setTool("image") }
+                    IconButton { objectName:"areaTool";icon.name: "area";checked:canvas.tool==="area";description: qsTr("Mark region");onClicked:root.setTool("area") }
                 }
                 Rectangle { visible: readerToolbar.width >= 600; width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
-                IconButton { objectName:"annotationsButton";icon.name: "annotations";checked:root.annotationList !== null;description: "Annotations";onClicked:root.annotationsToggled() }
+                IconButton { objectName:"annotationsButton";icon.name: "annotations";checked:root.annotationList !== null;description: qsTr("Annotations");onClicked:root.annotationsToggled() }
                 Rectangle { width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
                 IconButton { icon.name: "more";
                     objectName: "readerMoreButton"
-                    description: "More"
+                    description: qsTr("More")
                     onClicked: moreMenu.popup(this, 0, height)
                     Menu {
                         id: moreMenu
                         objectName: "readerMoreMenu"
                         // Narrow panes: the annotation tools move here.
-                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Draw";onTriggered:root.setTool("draw") }
-                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Highlight";onTriggered:root.useHighlight() }
-                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Comment";onTriggered:root.setTool("comment") }
-                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Text Box";onTriggered:root.setTool("text") }
-                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Image";onTriggered:root.setTool("image") }
-                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:"Mark Region";onTriggered:root.setTool("area") }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Draw");onTriggered:root.setTool("draw") }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Highlight");onTriggered:root.useHighlight() }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Comment");onTriggered:root.setTool("comment") }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Text Box");onTriggered:root.setTool("text") }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Image");onTriggered:root.setTool("image") }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Mark Region");onTriggered:root.setTool("area") }
                         MenuSeparator { visible:readerToolbar.width<600;height:visible?implicitHeight:0 }
-                        MenuItem { text:"Find in Document · " + Platform.keys("Ctrl+F");onTriggered:root.find() }
-                        MenuItem { objectName:"printOption";text:"Print…";onTriggered:root.printDocument() }
-                        MenuItem { objectName:"exportAnnotatedOption";text:"Export Annotated PDF…";visible:researchStore.canExportAnnotatedPdf();height:visible?implicitHeight:0;enabled:canvas.documentFingerprint.length>0;onTriggered:annotatedFile.open() }
-                        MenuItem { objectName:"exportMarkdownOption";text:"Export Annotations as Markdown…";onTriggered:markdownFolder.open() }
+                        MenuItem { text:qsTr("Find in Document · ") + Platform.keys("Ctrl+F");onTriggered:root.find() }
+                        MenuItem { objectName:"printOption";text:qsTr("Print…");onTriggered:root.printDocument() }
+                        MenuItem { objectName:"exportAnnotatedOption";text:qsTr("Export Annotated PDF…");visible:researchStore.canExportAnnotatedPdf();height:visible?implicitHeight:0;enabled:canvas.documentFingerprint.length>0;onTriggered:annotatedFile.open() }
+                        MenuItem { objectName:"exportMarkdownOption";text:qsTr("Export Annotations as Markdown…");onTriggered:markdownFolder.open() }
                         MenuSeparator {}
-                        MenuItem { text:"Mark Paper as Read";onTriggered:researchStore.setReadingState(root.source, "read") }
-                        MenuItem { objectName:"paperDetailsOption";text:"Paper Details…";onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
+                        MenuItem { text:qsTr("Mark Paper as Read");onTriggered:researchStore.setReadingState(root.source, "read") }
+                        MenuItem { objectName:"paperDetailsOption";text:qsTr("Paper Details…");onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
                     }
                 }
             }
@@ -443,7 +443,7 @@ Rectangle {
                 id: searchField
                 objectName: "searchField"
                 Layout.fillWidth: true
-                placeholderText: "Find in document"
+                placeholderText: qsTr("Find in document")
                 selectByMouse: true
                 onTextEdited: searchDelay.restart()
                 onActiveFocusChanged: if (activeFocus) root.activated()
@@ -458,9 +458,9 @@ Rectangle {
                 text: canvas.searchString.length ? (canvas.matchCount ? (canvas.currentMatch + 1) + "/" + canvas.matchCount : "0") : ""
                 color: Theme.textTertiary
             }
-            IconButton { icon.name: "up"; description: "Previous match · " + Platform.keys("Shift+Return"); enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(-1) }
-            IconButton { icon.name: "down"; description: "Next match · " + Platform.keys("Return"); enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(1) }
-            IconButton { icon.name: "close"; description: "Close search · Esc"; onClicked: root.hideSearch() }
+            IconButton { icon.name: "up"; description: qsTr("Previous match · ") + Platform.keys("Shift+Return"); enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(-1) }
+            IconButton { icon.name: "down"; description: qsTr("Next match · ") + Platform.keys("Return"); enabled: canvas.matchCount > 0; onClicked: canvas.nextMatch(1) }
+            IconButton { icon.name: "close"; description: qsTr("Close search · Esc"); onClicked: root.hideSearch() }
         }
 
         // Annotations that cannot be shown: why, and (made on another copy of this PDF) the way to show
@@ -482,13 +482,13 @@ Rectangle {
                 visible: canvas.hiddenAnnotations > 0
                 implicitHeight: Theme.controlHeightSmall
                 font.pixelSize: Theme.fontSmall
-                text: "Show Them Here"
+                text: qsTr("Show Them Here")
                 onClicked: {
                     const result = researchStore.adoptAnnotations(canvas.source)
                     if (result.misfits > 0) {
-                        adoptConfirm.message = result.misfits + (result.misfits === 1 ? " annotation does" : " annotations do")
-                            + " not fit this copy: the words they mark are not on their pages any more. Delete "
-                            + (result.misfits === 1 ? "it" : "them") + (result.moved > 0 ? " and show the other " + result.moved + " here?" : "?")
+                        adoptConfirm.message = result.misfits + (result.misfits === 1 ? qsTr(" annotation does") : qsTr(" annotations do"))
+                            + qsTr(" not fit this copy: the words they mark are not on their pages any more. Delete ")
+                            + (result.misfits === 1 ? "it" : "them") + (result.moved > 0 ? qsTr(" and show the other ") + result.moved + qsTr(" here?") : "?")
                         adoptConfirm.open()
                     } else if (result.error) researchStore.notify(result.error)
                 }
@@ -500,15 +500,15 @@ Rectangle {
                 actionText: "Delete"
                 onConfirmed: researchStore.adoptAnnotations(canvas.source, true)
             }
-            IconButton { objectName: "dismissAnnotationNotice"; icon.name: "close"; description: "Close"; onClicked: canvas.highlightError = "" }
+            IconButton { objectName: "dismissAnnotationNotice"; icon.name: "close"; description: qsTr("Close"); onClicked: canvas.highlightError = "" }
         }
         Label {
             visible: canvas.captureMode || canvas.tool.length > 0
             Layout.fillWidth: true
             Layout.leftMargin: 12
             Layout.bottomMargin: 6
-            text: canvas.captureMode ? "Drag a region to show the AI · Esc to cancel" : canvas.tool === "highlight" ? "Drag over text to highlight · Esc to finish"
-                : canvas.tool === "area" ? "Drag around a figure, table or equation to mark it · Esc to cancel" : "Click or drag on a page to add " + canvas.tool + " · Esc to cancel"
+            text: canvas.captureMode ? qsTr("Drag a region to show the AI · Esc to cancel") : canvas.tool === "highlight" ? qsTr("Drag over text to highlight · Esc to finish")
+                : canvas.tool === "area" ? qsTr("Drag around a figure, table or equation to mark it · Esc to cancel") : qsTr("Click or drag on a page to add ") + canvas.tool + qsTr(" · Esc to cancel")
             color: Theme.textSecondary
             font.pixelSize: Theme.fontCaption
         }
@@ -569,19 +569,19 @@ Rectangle {
                     x: 8; y: 4; width: parent.width - 16; spacing: 4
                     IconButton {
                         objectName: "highlightSelectionButton"
-                        icon.name: "highlight"; description: "Highlight"; swatch:canvas.markColor
+                        icon.name: "highlight"; description: qsTr("Highlight"); swatch:canvas.markColor
                         enabled: canvas.selectedAnchor !== null && !researchStore.busy
                         onClicked: { root.activated(); root.chooseHighlightColor(this,true) }
                     }
-                    IconButton { objectName:"commentSelectionButton";icon.name: "comment";description: "Comment";enabled:!!canvas.selectedAnchor&&!researchStore.busy;onClicked:root.addComment() }
+                    IconButton { objectName:"commentSelectionButton";icon.name: "comment";description: qsTr("Comment");enabled:!!canvas.selectedAnchor&&!researchStore.busy;onClicked:root.addComment() }
                     IconButton {
                         objectName: "glossSelectionButton"
-                        icon.name: "gloss"; description: "Gloss"
+                        icon.name: "gloss"; description: qsTr("Gloss")
                         onClicked: root.glossSelection()
                     }
                     IconButton {
                         objectName: "askSelectionButton"
-                        icon.name: "ai"; description: "Ask AI"
+                        icon.name: "ai"; description: qsTr("Ask AI")
                         onClicked: root.askAboutSelection()
                     }
                 }
@@ -609,7 +609,7 @@ Rectangle {
                 spacing: 14
                 Label {
                     Layout.fillWidth: true
-                    text: canvas.error.length ? "Cannot open document" : "Open PDF"
+                    text: canvas.error.length ? qsTr("Cannot open document") : qsTr("Open PDF")
                     horizontalAlignment: Text.AlignHCenter
                     font.pixelSize: Theme.fontHeadline
                     font.weight: Font.Medium
@@ -617,7 +617,7 @@ Rectangle {
                 }
                 Label {
                     Layout.fillWidth: true
-                    text: canvas.error.length ? canvas.error : (root.paneIndex === 0 ? "Drop a PDF here or choose a file." : "Open another PDF to compare.\nYou can open the same document twice.")
+                    text: canvas.error.length ? canvas.error : (root.paneIndex === 0 ? qsTr("Drop a PDF here or choose a file.") : qsTr("Open another PDF to compare.\nYou can open the same document twice."))
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.Wrap
                     color: Theme.textTertiary
@@ -625,13 +625,13 @@ Rectangle {
                 }
                 Button {
                     Layout.alignment: Qt.AlignHCenter
-                    text: "Open PDF"
+                    text: qsTr("Open PDF")
                     onClicked: root.chooseFile()
                 }
                 Button {
                     Layout.alignment: Qt.AlignHCenter
                     visible: canvas.error.length > 0 && root.source.toString().length > 0
-                    text: "Locate Original PDF…"
+                    text: qsTr("Locate Original PDF…")
                     onClicked: researchStore.requestRelink(root.source)
                 }
             }

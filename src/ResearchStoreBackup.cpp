@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "UiText.h"
 #include "WorkerConnection.h"
 
 #include <QCoreApplication>
@@ -103,7 +104,7 @@ void ResearchStore::backUp(const QString &folder)
     if (m_backingUp) return;
     const auto parent = folder.isEmpty() ? m_directory + "/backups/auto" : QDir::fromNativeSeparators(folder);
     if (!QDir().mkpath(parent)) {
-        emit backupFinished(false, {}, "Cannot create " + QDir::toNativeSeparators(parent));
+        emit backupFinished(false, {}, ui("Cannot create ") + QDir::toNativeSeparators(parent));
         return;
     }
     m_backingUp = true;
@@ -143,7 +144,7 @@ bool ResearchStore::scheduleRestore(const QString &folder)
     QFile pending(m_directory + "/restore-pending");
     if (!pending.open(QIODevice::WriteOnly)) return false;
     pending.write(QDir::fromNativeSeparators(folder).toUtf8());
-    emit message("The backup is restored when Owelk starts next. Quit and reopen Owelk.");
+    emit message(ui("The backup is restored when Owelk starts next. Quit and reopen Owelk."));
     return true;
 }
 
@@ -156,14 +157,14 @@ bool ResearchStore::applyPendingRestore(const QString &directory, QString *error
     pending.close();
     pending.remove();
     if (!QFileInfo::exists(backup + "/owelk.sqlite3")) {
-        *error = "The backup to restore is gone; your current data was kept.";
+        *error = ui("The backup to restore is gone; your current data was kept.");
         return true;
     }
     // Current data moves aside first (never deleted), then the backup is copied in.
     const auto aside
         = directory + "/backups/before-restore-" + QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss");
     if (!QDir().mkpath(aside)) {
-        *error = "Cannot make room to restore the backup; your current data was kept.";
+        *error = ui("Cannot make room to restore the backup; your current data was kept.");
         return true;
     }
     QStringList moved;
@@ -171,7 +172,7 @@ bool ResearchStore::applyPendingRestore(const QString &directory, QString *error
         if (QFileInfo::exists(directory + "/" + name)) {
             if (!QDir().rename(directory + "/" + name, aside + "/" + name)) {
                 for (const auto &back : moved) QDir().rename(aside + "/" + back, directory + "/" + back);
-                *error = "Cannot move the current data aside; nothing was restored.";
+                *error = ui("Cannot move the current data aside; nothing was restored.");
                 return true;
             }
             moved << name;
@@ -183,10 +184,10 @@ bool ResearchStore::applyPendingRestore(const QString &directory, QString *error
         QFile::remove(directory + "/owelk.sqlite3");
         for (const auto &folder : restoredFolders) QDir(directory + "/" + folder).removeRecursively();
         for (const auto &back : moved) QDir().rename(aside + "/" + back, directory + "/" + back);
-        *error = "The backup could not be copied; your current data was kept.";
+        *error = ui("The backup could not be copied; your current data was kept.");
         return true;
     }
-    *error = "Restored the backup. The previous data is in " + QDir::toNativeSeparators(aside) + ".";
+    *error = ui("Restored the backup. The previous data is in ") + QDir::toNativeSeparators(aside) + ".";
     return true;
 }
 
@@ -200,7 +201,7 @@ void ResearchStore::markRunning()
         // After an unexpected exit, a quick integrity check; the session itself restores as usual.
         QSqlQuery check(m_database);
         if (check.exec("PRAGMA quick_check") && check.next() && check.value(0).toString() != "ok")
-            m_startupMessage = "The library database reports damage. Restore a backup from Settings → Data.";
+            m_startupMessage = ui("The library database reports damage. Restore a backup from Settings → Data.");
     }
     QFile file(marker);
     if (file.open(QIODevice::WriteOnly)) file.write(QByteArray::number(QCoreApplication::applicationPid()));

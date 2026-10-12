@@ -1,4 +1,5 @@
 #include "AnnotatedPdf.h"
+#include "UiText.h"
 
 #ifdef OWELK_HAVE_QPDF
 #include <QColor>
@@ -294,7 +295,7 @@ QString write(const QString &source, const QString &target, const QVariantList &
         writer.write();
         return written || marks.isEmpty() ? QString() : QStringLiteral("No annotations could be written.");
     } catch (const std::exception &error) {
-        return QStringLiteral("Cannot write the annotated PDF: %1").arg(QString::fromLocal8Bit(error.what()));
+        return ui("Cannot write the annotated PDF: %1").arg(QString::fromLocal8Bit(error.what()));
     }
 }
 }

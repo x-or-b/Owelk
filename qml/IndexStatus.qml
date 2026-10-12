@@ -12,12 +12,12 @@ ToolButton {
     // Quiet: shown only while indexing, paused, or when some PDFs cannot be read.
     property bool quiet: false
     visible: !quiet || indexer.busy || indexer.paused || unavailable > 0
-    text: indexer.paused ? "Text index paused" : indexer.busy ? indexer.progress || "Indexing PDFs…" : "Text index · " + records.filter(function(d) { return d.state === "ready" }).length + " searchable" + (unavailable ? " · " + unavailable + " unavailable" : "")
+    text: indexer.paused ? qsTr("Text index paused") : indexer.busy ? indexer.progress || qsTr("Indexing PDFs…") : qsTr("Text index · ") + records.filter(function(d) { return d.state === "ready" }).length + qsTr(" searchable") + (unavailable ? " · " + unavailable + qsTr(" unavailable") : "")
     font.pixelSize: Theme.fontCaption
     implicitHeight: Theme.controlHeightSmall + 4
     onClicked: details.open()
     ToolTip.visible: hovered
-    ToolTip.text: "Text index"
+    ToolTip.text: qsTr("Text index")
     contentItem: Label { text: root.text; color: Theme.textTertiary; font: root.font; elide: Text.ElideMiddle }
     Dialog {
         id: details
@@ -25,16 +25,16 @@ ToolButton {
         parent: Overlay.overlay
         anchors.centerIn: parent
         width: Math.min(650, parent ? parent.width - 32 : 650)
-        title: "PDF text index"
+        title: qsTr("PDF text index")
         modal: true
         standardButtons: Dialog.Close
         contentItem: ColumnLayout {
             spacing: 8
-            Label { Layout.fillWidth: true; text: "Opened PDFs only · Stored locally · Locked PDFs are indexed after you open them with their password"; wrapMode: Text.Wrap; color: Theme.textTertiary }
+            Label { Layout.fillWidth: true; text: qsTr("Opened PDFs only · Stored locally · Locked PDFs are indexed after you open them with their password"); wrapMode: Text.Wrap; color: Theme.textTertiary }
             RowLayout {
                 Layout.fillWidth: true
-                Label { Layout.fillWidth: true; text: root.indexer.progress || (root.indexer.paused ? "Paused" : "Up to date"); elide: Text.ElideMiddle }
-                IconButton { objectName: "pauseIndex"; icon.name: root.indexer.paused ? "play" : "pause"; description: root.indexer.paused ? "Resume indexing" : "Pause indexing"; onClicked: root.indexer.setPaused(!root.indexer.paused) }
+                Label { Layout.fillWidth: true; text: root.indexer.progress || (root.indexer.paused ? qsTr("Paused") : "Up to date"); elide: Text.ElideMiddle }
+                IconButton { objectName: "pauseIndex"; icon.name: root.indexer.paused ? "play" : "pause"; description: root.indexer.paused ? qsTr("Resume indexing") : qsTr("Pause indexing"); onClicked: root.indexer.setPaused(!root.indexer.paused) }
             }
             ListView {
                 Layout.fillWidth: true
@@ -52,19 +52,19 @@ ToolButton {
                             Label { Layout.fillWidth: true; text: modelData.title; textFormat: Text.PlainText; elide: Text.ElideMiddle }
                             Label {
                                 Layout.fillWidth: true
-                                text: modelData.state === "ready" ? "Searchable · " + modelData.textPages + "/" + modelData.pages + " pages with text"
-                                    : modelData.state === "empty" ? "No extractable text · OCR is not available"
+                                text: modelData.state === "ready" ? qsTr("Searchable · ") + modelData.textPages + "/" + modelData.pages + qsTr(" pages with text")
+                                    : modelData.state === "empty" ? qsTr("No extractable text · OCR is not available")
                                     : modelData.error || modelData.state
                                 textFormat: Text.PlainText; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; color: Theme.textTertiary; font.pixelSize: Theme.fontCaption
                             }
                         }
-                        IconButton { icon.name: "reload"; description: "Retry"; visible: ["failed", "missing", "locked", "paused"].indexOf(modelData.state) >= 0; onClicked: root.indexer.retry(modelData.source) }
-                        IconButton { icon.name: "locate"; description: "Locate the original PDF…"; onClicked: { const source = modelData.source; details.close(); researchStore.requestRelink(source) } }
+                        IconButton { icon.name: "reload"; description: qsTr("Retry"); visible: ["failed", "missing", "locked", "paused"].indexOf(modelData.state) >= 0; onClicked: root.indexer.retry(modelData.source) }
+                        IconButton { icon.name: "locate"; description: qsTr("Locate the original PDF…"); onClicked: { const source = modelData.source; details.close(); researchStore.requestRelink(source) } }
                     }
                     ToolTip.visible: hovered
                     ToolTip.text: modelData.source.toString()
                 }
-                Label { anchors.centerIn: parent; visible: root.records.length === 0; text: "Open a PDF to start indexing."; color: Theme.textTertiary }
+                Label { anchors.centerIn: parent; visible: root.records.length === 0; text: qsTr("Open a PDF to start indexing."); color: Theme.textTertiary }
             }
         }
     }

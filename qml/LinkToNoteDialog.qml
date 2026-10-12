@@ -10,7 +10,7 @@ Dialog {
     parent: Overlay.overlay
     anchors.centerIn: parent
     width: Math.min(440, parent ? parent.width - 32 : 440)
-    title: "Link to note"
+    title: qsTr("Link to note")
     modal: true
     standardButtons: Dialog.Cancel
     property string kind: ""
@@ -31,10 +31,10 @@ Dialog {
         }
         Button {
             objectName: "linkToNewNote"
-            text: "New Note with This Link"
+            text: qsTr("New Note with This Link")
             onClicked: {
                 const link = researchStore.markdownLink(root.kind, root.targetId)
-                if (researchStore.createNote("", "- " + link + "\n").length) researchStore.notify("Linked in a new note.")
+                if (researchStore.createNote("", "- " + link + "\n").length) researchStore.notify(qsTr("Linked in a new note."))
                 root.close()
             }
         }
@@ -51,6 +51,6 @@ Dialog {
                 onClicked: { researchStore.appendNoteLink(modelData.id, root.kind, root.targetId); root.close() }
             }
         }
-        Label { visible: root.noteRows.length === 0; text: "No notes yet."; color: Theme.textTertiary }
+        Label { visible: root.noteRows.length === 0; text: qsTr("No notes yet."); color: Theme.textTertiary }
     }
 }

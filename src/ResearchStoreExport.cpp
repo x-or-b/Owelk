@@ -1,4 +1,5 @@
 #include "PdfAccess.h"
+#include "UiText.h"
 #include "ResearchStore.h"
 
 #include <QDir>
@@ -19,7 +20,7 @@ QString safeName(const QString &text)
     name.replace(QRegularExpression("[\\\\/:*?\"<>|\\x00-\\x1f]"), "-");
     name = name.left(80).trimmed();
     while (name.endsWith('.')) name.chop(1);
-    return name.isEmpty() ? QStringLiteral("Untitled") : name;
+    return name.isEmpty() ? ui("Untitled") : name;
 }
 
 // A name not yet taken in the folder ("Name.md", "Name 2.md", …).
@@ -73,7 +74,7 @@ QString ResearchStore::exportPaperMarkdown(const QUrl &source, const QString &fo
     const auto document = documentLinkId(source);
     const auto directory = QDir::fromNativeSeparators(folder);
     if (document.isEmpty() || !QDir().mkpath(directory)) {
-        emit message("Choose a folder to export to.");
+        emit message(ui("Choose a folder to export to."));
         return {};
     }
     const auto details = documentDetails(source);
@@ -140,10 +141,10 @@ QString ResearchStore::exportPaperMarkdown(const QUrl &source, const QString &fo
     if (!linked.isEmpty()) out << "## Linked notes" << "" << linked << "";
 
     if (!writeText(path, out.join('\n'))) {
-        emit message("Cannot write " + QDir::toNativeSeparators(path));
+        emit message(ui("Cannot write ") + QDir::toNativeSeparators(path));
         return {};
     }
-    emit message("Exported to " + QDir::toNativeSeparators(path));
+    emit message(ui("Exported to ") + QDir::toNativeSeparators(path));
     return path;
 }
 
@@ -160,7 +161,7 @@ int ResearchStore::exportNotesMarkdown(const QString &folder)
         const auto text = (title.isEmpty() ? QString() : "# " + title + "\n\n") + body;
         written += writeText(freePath(directory, safeName(title), ".md"), text);
     }
-    emit message(QStringLiteral("Exported %1 notes to %2").arg(written).arg(QDir::toNativeSeparators(directory)));
+    emit message(ui("Exported %1 notes to %2").arg(written).arg(QDir::toNativeSeparators(directory)));
     return written;
 }
 
@@ -209,8 +210,7 @@ bool ResearchStore::exportBibTeX(const QVariantList &sources, const QString &fil
 {
     const auto path = QDir::fromNativeSeparators(file);
     const bool ok = !sources.isEmpty() && writeText(path, bibtex(sources));
-    emit message(ok
-            ? QStringLiteral("Exported %1 entries to %2").arg(sources.size()).arg(QDir::toNativeSeparators(path))
-            : QStringLiteral("Cannot write the BibTeX file."));
+    emit message(ok ? ui("Exported %1 entries to %2").arg(sources.size()).arg(QDir::toNativeSeparators(path))
+                    : ui("Cannot write the BibTeX file."));
     return ok;
 }

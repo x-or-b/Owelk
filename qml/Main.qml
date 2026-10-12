@@ -75,7 +75,7 @@ ApplicationWindow {
     readonly property var dockPanels: ["files", "document", "ai"]
     function panelSide(panel) { return panel === "files" ? filesSide : panel === "ai" ? aiSide : documentSide }
     function panelShown(panel) { return panel === "files" ? filesVisible : panel === "ai" ? aiVisible : documentVisible }
-    function panelName(panel) { return panel === "files" ? "Library" : panel === "ai" ? "AI threads" : "Document: contents, annotations, symbols and related papers" }
+    function panelName(panel) { return panel === "files" ? qsTr("Library") : panel === "ai" ? qsTr("AI threads") : qsTr("Document: contents, annotations, symbols and related papers") }
     function setPanelShown(panel, shown) {
         if (panel === "files") filesVisible = shown
         else if (panel === "ai") aiVisible = shown
@@ -182,7 +182,7 @@ ApplicationWindow {
         else if (result.kind === "ai") openAiThread(result.id)
         else if (result.kind === "collection" && !restoreFailed) documents.openLibrary({collection: result.id})
         else if (result.kind === "tag" && !restoreFailed) documents.openLibrary({tag: result.id})
-        else if (result.kind === "text" && !restoreFailed) { notify("Checking PDF source…"); researchStore.paperIndex.openResult(result.documentId, Number(result.page), result.sha256) }
+        else if (result.kind === "text" && !restoreFailed) { notify(qsTr("Checking PDF source…")); researchStore.paperIndex.openResult(result.documentId, Number(result.page), result.sha256) }
     }
     function persist() {
         if (!initialized || restoreFailed) return false
@@ -228,7 +228,7 @@ ApplicationWindow {
         if (!restoreFailed) persist()
         // After a restore or an unexpected exit, say what happened.
         if (!restoreFailed && researchStore.startupMessage.length) notify(researchStore.startupMessage)
-        else if (!restoreFailed && researchStore.recoveredFromCrash) notify("Owelk closed unexpectedly last time. Your tabs are back; unsaved notes are offered when you reopen them.")
+        else if (!restoreFailed && researchStore.recoveredFromCrash) notify(qsTr("Owelk closed unexpectedly last time. Your tabs are back; unsaved notes are offered when you reopen them."))
     }
     // PDFs opened from Finder or handed over by another launch while this window is open.
     Connections {
@@ -244,10 +244,10 @@ ApplicationWindow {
     // Logging out or quitting from the dock can skip the window's close handler.
     Connections { target: Qt.application; function onAboutToQuit() { window.persist() } }
     onClosing: function(close) {
-        if (researchStore.printing) { close.accepted = false; notify("Finish or cancel printing before closing the window."); return }
-        if (window.currentReader && window.currentReader.annotationDirty) { close.accepted = false; notify("Save or discard annotation edits before closing the window."); return }
-        if (researchStore.busy) { close.accepted = false; notify("Saving. Please close the window after saving finishes.") }
-        else if (initialized && !restoreFailed && !persist()) { close.accepted = false; notify("Cannot save the session. Check storage and try again.") }
+        if (researchStore.printing) { close.accepted = false; notify(qsTr("Finish or cancel printing before closing the window.")); return }
+        if (window.currentReader && window.currentReader.annotationDirty) { close.accepted = false; notify(qsTr("Save or discard annotation edits before closing the window.")); return }
+        if (researchStore.busy) { close.accepted = false; notify(qsTr("Saving. Please close the window after saving finishes.")) }
+        else if (initialized && !restoreFailed && !persist()) { close.accepted = false; notify(qsTr("Cannot save the session. Check storage and try again.")) }
     }
     onWidthChanged: scheduleSave()
     onHeightChanged: scheduleSave()
@@ -261,7 +261,7 @@ ApplicationWindow {
     onRightDockWidthChanged: scheduleSave()
     Timer { id: saveTimer; interval: 500; onTriggered: window.persist() }
     Timer { id: notificationTimer; interval: 6500; onTriggered: if (!window.restoreFailed) window.notification = "" }
-    Native.FileDialog { id: fileDialog; title: "Open PDF"; nameFilters: ["PDF documents (*.pdf)"]; onAccepted: window.openDocument(selectedFile) }
+    Native.FileDialog { id: fileDialog; title: qsTr("Open PDF"); nameFilters: ["PDF documents (*.pdf)"]; onAccepted: window.openDocument(selectedFile) }
     Connections {
         target: researchStore
         function onMessage(text) { window.notify(text) }
@@ -286,7 +286,7 @@ ApplicationWindow {
         canReopenTab: documents.closedTabs.length > 0
         canCloseTab: !window.homeVisible && documents.hasTabs
         onCommandChosen: function(command) {
-            if (window.currentReader && window.currentReader.annotationDirty) { window.notify("Finish annotation editing first."); return }
+            if (window.currentReader && window.currentReader.annotationDirty) { window.notify(qsTr("Finish annotation editing first.")); return }
             switch (command) {
             case "/home": window.showHome(); break
             case "/open paper": window.chooseFile(); break
@@ -326,42 +326,42 @@ ApplicationWindow {
     }
     menuBar: MenuBar {
         Menu {
-            title: "File"
-            Action { text: "Open PDF…"; shortcut: StandardKey.Open; onTriggered: window.chooseFile() }
-            Action { objectName: "newNoteAction"; text: "New Note"; shortcut: window.keys("newNote"); enabled: !window.restoreFailed; onTriggered: documents.newNote() }
-            Action { objectName: "openWebAction"; text: "Open Web Page…"; shortcut: window.keys("openWeb"); enabled: !window.restoreFailed; onTriggered: window.openWebAddress() }
-            Action { objectName: "settingsAction"; text: "Settings…"; shortcut: Qt.platform.os === "osx" ? StandardKey.Preferences : "Ctrl+,"; onTriggered: settingsDialog.open() }
-            Action { objectName: "newTabAction"; text: "New Tab"; shortcut: window.keys("newTab"); enabled: !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.newHomeTab() }
-            Action { objectName: "closeTabAction"; text: documents.hasTabs ? "Close Tab" : "Close Window"; shortcut: window.keys("closeTab"); enabled: !(!window.homeVisible && window.currentReader && window.currentReader.annotationDirty); onTriggered: window.closeTabOrWindow() }
-            Action { text: "Reopen Closed Tab"; shortcut: window.keys("reopenTab"); enabled: documents.closedTabs.length > 0 && !window.restoreFailed; onTriggered: documents.reopenClosedTab() }
-            Action { objectName: "nextTabAction"; text: "Next Tab"; shortcut: window.keys("nextTab"); enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(1) }
-            Action { objectName: "previousTabAction"; text: "Previous Tab"; shortcut: window.keys("previousTab"); enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(-1) }
+            title: qsTr("File")
+            Action { text: qsTr("Open PDF…"); shortcut: StandardKey.Open; onTriggered: window.chooseFile() }
+            Action { objectName: "newNoteAction"; text: qsTr("New Note"); shortcut: window.keys("newNote"); enabled: !window.restoreFailed; onTriggered: documents.newNote() }
+            Action { objectName: "openWebAction"; text: qsTr("Open Web Page…"); shortcut: window.keys("openWeb"); enabled: !window.restoreFailed; onTriggered: window.openWebAddress() }
+            Action { objectName: "settingsAction"; text: qsTr("Settings…"); shortcut: Qt.platform.os === "osx" ? StandardKey.Preferences : "Ctrl+,"; onTriggered: settingsDialog.open() }
+            Action { objectName: "newTabAction"; text: qsTr("New Tab"); shortcut: window.keys("newTab"); enabled: !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.newHomeTab() }
+            Action { objectName: "closeTabAction"; text: documents.hasTabs ? qsTr("Close Tab") : qsTr("Close Window"); shortcut: window.keys("closeTab"); enabled: !(!window.homeVisible && window.currentReader && window.currentReader.annotationDirty); onTriggered: window.closeTabOrWindow() }
+            Action { text: qsTr("Reopen Closed Tab"); shortcut: window.keys("reopenTab"); enabled: documents.closedTabs.length > 0 && !window.restoreFailed; onTriggered: documents.reopenClosedTab() }
+            Action { objectName: "nextTabAction"; text: qsTr("Next Tab"); shortcut: window.keys("nextTab"); enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(1) }
+            Action { objectName: "previousTabAction"; text: qsTr("Previous Tab"); shortcut: window.keys("previousTab"); enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(-1) }
             MenuSeparator {}
-            Action { text: "Quit"; shortcut: StandardKey.Quit; onTriggered: window.close() }
+            Action { text: qsTr("Quit"); shortcut: StandardKey.Quit; onTriggered: window.close() }
         }
         Menu {
-            title: "View"
+            title: qsTr("View")
             Action { text: "Home"; shortcut: window.keys("home"); onTriggered: window.showHome() }
-            Action { objectName: "libraryAction"; text: "Library"; shortcut: window.keys("library"); enabled: !window.restoreFailed; onTriggered: documents.openLibrary({}) }
-            Action { objectName: "tabsPanelAction"; text: window.tabsPanelOpen ? "Hide Vertical Tabs" : "Show Vertical Tabs"; shortcut: window.keys("tabsPanel"); enabled: Theme.verticalTabs; onTriggered: window.setTabsPanel(!window.tabsPanelOpen) }
-            Action { text: "Search Research"; shortcut: window.keys("search"); onTriggered: { commandPalette.close(); searchPalette.open() } }
-            Action { text: "Command Palette"; shortcut: window.keys("commands"); onTriggered: { searchPalette.close(); commandPalette.open() } }
-            Action { text: "Find"; shortcut: StandardKey.Find; onTriggered: window.findInView() }
-            Action { text: "Zoom in"; shortcut: StandardKey.ZoomIn; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1.2) }
-            Action { text: "Zoom out"; shortcut: StandardKey.ZoomOut; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1 / 1.2) }
-            Action { objectName: "jumpBackAction"; text: "Back to Previous Spot"; shortcut: window.keys("jumpBack"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.goBack() }
-            Action { objectName: "jumpForwardAction"; text: "Forward to Next Spot"; shortcut: window.keys("jumpForward"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.goForward() }
-            Action { objectName: "fitWidthAction"; text: "Fit Width"; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitWidth() }
-            Action { objectName: "fitPageAction"; text: "Fit Page"; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitPage() }
-            Action { objectName: "markRegionAction"; text: "Mark Region"; shortcut: window.keys("markRegion"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.setTool("area") }
+            Action { objectName: "libraryAction"; text: qsTr("Library"); shortcut: window.keys("library"); enabled: !window.restoreFailed; onTriggered: documents.openLibrary({}) }
+            Action { objectName: "tabsPanelAction"; text: window.tabsPanelOpen ? qsTr("Hide Vertical Tabs") : qsTr("Show Vertical Tabs"); shortcut: window.keys("tabsPanel"); enabled: Theme.verticalTabs; onTriggered: window.setTabsPanel(!window.tabsPanelOpen) }
+            Action { text: qsTr("Search Research"); shortcut: window.keys("search"); onTriggered: { commandPalette.close(); searchPalette.open() } }
+            Action { text: qsTr("Command Palette"); shortcut: window.keys("commands"); onTriggered: { searchPalette.close(); commandPalette.open() } }
+            Action { text: qsTr("Find"); shortcut: StandardKey.Find; onTriggered: window.findInView() }
+            Action { text: qsTr("Zoom in"); shortcut: StandardKey.ZoomIn; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1.2) }
+            Action { text: qsTr("Zoom out"); shortcut: StandardKey.ZoomOut; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1 / 1.2) }
+            Action { objectName: "jumpBackAction"; text: qsTr("Back to Previous Spot"); shortcut: window.keys("jumpBack"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.goBack() }
+            Action { objectName: "jumpForwardAction"; text: qsTr("Forward to Next Spot"); shortcut: window.keys("jumpForward"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.goForward() }
+            Action { objectName: "fitWidthAction"; text: qsTr("Fit Width"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitWidth() }
+            Action { objectName: "fitPageAction"; text: qsTr("Fit Page"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitPage() }
+            Action { objectName: "markRegionAction"; text: qsTr("Mark Region"); shortcut: window.keys("markRegion"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.setTool("area") }
             MenuSeparator {}
-            Action { objectName: "splitRightAction"; text: "Duplicate to Right Split"; shortcut: window.keys("splitRight"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("right") }
-            Action { objectName: "splitDownAction"; text: "Duplicate to Bottom Split"; shortcut: window.keys("splitDown"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("bottom") }
-            Action { objectName: "moveRightAction"; text: "Move Tab to Right Split"; shortcut: window.keys("moveRight"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.moveActiveTabToSplit("right") }
-            Action { objectName: "moveDownAction"; text: "Move Tab to Bottom Split"; shortcut: window.keys("moveDown"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.moveActiveTabToSplit("bottom") }
-            Action { objectName: "nextSplitAction"; text: "Focus Next Split"; shortcut: window.keys("nextSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.focusGroup(1) }
-            Action { objectName: "previousSplitAction"; text: "Focus Previous Split"; shortcut: window.keys("previousSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.focusGroup(-1) }
-            Action { text: "Join All Groups"; enabled: !window.homeVisible; onTriggered: documents.joinAll() }
+            Action { objectName: "splitRightAction"; text: qsTr("Duplicate to Right Split"); shortcut: window.keys("splitRight"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("right") }
+            Action { objectName: "splitDownAction"; text: qsTr("Duplicate to Bottom Split"); shortcut: window.keys("splitDown"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("bottom") }
+            Action { objectName: "moveRightAction"; text: qsTr("Move Tab to Right Split"); shortcut: window.keys("moveRight"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.moveActiveTabToSplit("right") }
+            Action { objectName: "moveDownAction"; text: qsTr("Move Tab to Bottom Split"); shortcut: window.keys("moveDown"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.moveActiveTabToSplit("bottom") }
+            Action { objectName: "nextSplitAction"; text: qsTr("Focus Next Split"); shortcut: window.keys("nextSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.focusGroup(1) }
+            Action { objectName: "previousSplitAction"; text: qsTr("Focus Previous Split"); shortcut: window.keys("previousSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.focusGroup(-1) }
+            Action { text: qsTr("Join All Groups"); enabled: !window.homeVisible; onTriggered: documents.joinAll() }
         }
     }
     // An answer arrived while its thread is not in view: a card at the bottom right (Open / Dismiss),
@@ -428,7 +428,7 @@ ApplicationWindow {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 1
-                Label { Layout.fillWidth: true; text: "This PDF is already in your Library"; font.weight: Font.DemiBold; color: Theme.text; wrapMode: Text.Wrap }
+                Label { Layout.fillWidth: true; text: qsTr("This PDF is already in your Library"); font.weight: Font.DemiBold; color: Theme.text; wrapMode: Text.Wrap }
                 // The title wraps to two lines; anything longer shows in full on hover.
                 Label {
                     Layout.fillWidth: true
@@ -438,9 +438,9 @@ ApplicationWindow {
                 }
             }
             Button {
-                objectName: "openExistingCopy"; text: "Use Existing"; focusPolicy: Qt.NoFocus
+                objectName: "openExistingCopy"; text: qsTr("Use Existing"); focusPolicy: Qt.NoFocus
                 ToolTip.visible: hovered; ToolTip.delay: 450
-                ToolTip.text: "Read the paper already in your Library (with its notes). This extra entry is set aside; no file is deleted."
+                ToolTip.text: qsTr("Read the paper already in your Library (with its notes). This extra entry is set aside; no file is deleted.")
                 onClicked: {
                     if (researchStore.useExistingCopy(duplicateBar.source, duplicateBar.existing))
                         documents.relinkSource(duplicateBar.source, duplicateBar.existing)
@@ -448,12 +448,12 @@ ApplicationWindow {
                 }
             }
             Button {
-                objectName: "keepBothCopies"; text: "Keep Both"; focusPolicy: Qt.NoFocus
+                objectName: "keepBothCopies"; text: qsTr("Keep Both"); focusPolicy: Qt.NoFocus
                 ToolTip.visible: hovered; ToolTip.delay: 450
-                ToolTip.text: "Keep two separate papers, each with its own notes. Owelk won't ask again about this file."
+                ToolTip.text: qsTr("Keep two separate papers, each with its own notes. Owelk won't ask again about this file.")
                 onClicked: { researchStore.keepDuplicate(duplicateBar.source); duplicateBar.close() }
             }
-            IconButton { icon.name: "close"; description: "Dismiss"; focusPolicy: Qt.NoFocus; onClicked: duplicateBar.close() }
+            IconButton { icon.name: "close"; description: qsTr("Dismiss"); focusPolicy: Qt.NoFocus; onClicked: duplicateBar.close() }
         }
     }
     // Areas are slices separated by 1px edges; an edge darkens under the pointer and drags to resize.
@@ -603,11 +603,11 @@ ApplicationWindow {
             Label {
                 Layout.fillWidth: true
                 // A notice while there is one.
-                text: window.notification.length ? window.notification : researchStore.busy ? "Saving…" : ""
+                text: window.notification.length ? window.notification : researchStore.busy ? qsTr("Saving…") : ""
                 elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
             }
-            StatusIcon { kind: "search"; description: "Search · " + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }
-            StatusIcon { kind: "split"; description: "Duplicate to right split · " + Platform.keys("Ctrl+\\"); visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }
+            StatusIcon { kind: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }
+            StatusIcon { kind: "split"; description: qsTr("Duplicate to right split · ") + Platform.keys("Ctrl+\\"); visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }
             Repeater {
                 model: window.dockPanels.filter(function(p) { return window.panelSide(p) === "right" })
                 delegate: StatusIcon {

@@ -146,7 +146,7 @@ function stripItems(groupNode) {
 }
 // A tab's title as tab lists show it.
 function tabTitle(t, displayName) {
-    return t.kind === "home" ? "Home" : t.kind === "library" ? "Library" : t.kind === "note" ? (t.title || "Untitled note")
+    return t.kind === "home" ? qsTr("Home") : t.kind === "library" ? qsTr("Library") : t.kind === "note" ? (t.title || qsTr("Untitled note"))
         : t.kind === "web" ? (t.title || t.source.replace(/^https?:\/\/(www\.)?/, "")) : displayName(t.source)
 }
 function leaves(node) { return node.kind === "group" ? [node] : leaves(node.first).concat(leaves(node.second)) }
@@ -219,13 +219,13 @@ function validate(node, ids, depth) {
 function restore(state) {
     if (state.version === 2) {
         const tree = clone(state.tree)
-        if (!validate(tree, {}, 0)) throw new Error("Invalid saved tab layout. The saved data has not been overwritten.")
+        if (!validate(tree, {}, 0)) throw new Error(qsTr("Invalid saved tab layout. The saved data has not been overwritten."))
         const list = leaves(tree)
         // Earlier versions could save a web address with spaces in it (see webAddress); it is encoded again.
         list.forEach(function(g) { g.tabs.forEach(function(t) { if (t.kind === "web") t.source = webAddress(t.source) }) })
         return {tree: tree, activeGroup: list.some(function(g) { return g.id === state.activeGroup }) ? state.activeGroup : list[0].id}
     }
-    if (state.version && state.version !== 1) throw new Error("This session needs a newer Owelk version. Saved data has not been overwritten.")
+    if (state.version && state.version !== 1) throw new Error(qsTr("This session needs a newer Owelk version. Saved data has not been overwritten."))
     const a = group(state.left && state.left.source ? [tab(state.left.source, state.left.position)] : [])
     const b = group(state.right && state.right.source ? [tab(state.right.source, state.right.position)] : [])
     let tree = a

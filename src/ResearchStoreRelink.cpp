@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "UiText.h"
 #include "PaperIndex.h"
 #include "FileFingerprint.h"
 #include <QFile>
@@ -64,16 +65,16 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
 {
     auto reject = [this](const QString &error) { emit relinkFinished(false, error); };
     if (m_relinking || busy()) {
-        reject("Wait for the current source verification to finish.");
+        reject(ui("Wait for the current source verification to finish."));
         return;
     }
     const auto source = resolvedSource(input);
     if (!source.isLocalFile() || !candidate.isLocalFile() || source == candidate) {
-        reject("Choose a different local PDF path.");
+        reject(ui("Choose a different local PDF path."));
         return;
     }
     if (m_relinks.contains(candidate.toString())) {
-        reject("This path was previously redirected. Choose a new path to avoid a redirect cycle.");
+        reject(ui("This path was previously redirected. Choose a new path to avoid a redirect cycle."));
         return;
     }
     QSet<QString> hashes;
@@ -97,8 +98,9 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
     }
     while (previous.next()) hashes.insert(previous.value(0).toString());
     if (hashes.size() > 1) {
-        reject("This path has records from different PDF versions. Nothing was changed; version-specific relinking is "
-               "not supported yet.");
+        reject(
+            ui("This path has records from different PDF versions. Nothing was changed; version-specific relinking is "
+               "not supported yet."));
         return;
     }
     const auto expected = hashes.isEmpty() ? QString() : *hashes.cbegin();
@@ -124,7 +126,7 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
         m_relinking = false;
         emit relinkingChanged();
         emit relinkFinished(
-            success, success ? "PDF source reconnected. Reading positions and annotations were preserved." : error);
+            success, success ? ui("PDF source reconnected. Reading positions and annotations were preserved.") : error);
     });
     watcher->setFuture(QtConcurrent::run(&m_workers, [source, candidate, expected] {
         const auto original = expected.isEmpty() ? hashFile(source.toLocalFile()) : expected;
@@ -213,12 +215,12 @@ bool ResearchStore::applyRelink(const QUrl &source, const QUrl &candidate, const
             QJsonParseError parse;
             const auto doc = QJsonDocument::fromJson(bytes, &parse);
             if (parse.error != QJsonParseError::NoError || !doc.isObject()) {
-                *error = "The saved session is invalid. Relinking was cancelled without changing it.";
+                *error = ui("The saved session is invalid. Relinking was cancelled without changing it.");
                 return false;
             }
             if (doc.object().contains("version") && doc.object()["version"].toInt() != 1
                 && doc.object()["version"].toInt() != 2) {
-                *error = "An unsupported saved layout version was found. Nothing was changed.";
+                *error = ui("An unsupported saved layout version was found. Nothing was changed.");
                 return false;
             }
             const auto updated = rewrite(doc.object().toVariantMap(), [&](const QString &url) {

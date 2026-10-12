@@ -1,4 +1,5 @@
 #include "PdfAccess.h"
+#include "UiText.h"
 #include "ResearchStore.h"
 #include "AnnotationImage.h"
 #include "FileFingerprint.h"
@@ -79,7 +80,7 @@ QVariantMap ResearchStore::adoptAnnotations(const QUrl &source, bool removeMisfi
     const auto document = findDocument(source);
     QPdfDocument pdf;
     if (hash.isEmpty() || document.isEmpty() || PdfAccess::load(pdf, url.toLocalFile()) != QPdfDocument::Error::None)
-        return {{"error", "The PDF cannot be read."}};
+        return {{"error", ui("The PDF cannot be read.")}};
     QSqlQuery query(m_database);
     query.prepare("SELECT id,page,text FROM highlights WHERE document_id=? AND deleted_at IS NULL AND sha256<>?");
     query.addBindValue(document);
@@ -124,12 +125,12 @@ QVariantMap ResearchStore::adoptAnnotations(const QUrl &source, bool removeMisfi
     }
     if (!ok || !m_database.commit()) {
         m_database.rollback();
-        return {{"error", "Cannot update the annotations."}};
+        return {{"error", ui("Cannot update the annotations.")}};
     }
     emit highlightsChanged();
     emit homeChanged();
     if (!misfit.isEmpty())
-        emit message(QString("Deleted %1 annotation%2 that did not fit this copy.")
+        emit message(QString(ui("Deleted %1 annotation%2 that did not fit this copy."))
                 .arg(misfit.size())
                 .arg(misfit.size() == 1 ? "" : "s"));
     return counts;
@@ -145,7 +146,7 @@ bool ResearchStore::updateHighlight(const QString &id, const QString &color, con
     query.addBindValue(body.isNull() ? QStringLiteral("") : body);
     query.addBindValue(id);
     if (!query.exec() || query.numRowsAffected() != 1) {
-        emit message("Cannot update annotation.");
+        emit message(ui("Cannot update annotation."));
         return false;
     }
     recordAnnotation(id, before, "");
@@ -163,18 +164,18 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
     const auto kind = input.value("kind").toString(), body = input.value("body").toString();
     const auto color = input.value("color", defaultAnnotationColor()).toString();
     if (m_relinking || busy() || !source.isLocalFile() || page < 0) {
-        fail("Wait for the current operation and choose a PDF page.");
+        fail(ui("Wait for the current operation and choose a PDF page."));
         return;
     }
     // An area marks a region (a figure, a table, an equation); its comment is optional.
     if (!QStringList{"comment", "text", "image", "draw", "area"}.contains(kind) || body.size() > 10000
         || ((kind == "comment" || kind == "text") && body.trimmed().isEmpty()) || !annotationColors().contains(color)) {
-        fail("Invalid annotation content or color.");
+        fail(ui("Invalid annotation content or color."));
         return;
     }
     const auto rects = input.value("rectangles").toList();
     if (rects.size() != 1) {
-        fail("Choose an annotation area on the page.");
+        fail(ui("Choose an annotation area on the page."));
         return;
     }
     const auto r = rects[0].toMap();
@@ -182,31 +183,31 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
         r.value("x").toDouble(), r.value("y").toDouble(), r.value("width").toDouble(), r.value("height").toDouble());
     if (!std::isfinite(rect.x() + rect.y() + rect.width() + rect.height()) || rect.isEmpty() || rect.x() < 0
         || rect.y() < 0 || rect.right() > 1.00001 || rect.bottom() > 1.00001) {
-        fail("Annotation coordinates must stay inside the page.");
+        fail(ui("Annotation coordinates must stay inside the page."));
         return;
     }
     // A text box's font size in PDF points; 0 keeps the default.
     const double fontSize = input.value("fontSize").toDouble();
     if (!std::isfinite(fontSize) || fontSize < 0 || fontSize > 96) {
-        fail("Choose a font size up to 96 pt.");
+        fail(ui("Choose a font size up to 96 pt."));
         return;
     }
     const auto points = input.value("drawing").toList();
     if (kind == "draw" && (points.size() < 2 || points.size() > 5000)) {
-        fail("Draw a stroke of up to 5,000 points.");
+        fail(ui("Draw a stroke of up to 5,000 points."));
         return;
     }
     for (const auto &p : points) {
         const auto m = p.toMap();
         const double x = m.value("x").toDouble(), y = m.value("y").toDouble();
         if (!std::isfinite(x + y) || x < 0 || x > 1 || y < 0 || y > 1) {
-            fail("Invalid drawing coordinates.");
+            fail(ui("Invalid drawing coordinates."));
             return;
         }
     }
     const auto document = ensureDocument(source);
     if (document.isEmpty()) {
-        fail("Cannot record the source document. Check storage and permissions.");
+        fail(ui("Cannot record the source document. Check storage and permissions."));
         return;
     }
     QString id = input.value("id").toString(), expected = input.value("sha256").toString(), oldImage;
@@ -220,7 +221,7 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
         old.addBindValue(document);
         old.addBindValue(kind);
         if (!old.exec() || !old.next()) {
-            fail("This annotation cannot be edited here.");
+            fail(ui("This annotation cannot be edited here."));
             return;
         }
         expected = old.value(0).toString();
@@ -229,7 +230,7 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
         id = QUuid::createUuid().toString(QUuid::WithoutBraces);
     const auto before = editing ? annotationState(id) : QVariantMap{};
     if (expected.isEmpty()) {
-        fail("Wait for PDF source verification to finish.");
+        fail(ui("Wait for PDF source verification to finish."));
         return;
     }
     const QUrl imageSource(input.value("imageSource").toString());
@@ -279,7 +280,7 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
             save.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
         }
         if (!save.exec() || save.numRowsAffected() != 1) {
-            reject("Cannot save annotation. The previous version was kept.");
+            reject(ui("Cannot save annotation. The previous version was kept."));
             return;
         }
         recordAnnotation(id, before, "");
@@ -292,33 +293,33 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
         Result result;
         result.asset = oldImage;
         if (fingerprint(source) != expected) {
-            result.error = "The PDF changed. Reopen it before adding annotations.";
+            result.error = ui("The PDF changed. Reopen it before adding annotations.");
             return result;
         }
         QPdfDocument pdf;
         if (PdfAccess::load(pdf, source.toLocalFile()) != QPdfDocument::Error::None || page >= pdf.pageCount()) {
-            result.error = "Cannot read this PDF page.";
+            result.error = ui("Cannot read this PDF page.");
             return result;
         }
         if (kind == "image" && !imageSource.isEmpty()) {
             const auto pixels = readAnnotationImage(imageSource, &result.error);
             if (pixels.isNull()) return result;
             if (pixels.isNull() || !QDir().mkpath(assetDirectory)) {
-                result.error = "Cannot read or store this image.";
+                result.error = ui("Cannot read or store this image.");
                 return result;
             }
             result.asset = QUuid::createUuid().toString(QUuid::WithoutBraces) + ".png";
             result.newPath = assetDirectory + "/" + result.asset;
             QSaveFile output(result.newPath);
             if (!output.open(QIODevice::WriteOnly) || !pixels.save(&output, "PNG") || !output.commit()) {
-                result.error = "Cannot save annotation image.";
+                result.error = ui("Cannot save annotation image.");
                 return result;
             }
         }
-        if (kind == "image" && result.asset.isEmpty()) result.error = "Choose an image first.";
+        if (kind == "image" && result.asset.isEmpty()) result.error = ui("Choose an image first.");
         // A marked figure or table is found (and searched) by its caption.
         if (kind == "area" && !editing) result.caption = figureCaption(pdf, page, rect);
-        if (fingerprint(source) != expected) result.error = "The PDF changed while saving. Nothing was attached.";
+        if (fingerprint(source) != expected) result.error = ui("The PDF changed while saving. Nothing was attached.");
         return result;
     }));
 }
@@ -331,12 +332,12 @@ bool ResearchStore::removeHighlight(const QString &id)
     query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
     query.addBindValue(id);
     if (!query.exec() || query.numRowsAffected() != 1) {
-        emit message("Cannot remove this highlight.");
+        emit message(ui("Cannot remove this highlight."));
         return false;
     }
     recordAnnotation(id, before, "Remove " + before.value("kind").toString());
     emit highlightsChanged();
     emit homeChanged();
-    emit message("Highlight removed. The source PDF was kept.");
+    emit message(ui("Highlight removed. The source PDF was kept."));
     return true;
 }

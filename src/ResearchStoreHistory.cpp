@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "UiText.h"
 #include <QDateTime>
 #include <QSqlQuery>
 
@@ -90,7 +91,7 @@ bool ResearchStore::replay(const QUrl &source, bool forward)
     const auto document = findDocument(source);
     auto &from = forward ? m_redo[document] : m_undo[document];
     if (document.isEmpty() || from.isEmpty()) {
-        emit message(forward ? "Nothing to redo." : "Nothing to undo.");
+        emit message(forward ? ui("Nothing to redo.") : ui("Nothing to undo."));
         return false;
     }
     const auto step = from.takeLast();
@@ -101,7 +102,7 @@ bool ResearchStore::replay(const QUrl &source, bool forward)
     if (ok) (forward ? m_undo : m_redo)[document].append(step);
     ++m_historyRevision;
     emit historyChanged();
-    emit message(ok ? (forward ? "Redo " : "Undo ") + step.label
-                    : "Cannot " + QString(forward ? "redo" : "undo") + " that change.");
+    emit message(ok ? (forward ? ui("Redo ") : ui("Undo ")) + step.label
+                    : ui("Cannot ") + QString(forward ? "redo" : "undo") + ui(" that change."));
     return ok;
 }

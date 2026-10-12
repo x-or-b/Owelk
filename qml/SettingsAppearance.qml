@@ -10,9 +10,9 @@ ColumnLayout {
     spacing: 22
     // The custom theme's seeds, edited one color at a time.
     property var custom: Theme.seeds("custom")
-    readonly property var seedNames: [{key: "window", name: "Window and toolbars"}, {key: "sidebar", name: "Sidebars"},
-        {key: "content", name: "Documents and lists"}, {key: "raised", name: "Menus and popovers"},
-        {key: "text", name: "Text"}, {key: "separator", name: "Lines"}, {key: "backdrop", name: "Around PDF pages"}]
+    readonly property var seedNames: [{key: "window", name: qsTr("Window and toolbars")}, {key: "sidebar", name: qsTr("Sidebars")},
+        {key: "content", name: qsTr("Documents and lists")}, {key: "raised", name: qsTr("Menus and popovers")},
+        {key: "text", name: qsTr("Text")}, {key: "separator", name: qsTr("Lines")}, {key: "backdrop", name: qsTr("Around PDF pages")}]
     property string editing: ""
     function startCustom() {
         // A custom theme starts as a copy of the theme in use.
@@ -59,10 +59,10 @@ ColumnLayout {
         HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
         TapHandler { onTapped: { if (tile.themeId === "custom") root.startCustom(); else Theme.theme = tile.themeId } }
         Accessible.role: Accessible.RadioButton
-        Accessible.name: tile.name + " theme"
+        Accessible.name: tile.name + qsTr(" theme")
     }
     SettingsGroup {
-        title: "Theme"
+        title: qsTr("Theme")
         Item {
             width: parent.width
             implicitHeight: themes.implicitHeight + 24
@@ -79,8 +79,8 @@ ColumnLayout {
         }
     }
     SettingsGroup {
-        title: "Accent color"
-        note: "Used for selection, the main button of each area, focus and links. Annotation inks keep their own colors."
+        title: qsTr("Accent color")
+        note: qsTr("Used for selection, the main button of each area, focus and links. Annotation inks keep their own colors.")
         SettingsRow {
             label: Theme.accents.find(function(a) { return a.id === Theme.accentName }).name
             Repeater {
@@ -102,9 +102,9 @@ ColumnLayout {
         }
     }
     SettingsGroup {
-        title: "App icon"
-        note: Qt.platform.os === "osx" ? "Changes the icon in the Dock and on the app in Finder. If the Dock keeps the old one, it updates after Owelk restarts."
-                                       : "Changes the icon in the taskbar and title bars."
+        title: qsTr("App icon")
+        note: Qt.platform.os === "osx" ? qsTr("Changes the icon in the Dock and on the app in Finder. If the Dock keeps the old one, it updates after Owelk restarts.")
+                                       : qsTr("Changes the icon in the taskbar and title bars.")
         SettingsRow {
             label: (Theme.appIcons.find(function(i) { return i.id === Theme.appIcon }) || {name: ""}).name
             Repeater {
@@ -122,21 +122,21 @@ ColumnLayout {
                     TapHandler { onTapped: Theme.appIcon = choice.modelData.id }
                     ToolTip.visible: choiceHover.hovered; ToolTip.delay: 500; ToolTip.text: modelData.name
                     Accessible.role: Accessible.RadioButton
-                    Accessible.name: modelData.name + " icon"
+                    Accessible.name: modelData.name + qsTr(" icon")
                 }
             }
         }
     }
     SettingsGroup {
-        title: "Tabs"
-        note: "Vertical tabs list every tab beside the window, with full titles; the panel opens and closes from its button at the top left (" + Platform.keys("Ctrl+Shift+B") + ")."
+        title: qsTr("Tabs")
+        note: qsTr("Vertical tabs list every tab beside the window, with full titles; the panel opens and closes from its button at the top left (") + Platform.keys("Ctrl+Shift+B") + ")."
         SettingsRow {
             label: "Tab layout"
             TabBar {
                 objectName: "tabLayout"
                 currentIndex: Theme.verticalTabs ? 1 : 0
-                TabButton { text: "Horizontal"; width: 96; onClicked: Theme.verticalTabs = false }
-                TabButton { objectName: "verticalTabsOption"; text: "Vertical"; width: 96; onClicked: Theme.verticalTabs = true }
+                TabButton { text: qsTr("Horizontal"); width: 96; onClicked: Theme.verticalTabs = false }
+                TabButton { objectName: "verticalTabsOption"; text: qsTr("Vertical"); width: 96; onClicked: Theme.verticalTabs = true }
             }
         }
         // Control+Tab: through the tabs in order, or back and forth between the last two used.
@@ -147,28 +147,28 @@ ColumnLayout {
                 objectName: "controlTabMode"
                 property string chosen: researchStore.setting("tabs.controlTab", "next")
                 currentIndex: chosen === "recent" ? 1 : 0
-                TabButton { text: "Next Tab"; width: 96; onClicked: { controlTabBar.chosen = "next"; researchStore.setSetting("tabs.controlTab", "next") } }
-                TabButton { objectName: "controlTabRecent"; text: "Last Used"; width: 96; onClicked: { controlTabBar.chosen = "recent"; researchStore.setSetting("tabs.controlTab", "recent") } }
+                TabButton { text: qsTr("Next Tab"); width: 96; onClicked: { controlTabBar.chosen = "next"; researchStore.setSetting("tabs.controlTab", "next") } }
+                TabButton { objectName: "controlTabRecent"; text: qsTr("Last Used"); width: 96; onClicked: { controlTabBar.chosen = "recent"; researchStore.setSetting("tabs.controlTab", "recent") } }
             }
         }
         // What a new launch shows: Home (the tabs wait behind it) or the tabs as they were left.
         SettingsRow {
-            label: "On launch"
+            label: qsTr("On launch")
             TabBar {
                 id: startupBar
                 objectName: "startupView"
                 property string chosen: researchStore.setting("startup.view", "home")
                 currentIndex: chosen === "tabs" ? 1 : 0
                 TabButton { text: "Home"; width: 96; onClicked: { startupBar.chosen = "home"; researchStore.setSetting("startup.view", "home") } }
-                TabButton { objectName: "startupTabsOption"; text: "Last Tabs"; width: 96; onClicked: { startupBar.chosen = "tabs"; researchStore.setSetting("startup.view", "tabs") } }
+                TabButton { objectName: "startupTabsOption"; text: qsTr("Last Tabs"); width: 96; onClicked: { startupBar.chosen = "tabs"; researchStore.setSetting("startup.view", "tabs") } }
             }
         }
     }
     SettingsGroup {
-        title: "Text"
-        note: "Scales all text and the controls around it. PDF pages keep their own zoom."
+        title: qsTr("Text")
+        note: qsTr("Scales all text and the controls around it. PDF pages keep their own zoom.")
         SettingsRow {
-            label: "Text size"
+            label: qsTr("Text size")
             Icon { name: "text"; size: Theme.fontCaption; color: Theme.textTertiary }
             Slider {
                 objectName: "textSizeSlider"
@@ -178,22 +178,33 @@ ColumnLayout {
                 onMoved: Theme.textSize = value
             }
             Icon { name: "text"; size: Theme.fontTitle; color: Theme.textTertiary }
-            Label { text: Theme.textSize + " pt"; color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
+            Label { text: Theme.textSize + qsTr(" pt"); color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
+        }
+        // English as written, or every word spelled out in Hangul. The choices keep their own names.
+        SettingsRow {
+            visible: typeof uiLanguage !== "undefined" && uiLanguage.available
+            label: qsTr("Language")
+            TabBar {
+                objectName: "interfaceLanguage"
+                currentIndex: typeof uiLanguage !== "undefined" && uiLanguage.language === "hangul" ? 1 : 0
+                TabButton { text: "English"; width: 96; onClicked: uiLanguage.choose("en") }
+                TabButton { objectName: "hangulOption"; text: "\ud55c\uae00"; width: 96; onClicked: uiLanguage.choose("hangul") }
+            }
         }
     }
     SettingsGroup {
         visible: Theme.canInvertPages
-        title: "PDF pages"
-        note: "Dark pages invert lightness and keep hues, so figures stay recognizable. Exports and printing use the original colors."
+        title: qsTr("PDF pages")
+        note: qsTr("Dark pages invert lightness and keep hues, so figures stay recognizable. Exports and printing use the original colors.")
         SettingsRow {
-            label: "Dark pages"
+            label: qsTr("Dark pages")
             Switch { objectName: "invertPagesSwitch"; checked: Theme.invertPages; onToggled: Theme.invertPages = checked }
         }
     }
     SettingsGroup {
         visible: Theme.theme === "custom"
-        title: "Custom theme"
-        note: "Hover, selection and secondary text are worked out from these colors, so the theme stays consistent."
+        title: qsTr("Custom theme")
+        note: qsTr("Hover, selection and secondary text are worked out from these colors, so the theme stays consistent.")
         Repeater {
             model: root.seedNames
             delegate: SettingsRow {
@@ -211,8 +222,8 @@ ColumnLayout {
             }
         }
         SettingsRow {
-            label: "Dark"
-            detail: "Use light text and dark controls"
+            label: qsTr("Dark")
+            detail: qsTr("Use light text and dark controls")
             Switch {
                 objectName: "customDarkSwitch"
                 checked: !!root.custom.dark
@@ -222,7 +233,7 @@ ColumnLayout {
     }
     Native.ColorDialog {
         id: seedDialog
-        title: "Theme color"
+        title: qsTr("Theme color")
         onAccepted: {
             const next = Object.assign({}, root.custom)
             next[root.editing] = selectedColor.toString()

@@ -126,14 +126,14 @@ Rectangle {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 8
-                Label { text: "Search your research"; font.pixelSize: Theme.fontTitle; font.weight: Font.Medium; color: Theme.text }
+                Label { text: qsTr("Search your research"); font.pixelSize: Theme.fontTitle; font.weight: Font.Medium; color: Theme.text }
                 SearchFilters { Layout.fillWidth: true; controller: searchModel }
                 TextField {
                     id: searchInput
                     objectName: "homeSearch"
                     Layout.fillWidth: true
                     implicitHeight: 40
-                    placeholderText: "Find PDF text, papers, notes or AI conversations  ·  tag: collection:"
+                    placeholderText: qsTr("Find PDF text, papers, notes or AI conversations  ·  tag: collection:")
                     selectByMouse: true
                     onAccepted: {
                         let chosenIndex = searchResults.currentIndex
@@ -146,7 +146,7 @@ Rectangle {
                 }
                 // Only while PDFs are being indexed or some cannot be read (details in Settings › Search).
                 IndexStatus { Layout.fillWidth: true; quiet: true }
-                Label { Layout.fillWidth: true; visible: searchModel.error.length > 0; text: "PDF text search failed: " + searchModel.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                Label { Layout.fillWidth: true; visible: searchModel.error.length > 0; text: qsTr("PDF text search failed: ") + searchModel.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
                 ListView {
                     id: searchResults
                     objectName: "homeResults"
@@ -163,7 +163,7 @@ Rectangle {
                         highlighted: searchResults.currentIndex === index
                         onClicked: root.choose(modelData)
                     }
-                    Label { anchors.centerIn: parent; visible: searchResults.count === 0; text: searchModel.waiting ? "Searching PDF text…" : searchModel.error.length ? "Text search failed. Try again." : "No matching saved items"; color: Theme.textTertiary }
+                    Label { anchors.centerIn: parent; visible: searchResults.count === 0; text: searchModel.waiting ? qsTr("Searching PDF text…") : searchModel.error.length ? qsTr("Text search failed. Try again.") : qsTr("No matching saved items"); color: Theme.textTertiary }
                 }
                 // The web, from the same page: an address opens it, words search with the chosen engine.
                 TextField {
@@ -172,7 +172,7 @@ Rectangle {
                     Layout.fillWidth: true
                     implicitHeight: Theme.controlHeight + 6
                     leftPadding: 30
-                    placeholderText: "Search the web or enter an address  ·  " + (researchStore.setting("searchEngine", "").indexOf("google.com/search") >= 0 ? "Google" : researchStore.setting("searchEngine", "").indexOf("duckduckgo") >= 0 ? "DuckDuckGo" : researchStore.setting("searchEngine", "").indexOf("arxiv") >= 0 ? "arXiv" : "Google Scholar")
+                    placeholderText: qsTr("Search the web or enter an address  ·  ") + (researchStore.setting("searchEngine", "").indexOf("google.com/search") >= 0 ? qsTr("Google") : researchStore.setting("searchEngine", "").indexOf("duckduckgo") >= 0 ? qsTr("DuckDuckGo") : researchStore.setting("searchEngine", "").indexOf("arxiv") >= 0 ? "arXiv" : qsTr("Google Scholar"))
                     selectByMouse: true
                     font.pixelSize: Theme.fontBody
                     onAccepted: if (root.searchWeb(text)) clear()
@@ -206,25 +206,25 @@ Rectangle {
                         id: continueColumn
                         Layout.fillWidth: true
                         spacing: 4
-                        Label { text: "Continue Reading"; font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textTertiary }
+                        Label { text: qsTr("Continue Reading"); font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textTertiary }
                         Label {
                             Layout.fillWidth: true
-                            text: root.continuation.name || "Start with a paper"
+                            text: root.continuation.name || qsTr("Start with a paper")
                             elide: Text.ElideRight; maximumLineCount: 2; wrapMode: Text.Wrap; textFormat: Text.PlainText
                             font.pixelSize: Theme.fontTitle; font.weight: Font.Medium; color: Theme.text
                         }
                         Label {
                             Layout.fillWidth: true
                             text: root.continuation.source
-                                ? [continueCard.details.authors, continueCard.details.year, "Page " + (((root.continuation.position || {}).page || 0) + 1)].filter(function(t) { return t && String(t).length }).join("  ·  ")
-                                : "Open a PDF. Your reading position is saved automatically."
+                                ? [continueCard.details.authors, continueCard.details.year, qsTr("Page ") + (((root.continuation.position || {}).page || 0) + 1)].filter(function(t) { return t && String(t).length }).join("  ·  ")
+                                : qsTr("Open a PDF. Your reading position is saved automatically.")
                             elide: Text.ElideRight; textFormat: Text.PlainText
                             color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
                         }
                     }
                     Button {
                         highlighted: true
-                        text: root.continuation.source ? "Continue" : "Open PDF…"
+                        text: root.continuation.source ? qsTr("Continue") : qsTr("Open PDF…")
                         onClicked: continueCard.clicked()
                     }
                 }
@@ -239,10 +239,10 @@ Rectangle {
                     objectName: "homeCollections"
                     Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.alignment: Qt.AlignTop
                     spacing: 6
-                    BoxHeading { objectName: "homeCollectionsHeading"; text: "Collections"; goes: true; onOpened: root.libraryFilterRequested({}) }
+                    BoxHeading { objectName: "homeCollectionsHeading"; text: qsTr("Collections"); goes: true; onOpened: root.libraryFilterRequested({}) }
                     ListBox {
                         model: root.recentCollections
-                        empty: "No collections yet"
+                        empty: qsTr("No collections yet")
                         delegate: ItemDelegate {
                             required property var modelData
                             required property int index
@@ -266,12 +266,12 @@ Rectangle {
                     // The heading goes to the Library; + opens a PDF from disk.
                     BoxHeading {
                         objectName: "homeRecentHeading"
-                        text: "Recent Papers"; goes: true; onOpened: root.libraryRequested()
-                        adding: true; addDescription: "Open PDF…"; onAdded: root.openRequested()
+                        text: qsTr("Recent Papers"); goes: true; onOpened: root.libraryRequested()
+                        adding: true; addDescription: qsTr("Open PDF…"); onAdded: root.openRequested()
                     }
                     ListBox {
                         model: researchStore.recentDocuments
-                        empty: "No recent papers"
+                        empty: qsTr("No recent papers")
                         delegate: RecentPaperDelegate {
                             required property int index
                             width: ListView.view.width
@@ -286,11 +286,11 @@ Rectangle {
                     objectName: "homeNotes"
                     Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.alignment: Qt.AlignTop
                     spacing: 6
-                    BoxHeading { objectName: "homeNotesHeading"; text: "Notes"; goes: true; onOpened: root.libraryFilterRequested({view: "notes"}); adding: true; addDescription: "New note"; onAdded: root.newNoteRequested() }
+                    BoxHeading { objectName: "homeNotesHeading"; text: qsTr("Notes"); goes: true; onOpened: root.libraryFilterRequested({view: "notes"}); adding: true; addDescription: qsTr("New note"); onAdded: root.newNoteRequested() }
                     ListBox {
                         rows: 5
                         model: root.recentNotes
-                        empty: "No notes yet"
+                        empty: qsTr("No notes yet")
                         delegate: ItemDelegate {
                             required property var modelData
                             required property int index
@@ -307,11 +307,11 @@ Rectangle {
                     objectName: "homeThreads"
                     Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.alignment: Qt.AlignTop
                     spacing: 6
-                    BoxHeading { text: "AI Conversations" }
+                    BoxHeading { text: qsTr("AI Conversations") }
                     ListBox {
                         rows: 5
                         model: root.recentThreads
-                        empty: "No conversations yet"
+                        empty: qsTr("No conversations yet")
                         // The question, and the paper it was about.
                         delegate: ItemDelegate {
                             id: threadRow

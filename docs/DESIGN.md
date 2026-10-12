@@ -51,3 +51,9 @@
 - 강조색은 밝은 테마용·어두운 테마용 값이 짝입니다. 빨강은 오류·삭제용이라 강조색 목록에 없습니다.
 - Settings는 왼쪽 카테고리 + 오른쪽 둥근 그룹 행(`SettingsGroup`, `SettingsRow`: 이름 왼쪽·컨트롤 오른쪽·행 사이 구분선·그룹 아래 짧은 설명)입니다. 켜고 끄는 값은 Switch, 고르는 값은 팝업 버튼, 실행은 버튼, 아이콘으로 충분한 동작(폴더 고르기·새로 고침·키 삭제)은 아이콘입니다.
 - Dark pages는 페이지 이미지에만 셰이더를 씌우며 켰을 때만 존재합니다(`shaders/invert.frag`).
+
+## 화면 언어
+
+- 화면 글자는 QML·JS에서 `qsTr("…")`, C++에서 `ui("…")`(`src/UiText.h`)로 씁니다. AI에게 보내는 글, 노트·스레드 제목처럼 저장되는 글, 키 이름·설정 키는 감싸지 않습니다.
+- Settings → Appearance → Language의 `한글`은 모든 영어 단어를 한글 소리대로 적습니다("Settings" → "세팅스"). `tools/hangul.py`가 `tools/hangul_words.tsv`의 단어 표기로 `translations/owelk_hangul.ts`를 만들고, 빌드가 `.qm`으로 바꿔 앱에 넣습니다(Qt Linguist 도구가 없으면 이 선택은 숨김).
+- 글자를 고치거나 더했으면 `python3 tools/hangul.py`를 실행합니다. 표기가 없는 단어는 `--missing`으로 확인해 표에 더합니다.

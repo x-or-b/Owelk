@@ -28,7 +28,7 @@ Popup {
     readonly property string modelId: (ai.providers, ai.glossModel(ai.provider))
     readonly property var modelInfo: models.find(function(m) { return m.id === root.modelId }) || ({})
     readonly property var efforts: modelInfo.efforts || []
-    readonly property string modelLabel: (modelInfo.name || modelId || "Default model").replace(/^Claude /, "")
+    readonly property string modelLabel: (modelInfo.name || modelId || qsTr("Default model")).replace(/^Claude /, "")
                                          + (efforts.indexOf(effort) >= 0 ? " · " + AiNames.effortName(effort) : "")
     Connections {
         target: root.ai
@@ -63,7 +63,7 @@ Popup {
     function start() {
         error = ""
         if (!providerInfo.configured && ai.provider !== "ollama") {
-            error = ai.provider === "codex" ? "Sign in with ChatGPT in Settings → AI." : "Add an API key in Settings → AI."
+            error = ai.provider === "codex" ? qsTr("Sign in with ChatGPT in Settings → AI.") : qsTr("Add an API key in Settings → AI.")
             return
         }
         if (needsConsent) return
@@ -105,15 +105,15 @@ Popup {
             Label {
                 visible: root.needsConsent && !root.error.length
                 width: parent.width; wrapMode: Text.Wrap
-                text: "Gloss sends the selected words and the sentences around them to "
-                      + (root.providerInfo.sends || root.providerInfo.name || "the AI provider") + "."
+                text: qsTr("Gloss sends the selected words and the sentences around them to ")
+                      + (root.providerInfo.sends || root.providerInfo.name || qsTr("the AI provider")) + "."
                 color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
             }
             Button {
                 objectName: "glossConsent"
                 visible: root.needsConsent && !root.error.length
                 primary: true
-                text: "Send"
+                text: qsTr("Send")
                 onClicked: { root.ai.giveConsent(root.ai.provider); root.start() }
             }
             Label {
@@ -154,7 +154,7 @@ Popup {
                     objectName: "glossCopy"
                     visible: root.answer.length > 0 && !root.streaming
                     anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                    icon.name: "copy"; description: "Copy"
+                    icon.name: "copy"; description: qsTr("Copy")
                     onClicked: researchStore.copyText(root.answer)
                 }
             }
@@ -165,7 +165,7 @@ Popup {
         objectName: "glossModelMenu"
         MenuItem {
             objectName: "glossModel-auto"
-            text: "Fast (automatic)"
+            text: qsTr("Fast (automatic)")
             checkable: true; checked: root.choice === "auto"
             onTriggered: root.choose("", root.effort)
         }

@@ -43,7 +43,7 @@ function parse(json) {
 // Ctrl+1…8 select a tab and Ctrl+9 the last one (as in browsers); they are fixed, so nothing else may take them.
 function conflicts(overrides, os) {
     const used = {}
-    for (let n = 1; n <= 9; ++n) used["Ctrl+" + n] = [n === 9 ? "Last Tab" : "Tab " + n]
+    for (let n = 1; n <= 9; ++n) used["Ctrl+" + n] = [n === 9 ? qsTr("Last Tab") : "Tab " + n]
     actions.forEach(function(a) {
         const k = keys(a.id, overrides, os)
         if (k.length) used[k] = (used[k] || []).concat([a.name])

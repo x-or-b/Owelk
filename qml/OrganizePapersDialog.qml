@@ -14,7 +14,7 @@ Dialog {
     width: Math.min(540, parent ? parent.width - 48 : 540)
     height: Math.min(620, parent ? parent.height - 64 : 620)
     modal: true
-    title: "Organize Papers into Collections"
+    title: qsTr("Organize Papers into Collections")
     readonly property var ai: researchStore.ai
     readonly property var providerInfo: ai.providers.find(function(p) { return p.id === ai.provider }) || ({})
     readonly property int limit: 80
@@ -45,7 +45,7 @@ Dialog {
     }
     function ask() {
         error = ""
-        if (!providerInfo.configured && ai.provider !== "ollama") { error = "Set up an AI provider in Settings → AI."; return }
+        if (!providerInfo.configured && ai.provider !== "ollama") { error = qsTr("Set up an AI provider in Settings → AI."); return }
         // Pressing Ask is the reader's agreement to send what is listed above.
         ai.giveConsent(ai.provider)
         asking = true
@@ -72,27 +72,27 @@ Dialog {
     footer: DialogButtonBox {
         Button {
             objectName: "organizePapersAsk"
-            text: root.asking ? "Asking…" : root.suggestions.length ? "Ask Again" : "Ask " + (root.providerInfo.name || "AI")
+            text: root.asking ? qsTr("Asking…") : root.suggestions.length ? qsTr("Ask Again") : qsTr("Ask ") + (root.providerInfo.name || qsTr("AI"))
             enabled: !root.asking && root.papers.length >= 2
             onClicked: root.ask()
         }
         Button {
             objectName: "organizePapersApply"
-            text: "Apply"
+            text: qsTr("Apply")
             highlighted: true
             enabled: (editor.revision, root.suggestions.some(function(g) { return g.keep && g.name.trim().length && g.ids.length }))
             onClicked: root.apply()
         }
-        Button { text: "Cancel"; onClicked: root.close() }
+        Button { text: qsTr("Cancel"); onClicked: root.close() }
     }
     contentItem: ColumnLayout {
         spacing: 8
         Label {
             Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
             visible: !root.suggestions.length
-            text: root.papers.length < 2 ? "Choose at least two papers to organize."
-                : "Sends the titles, authors, years and first lines of these " + root.papers.length + " papers, and the names of your collections, to "
-                  + (root.providerInfo.name || "the AI provider") + ". Papers are only added to collections, and only when you press Apply."
+            text: root.papers.length < 2 ? qsTr("Choose at least two papers to organize.")
+                : qsTr("Sends the titles, authors, years and first lines of these ") + root.papers.length + qsTr(" papers, and the names of your collections, to ")
+                  + (root.providerInfo.name || qsTr("the AI provider")) + ". Papers are only added to collections, and only when you press Apply."
         }
         Label {
             objectName: "organizePapersError"
@@ -108,12 +108,12 @@ Dialog {
             groups: root.suggestions
             items: root.papers
             // Whether Apply adds to a collection you have or makes a new one.
-            badge: function(name) { return root.match(name) ? {text: "Existing"} : {text: "New", emphasis: true} }
+            badge: function(name) { return root.match(name) ? {text: qsTr("Existing")} : {text: qsTr("New"), emphasis: true} }
         }
         Label {
             Layout.alignment: Qt.AlignHCenter
             visible: root.asking
-            text: "Asking " + (root.providerInfo.name || "AI") + "…"
+            text: qsTr("Asking ") + (root.providerInfo.name || qsTr("AI")) + "…"
             color: Theme.textTertiary
         }
     }

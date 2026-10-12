@@ -1,4 +1,5 @@
 #include "AiProviders.h"
+#include "UiText.h"
 
 #include <QDir>
 
@@ -50,7 +51,7 @@ void HttpStreamProvider::post(const QHash<QByteArray, QByteArray> &headers, cons
         if (!m_done) {
             // A stream that ended without its closing event still produced usable text.
             if (m_text.isEmpty())
-                fail("The response ended without an answer.");
+                fail(ui("The response ended without an answer."));
             else
                 finish(QString());
         }
@@ -61,8 +62,8 @@ QString HttpStreamProvider::errorFrom(int status, const QByteArray &body) const
 {
     const auto detail = compactError(body);
     if (status == 0)
-        return "Cannot reach the AI service. Check the connection." + (detail.isEmpty() ? QString() : " " + detail);
-    return QStringLiteral("AI service error %1: %2").arg(status).arg(detail);
+        return ui("Cannot reach the AI service. Check the connection.") + (detail.isEmpty() ? QString() : " " + detail);
+    return ui("AI service error %1: %2").arg(status).arg(detail);
 }
 
 void HttpStreamProvider::read()
@@ -220,13 +221,14 @@ bool AnthropicProvider::handle(const QString &event, const QJsonObject &data)
         m_cutOff = m_stopReason == "max_tokens";
         if (m_stopReason == "refusal") {
             // A declined answer is discarded, even if part of it streamed.
-            fail("Claude declined this request. Rephrase it or try another provider.");
+            fail(ui("Claude declined this request. Rephrase it or try another provider."));
             return false;
         }
         finish(m_model);
         return false;
     } else if (event == "error") {
-        fail("Claude: " + data.value("error").toObject().value("message").toString("The service reported an error."));
+        fail(ui("Claude: ")
+            + data.value("error").toObject().value("message").toString(ui("The service reported an error.")));
         return false;
     }
     return true;
@@ -234,9 +236,9 @@ bool AnthropicProvider::handle(const QString &event, const QJsonObject &data)
 
 QString AnthropicProvider::errorFrom(int status, const QByteArray &body) const
 {
-    if (status == 401) return "Claude rejected the API key. Check it in Settings → AI.";
-    if (status == 429) return "Claude rate limit reached. Try again shortly.";
-    if (status == 529) return "Claude is temporarily overloaded. Try again shortly.";
+    if (status == 401) return ui("Claude rejected the API key. Check it in Settings → AI.");
+    if (status == 429) return ui("Claude rate limit reached. Try again shortly.");
+    if (status == 529) return ui("Claude is temporarily overloaded. Try again shortly.");
     return HttpStreamProvider::errorFrom(status, body);
 }
 
@@ -300,10 +302,10 @@ bool OpenAiProvider::handle(const QString &event, const QJsonObject &data)
             finish(response.value("model").toString(m_model));
             return false;
         }
-        fail("OpenAI: " + (message.isEmpty() ? QStringLiteral("The response could not be completed.") : message));
+        fail(ui("OpenAI: ") + (message.isEmpty() ? ui("The response could not be completed.") : message));
         return false;
     } else if (event == "error") {
-        fail("OpenAI: " + data.value("message").toString("The service reported an error."));
+        fail(ui("OpenAI: ") + data.value("message").toString(ui("The service reported an error.")));
         return false;
     }
     return true;
@@ -311,8 +313,8 @@ bool OpenAiProvider::handle(const QString &event, const QJsonObject &data)
 
 QString OpenAiProvider::errorFrom(int status, const QByteArray &body) const
 {
-    if (status == 401) return "OpenAI rejected the API key. Check it in Settings → AI.";
-    if (status == 429) return "OpenAI rate limit or quota reached. " + compactError(body);
+    if (status == 401) return ui("OpenAI rejected the API key. Check it in Settings → AI.");
+    if (status == 429) return ui("OpenAI rate limit or quota reached. ") + compactError(body);
     return HttpStreamProvider::errorFrom(status, body);
 }
 
@@ -339,7 +341,7 @@ void OllamaProvider::start(const AiRequest &request)
 bool OllamaProvider::handle(const QString &, const QJsonObject &data)
 {
     if (data.contains("error")) {
-        fail("Ollama: " + data.value("error").toString());
+        fail(ui("Ollama: ") + data.value("error").toString());
         return false;
     }
     // Thinking models put their reasoning beside the answer.
@@ -372,7 +374,7 @@ CodexBridge::CodexBridge(QObject *parent) : QObject(parent)
         if (error != QProcess::FailedToStart) return;
         const auto callbacks = std::exchange(m_callbacks, {});
         m_waiting.clear();
-        const auto message = QStringLiteral("Cannot start Codex (%1). Install the Codex CLI to sign in with ChatGPT.")
+        const auto message = ui("Cannot start Codex (%1). Install the Codex CLI to sign in with ChatGPT.")
                                  .arg(executable().isEmpty() ? QStringLiteral("not found") : executable());
         for (const auto &callback : callbacks) callback({}, message);
         emit stopped(message);
@@ -479,7 +481,7 @@ void CodexBridge::readLines()
             if (!callback) continue;
             const auto error = json.value("error").toObject().value("message").toString();
             callback(json.value("result"),
-                json.contains("error") ? (error.isEmpty() ? QStringLiteral("Codex error") : error) : QString());
+                json.contains("error") ? (error.isEmpty() ? ui("Codex error") : error) : QString());
         } else if (json.contains("method"))
             emit notification(json.value("method").toString(), json.value("params").toObject());
     }
@@ -507,13 +509,13 @@ CodexProvider::CodexProvider(CodexBridge *bridge, QObject *parent) : AiProvider(
             if (turn.value("status").toString() == "completed")
                 emit finished(m_text, m_model);
             else
-                emit failed("ChatGPT: "
+                emit failed(ui("ChatGPT: ")
                     + turn.value("error").toObject().value("message").toString(
                         turn.value("status").toString() == "interrupted" ? "Stopped."
-                                                                         : "The answer could not be completed."));
+                                                                         : ui("The answer could not be completed.")));
         } else if (method == "error" && !params.value("willRetry").toBool()) {
             m_done = true;
-            emit failed("ChatGPT: " + params.value("error").toObject().value("message").toString());
+            emit failed(ui("ChatGPT: ") + params.value("error").toObject().value("message").toString());
         }
     });
     connect(m_bridge, &CodexBridge::stopped, this, [this](const QString &error) {

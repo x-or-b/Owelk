@@ -1,3 +1,4 @@
+#include "UiText.h"
 #include "ResearchStore.h"
 
 #include <QDateTime>
@@ -34,11 +35,11 @@ QVariantList ResearchStore::trash() const
     if (query.exec("SELECT id,title,deleted_at,substr(body,1,160) FROM notes WHERE deleted_at IS NOT NULL"))
         while (query.next())
             add("note", query.value(0),
-                query.value(1).toString().isEmpty() ? "Untitled note" : query.value(1).toString(),
+                query.value(1).toString().isEmpty() ? ui("Untitled note") : query.value(1).toString(),
                 query.value(3).toString().simplified(), query.value(2).toString());
     if (query.exec("SELECT id,title,trashed_at FROM ai_threads WHERE trashed_at IS NOT NULL"))
         while (query.next())
-            add("ai", query.value(0), query.value(1).toString(), "AI conversation", query.value(2).toString());
+            add("ai", query.value(0), query.value(1).toString(), ui("AI conversation"), query.value(2).toString());
     std::sort(rows.begin(), rows.end(), [](const QVariant &a, const QVariant &b) {
         return a.toMap()["trashedAt"].toString() > b.toMap()["trashedAt"].toString();
     });

@@ -10,14 +10,14 @@ Dialog {
     parent: Overlay.overlay
     anchors.centerIn: parent
     width: Math.min(520, parent ? parent.width - 32 : 520)
-    title: "Paper details"
+    title: qsTr("Paper details")
     modal: true
     property url source: ""
     property var details: ({})
     property int lookupRequest: -1
     property string lookupStatus: ""
     function lookUp() {
-        lookupStatus = "Looking up…"
+        lookupStatus = qsTr("Looking up…")
         lookupRequest = researchStore.metadataLookup.lookup({title: titleField.text, doi: doiField.text, arxiv: arxivField.text})
     }
     Connections {
@@ -32,7 +32,7 @@ Dialog {
             if (found.year) yearField.text = found.year
             if (found.doi) doiField.text = found.doi
             if (found.arxiv) arxivField.text = found.arxiv
-            root.lookupStatus = "Filled from " + found.source + ". Review, then Save."
+            root.lookupStatus = qsTr("Filled from ") + found.source + ". Review, then Save."
         }
     }
     function begin(url) {
@@ -61,22 +61,22 @@ Dialog {
         Item { Layout.preferredWidth: 4 }
         Button {
             objectName: "readDetailsFromPdf"
-            text: "Read from PDF"
+            text: qsTr("Read from PDF")
             ToolTip.visible: hovered; ToolTip.delay: 450
-            ToolTip.text: "Discard edits and read the details from the PDF again"
+            ToolTip.text: qsTr("Discard edits and read the details from the PDF again")
             onClicked: { researchStore.resetDocumentDetails(root.source); root.close() }
         }
         Button {
             objectName: "lookUpOnline"
-            text: "Look up online"
+            text: qsTr("Look up online")
             enabled: !researchStore.metadataLookup.busy
             ToolTip.visible: hovered; ToolTip.delay: 450
-            ToolTip.text: "Sends the arXiv ID, DOI or title (not the PDF) to arXiv or Crossref"
+            ToolTip.text: qsTr("Sends the arXiv ID, DOI or title (not the PDF) to arXiv or Crossref")
             onClicked: root.lookUp()
         }
         Item { Layout.fillWidth: true }
-        Button { text: "Cancel"; onClicked: root.close() }
-        Button { objectName: "saveDetails"; text: "Save"; highlighted: true; onClicked: root.save() }
+        Button { text: qsTr("Cancel"); onClicked: root.close() }
+        Button { objectName: "saveDetails"; text: qsTr("Save"); highlighted: true; onClicked: root.save() }
         Item { Layout.preferredWidth: 4 }
     }
     GridLayout {
@@ -84,32 +84,32 @@ Dialog {
         columns: 2
         columnSpacing: 10
         rowSpacing: 8
-        Label { text: "File"; color: Theme.textTertiary }
+        Label { text: qsTr("File"); color: Theme.textTertiary }
         Label {
             Layout.fillWidth: true; text: root.details.fileName || ""; elide: Text.ElideMiddle
             textFormat: Text.PlainText; color: Theme.textTertiary
         }
-        Label { text: "Title"; color: Theme.text }
+        Label { text: qsTr("Title"); color: Theme.text }
         TextField {
             id: titleField; objectName: "detailsTitle"; Layout.fillWidth: true
-            placeholderText: "Shown instead of the file name"; maximumLength: 300; onAccepted: root.save()
+            placeholderText: qsTr("Shown instead of the file name"); maximumLength: 300; onAccepted: root.save()
         }
-        Label { text: "Authors"; color: Theme.text }
+        Label { text: qsTr("Authors"); color: Theme.text }
         TextField { id: authorsField; objectName: "detailsAuthors"; Layout.fillWidth: true; maximumLength: 1000; onAccepted: root.save() }
-        Label { text: "Year"; color: Theme.text }
+        Label { text: qsTr("Year"); color: Theme.text }
         TextField {
             id: yearField; objectName: "detailsYear"; Layout.preferredWidth: 80; maximumLength: 4
             validator: RegularExpressionValidator { regularExpression: /\d{0,4}/ }
             onAccepted: root.save()
         }
-        Label { text: "DOI"; color: Theme.text }
+        Label { text: qsTr("DOI"); color: Theme.text }
         TextField { id: doiField; Layout.fillWidth: true; maximumLength: 200; onAccepted: root.save() }
-        Label { text: "arXiv ID"; color: Theme.text }
+        Label { text: qsTr("arXiv ID"); color: Theme.text }
         TextField { id: arxivField; Layout.fillWidth: true; maximumLength: 40; onAccepted: root.save() }
-        Label { text: "Reading"; color: Theme.text }
+        Label { text: qsTr("Reading"); color: Theme.text }
         RowLayout {
-            ComboBox { id: stateBox; objectName: "detailsReadingState"; model: ["Unread", "Reading", "Read"]; Layout.preferredWidth: 120 }
-            CheckBox { id: favoriteBox; objectName: "detailsFavorite"; text: "Favorite" }
+            ComboBox { id: stateBox; objectName: "detailsReadingState"; model: [qsTr("Unread"), qsTr("Reading"), qsTr("Read")]; Layout.preferredWidth: 120 }
+            CheckBox { id: favoriteBox; objectName: "detailsFavorite"; text: qsTr("Favorite") }
         }
         Item { width: 1; height: 1; visible: root.lookupStatus.length > 0 }
         Label {

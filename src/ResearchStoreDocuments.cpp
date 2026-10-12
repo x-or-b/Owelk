@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "UiText.h"
 
 #include <QDir>
 #include "FileFingerprint.h"
@@ -44,7 +45,7 @@ bool rebuild(QSqlDatabase &db, const QString &table, const QString &create, cons
     const auto next = table + "_v3";
     if (!run(db, create.arg(next), error) || !run(db, copy.arg(next), error)) return false;
     if (count(db, table) != count(db, next)) {
-        *error = QStringLiteral("Upgrading %1 would lose rows. Nothing was changed.").arg(table);
+        *error = ui("Upgrading %1 would lose rows. Nothing was changed.").arg(table);
         return false;
     }
     return run(db, "DROP TABLE " + table, error) && run(db, "ALTER TABLE " + next + " RENAME TO " + table, error);
@@ -235,7 +236,7 @@ bool ResearchStore::updateDocumentDetails(const QUrl &source, const QVariantMap 
     static const QRegularExpression yearFormat("^(\\d{4})?$");
     if (title.size() > 300 || authors.size() > 1000 || doi.size() > 200 || arxiv.size() > 40
         || !yearFormat.match(year).hasMatch()) {
-        emit message("Check the details: title up to 300 characters, year as four digits.");
+        emit message(ui("Check the details: title up to 300 characters, year as four digits."));
         return false;
     }
     const auto id = ensureDocument(source);
@@ -244,7 +245,7 @@ bool ResearchStore::updateDocumentDetails(const QUrl &source, const QVariantMap 
     for (const auto &field : {title, authors, year, doi, arxiv}) query.addBindValue(text(field));
     query.addBindValue(id);
     if (id.isEmpty() || !query.exec() || query.numRowsAffected() != 1) {
-        emit message("Cannot save paper details.");
+        emit message(ui("Cannot save paper details."));
         return false;
     }
     rememberTitle(resolvedSource(source), title);

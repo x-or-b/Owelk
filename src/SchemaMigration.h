@@ -1,3 +1,4 @@
+#include "UiText.h"
 #pragma once
 
 #include <QDateTime>
@@ -38,8 +39,8 @@ inline bool migrateSchema(
     query.finish();
     if (!steps.isEmpty() && current > steps.last().version) {
         // Never let an older build rewrite data it does not understand.
-        *error = QStringLiteral("This data was created by a newer Owelk version (schema %1). Update Owelk to open it.")
-                     .arg(current);
+        *error
+            = ui("This data was created by a newer Owelk version (schema %1). Update Owelk to open it.").arg(current);
         return false;
     }
     bool backedUp = false;
@@ -57,7 +58,7 @@ inline bool migrateSchema(
             copy.addBindValue(target);
             if (!QDir().mkpath(backupDirectory) || !copy.exec()) {
                 // Without a backup the step does not run; the data stays at its current version.
-                *error = QStringLiteral("Cannot back up data before upgrading: %1").arg(copy.lastError().text());
+                *error = ui("Cannot back up data before upgrading: %1").arg(copy.lastError().text());
                 return false;
             }
         }

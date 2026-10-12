@@ -66,7 +66,7 @@ Item {
     // mode are remembered per provider and offered only where the model supports them.
     readonly property string model: (ai.providers, ai.model(ai.provider))
     readonly property var modelInfo: (models[ai.provider] || []).find(function(m) { return m.id === root.model }) || ({})
-    readonly property string modelLabel: modelInfo.name || model || (ai.provider === "codex" ? "Default model" : "Choose a model")
+    readonly property string modelLabel: modelInfo.name || model || (ai.provider === "codex" ? qsTr("Default model") : qsTr("Choose a model"))
     readonly property var efforts: modelInfo.efforts || []
     property string effort: ""
     property bool fast: false
@@ -78,7 +78,7 @@ Item {
     // A region of the PDF dragged out from the AI panel: its picture joins the next question (nothing is
     // saved; the reader sends it back through begin({attach, region})).
     function captureRegion() {
-        if (!reader || !reader.pdfReady) { error = "Open a PDF to choose a region."; return false }
+        if (!reader || !reader.pdfReady) { error = qsTr("Open a PDF to choose a region."); return false }
         error = ""
         reader.startCapture()
         return true
@@ -94,12 +94,12 @@ Item {
     function setFast(on) { fast = on; researchStore.setSetting("ai.fast." + ai.provider, on ? "1" : "") }
     function effortName(value) { return AiNames.effortName(value) }
     function companyName(provider) {
-        return ({claude: "Anthropic", openai: "OpenAI", codex: "ChatGPT account", ollama: "Ollama (this computer)"})[provider] || provider
+        return ({claude: qsTr("Anthropic"), openai: qsTr("OpenAI"), codex: qsTr("ChatGPT account"), ollama: qsTr("Ollama (this computer)")})[provider] || provider
     }
     function attachImage(url, name, about) {
         const value = url.toString()
         if (!/\.(png|jpe?g|gif|webp|heic)$/i.test(value) || images.some(function(i) { return i.url === value })) return false
-        if (images.length >= 6) { error = "Up to 6 images per question."; return false }
+        if (images.length >= 6) { error = qsTr("Up to 6 images per question."); return false }
         images = images.concat([{url: value, name: name || decodeURIComponent(value.replace(/^.*\//, "")), about: about || ""}])
         return true
     }
@@ -107,7 +107,7 @@ Item {
     // knows what it is ("Figure 3, page 5"), joins the open conversation, or a new one about that paper.
     function attachFigure(next) {
         const file = ai.saveRegionImage(next.source, next.page, next.region)
-        if (!file.length) { error = "Could not read that part of the PDF."; return false }
+        if (!file.length) { error = qsTr("Could not read that part of the PDF."); return false }
         if (!conversationOpen) newThread(next.source)
         const label = next.label || "Figure", page = Number(next.page) + 1
         const elsewhere = spec.source && !researchStore.sameSource(spec.source, next.source)
@@ -143,17 +143,17 @@ Item {
         const s = spec
         // The paper chip is the paper itself: with no narrower scope (a page, a selection) its whole text
         // goes with the first question; later turns carry it in the conversation.
-        if (s.source && s.source.toString().length) list.push({kind: "paper", label: "Paper · " + researchStore.displayName(s.source)})
+        if (s.source && s.source.toString().length) list.push({kind: "paper", label: qsTr("Paper · ") + researchStore.displayName(s.source)})
         if (s.selection && s.selection.length) {
             const flat = s.selection.replace(/\s+/g, " ").trim()
-            list.push({kind: "selection", label: "Selection · " + flat.slice(0, 60) + (flat.length > 60 ? "…" : ""), detail: s.selection})
+            list.push({kind: "selection", label: qsTr("Selection · ") + flat.slice(0, 60) + (flat.length > 60 ? "…" : ""), detail: s.selection})
         }
         if (s.quote && s.quote.length) {
             const flat = s.quote.replace(/\s+/g, " ").trim()
-            list.push({kind: "quote", label: "Quote · " + flat.slice(0, 60) + (flat.length > 60 ? "…" : ""), detail: s.quote})
+            list.push({kind: "quote", label: qsTr("Quote · ") + flat.slice(0, 60) + (flat.length > 60 ? "…" : ""), detail: s.quote})
         }
-        if (s.scope === "page") list.push({kind: "page", label: "Page " + (Number(s.page) + 1) + " text"})
-        if (s.scope === "library") list.push({kind: "library", label: (s.collection ? "Collection · " + s.collectionName : "Whole library") + " · passages that answer the question"})
+        if (s.scope === "page") list.push({kind: "page", label: qsTr("Page ") + (Number(s.page) + 1) + qsTr(" text")})
+        if (s.scope === "library") list.push({kind: "library", label: (s.collection ? qsTr("Collection · ") + s.collectionName : qsTr("Whole library")) + qsTr(" · passages that answer the question")})
         images.forEach(function(image, index) { list.push({kind: "image", index: index, label: image.name, url: image.url}) })
         return list
     }
@@ -234,7 +234,7 @@ Item {
     }
     function send(question) {
         error = ""
-        if (thread.trashed) { error = "Restore this conversation to continue it."; return false }
+        if (thread.trashed) { error = qsTr("Restore this conversation to continue it."); return false }
         const provider = ai.provider
         if (!providerInfo.configured && provider !== "ollama") {
             error = setupHint(provider)
@@ -262,8 +262,8 @@ Item {
     }
     // Where a provider that cannot answer yet is set up.
     function setupHint(provider) {
-        if (provider === "codex") return "Sign in with ChatGPT in Settings → AI."
-        return "Add an API key in Settings → AI."
+        if (provider === "codex") return qsTr("Sign in with ChatGPT in Settings → AI.")
+        return qsTr("Add an API key in Settings → AI.")
     }
     function chooseModel(provider, model) {
         ai.provider = provider
@@ -301,7 +301,7 @@ Item {
         }
         const text = lines.join("\n")
         const note = noteId ? (researchStore.appendToNote(noteId, text) ? noteId : "") : researchStore.createNote(thread.title || "AI", text + "\n")
-        if (note.length) researchStore.notify(noteId ? "Added to the note." : "Saved as a note with links to its sources.")
+        if (note.length) researchStore.notify(noteId ? qsTr("Added to the note.") : qsTr("Saved as a note with links to its sources."))
         return note
     }
     Connections {
@@ -357,21 +357,21 @@ Item {
         width: 440
         modal: true
         property string question: ""
-        title: "Send to " + (root.providerInfo.name || "AI provider") + "?"
+        title: qsTr("Send to ") + (root.providerInfo.name || qsTr("AI provider")) + "?"
         standardButtons: Dialog.Ok | Dialog.Cancel
         ColumnLayout {
             width: parent.width
             spacing: 8
             Label {
                 Layout.fillWidth: true; wrapMode: Text.Wrap
-                text: "Owelk sends the parts shown below and the earlier turns of this thread to " + (root.providerInfo.sends || "the provider")
-                      + " each time you ask. Nothing else from your library leaves this computer, and the PDF file itself is never uploaded."
+                text: qsTr("Owelk sends the parts shown below and the earlier turns of this thread to ") + (root.providerInfo.sends || qsTr("the provider"))
+                      + qsTr(" each time you ask. Nothing else from your library leaves this computer, and the PDF file itself is never uploaded.")
             }
             Repeater {
                 model: root.attachments
                 delegate: Label { required property var modelData; text: "• " + modelData.label; color: Theme.textSecondary; elide: Text.ElideRight; Layout.fillWidth: true }
             }
-            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary; text: "You are asked once per provider. Usage is billed by the provider under your account." }
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary; text: qsTr("You are asked once per provider. Usage is billed by the provider under your account.") }
         }
         onAccepted: { root.ai.giveConsent(root.ai.provider); root.send(question) }
     }

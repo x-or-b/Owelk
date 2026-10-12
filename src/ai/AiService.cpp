@@ -1,4 +1,5 @@
 #include "PdfAccess.h"
+#include "UiText.h"
 #include "AiService.h"
 #include "FileFingerprint.h"
 #include "AiContext.h"
@@ -59,7 +60,7 @@ AiService::AiService(ResearchStore *store, QObject *parent)
     connect(m_codex, &CodexBridge::notification, this, [this](const QString &method, const QJsonObject &params) {
         if (method == "account/login/completed") {
             if (!params.value("success").toBool())
-                m_store->notify("ChatGPT sign-in did not complete: " + params.value("error").toString("cancelled"));
+                m_store->notify(ui("ChatGPT sign-in did not complete: ") + params.value("error").toString("cancelled"));
             refreshCodexAccount();
         } else if (method == "account/updated")
             refreshCodexAccount();
@@ -175,7 +176,7 @@ AiProvider *AiService::createProvider(const QString &provider, QString *error)
     if (provider == "claude" || provider == "openai") {
         const auto key = Keychain::read(keyAccount(provider), m_store->dataDirectory());
         if (key.isEmpty()) {
-            *error = QStringLiteral("Add your %1 key in Settings → AI.").arg(info(provider)->name);
+            *error = ui("Add your %1 key in Settings → AI.").arg(info(provider)->name);
             return nullptr;
         }
         if (provider == "claude") return new AnthropicProvider(m_network, baseUrl(provider), key, this);
@@ -183,7 +184,7 @@ AiProvider *AiService::createProvider(const QString &provider, QString *error)
     }
     if (provider == "ollama") return new OllamaProvider(m_network, baseUrl(provider), this);
     if (provider == "codex") return new CodexProvider(m_codex, this);
-    *error = "Choose an AI provider in Settings → AI.";
+    *error = ui("Choose an AI provider in Settings → AI.");
     return nullptr;
 }
 
@@ -196,9 +197,9 @@ int AiService::ask(const QVariantMap &input)
         QMetaObject::invokeMethod(this, [this, request, error] { emit failed(request, error); }, Qt::QueuedConnection);
         return request;
     };
-    if (!info(id)) return fail("Choose an AI provider in Settings → AI.");
-    if (!consented(id)) return fail("Review what is sent to this provider before the first request.");
-    if ((id == "ollama") && model(id).isEmpty()) return fail("Choose an Ollama model in Settings → AI.");
+    if (!info(id)) return fail(ui("Choose an AI provider in Settings → AI."));
+    if (!consented(id)) return fail(ui("Review what is sent to this provider before the first request."));
+    if ((id == "ollama") && model(id).isEmpty()) return fail(ui("Choose an Ollama model in Settings → AI."));
     // A symbol list is kept for the Symbols tab, not as a conversation.
     if (!spec.value("symbols").toBool()
         && (spec.value("threadId").toString().isEmpty()
@@ -212,7 +213,7 @@ int AiService::ask(const QVariantMap &input)
             title += " · " + m_store->displayName(source);
         const auto thread
             = m_store->createAiThread({{"title", title}, {"provider", id}, {"model", model(id)}, {"source", source}});
-        if (thread.isEmpty()) return fail("Cannot start an AI thread.");
+        if (thread.isEmpty()) return fail(ui("Cannot start an AI thread."));
         spec.insert("threadId", thread);
     }
     // Gather on the UI thread what the store knows; PDF text and images are read on a worker.
@@ -273,7 +274,7 @@ int AiService::ask(const QVariantMap &input)
         if (pdfSource.isLocalFile() && (scope == "page" || scope == "paper")) {
             QPdfDocument pdf;
             if (PdfAccess::load(pdf, pdfSource.toLocalFile()) != QPdfDocument::Error::None) {
-                material.error = "Cannot read the PDF for this request.";
+                material.error = ui("Cannot read the PDF for this request.");
                 return material;
             }
             if (scope == "page" && page >= 0 && page < pdf.pageCount()) material.pageText = pdfText(pdf, page);
@@ -288,7 +289,7 @@ int AiService::ask(const QVariantMap &input)
         for (const auto &path : userImages) {
             QImage image(path);
             if (image.isNull()) {
-                material.error = "Cannot read the image " + QFileInfo(path).fileName() + ".";
+                material.error = ui("Cannot read the image ") + QFileInfo(path).fileName() + ".";
                 return material;
             }
             if (std::max(image.width(), image.height()) > 1568)
@@ -316,7 +317,7 @@ void AiService::retrieveLibrary(int request, const QString &id, QVariantMap spec
     if (!provider) {
         m_running.remove(request);
         emit busyChanged();
-        emit failed(request, question.isEmpty() ? QStringLiteral("Type a question for your library.") : error);
+        emit failed(request, question.isEmpty() ? ui("Type a question for your library.") : error);
         return;
     }
     // Papers are mostly in English while the question may not be: ask for search terms first.
@@ -347,8 +348,8 @@ void AiService::retrieveLibrary(int request, const QString &id, QVariantMap spec
                 m_running.remove(request);
                 emit busyChanged();
                 emit failed(request,
-                    QString("No passage in %1 matches this question. Only papers whose text is indexed are "
-                            "searched; try other words.")
+                    QString(ui("No passage in %1 matches this question. Only papers whose text is indexed are "
+                               "searched; try other words."))
                         .arg(collection.isEmpty() ? "your library" : "this collection"));
                 return;
             }
@@ -536,7 +537,8 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         // Question and answer are stored together, so a thread always alternates them.
         auto display = spec.value("question").toString().trimmed();
         if (display.isEmpty()) display = spec.value("label").toString();
-        if (display.isEmpty()) display = spec.value("action").toString() == "translate" ? "Translate" : "Ask";
+        if (display.isEmpty())
+            display = spec.value("action").toString() == "translate" ? QStringLiteral("Translate") : "Ask";
         QStringList attachments;
         if (!attached.selection.isEmpty()) attachments << "selection";
         if (!attached.pageText.isEmpty()) attachments << QStringLiteral("page %1").arg(attached.pageNumber);
@@ -631,10 +633,10 @@ int AiService::gloss(const QVariantMap &spec)
         QMetaObject::invokeMethod(this, [this, request, error] { emit failed(request, error); }, Qt::QueuedConnection);
         return request;
     };
-    if (!info(id)) return fail("Choose an AI provider in Settings → AI.");
-    if (!consented(id)) return fail("Review what is sent to this provider before the first request.");
+    if (!info(id)) return fail(ui("Choose an AI provider in Settings → AI."));
+    if (!consented(id)) return fail(ui("Review what is sent to this provider before the first request."));
     const auto text = spec.value("text").toString().simplified().left(1500);
-    if (text.isEmpty()) return fail("Select a word or a passage.");
+    if (text.isEmpty()) return fail(ui("Select a word or a passage."));
     m_running.insert(request, nullptr);
     emit busyChanged();
     const auto url = m_store->resolvedSource(spec.value("source").toUrl());
@@ -657,16 +659,16 @@ int AiService::gloss(const QVariantMap &spec)
         // A word or a short phrase: what it means here; anything longer: its translation.
         const bool term = text.split(' ', Qt::SkipEmptyParts).size() <= 3 && text.size() <= 48;
         AiRequest call;
-        call.system = QStringLiteral("You are Gloss, a quick reading aid in a paper reader. Answer at once, briefly, "
-                                     "in %1, with no headings or preamble. Keep math as LaTeX in $...$.")
+        call.system = ui("You are Gloss, a quick reading aid in a paper reader. Answer at once, briefly, "
+                         "in %1, with no headings or preamble. Keep math as LaTeX in $...$.")
                           .arg(into);
         call.text = (context.isEmpty() ? QString() : "<passage>\n" + context + "\n</passage>\n\n") + "<selection>\n"
             + text + "\n</selection>\n\n"
-            + (term ? QStringLiteral("Give the selected term in %1 first, as \"**term** — translation\"; then, in one "
-                                     "or two short sentences, what it means in this passage.")
+            + (term ? ui("Give the selected term in %1 first, as \"**term** — translation\"; then, in one "
+                         "or two short sentences, what it means in this passage.")
                           .arg(into)
-                    : QStringLiteral("Translate the selection into %1. Give only the translation, faithful and "
-                                     "natural; keep equations, symbols and citation markers unchanged.")
+                    : ui("Translate the selection into %1. Give only the translation, faithful and "
+                         "natural; keep equations, symbols and citation markers unchanged.")
                           .arg(into));
         call.model = glossModel(id);
         // Providers ignore an effort the model does not have.
@@ -753,8 +755,7 @@ void AiService::finishSymbols(int request, const QVariantMap &spec, const QStrin
 {
     const auto symbols = parseSymbols(answer);
     if (symbols.isEmpty()) {
-        emit failed(
-            request, stopped ? QStringLiteral("Stopped.") : QStringLiteral("No symbol list came back. Try again."));
+        emit failed(request, stopped ? QStringLiteral("Stopped.") : ui("No symbol list came back. Try again."));
         return;
     }
     const auto source = spec.value("source").toUrl();
@@ -766,7 +767,7 @@ void AiService::finishSymbols(int request, const QVariantMap &spec, const QStrin
                    {"model", model}, {"created", QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}}))
                    .toJson(QJsonDocument::Compact))
             <= 0) {
-        emit failed(request, "Cannot keep the symbol list in the data folder.");
+        emit failed(request, ui("Cannot keep the symbol list in the data folder."));
         return;
     }
     file.close();
@@ -854,7 +855,7 @@ int AiService::suggestGroups(const QVariantList &items, const QString &prefix, c
     auto *provider = items.size() < 2 ? nullptr : createProvider(id, &error);
     if (!provider) {
         if (error.isEmpty())
-            error = prefix == "t" ? "Open at least two tabs to organize." : "Choose at least two papers.";
+            error = prefix == "t" ? ui("Open at least two tabs to organize.") : ui("Choose at least two papers.");
         QMetaObject::invokeMethod(
             this, [this, request, error, reply] { emit(this->*reply)(request, {}, error); }, Qt::QueuedConnection);
         return request;
@@ -883,8 +884,7 @@ int AiService::suggestGroups(const QVariantList &items, const QString &prefix, c
         [this, request, ids, done, memberKey, idsKey, reply](const QString &answer, const QString &) {
             done();
             const auto groups = parseGroups(answer, ids, memberKey, idsKey);
-            emit(this->*reply)(
-                request, groups, groups.isEmpty() ? QStringLiteral("No groups were suggested.") : QString());
+            emit(this->*reply)(request, groups, groups.isEmpty() ? ui("No groups were suggested.") : QString());
         });
     connect(provider, &AiProvider::failed, this, [this, request, done, reply](const QString &message) {
         done();
@@ -897,9 +897,9 @@ int AiService::suggestGroups(const QVariantList &items, const QString &prefix, c
 int AiService::organizeTabs(const QVariantList &tabs)
 {
     return suggestGroups(tabs, "t", "tabs", "tabIds",
-        "You organize a researcher's open tabs into a few named groups by topic. Use short, specific group "
-        "names (2-5 words) in the language of the tab titles. Leave a tab out when it fits no group. Reply "
-        "with JSON only: {\"groups\": [{\"name\": \"…\", \"tabs\": [\"t1\", \"t2\"]}]}.",
+        ui("You organize a researcher's open tabs into a few named groups by topic. Use short, specific group "
+           "names (2-5 words) in the language of the tab titles. Leave a tab out when it fits no group. Reply "
+           "with JSON only: {\"groups\": [{\"name\": \"…\", \"tabs\": [\"t1\", \"t2\"]}]}."),
         "Group these tabs:", &AiService::tabsOrganized);
 }
 
@@ -912,11 +912,11 @@ int AiService::organizePapers(const QVariantList &papers, const QStringList &col
         text = "Collections that already exist:\n" + names.join('\n') + "\n\n" + text;
     }
     return suggestGroups(papers, "p", "papers", "paperIds",
-        "You sort a researcher's papers into a few topic collections. Use short, specific names (2-5 words) "
-        "in the language of the paper titles. When papers fit a collection that already exists, use its exact "
-        "name. Leave a paper out when it fits no group, and do not make a group for a single paper unless it "
-        "fits an existing collection. Reply with JSON only: "
-        "{\"groups\": [{\"name\": \"…\", \"papers\": [\"p1\", \"p2\"]}]}.",
+        ui("You sort a researcher's papers into a few topic collections. Use short, specific names (2-5 words) "
+           "in the language of the paper titles. When papers fit a collection that already exists, use its exact "
+           "name. Leave a paper out when it fits no group, and do not make a group for a single paper unless it "
+           "fits an existing collection. Reply with JSON only: "
+           "{\"groups\": [{\"name\": \"…\", \"papers\": [\"p1\", \"p2\"]}]}."),
         text, &AiService::papersOrganized);
 }
 
@@ -927,7 +927,7 @@ int AiService::comparePapers(const QVariantList &papers, const QStringList &aspe
     QString error;
     auto *provider = papers.size() < 2 ? nullptr : createProvider(id, &error);
     if (!provider) {
-        if (error.isEmpty()) error = "Choose at least two papers to compare.";
+        if (error.isEmpty()) error = ui("Choose at least two papers to compare.");
         QMetaObject::invokeMethod(
             this, [this, request, error] { emit papersCompared(request, {}, error); }, Qt::QueuedConnection);
         return request;
@@ -951,15 +951,14 @@ int AiService::comparePapers(const QVariantList &papers, const QStringList &aspe
     const auto language = aiLanguageName(m_store->setting("aiLanguage", "ko"));
     AiRequest call;
     call.system
-        = QStringLiteral(
-              "You compare research papers for a researcher, using only the text given for each paper. Write a "
-              "Markdown "
-              "table with one row per paper, in the order given: the first column names the paper (a short title and "
-              "the year), then one column per requested aspect. Keep each cell short (at most about 25 words) and "
-              "exact about numbers, datasets and terms; write \"not stated\" when the given text does not say. After "
-              "the "
-              "table, add 3-5 bullet points on the main differences and when each paper is the better choice. Output "
-              "only the table and the bullets.")
+        = ui("You compare research papers for a researcher, using only the text given for each paper. Write a "
+             "Markdown "
+             "table with one row per paper, in the order given: the first column names the paper (a short title and "
+             "the year), then one column per requested aspect. Keep each cell short (at most about 25 words) and "
+             "exact about numbers, datasets and terms; write \"not stated\" when the given text does not say. After "
+             "the "
+             "table, add 3-5 bullet points on the main differences and when each paper is the better choice. Output "
+             "only the table and the bullets.")
         + (language.isEmpty()
                 ? QStringLiteral(" Write in the language of the papers.")
                 : QStringLiteral(" Write in %1; keep technical terms in their original form.").arg(language));
@@ -978,7 +977,7 @@ int AiService::comparePapers(const QVariantList &papers, const QStringList &aspe
     connect(provider, &AiProvider::finished, this, [this, request, done](const QString &text, const QString &) {
         done();
         emit papersCompared(
-            request, text.trimmed(), text.trimmed().isEmpty() ? QStringLiteral("No comparison came back.") : QString());
+            request, text.trimmed(), text.trimmed().isEmpty() ? ui("No comparison came back.") : QString());
     });
     connect(provider, &AiProvider::failed, this, [this, request, done](const QString &message) {
         done();
@@ -999,8 +998,7 @@ void AiService::testConnection(const QString &id)
     }
     connect(provider, &AiProvider::finished, this, [this, id, provider](const QString &text, const QString &used) {
         provider->deleteLater();
-        emit connectionTested(
-            id, true, QStringLiteral("Connected (%1): %2").arg(used.isEmpty() ? model(id) : used, text.left(80)));
+        emit connectionTested(id, true, ui("Connected (%1): %2").arg(used.isEmpty() ? model(id) : used, text.left(80)));
     });
     connect(provider, &AiProvider::failed, this, [this, id, provider](const QString &message) {
         provider->deleteLater();
@@ -1044,7 +1042,7 @@ void AiService::codexSignIn()
         if (url.scheme() == "https")
             QDesktopServices::openUrl(url);
         else
-            m_store->notify("Codex did not return a sign-in address.");
+            m_store->notify(ui("Codex did not return a sign-in address."));
     });
 }
 

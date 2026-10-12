@@ -19,10 +19,10 @@ ColumnLayout {
     readonly property int outside: researchStore.documentsRevision >= 0 && !researchStore.copyingPdfs ? researchStore.outsidePdfCount() : 0
     Connections { target: researchStore; function onBackupFinished(ok, path, message) { root.result = message } }
     SettingsGroup {
-        title: "Library"
-        note: "Like a note app, Owelk keeps its own copy of every PDF you open, add or download, in its data folder. The original files are never moved or deleted; you can remove them yourself."
+        title: qsTr("Library")
+        note: qsTr("Like a note app, Owelk keeps its own copy of every PDF you open, add or download, in its data folder. The original files are never moved or deleted; you can remove them yourself.")
         SettingsRow {
-            label: "Keep PDFs in Owelk"
+            label: qsTr("Keep PDFs in Owelk")
             Switch {
                 objectName: "keepPdfs"
                 checked: root.keepPdfs
@@ -31,62 +31,62 @@ ColumnLayout {
         }
         SettingsRow {
             visible: root.keepPdfs && (root.outside > 0 || researchStore.copyingPdfs)
-            label: researchStore.copyingPdfs ? "Copying PDFs…" : root.outside + (root.outside === 1 ? " paper still reads its PDF from elsewhere" : " papers still read their PDFs from elsewhere")
-            detail: "Each copy is checked byte for byte before the paper uses it."
+            label: researchStore.copyingPdfs ? qsTr("Copying PDFs…") : root.outside + (root.outside === 1 ? qsTr(" paper still reads its PDF from elsewhere") : qsTr(" papers still read their PDFs from elsewhere"))
+            detail: qsTr("Each copy is checked byte for byte before the paper uses it.")
             Button {
                 objectName: "copyPdfsIn"
-                text: "Copy Into Owelk"
+                text: qsTr("Copy Into Owelk")
                 enabled: !researchStore.copyingPdfs
                 onClicked: researchStore.copyPdfsIntoLibrary()
             }
         }
         SettingsRow {
-            label: "Empty the Trash"
-            detail: "Deleted papers, notes and AI conversations wait in Library › Trash until then"
+            label: qsTr("Empty the Trash")
+            detail: qsTr("Deleted papers, notes and AI conversations wait in Library › Trash until then")
             ComboBox {
                 objectName: "trashDaysBox"
                 Layout.preferredWidth: 160
                 readonly property var days: [7, 30, 0]
-                model: ["After 7 days", "After 30 days", "Never"]
+                model: [qsTr("After 7 days"), qsTr("After 30 days"), qsTr("Never")]
                 currentIndex: Math.max(0, days.indexOf(researchStore.trashDays()))
                 onActivated: function(index) { researchStore.setSetting("trash.days", String(days[index])) }
             }
         }
         SettingsRow {
-            label: "PDF folder"
-            Button { objectName: "showPapersFolder"; text: "Show Folder"; onClicked: Qt.openUrlExternally(researchStore.papersFolderUrl()) }
+            label: qsTr("PDF folder")
+            Button { objectName: "showPapersFolder"; text: qsTr("Show Folder"); onClicked: Qt.openUrlExternally(researchStore.papersFolderUrl()) }
         }
     }
     SettingsGroup {
-        title: "Sync"
+        title: qsTr("Sync")
         note: root.syncProblem.length ? root.syncProblem
-            : "Keeps this library the same on your other computers. Choose a folder inside Google Drive, Dropbox or Syncthing (for example My Drive) on each computer; Owelk works in an Owelk folder there and copies the Library's PDFs into it, so there is nothing to move by hand. On Ubuntu, reach Google Drive with rclone or Insync. Papers, annotations, notes, collections, reading state and AI threads travel; when one item changes on two computers, the later change wins."
+            : qsTr("Keeps this library the same on your other computers. Choose a folder inside Google Drive, Dropbox or Syncthing (for example My Drive) on each computer; Owelk works in an Owelk folder there and copies the Library's PDFs into it, so there is nothing to move by hand. On Ubuntu, reach Google Drive with rclone or Insync. Papers, annotations, notes, collections, reading state and AI threads travel; when one item changes on two computers, the later change wins.")
         noteColor: root.syncProblem.length ? Theme.danger : Theme.textTertiary
         SettingsRow {
-            label: "Sync folder"
-            detail: root.syncing ? root.sync.folder : "Off"
-            Button { objectName: "syncOff"; visible: root.syncing; text: "Turn Off"; onClicked: root.sync.turnOff() }
-            Button { objectName: "syncFolder"; text: "Choose Folder…"; onClicked: syncFolderDialog.open() }
+            label: qsTr("Sync folder")
+            detail: root.syncing ? root.sync.folder : qsTr("Off")
+            Button { objectName: "syncOff"; visible: root.syncing; text: qsTr("Turn Off"); onClicked: root.sync.turnOff() }
+            Button { objectName: "syncFolder"; text: qsTr("Choose Folder…"); onClicked: syncFolderDialog.open() }
         }
         SettingsRow {
             visible: root.syncing
-            label: root.sync.status.length ? root.sync.status : "Waiting to sync"
-            detail: root.sync.computers.length ? "With " + root.sync.computers.join(", ") : "No other computer has synced yet"
+            label: root.sync.status.length ? root.sync.status : qsTr("Waiting to sync")
+            detail: root.sync.computers.length ? qsTr("With ") + root.sync.computers.join(", ") : qsTr("No other computer has synced yet")
             Button {
                 objectName: "syncNow"
-                text: root.sync.running ? "Syncing…" : "Sync Now"
+                text: root.sync.running ? qsTr("Syncing…") : qsTr("Sync Now")
                 enabled: !root.sync.running
                 onClicked: root.sync.syncNow()
             }
         }
     }
     SettingsGroup {
-        title: "Backup"
+        title: qsTr("Backup")
         note: root.result.length ? root.result
-            : "A backup copies the library (papers' details, notes, annotations, AI threads) and its images into a folder. Your PDFs stay where they are and are not copied. Automatic backups go to the data folder's backups/auto."
+            : qsTr("A backup copies the library (papers' details, notes, annotations, AI threads) and its images into a folder. Your PDFs stay where they are and are not copied. Automatic backups go to the data folder's backups/auto.")
         SettingsRow {
-            label: "Back up automatically"
-            detail: "Once a day; keeps the last 7"
+            label: qsTr("Back up automatically")
+            detail: qsTr("Once a day; keeps the last 7")
             Switch {
                 objectName: "autoBackup"
                 checked: researchStore.setting("backup.auto", "1") === "1"
@@ -94,46 +94,46 @@ ColumnLayout {
             }
         }
         SettingsRow {
-            label: "Back up now"
+            label: qsTr("Back up now")
             Button {
                 objectName: "backUpNow"
-                text: researchStore.backingUp ? "Backing Up…" : "Choose Folder…"
+                text: researchStore.backingUp ? qsTr("Backing Up…") : qsTr("Choose Folder…")
                 enabled: !researchStore.backingUp
                 onClicked: backupFolderDialog.open()
             }
         }
         SettingsRow {
-            label: "Restore from a backup"
-            Button { objectName: "restoreBackup"; text: "Choose Backup…"; onClicked: restoreFolderDialog.open() }
+            label: qsTr("Restore from a backup")
+            Button { objectName: "restoreBackup"; text: qsTr("Choose Backup…"); onClicked: restoreFolderDialog.open() }
         }
     }
     SettingsGroup {
-        title: "Export"
-        note: "Each note becomes a Markdown file. A paper's annotations are exported from the reader's ⋯ menu."
+        title: qsTr("Export")
+        note: qsTr("Each note becomes a Markdown file. A paper's annotations are exported from the reader's ⋯ menu.")
         SettingsRow {
-            label: "All notes as Markdown"
-            Button { objectName: "exportNotes"; text: "Export…"; onClicked: notesFolderDialog.open() }
+            label: qsTr("All notes as Markdown")
+            Button { objectName: "exportNotes"; text: qsTr("Export…"); onClicked: notesFolderDialog.open() }
         }
     }
     Label { objectName: "backupResult"; visible: false; text: root.result }
     Native.FolderDialog {
         id: syncFolderDialog
-        title: "Choose the shared folder to sync with"
+        title: qsTr("Choose the shared folder to sync with")
         onAccepted: root.syncProblem = root.sync.setFolder(selectedFolder)
     }
     Native.FolderDialog {
         id: backupFolderDialog
-        title: "Choose where to put the backup"
+        title: qsTr("Choose where to put the backup")
         onAccepted: { researchStore.setSetting("backup.folder", researchStore.localPath(selectedFolder)); researchStore.backUp(researchStore.localPath(selectedFolder)) }
     }
     Native.FolderDialog {
         id: notesFolderDialog
-        title: "Export every note as Markdown to…"
-        onAccepted: root.result = researchStore.exportNotesMarkdown(researchStore.localPath(selectedFolder)) + " notes exported."
+        title: qsTr("Export every note as Markdown to…")
+        onAccepted: root.result = researchStore.exportNotesMarkdown(researchStore.localPath(selectedFolder)) + qsTr(" notes exported.")
     }
     Native.FolderDialog {
         id: restoreFolderDialog
-        title: "Choose an Owelk backup folder"
+        title: qsTr("Choose an Owelk backup folder")
         onAccepted: {
             const folder = researchStore.localPath(selectedFolder)
             const problem = researchStore.checkBackup(folder)
@@ -150,12 +150,12 @@ ColumnLayout {
         width: 420
         modal: true
         property string folder: ""
-        title: "Restore this backup?"
+        title: qsTr("Restore this backup?")
         standardButtons: Dialog.Ok | Dialog.Cancel
         Label {
             width: parent.width; wrapMode: Text.Wrap
-            text: "Owelk replaces its library with the backup the next time it starts. The current library is moved to the data folder's backups, not deleted. Your PDFs are not touched."
+            text: qsTr("Owelk replaces its library with the backup the next time it starts. The current library is moved to the data folder's backups, not deleted. Your PDFs are not touched.")
         }
-        onAccepted: if (researchStore.scheduleRestore(folder)) root.result = "Quit and reopen Owelk to finish restoring."
+        onAccepted: if (researchStore.scheduleRestore(folder)) root.result = qsTr("Quit and reopen Owelk to finish restoring.")
     }
 }

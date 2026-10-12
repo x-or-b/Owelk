@@ -20,12 +20,12 @@ Menu {
         target.persistentSelection = keptSelection
         target.forceActiveFocus()
     }
-    MenuItem { objectName: "textMenuUndo"; text: "Undo"; enabled: menu.editable && menu.target.canUndo; onTriggered: menu.target.undo() }
-    MenuItem { objectName: "textMenuRedo"; text: "Redo"; enabled: menu.editable && menu.target.canRedo; onTriggered: menu.target.redo() }
+    MenuItem { objectName: "textMenuUndo"; text: qsTr("Undo"); enabled: menu.editable && menu.target.canUndo; onTriggered: menu.target.undo() }
+    MenuItem { objectName: "textMenuRedo"; text: qsTr("Redo"); enabled: menu.editable && menu.target.canRedo; onTriggered: menu.target.redo() }
     MenuSeparator {}
-    MenuItem { objectName: "textMenuCut"; text: "Cut"; enabled: menu.editable && menu.selected && !menu.hidden; onTriggered: menu.target.cut() }
-    MenuItem { objectName: "textMenuCopy"; text: "Copy"; enabled: menu.selected && !menu.hidden; onTriggered: menu.target.copy() }
-    MenuItem { objectName: "textMenuPaste"; text: "Paste"; enabled: menu.editable && menu.target.canPaste; onTriggered: menu.target.paste() }
+    MenuItem { objectName: "textMenuCut"; text: qsTr("Cut"); enabled: menu.editable && menu.selected && !menu.hidden; onTriggered: menu.target.cut() }
+    MenuItem { objectName: "textMenuCopy"; text: qsTr("Copy"); enabled: menu.selected && !menu.hidden; onTriggered: menu.target.copy() }
+    MenuItem { objectName: "textMenuPaste"; text: qsTr("Paste"); enabled: menu.editable && menu.target.canPaste; onTriggered: menu.target.paste() }
     MenuItem {
         objectName: "textMenuDelete"; text: "Delete"
         enabled: menu.editable && menu.selected
@@ -33,7 +33,7 @@ Menu {
     }
     MenuSeparator {}
     MenuItem {
-        objectName: "textMenuSelectAll"; text: "Select All"
+        objectName: "textMenuSelectAll"; text: qsTr("Select All")
         enabled: menu.target.length > 0 && menu.target.selectedText.length < menu.target.length
         onTriggered: menu.target.selectAll()
     }

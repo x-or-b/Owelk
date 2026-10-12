@@ -1,5 +1,6 @@
 #pragma once
 #include "AnnotationImage.h"
+#include "UiText.h"
 #include <QQuickImageProvider>
 
 class AnnotationImageProvider final : public QQuickImageProvider {

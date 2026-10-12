@@ -31,7 +31,7 @@ ColumnLayout {
         revision++
     }
     function addGroup(firstId) {
-        groups.push({name: "New Group", keep: true, ids: []})
+        groups.push({name: qsTr("New Group"), keep: true, ids: []})
         const at = groups.length - 1
         groupCount = groups.length
         if (firstId !== undefined) move(firstId, at)
@@ -70,9 +70,9 @@ ColumnLayout {
             onObjectRemoved: function(index, object) { moveMenu.removeItem(object) }
         }
         MenuSeparator {}
-        MenuItem { objectName: "groupMoveNew"; text: "New Group"; onTriggered: root.addGroup(moveMenu.itemId) }
+        MenuItem { objectName: "groupMoveNew"; text: qsTr("New Group"); onTriggered: root.addGroup(moveMenu.itemId) }
         onClosed: Qt.callLater(root.focusPending)
-        MenuItem { objectName: "groupMoveOut"; text: "Leave Out"; visible: moveMenu.from >= 0; height: visible ? implicitHeight : 0; onTriggered: root.move(moveMenu.itemId, -1) }
+        MenuItem { objectName: "groupMoveOut"; text: qsTr("Leave Out"); visible: moveMenu.from >= 0; height: visible ? implicitHeight : 0; onTriggered: root.move(moveMenu.itemId, -1) }
     }
     function showMoveMenu(id, from, anchor) {
         moveMenu.itemId = id
@@ -101,7 +101,7 @@ ColumnLayout {
                     objectName: "groupKeep-" + group.index
                     checked: group.entry.keep
                     onToggled: { root.groups[group.index].keep = checked; root.revision++ }
-                    ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: checked ? "Apply this group" : "Skip this group"
+                    ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: checked ? qsTr("Apply this group") : qsTr("Skip this group")
                 }
                 TextField {
                     id: name
@@ -147,7 +147,7 @@ ColumnLayout {
                         id: moveButton
                         objectName: "groupMemberMove-" + group.index + "-" + member.index
                         icon.name: "down"; implicitWidth: 22; implicitHeight: 20
-                        description: "Move to another group"
+                        description: qsTr("Move to another group")
                         onClicked: root.showMoveMenu(member.modelData, group.index, moveButton)
                     }
                 }
@@ -160,7 +160,7 @@ ColumnLayout {
             RowLayout {
                 Layout.fillWidth: true
                 visible: root.ungrouped.length > 0
-                Label { Layout.fillWidth: true; text: "Not grouped  " + root.ungrouped.length; font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold; color: Theme.textSecondary }
+                Label { Layout.fillWidth: true; text: qsTr("Not grouped  ") + root.ungrouped.length; font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold; color: Theme.textSecondary }
             }
             Repeater {
                 model: root.ungrouped
@@ -175,7 +175,7 @@ ColumnLayout {
                         id: addButton
                         objectName: "ungroupedAdd-" + loose.index
                         icon.name: "add"; implicitWidth: 22; implicitHeight: 20
-                        description: "Add to a group"
+                        description: qsTr("Add to a group")
                         onClicked: root.showMoveMenu(loose.modelData.id, -1, addButton)
                     }
                 }
@@ -183,7 +183,7 @@ ColumnLayout {
             Button {
                 objectName: "newGroupButton"
                 Layout.topMargin: 6
-                text: "New Group"
+                text: qsTr("New Group")
                 onClicked: root.addGroup()
             }
         }

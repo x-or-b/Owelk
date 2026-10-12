@@ -7,9 +7,9 @@ import "AiNames.js" as AiNames
 ColumnLayout {
     id: root
     spacing: 22
-    readonly property var languages: [{name: "Korean", value: "ko"}, {name: "English", value: "en"}, {name: "Japanese", value: "ja"},
-        {name: "Chinese (Simplified)", value: "zh"}, {name: "German", value: "de"}, {name: "French", value: "fr"},
-        {name: "Spanish", value: "es"}, {name: "Same as the paper", value: "source"}]
+    readonly property var languages: [{name: qsTr("Korean"), value: "ko"}, {name: qsTr("English"), value: "en"}, {name: qsTr("Japanese"), value: "ja"},
+        {name: qsTr("Chinese (Simplified)"), value: "zh"}, {name: qsTr("German"), value: "de"}, {name: qsTr("French"), value: "fr"},
+        {name: qsTr("Spanish"), value: "es"}, {name: qsTr("Same as the paper"), value: "source"}]
     readonly property var ai: researchStore.ai
     readonly property var current: ai.providers.find(function(p) { return p.id === ai.provider }) || ({})
     readonly property bool needsKey: current.kind === "api"
@@ -48,10 +48,10 @@ ColumnLayout {
     }
     Component.onCompleted: refreshProvider()
     SettingsGroup {
-        title: "Answers"
-        note: "Used for Explain, Summarize and other one-click actions, and as the Translate target. A question you type is answered in the language you wrote it in."
+        title: qsTr("Answers")
+        note: qsTr("Used for Explain, Summarize and other one-click actions, and as the Translate target. A question you type is answered in the language you wrote it in.")
         SettingsRow {
-            label: "Preferred language"
+            label: qsTr("Preferred language")
             ComboBox {
                 objectName: "aiLanguageBox"
                 Layout.preferredWidth: 200
@@ -61,33 +61,33 @@ ColumnLayout {
             }
         }
         SettingsRow {
-            label: "Explanations"
-            detail: "How every answer is written"
+            label: qsTr("Explanations")
+            detail: qsTr("How every answer is written")
             ComboBox {
                 objectName: "aiExplainLevelBox"
                 Layout.preferredWidth: 200
-                model: ["Easy, with examples", "Brief"]
+                model: [qsTr("Easy, with examples"), qsTr("Brief")]
                 currentIndex: researchStore.setting("ai.explainLevel", "easy") === "brief" ? 1 : 0
                 onActivated: function(index) { researchStore.setSetting("ai.explainLevel", index === 1 ? "brief" : "easy") }
             }
         }
         SettingsRow {
-            label: "Instructions"
-            detail: "Added to every question, for example: \"Put English terms in brackets\" or \"I know Kalman filters\""
+            label: qsTr("Instructions")
+            detail: qsTr("Added to every question, for example: \"Put English terms in brackets\" or \"I know Kalman filters\"")
             wide: true
             TextArea {
                 objectName: "aiInstructions"
                 Layout.fillWidth: true
                 Layout.preferredHeight: Math.max(60, implicitHeight)
                 wrapMode: TextEdit.Wrap
-                placeholderText: "Optional"
+                placeholderText: qsTr("Optional")
                 text: researchStore.setting("ai.instructions")
                 onEditingFinished: researchStore.setSetting("ai.instructions", text.trim().slice(0, 2000))
             }
         }
         SettingsRow {
-            label: "Symbol hints"
-            detail: "Once a paper's symbols are listed (Document panel › Symbols), pointing at one shows its meaning"
+            label: qsTr("Symbol hints")
+            detail: qsTr("Once a paper's symbols are listed (Document panel › Symbols), pointing at one shows its meaning")
             Switch {
                 objectName: "aiSymbolHints"
                 checked: researchStore.setting("ai.symbolHints", "1") === "1"
@@ -95,8 +95,8 @@ ColumnLayout {
             }
         }
         SettingsRow {
-            label: "Show thinking"
-            detail: "A short summary of the model's reasoning, folded above each answer"
+            label: qsTr("Show thinking")
+            detail: qsTr("A short summary of the model's reasoning, folded above each answer")
             Switch {
                 objectName: "aiShowThinking"
                 checked: researchStore.setting("ai.showThinking", "1") === "1"
@@ -105,11 +105,11 @@ ColumnLayout {
         }
     }
     SettingsGroup {
-        title: "Provider"
-        note: "Keys are stored in " + root.ai.keyStorage() + ". Before the first request to a provider, Owelk shows what will be sent. "
-            + "Claude is available with an API key; signing in with a Claude.ai account is not offered because Anthropic does not allow it for third-party apps."
+        title: qsTr("Provider")
+        note: qsTr("Keys are stored in ") + root.ai.keyStorage() + ". Before the first request to a provider, Owelk shows what will be sent. "
+            + qsTr("Claude is available with an API key; signing in with a Claude.ai account is not offered because Anthropic does not allow it for third-party apps.")
         SettingsRow {
-            label: "Provider"
+            label: qsTr("Provider")
             ComboBox {
                 objectName: "aiSettingsProvider"
                 Layout.preferredWidth: 220
@@ -121,44 +121,44 @@ ColumnLayout {
         }
         SettingsRow {
             visible: root.needsKey
-            label: "API key"
+            label: qsTr("API key")
             wide: true
             TextField {
                 id: keyField
                 objectName: "aiKeyField"
                 Layout.fillWidth: true
                 echoMode: TextInput.Password
-                placeholderText: root.keyStored ? "Stored securely" : "Paste your API key"
+                placeholderText: root.keyStored ? qsTr("Stored securely") : qsTr("Paste your API key")
                 onAccepted: if (text.trim().length && root.ai.setApiKey(root.current.id, text)) clear()
             }
             Button {
-                objectName: "aiSaveKey"; text: "Save"; primary: keyField.text.trim().length > 0
+                objectName: "aiSaveKey"; text: qsTr("Save"); primary: keyField.text.trim().length > 0
                 enabled: keyField.text.trim().length > 0
                 onClicked: { if (root.ai.setApiKey(root.current.id, keyField.text)) keyField.clear() }
             }
-            IconButton { visible: root.keyStored; icon.name: "trash"; tint: Theme.danger; description: "Remove the stored key"; onClicked: root.ai.clearApiKey(root.current.id) }
+            IconButton { visible: root.keyStored; icon.name: "trash"; tint: Theme.danger; description: qsTr("Remove the stored key"); onClicked: root.ai.clearApiKey(root.current.id) }
             IconButton {
                 objectName: "aiGetKey"
                 visible: !root.keyStored && (root.current.id === "claude" || root.current.id === "openai")
-                icon.name: "external"; description: "Get a key…"
+                icon.name: "external"; description: qsTr("Get a key…")
                 onClicked: Qt.openUrlExternally(root.current.id === "claude" ? "https://console.anthropic.com/settings/keys" : "https://platform.openai.com/api-keys")
             }
         }
         SettingsRow {
             visible: root.current.id === "codex"
-            label: "Account"
-            detail: root.codexAccount.available === false ? "Codex CLI not found — install it to sign in"
-                : root.codexAccount.signedIn ? "Signed in" + (root.codexAccount.email ? " as " + root.codexAccount.email : "") : "Not signed in"
+            label: qsTr("Account")
+            detail: root.codexAccount.available === false ? qsTr("Codex CLI not found — install it to sign in")
+                : root.codexAccount.signedIn ? qsTr("Signed in") + (root.codexAccount.email ? qsTr(" as ") + root.codexAccount.email : "") : qsTr("Not signed in")
             Button {
                 objectName: "codexSignIn"
-                text: root.codexAccount.signedIn ? "Sign Out" : "Sign in with ChatGPT"
+                text: root.codexAccount.signedIn ? qsTr("Sign Out") : qsTr("Sign in with ChatGPT")
                 enabled: root.codexAccount.available !== false
                 onClicked: root.codexAccount.signedIn ? root.ai.codexSignOut() : root.ai.codexSignIn()
             }
         }
         SettingsRow {
             visible: root.current.id === "ollama"
-            label: "Host"
+            label: qsTr("Host")
             wide: true
             TextField {
                 Layout.fillWidth: true
@@ -168,13 +168,13 @@ ColumnLayout {
         }
         // The model and reasoning effort the AI panel starts with (the same choice as its model menu).
         SettingsRow {
-            label: "Model"
+            label: qsTr("Model")
             ComboBox {
                 id: modelBox
                 objectName: "aiModelBox"
                 Layout.preferredWidth: 220
                 readonly property int at: root.models.findIndex(function(m) { return m.id === root.chatModel })
-                readonly property var names: (root.models.length ? root.models.map(function(m) { return m.name }) : [root.modelsLoaded ? "Default model" : "Loading…"]).concat(["Other…"])
+                readonly property var names: (root.models.length ? root.models.map(function(m) { return m.name }) : [root.modelsLoaded ? qsTr("Default model") : qsTr("Loading…")]).concat([qsTr("Other…")])
                 // A model typed by name (not in the list) shows as Other….
                 readonly property bool custom: root.otherModel || (root.models.length > 0 && at < 0 && root.chatModel.length > 0)
                 model: names
@@ -188,21 +188,21 @@ ColumnLayout {
         }
         SettingsRow {
             visible: modelBox.custom
-            label: "Model name"
+            label: qsTr("Model name")
             wide: true
             TextField {
                 id: modelField
                 objectName: "aiModelField"
                 Layout.fillWidth: true
                 text: root.chatModel
-                placeholderText: root.current.defaultModel || "Model name"
+                placeholderText: root.current.defaultModel || qsTr("Model name")
                 onEditingFinished: root.ai.setModel(root.currentId, text.trim())
             }
         }
         SettingsRow {
             visible: (root.chatInfo.efforts || []).length > 0
-            label: "Reasoning"
-            detail: "Higher thinks longer and costs more"
+            label: qsTr("Reasoning")
+            detail: qsTr("Higher thinks longer and costs more")
             ComboBox {
                 objectName: "aiEffortBox"
                 Layout.preferredWidth: 160
@@ -215,18 +215,18 @@ ColumnLayout {
         }
         // Gloss (a word's meaning or a passage's translation beside the selection): quick by default.
         SettingsRow {
-            label: "Gloss model"
+            label: qsTr("Gloss model")
             ComboBox {
                 objectName: "aiGlossModelBox"
                 Layout.preferredWidth: 220
-                model: ["Fast (automatic)"].concat(root.models.map(function(m) { return m.name }))
+                model: [qsTr("Fast (automatic)")].concat(root.models.map(function(m) { return m.name }))
                 currentIndex: root.glossChoice === "auto" ? 0 : root.models.findIndex(function(m) { return m.id === root.glossChoice }) + 1
                 onActivated: function(index) { root.ai.setGloss(root.currentId, index === 0 ? "" : root.models[index - 1].id, root.glossEffort) }
             }
         }
         SettingsRow {
             visible: (root.glossInfo.efforts || []).length > 0
-            label: "Gloss reasoning"
+            label: qsTr("Gloss reasoning")
             ComboBox {
                 id: glossEffortBox
                 objectName: "aiGlossEffortBox"
@@ -241,11 +241,11 @@ ColumnLayout {
             }
         }
         SettingsRow {
-            label: "Connection"
+            label: qsTr("Connection")
             detail: root.testResult
             Icon { visible: root.testResult.length > 0 && root.testResult !== "Testing…"; name: root.testOk ? "ok" : "alert"; color: root.testOk ? Theme.accent : Theme.danger }
             Label { objectName: "aiTestResult"; visible: false; text: root.testResult }
-            Button { objectName: "aiTestConnection"; text: "Test"; onClicked: { root.testOk = false; root.testResult = "Testing…"; root.ai.testConnection(root.current.id) } }
+            Button { objectName: "aiTestConnection"; text: qsTr("Test"); onClicked: { root.testOk = false; root.testResult = qsTr("Testing…"); root.ai.testConnection(root.current.id) } }
         }
     }
 }

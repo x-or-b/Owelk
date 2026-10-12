@@ -6,7 +6,7 @@ import Owelk.Ui
 Dialog {
     id: root
     property string message: ""
-    property string actionText: "OK"
+    property string actionText: qsTr("OK")
     property bool destructive: true
     signal confirmed()
     parent: Overlay.overlay
@@ -15,7 +15,7 @@ Dialog {
     modal: true
     Label { width: parent.width; wrapMode: Text.Wrap; color: Theme.textSecondary; text: root.message }
     footer: DialogButtonBox {
-        Button { text: "Cancel"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+        Button { text: qsTr("Cancel"); DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
         Button {
             objectName: "confirmAction"
             text: root.actionText

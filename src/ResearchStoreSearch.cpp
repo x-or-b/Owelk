@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "UiText.h"
 #include "PaperIndex.h"
 #include "WorkerConnection.h"
 
@@ -194,7 +195,7 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QList<QUrl> &indexed, c
                 const auto title = notes.value(1).toString();
                 if (!query.matches({title, body})) continue;
                 add(QVariantMap{{"kind", "note"}, {"id", notes.value(0)},
-                        {"title", "Note · " + (title.isEmpty() ? QStringLiteral("Untitled") : title)},
+                        {"title", ui("Note · ") + (title.isEmpty() ? ui("Untitled") : title)},
                         {"snippet", snippet(body, query.firstHit(body), needle.size())}},
                     query.score(title, body));
                 ++count;
@@ -216,7 +217,7 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QList<QUrl> &indexed, c
                 const auto title = answers.value(1).toString();
                 const auto answer = answers.value(2).toString();
                 if (!query.matches({title, answer})) continue;
-                add(QVariantMap{{"kind", "ai"}, {"id", answers.value(0)}, {"title", "AI · " + title},
+                add(QVariantMap{{"kind", "ai"}, {"id", answers.value(0)}, {"title", ui("AI · ") + title},
                         {"snippet", snippet(answer, query.firstHit(answer), needle.size())}},
                     query.score(title, answer));
                 ++count;
@@ -233,7 +234,7 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QList<QUrl> &indexed, c
                 const auto name = rows.value(1).toString();
                 if (!query.matches({name})) continue;
                 add(QVariantMap{{"kind", kind}, {"id", rows.value(0)},
-                        {"title", (QString(kind) == "tag" ? "Tag · " : "Collection · ") + name}},
+                        {"title", (QString(kind) == "tag" ? ui("Tag · ") : ui("Collection · ")) + name}},
                     query.score(name));
                 ++count;
             }

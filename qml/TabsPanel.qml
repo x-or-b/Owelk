@@ -103,21 +103,21 @@ Rectangle {
                 objectName: "tabsPanelToggle"
                 icon.name: "sidebar"
                 checked: root.open
-                description: (root.open ? "Hide tabs · " : "Show tabs · ") + Platform.keys("Ctrl+Shift+B")
+                description: (root.open ? qsTr("Hide tabs · ") : qsTr("Show tabs · ")) + Platform.keys("Ctrl+Shift+B")
                 onClicked: root.toggleRequested()
             }
             Label {
                 visible: root.open
                 Layout.fillWidth: true
                 leftPadding: 4
-                text: "Tabs"
+                text: qsTr("Tabs")
                 font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold; color: Theme.textSecondary
             }
             IconButton {
                 visible: root.open
                 objectName: "tabsPanelNewTab"
                 icon.name: "add"
-                description: "New tab · " + Platform.keys("Ctrl+T")
+                description: qsTr("New tab · ") + Platform.keys("Ctrl+T")
                 onClicked: root.controller.newHomeTab()
             }
         }
@@ -138,7 +138,7 @@ Rectangle {
                     objectName: "tabsRailNewTab"
                     anchors.centerIn: parent
                     icon.name: "add"
-                    description: "New tab · " + Platform.keys("Ctrl+T")
+                    description: qsTr("New tab · ") + Platform.keys("Ctrl+T")
                     onClicked: root.controller.newHomeTab()
                 }
             }
@@ -165,7 +165,7 @@ Rectangle {
                 Label {
                     visible: row.type === "split" && root.open
                     x: 14; anchors.verticalCenter: parent.verticalCenter
-                    text: "Split " + row.modelData.number
+                    text: qsTr("Split ") + row.modelData.number
                     font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold
                     color: row.activeStrip ? Theme.text : Theme.textTertiary
                 }
@@ -316,7 +316,7 @@ Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         width: Theme.controlHeightSmall - 2; height: width; glyphSize: Theme.fontBody
                         icon.name: "close"
-                        description: "Close tab"
+                        description: qsTr("Close tab")
                         onClicked: { const id = row.tab.id; Qt.callLater(function() { root.controller.closeTab(id) }) }
                     }
                     ToolTip.visible: pointer.containsMouse && !pointer.pressed && !root.open

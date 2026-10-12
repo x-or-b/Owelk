@@ -1,4 +1,5 @@
 #include "PdfAccess.h"
+#include "UiText.h"
 #include "ResearchStore.h"
 #include "SemanticIndex.h"
 #include "FileFingerprint.h"
@@ -632,7 +633,7 @@ void ResearchStore::commentText(const QUrl &source, int page, const QPointF &fro
     const QString &expectedText, const QString &body, const QString &color)
 {
     if (body.trimmed().isEmpty() || body.size() > 10000) {
-        emit message("Enter a comment (up to 10,000 characters).");
+        emit message(ui("Enter a comment (up to 10,000 characters)."));
         emit annotationFinished(false, "");
         return;
     }
@@ -646,12 +647,12 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
         emit message(error);
         emit annotationFinished(false, "");
     };
-    if (!annotationColors().contains(color)) return fail("Choose a supported highlight color.");
-    if (m_relinking) return fail("Please wait until source verification finishes.");
+    if (!annotationColors().contains(color)) return fail(ui("Choose a supported highlight color."));
+    if (m_relinking) return fail(ui("Please wait until source verification finishes."));
     if (!source.isLocalFile() || page < 0 || expectedText.trimmed().isEmpty() || expectedText.size() > 100000
         || !std::isfinite(from.x()) || !std::isfinite(from.y()) || !std::isfinite(to.x()) || !std::isfinite(to.y()))
-        return fail("Select text in a PDF first.");
-    if (m_pending >= 4) return fail("Saving annotations. Please try again shortly.");
+        return fail(ui("Select text in a PDF first."));
+    if (m_pending >= 4) return fail(ui("Saving annotations. Please try again shortly."));
     ++m_pending;
     emit busyChanged();
     auto *watcher = new QFutureWatcher<SelectionResult>(this);
@@ -662,7 +663,7 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
         emit busyChanged();
         if (!result.error.isEmpty()) return fail(result.error);
         const auto document = ensureDocument(result.source);
-        if (document.isEmpty()) return fail("Cannot record the source document. Check storage and permissions.");
+        if (document.isEmpty()) return fail(ui("Cannot record the source document. Check storage and permissions."));
         // Repeated clicks must not stack opaque copies of the same annotation.
         QSqlQuery existing(m_database);
         existing.prepare("SELECT id,body FROM highlights WHERE document_id=? AND sha256=? AND page=? AND "
@@ -670,7 +671,7 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
         for (const QVariant &value : {QVariant(document), QVariant(result.hash), QVariant(result.page),
                  QVariant(result.start), QVariant(result.end), QVariant(kind)})
             existing.addBindValue(value);
-        if (!existing.exec()) return fail("Cannot check existing highlights.");
+        if (!existing.exec()) return fail(ui("Cannot check existing highlights."));
         if (kind == "highlight" && existing.next()) {
             const auto id = existing.value(0).toString();
             const auto preservedBody = body.isNull() ? existing.value(1).toString() : body;
@@ -695,14 +696,14 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
                  QVariant(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)), QVariant(color), QVariant(kind),
                  QVariant(body.isNull() ? QStringLiteral("") : body)})
             mark.addBindValue(value);
-        if (!mark.exec()) return fail("Cannot save annotation. Check storage and permissions.");
+        if (!mark.exec()) return fail(ui("Cannot save annotation. Check storage and permissions."));
         recordAnnotation(result.id, {}, "");
         emit highlightsChanged();
         emit homeChanged();
         emit highlightSaved(result.id, result.source);
         emit annotationSaved(result.id);
         emit annotationFinished(true, result.id);
-        emit message("Annotation saved. The original PDF was not modified.");
+        emit message(ui("Annotation saved. The original PDF was not modified."));
     });
     watcher->setFuture(QtConcurrent::run(&m_workers, [source, page, from, to, expectedText] {
         SelectionResult result;
@@ -713,7 +714,7 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
         QPdfDocument document;
         if (result.hash.isEmpty() || PdfAccess::load(document, path) != QPdfDocument::Error::None
             || page >= document.pageCount()) {
-            result.error = "Cannot read the source PDF.";
+            result.error = ui("Cannot read the source PDF.");
             return result;
         }
         const auto selection = document.getSelection(page, from, to);
@@ -721,7 +722,7 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
         if (!selection.isValid() || selection.text() != expectedText || size.isEmpty()
             || selection.boundingRectangle().isEmpty() || selection.startIndex() < 0
             || selection.endIndex() < selection.startIndex()) {
-            result.error = "The selection could not be verified. Reopen the PDF and select the text again.";
+            result.error = ui("The selection could not be verified. Reopen the PDF and select the text again.");
             return result;
         }
         result.text = selection.text();
@@ -736,11 +737,11 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
                     {"width", r.width() / size.width()}, {"height", r.height() / size.height()}});
         }
         if (result.rectangles.isEmpty()) {
-            result.error = "This selection has no highlight geometry.";
+            result.error = ui("This selection has no highlight geometry.");
             return result;
         }
         if (fingerprint(path) != result.hash) {
-            result.error = "The source PDF changed while saving. Please reopen it.";
+            result.error = ui("The source PDF changed while saving. Please reopen it.");
             return result;
         }
         result.id = QUuid::createUuid().toString(QUuid::WithoutBraces);

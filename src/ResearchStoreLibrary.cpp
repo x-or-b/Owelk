@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "UiText.h"
 #include "PaperIndex.h"
 
 #include <QDateTime>
@@ -123,7 +124,7 @@ QVariantList ResearchStore::recentItems(const QString &kind, int limit) const
     while (query.next()) {
         if (kind == "note")
             rows.append(QVariantMap{{"id", query.value(0)},
-                {"title", query.value(1).toString().isEmpty() ? "Untitled note" : query.value(1).toString()}});
+                {"title", query.value(1).toString().isEmpty() ? ui("Untitled note") : query.value(1).toString()}});
         else if (kind == "ai") {
             const QUrl source(query.value(2).toString());
             rows.append(QVariantMap{{"id", query.value(0)}, {"title", query.value(1)},
@@ -162,7 +163,7 @@ QString ResearchStore::createCollection(const QString &name, const QString &pare
 {
     const auto trimmed = name.simplified();
     if (trimmed.isEmpty() || trimmed.size() > 120) {
-        emit message("Enter a collection name (1–120 characters).");
+        emit message(ui("Enter a collection name (1–120 characters)."));
         return {};
     }
     const auto id = newId();
@@ -253,7 +254,7 @@ bool ResearchStore::setDocumentTags(const QUrl &source, const QStringList &names
     if (document.isEmpty() || !m_database.transaction()) return false;
     const auto fail = [this] {
         m_database.rollback();
-        emit message("Cannot save tags.");
+        emit message(ui("Cannot save tags."));
         return false;
     };
     QSqlQuery clear(m_database);
@@ -312,8 +313,8 @@ bool ResearchStore::setExcludedFromIndex(const QUrl &source, bool excluded)
         m_index->remove(resolvedSource(source));
     else
         m_index->enqueue(resolvedSource(source));
-    emit message(excluded ? "Removed from the text index. Its pages no longer appear in PDF text search."
-                          : "Added back to the text index.");
+    emit message(excluded ? ui("Removed from the text index. Its pages no longer appear in PDF text search.")
+                          : ui("Added back to the text index."));
     announceDocumentsChanged();
     return true;
 }
@@ -454,10 +455,10 @@ int ResearchStore::addDocuments(const QVariantList &sources, const QString &coll
     emit homeChanged();
     if (m_quietAdd) return int(added.size());
     if (!added.isEmpty())
-        emit message(added.size() == 1 ? QStringLiteral("Added 1 PDF to the Library.")
-                                       : QString("Added %1 PDFs to the Library.").arg(added.size()));
+        emit message(added.size() == 1 ? ui("Added 1 PDF to the Library.")
+                                       : QString(ui("Added %1 PDFs to the Library.")).arg(added.size()));
     else
-        emit message("No PDFs were added. Choose PDF files.");
+        emit message(ui("No PDFs were added. Choose PDF files."));
     return int(added.size());
 }
 
@@ -489,8 +490,9 @@ int ResearchStore::removeFromLibrary(const QVariantList &sources)
     announceDocumentsChanged();
     emit recentDocumentsChanged();
     emit homeChanged();
-    emit message(removed == 1 ? QStringLiteral("Removed from the Library. The PDF file was kept.")
-                              : QString("Removed %1 papers from the Library. The PDF files were kept.").arg(removed));
+    emit message(removed == 1
+            ? ui("Removed from the Library. The PDF file was kept.")
+            : QString(ui("Removed %1 papers from the Library. The PDF files were kept.")).arg(removed));
     return removed;
 }
 
@@ -506,7 +508,7 @@ int ResearchStore::importFolder(const QUrl &folder, const QString &parentCollect
     struct Found {
         QString path, relativeDir;
     };
-    emit message("Looking for PDFs in " + QFileInfo(root).fileName() + "…");
+    emit message(ui("Looking for PDFs in ") + QFileInfo(root).fileName() + "…");
     auto *watcher = new QFutureWatcher<QList<Found>>(this);
     connect(watcher, &QFutureWatcher<QList<Found>>::finished, this, [=, this] {
         const auto found = watcher->result();

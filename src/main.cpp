@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QApplication>
 #include <QQmlApplicationEngine>
+#include "UiLanguage.h"
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QQuickStyle>
@@ -63,13 +64,16 @@ int main(int argc, char *argv[])
     // Read before the window exists, so the first frame already has the chosen theme.
     Theme theme(&store);
     qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "Theme", &theme);
+    UiLanguage language(&store);
     QQmlApplicationEngine engine;
+    QObject::connect(&language, &UiLanguage::changed, &engine, &QQmlEngine::retranslate);
     engine.addImageProvider("annotation", new AnnotationImageProvider);
     engine.addImageProvider("math", new MathImageProvider);
     engine.rootContext()->setContextProperty("selectionGeometry", &selectionGeometry);
     engine.rootContext()->setContextProperty("researchStore", &store);
     engine.rootContext()->setContextProperty("initialFiles", initialFiles);
     engine.rootContext()->setContextProperty("appInstance", &instance);
+    engine.rootContext()->setContextProperty("uiLanguage", &language);
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
         Qt::QueuedConnection);

@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Qt6 6.9 REQUIRED COMPONENTS Quick QuickControls2 Pdf PdfQuick Sql Concurrent PrintSupport Widgets Network WebEngineQuick)
 qt_standard_project_setup(REQUIRES 6.9)
 
-qt_add_library(owelk_core STATIC src/ResearchStore.cpp src/ResearchStoreHighlights.cpp src/ResearchStoreRelink.cpp src/ResearchStoreSearch.cpp src/ResearchStoreDocuments.cpp src/ResearchStoreLibrary.cpp src/ResearchStoreNotes.cpp src/ResearchStoreAi.cpp src/ResearchStoreBackup.cpp src/ResearchStoreExport.cpp src/ResearchStoreAnchors.cpp src/ResearchStoreHistory.cpp src/ResearchStoreCitations.cpp src/LibrarySync.cpp src/LibrarySync.h src/ResearchStorePapers.cpp src/ResearchStoreTrash.cpp src/MathRenderer.cpp src/MathRenderer.h src/PaperMetadata.cpp src/PaperMetadata.h src/MetadataLookup.cpp src/MetadataLookup.h src/ai/AiService.cpp src/ai/AiService.h src/ai/AiProviders.cpp src/ai/AiProviders.h src/ai/AiContext.cpp src/ai/AiContext.h src/ai/Keychain.cpp src/ai/Keychain.h src/ResearchStore.h src/SelectionGeometry.cpp src/SelectionGeometry.h src/PaperIndex.cpp src/PaperIndex.h src/ReferenceFinder.cpp src/ReferenceFinder.h src/AppInstance.cpp src/AppInstance.h src/SemanticIndex.cpp src/SemanticIndex.h src/PdfPrinting.cpp src/PdfPrinting.h src/PdfAccess.cpp src/PdfAccess.h src/AnnotatedPdf.cpp src/AnnotatedPdf.h src/FileFingerprint.cpp src/FileFingerprint.h src/SchemaMigration.h src/WorkerConnection.h src/ui/Theme.cpp src/ui/Theme.h src/ui/AppIcon.cpp src/ui/AppIcon.h)
+qt_add_library(owelk_core STATIC src/ResearchStore.cpp src/ResearchStoreHighlights.cpp src/ResearchStoreRelink.cpp src/ResearchStoreSearch.cpp src/ResearchStoreDocuments.cpp src/ResearchStoreLibrary.cpp src/ResearchStoreNotes.cpp src/ResearchStoreAi.cpp src/ResearchStoreBackup.cpp src/ResearchStoreExport.cpp src/ResearchStoreAnchors.cpp src/ResearchStoreHistory.cpp src/ResearchStoreCitations.cpp src/LibrarySync.cpp src/LibrarySync.h src/ResearchStorePapers.cpp src/ResearchStoreTrash.cpp src/MathRenderer.cpp src/MathRenderer.h src/PaperMetadata.cpp src/PaperMetadata.h src/MetadataLookup.cpp src/MetadataLookup.h src/ai/AiService.cpp src/ai/AiService.h src/ai/AiProviders.cpp src/ai/AiProviders.h src/ai/AiContext.cpp src/ai/AiContext.h src/ai/Keychain.cpp src/ai/Keychain.h src/ResearchStore.h src/SelectionGeometry.cpp src/SelectionGeometry.h src/PaperIndex.cpp src/PaperIndex.h src/ReferenceFinder.cpp src/ReferenceFinder.h src/AppInstance.cpp src/AppInstance.h src/SemanticIndex.cpp src/SemanticIndex.h src/PdfPrinting.cpp src/PdfPrinting.h src/PdfAccess.cpp src/PdfAccess.h src/AnnotatedPdf.cpp src/AnnotatedPdf.h src/FileFingerprint.cpp src/FileFingerprint.h src/SchemaMigration.h src/WorkerConnection.h src/ui/Theme.cpp src/ui/Theme.h src/ui/UiLanguage.cpp src/ui/UiLanguage.h src/UiText.h src/ui/AppIcon.cpp src/ui/AppIcon.h)
 target_link_libraries(owelk_core PUBLIC Qt6::Core Qt6::Gui Qt6::Pdf Qt6::Sql Qt6::Concurrent Qt6::PrintSupport Qt6::Widgets Qt6::Network)
 target_include_directories(owelk_core PUBLIC src src/ai src/ui)
 # Annotated PDF export writes real PDF annotations with qpdf (brew qpdf, apt libqpdf-dev, vcpkg qpdf).
@@ -37,6 +37,15 @@ list(TRANSFORM owelk_math_fonts PREPEND third_party/microtex/)
 qt_add_resources(owelk_core "math_fonts" PREFIX "/" BASE third_party/microtex FILES ${owelk_math_fonts})
 # The icon font (a Lucide subset, see tools/icons.py), loaded once by Theme.
 qt_add_resources(owelk_core "icons" PREFIX "/owelk" BASE resources FILES resources/icons/lucide.ttf resources/app/owelk.png resources/app/owelk-white.png resources/app/owelk-navy.png)
+# Optional: the interface spelled out in Hangul (translations/, made by tools/hangul.py), when Qt's
+# Linguist tools are there at build time.
+find_package(Qt6 QUIET COMPONENTS LinguistTools)
+if(TARGET Qt6::lrelease)
+    qt_add_lrelease(owelk_core TS_FILES translations/owelk_hangul.ts QM_FILES_OUTPUT_VARIABLE owelk_qm_files)
+    qt_add_resources(owelk_core "translations" PREFIX "/owelk/i18n" BASE ${CMAKE_CURRENT_BINARY_DIR} FILES ${owelk_qm_files})
+else()
+    message(STATUS "Qt Linguist tools not found: the Hangul interface option is hidden")
+endif()
 # Optional: dark (inverted) PDF pages need a compiled shader (Qt ShaderTools at build time only).
 find_package(Qt6 QUIET COMPONENTS ShaderTools)
 if(TARGET Qt6::ShaderTools)

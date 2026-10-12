@@ -425,7 +425,7 @@ Flickable {
             if (seen[key(t)]) closing.push(t.id); else seen[key(t)] = true
         })
         closing.forEach(function(id) { root.closeTab(id) })
-        researchStore.notify(closing.length ? (closing.length === 1 ? "Closed 1 duplicate tab." : "Closed " + closing.length + " duplicate tabs.") : "No duplicate tabs.")
+        researchStore.notify(closing.length ? (closing.length === 1 ? qsTr("Closed 1 duplicate tab.") : qsTr("Closed ") + closing.length + qsTr(" duplicate tabs.")) : qsTr("No duplicate tabs."))
         return closing.length
     }
     // Papers moved to the Trash close wherever they are open.
@@ -480,7 +480,7 @@ Flickable {
     }
     // A new group, named in place right after.
     function newTabGroup(tabIds) {
-        const label = groupTabs(tabIds, "New group")
+        const label = groupTabs(tabIds, qsTr("New group"))
         const g = label.length ? Tree.owner(tree, tabIds[0]) : null
         if (g) tabGroupCreated(g.id, label)
         return label
@@ -547,7 +547,7 @@ Flickable {
         tabGroupTabs(stripId, labelId).forEach(function(t) {
             if (!t.kind && t.source.startsWith("file:")) researchStore.setDocumentCollection(t.source, id, true)
         })
-        researchStore.notify("Saved the papers of \u201c" + label.name + "\u201d as a collection.")
+        researchStore.notify(qsTr("Saved the papers of \u201c") + label.name + qsTr("\u201d as a collection."))
         return id
     }
     // Suggested groups (AI tab organization), applied only when the reader confirms.
@@ -761,7 +761,7 @@ Flickable {
         Label {
             visible: !!root.dropTarget && !!root.dropTarget.join
             anchors.top: parent.bottom; anchors.topMargin: 3; anchors.horizontalCenter: parent.horizontalCenter
-            text: "Group"
+            text: qsTr("Group")
             font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.accent
         }
     }

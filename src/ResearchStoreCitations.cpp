@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "UiText.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -65,11 +66,11 @@ int ResearchStore::loadCitations(const QUrl &source, bool refresh, bool cachedOn
         return request;
     };
     const auto document = documentLinkId(source);
-    if (document.isEmpty()) return fail("Open the paper from the Library first.");
+    if (document.isEmpty()) return fail(ui("Open the paper from the Library first."));
     QSqlQuery query(m_database);
     query.prepare("SELECT title,doi,arxiv FROM documents WHERE id=?");
     query.addBindValue(document);
-    if (!query.exec() || !query.next()) return fail("This paper is not in the Library.");
+    if (!query.exec() || !query.next()) return fail(ui("This paper is not in the Library."));
     const auto title = query.value(0).toString().simplified(), doi = query.value(1).toString().trimmed();
     const auto arxiv = query.value(2).toString().trimmed().remove(QRegularExpression("v\\d+$"));
     const auto cachePath = m_directory + "/citations/" + document + ".json";
@@ -90,7 +91,7 @@ int ResearchStore::loadCitations(const QUrl &source, bool refresh, bool cachedOn
         return request;
     }
     if (doi.isEmpty() && arxiv.isEmpty() && title.size() < 8)
-        return fail("This paper has no DOI, arXiv ID or title to look up. Add one in Paper Details.");
+        return fail(ui("This paper has no DOI, arXiv ID or title to look up. Add one in Paper Details."));
     if (!m_citationNetwork) m_citationNetwork = new QNetworkAccessManager(this);
     const auto base = setting("citations.baseUrl", "https://api.semanticscholar.org/graph/v1");
     const auto get = [this, request, source](const QUrl &url, std::function<void(const QByteArray &)> next) {
@@ -102,9 +103,9 @@ int ResearchStore::loadCitations(const QUrl &source, bool refresh, bool cachedOn
             reply->deleteLater();
             const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
             if (reply->error() != QNetworkReply::NoError || status >= 400) {
-                const auto error = status == 404 ? QStringLiteral("Semantic Scholar does not know this paper.")
-                    : status == 429              ? QStringLiteral("Semantic Scholar is busy. Try again in a minute.")
-                                                 : "Cannot reach Semantic Scholar: " + reply->errorString();
+                const auto error = status == 404 ? ui("Semantic Scholar does not know this paper.")
+                    : status == 429              ? ui("Semantic Scholar is busy. Try again in a minute.")
+                                                 : ui("Cannot reach Semantic Scholar: ") + reply->errorString();
                 emit citationsLoaded(request, source, {{"error", error}});
                 return;
             }
@@ -146,7 +147,7 @@ int ResearchStore::loadCitations(const QUrl &source, bool refresh, bool cachedOn
             const auto found = QJsonDocument::fromJson(json).object().value("data").toArray();
             const auto id = found.isEmpty() ? QString() : found.first().toObject().value("paperId").toString();
             if (id.isEmpty())
-                emit citationsLoaded(request, source, {{"error", "Semantic Scholar does not know this paper."}});
+                emit citationsLoaded(request, source, {{"error", ui("Semantic Scholar does not know this paper.")}});
             else
                 fetch(id);
         });

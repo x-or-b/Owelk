@@ -20,13 +20,13 @@ Item {
     Menu {
         id: menu
         objectName: "paperMenu"
-        MenuItem { objectName: "paperOpenOption"; text: "Open"; onTriggered: root.openRequested(root.paper.url, root.paper.position) }
+        MenuItem { objectName: "paperOpenOption"; text: qsTr("Open"); onTriggered: root.openRequested(root.paper.url, root.paper.position) }
         MenuSeparator {}
-        MenuItem { objectName: "paperDetailsOption"; text: "Paper Details…"; onTriggered: { details.active = true; details.item.begin(root.paper.url) } }
-        MenuItem { objectName: "libraryTagsOption"; text: "Tags…"; onTriggered: { tags.active = true; tags.item.begin(root.paper.url) } }
+        MenuItem { objectName: "paperDetailsOption"; text: qsTr("Paper Details…"); onTriggered: { details.active = true; details.item.begin(root.paper.url) } }
+        MenuItem { objectName: "libraryTagsOption"; text: qsTr("Tags…"); onTriggered: { tags.active = true; tags.item.begin(root.paper.url) } }
         Menu {
             id: collections
-            title: "Collections"
+            title: qsTr("Collections")
             property var rows: []
             onAboutToShow: rows = researchStore.collections()
             Instantiator {
@@ -41,36 +41,36 @@ Item {
                 onObjectAdded: function(index, object) { collections.insertItem(index, object) }
                 onObjectRemoved: function(index, object) { collections.removeItem(object) }
             }
-            MenuItem { text: "New Collection…"; onTriggered: { collectionName.active = true; collectionName.item.open() } }
+            MenuItem { text: qsTr("New Collection…"); onTriggered: { collectionName.active = true; collectionName.item.open() } }
         }
         MenuItem {
             objectName: "removeFromCollectionOption"
             visible: root.collectionId.length > 0; height: visible ? implicitHeight : 0
-            text: "Remove from This Collection"
+            text: qsTr("Remove from This Collection")
             onTriggered: researchStore.setDocumentCollection(root.paper.url, root.collectionId, false)
         }
         MenuSeparator {}
         MenuItem {
             objectName: "paperReadStateOption"
-            text: root.paper.readingState === "read" ? "Mark as Unread" : "Mark as Read"
+            text: root.paper.readingState === "read" ? qsTr("Mark as Unread") : qsTr("Mark as Read")
             onTriggered: researchStore.setReadingState(root.paper.url, root.paper.readingState === "read" ? "unread" : "read")
         }
-        MenuItem { text: root.paper.favorite ? "Remove from Favorites" : "Add to Favorites"; onTriggered: researchStore.setFavorite(root.paper.url, !root.paper.favorite) }
+        MenuItem { text: root.paper.favorite ? qsTr("Remove from Favorites") : qsTr("Add to Favorites"); onTriggered: researchStore.setFavorite(root.paper.url, !root.paper.favorite) }
         MenuSeparator {}
-        MenuItem { objectName: "copyBibtex"; text: "Copy BibTeX"; onTriggered: { researchStore.copyText(researchStore.bibtex([root.paper.url.toString()])); researchStore.notify("BibTeX copied.") } }
-        MenuItem { text: "Copy File Path"; onTriggered: researchStore.copyText(researchStore.localPath(root.paper.url)) }
+        MenuItem { objectName: "copyBibtex"; text: qsTr("Copy BibTeX"); onTriggered: { researchStore.copyText(researchStore.bibtex([root.paper.url.toString()])); researchStore.notify(qsTr("BibTeX copied.")) } }
+        MenuItem { text: qsTr("Copy File Path"); onTriggered: researchStore.copyText(researchStore.localPath(root.paper.url)) }
         MenuSeparator {}
         MenuItem {
             visible: root.paper.excluded !== undefined; height: visible ? implicitHeight : 0
-            text: root.paper.excluded ? "Include in Text Search" : "Exclude from Text Search"
+            text: root.paper.excluded ? qsTr("Include in Text Search") : qsTr("Exclude from Text Search")
             onTriggered: researchStore.setExcludedFromIndex(root.paper.url, !root.paper.excluded)
         }
-        MenuItem { text: "Locate Original PDF…"; onTriggered: researchStore.requestRelink(root.paper.url) }
+        MenuItem { text: qsTr("Locate Original PDF…"); onTriggered: researchStore.requestRelink(root.paper.url) }
         MenuSeparator {}
         MenuItem {
             objectName: "removeRecentOption"
             visible: root.recent; height: visible ? implicitHeight : 0
-            text: "Remove from Recent Papers…"
+            text: qsTr("Remove from Recent Papers…")
             palette.windowText: Theme.danger
             onTriggered: { remove.active = true; remove.item.open() }
         }
@@ -94,17 +94,17 @@ Item {
             anchors.centerIn: parent
             width: 380
             modal: true
-            title: "Tags"
+            title: qsTr("Tags")
             standardButtons: Dialog.Save | Dialog.Cancel
             function begin(url) { source = url; tagField.text = researchStore.documentOrganization(url).tags.join(", "); open(); tagField.forceActiveFocus() }
             ColumnLayout {
                 width: parent.width
-                TextField { id: tagField; objectName: "libraryTagField"; Layout.fillWidth: true; placeholderText: "Comma-separated, e.g. SLAM, to read"; onAccepted: tagDialog.accept() }
+                TextField { id: tagField; objectName: "libraryTagField"; Layout.fillWidth: true; placeholderText: qsTr("Comma-separated, e.g. SLAM, to read"); onAccepted: tagDialog.accept() }
                 Label {
                     readonly property var names: researchStore.tags().map(function(t) { return t.name })
                     visible: names.length > 0
                     Layout.fillWidth: true
-                    text: "Existing: " + names.join(", ")
+                    text: qsTr("Existing: ") + names.join(", ")
                     wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                 }
             }
@@ -120,10 +120,10 @@ Item {
             anchors.centerIn: parent
             width: 360
             modal: true
-            title: "New collection"
+            title: qsTr("New collection")
             standardButtons: Dialog.Save | Dialog.Cancel
             onOpened: { nameField.clear(); nameField.forceActiveFocus() }
-            TextField { id: nameField; width: parent.width; placeholderText: "Collection name"; onAccepted: newCollection.accept() }
+            TextField { id: nameField; width: parent.width; placeholderText: qsTr("Collection name"); onAccepted: newCollection.accept() }
             onAccepted: {
                 const id = researchStore.createCollection(nameField.text)
                 if (id) researchStore.setDocumentCollection(root.paper.url, id, true)
@@ -137,11 +137,11 @@ Item {
             objectName: "removeRecentDialog"
             parent: Overlay.overlay
             anchors.centerIn: parent
-            title: "Remove from Recent Papers?"
+            title: qsTr("Remove from Recent Papers?")
             width: 390
             modal: true
             standardButtons: Dialog.Ok | Dialog.Cancel
-            Label { text: "The original PDF, open tabs and annotations will be kept."; wrapMode: Text.Wrap; width: 330 }
+            Label { text: qsTr("The original PDF, open tabs and annotations will be kept."); wrapMode: Text.Wrap; width: 330 }
             onAccepted: { const source = root.paper.url; Qt.callLater(function() { researchStore.removeRecentDocument(source) }) }
         }
     }

@@ -1,4 +1,5 @@
 #include "SemanticIndex.h"
+#include "UiText.h"
 #include "Keychain.h"
 #include "PaperIndex.h"
 #include "ResearchStore.h"
@@ -229,7 +230,8 @@ QVariantList describe(const QList<std::pair<const SemanticIndex::Matrix::Row *, 
         } else if (row->kind == "note") {
             const auto note = one(library.db, "SELECT title,body FROM notes WHERE id=?", {row->ref});
             result.insert({{"kind", "note"}, {"id", row->ref},
-                {"title", "Note · " + (note.value(0).toString().isEmpty() ? "Untitled" : note.value(0).toString())},
+                {"title",
+                    ui("Note · ") + (note.value(0).toString().isEmpty() ? ui("Untitled") : note.value(0).toString())},
                 {"snippet", note.value(1).toString().simplified().left(220)}});
         } else if (row->kind == "highlight") {
             const auto mark = one(library.db, "SELECT text || ' ' || body FROM highlights WHERE id=?", {row->ref});
@@ -239,7 +241,7 @@ QVariantList describe(const QList<std::pair<const SemanticIndex::Matrix::Row *, 
                 {"snippet", mark.value(0).toString().simplified().left(220)}});
         } else if (row->kind == "ai") {
             const auto thread = one(library.db, "SELECT title FROM ai_threads WHERE id=?", {row->ref});
-            result.insert({{"kind", "ai"}, {"id", row->ref}, {"title", "AI · " + thread.value(0).toString()}});
+            result.insert({{"kind", "ai"}, {"id", row->ref}, {"title", ui("AI · ") + thread.value(0).toString()}});
         }
         rows.append(result);
     }
@@ -369,15 +371,15 @@ void SemanticIndex::embedNext()
     for (const auto &item : batch) texts << item.text;
     embed(texts, [this, batch](const QList<QList<float>> &vectors, const QString &error) {
         if (!error.isEmpty() || vectors.size() != batch.size())
-            return finishSync(error.isEmpty() ? QStringLiteral("The embedding service returned no vectors.") : error);
+            return finishSync(error.isEmpty() ? ui("The embedding service returned no vectors.") : error);
         auto *watcher = new QFutureWatcher<bool>(this);
         connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, count = batch.size()] {
             const bool ok = watcher->result();
             watcher->deleteLater();
-            if (!ok) return finishSync("Cannot store meaning vectors.");
+            if (!ok) return finishSync(ui("Cannot store meaning vectors."));
             m_pending.remove(0, count);
             m_done += int(count);
-            m_progress = QStringLiteral("Indexing meaning · %1 / %2").arg(m_done).arg(m_total);
+            m_progress = ui("Indexing meaning · %1 / %2").arg(m_done).arg(m_total);
             dropMatrix();
             emit changed();
             embedNext();
@@ -411,7 +413,7 @@ void SemanticIndex::finishSync(const QString &error)
 {
     m_syncing = false;
     m_error = error;
-    m_progress = error.isEmpty() ? QString() : QStringLiteral("Meaning search paused: %1").arg(error);
+    m_progress = error.isEmpty() ? QString() : ui("Meaning search paused: %1").arg(error);
     emit changed();
     if (error.isEmpty() && (m_again || !m_pending.isEmpty() || m_total >= planLimit)) {
         m_pending.clear();
@@ -445,8 +447,8 @@ void SemanticIndex::embed(
         if (reply->error() != QNetworkReply::NoError) {
             const auto detail
                 = openai ? json.value("error").toObject().value("message").toString() : json.value("error").toString();
-            return done(
-                {}, detail.isEmpty() ? (openai ? "OpenAI is not reachable." : "Ollama is not running.") : detail);
+            return done({},
+                detail.isEmpty() ? (openai ? ui("OpenAI is not reachable.") : ui("Ollama is not running.")) : detail);
         }
         QList<QList<float>> vectors;
         const auto list = openai ? json.value("data").toArray() : json.value("embeddings").toArray();

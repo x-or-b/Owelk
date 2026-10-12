@@ -13,7 +13,7 @@ Dialog {
     width: Math.min(860, parent ? parent.width - 48 : 860)
     height: Math.min(680, parent ? parent.height - 64 : 680)
     modal: true
-    title: "Compare Papers"
+    title: qsTr("Compare Papers")
     readonly property var ai: researchStore.ai
     readonly property var providerInfo: ai.providers.find(function(p) { return p.id === ai.provider }) || ({})
     readonly property int limit: 8
@@ -36,7 +36,7 @@ Dialog {
     }
     function ask() {
         error = ""
-        if (!providerInfo.configured && ai.provider !== "ollama") { error = "Set up an AI provider in Settings → AI."; return }
+        if (!providerInfo.configured && ai.provider !== "ollama") { error = qsTr("Set up an AI provider in Settings → AI."); return }
         // Pressing Ask is the reader's agreement to send what is listed above.
         ai.giveConsent(ai.provider)
         researchStore.setSetting("compare.aspects", aspects.text)
@@ -67,30 +67,30 @@ Dialog {
     footer: DialogButtonBox {
         Button {
             objectName: "compareAsk"
-            text: root.asking ? "Asking…" : root.answer.length ? "Ask Again" : "Ask " + (root.providerInfo.name || "AI")
+            text: root.asking ? qsTr("Asking…") : root.answer.length ? qsTr("Ask Again") : qsTr("Ask ") + (root.providerInfo.name || qsTr("AI"))
             enabled: !root.asking && root.papers.length >= 2
             onClicked: root.ask()
         }
         Button {
             objectName: "compareCopy"
-            text: "Copy"
+            text: qsTr("Copy")
             enabled: !root.asking && root.answer.length > 0
-            onClicked: { researchStore.copyText(root.answer); researchStore.notify("Comparison copied.") }
+            onClicked: { researchStore.copyText(root.answer); researchStore.notify(qsTr("Comparison copied.")) }
         }
         Button {
             objectName: "compareSave"
-            text: "Save as Note"
+            text: qsTr("Save as Note")
             highlighted: true
             enabled: !root.asking && root.answer.length > 0
             onClicked: root.saveAsNote()
         }
-        Button { text: "Close"; onClicked: root.close() }
+        Button { text: qsTr("Close"); onClicked: root.close() }
     }
     contentItem: ColumnLayout {
         spacing: 8
         RowLayout {
             Layout.fillWidth: true
-            Label { text: "Compare by"; color: Theme.textSecondary }
+            Label { text: qsTr("Compare by"); color: Theme.textSecondary }
             TextField {
                 id: aspects
                 objectName: "compareAspects"
@@ -98,15 +98,15 @@ Dialog {
                 placeholderText: root.defaultAspects
                 enabled: !root.asking
                 ToolTip.visible: hovered; ToolTip.delay: 500
-                ToolTip.text: "The table's columns, separated by commas"
+                ToolTip.text: qsTr("The table's columns, separated by commas")
             }
         }
         Label {
             Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
             visible: !root.answer.length
-            text: root.papers.length < 2 ? "Choose at least two papers to compare."
-                : "Sends the titles, authors, years, beginnings (abstract and introduction) and conclusions of these "
-                  + root.papers.length + " papers to " + (root.providerInfo.name || "the AI provider") + ": "
+            text: root.papers.length < 2 ? qsTr("Choose at least two papers to compare.")
+                : qsTr("Sends the titles, authors, years, beginnings (abstract and introduction) and conclusions of these ")
+                  + root.papers.length + qsTr(" papers to ") + (root.providerInfo.name || qsTr("the AI provider")) + ": "
                   + root.papers.map(function(p) { return p.title }).join(" · ")
                   + (root.papers.some(function(p) { return !p.opening.length }) ? ". Papers not yet indexed are sent by title only." : "")
         }
@@ -125,7 +125,7 @@ Dialog {
                 readOnly: true
                 wrapMode: TextEdit.Wrap
                 textFormat: TextEdit.MarkdownText
-                text: root.answer.length ? root.answer : "Asking " + (root.providerInfo.name || "AI") + "…"
+                text: root.answer.length ? root.answer : qsTr("Asking ") + (root.providerInfo.name || qsTr("AI")) + "…"
                 selectByMouse: true
             }
         }

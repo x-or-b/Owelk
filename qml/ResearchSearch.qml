@@ -67,7 +67,7 @@ QtObject {
         // A finished condition (an exact name) needs no completion.
         if (hits.length === 1 && hits[0].name.toLowerCase() === partial) return []
         return hits.slice(0, 12).map(function(item) {
-            const value = /\s/.test(item.name) ? '"' + item.name + '"' : item.name
+            const value = /\s/.test(item.name) ? 'qsTr("' + item.name + '")' : item.name
             return {kind: "complete", key: c.key, title: item.name, count: item.count !== undefined ? item.count : item.papers,
                     token: c.key + ":" + value}
         })
@@ -126,7 +126,7 @@ QtObject {
         const seen = {}
         shown.forEach(function(r) { seen[r.kind === "text" ? "text|" + r.documentId + "|" + r.page : r.kind + "|" + r.id] = true })
         const extra = semanticRows.filter(function(r) { return !seen[r.kind === "text" ? "text|" + r.documentId + "|" + r.page : r.kind + "|" + r.id] })
-        results = extra.length ? shown.concat([{kind: "section", title: "Similar meaning"}]).concat(extra) : shown
+        results = extra.length ? shown.concat([{kind: "section", title: qsTr("Similar meaning")}]).concat(extra) : shown
     }
     function refresh() {
         delay.stop()

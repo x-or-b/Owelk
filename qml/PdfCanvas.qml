@@ -138,17 +138,17 @@ Item {
     Menu {
         id: highlightMenu
         objectName: "highlightMenu"
-        MenuItem { text: "Edit / Comment…"; onTriggered: root.editRequested(root.editingMark, null) }
-        MenuItem { objectName: "changeAnnotationColor"; text: "Change Color…"; onTriggered: markColors.open() }
-        MenuItem { text: "Link to Note…"; onTriggered: linkToNote.begin("highlight", root.editingMark.id) }
+        MenuItem { text: qsTr("Edit / Comment…"); onTriggered: root.editRequested(root.editingMark, null) }
+        MenuItem { objectName: "changeAnnotationColor"; text: qsTr("Change Color…"); onTriggered: markColors.open() }
+        MenuItem { text: qsTr("Link to Note…"); onTriggered: linkToNote.begin("highlight", root.editingMark.id) }
         MenuItem {
             visible: !!root.editingMark && !!root.editingMark.text; height: visible ? implicitHeight : 0
-            text: "Copy Text"; onTriggered: researchStore.copyText(root.editingMark.text)
+            text: qsTr("Copy Text"); onTriggered: researchStore.copyText(root.editingMark.text)
         }
         MenuItem {
             objectName: "askAboutRegion"
             visible: !!root.editingMark && root.editingMark.kind === "area"; height: visible ? implicitHeight : 0
-            text: "Ask AI about This Region"
+            text: qsTr("Ask AI about This Region")
             onTriggered: {
                 const mark = root.editingMark, r = mark.rectangles[0]
                 root.figureAiRequested(mark.page, Qt.rect(r.x, r.y, r.width, r.height), "Region")
@@ -157,7 +157,7 @@ Item {
         MenuSeparator {}
         MenuItem {
             objectName: "removeHighlightAction"
-            text: "Remove Annotation"
+            text: qsTr("Remove Annotation")
             palette.windowText: Theme.danger
             onTriggered: { const id = root.removingHighlight; Qt.callLater(function() { researchStore.removeHighlight(id) }) }
         }
@@ -860,7 +860,7 @@ Item {
                 Label {
                     anchors.centerIn: parent
                     visible: pageImage.status === Image.Error
-                    text: "Cannot display this page. Please reopen the PDF."
+                    text: qsTr("Cannot display this page. Please reopen the PDF.")
                     width: parent.width - 32
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.Wrap
@@ -1327,7 +1327,7 @@ Item {
         objectName: "pdfPasswordDialog"
         anchors.centerIn: parent
         modal: true
-        title: "PDF password"
+        title: qsTr("PDF password")
         standardButtons: Dialog.Ok | Dialog.Cancel
         property string tried: ""
         property string autoTried: ""
@@ -1343,7 +1343,7 @@ Item {
                 echoMode: TextInput.Password
                 onAccepted: passwordDialog.accept()
             }
-            CheckBox { id: rememberPassword; objectName: "pdfPasswordRemember"; text: "Remember on this computer" }
+            CheckBox { id: rememberPassword; objectName: "pdfPasswordRemember"; text: qsTr("Remember on this computer") }
         }
         onAccepted: {
             tried = passwordField.text; keep = rememberPassword.checked
@@ -1512,14 +1512,14 @@ Item {
                 objectName: "jumpBackButton"
                 height: Theme.controlHeight
                 icon.name: "back"
-                text: "Back to p. " + (root.backTarget ? root.backTarget.page + 1 : "")
-                ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: "Back · " + Platform.keys("Alt+Left")
+                text: qsTr("Back to p. ") + (root.backTarget ? root.backTarget.page + 1 : "")
+                ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: qsTr("Back · ") + Platform.keys("Alt+Left")
                 onClicked: root.goBack()
             }
             IconButton {
                 objectName: "jumpBackDismiss"
                 anchors.verticalCenter: parent.verticalCenter
-                icon.name: "close"; description: "Forget this spot"
+                icon.name: "close"; description: qsTr("Forget this spot")
                 onClicked: root.backStack = []
             }
         }
@@ -1660,8 +1660,8 @@ Item {
             width: 304
             wrapMode: Text.Wrap
             textFormat: Text.RichText
-            text: symbolTip.visible ? researchStore.markdownHtml("$" + symbolTip.entry.symbol + "$ \u2014 " + symbolTip.entry.meaning
-                                                                 + (symbolTip.entry.page > 0 ? " · *p. " + symbolTip.entry.page + "*" : " · *background*"),
+            text: symbolTip.visible ? researchStore.markdownHtml("$" + symbolTip.entry.symbol + qsTr("$ \u2014 ") + symbolTip.entry.meaning
+                                                                 + (symbolTip.entry.page > 0 ? qsTr(" · *p. ") + symbolTip.entry.page + "*" : qsTr(" · *background*")),
                                                                  Theme.accent, Theme.text, Theme.fontSmall) : ""
             color: Theme.text
             font.pixelSize: Theme.fontSmall
@@ -1835,7 +1835,7 @@ Item {
                     id: entryText
                     x: 8; y: 6
                     width: parent.width - 16 - findEntry.width
-                    text: "<b>" + entryRow.modelData.label + "</b> " + entryRow.modelData.text.replace(/^\s*(\[\d+\]|\d{1,3}\.)\s*/, "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                    text: "<b>" + entryRow.modelData.label + qsTr("</b> ") + entryRow.modelData.text.replace(/^\s*(\[\d+\]|\d{1,3}\.)\s*/, "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
                     textFormat: Text.StyledText
                     wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight
                     font.pixelSize: Theme.fontSmall; color: previewCard.ink
@@ -1846,7 +1846,7 @@ Item {
                     objectName: "findPaperEntry-" + entryRow.index
                     anchors.right: parent.right; anchors.rightMargin: 4; anchors.verticalCenter: parent.verticalCenter
                     icon.name: "search"
-                    description: "Find paper"
+                    description: qsTr("Find paper")
                     onClicked: root.findPaper(entryRow.modelData.text)
                 }
             }
@@ -1857,7 +1857,7 @@ Item {
             width: goLabel.implicitWidth + 12; height: goLabel.implicitHeight + 6
             radius: Theme.radiusSmall
             color: Theme.raised; border.color: Theme.separator
-            Label { id: goLabel; anchors.centerIn: parent; text: (previewCard.spec.label ? previewCard.spec.label + " · " : "") + "p. " + (previewCard.spec.page + 1) + " · click to go"; font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
+            Label { id: goLabel; anchors.centerIn: parent; text: (previewCard.spec.label ? previewCard.spec.label + " · " : "") + qsTr("p. ") + (previewCard.spec.page + 1) + qsTr(" · click to go"); font.pixelSize: Theme.fontCaption; color: Theme.textSecondary }
         }
         // Figures and tables: zoom out and in by small steps, and ask AI about the figure with its caption.
         // Figures, tables and equations: Ask AI attaches them (with the caption, named) to the conversation.
@@ -1867,7 +1867,7 @@ Item {
             anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 6
             spacing: 2
             IconButton {
-                objectName: "linkPreviewZoomOut"; icon.name: "minus"; description: "Zoom out"
+                objectName: "linkPreviewZoomOut"; icon.name: "minus"; description: qsTr("Zoom out")
                 visible: previewCard.showsFloat
                 tint: previewCard.ink; onClicked: previewCard.setZoom(previewCard.zoom / 1.1)
             }
@@ -1879,7 +1879,7 @@ Item {
                 font.pixelSize: Theme.fontCaption; color: previewCard.ink
             }
             IconButton {
-                objectName: "linkPreviewZoomIn"; icon.name: "add"; description: "Zoom in"
+                objectName: "linkPreviewZoomIn"; icon.name: "add"; description: qsTr("Zoom in")
                 visible: previewCard.showsFloat
                 tint: previewCard.ink; onClicked: previewCard.setZoom(previewCard.zoom * 1.1)
             }
@@ -1887,7 +1887,7 @@ Item {
                 objectName: "linkPreviewAskAi"
                 visible: !!previewCard.spec.float
                 anchors.verticalCenter: parent.verticalCenter
-                text: "Ask AI"; icon.name: "ai"
+                text: qsTr("Ask AI"); icon.name: "ai"
                 onClicked: {
                     const s = previewCard.spec, a = s.float, size = pdfDocument.pagePointSize(s.page)
                     root.closeLinkPreview()
@@ -1901,7 +1901,7 @@ Item {
             objectName: "findPaperButton"
             visible: !previewCard.showsList && (previewCard.spec.kind === "citation" || previewCard.spec.kind === "author") && !!previewCard.spec.text
             anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 6
-            text: "Find Paper"
+            text: qsTr("Find Paper")
             icon.name: "search"
             onClicked: root.findPaper(previewCard.spec.text)
         }

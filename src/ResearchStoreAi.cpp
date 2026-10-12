@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "UiText.h"
 
 #include <QDateTime>
 #include <QJsonDocument>
@@ -30,7 +31,7 @@ QString ResearchStore::createAiThread(const QVariantMap &thread)
              source.isValid() ? source.toString() : QString(), now(), now()})
         query.addBindValue(text(value));
     if (!query.exec()) {
-        emit message("Cannot start an AI thread.");
+        emit message(ui("Cannot start an AI thread."));
         return {};
     }
     // A thread about a paper links to it, so the paper's Links tab finds the conversation.
@@ -138,9 +139,9 @@ int ResearchStore::trashAiThreads(const QStringList &ids, bool trashed)
     emit aiThreadsChanged();
     if (trashed) {
         const auto days = trashDays();
-        emit message((moved == 1 ? QStringLiteral("Moved the conversation to the Trash.")
-                                 : QString("Moved %1 conversations to the Trash.").arg(moved))
-            + (days > 0 ? QString(" It is deleted for good after %1 days.").arg(days) : QString()));
+        emit message((moved == 1 ? ui("Moved the conversation to the Trash.")
+                                 : QString(ui("Moved %1 conversations to the Trash.")).arg(moved))
+            + (days > 0 ? QString(ui(" It is deleted for good after %1 days.")).arg(days) : QString()));
     }
     return moved;
 }

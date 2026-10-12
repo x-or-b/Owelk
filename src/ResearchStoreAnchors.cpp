@@ -1,4 +1,5 @@
 #include "FileFingerprint.h"
+#include "UiText.h"
 #include "PdfAccess.h"
 #include "ResearchStore.h"
 
@@ -57,10 +58,10 @@ void ResearchStore::revealAnchor(const QVariantMap &target)
             return;
         }
         if (hash.isEmpty()) {
-            emit message("Original PDF not found. The saved annotation is preserved.");
+            emit message(ui("Original PDF not found. The saved annotation is preserved."));
             emit relinkRequested(source);
         } else if (hash != expected)
-            emit message("The PDF changed, so the annotation's place cannot be verified. It is preserved.");
+            emit message(ui("The PDF changed, so the annotation's place cannot be verified. It is preserved."));
         else
             emit sourceReady(source, page, bounds);
     });

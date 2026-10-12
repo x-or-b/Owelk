@@ -101,11 +101,11 @@ Rectangle {
             TapHandler { acceptedButtons: Qt.RightButton; onTapped: noteMenu.popup() }
             Menu {
                 id: noteMenu
-                MenuItem { text: "Copy Markdown"; onTriggered: researchStore.copyText(body.text) }
+                MenuItem { text: qsTr("Copy Markdown"); onTriggered: researchStore.copyText(body.text) }
                 MenuSeparator {}
                 MenuItem {
                     objectName: "deleteNoteOption"
-                    text: "Move Note to Trash"
+                    text: qsTr("Move Note to Trash")
                     palette.windowText: Theme.danger
                     onTriggered: { root.save(); const id = root.noteId; if (researchStore.deleteNote(id)) root.controller.closeNoteTabs(id) }
                 }
@@ -114,7 +114,7 @@ Rectangle {
                 id: titleField
                 objectName: "noteTitle"
                 Layout.fillWidth: true
-                placeholderText: "Untitled note"
+                placeholderText: qsTr("Untitled note")
                 font.pixelSize: Theme.fontTitle
                 background: Item {}
                 onTextEdited: { root.dirty = true; autosave.restart() }
@@ -124,22 +124,22 @@ Rectangle {
             IconButton {
                 objectName: "notePreviewToggle"
                 icon.name: root.preview ? "edit" : "preview"
-                description: root.preview ? "Edit" : "Preview"
+                description: root.preview ? qsTr("Edit") : qsTr("Preview")
                 onClicked: { root.save(); root.preview = !root.preview; if (!root.preview) body.forceActiveFocus() }
             }
             IconButton {
-                objectName: "noteInsertLink"; icon.name: "link"; description: "Insert link · [["
+                objectName: "noteInsertLink"; icon.name: "link"; description: qsTr("Insert link · [[")
                 onClicked: { root.preview = false; linkPicker.open() }
             }
             // Saving is automatic; a quiet word says it happened.
             Label {
                 objectName: "noteSaved"
-                text: "Saved"
+                text: qsTr("Saved")
                 opacity: savedMark.running ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 200 } }
                 font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
             }
-            Button { objectName: "noteDone"; text: "Done"; onClicked: root.done() }
+            Button { objectName: "noteDone"; text: qsTr("Done"); onClicked: root.done() }
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }
         ScrollView {
@@ -148,7 +148,7 @@ Rectangle {
             TextArea {
                 id: body
                 objectName: "noteBody"
-                placeholderText: "Write in Markdown. Type [[ to link a paper, annotation or note."
+                placeholderText: qsTr("Write in Markdown. Type [[ to link a paper, annotation or note.")
                 wrapMode: TextEdit.Wrap
                 selectByMouse: true
                 font.pixelSize: Theme.fontHeadline
@@ -168,7 +168,7 @@ Rectangle {
             Text {
                 objectName: "notePreview"
                 width: parent.width
-                text: root.preview ? researchStore.markdownHtml(body.text.length ? body.text : "*Empty note*", Theme.accent, Theme.text, Theme.fontHeadline, Theme.textTertiary) : ""
+                text: root.preview ? researchStore.markdownHtml(body.text.length ? body.text : qsTr("*Empty note*"), Theme.accent, Theme.text, Theme.fontHeadline, Theme.textTertiary) : ""
                 textFormat: Text.RichText
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontHeadline
@@ -183,7 +183,7 @@ Rectangle {
             Layout.fillWidth: true
             visible: root.backlinks.length > 0
             spacing: 2
-            Label { text: "Linked from"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary }
+            Label { text: qsTr("Linked from"); font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary }
             Repeater {
                 model: root.backlinks
                 delegate: ItemDelegate {
@@ -200,7 +200,7 @@ Rectangle {
             Layout.fillWidth: true
             visible: root.related.length > 0
             spacing: 2
-            Label { text: "Related notes"; font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary }
+            Label { text: qsTr("Related notes"); font.pixelSize: Theme.fontCaption; font.bold: true; color: Theme.textTertiary }
             Repeater {
                 model: root.related
                 delegate: ItemDelegate {
@@ -229,7 +229,7 @@ Rectangle {
                 id: linkQuery
                 objectName: "noteLinkQuery"
                 Layout.fillWidth: true
-                placeholderText: "Link to… (paper title, annotation text, note)"
+                placeholderText: qsTr("Link to… (paper title, annotation text, note)")
                 onTextChanged: linkPicker.candidates = researchStore.linkCandidates(text)
                 Keys.onReturnPressed: if (linkPicker.candidates.length) { root.insertLink(linkPicker.candidates[0].kind, linkPicker.candidates[0].id); linkPicker.close() }
                 Keys.onEscapePressed: linkPicker.close()
@@ -243,7 +243,7 @@ Rectangle {
                     required property var modelData
                     width: ListView.view.width
                     objectName: "noteLinkCandidate-" + modelData.kind + "-" + modelData.id
-                    text: ({note: "Note", document: "Paper", highlight: "Annotation"})[modelData.kind] + " · " + modelData.title
+                    text: ({note: qsTr("Note"), document: qsTr("Paper"), highlight: qsTr("Annotation")})[modelData.kind] + " · " + modelData.title
                     font.pixelSize: Theme.fontSmall
                     onClicked: { root.insertLink(modelData.kind, modelData.id); linkPicker.close() }
                 }

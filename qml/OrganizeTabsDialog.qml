@@ -14,7 +14,7 @@ Dialog {
     width: Math.min(520, parent ? parent.width - 48 : 520)
     height: Math.min(600, parent ? parent.height - 64 : 600)
     modal: true
-    title: "Organize Tabs"
+    title: qsTr("Organize Tabs")
     required property var controller
     readonly property var ai: researchStore.ai
     readonly property var providerInfo: ai.providers.find(function(p) { return p.id === ai.provider }) || ({})
@@ -38,7 +38,7 @@ Dialog {
     }
     function ask() {
         error = ""
-        if (!providerInfo.configured && ai.provider !== "ollama") { error = "Set up an AI provider in Settings → AI."; return }
+        if (!providerInfo.configured && ai.provider !== "ollama") { error = qsTr("Set up an AI provider in Settings → AI."); return }
         // Pressing Ask is the reader's agreement to send what is listed above.
         ai.giveConsent(ai.provider)
         asking = true
@@ -62,27 +62,27 @@ Dialog {
     footer: DialogButtonBox {
         Button {
             objectName: "organizeAsk"
-            text: root.asking ? "Asking…" : root.suggestions.length ? "Ask Again" : "Ask " + (root.providerInfo.name || "AI")
+            text: root.asking ? qsTr("Asking…") : root.suggestions.length ? qsTr("Ask Again") : qsTr("Ask ") + (root.providerInfo.name || qsTr("AI"))
             enabled: !root.asking && root.tabs.length >= 2
             onClicked: root.ask()
         }
         Button {
             objectName: "organizeApply"
-            text: "Apply"
+            text: qsTr("Apply")
             highlighted: true
             enabled: (editor.revision, root.suggestions.some(function(g) { return g.keep && g.name.trim().length && g.ids.length }))
             onClicked: root.apply()
         }
-        Button { text: "Cancel"; onClicked: root.close() }
+        Button { text: qsTr("Cancel"); onClicked: root.close() }
     }
     contentItem: ColumnLayout {
         spacing: 8
         Label {
             Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
             visible: !root.suggestions.length
-            text: root.tabs.length < 2 ? "Open at least two tabs in this strip to organize them."
-                : "Sends the titles of these " + root.tabs.length + " tabs, web addresses, paper authors and years, and the first lines of each paper to "
-                  + (root.providerInfo.sends || "the AI provider") + ". Your tabs change only when you press Apply."
+            text: root.tabs.length < 2 ? qsTr("Open at least two tabs in this strip to organize them.")
+                : qsTr("Sends the titles of these ") + root.tabs.length + qsTr(" tabs, web addresses, paper authors and years, and the first lines of each paper to ")
+                  + (root.providerInfo.sends || qsTr("the AI provider")) + ". Your tabs change only when you press Apply."
         }
         Label {
             objectName: "organizeError"
@@ -101,7 +101,7 @@ Dialog {
         Label {
             Layout.alignment: Qt.AlignHCenter
             visible: root.asking
-            text: "Asking " + (root.providerInfo.name || "AI") + "…"
+            text: qsTr("Asking ") + (root.providerInfo.name || qsTr("AI")) + "…"
             color: Theme.textTertiary
         }
     }

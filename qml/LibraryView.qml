@@ -45,7 +45,7 @@ Rectangle {
     function setView(next) { setFilter(next === "papers" ? {} : {view: next}) }
     property int trashCount: 0
     property var trashRows: []
-    readonly property var kindNames: ({paper: "Paper", note: "Note", ai: "AI conversation"})
+    readonly property var kindNames: ({paper: qsTr("Paper"), note: qsTr("Note"), ai: qsTr("AI conversation")})
     // Later, so a row is not removed while its own button handles the click.
     function restore(items) { Qt.callLater(function() { researchStore.restoreFromTrash(items); root.refresh() }) }
     // Deleting for good, after a word when notes link to what goes (their links stop opening).
@@ -109,7 +109,7 @@ Rectangle {
         anchors.centerIn: parent
         width: 360
         modal: true
-        title: collectionId.length ? "Rename collection" : "New collection"
+        title: collectionId.length ? qsTr("Rename collection") : qsTr("New collection")
         standardButtons: Dialog.Save | Dialog.Cancel
         // Papers to put in a new collection right away (New Collection… on a selection).
         property var papers: []
@@ -122,7 +122,7 @@ Rectangle {
             open()
             collectionName.forceActiveFocus()
         }
-        TextField { id: collectionName; objectName: "collectionName"; width: parent.width; placeholderText: "Collection name"; onAccepted: collectionDialog.accept() }
+        TextField { id: collectionName; objectName: "collectionName"; width: parent.width; placeholderText: qsTr("Collection name"); onAccepted: collectionDialog.accept() }
         onAccepted: {
             if (collectionId.length) researchStore.renameCollection(collectionId, collectionName.text)
             else {
@@ -134,8 +134,8 @@ Rectangle {
     Menu {
         id: collectionMenu
         property var row: ({})
-        MenuItem { text: "New Sub-collection…"; onTriggered: collectionDialog.begin("", "", collectionMenu.row.id) }
-        MenuItem { text: "Rename…"; onTriggered: collectionDialog.begin(collectionMenu.row.id, collectionMenu.row.name) }
+        MenuItem { text: qsTr("New Sub-collection…"); onTriggered: collectionDialog.begin("", "", collectionMenu.row.id) }
+        MenuItem { text: qsTr("Rename…"); onTriggered: collectionDialog.begin(collectionMenu.row.id, collectionMenu.row.name) }
         MenuItem {
             text: "Delete Collection"
             palette.windowText: Theme.danger
@@ -146,10 +146,10 @@ Rectangle {
         id: noteMenu
         objectName: "libraryNoteMenu"
         property string noteId: ""
-        MenuItem { text: "Open"; onTriggered: root.noteChosen(noteMenu.noteId) }
-        MenuItem { text: "Copy Markdown"; onTriggered: researchStore.copyText(researchStore.note(noteMenu.noteId).body || "") }
+        MenuItem { text: qsTr("Open"); onTriggered: root.noteChosen(noteMenu.noteId) }
+        MenuItem { text: qsTr("Copy Markdown"); onTriggered: researchStore.copyText(researchStore.note(noteMenu.noteId).body || "") }
         MenuSeparator {}
-        MenuItem { text: "Move Note to Trash"; palette.windowText: Theme.danger; onTriggered: researchStore.deleteNote(noteMenu.noteId) }
+        MenuItem { text: qsTr("Move Note to Trash"); palette.windowText: Theme.danger; onTriggered: researchStore.deleteNote(noteMenu.noteId) }
     }
     // Several selected papers: what applies to all of them.
     Menu {
@@ -158,12 +158,12 @@ Rectangle {
         property var urls: []
         property var rows: []
         onAboutToShow: rows = researchStore.collections()
-        MenuItem { enabled: false; text: batchMenu.urls.length + " papers" }
+        MenuItem { enabled: false; text: batchMenu.urls.length + qsTr(" papers") }
         MenuSeparator {}
         Menu {
             id: batchCollections
             objectName: "libraryBatchCollections"
-            title: "Add to Collection"
+            title: qsTr("Add to Collection")
             Instantiator {
                 model: batchMenu.rows
                 delegate: MenuItem {
@@ -174,20 +174,20 @@ Rectangle {
                 onObjectAdded: function(index, object) { batchCollections.insertItem(index, object) }
                 onObjectRemoved: function(index, object) { batchCollections.removeItem(object) }
             }
-            MenuItem { text: "New Collection…"; onTriggered: collectionDialog.beginFor("", "", "", batchMenu.urls) }
+            MenuItem { text: qsTr("New Collection…"); onTriggered: collectionDialog.beginFor("", "", "", batchMenu.urls) }
         }
         MenuItem {
             visible: !!root.filter.collection; height: visible ? implicitHeight : 0
-            text: "Remove from This Collection"
+            text: qsTr("Remove from This Collection")
             onTriggered: researchStore.setDocumentsCollection(batchMenu.urls, root.filter.collection, false)
         }
-        MenuItem { objectName: "batchCompare"; text: "Compare with AI…"; onTriggered: root.compareWithAi(batchMenu.urls) }
-        MenuItem { objectName: "batchOrganize"; text: "Organize into Collections with AI…"; onTriggered: root.organizeWithAi(batchMenu.urls) }
+        MenuItem { objectName: "batchCompare"; text: qsTr("Compare with AI…"); onTriggered: root.compareWithAi(batchMenu.urls) }
+        MenuItem { objectName: "batchOrganize"; text: qsTr("Organize into Collections with AI…"); onTriggered: root.organizeWithAi(batchMenu.urls) }
         MenuSeparator {}
-        MenuItem { text: "Mark as Read"; onTriggered: batchMenu.urls.forEach(function(u) { researchStore.setReadingState(u, "read") }) }
-        MenuItem { text: "Add to Favorites"; onTriggered: batchMenu.urls.forEach(function(u) { researchStore.setFavorite(u, true) }) }
+        MenuItem { text: qsTr("Mark as Read"); onTriggered: batchMenu.urls.forEach(function(u) { researchStore.setReadingState(u, "read") }) }
+        MenuItem { text: qsTr("Add to Favorites"); onTriggered: batchMenu.urls.forEach(function(u) { researchStore.setFavorite(u, true) }) }
         MenuSeparator {}
-        MenuItem { text: "Copy BibTeX"; onTriggered: { researchStore.copyText(researchStore.bibtex(batchMenu.urls)); researchStore.notify("BibTeX copied.") } }
+        MenuItem { text: qsTr("Copy BibTeX"); onTriggered: { researchStore.copyText(researchStore.bibtex(batchMenu.urls)); researchStore.notify(qsTr("BibTeX copied.")) } }
         MenuSeparator {}
         MenuItem {
             objectName: "batchDeletePapers"; text: "Delete Papers"; palette.windowText: Theme.danger
@@ -197,7 +197,7 @@ Rectangle {
     // A whole folder: every PDF under it, optionally as a collection tree.
     Native.FolderDialog {
         id: folderDialog
-        title: "Add a folder of PDFs"
+        title: qsTr("Add a folder of PDFs")
         onAccepted: { importOptions.folder = selectedFolder; importOptions.open() }
     }
     Dialog {
@@ -208,7 +208,7 @@ Rectangle {
         anchors.centerIn: parent
         width: 420
         modal: true
-        title: "Add \u201c" + researchStore.fileName(folder) + "\u201d to the Library"
+        title: qsTr("Add \u201c") + researchStore.fileName(folder) + qsTr("\u201d to the Library")
         standardButtons: Dialog.Ok | Dialog.Cancel
         Column {
             width: parent.width
@@ -218,12 +218,12 @@ Rectangle {
                 objectName: "importAsCollections"
                 width: parent.width
                 checked: true
-                text: "Make a collection of the folder, with its subfolders as sub-collections"
+                text: qsTr("Make a collection of the folder, with its subfolders as sub-collections")
             }
             Label {
                 width: parent.width; wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
-                text: (root.filter.collection ? "Inside the collection shown. " : "") + "The PDFs stay where they are; titles and text are read in the background. Hidden folders are skipped."
+                text: (root.filter.collection ? qsTr("Inside the collection shown. ") : "") + qsTr("The PDFs stay where they are; titles and text are read in the background. Hidden folders are skipped.")
             }
         }
         onAccepted: researchStore.importFolder(folder, root.filter.collection || "", asCollections.checked)
@@ -231,7 +231,7 @@ Rectangle {
     // PDFs chosen or dropped here join the Library, and the collection being shown.
     Native.FileDialog {
         id: addDialog
-        title: root.filter.collection ? "Add PDFs to this collection" : "Add PDFs to the Library"
+        title: root.filter.collection ? qsTr("Add PDFs to this collection") : qsTr("Add PDFs to the Library")
         fileMode: Native.FileDialog.OpenFiles
         nameFilters: ["PDF documents (*.pdf)"]
         onAccepted: researchStore.addDocuments(selectedFiles, root.filter.collection || "")
@@ -254,9 +254,9 @@ Rectangle {
                 anchors.left: parent.left; anchors.leftMargin: 8; anchors.verticalCenter: parent.verticalCenter
                 width: Math.min(parent.width - 16, 320)
                 currentIndex: ["papers", "notes", "trash"].indexOf(root.view)
-                TabButton { objectName: "libraryPapersTab"; text: "Papers"; onClicked: root.setView("papers") }
-                TabButton { objectName: "libraryNotesTab"; text: "Notes"; onClicked: root.setView("notes") }
-                TabButton { objectName: "libraryTrashTab"; text: root.trashCount ? "Trash " + root.trashCount : "Trash"; onClicked: root.setView("trash") }
+                TabButton { objectName: "libraryPapersTab"; text: qsTr("Papers"); onClicked: root.setView("papers") }
+                TabButton { objectName: "libraryNotesTab"; text: qsTr("Notes"); onClicked: root.setView("notes") }
+                TabButton { objectName: "libraryTrashTab"; text: root.trashCount ? qsTr("Trash ") + root.trashCount : qsTr("Trash"); onClicked: root.setView("trash") }
             }
             Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.separator }
         }
@@ -273,11 +273,11 @@ Rectangle {
                     anchors.fill: parent; anchors.margins: 8
                     clip: true
                     spacing: 1
-                    model: [{key: "all", label: "All Papers"}, {key: "unsorted", value: true, label: "Unsorted", count: root.unsortedCount}, {key: "favorite", value: true, label: "Favorites"},
-                            {key: "state", value: "unread", label: "Unread"}, {key: "state", value: "reading", label: "Reading"},
-                            {key: "state", value: "read", label: "Read"}, {header: "Collections", add: true}]
+                    model: [{key: "all", label: qsTr("All Papers")}, {key: "unsorted", value: true, label: qsTr("Unsorted"), count: root.unsortedCount}, {key: "favorite", value: true, label: qsTr("Favorites")},
+                            {key: "state", value: "unread", label: qsTr("Unread")}, {key: "state", value: "reading", label: qsTr("Reading")},
+                            {key: "state", value: "read", label: qsTr("Read")}, {header: qsTr("Collections"), add: true}]
                         .concat(root.collectionRows.map(function(c) { return {key: "collection", value: c.id, label: c.name, depth: c.depth, count: c.count, row: c} }))
-                        .concat(root.tagRows.length ? [{header: "Tags"}] : [])
+                        .concat(root.tagRows.length ? [{header: qsTr("Tags")}] : [])
                         .concat(root.tagRows.map(function(t) { return {key: "tag", value: t.id, label: "# " + t.name, count: t.count} }))
                     delegate: Item {
                         id: entry
@@ -293,7 +293,7 @@ Rectangle {
                             visible: !!entry.modelData.add
                             anchors.right: parent.right; anchors.bottom: parent.bottom
                             objectName: "newCollectionButton"; icon.name: "add"; implicitWidth: 24; implicitHeight: 22
-                            description: "New collection"; onClicked: collectionDialog.begin("", "")
+                            description: qsTr("New collection"); onClicked: collectionDialog.begin("", "")
                         }
                         ItemDelegate {
                             id: item
@@ -347,16 +347,16 @@ Rectangle {
                     visible: root.showingTrash
                     ColumnLayout {
                         Layout.fillWidth: true; spacing: 2
-                        Label { text: "Trash"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
+                        Label { text: qsTr("Trash"); font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
                         Label {
                             Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
-                            text: (researchStore.trashDays() > 0 ? "Papers, notes and AI conversations are deleted for good after " + researchStore.trashDays() + " days"
-                                                                  : "Papers, notes and AI conversations stay until you empty the Trash")
-                                + " (Settings › Data). A paper deleted for good loses its annotations; a PDF Owelk keeps goes to the system Trash."
+                            text: (researchStore.trashDays() > 0 ? qsTr("Papers, notes and AI conversations are deleted for good after ") + researchStore.trashDays() + qsTr(" days")
+                                                                  : qsTr("Papers, notes and AI conversations stay until you empty the Trash"))
+                                + qsTr(" (Settings › Data). A paper deleted for good loses its annotations; a PDF Owelk keeps goes to the system Trash.")
                         }
                     }
                     Button {
-                        objectName: "emptyTrash"; text: "Empty Trash"; enabled: root.trashRows.length > 0
+                        objectName: "emptyTrash"; text: qsTr("Empty Trash"); enabled: root.trashRows.length > 0
                         onClicked: {
                             emptyTrashConfirm.linked = researchStore.notesLinkingTo(root.trashRows)
                             emptyTrashConfirm.open()
@@ -387,13 +387,13 @@ Rectangle {
                                 Label {
                                     Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                                     text: [root.kindNames[trashItem.modelData.kind], trashItem.modelData.kind === "ai" ? "" : trashItem.modelData.detail,
-                                           trashItem.modelData.daysLeft >= 0 ? "deleted in " + trashItem.modelData.daysLeft + (trashItem.modelData.daysLeft === 1 ? " day" : " days") : ""]
+                                           trashItem.modelData.daysLeft >= 0 ? qsTr("deleted in ") + trashItem.modelData.daysLeft + (trashItem.modelData.daysLeft === 1 ? qsTr(" day") : qsTr(" days")) : ""]
                                           .filter(function(t) { return t && t.length }).join(" · ")
                                 }
                             }
                             IconButton {
                                 objectName: "restore-" + trashItem.modelData.kind + "-" + trashItem.modelData.id
-                                icon.name: "restore"; description: "Restore"
+                                icon.name: "restore"; description: qsTr("Restore")
                                 onClicked: root.restore([trashItem.modelData])
                             }
                             IconButton {
@@ -403,16 +403,16 @@ Rectangle {
                             }
                         }
                     }
-                    Label { anchors.centerIn: parent; visible: trashList.count === 0; text: "Trash is empty."; color: Theme.textTertiary }
+                    Label { anchors.centerIn: parent; visible: trashList.count === 0; text: qsTr("Trash is empty."); color: Theme.textTertiary }
                 }
                 ConfirmDialog {
                     id: emptyTrashConfirm
                     objectName: "emptyTrashConfirm"
                     property int linked: 0
-                    title: "Delete " + root.trashRows.length + (root.trashRows.length === 1 ? " item" : " items") + " for good?"
-                    message: "Papers lose their annotations, and PDFs Owelk keeps go to the system Trash."
-                             + (linked ? " " + linked + (linked === 1 ? " note links" : " notes link") + " to them; those links will no longer open." : "")
-                    actionText: "Empty Trash"
+                    title: "Delete " + root.trashRows.length + (root.trashRows.length === 1 ? qsTr(" item") : qsTr(" items")) + qsTr(" for good?")
+                    message: qsTr("Papers lose their annotations, and PDFs Owelk keeps go to the system Trash.")
+                             + (linked ? " " + linked + (linked === 1 ? qsTr(" note links") : qsTr(" notes link")) + qsTr(" to them; those links will no longer open.") : "")
+                    actionText: qsTr("Empty Trash")
                     onConfirmed: Qt.callLater(function() { researchStore.emptyTrash(); root.refresh() })
                 }
                 ConfirmDialog {
@@ -421,16 +421,16 @@ Rectangle {
                     property var items: []
                     property int linked: 0
                     title: "Delete for good?"
-                    message: linked + (linked === 1 ? " note links" : " notes link") + " to this; the link will no longer open"
-                             + (items.length && items[0].kind === "ai" ? " (it reads \u201cDeleted conversation\u201d)." : ".")
+                    message: linked + (linked === 1 ? qsTr(" note links") : qsTr(" notes link")) + qsTr(" to this; the link will no longer open")
+                             + (items.length && items[0].kind === "ai" ? qsTr(" (it reads \u201cDeleted conversation\u201d).") : ".")
                     actionText: "Delete"
                     onConfirmed: { const chosen = items; Qt.callLater(function() { researchStore.deleteForGood(chosen); root.refresh() }) }
                 }
                 RowLayout {
                     Layout.fillWidth: true
                     visible: root.showingNotes
-                    Label { Layout.fillWidth: true; text: "Notes"; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
-                    IconButton { objectName: "libraryNewNote"; icon.name: "note"; description: "New note"; onClicked: root.newNoteRequested() }
+                    Label { Layout.fillWidth: true; text: qsTr("Notes"); font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
+                    IconButton { objectName: "libraryNewNote"; icon.name: "note"; description: qsTr("New note"); onClicked: root.newNoteRequested() }
                 }
                 ListView {
                     id: noteList
@@ -454,7 +454,7 @@ Rectangle {
                             Label { Layout.fillWidth: true; text: noteItem.modelData.snippet || " "; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
                         }
                     }
-                    Label { anchors.centerIn: parent; visible: noteList.count === 0; text: "No notes yet."; color: Theme.textTertiary }
+                    Label { anchors.centerIn: parent; visible: noteList.count === 0; text: qsTr("No notes yet."); color: Theme.textTertiary }
                 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -462,13 +462,13 @@ Rectangle {
                     TextField {
                         objectName: "libraryQuery"
                         Layout.fillWidth: true
-                        placeholderText: "Filter by title, author, year, DOI or file name"
+                        placeholderText: qsTr("Filter by title, author, year, DOI or file name")
                         onTextChanged: root.query = text
                     }
                     ComboBox {
                         objectName: "librarySort"
                         Layout.preferredWidth: 140
-                        model: ["Last opened", "Last added", "Title", "Year"]
+                        model: [qsTr("Last opened"), qsTr("Last added"), qsTr("Title"), qsTr("Year")]
                         readonly property var keys: ["opened", "added", "title", "year"]
                         onActivated: function(index) { root.sort = keys[index] }
                     }
@@ -476,18 +476,18 @@ Rectangle {
                 RowLayout {
                     Layout.fillWidth: true
                     visible: !root.showingNotes && !root.showingTrash
-                    Label { objectName: "libraryCount"; Layout.fillWidth: true; text: root.rows.length + (root.rows.length === 1 ? " paper" : " papers"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
+                    Label { objectName: "libraryCount"; Layout.fillWidth: true; text: root.rows.length + (root.rows.length === 1 ? qsTr(" paper") : qsTr(" papers")); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
                     IconButton {
                         id: addButton
                         objectName: "libraryAddPdfs"
                         icon.name: "add"
-                        description: "Add PDFs or a folder"
+                        description: qsTr("Add PDFs or a folder")
                         onClicked: addMenu.popup(addButton, 0, addButton.height)
                         Menu {
                             id: addMenu
                             objectName: "libraryAddMenu"
-                            MenuItem { text: "Add PDFs…"; onTriggered: addDialog.open() }
-                            MenuItem { objectName: "libraryAddFolder"; text: "Add Folder…"; onTriggered: folderDialog.open() }
+                            MenuItem { text: qsTr("Add PDFs…"); onTriggered: addDialog.open() }
+                            MenuItem { objectName: "libraryAddFolder"; text: qsTr("Add Folder…"); onTriggered: folderDialog.open() }
                         }
                     }
                     // AI topic collections for the selection, or for the papers listed (Unsorted is the usual place).
@@ -495,7 +495,7 @@ Rectangle {
                         objectName: "libraryOrganize"
                         icon.name: "organize"
                         enabled: (root.selection.length || root.rows.length) >= 2
-                        description: "Organize with AI"
+                        description: qsTr("Organize with AI")
                         onClicked: root.organizeWithAi(root.selection.length ? root.selection : root.rows.map(function(r) { return r.url.toString() }))
                     }
                     // A question to the library (or the collection shown), answered from its papers with the pages linked.
@@ -503,20 +503,20 @@ Rectangle {
                         objectName: "libraryAsk"
                         icon.name: "ai"
                         readonly property var shownCollection: root.filter.collection ? root.collectionRows.find(function(c) { return c.id === root.filter.collection }) || null : null
-                        description: shownCollection ? "Ask this collection with AI" : "Ask your library with AI"
+                        description: shownCollection ? qsTr("Ask this collection with AI") : qsTr("Ask your library with AI")
                         onClicked: root.askLibraryRequested(shownCollection ? shownCollection.id : "", shownCollection ? shownCollection.name : "")
                     }
                     IconButton {
                         objectName: "exportBibtex"
                         icon.name: "export"
                         enabled: root.rows.length > 0
-                        description: "Export BibTeX"
+                        description: qsTr("Export BibTeX")
                         onClicked: bibtexDialog.open()
                     }
                 }
                 Native.FileDialog {
                     id: bibtexDialog
-                    title: "Export BibTeX"
+                    title: qsTr("Export BibTeX")
                     fileMode: Native.FileDialog.SaveFile
                     defaultSuffix: "bib"
                     nameFilters: ["BibTeX (*.bib)"]
@@ -553,7 +553,7 @@ Rectangle {
                             function onCollectionsSuggested(request, source, list) { if (request === paper.suggestionRequest) paper.suggestions = list }
                         }
                         ToolTip.visible: hovered; ToolTip.delay: 600
-                        ToolTip.text: modelData.fileName + (modelData.duplicate ? "\nSame file as another library entry" : "") + (modelData.excluded ? "\nExcluded from text search" : "")
+                        ToolTip.text: modelData.fileName + (modelData.duplicate ? qsTr("\nSame file as another library entry") : "") + (modelData.excluded ? qsTr("\nExcluded from text search") : "")
                         Drag.active: dragHandler.active
                         Drag.keys: ["owelk/paper"]
                         Drag.source: paper
@@ -591,7 +591,7 @@ Rectangle {
                                     objectName: "suggestion-" + modelData.name
                                     text: "+ " + modelData.name
                                     Layout.maximumWidth: 140
-                                    ToolTip.text: "Add to " + modelData.name
+                                    ToolTip.text: qsTr("Add to ") + modelData.name
                                     onClicked: { const url = paper.modelData.url, id = modelData.id; Qt.callLater(function() { researchStore.setDocumentCollection(url, id, true) }) }
                                 }
                             }
@@ -601,7 +601,7 @@ Rectangle {
                                 icon.name: "star"
                                 opacity: paper.modelData.favorite || paper.hovered || hovered ? 1 : 0
                                 tint: paper.modelData.favorite ? Theme.accent : Theme.textDisabled
-                                description: paper.modelData.favorite ? "Remove from Favorites" : "Add to Favorites"
+                                description: paper.modelData.favorite ? qsTr("Remove from Favorites") : qsTr("Add to Favorites")
                                 onClicked: researchStore.setFavorite(paper.modelData.url, !paper.modelData.favorite)
                             }
                         }
@@ -618,7 +618,7 @@ Rectangle {
                     Label {
                         anchors.centerIn: parent
                         visible: papers.count === 0
-                        text: root.filter.collection ? "No papers here yet. Add PDFs with +, or drop them here." : root.query.length || Object.keys(root.filter).length ? "No papers match." : "Papers you open or add with + appear here."
+                        text: root.filter.collection ? qsTr("No papers here yet. Add PDFs with +, or drop them here.") : root.query.length || Object.keys(root.filter).length ? qsTr("No papers match.") : qsTr("Papers you open or add with + appear here.")
                         color: Theme.textTertiary
                     }
                 }

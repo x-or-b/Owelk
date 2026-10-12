@@ -7,7 +7,7 @@ ColumnLayout {
     id: root
     spacing: 22
     readonly property var semantic: researchStore.semantic
-    readonly property var engines: [{name: "Off", value: ""}, {name: "Ollama (this computer)", value: "ollama"}, {name: "OpenAI", value: "openai"}]
+    readonly property var engines: [{name: qsTr("Off"), value: ""}, {name: qsTr("Ollama (this computer)"), value: "ollama"}, {name: qsTr("OpenAI"), value: "openai"}]
     property int stored: 0
     property var ocr: researchStore.ocrStatus()
     function refreshCount() { stored = semantic.storedCount() }
@@ -16,19 +16,19 @@ ColumnLayout {
     Connections { target: researchStore; function onOcrChanged() { root.ocr = researchStore.ocrStatus() } }
     // Meaning search: off by default; an engine embeds the library in the background.
     SettingsGroup {
-        title: "PDF text index"
-        note: "The words of the PDFs you open, kept on this computer for search. Click for each PDF's state, pause, or retry."
+        title: qsTr("PDF text index")
+        note: qsTr("The words of the PDFs you open, kept on this computer for search. Click for each PDF's state, pause, or retry.")
         SettingsRow {
-            label: "Status"
+            label: qsTr("Status")
             IndexStatus { Layout.fillWidth: true }
         }
     }
     SettingsGroup {
-        title: "Meaning search"
-        note: "Finds passages, notes and answers by meaning as well as by words; results appear under \"Similar meaning\". Keyword search always works without it. "
-            + "Ollama runs on this computer (install it, then `ollama pull nomic-embed-text`). OpenAI uses your OpenAI API key and is billed per use. Indexing pauses while you read."
+        title: qsTr("Meaning search")
+        note: qsTr("Finds passages, notes and answers by meaning as well as by words; results appear under \"Similar meaning\". Keyword search always works without it. ")
+            + qsTr("Ollama runs on this computer (install it, then `ollama pull nomic-embed-text`). OpenAI uses your OpenAI API key and is billed per use. Indexing pauses while you read.")
         SettingsRow {
-            label: "Engine"
+            label: qsTr("Engine")
             ComboBox {
                 objectName: "semanticEngineBox"
                 Layout.preferredWidth: 220
@@ -48,7 +48,7 @@ ColumnLayout {
         }
         SettingsRow {
             visible: root.semantic.enabled
-            label: "Model"
+            label: qsTr("Model")
             wide: true
             TextField {
                 objectName: "semanticModelField"
@@ -59,22 +59,22 @@ ColumnLayout {
         }
         SettingsRow {
             visible: root.semantic.enabled || root.stored > 0
-            label: "Index"
-            detail: root.semantic.progress.length ? root.semantic.progress : root.stored + " passages indexed"
+            label: qsTr("Index")
+            detail: root.semantic.progress.length ? root.semantic.progress : root.stored + qsTr(" passages indexed")
             Label { objectName: "semanticStatus"; visible: root.semantic.error.length > 0; text: root.semantic.error; color: Theme.danger; elide: Text.ElideRight; Layout.maximumWidth: 260 }
-            IconButton { visible: root.semantic.enabled; enabled: !root.semantic.busy; icon.name: "reload"; description: "Update the index"; onClicked: root.semantic.configure(root.semantic.engine, root.semantic.model) }
+            IconButton { visible: root.semantic.enabled; enabled: !root.semantic.busy; icon.name: "reload"; description: qsTr("Update the index"); onClicked: root.semantic.configure(root.semantic.engine, root.semantic.model) }
             Button { text: "Delete Vectors"; palette.buttonText: Theme.danger; enabled: !root.semantic.busy && root.stored > 0; onClicked: { root.semantic.clear(); root.refreshCount() } }
         }
     }
     // OCR for scanned pages, with the Tesseract the reader installed.
     SettingsGroup {
-        title: "Scanned pages"
+        title: qsTr("Scanned pages")
         note: root.ocr.found
-            ? "Pages without a text layer are read by Tesseract (" + root.ocr.program + ") in the background and become searchable. OCR text is for search only; it cannot be selected on the page."
-            : "To search scanned PDFs, install Tesseract: macOS `brew install tesseract tesseract-lang`, Linux `sudo apt install tesseract-ocr tesseract-ocr-kor`, Windows the UB Mannheim installer. Owelk finds it on its next start."
+            ? qsTr("Pages without a text layer are read by Tesseract (") + root.ocr.program + qsTr(") in the background and become searchable. OCR text is for search only; it cannot be selected on the page.")
+            : qsTr("To search scanned PDFs, install Tesseract: macOS `brew install tesseract tesseract-lang`, Linux `sudo apt install tesseract-ocr tesseract-ocr-kor`, Windows the UB Mannheim installer. Owelk finds it on its next start.")
         SettingsRow {
-            label: "Read text with OCR"
-            detail: root.ocr.found ? "" : "Tesseract not found"
+            label: qsTr("Read text with OCR")
+            detail: root.ocr.found ? "" : qsTr("Tesseract not found")
             Switch {
                 objectName: "ocrEnabled"
                 enabled: root.ocr.found
@@ -84,8 +84,8 @@ ColumnLayout {
         }
         SettingsRow {
             visible: root.ocr.found && root.ocr.enabled
-            label: "Languages"
-            detail: "Installed: " + (root.ocr.installed || []).join(", ")
+            label: qsTr("Languages")
+            detail: qsTr("Installed: ") + (root.ocr.installed || []).join(", ")
             TextField {
                 id: ocrLanguages
                 objectName: "ocrLanguages"
@@ -103,11 +103,11 @@ ColumnLayout {
         anchors.centerIn: parent
         width: 420
         modal: true
-        title: "Send library text to OpenAI?"
+        title: qsTr("Send library text to OpenAI?")
         standardButtons: Dialog.Ok | Dialog.Cancel
         Label {
             width: parent.width; wrapMode: Text.Wrap
-            text: "To search by meaning with OpenAI, Owelk sends the text of your indexed papers, notes, annotations and AI answers to OpenAI's embedding service, a little at a time, and again for new or changed items. PDF files themselves are not uploaded. Usage is billed to your OpenAI key."
+            text: qsTr("To search by meaning with OpenAI, Owelk sends the text of your indexed papers, notes, annotations and AI answers to OpenAI's embedding service, a little at a time, and again for new or changed items. PDF files themselves are not uploaded. Usage is billed to your OpenAI key.")
         }
         onAccepted: { researchStore.setSetting("semantic.consent.openai", "1"); researchStore.semantic.configure("openai", "") }
     }

@@ -117,7 +117,7 @@ Item {
             objectName: "aiChipRemove"
             anchors.right: parent.right; anchors.rightMargin: 2; anchors.verticalCenter: parent.verticalCenter
             width: 18; height: 18; glyphSize: Theme.fontSmall
-            icon.name: "close"; description: "Remove"
+            icon.name: "close"; description: qsTr("Remove")
             onClicked: chipBox.removed()
         }
     }
@@ -127,15 +127,15 @@ Item {
         const flat = function(text) { const t = (text || "").replace(/\s+/g, " ").trim(); return t.slice(0, 60) + (t.length > 60 ? "…" : "") }
         const paper = root.c && root.c.thread.source && root.c.thread.source.toString().length ? researchStore.displayName(root.c.thread.source) : ""
         ;(context.attachments || []).forEach(function(kind) {
-            if (kind === "paper") list.push({kind: kind, label: "Paper" + (paper.length ? " · " + paper : "")})
-            else if (kind.indexOf("page ") === 0) list.push({kind: "page", label: "Page " + kind.slice(5) + " text"})
-            else if (kind === "selection") list.push({kind: kind, label: "Selection · " + flat(context.selection), detail: context.selection || ""})
-            else if (kind === "quote") list.push({kind: kind, label: "Quote · " + flat(context.quote), detail: context.quote || ""})
-            else if (kind === "library") list.push({kind: kind, label: "Library passages"})
+            if (kind === "paper") list.push({kind: kind, label: qsTr("Paper") + (paper.length ? " · " + paper : "")})
+            else if (kind.indexOf("page ") === 0) list.push({kind: "page", label: qsTr("Page ") + kind.slice(5) + qsTr(" text")})
+            else if (kind === "selection") list.push({kind: kind, label: qsTr("Selection · ") + flat(context.selection), detail: context.selection || ""})
+            else if (kind === "quote") list.push({kind: kind, label: qsTr("Quote · ") + flat(context.quote), detail: context.quote || ""})
+            else if (kind === "library") list.push({kind: kind, label: qsTr("Library passages")})
             else if (kind === "image") {
                 const names = context.images || [], files = context.imageFiles || []
                 for (let i = 0; i < Math.max(1, names.length, files.length); ++i)
-                    list.push({kind: "image", label: names[i] || "Image", url: files[i] || ""})
+                    list.push({kind: "image", label: names[i] || qsTr("Image"), url: files[i] || ""})
             }
         })
         return list
@@ -155,14 +155,14 @@ Item {
             objectName: "aiThinkingNow"
             visible: fold.live
             Layout.fillWidth: true
-            text: fold.shown ? "Thinking · " + root.c.thinkingHeadline(fold.summary) : "Thinking…"
+            text: fold.shown ? qsTr("Thinking · ") + root.c.thinkingHeadline(fold.summary) : qsTr("Thinking…")
             elide: Text.ElideRight; textFormat: Text.PlainText
             color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
         }
         Label {
             objectName: "aiThoughtToggle"
             visible: !fold.live && fold.shown
-            text: "Thought for " + fold.seconds + "s " + (fold.expanded ? "\u2304" : "\u203a")
+            text: qsTr("Thought for ") + fold.seconds + qsTr("s ") + (fold.expanded ? "\u2304" : "\u203a")
             textFormat: Text.PlainText
             color: toggleHover.hovered ? Theme.text : Theme.textSecondary; font.pixelSize: Theme.fontSmall
             HoverHandler { id: toggleHover; cursorShape: Qt.PointingHandCursor }
@@ -221,15 +221,15 @@ Item {
         property bool kept: false
         readonly property bool selected: target !== null && target.selectedText.length > 0
         onClosed: if (target) { target.persistentSelection = kept; if (selected) target.forceActiveFocus() }
-        MenuItem { objectName: "aiTextCopy"; text: "Copy"; enabled: textMenu.selected; onTriggered: researchStore.copyText(root.selectionText(textMenu.target)) }
+        MenuItem { objectName: "aiTextCopy"; text: qsTr("Copy"); enabled: textMenu.selected; onTriggered: researchStore.copyText(root.selectionText(textMenu.target)) }
         MenuItem {
-            objectName: "aiTextSelectAll"; text: "Select All"
+            objectName: "aiTextSelectAll"; text: qsTr("Select All")
             enabled: textMenu.target !== null && textMenu.target.length > 0
             onTriggered: textMenu.target.selectAll()
         }
         MenuSeparator {}
         MenuItem {
-            objectName: "aiTextAsk"; text: "Ask About This"; enabled: textMenu.selected
+            objectName: "aiTextAsk"; text: qsTr("Ask About This"); enabled: textMenu.selected
             onTriggered: { const target = textMenu.target; target.persistentSelection = textMenu.kept; root.quote(root.selectionText(target)) }
         }
     }
@@ -242,24 +242,24 @@ Item {
             spacing: 2
             IconButton {
                 objectName: "aiThreadsButton"
-                icon.name: "back"; description: "All threads"
+                icon.name: "back"; description: qsTr("All threads")
                 visible: !root.showingThreads
                 onClicked: root.c.showThreads()
             }
             Label {
                 objectName: "aiThreadTitle"
                 Layout.fillWidth: true; Layout.minimumWidth: 0
-                text: root.showingThreads ? "Threads" : (root.c.thread.title || "New thread")
+                text: root.showingThreads ? qsTr("Threads") : (root.c.thread.title || qsTr("New thread"))
                 elide: Text.ElideRight; textFormat: Text.PlainText
                 font.pixelSize: Theme.fontBody; font.weight: Font.DemiBold; color: Theme.text
             }
             IconButton {
                 objectName: "aiTrashButton"
                 visible: root.showingThreads
-                icon.name: "trash"; description: "Trash (in the Library)"
+                icon.name: "trash"; description: qsTr("Trash (in the Library)")
                 onClicked: root.trashRequested()
             }
-            IconButton { objectName: "aiNewThread"; icon.name: "add"; description: "New thread"; onClicked: { root.c.newThread(); root.focusQuestion() } }
+            IconButton { objectName: "aiNewThread"; icon.name: "add"; description: qsTr("New thread"); onClicked: { root.c.newThread(); root.focusQuestion() } }
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }
         // Saved threads, newest first. Click opens; Cmd/Ctrl-click and Shift-click select
@@ -325,7 +325,7 @@ Item {
                     Label { Layout.fillWidth: true; text: row.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: row.chosen ? Theme.selectedText : Theme.text }
                     Label {
                         Layout.fillWidth: true
-                        text: Math.ceil(row.modelData.messages / 2) + (row.modelData.messages > 2 ? " turns" : " turn") + " · " + row.modelData.model
+                        text: Math.ceil(row.modelData.messages / 2) + (row.modelData.messages > 2 ? qsTr(" turns") : qsTr(" turn")) + " · " + row.modelData.model
                         elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: Theme.fontCaption
                     }
                 }
@@ -335,7 +335,7 @@ Item {
                 anchors.centerIn: parent
                 width: parent.width - 16
                 visible: threadList.count === 0
-                text: "Ask about a selection, page or figure, or start a new thread with +."
+                text: qsTr("Ask about a selection, page or figure, or start a new thread with +.")
                 wrapMode: Text.WrapAtWordBoundaryOrAnywhere; horizontalAlignment: Text.AlignHCenter
                 color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
             }
@@ -348,12 +348,12 @@ Item {
             Layout.leftMargin: 10; Layout.rightMargin: 6; Layout.topMargin: 6
             Label {
                 Layout.fillWidth: true
-                text: "This conversation is in the Trash."
+                text: qsTr("This conversation is in the Trash.")
                 wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
             }
             Button {
                 objectName: "aiRestoreThread"
-                text: "Restore"
+                text: qsTr("Restore")
                 implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
                 onClicked: root.c.restoreThread()
             }
@@ -432,18 +432,18 @@ Item {
                     objectName: "aiCutOff-" + message.index
                     readonly property var context: message.modelData.context || ({})
                     visible: message.modelData.role === "assistant" && !!(context.cutOff || context.stopped)
-                    text: context.stopped ? "Stopped." : "Stopped at the length limit."
+                    text: context.stopped ? qsTr("Stopped.") : qsTr("Stopped at the length limit.")
                     textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
                 }
                 RowLayout {
                     visible: message.modelData.role === "assistant"
                     spacing: 0
-                    IconButton { icon.name: "copy"; description: "Copy answer"; glyphSize: Theme.fontBody; onClicked: researchStore.copyText(message.modelData.content) }
+                    IconButton { icon.name: "copy"; description: qsTr("Copy answer"); glyphSize: Theme.fontBody; onClicked: researchStore.copyText(message.modelData.content) }
                     // A new note, or one of the notes about this paper (a menu when there are some).
                     IconButton {
                         id: saveNoteButton
                         objectName: "aiSaveNote-" + message.index
-                        icon.name: "note"; description: "Save as note"; glyphSize: Theme.fontBody
+                        icon.name: "note"; description: qsTr("Save as note"); glyphSize: Theme.fontBody
                         onClicked: {
                             const notes = root.c.paperNotes()
                             if (!notes.length) { root.c.saveAsNote(message.index); return }
@@ -454,13 +454,13 @@ Item {
                             id: saveNoteMenu
                             objectName: "aiSaveNoteMenu"
                             property var notes: []
-                            MenuItem { objectName: "aiSaveNewNote"; text: "New Note"; onTriggered: root.c.saveAsNote(message.index) }
+                            MenuItem { objectName: "aiSaveNewNote"; text: qsTr("New Note"); onTriggered: root.c.saveAsNote(message.index) }
                             MenuSeparator {}
                             Instantiator {
                                 model: saveNoteMenu.notes
                                 delegate: MenuItem {
                                     required property var modelData
-                                    text: "Add to \u201c" + modelData.title + "\u201d"
+                                    text: qsTr("Add to \u201c") + modelData.title + "\u201d"
                                     onTriggered: root.c.saveAsNote(message.index, modelData.id)
                                 }
                                 onObjectAdded: function(index, item) { saveNoteMenu.insertItem(index + 2, item) }
@@ -470,7 +470,7 @@ Item {
                     }
                     IconButton {
                         objectName: "aiToQuestion-" + message.index
-                        icon.name: "toQuestion"; description: "Back to the question"; glyphSize: Theme.fontBody
+                        icon.name: "toQuestion"; description: qsTr("Back to the question"); glyphSize: Theme.fontBody
                         onClicked: conversation.toQuestion(message.index)
                     }
                 }
@@ -512,14 +512,14 @@ Item {
                     objectName: "aiTranslateNext"
                     visible: root.c && root.c.canTranslateNext
                     Layout.topMargin: 4
-                    text: root.c ? "Translate Page " + (root.c.translatePage + 2) : ""
+                    text: root.c ? qsTr("Translate Page ") + (root.c.translatePage + 2) : ""
                     icon.name: "forward"
                     onClicked: root.c.translateNext()
                 }
                 Button {
                     objectName: "aiOpenSettings"
                     visible: root.c && root.c.error.indexOf("Settings") >= 0
-                    text: "Open Settings…"; implicitHeight: Theme.rowHeight - 2
+                    text: qsTr("Open Settings…"); implicitHeight: Theme.rowHeight - 2
                     onClicked: root.settingsRequested()
                 }
             }
@@ -531,7 +531,7 @@ Item {
                 anchors.bottom: parent.bottom; anchors.bottomMargin: 8
                 z: 2
                 visible: !conversation.nearEnd && conversation.count > 0
-                icon.name: "toLatest"; description: "Go to the latest"
+                icon.name: "toLatest"; description: qsTr("Go to the latest")
                 background: Rectangle {
                     implicitWidth: Theme.controlHeight; implicitHeight: Theme.controlHeight
                     radius: height / 2
@@ -577,7 +577,7 @@ Item {
                 TextArea {
                     id: question
                     objectName: "aiQuestion"
-                    placeholderText: root.c && root.c.spec.scope === "library" ? (root.c.spec.collection ? "Ask this collection…" : "Ask your library…") : root.c && root.c.threadId.length ? "Ask a follow-up…" : "Ask about the paper…"
+                    placeholderText: root.c && root.c.spec.scope === "library" ? (root.c.spec.collection ? qsTr("Ask this collection…") : qsTr("Ask your library…")) : root.c && root.c.threadId.length ? qsTr("Ask a follow-up…") : qsTr("Ask about the paper…")
                     wrapMode: TextEdit.Wrap
                     font.pixelSize: Theme.fontSmall
                     rightPadding: composer.tall ? 28 : 8
@@ -598,7 +598,7 @@ Item {
                 anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 3
                 implicitWidth: 22; implicitHeight: 22; glyphSize: Theme.fontSmall
                 icon.name: composer.expanded ? "collapse" : "expand"
-                description: composer.expanded ? "Smaller question box" : "Larger question box"
+                description: composer.expanded ? qsTr("Smaller question box") : qsTr("Larger question box")
                 onClicked: { composer.expanded = !composer.expanded; question.forceActiveFocus() }
             }
         }
@@ -612,13 +612,13 @@ Item {
                 id: attachButton
                 objectName: "aiAttachButton"
                 icon.name: "attach"
-                description: "Add context"
+                description: qsTr("Add context")
                 onClicked: attachMenu.popup(attachButton, 0, -attachMenu.implicitHeight)
                 Menu {
                     id: attachMenu
-                    MenuItem { objectName: "aiAttachPaper"; text: "This Paper"; enabled: root.c && root.c.reader !== null && root.c.reader.source.toString().length > 0; onTriggered: root.c.attachPaper() }
-                    MenuItem { objectName: "aiAttachRegion"; text: "Region of the PDF…"; enabled: root.c && root.c.reader !== null; onTriggered: root.c.captureRegion() }
-                    MenuItem { objectName: "aiAttachImage"; text: "Image…"; onTriggered: imageDialog.open() }
+                    MenuItem { objectName: "aiAttachPaper"; text: qsTr("This Paper"); enabled: root.c && root.c.reader !== null && root.c.reader.source.toString().length > 0; onTriggered: root.c.attachPaper() }
+                    MenuItem { objectName: "aiAttachRegion"; text: qsTr("Region of the PDF…"); enabled: root.c && root.c.reader !== null; onTriggered: root.c.captureRegion() }
+                    MenuItem { objectName: "aiAttachImage"; text: qsTr("Image…"); onTriggered: imageDialog.open() }
                 }
             }
             Chip {
@@ -629,7 +629,7 @@ Item {
                 Layout.maximumWidth: implicitWidth
                 objectName: "aiModelButton"
                 text: root.c ? root.c.modelLabel : ""
-                ToolTip.text: "Model"
+                ToolTip.text: qsTr("Model")
                 onClicked: { root.c.loadModels(); modelFilter.text = ""; modelMenu.open() }
             }
             Chip {
@@ -642,7 +642,7 @@ Item {
                 compact: bar.width < Theme.fontBody * 22
                 icon.name: "effort"
                 text: root.c ? root.c.effortName(root.c.effectiveEffort) : ""
-                ToolTip.text: "Reasoning effort"
+                ToolTip.text: qsTr("Reasoning effort")
                 onClicked: effortMenu.popup(effortButton, 0, -effortMenu.implicitHeight)
                 Menu {
                     id: effortMenu
@@ -667,7 +667,7 @@ Item {
                 icon.name: "fast"
                 checkable: true
                 checked: root.c && root.c.effectiveFast
-                description: "Fast mode"
+                description: qsTr("Fast mode")
                 onClicked: root.c.setFast(checked)
             }
             Item { Layout.fillWidth: true; Layout.minimumWidth: 0 }
@@ -679,7 +679,7 @@ Item {
                 readonly property bool stopping: root.c && root.c.streaming
                 icon.name: stopping ? "stop" : "send"
                 glyphSize: stopping ? Theme.fontSmall : Theme.iconSize
-                description: stopping ? "Stop" : "Send · " + Platform.keys("Return")
+                description: stopping ? qsTr("Stop") : qsTr("Send · ") + Platform.keys("Return")
                 enabled: stopping || question.text.trim().length > 0 || (root.c && root.c.attachments.length > 0)
                 onClicked: {
                     if (root.c.streaming) { root.c.stop(); return }
@@ -700,7 +700,7 @@ Item {
     }
     Native.FileDialog {
         id: imageDialog
-        title: "Attach images"
+        title: qsTr("Attach images")
         fileMode: Native.FileDialog.OpenFiles
         nameFilters: ["Images (*.png *.jpg *.jpeg *.gif *.webp *.heic)"]
         onAccepted: { for (const url of selectedFiles) root.c.attachImage(url) }
@@ -726,7 +726,7 @@ Item {
                 Layout.fillWidth: true
                 implicitHeight: Theme.controlHeight
                 font.pixelSize: Theme.fontSmall
-                placeholderText: "Search models"
+                placeholderText: qsTr("Search models")
                 Keys.onEscapePressed: modelMenu.close()
             }
             Flickable {
@@ -754,7 +754,7 @@ Item {
                             readonly property bool loaded: root.c.models[modelData.id] !== undefined
                             Label {
                                 visible: !providerSection.loaded && !providerSection.needle.length
-                                text: "Loading…"
+                                text: qsTr("Loading…")
                                 font.pixelSize: Theme.fontCaption; color: Theme.textTertiary; Layout.leftMargin: 10
                             }
                             // A provider that lists no models (or is signed out) still runs its own default.
@@ -764,7 +764,7 @@ Item {
                                 Layout.fillWidth: true
                                 implicitHeight: Theme.rowHeight - 2
                                 highlighted: root.c.ai.provider === providerSection.modelData.id && !root.c.model
-                                contentItem: Label { text: "Default model"; font.pixelSize: Theme.fontSmall; color: Theme.text }
+                                contentItem: Label { text: qsTr("Default model"); font.pixelSize: Theme.fontSmall; color: Theme.text }
                                 onClicked: {
                                     const provider = providerSection.modelData.id, controller = root.c
                                     modelMenu.close()
@@ -807,7 +807,7 @@ Item {
                         Layout.fillWidth: true; Layout.topMargin: 4
                         implicitHeight: Theme.rowHeight - 2
                         contentItem: Label {
-                            text: "Set up " + parent.missing.map(function(p) { return root.c.companyName(p.id) }).join(", ") + "…"
+                            text: qsTr("Set up ") + parent.missing.map(function(p) { return root.c.companyName(p.id) }).join(", ") + "…"
                             elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                         }
                         onClicked: { modelMenu.close(); root.settingsRequested() }
@@ -825,12 +825,12 @@ Item {
         MenuItem {
             visible: threadMenu.ids.length === 1
             height: visible ? implicitHeight : 0
-            text: "Rename…"
+            text: qsTr("Rename…")
             onTriggered: { renameDialog.threadId = threadMenu.row.id; renameField.text = threadMenu.row.title; renameDialog.open() }
         }
         MenuItem {
             objectName: "trashThreadOption"
-            text: threadMenu.ids.length > 1 ? "Move " + threadMenu.ids.length + " to Trash" : "Move to Trash"
+            text: threadMenu.ids.length > 1 ? qsTr("Move ") + threadMenu.ids.length + qsTr(" to Trash") : qsTr("Move to Trash")
             onTriggered: root.trashThreads(threadMenu.ids)
         }
     }
@@ -840,7 +840,7 @@ Item {
         anchors.centerIn: parent
         width: 360
         modal: true
-        title: "Rename Thread"
+        title: qsTr("Rename Thread")
         property string threadId: ""
         standardButtons: Dialog.Ok | Dialog.Cancel
         TextField { id: renameField; objectName: "aiRenameField"; width: parent.width; onAccepted: renameDialog.accept() }

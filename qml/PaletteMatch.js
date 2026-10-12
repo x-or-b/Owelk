@@ -14,7 +14,7 @@ function highlight(title, query, color) {
     let result = "", active = false
     for (let i = 0; i < title.length; ++i) {
         // StyledText supports <font>/<b>, not CSS span styles.
-        if (marked[i] !== active) { result += marked[i] ? '<font color="' + color + '"><b>' : '</b></font>'; active = marked[i] }
+        if (marked[i] !== active) { result += marked[i] ? '<font color=qsTr("' + color + '")><b>' : '</b></font>'; active = marked[i] }
         result += escape(title[i])
     }
     return result + (active ? '</b></font>' : '')

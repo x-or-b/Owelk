@@ -48,7 +48,7 @@ Popup {
             id: searchInput
             objectName: "searchPaletteQuery"
             Layout.fillWidth: true
-            placeholderText: "Search PDF text, papers, notes, AI  ·  narrow with tag: collection: state: year:"
+            placeholderText: qsTr("Search PDF text, papers, notes, AI  ·  narrow with tag: collection: state: year:")
             selectByMouse: true
             onAccepted: {
                 let at = list.currentIndex
@@ -77,10 +77,10 @@ Popup {
                 highlighted: list.currentIndex === index
                 onClicked: root.choose(index)
             }
-            Label { visible: list.count === 0; anchors.centerIn: parent; text: search.waiting ? "Searching PDF text…" : search.error.length ? "Text search failed. Try again." : "No matching saved items"; color: Theme.textTertiary }
+            Label { visible: list.count === 0; anchors.centerIn: parent; text: search.waiting ? qsTr("Searching PDF text…") : search.error.length ? qsTr("Text search failed. Try again.") : qsTr("No matching saved items"); color: Theme.textTertiary }
         }
-        Label { text: search.sourceFilter.toString().length ? "Matching pages in this paper · 40 per page" : "PDF text grouped by paper · 3 previews each"; color: Theme.textTertiary; font.pixelSize: Theme.fontCaption }
-        Label { Layout.fillWidth: true; visible: search.error.length > 0; text: "PDF text search failed: " + search.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+        Label { text: search.sourceFilter.toString().length ? qsTr("Matching pages in this paper · 40 per page") : qsTr("PDF text grouped by paper · 3 previews each"); color: Theme.textTertiary; font.pixelSize: Theme.fontCaption }
+        Label { Layout.fillWidth: true; visible: search.error.length > 0; text: qsTr("PDF text search failed: ") + search.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
         IndexStatus { Layout.fillWidth: true }
     }
 }

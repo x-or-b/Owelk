@@ -21,9 +21,9 @@ ColumnLayout {
     }
     function resetAll() { overrides = ({}); researchStore.setSetting("shortcuts", "{}") }
     SettingsGroup {
-        title: "Keyboard shortcuts"
-        note: Object.keys(root.clashes).length ? "Some shortcuts are used twice (in red); only one of them will work."
-            : "Click a shortcut and press the new keys. Esc cancels, Backspace turns it off."
+        title: qsTr("Keyboard shortcuts")
+        note: Object.keys(root.clashes).length ? qsTr("Some shortcuts are used twice (in red); only one of them will work.")
+            : qsTr("Click a shortcut and press the new keys. Esc cancels, Backspace turns it off.")
         noteColor: Object.keys(root.clashes).length ? Theme.danger : Theme.textTertiary
         Repeater {
             model: Shortcuts.actions
@@ -38,12 +38,12 @@ ColumnLayout {
                     id: keyButton
                     objectName: "shortcut-" + shortcutRow.modelData.id
                     Layout.preferredWidth: 140
-                    text: root.recording === shortcutRow.modelData.id ? "Press keys…"
-                        : shortcutRow.current.length ? Platform.keys(shortcutRow.current) : "None"
+                    text: root.recording === shortcutRow.modelData.id ? qsTr("Press keys…")
+                        : shortcutRow.current.length ? Platform.keys(shortcutRow.current) : qsTr("None")
                     primary: root.recording === shortcutRow.modelData.id
                     palette.buttonText: shortcutRow.clash ? Theme.danger : Theme.text
                     ToolTip.visible: hovered && shortcutRow.clash; ToolTip.delay: 300
-                    ToolTip.text: shortcutRow.clash ? "Also used by " + root.clashes[shortcutRow.current].filter(function(n) { return n !== shortcutRow.modelData.name }).join(", ") : ""
+                    ToolTip.text: shortcutRow.clash ? qsTr("Also used by ") + root.clashes[shortcutRow.current].filter(function(n) { return n !== shortcutRow.modelData.name }).join(", ") : ""
                     onClicked: { root.recording = shortcutRow.modelData.id; keyButton.forceActiveFocus() }
                     Keys.onPressed: function(event) {
                         if (root.recording !== shortcutRow.modelData.id) return
@@ -58,7 +58,7 @@ ColumnLayout {
                     onActiveFocusChanged: if (!activeFocus && root.recording === shortcutRow.modelData.id) root.recording = ""
                 }
                 IconButton {
-                    icon.name: "reset"; description: "Default: " + Platform.keys(Shortcuts.defaultKeys(shortcutRow.modelData.id, Qt.platform.os))
+                    icon.name: "reset"; description: qsTr("Default: ") + Platform.keys(Shortcuts.defaultKeys(shortcutRow.modelData.id, Qt.platform.os))
                     opacity: shortcutRow.current !== Shortcuts.defaultKeys(shortcutRow.modelData.id, Qt.platform.os) ? 1 : 0
                     enabled: opacity > 0
                     onClicked: root.store(shortcutRow.modelData.id, Shortcuts.defaultKeys(shortcutRow.modelData.id, Qt.platform.os))
@@ -66,5 +66,5 @@ ColumnLayout {
             }
         }
     }
-    Button { objectName: "resetShortcuts"; Layout.alignment: Qt.AlignRight; text: "Reset All"; onClicked: root.resetAll() }
+    Button { objectName: "resetShortcuts"; Layout.alignment: Qt.AlignRight; text: qsTr("Reset All"); onClicked: root.resetAll() }
 }

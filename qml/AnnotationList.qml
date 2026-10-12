@@ -24,7 +24,7 @@ Item {
     property string sortMode: researchStore.setting("annotations.sort", "page") === "type" ? "type" : "page"
     function setSortMode(mode) { sortMode = mode; researchStore.setSetting("annotations.sort", mode) }
     readonly property var kinds: ["draw", "highlight", "comment", "text", "image", "area"]
-    readonly property var kindNames: ({draw: "Pen", highlight: "Highlights", comment: "Comments", text: "Text", image: "Pictures", area: "Regions"})
+    readonly property var kindNames: ({draw: qsTr("Pen"), highlight: qsTr("Highlights"), comment: qsTr("Comments"), text: qsTr("Text"), image: qsTr("Pictures"), area: qsTr("Regions")})
     readonly property var notes: canvas.savedHighlights
         .filter(function(h) { return root.kinds.indexOf(h.kind) >= 0 })
         .sort(function(a, b) {
@@ -71,35 +71,35 @@ Item {
             Layout.leftMargin: 4; Layout.rightMargin: 0
             Label {
                 Layout.fillWidth: true
-                text: "Annotations" + (root.notes.length ? "  " + root.notes.length : "")
+                text: qsTr("Annotations") + (root.notes.length ? "  " + root.notes.length : "")
                 elide: Text.ElideRight
                 font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold; color: Theme.textSecondary
             }
             TabBar {
                 objectName: "annotationSort"
                 currentIndex: root.sortMode === "type" ? 1 : 0
-                TabButton { objectName: "annotationSortPage"; text: "Page"; width: 48; onClicked: root.setSortMode("page") }
-                TabButton { objectName: "annotationSortType"; text: "Type"; width: 48; onClicked: root.setSortMode("type") }
+                TabButton { objectName: "annotationSortPage"; text: qsTr("Page"); width: 48; onClicked: root.setSortMode("page") }
+                TabButton { objectName: "annotationSortType"; text: qsTr("Type"); width: 48; onClicked: root.setSortMode("type") }
             }
             // New annotation of any kind: a comment is written here; the others are placed on the page.
             IconButton {
                 id: addButton
                 objectName: "newAnnotation"
                 icon.name: "add"
-                description: "New annotation"
+                description: qsTr("New annotation")
                 onClicked: addMenu.popup(addButton, 0, addButton.height)
                 Menu {
                     id: addMenu
                     objectName: "newAnnotationMenu"
                     MenuItem {
                         objectName: "newCommentItem"
-                        text: root.canvas.selectedAnchor ? "Comment on Selection" : "Comment…"
+                        text: root.canvas.selectedAnchor ? qsTr("Comment on Selection") : qsTr("Comment…")
                         onTriggered: root.newAnnotation("comment")
                     }
-                    MenuItem { objectName: "newTextItem"; text: "Text Box"; onTriggered: root.newAnnotation("text") }
-                    MenuItem { objectName: "newImageItem"; text: "Picture"; onTriggered: root.newAnnotation("image") }
-                    MenuItem { objectName: "newAreaItem"; text: "Region"; onTriggered: root.newAnnotation("area") }
-                    MenuItem { objectName: "newPenItem"; text: "Pen"; onTriggered: root.newAnnotation("draw") }
+                    MenuItem { objectName: "newTextItem"; text: qsTr("Text Box"); onTriggered: root.newAnnotation("text") }
+                    MenuItem { objectName: "newImageItem"; text: qsTr("Picture"); onTriggered: root.newAnnotation("image") }
+                    MenuItem { objectName: "newAreaItem"; text: qsTr("Region"); onTriggered: root.newAnnotation("area") }
+                    MenuItem { objectName: "newPenItem"; text: qsTr("Pen"); onTriggered: root.newAnnotation("draw") }
                 }
             }
         }
@@ -145,7 +145,7 @@ Item {
                 // A heading above the first of each page (or of each kind, sorted by type).
                 heading: root.sortMode === "type"
                     ? (index === 0 || root.notes[index - 1].kind !== modelData.kind ? root.kindNames[modelData.kind] : "")
-                    : (index === 0 || root.notes[index - 1].page !== modelData.page ? "Page " + (modelData.page + 1) : "")
+                    : (index === 0 || root.notes[index - 1].page !== modelData.page ? qsTr("Page ") + (modelData.page + 1) : "")
                 current: root.canvas.currentPage === modelData.page
                 editing: root.editingId === modelData.id
                 onHoveredChanged: root.canvas.focusedMark = hovered ? modelData.id : (root.canvas.focusedMark === modelData.id ? "" : root.canvas.focusedMark)
@@ -178,7 +178,7 @@ Item {
                 visible: root.notes.length === 0 && !root.draft
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
-                text: "Pen, highlights, comments, text boxes and pictures on this paper appear here. Select text and add a note, or use + and click a place on the page."
+                text: qsTr("Pen, highlights, comments, text boxes and pictures on this paper appear here. Select text and add a note, or use + and click a place on the page.")
                 color: Theme.textTertiary
                 font.pixelSize: Theme.fontSmall
             }
@@ -232,9 +232,9 @@ Item {
                 TapHandler { acceptedButtons: Qt.RightButton; enabled: card.noteId.length > 0; onTapped: noteMenu.popup() }
                 Menu {
                     id: noteMenu
-                    MenuItem { text: "Go to"; onTriggered: card.opened() }
-                    MenuItem { visible: card.kind !== "draw" && card.kind !== "image"; height: visible ? implicitHeight : 0; text: "Edit"; onTriggered: card.editRequested() }
-                    MenuItem { visible: card.body.length > 0; height: visible ? implicitHeight : 0; text: "Copy Text"; onTriggered: researchStore.copyText(card.body) }
+                    MenuItem { text: qsTr("Go to"); onTriggered: card.opened() }
+                    MenuItem { visible: card.kind !== "draw" && card.kind !== "image"; height: visible ? implicitHeight : 0; text: qsTr("Edit"); onTriggered: card.editRequested() }
+                    MenuItem { visible: card.body.length > 0; height: visible ? implicitHeight : 0; text: qsTr("Copy Text"); onTriggered: researchStore.copyText(card.body) }
                     MenuSeparator {}
                     MenuItem { objectName: "removeAnnotation"; text: "Delete"; palette.windowText: Theme.danger; onTriggered: card.removeRequested() }
                 }
@@ -265,7 +265,7 @@ Item {
                         Icon { name: ({draw: "draw", image: "image", text: "text", highlight: "highlight", area: "area"})[card.kind] || "comment"; color: card.ink; size: Theme.fontBody }
                         Label {
                             Layout.fillWidth: true
-                            text: ({draw: "Drawing", image: "Picture", text: "Text box", highlight: "Highlight", area: "Region"})[card.kind] || ""
+                            text: ({draw: qsTr("Drawing"), image: qsTr("Picture"), text: qsTr("Text box"), highlight: qsTr("Highlight"), area: qsTr("Region")})[card.kind] || ""
                             font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                         }
                     }
@@ -315,7 +315,7 @@ Item {
                         visible: card.editing
                         Layout.fillWidth: true
                         text: card.body
-                        placeholderText: "Write a note…"
+                        placeholderText: qsTr("Write a note…")
                         wrapMode: TextEdit.Wrap
                         onVisibleChanged: if (visible) { text = card.body; forceActiveFocus(); cursorPosition = length }
                         // Cmd+Return saves, Esc cancels, leaving the field saves.
@@ -329,7 +329,7 @@ Item {
                     Label {
                         visible: card.editing
                         Layout.fillWidth: true
-                        text: Platform.keys("Ctrl+Return") + " to save · Esc to cancel"
+                        text: Platform.keys("Ctrl+Return") + qsTr(" to save · Esc to cancel")
                         font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                     }
                 }

@@ -54,7 +54,7 @@ Item {
         return {handler: root, collection: row.id, name: row.name, source: tab.source}
     }
     function dropTab(id, target) {
-        if (researchStore.setDocumentCollection(target.source, target.collection, true)) researchStore.notify("Added to " + target.name + ".")
+        if (researchStore.setDocumentCollection(target.source, target.collection, true)) researchStore.notify(qsTr("Added to ") + target.name + ".")
     }
     Component.onDestruction: if (documents) documents.removeDropHandler(root)
     // A section heading: a chevron and a name; click folds it.
@@ -92,7 +92,7 @@ Item {
         pending = ({})
         latestRequests = ({})
         status = ""
-        if (folder.toString().length) { status = "Loading…"; load(folder, "", 0) }
+        if (folder.toString().length) { status = qsTr("Loading…"); load(folder, "", 0) }
     }
     function toggle(index) {
         const row = rows.get(index)
@@ -135,19 +135,19 @@ Item {
                 rows.insert(insertAt + i, {name: entries[i].name, url: entries[i].url,
                     directory: entries[i].directory, depth: request.depth, expanded: false, loading: false})
             }
-            if (!rows.count && !error.length) root.status = "No PDFs or subfolders."
+            if (!rows.count && !error.length) root.status = qsTr("No PDFs or subfolders.")
         }
     }
-    FolderDialog { id: folderDialog; title: "Open paper folder"; onAccepted: root.folderChosen(selectedFolder) }
+    FolderDialog { id: folderDialog; title: qsTr("Open paper folder"); onAccepted: root.folderChosen(selectedFolder) }
     Menu {
         id: shelfMenu
         objectName: "panelCollectionMenu"
         property var collection: ({})
-        MenuItem { text: "Open in Library"; onTriggered: root.libraryFilterRequested({collection: shelfMenu.collection.id}) }
-        MenuItem { objectName: "panelAddPdfs"; text: "Add PDFs…"; onTriggered: addFiles.open() }
+        MenuItem { text: qsTr("Open in Library"); onTriggered: root.libraryFilterRequested({collection: shelfMenu.collection.id}) }
+        MenuItem { objectName: "panelAddPdfs"; text: qsTr("Add PDFs…"); onTriggered: addFiles.open() }
         MenuSeparator {}
-        MenuItem { text: "New Sub-collection…"; onTriggered: nameDialog.begin("new", "", shelfMenu.collection.id) }
-        MenuItem { objectName: "panelRenameCollection"; text: "Rename…"; onTriggered: nameDialog.begin("rename", shelfMenu.collection.name, shelfMenu.collection.id) }
+        MenuItem { text: qsTr("New Sub-collection…"); onTriggered: nameDialog.begin("new", "", shelfMenu.collection.id) }
+        MenuItem { objectName: "panelRenameCollection"; text: qsTr("Rename…"); onTriggered: nameDialog.begin("rename", shelfMenu.collection.name, shelfMenu.collection.id) }
         MenuSeparator {}
         MenuItem { text: "Delete Collection…"; palette.windowText: Theme.danger; onTriggered: deleteConfirm.open() }
     }
@@ -161,10 +161,10 @@ Item {
         anchors.centerIn: parent
         width: 340
         modal: true
-        title: mode === "rename" ? "Rename collection" : target.length ? "New sub-collection" : "New collection"
+        title: mode === "rename" ? qsTr("Rename collection") : target.length ? qsTr("New sub-collection") : qsTr("New collection")
         standardButtons: Dialog.Save | Dialog.Cancel
         function begin(how, name, collection) { mode = how; target = collection || ""; nameField.text = name || ""; open(); nameField.forceActiveFocus() }
-        TextField { id: nameField; objectName: "panelCollectionNameField"; width: parent.width; placeholderText: "Collection name"; onAccepted: nameDialog.accept() }
+        TextField { id: nameField; objectName: "panelCollectionNameField"; width: parent.width; placeholderText: qsTr("Collection name"); onAccepted: nameDialog.accept() }
         onAccepted: {
             if (!nameField.text.trim().length) return
             if (mode === "rename") researchStore.renameCollection(target, nameField.text)
@@ -175,13 +175,13 @@ Item {
     ConfirmDialog {
         id: deleteConfirm
         title: "Delete \u201c" + (shelfMenu.collection.name || "") + "\u201d?"
-        message: "Only the collection goes (and its sub-collections). The papers stay in the Library."
+        message: qsTr("Only the collection goes (and its sub-collections). The papers stay in the Library.")
         actionText: "Delete"
         onConfirmed: { researchStore.deleteCollection(shelfMenu.collection.id); root.refreshShelf() }
     }
     FileDialog {
         id: addFiles
-        title: "Add PDFs to " + (shelfMenu.collection.name || "the collection")
+        title: qsTr("Add PDFs to ") + (shelfMenu.collection.name || qsTr("the collection"))
         fileMode: FileDialog.OpenFiles
         nameFilters: ["PDF documents (*.pdf)"]
         onAccepted: researchStore.addDocuments(selectedFiles, shelfMenu.collection.id)
@@ -209,11 +209,11 @@ Item {
         anchors.margins: 8
         spacing: 2
         // --- Library and favorites ------------------------------------------------------------
-        NavigatorRow { objectName: "panelOpenLibrary"; glyph: "library"; text: "Open Library"; onClicked: root.libraryFilterRequested({}) }
+        NavigatorRow { objectName: "panelOpenLibrary"; glyph: "library"; text: qsTr("Open Library"); onClicked: root.libraryFilterRequested({}) }
         // Favorites unfold here (up to ten; the rest in the Library); the star stays the sign.
         NavigatorRow {
             objectName: "panelFavorites"
-            glyph: "star"; text: "Favorites"
+            glyph: "star"; text: qsTr("Favorites")
             glyphColor: root.favoritesOpen ? Theme.accent : Theme.textTertiary
             onClicked: { root.favoritesOpen = !root.favoritesOpen; root.setSection("favorites", root.favoritesOpen) }
         }
@@ -231,7 +231,7 @@ Item {
             objectName: "panelAllFavorites"
             visible: root.favoritesOpen && (root.favorites.length > 10 || !root.favorites.length)
             depth: 1; glyph: "more"
-            text: root.favorites.length ? "All Favorites  " + root.favorites.length : "No favorites yet"
+            text: root.favorites.length ? qsTr("All Favorites  ") + root.favorites.length : qsTr("No favorites yet")
             enabled: root.favorites.length > 0
             onClicked: root.libraryFilterRequested({favorite: true})
         }
@@ -239,9 +239,9 @@ Item {
         // --- Collections ----------------------------------------------------------------------
         SectionHeader {
             objectName: "collectionsSection"
-            title: "Collections"; open: root.collectionsOpen
+            title: qsTr("Collections"); open: root.collectionsOpen
             onToggled: { root.collectionsOpen = !root.collectionsOpen; root.setSection("collections", root.collectionsOpen) }
-            IconButton { objectName: "panelNewCollection"; icon.name: "add"; description: "New collection"; width: 22; height: 22; glyphSize: Theme.fontBody; onClicked: nameDialog.begin("new", "", "") }
+            IconButton { objectName: "panelNewCollection"; icon.name: "add"; description: qsTr("New collection"); width: 22; height: 22; glyphSize: Theme.fontBody; onClicked: nameDialog.begin("new", "", "") }
         }
         ListView {
             id: shelf
@@ -283,12 +283,12 @@ Item {
         Label {
             visible: root.collectionsOpen && !shelf.count
             Layout.fillWidth: true; leftPadding: 8; wrapMode: Text.Wrap
-            text: "Create collections in the Library to file papers by topic."
+            text: qsTr("Create collections in the Library to file papers by topic.")
             font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
         }
         // --- Tags -----------------------------------------------------------------------------
         SectionHeader {
-            title: "Tags"; open: root.tagsOpen
+            title: qsTr("Tags"); open: root.tagsOpen
             visible: root.tags.length > 0
             onToggled: { root.tagsOpen = !root.tagsOpen; root.setSection("tags", root.tagsOpen) }
         }
@@ -308,9 +308,9 @@ Item {
         // --- Notes ----------------------------------------------------------------------------
         SectionHeader {
             objectName: "notesSection"
-            title: "Notes"; open: root.notesOpen
+            title: qsTr("Notes"); open: root.notesOpen
             onToggled: { root.notesOpen = !root.notesOpen; root.setSection("notes", root.notesOpen) }
-            IconButton { objectName: "panelNewNote"; icon.name: "add"; description: "New note"; width: 22; height: 22; glyphSize: Theme.fontBody; onClicked: root.newNoteRequested() }
+            IconButton { objectName: "panelNewNote"; icon.name: "add"; description: qsTr("New note"); width: 22; height: 22; glyphSize: Theme.fontBody; onClicked: root.newNoteRequested() }
         }
         Repeater {
             model: root.notesOpen ? root.notes : []
@@ -325,17 +325,17 @@ Item {
         NavigatorRow {
             objectName: "panelAllNotes"
             visible: root.notesOpen
-            glyph: "more"; text: root.notes.length ? "All Notes" : "No notes yet"
+            glyph: "more"; text: root.notes.length ? qsTr("All Notes") : qsTr("No notes yet")
             enabled: root.notes.length > 0
             onClicked: root.libraryFilterRequested({view: "notes"})
         }
         // --- Folder ---------------------------------------------------------------------------
         SectionHeader {
-            title: root.folder.toString().length ? "Folder · " + researchStore.fileName(root.folder) : "Recent files"
+            title: root.folder.toString().length ? qsTr("Folder · ") + researchStore.fileName(root.folder) : qsTr("Recent files")
             open: root.folderOpen
             onToggled: { root.folderOpen = !root.folderOpen; root.setSection("folder", root.folderOpen) }
-            IconButton { icon.name: "open"; description: "Open a folder…"; width: 22; height: 22; glyphSize: Theme.fontBody; onClicked: folderDialog.open() }
-            IconButton { icon.name: "reload"; description: "Refresh folder"; width: 22; height: 22; glyphSize: Theme.fontBody; enabled: root.folder.toString().length > 0; onClicked: root.refresh() }
+            IconButton { icon.name: "open"; description: qsTr("Open a folder…"); width: 22; height: 22; glyphSize: Theme.fontBody; onClicked: folderDialog.open() }
+            IconButton { icon.name: "reload"; description: qsTr("Refresh folder"); width: 22; height: 22; glyphSize: Theme.fontBody; enabled: root.folder.toString().length > 0; onClicked: root.refresh() }
         }
         Label { Layout.fillWidth: true; visible: root.folderOpen && root.status.length > 0; text: root.status; wrapMode: Text.Wrap; color: Theme.textTertiary }
         Item { Layout.fillHeight: true; visible: !root.folderOpen }
@@ -399,11 +399,11 @@ Item {
         objectName: "fileMenu"
         property var row: ({})
         readonly property string path: row.url ? researchStore.localPath(row.url) : ""
-        MenuItem { text: fileMenu.row.directory ? "Expand or Collapse" : "Open"; onTriggered: root.toggle(fileMenu.row.index) }
+        MenuItem { text: fileMenu.row.directory ? qsTr("Expand or Collapse") : qsTr("Open"); onTriggered: root.toggle(fileMenu.row.index) }
         MenuSeparator {}
-        MenuItem { text: "Copy Path"; onTriggered: researchStore.copyText(fileMenu.path) }
+        MenuItem { text: qsTr("Copy Path"); onTriggered: researchStore.copyText(fileMenu.path) }
         MenuItem {
-            text: Qt.platform.os === "osx" ? "Show in Finder" : "Show in Folder"
+            text: Qt.platform.os === "osx" ? qsTr("Show in Finder") : qsTr("Show in Folder")
             onTriggered: Qt.openUrlExternally(fileMenu.row.directory ? fileMenu.row.url : researchStore.fileUrl(fileMenu.path.substring(0, fileMenu.path.lastIndexOf("/"))))
         }
     }

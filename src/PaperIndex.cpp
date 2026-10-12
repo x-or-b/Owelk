@@ -1,4 +1,5 @@
 #include "PdfAccess.h"
+#include "UiText.h"
 #include "PaperIndex.h"
 #include "FileFingerprint.h"
 #include "SchemaMigration.h"
@@ -116,7 +117,7 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &
         if (!ok || !db.commit()) {
             const auto error = db.lastError().text();
             db.rollback();
-            return {"Cannot align the search cache with the library: " + error};
+            return {ui("Cannot align the search cache with the library: ") + error};
         }
         if (!query.exec())
             return {query.lastError().text()}; // Recreate the row if a stale holder of the ID was dropped.
@@ -153,7 +154,7 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &
     if (cancel->load()) return fail("paused", {});
     const auto hash = hashFile(source.toLocalFile(), cancel);
     if (cancel->load()) return fail("paused", {});
-    if (hash.isEmpty()) return fail("missing", "Cannot read the original PDF. Check its path and permissions.");
+    if (hash.isEmpty()) return fail("missing", ui("Cannot read the original PDF. Check its path and permissions."));
     if (hash == oldHash && current) {
         // Same bytes under a new stamp (e.g. copied back or touched): record the stamp so the next start is free.
         query.prepare("UPDATE documents SET stamp=? WHERE id=?");
@@ -170,8 +171,8 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &
     if (loadError != QPdfDocument::Error::None || pdf.status() != QPdfDocument::Status::Ready) {
         const bool locked = loadError == QPdfDocument::Error::IncorrectPassword;
         return fail(locked ? "locked" : "failed",
-            locked ? "Locked: open it in Owelk and enter its password to index it."
-                   : "Cannot extract text from this PDF.");
+            locked ? ui("Locked: open it in Owelk and enter its password to index it.")
+                   : ui("Cannot extract text from this PDF."));
     }
     if (!db.transaction()) return fail("failed", db.lastError().text());
     query.prepare("DELETE FROM pages WHERE document_id=?");
@@ -212,7 +213,7 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &
     }
     const auto finalHash = hashFile(source.toLocalFile(), cancel);
     if (cancel->load()) return fail("paused", {});
-    if (finalHash != hash) return fail("failed", "The PDF changed during indexing. Retry when the file is stable.");
+    if (finalHash != hash) return fail("failed", ui("The PDF changed during indexing. Retry when the file is stable."));
     query.prepare("UPDATE documents SET sha256=?,version=?,state=?,pages=?,text_pages=?,error='',indexed_at=?,stamp=?,"
                   "ocr=? WHERE id=?");
     query.addBindValue(hash);
@@ -321,7 +322,7 @@ SearchResult findGroupedText(
         if (!scoped && lastGroup.value("total").toInt() > 3) {
             auto more = lastGroup;
             more["kind"] = "moreInPaper";
-            more["title"] = QString("Show all %1 matching pages in '%2'")
+            more["title"] = QString(ui("Show all %1 matching pages in '%2'"))
                                 .arg(more["total"].toInt())
                                 .arg(lastGroup["title"].toString());
             result.rows.append(more);
@@ -330,9 +331,9 @@ SearchResult findGroupedText(
     while (query.next()) {
         if ((!scoped && query.value(6).toInt() > offset + 20) || (scoped && pages >= 40)) {
             finishGroup();
-            result.rows.append(
-                QVariantMap{{"kind", "nextResults"}, {"title", scoped ? "Next matching pages →" : "More papers →"},
-                    {"offset", offset + (scoped ? 40 : 20)}});
+            result.rows.append(QVariantMap{{"kind", "nextResults"},
+                {"title", scoped ? ui("Next matching pages →") : ui("More papers →")},
+                {"offset", offset + (scoped ? 40 : 20)}});
             return result;
         }
         const auto id = query.value(0).toString();
@@ -546,7 +547,8 @@ void PaperIndex::relocateSource(const QUrl &source, const QUrl &candidate)
         watcher->deleteLater();
         --m_relocating;
         if (!error.isEmpty())
-            emit message("Source references were saved, but the search cache needs repair. Restart to retry: " + error);
+            emit message(
+                ui("Source references were saved, but the search cache needs repair. Restart to retry: ") + error);
         emit changed();
         emit contentsChanged();
         enqueue(candidate);
@@ -693,7 +695,7 @@ void PaperIndex::startNext()
         else
             m_scheduled.remove(source.toString());
         m_progress.clear();
-        if (!result.error.isEmpty()) emit message("Search index: " + result.error);
+        if (!result.error.isEmpty()) emit message(ui("Search index: ") + result.error);
         emit changed();
         emit contentsChanged();
         startNext();
@@ -820,7 +822,7 @@ void PaperIndex::openResult(const QString &documentId, int page, const QString &
     query.addBindValue(documentId);
     if (!query.exec() || !query.next() || query.value(1).toString() != hash || query.value(3) != "ready" || page < 0
         || page >= query.value(2).toInt()) {
-        emit message("This search result is no longer current. Search again after indexing finishes.");
+        emit message(ui("This search result is no longer current. Search again after indexing finishes."));
         return;
     }
     const auto source = QUrl(query.value(0).toString());
@@ -831,7 +833,7 @@ void PaperIndex::openResult(const QString &documentId, int page, const QString &
         if (valid)
             emit resultReady(source, page);
         else {
-            emit message("The original PDF changed or is missing. Updating its search index; please search again.");
+            emit message(ui("The original PDF changed or is missing. Updating its search index; please search again."));
             enqueue(source);
         }
     });

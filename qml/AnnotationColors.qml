@@ -24,7 +24,7 @@ Popup {
                 height: Theme.iconButton
                 padding: 3
                 hoverEnabled: true
-                Accessible.name: modelData.name + " ink"
+                Accessible.name: modelData.name + qsTr(" ink")
                 ToolTip.visible: hovered
                 ToolTip.delay: 500
                 ToolTip.text: modelData.name

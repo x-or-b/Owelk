@@ -1,4 +1,5 @@
 #include "FileFingerprint.h"
+#include "UiText.h"
 #include "PaperMetadata.h"
 #include "PaperIndex.h"
 #include "ResearchStore.h"
@@ -135,7 +136,7 @@ void ResearchStore::relocatePapers()
         ++moved;
     }
     QDir().rmdir(m_directory + "/papers"); // Only when nothing else is left in it.
-    if (moved) m_startupMessage = QString("Owelk's PDFs now live in %1.").arg(QDir::toNativeSeparators(m_papers));
+    if (moved) m_startupMessage = QString(ui("Owelk's PDFs now live in %1.")).arg(QDir::toNativeSeparators(m_papers));
 }
 
 void ResearchStore::nameDownloadedPdf(const QUrl &file)
@@ -257,8 +258,8 @@ void ResearchStore::copyPdfsIntoLibrary()
         m_copyingPdfs = false;
         emit copyingPdfsChanged();
         emit message(copied == done.size()
-                ? QString("Copied %1 PDFs into the Library. The originals were left where they were.").arg(copied)
-                : QString("Copied %1 of %2 PDFs into the Library; the rest stay where they are.")
+                ? QString(ui("Copied %1 PDFs into the Library. The originals were left where they were.")).arg(copied)
+                : QString(ui("Copied %1 of %2 PDFs into the Library; the rest stay where they are."))
                       .arg(copied)
                       .arg(done.size()));
     });
@@ -309,9 +310,9 @@ int ResearchStore::deletePapers(const QVariantList &sources)
     announceDocumentsChanged();
     emit papersDeleted(deleted);
     const auto days = trashDays();
-    emit message((deleted.size() == 1 ? QStringLiteral("Moved the paper to the Trash.")
-                                      : QString("Moved %1 papers to the Trash.").arg(deleted.size()))
-        + (days > 0 ? QString(" It is deleted for good after %1 days.").arg(days) : QString()));
+    emit message((deleted.size() == 1 ? ui("Moved the paper to the Trash.")
+                                      : QString(ui("Moved %1 papers to the Trash.")).arg(deleted.size()))
+        + (days > 0 ? QString(ui(" It is deleted for good after %1 days.")).arg(days) : QString()));
     return int(deleted.size());
 }
 

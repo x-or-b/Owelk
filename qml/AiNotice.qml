@@ -36,7 +36,7 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 6
             Icon { name: "ai"; color: Theme.accent; size: Theme.fontBody }
-            Label { Layout.fillWidth: true; text: "Answer ready"; font.weight: Font.DemiBold; color: Theme.text }
+            Label { Layout.fillWidth: true; text: qsTr("Answer ready"); font.weight: Font.DemiBold; color: Theme.text }
         }
         Label {
             Layout.fillWidth: true
@@ -56,8 +56,8 @@ Rectangle {
             Layout.fillWidth: true
             Layout.topMargin: 4
             Item { Layout.fillWidth: true }
-            Button { objectName: "aiNoticeDismiss"; text: "Dismiss"; flat: true; onClicked: root.dismiss() }
-            Button { objectName: "aiNoticeOpen"; text: "Open"; primary: true; onClicked: { const id = root.threadId; root.dismiss(); root.openRequested(id) } }
+            Button { objectName: "aiNoticeDismiss"; text: qsTr("Dismiss"); flat: true; onClicked: root.dismiss() }
+            Button { objectName: "aiNoticeOpen"; text: qsTr("Open"); primary: true; onClicked: { const id = root.threadId; root.dismiss(); root.openRequested(id) } }
         }
     }
 }

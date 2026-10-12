@@ -1,4 +1,5 @@
 #include "PdfAccess.h"
+#include "UiText.h"
 #include "AnnotatedPdf.h"
 #include <QDir>
 #include "ResearchStore.h"
@@ -147,23 +148,23 @@ void nextPage(const std::shared_ptr<PrintJob> &job)
         watcher->deleteLater();
         if (pixels.isNull()) {
             job->printer->abort();
-            finish(job, "Printing stopped: the source changed or a page could not be rendered.");
+            finish(job, ui("Printing stopped: the source changed or a page could not be rendered."));
             return;
         }
         if (cancelled(job)) {
             job->printer->abort();
-            finish(job, "Printing cancelled.");
+            finish(job, ui("Printing cancelled."));
             return;
         }
         if (!job->painter) {
             job->painter = std::make_unique<QPainter>();
             if (!job->painter->begin(job->printer.get())) {
-                finish(job, "Cannot start the print job.");
+                finish(job, ui("Cannot start the print job."));
                 return;
             }
             job->painter->setRenderHint(QPainter::SmoothPixmapTransform);
         } else if (!job->printer->newPage()) {
-            finish(job, "The printer could not create the next page.");
+            finish(job, ui("The printer could not create the next page."));
             return;
         }
         const auto area = job->printer->pageLayout().paintRectPixels(job->printer->resolution());
@@ -208,7 +209,8 @@ std::shared_ptr<PrintJob> makeJob(QObject *owner, const QUrl &source, const QStr
 // The progress window for a job whose range is chosen; then the pages render one by one.
 void start(const std::shared_ptr<PrintJob> &job)
 {
-    job->progress = new QProgressDialog("Printing PDF and annotations…", "Cancel", 0, job->last - job->first + 1);
+    job->progress
+        = new QProgressDialog(ui("Printing PDF and annotations…"), ui("Cancel"), 0, job->last - job->first + 1);
     job->progress->setWindowModality(Qt::ApplicationModal);
     job->progress->setAutoClose(false);
     keepInFront(job->progress);
@@ -247,24 +249,24 @@ bool ResearchStore::readPrintMarks(const QUrl &source, const QString &hash, QVar
 void ResearchStore::printDocument(const QUrl &source, const QString &hash, int pages)
 {
     if (m_printing) {
-        emit message("A print dialog or job is already open. Finish or cancel it first.");
+        emit message(ui("A print dialog or job is already open. Finish or cancel it first."));
         return;
     }
     if (!source.isLocalFile() || pages < 1) {
-        emit message("Open a local PDF before printing.");
+        emit message(ui("Open a local PDF before printing."));
         return;
     }
     if (hash.isEmpty()) {
-        emit message("PDF verification is not ready. Reopen the PDF and try again.");
+        emit message(ui("PDF verification is not ready. Reopen the PDF and try again."));
         return;
     }
     if (!qobject_cast<QApplication *>(QCoreApplication::instance())) {
-        emit message("Printing needs the updated desktop app. Quit Owelk completely and reopen it.");
+        emit message(ui("Printing needs the updated desktop app. Quit Owelk completely and reopen it."));
         return;
     }
     auto job = makeJob(this, source, hash);
     if (!readPrintMarks(source, hash, &job->marks)) {
-        emit message("Cannot read annotations for printing.");
+        emit message(ui("Cannot read annotations for printing."));
         return;
     }
     m_printing = true;
@@ -275,9 +277,9 @@ void ResearchStore::printDocument(const QUrl &source, const QString &hash, int p
         if (!error.isEmpty())
             emit message(error);
         else if (printer->outputFormat() == QPrinter::PdfFormat)
-            emit message("Saved a printable PDF to " + QDir::toNativeSeparators(printer->outputFileName()));
+            emit message(ui("Saved a printable PDF to ") + QDir::toNativeSeparators(printer->outputFileName()));
         else
-            emit message("Print job sent. Comments are printed as markers, not full note text.");
+            emit message(ui("Print job sent. Comments are printed as markers, not full note text."));
     };
     // Without any printer set up, Qt switches the printer to PDF output and the macOS print panel
     // never opens. Offer the same output as a PDF file instead.
@@ -344,7 +346,7 @@ void ResearchStore::printDocumentTo(const QUrl &source, const QString &hash, int
     job->finished = [this](const QString &error) {
         m_printing = false;
         emit printingChanged();
-        emit message(error.isEmpty() ? QStringLiteral("Printed.") : error);
+        emit message(error.isEmpty() ? ui("Printed.") : error);
     };
     nextPage(job);
 }
@@ -353,16 +355,16 @@ void ResearchStore::exportAnnotatedPdf(const QUrl &source, const QString &hash, 
 {
     const auto target = QDir::fromNativeSeparators(file);
     if (!source.isLocalFile() || hash.isEmpty() || target.isEmpty()) {
-        emit message("Open a local PDF and choose where to save the copy.");
+        emit message(ui("Open a local PDF and choose where to save the copy."));
         return;
     }
     if (QFileInfo(target).absoluteFilePath() == QFileInfo(source.toLocalFile()).absoluteFilePath()) {
-        emit message("Choose a different file name to keep the original PDF unchanged.");
+        emit message(ui("Choose a different file name to keep the original PDF unchanged."));
         return;
     }
     QVariantList marks;
     if (!readPrintMarks(source, hash, &marks)) {
-        emit message("Cannot read the annotations.");
+        emit message(ui("Cannot read the annotations."));
         return;
     }
     auto *watcher = new QFutureWatcher<QString>(this);
@@ -370,7 +372,7 @@ void ResearchStore::exportAnnotatedPdf(const QUrl &source, const QString &hash, 
         const auto error = watcher->result();
         watcher->deleteLater();
         emit annotatedPdfExported(error.isEmpty(), target);
-        emit message(error.isEmpty() ? "Saved the annotated copy to " + QDir::toNativeSeparators(target) : error);
+        emit message(error.isEmpty() ? ui("Saved the annotated copy to ") + QDir::toNativeSeparators(target) : error);
     });
     watcher->setFuture(QtConcurrent::run(&m_workers, [source, hash, target, marks] {
         // The original must still be the verified file; only a new file is written.

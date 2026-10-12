@@ -19,33 +19,33 @@ Popup {
     property bool canReopenTab: false
     property bool canCloseTab: hasDocument
     readonly property var commands: [
-        {command: "/open paper", title: "File: Open PDF", enabled: true},
-        {command: "/new tab", title: "Tab: New Home Tab", enabled: true},
-        {command: "/close tab", title: "Tab: Close Active Tab", enabled: canCloseTab},
-        {command: "/reopen tab", title: "Tab: Reopen Closed Tab", enabled: canReopenTab},
-        {command: "/home", title: "View: Go to Home", enabled: true},
-        {command: "/web", title: "Web: Open Address or Search", enabled: true},
-        {command: "/new note", title: "Note: New Note", enabled: true},
-        {command: "/library", title: "Library: All Papers, Collections and Tags", enabled: true},
-        {command: "/settings", title: "App: Settings", enabled: true},
-        {command: "/find", title: "Search: Find in Current PDF", enabled: hasDocument},
-        {command: "/files", title: "Panel: Toggle Files", enabled: true},
-        {command: "/organize tabs", title: "Tabs: Organize with AI…", enabled: hasDocument},
-        {command: "/ask library", title: "AI: Ask Your Library…", enabled: true},
-        {command: "/document", title: "Panel: Toggle Document", enabled: true},
-        {command: "/annotations", title: "Panel: Annotations of This Paper", enabled: hasDocument},
-        {command: "/paper note", title: "Note: New Note about This Paper", enabled: hasDocument},
-        {command: "/split right", title: "Split: Duplicate Tab Right", enabled: hasDocument},
-        {command: "/split down", title: "Split: Duplicate Tab Below", enabled: hasDocument},
-        {command: "/split off", title: "Split: Join All Groups", enabled: hasDocument},
-        {command: "/move right", title: "Split: Move Tab Right", enabled: hasDocument},
-        {command: "/move down", title: "Split: Move Tab Below", enabled: hasDocument},
-        {command: "/next split", title: "Split: Focus Next", enabled: hasDocument},
-        {command: "/previous split", title: "Split: Focus Previous", enabled: hasDocument},
-        {command: "/mark region", title: "PDF: Mark a Region", enabled: hasDocument},
-        {command: "/highlight", title: "PDF: Highlight Selected Text", enabled: hasDocument && hasSelection},
-        {command: "/fit width", title: "PDF: Fit Width", enabled: hasDocument},
-        {command: "/fit page", title: "PDF: Fit Page", enabled: hasDocument}
+        {command: "/open paper", title: qsTr("File: Open PDF"), enabled: true},
+        {command: "/new tab", title: qsTr("Tab: New Home Tab"), enabled: true},
+        {command: "/close tab", title: qsTr("Tab: Close Active Tab"), enabled: canCloseTab},
+        {command: "/reopen tab", title: qsTr("Tab: Reopen Closed Tab"), enabled: canReopenTab},
+        {command: "/home", title: qsTr("View: Go to Home"), enabled: true},
+        {command: "/web", title: qsTr("Web: Open Address or Search"), enabled: true},
+        {command: "/new note", title: qsTr("Note: New Note"), enabled: true},
+        {command: "/library", title: qsTr("Library: All Papers, Collections and Tags"), enabled: true},
+        {command: "/settings", title: qsTr("App: Settings"), enabled: true},
+        {command: "/find", title: qsTr("Search: Find in Current PDF"), enabled: hasDocument},
+        {command: "/files", title: qsTr("Panel: Toggle Files"), enabled: true},
+        {command: "/organize tabs", title: qsTr("Tabs: Organize with AI…"), enabled: hasDocument},
+        {command: "/ask library", title: qsTr("AI: Ask Your Library…"), enabled: true},
+        {command: "/document", title: qsTr("Panel: Toggle Document"), enabled: true},
+        {command: "/annotations", title: qsTr("Panel: Annotations of This Paper"), enabled: hasDocument},
+        {command: "/paper note", title: qsTr("Note: New Note about This Paper"), enabled: hasDocument},
+        {command: "/split right", title: qsTr("Split: Duplicate Tab Right"), enabled: hasDocument},
+        {command: "/split down", title: qsTr("Split: Duplicate Tab Below"), enabled: hasDocument},
+        {command: "/split off", title: qsTr("Split: Join All Groups"), enabled: hasDocument},
+        {command: "/move right", title: qsTr("Split: Move Tab Right"), enabled: hasDocument},
+        {command: "/move down", title: qsTr("Split: Move Tab Below"), enabled: hasDocument},
+        {command: "/next split", title: qsTr("Split: Focus Next"), enabled: hasDocument},
+        {command: "/previous split", title: qsTr("Split: Focus Previous"), enabled: hasDocument},
+        {command: "/mark region", title: qsTr("PDF: Mark a Region"), enabled: hasDocument},
+        {command: "/highlight", title: qsTr("PDF: Highlight Selected Text"), enabled: hasDocument && hasSelection},
+        {command: "/fit width", title: qsTr("PDF: Fit Width"), enabled: hasDocument},
+        {command: "/fit page", title: qsTr("PDF: Fit Page"), enabled: hasDocument}
     ]
     readonly property var results: commands.filter(function(c) { return Match.matches(c.title, query.text) })
     signal commandChosen(string command)
@@ -69,7 +69,7 @@ Popup {
             id: query
             objectName: "paletteQuery"
             Layout.fillWidth: true
-            placeholderText: "Search commands"
+            placeholderText: qsTr("Search commands")
             selectByMouse: true
             onAccepted: root.choose(list.currentIndex)
             Keys.onDownPressed: root.move(1)
@@ -100,8 +100,8 @@ Popup {
                     verticalAlignment: Text.AlignVCenter
                 }
             }
-            Label { visible: list.count === 0; anchors.centerIn: parent; text: "No matching commands"; color: Theme.textTertiary }
+            Label { visible: list.count === 0; anchors.centerIn: parent; text: qsTr("No matching commands"); color: Theme.textTertiary }
         }
-        Label { text: "↑↓ Navigate · Enter Run · Esc Close"; color: Theme.textTertiary; font.pixelSize: Theme.fontCaption }
+        Label { text: qsTr("↑↓ Navigate · Enter Run · Esc Close"); color: Theme.textTertiary; font.pixelSize: Theme.fontCaption }
     }
 }
