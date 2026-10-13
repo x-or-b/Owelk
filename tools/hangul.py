@@ -2,7 +2,7 @@
 """Writes translations/owelk_hangul.ts: every interface string spelled out in Hangul ("Settings" → "세팅스").
 
 The words come from tools/hangul_words.tsv (English word, Hangul). Run after adding or changing interface
-text (qsTr("…") in QML and JS, ui("…") in C++):
+text (qsTr("…") and QT_TR_NOOP("…") in QML and JS, ui("…") in C++):
 
     python3 tools/hangul.py            write the .ts (the build turns it into the app's .qm)
     python3 tools/hangul.py --missing  list words that have no Hangul spelling yet
@@ -33,7 +33,7 @@ def sources():
     found = {}
     for path in sorted(list((ROOT / "qml").glob("*.qml")) + list((ROOT / "qml").glob("*.js"))
                        + list((ROOT / "style").glob("*.qml"))):
-        for literal in re.findall(r'qsTr\(' + STRING + r'\)', path.read_text(encoding="utf-8")):
+        for literal in re.findall(r'(?:qsTr|QT_TR_NOOP)\(' + STRING + r'\)', path.read_text(encoding="utf-8")):
             found.setdefault(path.stem, set()).add(unescape(literal))
     for path in sorted(list((ROOT / "src").rglob("*.cpp")) + list((ROOT / "src").rglob("*.h"))):
         for call in re.findall(r'\bui\(((?:\s*' + STRING + r')+)\s*\)', path.read_text(encoding="utf-8")):

@@ -110,6 +110,12 @@ ApplicationWindow {
     // Reader actions bring the AI panel forward and start a thread there.
     function showAi() { setPanelShown("ai", true); closeOthers("ai") }
     function askAi(spec) { showAi(); aiController.begin(spec) }
+    // Ask AI (shortcut): about the selection in the paper in front, or a new chat about that paper.
+    function askAiNow() {
+        if (!homeVisible && currentReader && currentReader.selectedText.length) { currentReader.askAboutSelection(); return }
+        showAi()
+        aiController.newThread()
+    }
     function openAiThread(id) { if (aiController.openThread(id)) showAi() }
     // A new chat from the Threads panel, in the Thread it was asked for (spec.folder).
     function newAiChat(spec) {
@@ -445,9 +451,19 @@ ApplicationWindow {
             // The same as the top bar's arrows: within the tab first (pages, jumps), then between places.
             Action { objectName: "jumpBackAction"; text: qsTr("Back"); shortcut: window.keys("jumpBack"); enabled: window.canGoBack; onTriggered: window.goBack() }
             Action { objectName: "jumpForwardAction"; text: qsTr("Forward"); shortcut: window.keys("jumpForward"); enabled: window.canGoForward; onTriggered: window.goForward() }
-            Action { objectName: "fitWidthAction"; text: qsTr("Fit Width"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitWidth() }
-            Action { objectName: "fitPageAction"; text: qsTr("Fit Page"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitPage() }
+            Action { objectName: "fitWidthAction"; text: qsTr("Fit Width"); shortcut: window.keys("fitWidth"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitWidth() }
+            Action { objectName: "fitPageAction"; text: qsTr("Fit Page"); shortcut: window.keys("fitPage"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitPage() }
             Action { objectName: "markRegionAction"; text: qsTr("Mark Region"); shortcut: window.keys("markRegion"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.setTool("area") }
+            Action { objectName: "highlightAction"; text: qsTr("Highlight Selection"); shortcut: window.keys("highlight"); enabled: !window.homeVisible && !!window.currentReader; onTriggered: window.currentReader.useHighlight() }
+            Action { objectName: "commentAction"; text: qsTr("Comment"); shortcut: window.keys("comment"); enabled: !window.homeVisible && !!window.currentReader; onTriggered: window.currentReader.setTool("comment") }
+            Action { objectName: "darkPagesAction"; text: qsTr("Dark Pages"); shortcut: window.keys("darkPages"); checkable: true; checked: Theme.invertPages; enabled: Theme.canInvertPages; onTriggered: Theme.invertPages = checked }
+            Action { objectName: "askAiAction"; text: qsTr("Ask AI"); shortcut: window.keys("askAi"); enabled: !window.restoreFailed; onTriggered: window.askAiNow() }
+            MenuSeparator {}
+            Action { objectName: "filesPanelAction"; text: qsTr("Library Panel"); shortcut: window.keys("filesPanel"); onTriggered: window.togglePanel("files") }
+            Action { objectName: "documentPanelAction"; text: qsTr("Document Panel"); shortcut: window.keys("documentPanel"); onTriggered: window.togglePanel("document") }
+            Action { objectName: "annotationsAction"; text: qsTr("Annotations"); shortcut: window.keys("annotations"); enabled: !window.homeVisible; onTriggered: window.toggleAnnotations() }
+            Action { objectName: "aiPanelAction"; text: qsTr("AI Chat"); shortcut: window.keys("aiPanel"); onTriggered: window.togglePanel("ai") }
+            Action { objectName: "threadsPanelAction"; text: qsTr("Threads"); shortcut: window.keys("threadsPanel"); onTriggered: window.togglePanel("threads") }
             MenuSeparator {}
             Action { objectName: "splitRightAction"; text: qsTr("Duplicate to Right Split"); shortcut: window.keys("splitRight"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("right") }
             Action { objectName: "splitDownAction"; text: qsTr("Duplicate to Bottom Split"); shortcut: window.keys("splitDown"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("bottom") }

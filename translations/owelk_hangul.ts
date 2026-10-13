@@ -1740,12 +1740,24 @@ Same file as another library entry</source>
 <context>
     <name>Main</name>
     <message>
+        <source>AI Chat</source>
+        <translation>에이아이 챗</translation>
+    </message>
+    <message>
         <source>AI chat</source>
         <translation>에이아이 챗</translation>
     </message>
     <message>
-        <source>Back to Previous Spot</source>
-        <translation>백 투 프리비어스 스팟</translation>
+        <source>Annotations</source>
+        <translation>애노테이션스</translation>
+    </message>
+    <message>
+        <source>Ask AI</source>
+        <translation>애스크 에이아이</translation>
+    </message>
+    <message>
+        <source>Back</source>
+        <translation>백</translation>
     </message>
     <message>
         <source>Cannot save the session. Check storage and try again.</source>
@@ -1768,8 +1780,20 @@ Same file as another library entry</source>
         <translation>커맨드 팔레트</translation>
     </message>
     <message>
+        <source>Comment</source>
+        <translation>코멘트</translation>
+    </message>
+    <message>
+        <source>Dark Pages</source>
+        <translation>다크 페이지스</translation>
+    </message>
+    <message>
         <source>Dismiss</source>
         <translation>디스미스</translation>
+    </message>
+    <message>
+        <source>Document Panel</source>
+        <translation>다큐먼트 패널</translation>
     </message>
     <message>
         <source>Document: contents, annotations, symbols and related papers</source>
@@ -1820,12 +1844,16 @@ Same file as another library entry</source>
         <translation>포커스 프리비어스 스플릿</translation>
     </message>
     <message>
-        <source>Forward to Next Spot</source>
-        <translation>포워드 투 넥스트 스팟</translation>
+        <source>Forward</source>
+        <translation>포워드</translation>
     </message>
     <message>
         <source>Hide Vertical Tabs</source>
         <translation>하이드 버티컬 탭스</translation>
+    </message>
+    <message>
+        <source>Highlight Selection</source>
+        <translation>하이라이트 셀렉션</translation>
     </message>
     <message>
         <source>Join All Groups</source>
@@ -1842,6 +1870,10 @@ Same file as another library entry</source>
     <message>
         <source>Library</source>
         <translation>라이브러리</translation>
+    </message>
+    <message>
+        <source>Library Panel</source>
+        <translation>라이브러리 패널</translation>
     </message>
     <message>
         <source>Mark Region</source>
@@ -3605,8 +3637,8 @@ Use Pages to navigate.</source>
         <translation>넥스트 매치 · </translation>
     </message>
     <message>
-        <source>Next page · </source>
-        <translation>넥스트 페이지 · </translation>
+        <source>Next page</source>
+        <translation>넥스트 페이지</translation>
     </message>
     <message>
         <source>No document</source>
@@ -3639,8 +3671,8 @@ You can open the same document twice.</source>
         <translation>프리비어스 매치 · </translation>
     </message>
     <message>
-        <source>Previous page · </source>
-        <translation>프리비어스 페이지 · </translation>
+        <source>Previous page</source>
+        <translation>프리비어스 페이지</translation>
     </message>
     <message>
         <source>Print…</source>
@@ -4480,10 +4512,6 @@ You can open the same document twice.</source>
         <translation>디폴트: </translation>
     </message>
     <message>
-        <source>Keyboard shortcuts</source>
-        <translation>키보드 쇼트컷츠</translation>
-    </message>
-    <message>
         <source>None</source>
         <translation>넌</translation>
     </message>
@@ -4626,8 +4654,168 @@ You can open the same document twice.</source>
 <context>
     <name>Shortcuts</name>
     <message>
+        <source>AI Chat</source>
+        <translation>에이아이 챗</translation>
+    </message>
+    <message>
+        <source>Annotations</source>
+        <translation>애노테이션스</translation>
+    </message>
+    <message>
+        <source>Ask AI (the selection, or the paper)</source>
+        <translation>애스크 에이아이 (더 셀렉션, 오어 더 페이퍼)</translation>
+    </message>
+    <message>
+        <source>Back</source>
+        <translation>백</translation>
+    </message>
+    <message>
+        <source>Close Tab</source>
+        <translation>클로즈 탭</translation>
+    </message>
+    <message>
+        <source>Command Palette</source>
+        <translation>커맨드 팔레트</translation>
+    </message>
+    <message>
+        <source>Comment</source>
+        <translation>코멘트</translation>
+    </message>
+    <message>
+        <source>Dark Pages</source>
+        <translation>다크 페이지스</translation>
+    </message>
+    <message>
+        <source>Document Panel</source>
+        <translation>다큐먼트 패널</translation>
+    </message>
+    <message>
+        <source>Duplicate to Bottom Split</source>
+        <translation>듀플리케이트 투 바텀 스플릿</translation>
+    </message>
+    <message>
+        <source>Duplicate to Right Split</source>
+        <translation>듀플리케이트 투 라이트 스플릿</translation>
+    </message>
+    <message>
+        <source>Fit Page</source>
+        <translation>핏 페이지</translation>
+    </message>
+    <message>
+        <source>Fit Width</source>
+        <translation>핏 위드스</translation>
+    </message>
+    <message>
+        <source>Focus Next Split</source>
+        <translation>포커스 넥스트 스플릿</translation>
+    </message>
+    <message>
+        <source>Focus Previous Split</source>
+        <translation>포커스 프리비어스 스플릿</translation>
+    </message>
+    <message>
+        <source>Forward</source>
+        <translation>포워드</translation>
+    </message>
+    <message>
+        <source>Highlight Selection</source>
+        <translation>하이라이트 셀렉션</translation>
+    </message>
+    <message>
+        <source>Home</source>
+        <translation>홈</translation>
+    </message>
+    <message>
         <source>Last Tab</source>
         <translation>라스트 탭</translation>
+    </message>
+    <message>
+        <source>Library</source>
+        <translation>라이브러리</translation>
+    </message>
+    <message>
+        <source>Library Panel</source>
+        <translation>라이브러리 패널</translation>
+    </message>
+    <message>
+        <source>Mark Region</source>
+        <translation>마크 리전</translation>
+    </message>
+    <message>
+        <source>Move Tab to Bottom Split</source>
+        <translation>무브 탭 투 바텀 스플릿</translation>
+    </message>
+    <message>
+        <source>Move Tab to Right Split</source>
+        <translation>무브 탭 투 라이트 스플릿</translation>
+    </message>
+    <message>
+        <source>New Note</source>
+        <translation>뉴 노트</translation>
+    </message>
+    <message>
+        <source>New Tab</source>
+        <translation>뉴 탭</translation>
+    </message>
+    <message>
+        <source>Next Page</source>
+        <translation>넥스트 페이지</translation>
+    </message>
+    <message>
+        <source>Next Tab</source>
+        <translation>넥스트 탭</translation>
+    </message>
+    <message>
+        <source>Notes and AI</source>
+        <translation>노츠 앤드 에이아이</translation>
+    </message>
+    <message>
+        <source>Open Web Page</source>
+        <translation>오픈 웹 페이지</translation>
+    </message>
+    <message>
+        <source>Panels</source>
+        <translation>패널스</translation>
+    </message>
+    <message>
+        <source>Previous Page</source>
+        <translation>프리비어스 페이지</translation>
+    </message>
+    <message>
+        <source>Previous Tab</source>
+        <translation>프리비어스 탭</translation>
+    </message>
+    <message>
+        <source>Reading</source>
+        <translation>리딩</translation>
+    </message>
+    <message>
+        <source>Reopen Closed Tab</source>
+        <translation>리오픈 클로즈드 탭</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>서치</translation>
+    </message>
+    <message>
+        <source>Search and places</source>
+        <translation>서치 앤드 플레이시즈</translation>
+    </message>
+    <message>
+        <source>Splits</source>
+        <translation>스플릿츠</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>탭스</translation>
+    </message>
+    <message>
+        <source>Threads</source>
+        <translation>스레즈</translation>
+    </message>
+    <message>
+        <source>Vertical Tabs</source>
+        <translation>버티컬 탭스</translation>
     </message>
 </context>
 <context>
@@ -4817,12 +5005,12 @@ You can open the same document twice.</source>
 <context>
     <name>TopBar</name>
     <message>
-        <source>Back · </source>
-        <translation>백 · </translation>
+        <source>Back</source>
+        <translation>백</translation>
     </message>
     <message>
-        <source>Forward · </source>
-        <translation>포워드 · </translation>
+        <source>Forward</source>
+        <translation>포워드</translation>
     </message>
     <message>
         <source>Search</source>
