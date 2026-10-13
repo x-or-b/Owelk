@@ -6,6 +6,7 @@
 #include <QImage>
 #include <QRectF>
 #include <QSet>
+#include <QSize>
 #include <QStringList>
 #include <QSqlDatabase>
 #include <QThreadPool>
@@ -275,6 +276,8 @@ public:
         const QString &expectedText, const QString &body, const QString &color = defaultAnnotationColor());
     Q_INVOKABLE bool updateHighlight(const QString &id, const QString &color, const QString &body);
     Q_INVOKABLE void saveAnnotation(const QUrl &source, int page, const QVariantMap &annotation);
+    // A picture's size in pixels (HEIC too), to place it on a page with its own shape; empty when unreadable.
+    Q_INVOKABLE QSize annotationImageSize(const QUrl &image) const;
     // What an annotation kind is called in lists and undo labels ("area" is a marked Region).
     Q_INVOKABLE static QString annotationName(const QString &kind);
     Q_INVOKABLE QUrl annotationPreviewUrl(const QUrl &source) const

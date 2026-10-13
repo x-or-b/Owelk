@@ -155,6 +155,11 @@ bool ResearchStore::updateHighlight(const QString &id, const QString &color, con
     return true;
 }
 
+QSize ResearchStore::annotationImageSize(const QUrl &image) const
+{
+    return readAnnotationImage(image, nullptr).size();
+}
+
 void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantMap &input)
 {
     auto fail = [this](const QString &error) {

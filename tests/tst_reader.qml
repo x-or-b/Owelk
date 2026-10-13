@@ -595,6 +595,27 @@ Item {
             reader.annotationList = null
             for (const m of canvas.savedHighlights) researchStore.removeHighlight(m.id)
         }
+        function test_droppedPicturesLandOnThePage() {
+            const unique = testInput.relinkFixture(true).candidate
+            canvas.openFile(unique, {page:0,zoom:1})
+            tryCompare(canvas,"ready",true); tryCompare(canvas,"restoring",false)
+            tryVerify(function(){return canvas.documentFingerprint.length>0})
+            const drop=findChild(reader,"readerDrop"), paper=findChild(canvas,"paperPage0")
+            const before=canvas.savedHighlights.length
+            // Off the pages nothing is placed; on a page the picture lands centred there, in its own shape.
+            const outside=drop.mapFromItem(paper,-30,10)
+            verify(!drop.take([fixtureImage],outside.x,outside.y))
+            const at=drop.mapFromItem(paper,paper.width*.5,paper.height*.4)
+            verify(drop.take([fixtureImage],at.x,at.y))
+            tryVerify(function(){return canvas.savedHighlights.length===before+1},10000)
+            const mark=canvas.savedHighlights.filter(function(m){return m.kind==="image"}).pop()
+            const r=mark.rectangles[0]
+            fuzzyCompare(r.x+r.width/2,.5,.01)
+            fuzzyCompare(r.y+r.height/2,.4,.01)
+            const points=canvas.pagePoints(0)
+            fuzzyCompare(r.height*points.height/(r.width*points.width),60/80,.02) // The fixture image is 80 x 60.
+            researchStore.removeHighlight(mark.id)
+        }
         function test_textBoxesPicturesAndStrokesMoveAndResize() {
             const unique = testInput.relinkFixture(true).candidate
             canvas.openFile(unique, {page:0,zoom:1})

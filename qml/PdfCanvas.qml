@@ -71,6 +71,36 @@ Item {
     }
     // A page's size in PDF points (text boxes fit their font to it).
     function pagePoints(page) { return pdfDocument.pagePointSize(page) }
+    // Where a point of the canvas falls on a page: {page, x, y} as fractions of that page, or null off the pages.
+    function pagePointAt(px, py) {
+        const at = pages.mapFromItem(root, px, py)
+        const index = pages.indexAt(at.x + pages.contentX, at.y + pages.contentY)
+        const holder = index >= 0 ? pages.itemAtIndex(index) : null
+        if (!holder) return null
+        const paper = holder.paperItem, local = paper.mapFromItem(root, px, py)
+        if (local.x < 0 || local.y < 0 || local.x > paper.width || local.y > paper.height) return null
+        return {page: index, x: local.x / paper.width, y: local.y / paper.height}
+    }
+    // Pictures dropped on a page are placed there as image annotations, centred where they land, a third of
+    // the page wide (or less, to fit) in their own shape; several step down and to the right.
+    function dropImages(urls, px, py) {
+        const spot = pagePointAt(px, py)
+        if (!spot || !ready || !documentFingerprint.length) return 0
+        const points = pagePoints(spot.page)
+        let placed = 0
+        urls.forEach(function(url, n) {
+            const size = researchStore.annotationImageSize(url)
+            if (!size.width || !size.height) return
+            let width = .33, height = width * points.width * size.height / size.width / points.height
+            if (height > .5) { width *= .5 / height; height = .5 }
+            const x = Math.max(0, Math.min(1 - width, spot.x - width / 2 + n * .03))
+            const y = Math.max(0, Math.min(1 - height, spot.y - height / 2 + n * .03))
+            researchStore.saveAnnotation(source, spot.page, {kind: "image", page: spot.page, imageSource: url.toString(), color: markColor,
+                                                              sha256: documentFingerprint, rectangles: [{x: x, y: y, width: width, height: height}], drawing: []})
+            ++placed
+        })
+        return placed
+    }
     // A point on a page (PDF points) in this view's coordinates; a binding using it follows scrolling and
     // zoom. Far off screen (the page not laid out) it is above the view.
     function viewPoint(page, x, y) {
@@ -735,6 +765,7 @@ Item {
 
         delegate: Item {
             id: pageHolder
+            readonly property alias paperItem: paper
             property real selectionScale: root.pageScale
             required property int index
             readonly property size pointSize: pdfDocument.pagePointSize(index)
