@@ -1252,10 +1252,6 @@
         <translation>노 컨버세이션스 옛</translation>
     </message>
     <message>
-        <source>No matching saved items</source>
-        <translation>노 매칭 세이브드 아이템스</translation>
-    </message>
-    <message>
         <source>No notes yet</source>
         <translation>노 노츠 옛</translation>
     </message>
@@ -1280,10 +1276,6 @@
         <translation>오픈 어 피디에프. 유어 리딩 포지션 이즈 세이브드 오토매티컬리.</translation>
     </message>
     <message>
-        <source>PDF text search failed: </source>
-        <translation>피디에프 텍스트 서치 페일드: </translation>
-    </message>
-    <message>
         <source>Page </source>
         <translation>페이지 </translation>
     </message>
@@ -1292,24 +1284,8 @@
         <translation>리센트 페이퍼스</translation>
     </message>
     <message>
-        <source>Search papers, notes, AI and PDF text, or the web</source>
-        <translation>서치 페이퍼스, 노츠, 에이아이 앤드 피디에프 텍스트, 오어 더 웹</translation>
-    </message>
-    <message>
-        <source>Search your research</source>
-        <translation>서치 유어 리서치</translation>
-    </message>
-    <message>
-        <source>Searching PDF text…</source>
-        <translation>서칭 피디에프 텍스트…</translation>
-    </message>
-    <message>
         <source>Start with a paper</source>
         <translation>스타트 위드 어 페이퍼</translation>
-    </message>
-    <message>
-        <source>Text search failed. Try again.</source>
-        <translation>텍스트 서치 페일드. 트라이 어게인.</translation>
     </message>
 </context>
 <context>
@@ -5011,6 +4987,10 @@ You can open the same document twice.</source>
     <message>
         <source>Forward</source>
         <translation>포워드</translation>
+    </message>
+    <message>
+        <source>Menu</source>
+        <translation>메뉴</translation>
     </message>
     <message>
         <source>Search</source>

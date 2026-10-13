@@ -192,7 +192,14 @@ ApplicationWindow {
         else if (homeVisible) homeVisible = false
         else documents.closeActiveTab()
     }
-    function showHome() { persist(); homeVisible = true; Qt.callLater(function() { homeView.focusSearch() }) }
+    function showHome() { persist(); homeVisible = true; Qt.callLater(function() { window.focusSearch(false) }) }
+    // The top bar's search field: the cursor in it (Home, a new tab), or its results open too (Cmd+K).
+    function focusSearch(withResults) {
+        commandPalette.close()
+        if (!topBar.visible) { if (withResults) searchPalette.open(); return }
+        if (withResults) searchPalette.begin()
+        else { topBar.searchField.forceActiveFocus(); topBar.searchField.selectAll() }
+    }
     // Cmd+L: the address bar of the current web tab, or a new web tab when a paper or Home is in front.
     function openWebAddress() {
         if (restoreFailed) return
@@ -203,7 +210,7 @@ ApplicationWindow {
             Qt.callLater(function() { const next = documents.groupView(documents.activeGroup); if (next) next.focusAddress() })
     }
     function findInView() {
-        if (homeVisible) homeView.focusSearch()
+        if (homeVisible) focusSearch(true)
         else if (currentReader) currentReader.find()
         else { const view = documents.groupView(documents.activeGroup); if (view) view.focusHome() }
     }
@@ -309,6 +316,7 @@ ApplicationWindow {
         }
         try { documents.restore(state) }
         catch (error) { restoreFailed = true; notification = error.message }
+        moveMenusIntoButton()
         initialized = true
         Qt.callLater(recordPlace)
         // Files from the command line, Finder or a second launch made before the window was ready.
@@ -415,13 +423,27 @@ ApplicationWindow {
             }
         }
     }
+    // Windows and Linux: the menus move behind the top bar's ≡ (their shortcuts keep working), so the window has
+    // no separate menu bar under its title bar. macOS keeps them in the system menu bar.
+    Menu { id: appMenu; objectName: "appMenu" }
+    function moveMenusIntoButton() {
+        if (Qt.platform.os === "osx" || !window.menuBar) return
+        while (window.menuBar.count > 0) appMenu.addMenu(window.menuBar.takeMenu(0))
+        window.menuBar.visible = false
+    }
     SearchPalette {
         currentSource: !window.homeVisible && window.currentReader ? window.currentReader.source : ""
-        anchorItem: topBar.visible ? topBar.searchField : null
+        // Hangs from the top bar's search field; on its own only when that bar is hidden.
+        parent: topBar.visible ? topBar.searchBox : Overlay.overlay
+        inputField: topBar.visible ? topBar.searchField : null
         id: searchPalette
-        parent: Overlay.overlay
         onResultChosen: function(result) { window.openSearchResult(result) }
-        onWebRequested: function(url) { if (!window.restoreFailed && documents.openWeb(url, true)) window.homeVisible = false }
+        // A Home tab in front becomes the page (as a browser's new tab does); otherwise a new tab opens.
+        onWebRequested: function(url) {
+            if (window.restoreFailed) return
+            const view = documents.groupView(documents.activeGroup)
+            if (documents.openWeb(url, window.homeVisible || !view || !view.isHome)) window.homeVisible = false
+        }
     }
     menuBar: MenuBar {
         Menu {
@@ -443,7 +465,7 @@ ApplicationWindow {
             Action { text: "Home"; shortcut: window.keys("home"); onTriggered: window.showHome() }
             Action { objectName: "libraryAction"; text: qsTr("Library"); shortcut: window.keys("library"); enabled: !window.restoreFailed; onTriggered: documents.openLibrary({}) }
             Action { objectName: "tabsPanelAction"; text: window.tabsPanelOpen ? qsTr("Hide Vertical Tabs") : qsTr("Show Vertical Tabs"); shortcut: window.keys("tabsPanel"); enabled: Theme.verticalTabs; onTriggered: window.setTabsPanel(!window.tabsPanelOpen) }
-            Action { text: qsTr("Search Research"); shortcut: window.keys("search"); onTriggered: { commandPalette.close(); searchPalette.open() } }
+            Action { text: qsTr("Search Research"); shortcut: window.keys("search"); onTriggered: window.focusSearch(true) }
             Action { text: qsTr("Command Palette"); shortcut: window.keys("commands"); onTriggered: { searchPalette.close(); commandPalette.open() } }
             Action { text: qsTr("Find"); shortcut: StandardKey.Find; onTriggered: window.findInView() }
             Action { text: qsTr("Zoom in"); shortcut: StandardKey.ZoomIn; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1.2) }
@@ -596,6 +618,8 @@ ApplicationWindow {
             // The traffic lights' room, and the title bar's height (not in full screen, where they hide).
             readonly property bool fullScreen: window.visibility === Window.FullScreen
             leading: titleBar && !fullScreen ? 72 : 0
+            palette: searchPalette
+            appMenu: Qt.platform.os === "osx" ? null : appMenu
             Layout.preferredHeight: titleBar && !fullScreen && window.contentItem.SafeArea.margins.top >= 24 ? window.contentItem.SafeArea.margins.top : implicitHeight
             canGoBack: window.canGoBack
             canGoForward: window.canGoForward
@@ -611,7 +635,6 @@ ApplicationWindow {
             Component.onCompleted: Qt.callLater(reportDragArea)
             onBack: window.goBack()
             onForward: window.goForward()
-            onSearchRequested: { commandPalette.close(); searchPalette.open() }
         }
     RowLayout {
         Layout.fillWidth: true; Layout.fillHeight: true
@@ -684,7 +707,6 @@ ApplicationWindow {
             onResultChosen: function(result) { window.openSearchResult(result) }
             onLibraryRequested: if (!window.restoreFailed) documents.openLibrary({})
             onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) documents.openLibrary(filter) }
-            onWebRequested: function(url) { if (!window.restoreFailed) documents.openWeb(url, true) }
             onNewNoteRequested: if (!window.restoreFailed) documents.newNote()
         }
         DocumentWorkspace {
@@ -700,6 +722,7 @@ ApplicationWindow {
             onAnnotationsToggled: window.toggleAnnotations()
             onAiResponseRequested: function(id) { window.openAiThread(id) }
             onOpened: window.homeVisible = false
+            onSearchFocusRequested: window.focusSearch(false)
             onHomeOpenRequested: window.chooseFile()
             onHomeResultChosen: function(result) { window.openSearchResult(result) }
             onOrganizeRequested: function(groupId) { window.organizeTabsIn(groupId) }
@@ -787,7 +810,7 @@ ApplicationWindow {
                 }
             }
             // Search closes the left group, after the panels there (Threads stays at the edge).
-            StatusIcon { objectName: "statusSearch"; kind: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K"); onTriggered: { commandPalette.close(); searchPalette.open() } }
+            StatusIcon { objectName: "statusSearch"; kind: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K"); onTriggered: window.focusSearch(true) }
             Label {
                 Layout.fillWidth: true
                 // A notice while there is one.

@@ -19,6 +19,7 @@ close x
 add plus
 minus minus
 more ellipsis
+menu menu
 reload rotate-cw
 reset rotate-ccw
 down chevron-down

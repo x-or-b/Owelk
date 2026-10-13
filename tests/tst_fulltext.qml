@@ -25,7 +25,7 @@ Item {
             tryCompare(researchStore.paperIndex, "busy", false, 10000)
             const palette = findChild(workspace, "searchPalette")
             palette.open(); tryCompare(palette, "opened", true)
-            const field = findChild(palette, "searchPaletteQuery")
+            const field = palette.queryField
             field.text = "occlusion"
             tryVerify(function() { return palette.results.some(function(r) { return r.kind === "moreInPaper" && researchStore.sameSource(r.source, pair.source) }) })
             compare(palette.results.filter(function(r) { return r.kind === "text" && researchStore.sameSource(r.source, pair.source) }).length, 3)
@@ -62,7 +62,7 @@ Item {
             const palette = findChild(workspace, "searchPalette")
             palette.open(); tryCompare(palette, "opened", true)
             // No page has these words, but "hidden view" means occlusion and observation.
-            findChild(palette, "searchPaletteQuery").text = "hidden view"
+            palette.queryField.text = "hidden view"
             tryVerify(function() { return palette.results.some(function(r) { return r.kind === "section" }) }, 10000)
             tryVerify(function() { return !palette.searchController.waiting }, 10000)
             // Library changes from earlier tests can refresh the list once more; read it when settled.
@@ -88,7 +88,7 @@ Item {
             const shelf = researchStore.createCollection("Completion Shelf")
             const palette = findChild(workspace, "searchPalette")
             palette.open(); tryCompare(palette, "opened", true)
-            const field = findChild(palette, "searchPaletteQuery"), controller = palette.searchController
+            const field = palette.queryField, controller = palette.searchController
             // Half a tag offers the matching tags; choosing one completes the condition.
             field.text = "tag:occ"
             tryVerify(function() { return controller.results.length > 0 && controller.results[0].kind === "complete" })
@@ -123,7 +123,7 @@ Item {
             // Library conditions are typed: tag:, state:, year: narrow the same search.
             verify(researchStore.setDocumentTags(fixtureSource, ["Occlusion Study"]))
             const tag = researchStore.tags().find(function(t) { return t.name === "Occlusion Study" }).id
-            const field = findChild(palette, "searchPaletteQuery")
+            const field = palette.queryField
             field.text = "tag:\"occlusion study\" year:2024"
             const controller = palette.searchController
             compare(controller.libraryFilter.tag, tag)
@@ -168,13 +168,13 @@ Item {
             const palette = findChild(workspace, "searchPalette")
             palette.open(); tryCompare(palette, "opened", true)
             palette.searchController.sourceFilter = fixtureSource
-            findChild(palette, "searchPaletteQuery").text = "occlusion"
+            palette.queryField.text = "occlusion"
             tryVerify(function() { return palette.results.some(function(r) { return r.kind === "text" && Number(r.page) === 3 }) })
             const at = palette.results.findIndex(function(r) { return r.source.toString() === fixtureSource.toString() && Number(r.page) === 3 })
             verify(at >= 0)
             const list = findChild(palette, "searchPaletteResults")
             list.currentIndex = at; list.positionViewAtIndex(at, ListView.Contain)
-            testInput.keyClick(findChild(palette, "searchPaletteQuery"), Qt.Key_Return)
+            testInput.keyClick(palette.queryField, Qt.Key_Return)
             tryCompare(palette, "visible", false)
             tryCompare(workspace.currentReader, "currentPage", 3, 10000)
             const c = canvas(); compare(c.currentPage, 3); fuzzyCompare(c.zoomFactor, 1.3, .01)
@@ -183,12 +183,21 @@ Item {
             compare(Tree.leaves(workspace.documents.tree)[0].tabs.length, 1)
         }
         function test_homeResultsAndIndexControls() {
-            const home = findChild(workspace, "homeView")
-            findChild(home, "homeSearch").text = "occlusion"
-            tryVerify(function() { return home.results.some(function(r) { return r.kind === "text" }) })
-            const result = home.results.find(function(r) { return r.kind === "text" && r.source.toString() === fixtureSource.toString() && Number(r.page) === 2 })
+            // Home has no search box of its own: showing Home puts the cursor in the top bar's field, whose
+            // results hang under it.
+            const home = findChild(workspace, "homeView"), palette = findChild(workspace, "searchPalette")
+            const field = findChild(workspace, "topSearchField")
+            verify(findChild(home, "homeSearch") === null)
+            workspace.showHome()
+            tryVerify(function() { return field.activeFocus || field.focus })
+            compare(palette.opened, false)
+            palette.open(); tryCompare(palette, "opened", true)
+            verify(palette.attached)
+            field.text = "occlusion"
+            tryVerify(function() { return palette.results.some(function(r) { return r.kind === "text" }) })
+            const result = palette.results.find(function(r) { return r.kind === "text" && r.source.toString() === fixtureSource.toString() && Number(r.page) === 2 })
             verify(result !== undefined)
-            home.resultChosen(result)
+            palette.choose(palette.results.indexOf(result))
             tryCompare(workspace, "homeVisible", false)
             compare(canvas().currentPage, 2)
             workspace.showHome()

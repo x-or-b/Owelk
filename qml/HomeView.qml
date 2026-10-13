@@ -9,9 +9,6 @@ Rectangle {
     id: root
     objectName: "homeView"
     color: Theme.sidebar
-    property alias results: searchModel.results
-    property alias searchController: searchModel
-    ResearchSearch { id: searchModel; query: searchInput.text; active: root.visible; onRewrite: function(text) { searchInput.text = text; searchInput.cursorPosition = text.length; searchInput.forceActiveFocus() } }
     readonly property var continuation: researchStore.continueReading
     signal openRequested()
     signal libraryRequested()
@@ -38,30 +35,9 @@ Rectangle {
         function onAiThreadsChanged() { listsLater.restart() }
         function onDocumentsChanged() { listsLater.restart() }
     }
-    // An address or a web search typed on Home (opens a web tab).
-    signal webRequested(string url)
-    // An address, or words searched on the web row's engine (one search box for the library and the web).
-    function searchWeb(text) {
-        const url = Tree.addressToUrl(text, webRow.engine)
-        if (url.length) webRequested(url)
-        return url.length > 0
-    }
     signal documentChosen(url source, var position)
+    // A note or an AI chat chosen in Home's lists.
     signal resultChosen(var result)
-    function choose(result) { if (!searchModel.choose(result)) root.resultChosen(result) }
-    // The web row is the chosen row when nothing saved matches, for an address, or after going down past the
-    // last result.
-    property bool webSelected: false
-    readonly property bool hasResults: results.some(function(r) { return r.kind !== "section" && r.kind !== "paperGroup" })
-    function updateWebChoice() { webSelected = webRow.isAddress || (searchInput.text.trim().length > 0 && !hasResults && !searchModel.waiting) }
-    onHasResultsChanged: updateWebChoice()
-    Connections { target: searchModel; function onWaitingChanged() { root.updateWebChoice() } }
-    function search() { searchModel.refresh(); searchResults.currentIndex = searchModel.selectionIndex() }
-    onResultsChanged: {
-        searchResults.currentIndex = searchModel.selectionIndex()
-        if (searchResults.currentIndex >= 0) searchResults.positionViewAtIndex(searchResults.currentIndex, ListView.Contain)
-    }
-    function focusSearch() { searchInput.forceActiveFocus(); searchInput.selectAll() }
     // A list in a slot of fixed height (rows rows): the rounded box grows with its rows up to the slot and
     // shows no more (the rest is in the Library), so the page keeps its layout however long each list is.
     readonly property real rowStep: Theme.rowHeight + 4
@@ -131,71 +107,9 @@ Rectangle {
             y: 32
             width: Math.min(780, parent.width - 48)
             spacing: 20
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                Label { text: qsTr("Search your research"); font.pixelSize: Theme.fontTitle; font.weight: Font.Medium; color: Theme.text }
-                SearchFilters { Layout.fillWidth: true; controller: searchModel }
-                TextField {
-                    id: searchInput
-                    objectName: "homeSearch"
-                    Layout.fillWidth: true
-                    implicitHeight: 40
-                    placeholderText: qsTr("Search papers, notes, AI and PDF text, or the web")
-                    selectByMouse: true
-                    onTextChanged: root.updateWebChoice()
-                    // Cmd+Return (Ctrl+Return): the web, whatever is chosen; Tab on the web row: the next engine.
-                    Keys.onPressed: function(event) {
-                        if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && (event.modifiers & Qt.ControlModifier)) { webRow.open(); event.accepted = true }
-                        else if (event.key === Qt.Key_Tab && root.webSelected && webRow.visible && !webRow.isAddress) { webRow.nextEngine(); event.accepted = true }
-                    }
-                    onAccepted: {
-                        if (root.webSelected) { webRow.open(); return }
-                        let chosenIndex = searchResults.currentIndex
-                        if (searchModel.delay.running) { root.search(); chosenIndex = searchResults.currentIndex }
-                        if (root.results.length) root.choose(root.results[Math.max(0, Math.min(chosenIndex, root.results.length - 1))])
-                    }
-                    Keys.onDownPressed: {
-                        if (!root.webSelected && (!root.hasResults || searchResults.currentIndex >= root.results.length - 1)) root.webSelected = webRow.visible
-                        else if (!root.webSelected) searchResults.currentIndex = searchResults.currentIndex + 1
-                    }
-                    Keys.onUpPressed: {
-                        if (root.webSelected) { if (root.hasResults) { root.webSelected = false; searchResults.currentIndex = root.results.length - 1 } }
-                        else searchResults.currentIndex = Math.max(0, searchResults.currentIndex - 1)
-                    }
-                    Keys.onEscapePressed: clear()
-                }
-                // Only while PDFs are being indexed or some cannot be read (details in Settings › Search).
-                IndexStatus { Layout.fillWidth: true; quiet: true }
-                Label { Layout.fillWidth: true; visible: searchModel.error.length > 0; text: qsTr("PDF text search failed: ") + searchModel.error; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
-                ListView {
-                    id: searchResults
-                    objectName: "homeResults"
-                    visible: searchInput.text.trim().length > 0
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: visible ? Math.min(320, Math.max(44, contentHeight)) : 0
-                    clip: true
-                    model: root.results
-                    ScrollBar.vertical: ScrollBar {}
-                    delegate: SearchResultDelegate {
-                        required property int index
-                        queryText: searchInput.text
-                        width: searchResults.width
-                        highlighted: !root.webSelected && searchResults.currentIndex === index
-                        onClicked: root.choose(modelData)
-                    }
-                    Label { anchors.centerIn: parent; visible: searchResults.count === 0; text: searchModel.waiting ? qsTr("Searching PDF text…") : searchModel.error.length ? qsTr("Text search failed. Try again.") : qsTr("No matching saved items"); color: Theme.textTertiary }
-                }
-                // The same box searches the web: the last row (an address opens; words go to the engine shown).
-                WebSearchRow {
-                    id: webRow
-                    objectName: "homeWebRow"
-                    Layout.fillWidth: true
-                    query: searchInput.text
-                    highlighted: root.webSelected
-                    onOpened: function(url) { root.webRequested(url); searchInput.clear() }
-                }
-            }
+            // Searching is the top bar's (Cmd+K); here only a quiet line while PDFs are being indexed or some
+            // cannot be read (details in Settings › Search).
+            IndexStatus { Layout.fillWidth: true; quiet: true }
             // The paper last read, as a card: click anywhere on it to go back to the page.
             ItemDelegate {
                 id: continueCard

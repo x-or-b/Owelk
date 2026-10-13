@@ -6,10 +6,10 @@
 
 class QWindow;
 
-// macOS: the title bar (traffic lights and title) shows the window's own colour with the theme's light or
-// dark look, instead of the system grey. Elsewhere the system draws it.
+// The title bar takes the window's own colour with the theme's light or dark look: macOS (behind the traffic
+// lights), Windows 11 (the caption colour; Windows 10 only light or dark). Linux desktops draw their own.
 namespace TitleBar {
-#ifdef Q_OS_MACOS
+#if defined(Q_OS_MACOS) || defined(Q_OS_WIN)
 void follow(QWindow *window, const QColor &color, bool dark);
 #else
 inline void follow(QWindow *, const QColor &, bool) { }

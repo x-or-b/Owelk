@@ -35,11 +35,24 @@ ItemDelegate {
         }
     }
     visible: words.length > 0
-    height: visible ? Theme.rowHeight + 4 : 0
+    height: visible ? Theme.rowHeight + 10 : 0
+    leftPadding: 10; rightPadding: 10
     onClicked: open()
+    // A band of its own under the results: a hairline above and the window's shade, so it reads as another
+    // way to go rather than one more result. Chosen, it takes the usual selection colour.
+    background: Rectangle {
+        color: root.highlighted ? Theme.selected : root.hovered ? Theme.hover : Theme.window
+        radius: Theme.radius
+        Rectangle { width: parent.width; height: 1; color: Theme.separator; visible: !root.highlighted }
+    }
     contentItem: RowLayout {
         spacing: 8
-        Icon { name: "globe"; size: Theme.fontBody; color: root.highlighted ? Theme.selectedText : Theme.textTertiary }
+        Rectangle {
+            implicitWidth: 22; implicitHeight: 22; radius: 6
+            color: root.highlighted ? Theme.mix(Theme.selected, Theme.selectedText, .12) : Theme.field
+            border.color: Theme.separator
+            Icon { anchors.centerIn: parent; name: "globe"; size: Theme.fontSmall + 1; color: root.highlighted ? Theme.selectedText : Theme.textSecondary }
+        }
         Label {
             objectName: "webSearchText"
             Layout.fillWidth: true

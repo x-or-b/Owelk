@@ -142,57 +142,62 @@ Item {
         }
         function test_homeTabSearchesTheWeb() {
             const d = workspace.documents
-            // Cmd+T opens Home in a tab; its web field opens a web tab in place of that Home tab.
+            const palette = findChild(workspace, "searchPalette"), field = findChild(workspace, "topSearchField")
+            const row = findChild(palette, "webSearchRow")
+            // Cmd+T opens Home in a tab with the cursor in the top bar's search field (Home has no box of its
+            // own); an address chooses the web row, and the page takes the Home tab's place.
             verify(d.openResource(testInput.webFixture("/page.html")))
             tryCompare(activeTab(), "kind", "web")
             d.newHomeTab()
             tryCompare(activeTab(), "kind", "home")
             const homeTab = activeTab().id
-            let home = null
-            tryVerify(function() { const v = d.groupView(d.activeGroup); home = v ? findChild(v, "homeView") : null; return home !== null && home.visible })
-            // One search box: an address chooses the web row, so Return opens it.
-            const field = findChild(home, "homeSearch")
-            verify(field.placeholderText.indexOf("or the web") > 0)
+            tryVerify(function() { return field.activeFocus || field.focus })
+            verify(findChild(d.groupView(d.activeGroup), "homeSearch") === null)
             field.text = testInput.webFixture("/page.html").toString()
-            tryVerify(function() { return home.webSelected })
-            verify(findChild(home, "homeWebRow").isAddress)
-            field.forceActiveFocus()
+            palette.open(); tryCompare(palette, "opened", true)
+            tryVerify(function() { return palette.webSelected && row.isAddress })
             testInput.keyClick(field, Qt.Key_Return)
             tryCompare(activeTab(), "kind", "web")
             compare(activeTab().id, homeTab)
             verify(activeTab().source.indexOf("/page.html") > 0)
-            // Words search with the chosen engine.
+            compare(field.text, "")
+            // Words search with the chosen engine; Cmd+Return goes to the web whatever is chosen.
             researchStore.setSetting("searchEngine", testInput.webFixture("/page.html").toString() + "?q=%s")
             d.newHomeTab()
-            tryVerify(function() { const v = d.groupView(d.activeGroup); home = v ? findChild(v, "homeView") : null; return home !== null && home.visible && activeTab().kind === "home" })
-            verify(home.searchWeb("lidar odometry"))
+            tryCompare(activeTab(), "kind", "home")
+            field.text = "lidar odometry"
+            palette.open(); tryCompare(palette, "opened", true)
+            testInput.keyClick(field, Qt.Key_Return, Qt.ControlModifier)
             tryVerify(function() { return activeTab().kind === "web" && activeTab().source.indexOf("q=lidar%20odometry") > 0 })
-            // Engines of one's own join the built-in ones; Home's chips pick one for the next search.
+            // Engines of one's own join the built-in ones; Tab on the web row steps to the next engine.
             const template = testInput.webFixture("/page.html").toString() + "?mine=%s"
             verify(WebSearch.add(researchStore, "Mine", template))
             verify(!WebSearch.add(researchStore, "No words", "https://example.org/search"))
             compare(WebSearch.all(researchStore).map(function(e) { return e.name }), ["Google Scholar", "arXiv", "Google", "DuckDuckGo", "Mine"])
+            researchStore.setSetting("searchEngine", "")
             d.newHomeTab()
-            tryVerify(function() { const v = d.groupView(d.activeGroup); home = v ? findChild(v, "homeView") : null; return home !== null && home.visible && activeTab().kind === "home" })
-            // Words that match nothing saved choose the web row; Tab there steps to the next engine, and
-            // Cmd+Return goes to the web whatever is chosen.
-            researchStore.setSetting("searchEngine", "")
-            researchStore.setSetting("searchEngine", "")
-            const row = findChild(home, "homeWebRow"), box = findChild(home, "homeSearch")
-            box.text = "zzqx radar"
-            tryVerify(function() { return home.webSelected && row.visible })
+            tryCompare(activeTab(), "kind", "home")
+            field.text = "zzqx radar"
+            palette.open(); tryCompare(palette, "opened", true)
+            tryVerify(function() { return palette.webSelected && row.visible })
             compare(row.engineName, "Google Scholar")
-            box.forceActiveFocus()
-            for (let i = 0; i < 4; ++i) testInput.keyClick(box, Qt.Key_Tab)
+            for (let i = 0; i < 4; ++i) testInput.keyClick(field, Qt.Key_Tab)
             compare(row.engineName, "Mine")
-            testInput.keyClick(box, Qt.Key_Return, Qt.ControlModifier)
+            // A hidden engine leaves the chooser; the default always stays.
+            WebSearch.setHidden(researchStore, "https://www.google.com/search?q=%s", true)
+            verify(!row.engines.some(function(e) { return e.name === "Google" }))
+            WebSearch.setHidden(researchStore, "https://www.google.com/search?q=%s", false)
+            testInput.keyClick(field, Qt.Key_Return, Qt.ControlModifier)
             tryVerify(function() { return activeTab().kind === "web" && activeTab().source.indexOf("mine=zzqx%20radar") > 0 })
-            // The default (Settings › Web) is what Home starts with; removing it falls back to Google Scholar.
+            // The default (Settings › Web) is what the search starts with; removing it falls back to Google Scholar.
             WebSearch.setDefault(researchStore, template)
             compare(WebSearch.current(researchStore).name, "Mine")
             WebSearch.remove(researchStore, template)
             compare(WebSearch.current(researchStore).name, "Google Scholar")
             researchStore.setSetting("searchEngine", "")
+            // A site is enough to add an engine.
+            compare(WebSearch.templateFor("google.com"), "https://www.google.com/search?q=%s")
+            compare(WebSearch.nameFor("naver.com"), "Naver")
         }
         function test_searchPaletteSearchesTheWebToo() {
             const d = workspace.documents
@@ -200,7 +205,7 @@ Item {
             const palette = findChild(workspace, "searchPalette")
             palette.open()
             tryCompare(palette, "opened", true)
-            const box = findChild(palette, "searchPaletteQuery"), row = findChild(palette, "webSearchRow")
+            const box = palette.queryField, row = findChild(palette, "webSearchRow")
             // Nothing saved matches: the web row is chosen and Return searches in a new tab.
             box.text = "qqzz lidar"
             tryVerify(function() { return palette.webSelected && row.visible })

@@ -88,7 +88,8 @@ Rectangle {
         }
         pane.restore(t && t.kind !== "home" ? t : {})
     }
-    function focusHome() { if (homeLoader.item) homeLoader.item.focusSearch() }
+    // A Home tab in front: the cursor goes to the top bar's search field.
+    function focusHome() { root.controller.searchFocusRequested() }
     // The strip: each group's label, then its tabs (a folded group shows only its label and the
     // active tab). Tabs of a group are always next to each other.
     readonly property int tabWidth: 160
@@ -457,7 +458,6 @@ Rectangle {
                 onResultChosen: function(result) { root.controller.activateGroup(root.groupId); root.controller.homeResultChosen(result) }
                 onLibraryRequested: { root.controller.activateGroup(root.groupId); root.controller.openLibrary({}) }
                 onLibraryFilterRequested: function(filter) { root.controller.activateGroup(root.groupId); root.controller.openLibrary(filter) }
-                onWebRequested: function(url) { root.controller.activateGroup(root.groupId); root.controller.openWeb(url) }
                 onNewNoteRequested: { root.controller.activateGroup(root.groupId); root.controller.newNote() }
                 TapHandler { onPressedChanged: if (pressed) root.controller.activateGroup(root.groupId) }
             }

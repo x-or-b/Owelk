@@ -6,22 +6,80 @@ import QtQuick.Layouts
 Popup {
     id: root
     objectName: "searchPalette"
-    // With a field to open from (the top bar's), the box sits over it and the results drop below it, as in
-    // a browser; otherwise it floats near the top.
-    property Item anchorItem: null
-    readonly property point anchorAt: anchorItem && parent && visible ? anchorItem.mapToItem(parent, 0, 0) : Qt.point(0, 0)
-    width: !parent ? 600 : anchorItem ? Math.min(parent.width - 16, Math.max(620, anchorItem.width + padding * 2)) : Math.min(600, parent.width - 32)
-    x: !parent ? 0 : anchorItem ? Math.max(8, Math.min(parent.width - width - 8, anchorAt.x + anchorItem.width / 2 - width / 2)) : (parent.width - width) / 2
-    y: !parent ? 0 : anchorItem ? Math.max(0, anchorAt.y + (anchorItem.height - searchInput.height) / 2 - padding) : Math.min(100, parent.height * .12)
-    padding: 12
-    modal: true
-    dim: !anchorItem
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    // Attached to a search field (the top bar's): typing stays in that field and the results hang from its
+    // bottom edge as one card, as a browser's address bar does (parent: the field's box). Without one, a box
+    // of its own floats near the top.
+    property TextField inputField: null
+    readonly property bool attached: inputField !== null
+    readonly property string query: attached ? inputField.displayText : searchInput.text
+    // The box typed in: the attached field, or the palette's own.
+    readonly property Item queryField: attached ? inputField : searchInput
+    width: !parent ? 600 : attached ? Math.max(parent.width, 420) : Math.min(600, parent.width - 32)
+    x: !parent ? 0 : attached ? (parent.width - width) / 2 : (parent.width - width) / 2
+    y: !parent ? 0 : attached ? parent.height - 1 : Math.min(100, parent.height * .12)
+    padding: attached ? 8 : 12
+    topPadding: attached ? 6 : 12
+    modal: !attached
+    dim: !attached
+    focus: !attached
+    closePolicy: attached ? Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent : Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    // One card with the field: square top corners when attached, a soft shadow below.
+    background: Item {
+        Rectangle {
+            anchors.fill: parent; anchors.topMargin: 3; anchors.leftMargin: -1; anchors.rightMargin: -1; anchors.bottomMargin: -4
+            radius: Theme.radiusLarge; color: Theme.shadow; opacity: .35
+        }
+        Rectangle {
+            anchors.fill: parent
+            radius: Theme.radiusLarge
+            color: Theme.raised
+            border.color: Theme.border
+            Rectangle {
+                visible: root.attached
+                anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+                anchors.leftMargin: 1; anchors.rightMargin: 1; anchors.topMargin: 1
+                height: parent.radius; color: parent.color
+            }
+        }
+    }
+    enter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 110; easing.type: Easing.OutCubic } }
+    // Keys typed in the attached field: the arrows choose, Return opens, Cmd+Return goes to the web, Tab on
+    // the web row picks the next engine, Esc closes. True when the key was used.
+    function handleKey(event) {
+        if (!opened && (event.key === Qt.Key_Down || event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) { open(); return event.key === Qt.Key_Down }
+        if (!opened) return false
+        if (event.key === Qt.Key_Down) { move(1); return true }
+        if (event.key === Qt.Key_Up) { move(-1); return true }
+        if (event.key === Qt.Key_Escape) { close(); return true }
+        if (event.key === Qt.Key_Tab && webSelected && webRow.visible && !webRow.isAddress) { webRow.nextEngine(); return true }
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            if (event.modifiers & Qt.ControlModifier) chooseWeb(); else accept()
+            return true
+        }
+        return false
+    }
+    function accept() {
+        if (webSelected) { chooseWeb(); return }
+        let at = list.currentIndex
+        if (search.delay.running) { refresh(); at = list.currentIndex }
+        choose(Math.max(0, at))
+    }
+    // Opened from Cmd+K or Home: the field takes the keys, its text chosen so typing replaces it.
+    function begin() {
+        if (attached) { inputField.forceActiveFocus(); inputField.selectAll() }
+        open()
+    }
+    onClosed: if (attached) inputField.clear()
     property alias results: search.results
     property alias searchController: search
     property url currentSource: ""
-    ResearchSearch { id: search; query: searchInput.text; active: root.visible; showRecent: true; onRewrite: function(text) { searchInput.text = text; searchInput.cursorPosition = text.length; searchInput.forceActiveFocus() } }
+    ResearchSearch {
+        id: search; query: root.query; active: root.visible; showRecent: true
+        onRewrite: function(text) {
+            const input = root.attached ? root.inputField : searchInput
+            input.text = text; input.cursorPosition = text.length; input.forceActiveFocus()
+        }
+    }
     signal resultChosen(var result)
     // An address, or the words on the web, opened in a new tab.
     signal webRequested(string url)
@@ -35,7 +93,8 @@ Popup {
         close()
         Qt.callLater(function() { root.webRequested(url) })
     }
-    function updateWebChoice() { webSelected = webRow.isAddress || (searchInput.text.trim().length > 0 && !hasResults && !search.waiting) }
+    function updateWebChoice() { webSelected = webRow.isAddress || (root.query.trim().length > 0 && !hasResults && !search.waiting) }
+    onQueryChanged: updateWebChoice()
     onHasResultsChanged: updateWebChoice()
     function refresh() {
         search.refresh()
@@ -63,31 +122,18 @@ Popup {
         close()
         Qt.callLater(function() { root.resultChosen(result) })
     }
-    onAboutToShow: { searchInput.clear(); refresh() }
-    onOpened: searchInput.forceActiveFocus()
+    onAboutToShow: { if (!attached) searchInput.clear(); refresh() }
+    onOpened: if (!attached) searchInput.forceActiveFocus()
     contentItem: ColumnLayout {
         spacing: 8
         TextField {
             id: searchInput
             objectName: "searchPaletteQuery"
+            visible: !root.attached
             Layout.fillWidth: true
             placeholderText: qsTr("Search papers, notes, AI and PDF text, or the web")
             selectByMouse: true
-            onTextChanged: root.updateWebChoice()
-            // Cmd+Return (Ctrl+Return): the web, whatever is chosen; Tab on the web row: the next engine.
-            Keys.onPressed: function(event) {
-                if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && (event.modifiers & Qt.ControlModifier)) { root.chooseWeb(); event.accepted = true }
-                else if (event.key === Qt.Key_Tab && root.webSelected && webRow.visible && !webRow.isAddress) { webRow.nextEngine(); event.accepted = true }
-            }
-            onAccepted: {
-                if (root.webSelected) { root.chooseWeb(); return }
-                let at = list.currentIndex
-                if (search.delay.running) { root.refresh(); at = list.currentIndex }
-                root.choose(Math.max(0, at))
-            }
-            Keys.onDownPressed: root.move(1)
-            Keys.onUpPressed: root.move(-1)
-            Keys.onEscapePressed: root.close()
+            Keys.onPressed: function(event) { if (root.handleKey(event)) event.accepted = true }
         }
         SearchFilters { Layout.fillWidth: true; controller: search; currentSource: root.currentSource }
         ListView {
@@ -102,7 +148,7 @@ Popup {
             ScrollBar.vertical: ScrollBar {}
             delegate: SearchResultDelegate {
                 required property int index
-                queryText: searchInput.text
+                queryText: root.query
                 width: list.width
                 highlighted: !root.webSelected && list.currentIndex === index
                 onClicked: root.choose(index)
@@ -112,7 +158,7 @@ Popup {
         WebSearchRow {
             id: webRow
             Layout.fillWidth: true
-            query: searchInput.text
+            query: root.query
             highlighted: root.webSelected
             onOpened: function(url) { root.close(); Qt.callLater(function() { root.webRequested(url) }) }
         }

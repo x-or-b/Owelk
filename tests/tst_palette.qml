@@ -109,7 +109,7 @@ Item {
             palette.close()
             researchStore.rememberDocument(fixtureSource)
             search.open(); tryCompare(search, "opened", true)
-            const query = findChild(search, "searchPaletteQuery")
+            const query = search.queryField
             query.text = "/split right"
             tryVerify(function() { return search.results.length === 0 })
             query.text = "fixture"

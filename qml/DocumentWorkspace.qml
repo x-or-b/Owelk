@@ -156,6 +156,8 @@ Flickable {
     }
     // The tab in front, and the one before it (Ctrl+Tab between the last two, a note's Done).
     property string currentTab: ""
+    // A Home tab came to the front: Main puts the cursor in the top bar's search field.
+    signal searchFocusRequested()
     property string previousTab: ""
     onChanged: {
         const g = Tree.find(tree, activeGroup)

@@ -6,6 +6,7 @@ var glyphs = {
     "add": "\ue13d",
     "minus": "\ue11c",
     "more": "\ue0b6",
+    "menu": "\ue115",
     "reload": "\ue149",
     "reset": "\ue148",
     "down": "\ue06d",
