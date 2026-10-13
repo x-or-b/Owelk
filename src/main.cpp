@@ -76,6 +76,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("initialFiles", initialFiles);
     engine.rootContext()->setContextProperty("appInstance", &instance);
     engine.rootContext()->setContextProperty("uiLanguage", &language);
+    WindowChrome chrome;
+    engine.rootContext()->setContextProperty("windowChrome", &chrome);
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
         Qt::QueuedConnection);

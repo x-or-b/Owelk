@@ -442,8 +442,9 @@ ApplicationWindow {
             Action { text: qsTr("Find"); shortcut: StandardKey.Find; onTriggered: window.findInView() }
             Action { text: qsTr("Zoom in"); shortcut: StandardKey.ZoomIn; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1.2) }
             Action { text: qsTr("Zoom out"); shortcut: StandardKey.ZoomOut; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1 / 1.2) }
-            Action { objectName: "jumpBackAction"; text: qsTr("Back to Previous Spot"); shortcut: window.keys("jumpBack"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.goBack() }
-            Action { objectName: "jumpForwardAction"; text: qsTr("Forward to Next Spot"); shortcut: window.keys("jumpForward"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.goForward() }
+            // The same as the top bar's arrows: within the tab first (pages, jumps), then between places.
+            Action { objectName: "jumpBackAction"; text: qsTr("Back"); shortcut: window.keys("jumpBack"); enabled: window.canGoBack; onTriggered: window.goBack() }
+            Action { objectName: "jumpForwardAction"; text: qsTr("Forward"); shortcut: window.keys("jumpForward"); enabled: window.canGoForward; onTriggered: window.goForward() }
             Action { objectName: "fitWidthAction"; text: qsTr("Fit Width"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitWidth() }
             Action { objectName: "fitPageAction"; text: qsTr("Fit Page"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitPage() }
             Action { objectName: "markRegionAction"; text: qsTr("Mark Region"); shortcut: window.keys("markRegion"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.setTool("area") }
@@ -582,6 +583,16 @@ ApplicationWindow {
             Layout.preferredHeight: titleBar && !fullScreen && window.contentItem.SafeArea.margins.top >= 24 ? window.contentItem.SafeArea.margins.top : implicitHeight
             canGoBack: window.canGoBack
             canGoForward: window.canGoForward
+            backKeys: Platform.keys(window.keys("jumpBack"))
+            forwardKeys: Platform.keys(window.keys("jumpForward"))
+            // macOS: presses on the bar's empty space move the window (handled natively, see TitleBar.h).
+            function reportDragArea() {
+                if (titleBar && typeof windowChrome !== "undefined") windowChrome.setDragArea(window, height, controlRects())
+            }
+            onWidthChanged: Qt.callLater(reportDragArea)
+            onHeightChanged: Qt.callLater(reportDragArea)
+            onLeadingChanged: Qt.callLater(reportDragArea)
+            Component.onCompleted: Qt.callLater(reportDragArea)
             onBack: window.goBack()
             onForward: window.goForward()
             onSearchRequested: { commandPalette.close(); searchPalette.open() }

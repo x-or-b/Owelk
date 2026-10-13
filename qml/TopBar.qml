@@ -6,7 +6,7 @@ import "Platform.js" as Platform
 
 // The bar above the tabs: back and forward on the left, the search box (Cmd+K: the library and the web)
 // in the middle. On macOS it is the title bar as well: the traffic lights sit in `leading`, and its empty
-// space moves the window and zooms it on a double-click, as a title bar does.
+// space moves the window (Main.qml reports controlRects() to the native side).
 Rectangle {
     id: root
     objectName: "topBar"
@@ -14,6 +14,8 @@ Rectangle {
     property real leading: 0
     property bool canGoBack: false
     property bool canGoForward: false
+    property string backKeys: ""
+    property string forwardKeys: ""
     signal back()
     signal forward()
     signal searchRequested()
@@ -22,37 +24,27 @@ Rectangle {
     implicitHeight: Theme.barHeight
     color: Theme.window
     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.separator }
-    // Below the buttons, so it only takes the bar's empty space. The move starts on the press itself: macOS
-    // follows a window move only when it is asked as the button goes down, not once the pointer has moved.
-    MouseArea {
-        anchors.fill: parent
-        enabled: root.titleBar
-        // The system move takes over the mouse, so a double-click is told from two quick presses.
-        property real lastPress: 0
-        onPressed: {
-            const window = root.Window.window, now = Date.now()
-            if (now - lastPress < Qt.styleHints.mouseDoubleClickInterval) {
-                lastPress = 0
-                if (window.visibility === Window.Maximized) window.showNormal(); else window.showMaximized()
-                return
-            }
-            lastPress = now
-            window.startSystemMove()
-        }
+    // The controls, in window coordinates: on macOS everything else in the bar moves the window.
+    function controlRects() {
+        return [arrows, search].map(function(item) {
+            const at = item.mapToItem(null, 0, 0)
+            return {x: at.x, y: at.y, width: item.width, height: item.height}
+        })
     }
     Row {
+        id: arrows
         anchors.left: parent.left; anchors.leftMargin: root.leading + 4; anchors.verticalCenter: parent.verticalCenter
         spacing: 2
         IconButton {
             objectName: "topBack"; icon.name: "back"
             enabled: root.canGoBack
-            description: qsTr("Back · ") + Platform.keys("Ctrl+[")
+            description: qsTr("Back") + (root.backKeys.length ? " · " + root.backKeys : "")
             onClicked: root.back()
         }
         IconButton {
             objectName: "topForward"; icon.name: "forward"
             enabled: root.canGoForward
-            description: qsTr("Forward · ") + Platform.keys("Ctrl+]")
+            description: qsTr("Forward") + (root.forwardKeys.length ? " · " + root.forwardKeys : "")
             onClicked: root.forward()
         }
     }
