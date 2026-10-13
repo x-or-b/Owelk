@@ -323,35 +323,9 @@ Rectangle {
             Layout.preferredHeight: visible ? Theme.barHeight : 0
             color: Theme.window
             Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.separator }
-            RowLayout {
-                anchors.left: parent.left; anchors.leftMargin: 4; anchors.verticalCenter: parent.verticalCenter
-                spacing: 3
-                IconButton {
-                    objectName: "previousPage"; icon.name: "back"; implicitWidth: 24
-                    description: qsTr("Previous page · ") + Platform.keys("Ctrl+["); enabled: canvas.currentPage > 0
-                    onClicked: { root.activated(); canvas.previousPage() }
-                }
-                IconButton {
-                    objectName: "nextPage"; icon.name: "forward"; implicitWidth: 24
-                    description: qsTr("Next page · ") + Platform.keys("Ctrl+]"); enabled: canvas.currentPage < canvas.pageCount - 1
-                    onClicked: { root.activated(); canvas.nextPage() }
-                }
-                TextField {
-                    id: pageField
-                    Layout.preferredWidth: Theme.fontBody * 3; Layout.preferredHeight: Theme.controlHeightSmall
-                    horizontalAlignment: Text.AlignHCenter
-                    text: (canvas.currentPage + 1).toString()
-                    onActiveFocusChanged: if (activeFocus) root.activated()
-                    validator: IntValidator { bottom: 1; top: Math.max(1, canvas.pageCount) }
-                    onAccepted: {
-                        canvas.jump(Number(text) - 1, 0, 0)
-                        focus = false
-                    }
-                }
-                Label { text: "/ " + canvas.pageCount; color: Theme.textTertiary }
-            }
+            // Zoom on the left; the page in the middle: < 3 / 15 >.
             Row {
-                anchors.centerIn: parent
+                anchors.left: parent.left; anchors.leftMargin: 4; anchors.verticalCenter: parent.verticalCenter
                 IconButton { icon.name: "minus"; description: qsTr("Zoom out · ") + Platform.keys("Ctrl+-"); onClicked:{root.activated();canvas.zoom(1/1.2)} }
                 // The zoom readout chooses how pages fit: the whole width or a whole page.
                 ToolButton {
@@ -370,6 +344,34 @@ Rectangle {
                     }
                 }
                 IconButton { icon.name: "add"; description: qsTr("Zoom in · ") + Platform.keys("Ctrl+Plus"); onClicked:{root.activated();canvas.zoom(1.2)} }
+            }
+            RowLayout {
+                objectName: "pageControls"
+                anchors.centerIn: parent
+                spacing: 3
+                IconButton {
+                    objectName: "previousPage"; icon.name: "back"; implicitWidth: 24
+                    description: qsTr("Previous page · ") + Platform.keys("Ctrl+["); enabled: canvas.currentPage > 0
+                    onClicked: { root.activated(); canvas.previousPage() }
+                }
+                TextField {
+                    id: pageField
+                    Layout.preferredWidth: Theme.fontBody * 3; Layout.preferredHeight: Theme.controlHeightSmall
+                    horizontalAlignment: Text.AlignHCenter
+                    text: (canvas.currentPage + 1).toString()
+                    onActiveFocusChanged: if (activeFocus) root.activated()
+                    validator: IntValidator { bottom: 1; top: Math.max(1, canvas.pageCount) }
+                    onAccepted: {
+                        canvas.jump(Number(text) - 1, 0, 0)
+                        focus = false
+                    }
+                }
+                Label { text: "/ " + canvas.pageCount; color: Theme.textTertiary }
+                IconButton {
+                    objectName: "nextPage"; icon.name: "forward"; implicitWidth: 24
+                    description: qsTr("Next page · ") + Platform.keys("Ctrl+]"); enabled: canvas.currentPage < canvas.pageCount - 1
+                    onClicked: { root.activated(); canvas.nextPage() }
+                }
             }
             // Annotation tools, then the Annotations list, then everything else (find, print, export) behind ⋯.
             // Highlight and Draw keep their own colors; the narrow arrow next to each picks one.
