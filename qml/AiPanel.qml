@@ -489,7 +489,7 @@ Item {
                 TextArea {
                     id: question
                     objectName: "aiQuestion"
-                    // A click elsewhere in the window takes the cursor out (FocusRelease); the box, its
+                    // A click elsewhere in the window takes the cursor out (Main.qml); the box, its
                     // attachments and the bar under it (send, model, attach) keep it.
                     property bool releaseFocusOnOutsidePress: true
                     property var keepFocusWithin: [composer, attachmentRow, bar]

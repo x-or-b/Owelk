@@ -423,6 +423,26 @@ ApplicationWindow {
             }
         }
     }
+    // A press anywhere else takes the cursor out of a text box that asks for it (releaseFocusOnOutsidePress: the
+    // top bar's search field, the AI question box); presses inside its keepFocusWithin items keep it. The layer
+    // only watches (a passive point handler), so every press still reaches what is under it.
+    function releaseFocusAt(at) {
+        const focus = window.activeFocusItem
+        if (!focus || !focus.releaseFocusOnOutsidePress) return
+        const inside = function(item) { return !!item && item.visible && item.contains(item.mapFromItem(null, at.x, at.y)) }
+        if (inside(focus) || (focus.keepFocusWithin || []).some(inside)) return
+        window.contentItem.forceActiveFocus()
+    }
+    Item {
+        objectName: "focusReleaseLayer"
+        parent: window.contentItem.parent
+        anchors.fill: parent
+        z: 100000
+        PointHandler {
+            acceptedButtons: Qt.AllButtons
+            onActiveChanged: if (active) window.releaseFocusAt(point.scenePosition)
+        }
+    }
     // Windows and Linux: the menus move behind the top bar's ≡ (their shortcuts keep working), so the window has
     // no separate menu bar under its title bar. macOS keeps them in the system menu bar.
     Menu { id: appMenu; objectName: "appMenu" }

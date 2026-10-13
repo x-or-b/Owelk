@@ -192,6 +192,30 @@ Item {
             compare(workspace.aiVisible, false)
             compare(workspace.aiSide, "left")
         }
+        function test_clickElsewhereTakesTheCursorOut() {
+            workspace.documents.restore({})
+            workspace.openDocument(fixtureSource)
+            const c = canvas()
+            const field = findChild(workspace, "topSearchField")
+            // Keyboard focus needs an active window.
+            workspace.requestActivate()
+            tryVerify(function() { return workspace.active })
+            // The search field: Cmd+K in a paper, then a click on the page.
+            workspace.focusSearch(true)
+            tryVerify(function() { return field.activeFocus })
+            mouseClick(c, c.width / 2, c.height / 2)
+            tryVerify(function() { return !field.activeFocus })
+            // The AI question box: a click in the paper takes the cursor out too.
+            workspace.showAi()
+            const ai = findChild(workspace, "aiController")
+            ai.newThread()
+            const question = findChild(findChild(workspace, workspace.aiSide === "left" ? "leftDock" : "rightDock"), "aiQuestion")
+            question.forceActiveFocus()
+            tryVerify(function() { return question.activeFocus })
+            mouseClick(c, c.width / 2, c.height / 2)
+            tryVerify(function() { return !question.activeFocus })
+            workspace.aiVisible = false
+        }
         function test_backAndForwardGoThroughPlaces() {
             workspace.documents.restore({})
             workspace.showHome()

@@ -78,7 +78,7 @@ Rectangle {
         TextField {
             id: field
             objectName: "topSearchField"
-            // A click elsewhere takes the cursor out (FocusRelease); its box and its results keep it.
+            // A click elsewhere takes the cursor out (Main.qml); its box and its results keep it.
             property bool releaseFocusOnOutsidePress: true
             property var keepFocusWithin: [search, root.palette && root.palette.contentItem ? root.palette.contentItem.parent : null]
             anchors.fill: parent
