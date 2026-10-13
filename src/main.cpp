@@ -4,6 +4,7 @@
 #include "MathImageProvider.h"
 #include "SelectionGeometry.h"
 #include "Theme.h"
+#include "TitleBar.h"
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
@@ -16,6 +17,7 @@
 #include <QtQml/QQmlExtensionPlugin>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QWindow>
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
 #include <cstdio>
 
@@ -78,6 +80,13 @@ int main(int argc, char *argv[])
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
         Qt::QueuedConnection);
     engine.loadFromModule("Owelk", "Main");
+    // The macOS title bar takes the theme's window colour and its light or dark look, now and on every change.
+    if (auto *window = qobject_cast<QWindow *>(engine.rootObjects().value(0))) {
+        const auto follow
+            = [window, &theme] { TitleBar::follow(window, theme.property("window").value<QColor>(), theme.dark()); };
+        follow();
+        QObject::connect(&theme, &Theme::changed, window, follow);
+    }
     if (parser.isSet("smoke-test")) QTimer::singleShot(3000, &app, &QCoreApplication::quit);
     return app.exec();
 }

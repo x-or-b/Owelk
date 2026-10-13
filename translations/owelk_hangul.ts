@@ -3541,6 +3541,10 @@ Use Pages to navigate.</source>
         <translation>드롭 어 피디에프 히어 오어 추즈 어 파일.</translation>
     </message>
     <message>
+        <source>Drop pictures onto a page to place them there.</source>
+        <translation>드롭 픽처스 온투 어 페이지 투 플레이스 뎀 데어.</translation>
+    </message>
+    <message>
         <source>Export Annotated PDF…</source>
         <translation>익스포트 애노테이티드 피디에프…</translation>
     </message>
