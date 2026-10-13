@@ -723,9 +723,18 @@ Item {
             d.openDocument(fixtureSource, null, true); canvas()
             d.openDocument(outlineSource, null, true); canvas()
             const strip = Tree.leaves(d.tree)[0], view = d.groupView(strip.id)
-            // Right-click on the bar's empty space.
+            // Right-click on the bar's empty space (after the + that follows the last tab).
             waitForPolish(workspace); wait(50)
-            const bar = visualChild(view, "tabBar")
+            const bar = visualChild(view, "tabBar"), plus = visualChild(view, "newTabButton")
+            // + sits right after the last tab; faint lines part the tabs, none beside the current one.
+            const last = visualChild(view, "tab-" + Tree.leaves(d.tree)[0].tabs[2].id)
+            fuzzyCompare(plus.mapToItem(view, 0, 0).x, last.mapToItem(view, last.width, 0).x, 6)
+            verify(!visualChild(view, "newTabButtonEnd").visible)
+            const ids = Tree.leaves(d.tree)[0].tabs.map(function(t) { return t.id })
+            compare(Tree.leaves(d.tree)[0].activeTab, ids[2])
+            verify(visualChild(visualChild(view, "tab-" + ids[1]), "tabSeparator").visible)
+            verify(!visualChild(visualChild(view, "tab-" + ids[2]), "tabSeparator").visible)
+            verify(!visualChild(visualChild(view, "tab-" + ids[0]), "tabSeparator").visible)
             mouseClick(bar, bar.width - 20, bar.height / 2, Qt.RightButton)
             const menu = findChild(view, "tabStripMenu")
             tryCompare(menu, "opened", true)

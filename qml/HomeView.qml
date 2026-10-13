@@ -396,13 +396,9 @@ Rectangle {
             anchors.fill: parent; anchors.margins: 6
             visible: drops.containsDrag
             radius: Theme.radiusLarge
-            color: Theme.overlay
+            color: "transparent"
             border.width: 2; border.color: Theme.accent
-            Label {
-                anchors.centerIn: parent
-                text: qsTr("Drop PDFs to open them, or a folder to add it as a collection")
-                font.pixelSize: Theme.fontTitle; color: Theme.text
-            }
+            Label { anchors.centerIn: parent; text: qsTr("Open"); font.pixelSize: Theme.fontSmall; color: Theme.textSecondary }
         }
     }
 }

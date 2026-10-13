@@ -187,6 +187,8 @@ Rectangle {
             id: tabs
             objectName: "tabBar"
             Layout.fillWidth: true
+            // More tabs than room: a + stays at the bar's right end as well.
+            readonly property bool overflowing: contentWidth > width + 1
             Layout.preferredHeight: Theme.barHeight
             Layout.leftMargin: 3
             orientation: ListView.Horizontal
@@ -276,6 +278,16 @@ Rectangle {
                     border.width: tabItem.joinTarget ? 2 : tabItem.current && !Theme.dark ? 1 : 0
                     border.color: tabItem.joinTarget ? Theme.accent : Theme.separator
                 }
+                // A faint line between two tabs, left out beside the current tab (its pill already sets it apart).
+                Rectangle {
+                    objectName: "tabSeparator"
+                    readonly property var before: tabItem.index > 0 ? root.strip[tabItem.index - 1] : null
+                    visible: !tabItem.isHeader && !!before && before.type !== "header" && !tabItem.current
+                             && before.tab.id !== root.groupData.activeTab && !tabItem.dragged
+                    x: 0; anchors.verticalCenter: parent.verticalCenter
+                    width: 1; height: Math.round(Theme.barHeight * .4)
+                    color: Theme.separator
+                }
                 // A grouped tab carries its group's color along the bottom.
                 Rectangle {
                     visible: !tabItem.isHeader && !!tabItem.labelData
@@ -348,11 +360,23 @@ Rectangle {
                 ToolTip.delay: 500
                 ToolTip.text: tabItem.isHeader ? "" : tabItem.title + (tabItem.tabData.kind === "web" ? "\n" + tabItem.tabData.source : tabItem.tabData.source && tabItem.tabData.source.length ? "\n" + researchStore.localPath(tabItem.tabData.source) : "")
             }
+            // + right after the last tab.
+            footer: Item {
+                width: newTabButton.width + 6; height: Theme.barHeight
+                IconButton {
+                    id: newTabButton
+                    objectName: "newTabButton"
+                    x: 2; anchors.verticalCenter: parent.verticalCenter
+                    icon.name: "add"
+                    description: qsTr("New tab · ") + Platform.keys("Ctrl+T")
+                    onClicked: { root.controller.activateGroup(root.groupId); root.controller.newHomeTab() }
+                }
+            }
             Label { visible: !tabs.count; anchors.centerIn: parent; text: qsTr("No open tabs"); color: Theme.textTertiary }
         }
         IconButton {
-            id: newTabButton
-            objectName: "newTabButton"
+            objectName: "newTabButtonEnd"
+            visible: tabs.overflowing
             Layout.rightMargin: 4
             icon.name: "add"
             description: qsTr("New tab · ") + Platform.keys("Ctrl+T")

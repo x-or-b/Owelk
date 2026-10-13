@@ -607,8 +607,8 @@ Item {
             }
         }
     }
-    // Images, PDFs and papers dragged from the Library are attached to the next question. While something
-    // is over the panel it says so; once dropped, the attachments row lights up.
+    // Images, PDFs and papers dragged from the Library are attached to the next question: an outline while
+    // something is over the panel, and the attachments row lights up once it is dropped.
     DropArea {
         id: drops
         objectName: "aiDrop"
@@ -631,14 +631,9 @@ Item {
             visible: drops.containsDrag
             z: 10
             radius: Theme.radiusLarge
-            color: Theme.overlay
+            color: "transparent"
             border.width: 2; border.color: Theme.accent
-            Column {
-                anchors.centerIn: parent
-                spacing: 6
-                Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "attach"; size: Theme.fontTitle * 2; color: Theme.accent }
-                Label { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Drop to attach"); font.pixelSize: Theme.fontTitle; color: Theme.text }
-            }
+            Label { anchors.centerIn: parent; text: qsTr("Attach"); font.pixelSize: Theme.fontSmall; color: Theme.textSecondary }
         }
     }
     // The attachments row lights up after a drop (once laid out); nothing new (already attached, not a
