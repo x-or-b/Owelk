@@ -63,48 +63,80 @@ ColumnLayout {
     }
     SettingsGroup {
         title: qsTr("Search engines")
-        note: qsTr("Words typed in an address bar or on Home search with the default engine; Home has a button for each. Add your own with its search address, %s standing for the words. ")
+        note: qsTr("The search box (") + Platform.keys("Ctrl+K") + qsTr(", Home) offers the engines shown here and starts on the default one. ")
             + Platform.keys("Ctrl+L") + qsTr(" opens the default engine's page when no web tab is in front.")
         Repeater {
             model: root.engines
             delegate: SettingsRow {
+                id: engineRow
                 required property var modelData
+                readonly property bool isDefault: root.defaultEngine === modelData.template
+                readonly property bool isHidden: (root.revision, WebSearch.hidden(researchStore).indexOf(modelData.template) >= 0) && !isDefault
                 label: modelData.name
                 detail: modelData.template
-                RadioButton {
-                    objectName: "defaultEngine-" + modelData.name
-                    text: qsTr("Default")
-                    checked: root.defaultEngine === modelData.template
-                    onClicked: { WebSearch.setDefault(researchStore, modelData.template); root.revision++ }
+                opacity: isHidden ? .55 : 1
+                // Small and quiet; the default one is filled with the accent.
+                AbstractButton {
+                    objectName: "defaultEngine-" + engineRow.modelData.name
+                    implicitWidth: defaultLabel.implicitWidth + 14; implicitHeight: Theme.controlHeightSmall - 4
+                    checkable: true
+                    checked: engineRow.isDefault
+                    hoverEnabled: true
+                    background: Rectangle {
+                        radius: height / 2
+                        color: engineRow.isDefault ? Theme.accent : parent.hovered ? Theme.hover : "transparent"
+                        border.color: engineRow.isDefault ? Theme.accent : Theme.border
+                    }
+                    contentItem: Label {
+                        id: defaultLabel
+                        text: qsTr("Default")
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: Theme.fontCaption
+                        color: engineRow.isDefault ? Theme.onAccent : Theme.textSecondary
+                    }
+                    onClicked: { WebSearch.setDefault(researchStore, engineRow.modelData.template); root.revision++ }
                 }
                 IconButton {
-                    visible: !WebSearch.isBuiltIn(modelData.template)
-                    objectName: "removeEngine-" + modelData.name
+                    objectName: "showEngine-" + engineRow.modelData.name
+                    enabled: !engineRow.isDefault
+                    icon.name: "preview"
+                    tint: engineRow.isHidden ? Theme.textDisabled : Theme.icon
+                    description: engineRow.isDefault ? qsTr("The default engine is always shown") : engineRow.isHidden ? qsTr("Show in the search box") : qsTr("Hide from the search box")
+                    onClicked: { WebSearch.setHidden(researchStore, engineRow.modelData.template, !engineRow.isHidden); root.revision++ }
+                }
+                IconButton {
+                    visible: !WebSearch.isBuiltIn(engineRow.modelData.template)
+                    objectName: "removeEngine-" + engineRow.modelData.name
                     icon.name: "trash"; description: qsTr("Remove")
-                    onClicked: { WebSearch.remove(researchStore, modelData.template); root.revision++ }
+                    onClicked: { WebSearch.remove(researchStore, engineRow.modelData.template); root.revision++ }
                 }
             }
         }
+        // A site is enough ("google.com"); its search address is filled in.
         SettingsRow {
             wide: true
-            TextField { id: engineName; objectName: "engineNameField"; Layout.preferredWidth: 140; placeholderText: qsTr("Name") }
+            detail: engineAddress.text.trim().length ? (root.typedTemplate.length ? "\u2192 " + root.typedTemplate : qsTr("Type a site such as google.com, or an address with %s for the words.")) : ""
             TextField {
                 id: engineAddress
                 objectName: "engineAddressField"
                 Layout.fillWidth: true
-                placeholderText: "https://example.org/search?q=%s"
+                placeholderText: qsTr("Add a site (google.com) or an address with %s")
                 onAccepted: addEngine.clicked()
             }
+            TextField { id: engineName; objectName: "engineNameField"; Layout.preferredWidth: 130; placeholderText: root.typedName.length ? root.typedName : qsTr("Name") }
             Button {
                 id: addEngine
                 objectName: "addEngine"
                 text: qsTr("Add")
-                enabled: engineName.text.trim().length > 0 && engineAddress.text.indexOf("%s") >= 0
+                enabled: root.typedTemplate.length > 0
                 onClicked: {
-                    if (WebSearch.add(researchStore, engineName.text, engineAddress.text)) { engineName.clear(); engineAddress.clear(); root.revision++ }
-                    else researchStore.notify(qsTr("Use a web address with %s where the words go, not one already listed."))
+                    const name = engineName.text.trim().length ? engineName.text : root.typedName
+                    if (WebSearch.add(researchStore, name, root.typedTemplate)) { engineName.clear(); engineAddress.clear(); root.revision++ }
+                    else researchStore.notify(qsTr("That engine is already listed."))
                 }
             }
         }
     }
+    readonly property string typedTemplate: WebSearch.templateFor(engineAddress.text)
+    readonly property string typedName: WebSearch.nameFor(engineAddress.text)
 }

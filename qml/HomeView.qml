@@ -4,7 +4,6 @@ import QtQuick.Layouts
 import Owelk.Ui
 import "Platform.js" as Platform
 import "WorkspaceTree.js" as Tree
-import "WebSearch.js" as WebSearch
 
 Rectangle {
     id: root
@@ -41,27 +40,22 @@ Rectangle {
     }
     // An address or a web search typed on Home (opens a web tab).
     signal webRequested(string url)
-    // The engine words go to: the default one (Settings › Web) until another chip is chosen here.
-    property var engines: WebSearch.all(researchStore)
-    property string engine: WebSearch.template(researchStore)
-    property string defaultEngine: engine
-    Connections {
-        target: researchStore
-        function onSettingsChanged() {
-            root.engines = WebSearch.all(researchStore)
-            const chosen = WebSearch.template(researchStore)
-            if (chosen !== root.defaultEngine) { root.defaultEngine = chosen; root.engine = chosen }
-        }
-    }
-    readonly property string engineName: (engines.find(function(e) { return e.template === engine }) || WebSearch.current(researchStore)).name
+    // An address, or words searched on the web row's engine (one search box for the library and the web).
     function searchWeb(text) {
-        const url = Tree.addressToUrl(text, root.engine)
+        const url = Tree.addressToUrl(text, webRow.engine)
         if (url.length) webRequested(url)
         return url.length > 0
     }
     signal documentChosen(url source, var position)
     signal resultChosen(var result)
     function choose(result) { if (!searchModel.choose(result)) root.resultChosen(result) }
+    // The web row is the chosen row when nothing saved matches, for an address, or after going down past the
+    // last result.
+    property bool webSelected: false
+    readonly property bool hasResults: results.some(function(r) { return r.kind !== "section" && r.kind !== "paperGroup" })
+    function updateWebChoice() { webSelected = webRow.isAddress || (searchInput.text.trim().length > 0 && !hasResults && !searchModel.waiting) }
+    onHasResultsChanged: updateWebChoice()
+    Connections { target: searchModel; function onWaitingChanged() { root.updateWebChoice() } }
     function search() { searchModel.refresh(); searchResults.currentIndex = searchModel.selectionIndex() }
     onResultsChanged: {
         searchResults.currentIndex = searchModel.selectionIndex()
@@ -147,15 +141,28 @@ Rectangle {
                     objectName: "homeSearch"
                     Layout.fillWidth: true
                     implicitHeight: 40
-                    placeholderText: qsTr("Find PDF text, papers, notes or AI conversations  ·  tag: collection:")
+                    placeholderText: qsTr("Search papers, notes, AI and PDF text, or the web")
                     selectByMouse: true
+                    onTextChanged: root.updateWebChoice()
+                    // Cmd+Return (Ctrl+Return): the web, whatever is chosen; Tab on the web row: the next engine.
+                    Keys.onPressed: function(event) {
+                        if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && (event.modifiers & Qt.ControlModifier)) { webRow.open(); event.accepted = true }
+                        else if (event.key === Qt.Key_Tab && root.webSelected && webRow.visible && !webRow.isAddress) { webRow.nextEngine(); event.accepted = true }
+                    }
                     onAccepted: {
+                        if (root.webSelected) { webRow.open(); return }
                         let chosenIndex = searchResults.currentIndex
                         if (searchModel.delay.running) { root.search(); chosenIndex = searchResults.currentIndex }
                         if (root.results.length) root.choose(root.results[Math.max(0, Math.min(chosenIndex, root.results.length - 1))])
                     }
-                    Keys.onDownPressed: searchResults.currentIndex = Math.min(root.results.length - 1, searchResults.currentIndex + 1)
-                    Keys.onUpPressed: searchResults.currentIndex = Math.max(0, searchResults.currentIndex - 1)
+                    Keys.onDownPressed: {
+                        if (!root.webSelected && (!root.hasResults || searchResults.currentIndex >= root.results.length - 1)) root.webSelected = webRow.visible
+                        else if (!root.webSelected) searchResults.currentIndex = searchResults.currentIndex + 1
+                    }
+                    Keys.onUpPressed: {
+                        if (root.webSelected) { if (root.hasResults) { root.webSelected = false; searchResults.currentIndex = root.results.length - 1 } }
+                        else searchResults.currentIndex = Math.max(0, searchResults.currentIndex - 1)
+                    }
                     Keys.onEscapePressed: clear()
                 }
                 // Only while PDFs are being indexed or some cannot be read (details in Settings › Search).
@@ -174,42 +181,19 @@ Rectangle {
                         required property int index
                         queryText: searchInput.text
                         width: searchResults.width
-                        highlighted: searchResults.currentIndex === index
+                        highlighted: !root.webSelected && searchResults.currentIndex === index
                         onClicked: root.choose(modelData)
                     }
                     Label { anchors.centerIn: parent; visible: searchResults.count === 0; text: searchModel.waiting ? qsTr("Searching PDF text…") : searchModel.error.length ? qsTr("Text search failed. Try again.") : qsTr("No matching saved items"); color: Theme.textTertiary }
                 }
-                // The web, from the same page: an address opens it, words search with the chosen engine.
-                TextField {
-                    id: webInput
-                    objectName: "homeWebSearch"
+                // The same box searches the web: the last row (an address opens; words go to the engine shown).
+                WebSearchRow {
+                    id: webRow
+                    objectName: "homeWebRow"
                     Layout.fillWidth: true
-                    implicitHeight: Theme.controlHeight + 6
-                    leftPadding: 30
-                    placeholderText: qsTr("Search the web or enter an address  ·  ") + root.engineName
-                    selectByMouse: true
-                    font.pixelSize: Theme.fontBody
-                    onAccepted: if (root.searchWeb(text)) clear()
-                    Keys.onEscapePressed: clear()
-                    // A globe: the web, not the library.
-                    Icon { x: 9; anchors.verticalCenter: parent.verticalCenter; name: "globe"; size: Theme.fontBody + 1; color: Theme.textTertiary }
-                }
-                // Which engine the words go to; Settings › Web chooses the one that starts selected.
-                Flow {
-                    objectName: "homeWebEngines"
-                    Layout.fillWidth: true
-                    spacing: 4
-                    Repeater {
-                        model: root.engines
-                        delegate: Chip {
-                            required property var modelData
-                            objectName: "homeEngine-" + modelData.name
-                            text: modelData.name
-                            checkable: true
-                            checked: root.engine === modelData.template
-                            onClicked: { root.engine = modelData.template; webInput.forceActiveFocus() }
-                        }
-                    }
+                    query: searchInput.text
+                    highlighted: root.webSelected
+                    onOpened: function(url) { root.webRequested(url); searchInput.clear() }
                 }
             }
             // The paper last read, as a card: click anywhere on it to go back to the page.

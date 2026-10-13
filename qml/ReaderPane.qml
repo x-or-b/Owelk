@@ -104,6 +104,8 @@ Rectangle {
     function fitPage() { canvas.fitPage() }
     // From the outline, thumbnails and the like: Back returns to where the reader was.
     function jumpToPage(page, y) { activated(); canvas.jumpRemembering(page, y || 0, 0) }
+    readonly property bool canGoBack: canvas.backStack.length > 0
+    readonly property bool canGoForward: canvas.forwardStack.length > 0
     function goBack() { return canvas.goBack() }
     function goForward() { return canvas.goForward() }
     // Web links in a PDF open in an app tab when the pane is in a tab group.

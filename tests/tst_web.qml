@@ -150,9 +150,12 @@ Item {
             const homeTab = activeTab().id
             let home = null
             tryVerify(function() { const v = d.groupView(d.activeGroup); home = v ? findChild(v, "homeView") : null; return home !== null && home.visible })
-            const field = findChild(home, "homeWebSearch")
-            verify(field.placeholderText.indexOf("Search the web") === 0)
+            // One search box: an address chooses the web row, so Return opens it.
+            const field = findChild(home, "homeSearch")
+            verify(field.placeholderText.indexOf("or the web") > 0)
             field.text = testInput.webFixture("/page.html").toString()
+            tryVerify(function() { return home.webSelected })
+            verify(findChild(home, "homeWebRow").isAddress)
             field.forceActiveFocus()
             testInput.keyClick(field, Qt.Key_Return)
             tryCompare(activeTab(), "kind", "web")
@@ -171,18 +174,43 @@ Item {
             compare(WebSearch.all(researchStore).map(function(e) { return e.name }), ["Google Scholar", "arXiv", "Google", "DuckDuckGo", "Mine"])
             d.newHomeTab()
             tryVerify(function() { const v = d.groupView(d.activeGroup); home = v ? findChild(v, "homeView") : null; return home !== null && home.visible && activeTab().kind === "home" })
-            const chip = findChild(home, "homeEngine-Mine")
-            verify(chip !== null)
-            mouseClick(chip)
-            compare(home.engine, template)
-            verify(findChild(home, "homeWebSearch").placeholderText.indexOf("Mine") > 0)
-            verify(home.searchWeb("radar"))
-            tryVerify(function() { return activeTab().kind === "web" && activeTab().source.indexOf("mine=radar") > 0 })
+            // Words that match nothing saved choose the web row; Tab there steps to the next engine, and
+            // Cmd+Return goes to the web whatever is chosen.
+            researchStore.setSetting("searchEngine", "")
+            researchStore.setSetting("searchEngine", "")
+            const row = findChild(home, "homeWebRow"), box = findChild(home, "homeSearch")
+            box.text = "zzqx radar"
+            tryVerify(function() { return home.webSelected && row.visible })
+            compare(row.engineName, "Google Scholar")
+            box.forceActiveFocus()
+            for (let i = 0; i < 4; ++i) testInput.keyClick(box, Qt.Key_Tab)
+            compare(row.engineName, "Mine")
+            testInput.keyClick(box, Qt.Key_Return, Qt.ControlModifier)
+            tryVerify(function() { return activeTab().kind === "web" && activeTab().source.indexOf("mine=zzqx%20radar") > 0 })
             // The default (Settings › Web) is what Home starts with; removing it falls back to Google Scholar.
             WebSearch.setDefault(researchStore, template)
             compare(WebSearch.current(researchStore).name, "Mine")
             WebSearch.remove(researchStore, template)
             compare(WebSearch.current(researchStore).name, "Google Scholar")
+            researchStore.setSetting("searchEngine", "")
+        }
+        function test_searchPaletteSearchesTheWebToo() {
+            const d = workspace.documents
+            researchStore.setSetting("searchEngine", testInput.webFixture("/page.html").toString() + "?q=%s")
+            const palette = findChild(workspace, "searchPalette")
+            palette.open()
+            tryCompare(palette, "opened", true)
+            const box = findChild(palette, "searchPaletteQuery"), row = findChild(palette, "webSearchRow")
+            // Nothing saved matches: the web row is chosen and Return searches in a new tab.
+            box.text = "qqzz lidar"
+            tryVerify(function() { return palette.webSelected && row.visible })
+            verify(findChild(row, "webSearchText").text.indexOf("qqzz lidar") > 0)
+            const tabs = Tree.leaves(d.tree).reduce(function(n, g) { return n + g.tabs.length }, 0)
+            box.forceActiveFocus()
+            testInput.keyClick(box, Qt.Key_Return)
+            tryCompare(palette, "opened", false)
+            tryVerify(function() { return activeTab().kind === "web" && activeTab().source.indexOf("q=qqzz%20lidar") > 0 })
+            compare(Tree.leaves(d.tree).reduce(function(n, g) { return n + g.tabs.length }, 0), tabs + 1)
             researchStore.setSetting("searchEngine", "")
         }
         function test_webRegionGoesToTheAi() {

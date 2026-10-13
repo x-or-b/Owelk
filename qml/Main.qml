@@ -16,6 +16,11 @@ ApplicationWindow {
     minimumWidth: 880; minimumHeight: 580
     title: ""
     color: Theme.window
+    // macOS: the window draws under the title bar, where the top bar takes its place beside the traffic lights.
+    readonly property bool unifiedTitleBar: Qt.platform.os === "osx"
+    flags: unifiedTitleBar ? Qt.Window | Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint : Qt.Window
+    // The top bar is the title bar: no padding above it.
+    topPadding: unifiedTitleBar ? 0 : SafeArea.margins.top
     // The platform UI font (San Francisco, Segoe UI, the desktop font on Linux).
     font.pixelSize: Theme.fontBody
     palette.window: Theme.sidebar
@@ -196,6 +201,15 @@ ApplicationWindow {
         else if (currentReader) currentReader.find()
         else { const view = documents.groupView(documents.activeGroup); if (view) view.focusHome() }
     }
+    // Back and forward in what is in front: a web tab's pages, or the reader's jumps (links, citations).
+    readonly property var frontWeb: {
+        const view = (documents.tree, documents.activeGroup, documents.groupView(documents.activeGroup))
+        return !homeVisible && view && view.isWeb ? view.webPane : null
+    }
+    readonly property bool canGoBack: frontWeb ? frontWeb.view.canGoBack : !homeVisible && !!currentReader && currentReader.canGoBack
+    readonly property bool canGoForward: frontWeb ? frontWeb.view.canGoForward : !homeVisible && !!currentReader && currentReader.canGoForward
+    function goBack() { if (frontWeb) frontWeb.view.goBack(); else if (!homeVisible && currentReader) currentReader.goBack() }
+    function goForward() { if (frontWeb) frontWeb.view.goForward(); else if (!homeVisible && currentReader) currentReader.goForward() }
     function openDocument(source, position) { if (!restoreFailed) documents.openDocument(researchStore.resolvedSource(source), position) }
     function openSearchResult(result) {
         if (result.kind === "paper") openDocument(result.source, result.position)
@@ -353,6 +367,7 @@ ApplicationWindow {
         id: searchPalette
         parent: Overlay.overlay
         onResultChosen: function(result) { window.openSearchResult(result) }
+        onWebRequested: function(url) { if (!window.restoreFailed && documents.openWeb(url, true)) window.homeVisible = false }
     }
     menuBar: MenuBar {
         Menu {
@@ -505,8 +520,26 @@ ApplicationWindow {
             onPositionChanged: function(mouse) { if (pressed) edge.moved(mapToItem(window.contentItem, mouse.x, mouse.y).x - origin) }
         }
     }
-    RowLayout {
+    ColumnLayout {
         anchors.fill: parent
+        spacing: 0
+        TopBar {
+            id: topBar
+            Layout.fillWidth: true
+            visible: !window.restoreFailed
+            titleBar: window.unifiedTitleBar
+            // The traffic lights' room, and the title bar's height (not in full screen, where they hide).
+            readonly property bool fullScreen: window.visibility === Window.FullScreen
+            leading: titleBar && !fullScreen ? 72 : 0
+            Layout.preferredHeight: titleBar && !fullScreen && window.contentItem.SafeArea.margins.top >= 24 ? window.contentItem.SafeArea.margins.top : implicitHeight
+            canGoBack: window.canGoBack
+            canGoForward: window.canGoForward
+            onBack: window.goBack()
+            onForward: window.goForward()
+            onSearchRequested: { commandPalette.close(); searchPalette.open() }
+        }
+    RowLayout {
+        Layout.fillWidth: true; Layout.fillHeight: true
         spacing: 0
         TabsPanel {
             id: tabsPanel
@@ -654,6 +687,7 @@ ApplicationWindow {
             onNewChatRequested: function(spec) { window.newAiChat(spec) }
             onTrashRequested: if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary({view: "trash"}) }
         }
+    }
     }
     footer: Rectangle {
         id: statusBar

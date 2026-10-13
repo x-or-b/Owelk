@@ -249,10 +249,6 @@
         <translation>디폴트 모델</translation>
     </message>
     <message>
-        <source>Drop to attach</source>
-        <translation>드롭 투 어태치</translation>
-    </message>
-    <message>
         <source>Fast mode</source>
         <translation>패스트 모드</translation>
     </message>
@@ -1244,14 +1240,6 @@
         <translation>컨티뉴 리딩</translation>
     </message>
     <message>
-        <source>Drop PDFs to open them, or a folder to add it as a collection</source>
-        <translation>드롭 피디에프스 투 오픈 뎀, 오어 어 폴더 투 애드 잇 애즈 어 컬렉션</translation>
-    </message>
-    <message>
-        <source>Find PDF text, papers, notes or AI conversations  ·  tag: collection:</source>
-        <translation>파인드 피디에프 텍스트, 페이퍼스, 노츠 오어 에이아이 컨버세이션스  ·  태그: 컬렉션:</translation>
-    </message>
-    <message>
         <source>New note</source>
         <translation>뉴 노트</translation>
     </message>
@@ -1280,6 +1268,10 @@
         <translation>노츠</translation>
     </message>
     <message>
+        <source>Open</source>
+        <translation>오픈</translation>
+    </message>
+    <message>
         <source>Open PDF…</source>
         <translation>오픈 피디에프…</translation>
     </message>
@@ -1300,8 +1292,8 @@
         <translation>리센트 페이퍼스</translation>
     </message>
     <message>
-        <source>Search the web or enter an address  ·  </source>
-        <translation>서치 더 웹 오어 엔터 언 어드레스  ·  </translation>
+        <source>Search papers, notes, AI and PDF text, or the web</source>
+        <translation>서치 페이퍼스, 노츠, 에이아이 앤드 피디에프 텍스트, 오어 더 웹</translation>
     </message>
     <message>
         <source>Search your research</source>
@@ -3791,8 +3783,8 @@ You can open the same document twice.</source>
         <translation>피디에프 텍스트 서치 페일드: </translation>
     </message>
     <message>
-        <source>Search PDF text, papers, notes, AI  ·  narrow with tag: collection: state: year:</source>
-        <translation>서치 피디에프 텍스트, 페이퍼스, 노츠, 에이아이  ·  내로 위드 태그: 컬렉션: 스테이트: 이어:</translation>
+        <source>Search papers, notes, AI and PDF text, or the web</source>
+        <translation>서치 페이퍼스, 노츠, 에이아이 앤드 피디에프 텍스트, 오어 더 웹</translation>
     </message>
     <message>
         <source>Searching PDF text…</source>
@@ -4515,12 +4507,20 @@ You can open the same document twice.</source>
         <translation> 오픈스 더 디폴트 엔진스 페이지 웬 노 웹 탭 이즈 인 프런트.</translation>
     </message>
     <message>
+        <source>, Home) offers the engines shown here and starts on the default one. </source>
+        <translation>, 홈) 오퍼스 더 엔진스 숀 히어 앤드 스타츠 온 더 디폴트 원. </translation>
+    </message>
+    <message>
         <source>A downloaded PDF is named after its paper when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.</source>
         <translation>어 다운로디드 피디에프 이즈 네임드 애프터 잇츠 페이퍼 웬 잇츠 퍼스트 페이지 쇼즈 더 타이틀; 파일스 올레디 인 더 라이브러리 킵 데어 네임스. 이그지스팅 파일스 아 네버 오버리튼. 인 어 웹 탭, 쇼 히어 리즈 어 피디에프 인 플레이스; 오픈 인 리더 센즈 잇 투 더 리더, 웨어 애노테이션스 앤드 노츠 워크.</translation>
     </message>
     <message>
         <source>Add</source>
         <translation>애드</translation>
+    </message>
+    <message>
+        <source>Add a site (google.com) or an address with %s</source>
+        <translation>애드 어 사이트 (구글.컴) 오어 언 어드레스 위드 %에스</translation>
     </message>
     <message>
         <source>Choose a folder…</source>
@@ -4545,6 +4545,10 @@ You can open the same document twice.</source>
     <message>
         <source>Downloaded PDFs go to Owelk's own PDF folder (Settings › Data); other files go to the folder above. </source>
         <translation>다운로디드 피디에프스 고 투 오웰크스 오운 피디에프 폴더 (세팅스 › 데이터); 아더 파일스 고 투 더 폴더 어보브. </translation>
+    </message>
+    <message>
+        <source>Hide from the search box</source>
+        <translation>하이드 프롬 더 서치 박스</translation>
     </message>
     <message>
         <source>Kept PDFs</source>
@@ -4595,16 +4599,28 @@ You can open the same document twice.</source>
         <translation>서치 엔진스</translation>
     </message>
     <message>
+        <source>Show in the search box</source>
+        <translation>쇼 인 더 서치 박스</translation>
+    </message>
+    <message>
         <source>Show in the web tab</source>
         <translation>쇼 인 더 웹 탭</translation>
     </message>
     <message>
-        <source>Use a web address with %s where the words go, not one already listed.</source>
-        <translation>유즈 어 웹 어드레스 위드 %에스 웨어 더 워즈 고, 낫 원 올레디 리스티드.</translation>
+        <source>That engine is already listed.</source>
+        <translation>댓 엔진 이즈 올레디 리스티드.</translation>
     </message>
     <message>
-        <source>Words typed in an address bar or on Home search with the default engine; Home has a button for each. Add your own with its search address, %s standing for the words. </source>
-        <translation>워즈 타입트 인 언 어드레스 바 오어 온 홈 서치 위드 더 디폴트 엔진; 홈 해즈 어 버튼 포 이치. 애드 유어 오운 위드 잇츠 서치 어드레스, %에스 스탠딩 포 더 워즈. </translation>
+        <source>The default engine is always shown</source>
+        <translation>더 디폴트 엔진 이즈 올웨이즈 숀</translation>
+    </message>
+    <message>
+        <source>The search box (</source>
+        <translation>더 서치 박스 (</translation>
+    </message>
+    <message>
+        <source>Type a site such as google.com, or an address with %s for the words.</source>
+        <translation>타입 어 사이트 서치 애즈 구글.컴, 오어 언 어드레스 위드 %에스 포 더 워즈.</translation>
     </message>
 </context>
 <context>
@@ -4799,6 +4815,21 @@ You can open the same document twice.</source>
     </message>
 </context>
 <context>
+    <name>TopBar</name>
+    <message>
+        <source>Back · </source>
+        <translation>백 · </translation>
+    </message>
+    <message>
+        <source>Forward · </source>
+        <translation>포워드 · </translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>서치</translation>
+    </message>
+</context>
+<context>
     <name>WebPane</name>
     <message>
         <source> KB</source>
@@ -4883,6 +4914,21 @@ You can open the same document twice.</source>
     <message>
         <source>Web · </source>
         <translation>웹 · </translation>
+    </message>
+</context>
+<context>
+    <name>WebSearchRow</name>
+    <message>
+        <source>Open </source>
+        <translation>오픈 </translation>
+    </message>
+    <message>
+        <source>Search engine · Tab for the next</source>
+        <translation>서치 엔진 · 탭 포 더 넥스트</translation>
+    </message>
+    <message>
+        <source>Search “</source>
+        <translation>서치 “</translation>
     </message>
 </context>
 <context>
