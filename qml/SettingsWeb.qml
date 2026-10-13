@@ -4,16 +4,15 @@ import QtQuick.Layouts
 import QtQuick.Dialogs as Native
 import Owelk.Ui
 import "Platform.js" as Platform
+import "WebSearch.js" as WebSearch
 
 ColumnLayout {
     id: root
     spacing: 22
-    readonly property var engines: [
-        {name: qsTr("Google Scholar"), template: "https://scholar.google.com/scholar?q=%s"},
-        {name: qsTr("Google"), template: "https://www.google.com/search?q=%s"},
-        {name: qsTr("DuckDuckGo"), template: "https://duckduckgo.com/?q=%s"},
-        {name: "arXiv", template: "https://arxiv.org/search/?query=%s&searchtype=all"}
-    ]
+    // Read again after a change here (Settings › Web keeps them in the settings table).
+    property int revision: 0
+    readonly property var engines: (revision, WebSearch.all(researchStore))
+    readonly property string defaultEngine: (revision, WebSearch.template(researchStore))
     readonly property bool keepsPdfs: researchStore.setting("library.keepPdfs", "1") === "1"
     function folder() { const f = researchStore.setting("downloadFolder"); return f.length ? f : researchStore.downloadTarget("x").directory }
     Native.FolderDialog {
@@ -41,6 +40,16 @@ ColumnLayout {
                 onActivated: function(index) { researchStore.setSetting("web.pdfNames", index === 1 ? "original" : "title") }
             }
         }
+        // PDFs added or opened from elsewhere keep their file names in Owelk's folder until renamed here.
+        SettingsRow {
+            label: qsTr("Kept PDFs")
+            detail: qsTr("Rename Owelk's copies after their paper titles, as downloads are. Files outside Owelk's folder are never renamed.")
+            Button {
+                objectName: "renameKeptPdfs"
+                text: qsTr("Rename to Titles")
+                onClicked: researchStore.renamePapersToTitles(researchStore.libraryDocuments({}).map(function(d) { return d.url }))
+            }
+        }
         SettingsRow {
             label: qsTr("PDF links")
             ComboBox {
@@ -53,27 +62,48 @@ ColumnLayout {
         }
     }
     SettingsGroup {
-        title: qsTr("Browsing")
-        note: qsTr("The start page opens with ") + Platform.keys("Ctrl+L") + qsTr(" when no web tab is in front.")
-        SettingsRow {
-            label: qsTr("Search with")
-            ComboBox {
-                objectName: "searchEngineBox"
-                Layout.preferredWidth: 200
-                model: root.engines.map(function(e) { return e.name })
-                currentIndex: Math.max(0, root.engines.findIndex(function(e) { return e.template === researchStore.setting("searchEngine", root.engines[0].template) }))
-                onActivated: function(index) { researchStore.setSetting("searchEngine", root.engines[index].template) }
+        title: qsTr("Search engines")
+        note: qsTr("Words typed in an address bar or on Home search with the default engine; Home has a button for each. Add your own with its search address, %s standing for the words. ")
+            + Platform.keys("Ctrl+L") + qsTr(" opens the default engine's page when no web tab is in front.")
+        Repeater {
+            model: root.engines
+            delegate: SettingsRow {
+                required property var modelData
+                label: modelData.name
+                detail: modelData.template
+                RadioButton {
+                    objectName: "defaultEngine-" + modelData.name
+                    text: qsTr("Default")
+                    checked: root.defaultEngine === modelData.template
+                    onClicked: { WebSearch.setDefault(researchStore, modelData.template); root.revision++ }
+                }
+                IconButton {
+                    visible: !WebSearch.isBuiltIn(modelData.template)
+                    objectName: "removeEngine-" + modelData.name
+                    icon.name: "trash"; description: qsTr("Remove")
+                    onClicked: { WebSearch.remove(researchStore, modelData.template); root.revision++ }
+                }
             }
         }
         SettingsRow {
-            label: qsTr("Start page")
             wide: true
+            TextField { id: engineName; objectName: "engineNameField"; Layout.preferredWidth: 140; placeholderText: qsTr("Name") }
             TextField {
-                objectName: "startPageField"
+                id: engineAddress
+                objectName: "engineAddressField"
                 Layout.fillWidth: true
-                text: researchStore.setting("startPage")
-                placeholderText: "https://scholar.google.com/"
-                onEditingFinished: researchStore.setSetting("startPage", text.trim())
+                placeholderText: "https://example.org/search?q=%s"
+                onAccepted: addEngine.clicked()
+            }
+            Button {
+                id: addEngine
+                objectName: "addEngine"
+                text: qsTr("Add")
+                enabled: engineName.text.trim().length > 0 && engineAddress.text.indexOf("%s") >= 0
+                onClicked: {
+                    if (WebSearch.add(researchStore, engineName.text, engineAddress.text)) { engineName.clear(); engineAddress.clear(); root.revision++ }
+                    else researchStore.notify(qsTr("Use a web address with %s where the words go, not one already listed."))
+                }
             }
         }
     }

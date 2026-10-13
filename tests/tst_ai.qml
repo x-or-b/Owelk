@@ -409,6 +409,9 @@ Item {
             const several = ai.continuing({source: fixtureSource, messages: [{role: "user", context: {attachments: ["library"], searchUrls: [longSource.toString(), fixtureSource.toString()]}}]})
             compare(several.scope, "none"); verify(several.searchPapers); compare(several.papers, [longSource.toString()])
             compare(ai.continuing({source: fixtureSource, messages: []}).scope, "none")
+            // A drop that attached something lights up the attachments row.
+            p.attached(true)
+            tryVerify(function() { return findChild(p, "aiAttachedFlash").opacity > 0 })
             researchStore.deleteCollection(collection)
             ai.openThread(original) // The next tests go on with the first conversation.
         }

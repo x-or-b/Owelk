@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QFileInfo>
 #include <QObject>
 #include <QHash>
 #include <QImage>
@@ -149,6 +150,7 @@ public:
     // tree (existing ones with the same name are reused) under parentCollection. Files are not moved.
     // Answered by folderImported(request, added, collections, error).
     Q_INVOKABLE int importFolder(const QUrl &folder, const QString &parentCollection, bool foldersAsCollections);
+    Q_INVOKABLE bool isFolder(const QUrl &url) const { return url.isLocalFile() && QFileInfo(url.toLocalFile()).isDir(); }
     // Collections where similar papers already are, for a paper in none of them (or to add more):
     // answered by collectionsSuggested(request, source, [{id, name}]). No AI; the related-papers
     // search, cached until the library changes.
@@ -326,6 +328,12 @@ public:
     // web.pdfNames setting is "title" (the default) and the PDF names its paper clearly. Answered by
     // downloadNamed(file, named) with the file to open, the same one when the name stays.
     Q_INVOKABLE void nameDownloadedPdf(const QUrl &file);
+    // Owelk's own copies of these papers (in its PDF folder) renamed after their titles, as downloads are;
+    // files elsewhere and papers without a title keep their names. Notes and annotations stay with the
+    // paper. Answers how many files were renamed.
+    Q_INVOKABLE int renamePapersToTitles(const QVariantList &sources);
+    // Whether a paper's file is one of Owelk's own copies (the ones Rename to Title may rename).
+    Q_INVOKABLE bool keptByOwelk(const QUrl &source) const;
     // scopeUrls: optional list of paper URLs (library filters); null searches everything.
     Q_INVOKABLE QVariantList searchKnowledge(const QString &query, const QUrl &source = QUrl(),
         const QString &target = "all", const QVariant &scopeUrls = QVariant()) const;

@@ -192,6 +192,17 @@ Item {
             compare(workspace.aiVisible, false)
             compare(workspace.aiSide, "left")
         }
+        function test_dropsOnHomeOpenPdfsAndFileFolders() {
+            workspace.documents.restore({})
+            workspace.showHome()
+            const drop = findChild(workspace, "homeDrop")
+            verify(drop !== null)
+            // A PDF opens; a folder becomes a collection named after it.
+            verify(drop.take([fixtureSource, fixtureFolder]))
+            tryVerify(function() { return !workspace.homeVisible && !!workspace.currentReader && researchStore.sameSource(workspace.currentReader.source, fixtureSource) })
+            tryVerify(function() { return researchStore.collections().some(function(c) { return c.name === "library" }) }, 10000)
+            verify(!drop.take([testInput.webFixture("/page.html")]))
+        }
         function test_homeAndContinue() {
             workspace.openDocument(fixtureSource, {page: 2, y: .2, x: 0, zoom: 1})
             canvas()

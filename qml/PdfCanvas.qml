@@ -5,6 +5,7 @@ import QtQuick.Shapes
 import Owelk.Ui
 import "StrokePath.js" as Stroke
 import "WorkspaceTree.js" as Tree
+import "WebSearch.js" as WebSearch
 import "Platform.js" as Platform
 
 Item {
@@ -1526,7 +1527,7 @@ Item {
     }
     // A cited paper: look it up (its DOI or arXiv page, or a search for the entry), in a web tab.
     function findPaper(entry) {
-        const url = Tree.referenceUrl(entry, researchStore.setting("searchEngine", "https://scholar.google.com/scholar?q=%s"))
+        const url = Tree.referenceUrl(entry, WebSearch.template(researchStore))
         closeLinkPreview()
         if (url.length) externalLinkRequested(url)
     }

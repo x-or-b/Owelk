@@ -1147,6 +1147,42 @@ private slots:
         QCOMPARE(rows("SELECT name FROM sqlite_master WHERE name LIKE '%capture%'"), QStringList{});
         QVERIFY(QFileInfo::exists(data + "/captures/web.png")); // The old files stay where they were.
     }
+    void keptPdfsAreRenamedAfterTheirTitles()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        // An added PDF is Owelk's copy under its original name; one kept elsewhere is not Owelk's to rename.
+        const auto original = directory.filePath("2401.12345v2.pdf");
+        writeFixture(original, "Radar: Odometry at Night");
+        QCOMPARE(store.addDocuments({QUrl::fromLocalFile(original)}), 1);
+        const auto kept = store.libraryDocuments()[0].toMap()["url"].toUrl();
+        QVERIFY(store.keptByOwelk(kept));
+        QCOMPARE(QFileInfo(kept.toLocalFile()).fileName(), QString("2401.12345v2.pdf"));
+        QTRY_COMPARE_WITH_TIMEOUT(store.displayName(kept), QString("Radar: Odometry at Night"), 10000);
+        const auto id = store.documentLinkId(kept);
+        QVERIFY(store.setSetting("library.keepPdfs", "0"));
+        const auto outside = QUrl::fromLocalFile(directory.filePath("outside.pdf"));
+        writeFixture(outside.toLocalFile(), "Outside Paper");
+        QCOMPARE(store.addDocuments({outside}), 1);
+        QVERIFY(!store.keptByOwelk(outside));
+        QTRY_COMPARE_WITH_TIMEOUT(store.displayName(outside), QString("Outside Paper"), 10000);
+        // Renamed like a download ("Title - Subtitle"); the paper keeps its ID, the old path still finds it.
+        QSignalSpy relinked(&store, &ResearchStore::sourceRelinked);
+        QCOMPARE(store.renamePapersToTitles({kept, outside}), 1);
+        const auto renamed = store.resolvedSource(kept);
+        QCOMPARE(QFileInfo(renamed.toLocalFile()).fileName(), QString("Radar - Odometry at Night.pdf"));
+        QVERIFY(QFileInfo::exists(renamed.toLocalFile()));
+        QVERIFY(!QFileInfo::exists(kept.toLocalFile()));
+        QCOMPARE(store.documentLinkId(renamed), id);
+        QCOMPARE(relinked.size(), 1);
+        QCOMPARE(store.displayName(renamed), QString("Radar: Odometry at Night"));
+        QVERIFY(QFileInfo::exists(original)); // The file it came from is untouched.
+        QCOMPARE(QFileInfo(store.resolvedSource(outside).toLocalFile()).fileName(), QString("outside.pdf"));
+        // Already named after its title: nothing to do.
+        QCOMPARE(store.renamePapersToTitles({renamed}), 0);
+    }
     void aiChatsMoveIntoThreadsOnUpgrade()
     {
         QTemporaryDir directory;

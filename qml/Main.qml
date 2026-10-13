@@ -6,6 +6,7 @@ import Owelk.Ui
 import "Platform.js" as Platform
 import "Shortcuts.js" as Shortcuts
 import "WorkspaceTree.js" as Tree
+import "WebSearch.js" as WebSearch
 
 ApplicationWindow {
     id: window
@@ -186,8 +187,8 @@ ApplicationWindow {
         if (restoreFailed) return
         const view = documents.groupView(documents.activeGroup)
         if (!homeVisible && view && view.isWeb && view.webPane) { view.webPane.focusAddress(); return }
-        const start = researchStore.setting("startPage")
-        if (documents.openWeb(start.length ? start : "https://scholar.google.com/", true))
+        // A new web tab opens on the default search engine's own page.
+        if (documents.openWeb(WebSearch.home(WebSearch.template(researchStore)), true))
             Qt.callLater(function() { const next = documents.groupView(documents.activeGroup); if (next) next.focusAddress() })
     }
     function findInView() {

@@ -249,6 +249,10 @@
         <translation>디폴트 모델</translation>
     </message>
     <message>
+        <source>Drop to attach</source>
+        <translation>드롭 투 어태치</translation>
+    </message>
+    <message>
         <source>Fast mode</source>
         <translation>패스트 모드</translation>
     </message>
@@ -307,6 +311,10 @@
     <message>
         <source>No paper found.</source>
         <translation>노 페이퍼 파운드.</translation>
+    </message>
+    <message>
+        <source>Nothing new to attach: pictures and PDFs only, each once.</source>
+        <translation>낫싱 뉴 투 어태치: 픽처스 앤드 피디에프스 온리, 이치 원스.</translation>
     </message>
     <message>
         <source>Open Settings…</source>
@@ -1236,20 +1244,12 @@
         <translation>컨티뉴 리딩</translation>
     </message>
     <message>
-        <source>DuckDuckGo</source>
-        <translation>덕덕고</translation>
+        <source>Drop PDFs to open them, or a folder to add it as a collection</source>
+        <translation>드롭 피디에프스 투 오픈 뎀, 오어 어 폴더 투 애드 잇 애즈 어 컬렉션</translation>
     </message>
     <message>
         <source>Find PDF text, papers, notes or AI conversations  ·  tag: collection:</source>
         <translation>파인드 피디에프 텍스트, 페이퍼스, 노츠 오어 에이아이 컨버세이션스  ·  태그: 컬렉션:</translation>
-    </message>
-    <message>
-        <source>Google</source>
-        <translation>구글</translation>
-    </message>
-    <message>
-        <source>Google Scholar</source>
-        <translation>구글 스칼라</translation>
     </message>
     <message>
         <source>New note</source>
@@ -1664,6 +1664,10 @@ Same file as another library entry</source>
     <message>
         <source>Remove from This Collection</source>
         <translation>리무브 프롬 디스 컬렉션</translation>
+    </message>
+    <message>
+        <source>Rename Files to Titles</source>
+        <translation>리네임 파일스 투 타이틀스</translation>
     </message>
     <message>
         <source>Rename collection</source>
@@ -2576,6 +2580,10 @@ Same file as another library entry</source>
         <translation>넥스트 매칭 페이지스 →</translation>
     </message>
     <message>
+        <source>No PDF needed a new name (only Owelk's own copies with a known title are renamed).</source>
+        <translation>노 피디에프 니디드 어 뉴 네임 (온리 오웰크스 오운 카피스 위드 어 노운 타이틀 아 리네임드).</translation>
+    </message>
+    <message>
         <source>No PDFs were added. Choose PDF files.</source>
         <translation>노 피디에프스 워 애디드. 추즈 피디에프 파일스.</translation>
     </message>
@@ -2714,6 +2722,14 @@ Same file as another library entry</source>
     <message>
         <source>Removed from the text index. Its pages no longer appear in PDF text search.</source>
         <translation>리무브드 프롬 더 텍스트 인덱스. 잇츠 페이지스 노 롱거 어피어 인 피디에프 텍스트 서치.</translation>
+    </message>
+    <message>
+        <source>Renamed %1 PDFs after their titles.</source>
+        <translation>리네임드 %1 피디에프스 애프터 데어 타이틀스.</translation>
+    </message>
+    <message>
+        <source>Renamed the PDF after its title.</source>
+        <translation>리네임드 더 피디에프 애프터 잇츠 타이틀.</translation>
     </message>
     <message>
         <source>Restored the backup. The previous data is in </source>
@@ -3120,6 +3136,10 @@ Same file as another library entry</source>
     <message>
         <source>Remove from This Collection</source>
         <translation>리무브 프롬 디스 컬렉션</translation>
+    </message>
+    <message>
+        <source>Rename File to Title</source>
+        <translation>리네임 파일 투 타이틀</translation>
     </message>
     <message>
         <source>Tags</source>
@@ -4487,20 +4507,24 @@ You can open the same document twice.</source>
 <context>
     <name>SettingsWeb</name>
     <message>
-        <source> when no web tab is in front.</source>
-        <translation> 웬 노 웹 탭 이즈 인 프런트.</translation>
+        <source> opens the default engine's page when no web tab is in front.</source>
+        <translation> 오픈스 더 디폴트 엔진스 페이지 웬 노 웹 탭 이즈 인 프런트.</translation>
     </message>
     <message>
         <source>A downloaded PDF is named after its paper when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.</source>
         <translation>어 다운로디드 피디에프 이즈 네임드 애프터 잇츠 페이퍼 웬 잇츠 퍼스트 페이지 쇼즈 더 타이틀; 파일스 올레디 인 더 라이브러리 킵 데어 네임스. 이그지스팅 파일스 아 네버 오버리튼. 인 어 웹 탭, 쇼 히어 리즈 어 피디에프 인 플레이스; 오픈 인 리더 센즈 잇 투 더 리더, 웨어 애노테이션스 앤드 노츠 워크.</translation>
     </message>
     <message>
-        <source>Browsing</source>
-        <translation>브라우징</translation>
+        <source>Add</source>
+        <translation>애드</translation>
     </message>
     <message>
         <source>Choose a folder…</source>
         <translation>추즈 어 폴더…</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>디폴트</translation>
     </message>
     <message>
         <source>Download and open in the reader</source>
@@ -4519,16 +4543,12 @@ You can open the same document twice.</source>
         <translation>다운로디드 피디에프스 고 투 오웰크스 오운 피디에프 폴더 (세팅스 › 데이터); 아더 파일스 고 투 더 폴더 어보브. </translation>
     </message>
     <message>
-        <source>DuckDuckGo</source>
-        <translation>덕덕고</translation>
+        <source>Kept PDFs</source>
+        <translation>켑트 피디에프스</translation>
     </message>
     <message>
-        <source>Google</source>
-        <translation>구글</translation>
-    </message>
-    <message>
-        <source>Google Scholar</source>
-        <translation>구글 스칼라</translation>
+        <source>Name</source>
+        <translation>네임</translation>
     </message>
     <message>
         <source>Name PDFs</source>
@@ -4555,20 +4575,32 @@ You can open the same document twice.</source>
         <translation>페이퍼 타이틀</translation>
     </message>
     <message>
-        <source>Search with</source>
-        <translation>서치 위드</translation>
+        <source>Remove</source>
+        <translation>리무브</translation>
+    </message>
+    <message>
+        <source>Rename Owelk's copies after their paper titles, as downloads are. Files outside Owelk's folder are never renamed.</source>
+        <translation>리네임 오웰크스 카피스 애프터 데어 페이퍼 타이틀스, 애즈 다운로즈 아. 파일스 아웃사이드 오웰크스 폴더 아 네버 리네임드.</translation>
+    </message>
+    <message>
+        <source>Rename to Titles</source>
+        <translation>리네임 투 타이틀스</translation>
+    </message>
+    <message>
+        <source>Search engines</source>
+        <translation>서치 엔진스</translation>
     </message>
     <message>
         <source>Show in the web tab</source>
         <translation>쇼 인 더 웹 탭</translation>
     </message>
     <message>
-        <source>Start page</source>
-        <translation>스타트 페이지</translation>
+        <source>Use a web address with %s where the words go, not one already listed.</source>
+        <translation>유즈 어 웹 어드레스 위드 %에스 웨어 더 워즈 고, 낫 원 올레디 리스티드.</translation>
     </message>
     <message>
-        <source>The start page opens with </source>
-        <translation>더 스타트 페이지 오픈스 위드 </translation>
+        <source>Words typed in an address bar or on Home search with the default engine; Home has a button for each. Add your own with its search address, %s standing for the words. </source>
+        <translation>워즈 타입트 인 언 어드레스 바 오어 온 홈 서치 위드 더 디폴트 엔진; 홈 해즈 어 버튼 포 이치. 애드 유어 오운 위드 잇츠 서치 어드레스, %에스 스탠딩 포 더 워즈. </translation>
     </message>
 </context>
 <context>

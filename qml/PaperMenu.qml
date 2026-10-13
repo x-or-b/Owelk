@@ -65,6 +65,13 @@ Item {
             text: root.paper.excluded ? qsTr("Include in Text Search") : qsTr("Exclude from Text Search")
             onTriggered: researchStore.setExcludedFromIndex(root.paper.url, !root.paper.excluded)
         }
+        // Owelk's own copy, named after the title the way downloads are.
+        MenuItem {
+            objectName: "renameToTitleOption"
+            visible: menu.opened && researchStore.keptByOwelk(root.paper.url); height: visible ? implicitHeight : 0
+            text: qsTr("Rename File to Title")
+            onTriggered: researchStore.renamePapersToTitles([root.paper.url])
+        }
         MenuItem { text: qsTr("Locate Original PDF…"); onTriggered: researchStore.requestRelink(root.paper.url) }
         MenuSeparator {}
         MenuItem {

@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Owelk.Ui
 import "Platform.js" as Platform
 import "WorkspaceTree.js" as Tree
+import "WebSearch.js" as WebSearch
 
 Rectangle {
     id: root
@@ -40,8 +41,21 @@ Rectangle {
     }
     // An address or a web search typed on Home (opens a web tab).
     signal webRequested(string url)
+    // The engine words go to: the default one (Settings › Web) until another chip is chosen here.
+    property var engines: WebSearch.all(researchStore)
+    property string engine: WebSearch.template(researchStore)
+    property string defaultEngine: engine
+    Connections {
+        target: researchStore
+        function onSettingsChanged() {
+            root.engines = WebSearch.all(researchStore)
+            const chosen = WebSearch.template(researchStore)
+            if (chosen !== root.defaultEngine) { root.defaultEngine = chosen; root.engine = chosen }
+        }
+    }
+    readonly property string engineName: (engines.find(function(e) { return e.template === engine }) || WebSearch.current(researchStore)).name
     function searchWeb(text) {
-        const url = Tree.addressToUrl(text, researchStore.setting("searchEngine", "https://scholar.google.com/scholar?q=%s"))
+        const url = Tree.addressToUrl(text, root.engine)
         if (url.length) webRequested(url)
         return url.length > 0
     }
@@ -172,13 +186,30 @@ Rectangle {
                     Layout.fillWidth: true
                     implicitHeight: Theme.controlHeight + 6
                     leftPadding: 30
-                    placeholderText: qsTr("Search the web or enter an address  ·  ") + (researchStore.setting("searchEngine", "").indexOf("google.com/search") >= 0 ? qsTr("Google") : researchStore.setting("searchEngine", "").indexOf("duckduckgo") >= 0 ? qsTr("DuckDuckGo") : researchStore.setting("searchEngine", "").indexOf("arxiv") >= 0 ? "arXiv" : qsTr("Google Scholar"))
+                    placeholderText: qsTr("Search the web or enter an address  ·  ") + root.engineName
                     selectByMouse: true
                     font.pixelSize: Theme.fontBody
                     onAccepted: if (root.searchWeb(text)) clear()
                     Keys.onEscapePressed: clear()
                     // A globe: the web, not the library.
                     Icon { x: 9; anchors.verticalCenter: parent.verticalCenter; name: "globe"; size: Theme.fontBody + 1; color: Theme.textTertiary }
+                }
+                // Which engine the words go to; Settings › Web chooses the one that starts selected.
+                Flow {
+                    objectName: "homeWebEngines"
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Repeater {
+                        model: root.engines
+                        delegate: Chip {
+                            required property var modelData
+                            objectName: "homeEngine-" + modelData.name
+                            text: modelData.name
+                            checkable: true
+                            checked: root.engine === modelData.template
+                            onClicked: { root.engine = modelData.template; webInput.forceActiveFocus() }
+                        }
+                    }
                 }
             }
             // The paper last read, as a card: click anywhere on it to go back to the page.
@@ -344,5 +375,34 @@ Rectangle {
         objectName: "recentPaperMenu"
         recent: true
         onOpenRequested: function(source, position) { root.documentChosen(source, position) }
+    }
+    // PDFs dropped on Home open; a folder becomes a collection of the PDFs in it (subfolders as collections
+    // inside it). Files are not moved.
+    DropArea {
+        id: drops
+        objectName: "homeDrop"
+        anchors.fill: parent
+        z: 10
+        keys: ["text/uri-list"]
+        function take(urls) {
+            const pdfs = urls.filter(function(u) { return /\.pdf$/i.test(u.toString()) })
+            const folders = urls.filter(function(u) { return researchStore.isFolder(u) })
+            pdfs.forEach(function(u) { root.documentChosen(u, undefined) })
+            folders.forEach(function(u) { researchStore.importFolder(u, "", true) })
+            return pdfs.length + folders.length > 0
+        }
+        onDropped: function(drop) { if (take(drop.urls)) drop.acceptProposedAction() }
+        Rectangle {
+            anchors.fill: parent; anchors.margins: 6
+            visible: drops.containsDrag
+            radius: Theme.radiusLarge
+            color: Theme.overlay
+            border.width: 2; border.color: Theme.accent
+            Label {
+                anchors.centerIn: parent
+                text: qsTr("Drop PDFs to open them, or a folder to add it as a collection")
+                font.pixelSize: Theme.fontTitle; color: Theme.text
+            }
+        }
     }
 }

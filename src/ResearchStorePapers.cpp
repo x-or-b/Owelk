@@ -171,6 +171,55 @@ void ResearchStore::nameDownloadedPdf(const QUrl &file)
     }));
 }
 
+bool ResearchStore::keptByOwelk(const QUrl &source) const
+{
+    const auto url = resolvedSource(source);
+    return url.isLocalFile() && url.toLocalFile().startsWith(papersFolder() + "/");
+}
+
+int ResearchStore::renamePapersToTitles(const QVariantList &sources)
+{
+    int renamed = 0;
+    for (const auto &value : sources) {
+        const auto from = resolvedSource(value.toUrl());
+        const auto path = from.toLocalFile();
+        if (!keptByOwelk(from) || !QFileInfo(path).isFile()) continue;
+        QSqlQuery query(m_database);
+        query.prepare("SELECT title,sha256 FROM documents WHERE url=?");
+        query.addBindValue(from.toString());
+        if (!query.exec() || !query.next()) continue;
+        PaperMetadata paper;
+        paper.title = query.value(0).toString();
+        const auto hash = query.value(1).toString();
+        query.finish();
+        const auto stem = PaperMetadataText::fileStem(paper);
+        if (stem.isEmpty() || stem == QFileInfo(path).completeBaseName()) continue;
+        const auto target = uniqueFile(papersFolder(), stem + ".pdf");
+        if (!QFile::rename(path, target)) continue;
+        const auto to = QUrl::fromLocalFile(target);
+        QString error;
+        if (!applyRelink(from, to, hash, &error)) {
+            QFile::rename(target, path);
+            continue;
+        }
+        if (!hash.isEmpty()) FileFingerprint::remember(target, FileFingerprint::stamp(target), hash);
+        m_relinks.insert(from.toString(), to.toString());
+        rememberTitle(from, {});
+        rememberTitle(to, paper.title);
+        m_index->relocateSource(from, to);
+        emit sourceRelinked(from, to);
+        ++renamed;
+    }
+    if (renamed) {
+        announceDocumentsChanged();
+        emit message(renamed == 1 ? ui("Renamed the PDF after its title.")
+                                  : QString(ui("Renamed %1 PDFs after their titles.")).arg(renamed));
+    } else {
+        emit message(ui("No PDF needed a new name (only Owelk's own copies with a known title are renamed)."));
+    }
+    return renamed;
+}
+
 QUrl ResearchStore::papersFolderUrl() const
 {
     QDir().mkpath(papersFolder());

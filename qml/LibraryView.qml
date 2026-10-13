@@ -182,6 +182,7 @@ Rectangle {
             onTriggered: researchStore.setDocumentsCollection(batchMenu.urls, root.filter.collection, false)
         }
         MenuItem { objectName: "batchCompare"; text: qsTr("Compare with AI…"); onTriggered: root.compareWithAi(batchMenu.urls) }
+        MenuItem { objectName: "batchRenameToTitles"; text: qsTr("Rename Files to Titles"); onTriggered: researchStore.renamePapersToTitles(batchMenu.urls) }
         MenuItem { objectName: "batchOrganize"; text: qsTr("Organize into Collections with AI…"); onTriggered: root.organizeWithAi(batchMenu.urls) }
         MenuSeparator {}
         MenuItem { text: qsTr("Mark as Read"); onTriggered: batchMenu.urls.forEach(function(u) { researchStore.setReadingState(u, "read") }) }

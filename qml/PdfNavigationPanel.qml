@@ -4,6 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Pdf
 import "WorkspaceTree.js" as Tree
+import "WebSearch.js" as WebSearch
 
 // The Document panel: the paper in front, in four views (mode): 0 Contents (outline or pages), 1
 // Annotations (notes about it, then its annotations), 2 Symbols, 3 Related (similar papers in the
@@ -385,7 +386,7 @@ Item {
                 MenuItem {
                     text: qsTr("Find Paper")
                     onTriggered: root.linkActivated(Tree.referenceUrl([citationMenu.row.authors, citationMenu.row.title, citationMenu.row.year].join(" "),
-                                                                     researchStore.setting("searchEngine", "https://scholar.google.com/scholar?q=%s")))
+                                                                     WebSearch.template(researchStore)))
                 }
                 MenuItem { text: qsTr("Copy Title"); onTriggered: researchStore.copyText(citationMenu.row.title) }
             }

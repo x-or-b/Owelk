@@ -1,6 +1,7 @@
 import QtQuick
 import QtTest
 import "../qml" as App
+import "../qml/WebSearch.js" as WebSearch
 import "../qml/WorkspaceTree.js" as Tree
 
 Item {
@@ -163,6 +164,25 @@ Item {
             tryVerify(function() { const v = d.groupView(d.activeGroup); home = v ? findChild(v, "homeView") : null; return home !== null && home.visible && activeTab().kind === "home" })
             verify(home.searchWeb("lidar odometry"))
             tryVerify(function() { return activeTab().kind === "web" && activeTab().source.indexOf("q=lidar%20odometry") > 0 })
+            // Engines of one's own join the built-in ones; Home's chips pick one for the next search.
+            const template = testInput.webFixture("/page.html").toString() + "?mine=%s"
+            verify(WebSearch.add(researchStore, "Mine", template))
+            verify(!WebSearch.add(researchStore, "No words", "https://example.org/search"))
+            compare(WebSearch.all(researchStore).map(function(e) { return e.name }), ["Google Scholar", "arXiv", "Google", "DuckDuckGo", "Mine"])
+            d.newHomeTab()
+            tryVerify(function() { const v = d.groupView(d.activeGroup); home = v ? findChild(v, "homeView") : null; return home !== null && home.visible && activeTab().kind === "home" })
+            const chip = findChild(home, "homeEngine-Mine")
+            verify(chip !== null)
+            mouseClick(chip)
+            compare(home.engine, template)
+            verify(findChild(home, "homeWebSearch").placeholderText.indexOf("Mine") > 0)
+            verify(home.searchWeb("radar"))
+            tryVerify(function() { return activeTab().kind === "web" && activeTab().source.indexOf("mine=radar") > 0 })
+            // The default (Settings › Web) is what Home starts with; removing it falls back to Google Scholar.
+            WebSearch.setDefault(researchStore, template)
+            compare(WebSearch.current(researchStore).name, "Mine")
+            WebSearch.remove(researchStore, template)
+            compare(WebSearch.current(researchStore).name, "Google Scholar")
             researchStore.setSetting("searchEngine", "")
         }
         function test_webRegionGoesToTheAi() {
@@ -185,7 +205,8 @@ Item {
             const d = workspace.documents
             d.openDocument(fixtureSource, null, true)
             workspace.homeVisible = false
-            researchStore.setSetting("startPage", testInput.webFixture("/page.html").toString())
+            // A new web tab opens on the default engine's own page (its address without the words).
+            researchStore.setSetting("searchEngine", testInput.webFixture("/page.html").toString() + "?q=%s")
             findChild(workspace, "openWebAction").trigger()
             compare(activeTab().kind, "web")
             const pane = webPane()
@@ -198,7 +219,7 @@ Item {
             tryVerify(function() { return pane.view.canGoBack }, 15000)
             mouseClick(findChild(pane, "webBack"))
             tryVerify(function() { return activeTab().source.indexOf("second") < 0 }, 15000)
-            researchStore.setSetting("startPage", "")
+            researchStore.setSetting("searchEngine", "")
         }
     }
 }

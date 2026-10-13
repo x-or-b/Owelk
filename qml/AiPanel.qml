@@ -453,6 +453,8 @@ Item {
         }
         // Attachments for the next turn; × removes one. Images show a thumbnail.
         Flow {
+            id: attachmentRow
+            objectName: "aiAttachments"
             Layout.fillWidth: true; Layout.minimumWidth: 0
             spacing: 4
             visible: root.c && root.c.attachments.length > 0
@@ -605,11 +607,15 @@ Item {
             }
         }
     }
-    // Images, PDFs and papers dragged from the Library are attached to the next question.
+    // Images, PDFs and papers dragged from the Library are attached to the next question. While something
+    // is over the panel it says so; once dropped, the attachments row lights up.
     DropArea {
+        id: drops
+        objectName: "aiDrop"
         anchors.fill: parent
         keys: ["text/uri-list", "owelk/paper"]
         onDropped: function(drop) {
+            const before = root.c.attachments.length
             if (drop.source && drop.source.paperUrls) root.c.attachPapers(drop.source.paperUrls)
             else {
                 const pdfs = drop.urls.filter(function(url) { return /\.pdf$/i.test(url.toString()) })
@@ -617,7 +623,49 @@ Item {
                 for (const url of drop.urls) root.c.attachImage(url)
             }
             drop.accept()
+            root.attached(root.c.attachments.length > before)
         }
+        Rectangle {
+            objectName: "aiDropHint"
+            anchors.fill: parent; anchors.margins: 4
+            visible: drops.containsDrag
+            z: 10
+            radius: Theme.radiusLarge
+            color: Theme.overlay
+            border.width: 2; border.color: Theme.accent
+            Column {
+                anchors.centerIn: parent
+                spacing: 6
+                Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "attach"; size: Theme.fontTitle * 2; color: Theme.accent }
+                Label { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Drop to attach"); font.pixelSize: Theme.fontTitle; color: Theme.text }
+            }
+        }
+    }
+    // The attachments row lights up after a drop (once laid out); nothing new (already attached, not a
+    // picture or PDF) says so.
+    function attached(added) {
+        if (added) { flashLater.restart(); return }
+        researchStore.notify(qsTr("Nothing new to attach: pictures and PDFs only, each once."))
+    }
+    Timer {
+        id: flashLater
+        interval: 30
+        onTriggered: {
+            const at = attachmentRow.mapToItem(root, 0, 0)
+            attachedFlash.x = at.x - 3; attachedFlash.y = at.y - 3
+            attachedFlash.width = attachmentRow.width + 6; attachedFlash.height = attachmentRow.height + 6
+            flashFade.restart()
+        }
+    }
+    Rectangle {
+        id: attachedFlash
+        objectName: "aiAttachedFlash"
+        z: 5
+        radius: Theme.radius
+        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, .14)
+        border.color: Theme.accent; border.width: 2
+        opacity: 0
+        NumberAnimation on opacity { id: flashFade; running: false; from: 1; to: 0; duration: 1000; easing.type: Easing.InQuad }
     }
     // Papers (open tabs first, then the Library; several can be chosen) or a collection, to ask about.
     Popup {
