@@ -890,6 +890,12 @@ Item {
             testInput.keyClick(button, Qt.Key_Y, Qt.ControlModifier | Qt.ShiftModifier)
             compare(JSON.parse(researchStore.setting("shortcuts")).newTab, "Ctrl+Shift+Y")
             compare(workspace.keys("newTab"), "Ctrl+Shift+Y")
+            // Esc while recording turns a shortcut off (Settings stays open); then it is set again.
+            const reopen = visualChild(settings.contentItem, "shortcut-reopenTab")
+            reopen.clicked()
+            testInput.keyClick(reopen, Qt.Key_Escape)
+            compare(workspace.keys("reopenTab"), "")
+            compare(settings.opened, true)
             settings.close(); tryCompare(settings, "visible", false)
             // The menu action now answers the new keys.
             workspace.documents.restore({})
@@ -899,6 +905,7 @@ Item {
             tryCompare(Tree.leaves(workspace.documents.tree)[0].tabs, "length", before + 1)
             researchStore.setSetting("shortcuts", "{}")
             compare(workspace.keys("newTab"), "Ctrl+T")
+            compare(workspace.keys("reopenTab"), "Ctrl+Shift+T")
         }
         function test_relatedTabAsksOnlyWhenShown() {
             workspace.documents.restore({})

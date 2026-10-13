@@ -23,7 +23,7 @@ ColumnLayout {
     Label {
         Layout.fillWidth: true
         text: Object.keys(root.clashes).length ? qsTr("Some shortcuts are used twice (in red); only one of them will work.")
-            : qsTr("Click a shortcut and press the new keys. Esc cancels, Backspace turns it off.")
+            : qsTr("Click a shortcut and press the new keys, or Esc to turn it off. Click elsewhere to keep it as it was.")
         wrapMode: Text.Wrap
         font.pixelSize: Theme.fontSmall
         color: Object.keys(root.clashes).length ? Theme.danger : Theme.textTertiary
@@ -58,8 +58,8 @@ ColumnLayout {
                         Keys.onPressed: function(event) {
                             if (root.recording !== shortcutRow.modelData.id) return
                             event.accepted = true
-                            if (event.key === Qt.Key_Escape) { root.recording = ""; return }
-                            if (event.key === Qt.Key_Backspace) { root.store(shortcutRow.modelData.id, ""); root.recording = ""; return }
+                            // Esc (or Backspace) turns the shortcut off, when it clashes with another app's.
+                            if (event.key === Qt.Key_Escape || event.key === Qt.Key_Backspace) { root.store(shortcutRow.modelData.id, ""); root.recording = ""; return }
                             const keys = Shortcuts.fromEvent(event.key, event.modifiers, event.text)
                             if (!keys.length) return
                             root.store(shortcutRow.modelData.id, keys)

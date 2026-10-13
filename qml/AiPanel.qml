@@ -489,6 +489,10 @@ Item {
                 TextArea {
                     id: question
                     objectName: "aiQuestion"
+                    // A click elsewhere in the window takes the cursor out (FocusRelease); the box, its
+                    // attachments and the bar under it (send, model, attach) keep it.
+                    property bool releaseFocusOnOutsidePress: true
+                    property var keepFocusWithin: [composer, attachmentRow, bar]
                     placeholderText: root.c && root.c.spec.scope === "library" ? (root.c.spec.collection ? qsTr("Ask this collection…") : qsTr("Ask your library…")) : root.c && root.c.threadId.length ? qsTr("Ask a follow-up…") : qsTr("Ask about the paper…")
                     wrapMode: TextEdit.Wrap
                     font.pixelSize: Theme.fontSmall

@@ -14,43 +14,44 @@ Popup {
     readonly property string query: attached ? inputField.displayText : searchInput.text
     // The box typed in: the attached field, or the palette's own.
     readonly property Item queryField: attached ? inputField : searchInput
-    width: !parent ? 600 : attached ? Math.max(parent.width, 420) : Math.min(600, parent.width - 32)
-    x: !parent ? 0 : attached ? (parent.width - width) / 2 : (parent.width - width) / 2
-    y: !parent ? 0 : attached ? parent.height - 1 : Math.min(100, parent.height * .12)
+    width: !parent ? 600 : attached ? parent.width : Math.min(600, parent.width - 32)
+    x: !parent ? 0 : attached ? 0 : (parent.width - width) / 2
+    y: !parent ? 0 : attached ? parent.height : Math.min(100, parent.height * .12)
     padding: attached ? 8 : 12
     topPadding: attached ? 6 : 12
     modal: !attached
     dim: !attached
     focus: !attached
     closePolicy: attached ? Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent : Popup.CloseOnEscape | Popup.CloseOnPressOutside
-    // One card with the field: square top corners when attached, a soft shadow below.
+    // One card with the field: attached, its top (corners and edge) is cut off so its sides continue the
+    // field's, with one hairline between them; a soft shadow below.
     background: Item {
         Rectangle {
             anchors.fill: parent; anchors.topMargin: 3; anchors.leftMargin: -1; anchors.rightMargin: -1; anchors.bottomMargin: -4
             radius: Theme.radiusLarge; color: Theme.shadow; opacity: .35
         }
-        Rectangle {
+        Item {
             anchors.fill: parent
-            radius: Theme.radiusLarge
-            color: Theme.raised
-            border.color: Theme.border
+            clip: root.attached
             Rectangle {
-                visible: root.attached
-                anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
-                anchors.leftMargin: 1; anchors.rightMargin: 1; anchors.topMargin: 1
-                height: parent.radius; color: parent.color
+                anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+                height: parent.height + (root.attached ? radius : 0)
+                radius: Theme.radiusLarge
+                color: Theme.raised
+                border.color: Theme.border
             }
         }
+        Rectangle { visible: root.attached; x: 1; width: parent.width - 2; height: 1; color: Theme.separator }
     }
     enter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 110; easing.type: Easing.OutCubic } }
     // Keys typed in the attached field: the arrows choose, Return opens, Cmd+Return goes to the web, Tab on
     // the web row picks the next engine, Esc closes. True when the key was used.
     function handleKey(event) {
+        if (event.key === Qt.Key_Escape) { close(); release(); return true }
         if (!opened && (event.key === Qt.Key_Down || event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) { open(); return event.key === Qt.Key_Down }
         if (!opened) return false
         if (event.key === Qt.Key_Down) { move(1); return true }
         if (event.key === Qt.Key_Up) { move(-1); return true }
-        if (event.key === Qt.Key_Escape) { close(); return true }
         if (event.key === Qt.Key_Tab && webSelected && webRow.visible && !webRow.isAddress) { webRow.nextEngine(); return true }
         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             if (event.modifiers & Qt.ControlModifier) chooseWeb(); else accept()
@@ -69,7 +70,9 @@ Popup {
         if (attached) { inputField.forceActiveFocus(); inputField.selectAll() }
         open()
     }
-    onClosed: if (attached) inputField.clear()
+    // The field lets go of the keys (Esc, a result chosen): the cursor leaves the top bar.
+    function release() { if (attached && inputField.activeFocus) inputField.Window.contentItem.forceActiveFocus() }
+    onClosed: if (attached) { inputField.clear(); release() }
     property alias results: search.results
     property alias searchController: search
     property url currentSource: ""

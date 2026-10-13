@@ -57,30 +57,32 @@ Rectangle {
         id: search
         objectName: "topSearch"
         anchors.centerIn: parent
-        width: Math.min(560, Math.max(260, root.width * .44))
+        // Room for long titles in the results without stretching across a wide window.
+        width: Math.min(680, Math.max(320, root.width * .5))
         height: Theme.controlHeightSmall + 4
-        Rectangle {
+        // While the results show, the field's bottom (corners and edge) is cut off so its sides run straight
+        // into the card's.
+        Item {
             anchors.fill: parent
-            radius: Theme.radius
-            color: root.expanded || field.activeFocus ? Theme.field : hover.hovered ? Theme.hover : Theme.field
-            border.color: root.expanded ? Theme.border : field.activeFocus ? Theme.accent : Theme.separator
-            // Square bottom corners where the results join.
+            clip: root.expanded
             Rectangle {
-                visible: root.expanded
-                anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
-                anchors.leftMargin: 1; anchors.rightMargin: 1
-                height: parent.radius; color: parent.color
+                anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+                height: parent.height + (root.expanded ? radius : 0)
+                radius: Theme.radius
+                color: root.expanded || field.activeFocus ? Theme.field : hover.hovered ? Theme.hover : Theme.field
+                border.color: root.expanded ? Theme.border : field.activeFocus ? Theme.accent : Theme.separator
             }
-            Rectangle { visible: root.expanded; anchors.left: parent.left; anchors.bottom: parent.bottom; width: 1; height: parent.radius; color: Theme.border }
-            Rectangle { visible: root.expanded; anchors.right: parent.right; anchors.bottom: parent.bottom; width: 1; height: parent.radius; color: Theme.border }
         }
         HoverHandler { id: hover; cursorShape: Qt.IBeamCursor }
         Icon { x: 10; anchors.verticalCenter: parent.verticalCenter; name: "search"; size: Theme.fontBody; color: Theme.textTertiary }
         TextField {
             id: field
             objectName: "topSearchField"
+            // A click elsewhere takes the cursor out (FocusRelease); its box and its results keep it.
+            property bool releaseFocusOnOutsidePress: true
+            property var keepFocusWithin: [search, root.palette && root.palette.contentItem ? root.palette.contentItem.parent : null]
             anchors.fill: parent
-            leftPadding: 30; rightPadding: hint.width + 16
+            leftPadding: 30; rightPadding: hint.visible ? hint.width + 16 : 10
             topPadding: 0; bottomPadding: 0
             verticalAlignment: TextInput.AlignVCenter
             font.pixelSize: Theme.fontSmall
@@ -94,8 +96,9 @@ Rectangle {
         }
         Label {
             id: hint
+            visible: !root.expanded && !field.activeFocus
             anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
-            text: root.expanded ? "esc" : Platform.keys("Ctrl+K")
+            text: Platform.keys("Ctrl+K")
             font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
         }
     }

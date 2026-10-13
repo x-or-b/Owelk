@@ -4480,8 +4480,8 @@ You can open the same document twice.</source>
         <translation>올소 유즈드 바이 </translation>
     </message>
     <message>
-        <source>Click a shortcut and press the new keys. Esc cancels, Backspace turns it off.</source>
-        <translation>클릭 어 쇼트컷 앤드 프레스 더 뉴 키스. 이에스씨 캔슬스, 백스페이스 턴스 잇 오프.</translation>
+        <source>Click a shortcut and press the new keys, or Esc to turn it off. Click elsewhere to keep it as it was.</source>
+        <translation>클릭 어 쇼트컷 앤드 프레스 더 뉴 키스, 오어 이에스씨 투 턴 잇 오프. 클릭 엘스웨어 투 킵 잇 애즈 잇 워즈.</translation>
     </message>
     <message>
         <source>Default: </source>
