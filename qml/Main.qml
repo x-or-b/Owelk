@@ -17,10 +17,10 @@ ApplicationWindow {
     title: ""
     color: Theme.window
     // macOS: the window draws under the title bar, where the top bar takes its place beside the traffic lights.
-    readonly property bool unifiedTitleBar: Qt.platform.os === "osx"
+    // (Only on a real macOS desktop: the offscreen platform keeps the menu bar inside the window.)
+    readonly property bool unifiedTitleBar: Qt.platform.os === "osx" && Qt.platform.pluginName === "cocoa"
     flags: unifiedTitleBar ? Qt.Window | Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint : Qt.Window
-    // The top bar is the title bar: no padding above it.
-    topPadding: unifiedTitleBar ? 0 : SafeArea.margins.top
+
     // The platform UI font (San Francisco, Segoe UI, the desktop font on Linux).
     font.pixelSize: Theme.fontBody
     palette.window: Theme.sidebar
@@ -201,15 +201,59 @@ ApplicationWindow {
         else if (currentReader) currentReader.find()
         else { const view = documents.groupView(documents.activeGroup); if (view) view.focusHome() }
     }
-    // Back and forward in what is in front: a web tab's pages, or the reader's jumps (links, citations).
+    // Where one has been, as a browser keeps it: Home, or a tab (Library, a paper, a note, a web page).
+    // Back and forward step through these places once the tab in front has none of its own to go through.
+    property var places: []
+    property int placeIndex: -1
+    property bool replaying: false
+    function placeKey() { return homeVisible || !documents.currentTab.length ? "home" : "tab:" + documents.currentTab }
+    function recordPlace() {
+        if (!initialized || replaying || restoreFailed) return
+        const key = placeKey()
+        if (places[placeIndex] === key) return
+        places = places.slice(0, placeIndex + 1).concat([key]).slice(-60)
+        placeIndex = places.length - 1
+    }
+    onHomeVisibleChanged: Qt.callLater(recordPlace)
+    Connections { target: documents; function onCurrentTabChanged() { Qt.callLater(window.recordPlace) } }
+    function placeExists(key) { return key === "home" || Tree.leaves(documents.tree).some(function(g) { return g.tabs.some(function(t) { return "tab:" + t.id === key }) }) }
+    function placeStep(step) {
+        let at = placeIndex + step
+        while (at >= 0 && at < places.length && (!placeExists(places[at]) || places[at] === placeKey())) at += step
+        return at >= 0 && at < places.length ? at : -1
+    }
+    readonly property bool canGoBackPlace: (places, placeIndex, documents.tree, homeVisible, placeStep(-1) >= 0)
+    readonly property bool canGoForwardPlace: (places, placeIndex, documents.tree, homeVisible, placeStep(1) >= 0)
+    function goToPlace(step) {
+        const at = placeStep(step)
+        if (at < 0) return false
+        replaying = true
+        placeIndex = at
+        const key = places[at]
+        if (key === "home") showHome()
+        else { homeVisible = false; documents.activateTab(key.slice(4)) }
+        Qt.callLater(function() { window.replaying = false })
+        return true
+    }
+    // Back and forward in what is in front first: a web tab's pages, or the reader's jumps (links, citations).
     readonly property var frontWeb: {
         const view = (documents.tree, documents.activeGroup, documents.groupView(documents.activeGroup))
         return !homeVisible && view && view.isWeb ? view.webPane : null
     }
-    readonly property bool canGoBack: frontWeb ? frontWeb.view.canGoBack : !homeVisible && !!currentReader && currentReader.canGoBack
-    readonly property bool canGoForward: frontWeb ? frontWeb.view.canGoForward : !homeVisible && !!currentReader && currentReader.canGoForward
-    function goBack() { if (frontWeb) frontWeb.view.goBack(); else if (!homeVisible && currentReader) currentReader.goBack() }
-    function goForward() { if (frontWeb) frontWeb.view.goForward(); else if (!homeVisible && currentReader) currentReader.goForward() }
+    readonly property bool tabCanGoBack: frontWeb ? frontWeb.view.canGoBack : !homeVisible && !!currentReader && currentReader.canGoBack
+    readonly property bool tabCanGoForward: frontWeb ? frontWeb.view.canGoForward : !homeVisible && !!currentReader && currentReader.canGoForward
+    readonly property bool canGoBack: tabCanGoBack || canGoBackPlace
+    readonly property bool canGoForward: tabCanGoForward || canGoForwardPlace
+    function goBack() {
+        if (frontWeb && frontWeb.view.canGoBack) frontWeb.view.goBack()
+        else if (!frontWeb && !homeVisible && currentReader && currentReader.canGoBack) currentReader.goBack()
+        else goToPlace(-1)
+    }
+    function goForward() {
+        if (frontWeb && frontWeb.view.canGoForward) frontWeb.view.goForward()
+        else if (!frontWeb && !homeVisible && currentReader && currentReader.canGoForward) currentReader.goForward()
+        else goToPlace(1)
+    }
     function openDocument(source, position) { if (!restoreFailed) documents.openDocument(researchStore.resolvedSource(source), position) }
     function openSearchResult(result) {
         if (result.kind === "paper") openDocument(result.source, result.position)
@@ -260,6 +304,7 @@ ApplicationWindow {
         try { documents.restore(state) }
         catch (error) { restoreFailed = true; notification = error.message }
         initialized = true
+        Qt.callLater(recordPlace)
         // Files from the command line, Finder or a second launch made before the window was ready.
         const external = initialFiles.concat(typeof appInstance !== "undefined" ? appInstance.takePending() : [])
         if (!restoreFailed) for (let i = 0; i < external.length; ++i) documents.openDocument(external[i])
@@ -302,6 +347,8 @@ ApplicationWindow {
     onThreadsSideChanged: scheduleSave()
     onThreadsWidthChanged: scheduleSave()
     onRightDockWidthChanged: scheduleSave()
+    // The top bar is the title bar: no padding above it (elsewhere the window keeps its own).
+    Binding { target: window; property: "topPadding"; value: 0; when: window.unifiedTitleBar }
     Timer { id: saveTimer; interval: 500; onTriggered: window.persist() }
     Timer { id: notificationTimer; interval: 6500; onTriggered: if (!window.restoreFailed) window.notification = "" }
     Native.FileDialog { id: fileDialog; title: qsTr("Open PDF"); nameFilters: ["PDF documents (*.pdf)"]; onAccepted: window.openDocument(selectedFile) }
@@ -364,6 +411,7 @@ ApplicationWindow {
     }
     SearchPalette {
         currentSource: !window.homeVisible && window.currentReader ? window.currentReader.source : ""
+        anchorItem: topBar.visible ? topBar.searchField : null
         id: searchPalette
         parent: Overlay.overlay
         onResultChosen: function(result) { window.openSearchResult(result) }

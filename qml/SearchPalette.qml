@@ -6,11 +6,16 @@ import QtQuick.Layouts
 Popup {
     id: root
     objectName: "searchPalette"
-    width: Math.min(600, parent ? parent.width - 32 : 600)
-    x: parent ? (parent.width - width) / 2 : 0
-    y: parent ? Math.min(100, parent.height * .12) : 0
+    // With a field to open from (the top bar's), the box sits over it and the results drop below it, as in
+    // a browser; otherwise it floats near the top.
+    property Item anchorItem: null
+    readonly property point anchorAt: anchorItem && parent && visible ? anchorItem.mapToItem(parent, 0, 0) : Qt.point(0, 0)
+    width: !parent ? 600 : anchorItem ? Math.min(parent.width - 16, Math.max(620, anchorItem.width + padding * 2)) : Math.min(600, parent.width - 32)
+    x: !parent ? 0 : anchorItem ? Math.max(8, Math.min(parent.width - width - 8, anchorAt.x + anchorItem.width / 2 - width / 2)) : (parent.width - width) / 2
+    y: !parent ? 0 : anchorItem ? Math.max(0, anchorAt.y + (anchorItem.height - searchInput.height) / 2 - padding) : Math.min(100, parent.height * .12)
     padding: 12
     modal: true
+    dim: !anchorItem
     focus: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     property alias results: search.results

@@ -17,19 +17,27 @@ Rectangle {
     signal back()
     signal forward()
     signal searchRequested()
+    // Where the search results open (right under this field, as in a browser).
+    readonly property alias searchField: search
     implicitHeight: Theme.barHeight
     color: Theme.window
     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.separator }
-    // Below the buttons, so it only takes the bar's empty space.
-    Item {
+    // Below the buttons, so it only takes the bar's empty space. The move starts on the press itself: macOS
+    // follows a window move only when it is asked as the button goes down, not once the pointer has moved.
+    MouseArea {
         anchors.fill: parent
-        DragHandler { target: null; enabled: root.titleBar; onActiveChanged: if (active) root.Window.window.startSystemMove() }
-        TapHandler {
-            enabled: root.titleBar
-            onDoubleTapped: {
-                const window = root.Window.window
+        enabled: root.titleBar
+        // The system move takes over the mouse, so a double-click is told from two quick presses.
+        property real lastPress: 0
+        onPressed: {
+            const window = root.Window.window, now = Date.now()
+            if (now - lastPress < Qt.styleHints.mouseDoubleClickInterval) {
+                lastPress = 0
                 if (window.visibility === Window.Maximized) window.showNormal(); else window.showMaximized()
+                return
             }
+            lastPress = now
+            window.startSystemMove()
         }
     }
     Row {
@@ -53,8 +61,8 @@ Rectangle {
         id: search
         objectName: "topSearch"
         anchors.centerIn: parent
-        width: Math.min(440, Math.max(200, root.width * .36))
-        height: Theme.controlHeightSmall + 2
+        width: Math.min(560, Math.max(260, root.width * .44))
+        height: Theme.controlHeightSmall + 4
         padding: 0; leftPadding: 10; rightPadding: 10
         background: Rectangle {
             radius: Theme.radius

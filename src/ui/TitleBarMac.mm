@@ -13,8 +13,17 @@ void TitleBar::follow(QWindow *window, const QColor &color, bool dark)
         if (!native) return;
         // A transparent title bar shows the window's background, which takes the theme's colour.
         native.titlebarAppearsTransparent = YES;
+        // An empty compact toolbar makes the title bar a little taller and keeps the traffic lights centred in it.
+        if (!native.toolbar) {
+            NSToolbar *toolbar = [[NSToolbar alloc] initWithIdentifier:@"OwelkTitleBar"];
+            toolbar.showsBaselineSeparator = NO;
+            native.toolbar = toolbar;
+            native.toolbarStyle = NSWindowToolbarStyleUnifiedCompact;
+            native.titleVisibility = NSWindowTitleHidden;
+        }
         native.appearance = [NSAppearance appearanceNamed:dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
         const auto rgb = color.toRgb();
         native.backgroundColor = [NSColor colorWithSRGBRed:rgb.redF() green:rgb.greenF() blue:rgb.blueF() alpha:1];
     }
 }
+

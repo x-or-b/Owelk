@@ -192,6 +192,26 @@ Item {
             compare(workspace.aiVisible, false)
             compare(workspace.aiSide, "left")
         }
+        function test_backAndForwardGoThroughPlaces() {
+            workspace.documents.restore({})
+            workspace.showHome()
+            tryVerify(function() { return workspace.places[workspace.placeIndex] === "home" })
+            // Home → Library → back to Home → forward to the Library again.
+            workspace.documents.openLibrary({})
+            tryVerify(function() { return !workspace.homeVisible && workspace.places[workspace.placeIndex].indexOf("tab:") === 0 })
+            const library = workspace.documents.currentTab
+            verify(workspace.canGoBack)
+            mouseClick(findChild(workspace, "topBack"))
+            tryCompare(workspace, "homeVisible", true)
+            verify(workspace.canGoForward)
+            mouseClick(findChild(workspace, "topForward"))
+            tryCompare(workspace, "homeVisible", false)
+            compare(workspace.documents.currentTab, library)
+            // A new place cuts off what was ahead.
+            workspace.showHome()
+            tryVerify(function() { return workspace.places[workspace.placeIndex] === "home" })
+            verify(!workspace.canGoForward)
+        }
         function test_dropsOnHomeOpenPdfsAndFileFolders() {
             workspace.documents.restore({})
             workspace.showHome()
