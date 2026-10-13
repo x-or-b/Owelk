@@ -287,6 +287,21 @@ ApplicationWindow {
                 leftWidth: leftDockWidth, rightWidth: rightDockWidth}})
         return researchStore.saveSession(state)
     }
+    // Long work in progress, for the status bar: the store's tasks (folder imports, copying PDFs, downloads)
+    // and what reports its own progress (text and meaning indexing, sync, backup). total 0: no measure.
+    readonly property var activities: {
+        const list = researchStore.tasks.slice()
+        const counted = function(id, label) {
+            const m = /(\d+)\s*\/\s*(\d+)/.exec(label || "")
+            return {id: id, label: label, done: m ? Number(m[1]) : 0, total: m ? Number(m[2]) : 0}
+        }
+        const index = researchStore.paperIndex, meaning = researchStore.semantic, sync = researchStore.sync
+        if (index.busy && !index.paused && index.progress.length) list.push(counted("index", index.progress))
+        if (meaning.busy && meaning.progress.length) list.push(counted("meaning", meaning.progress))
+        if (sync.running) list.push({id: "sync", label: qsTr("Syncing…"), done: 0, total: 0})
+        if (researchStore.backingUp) list.push({id: "backup", label: qsTr("Backing up…"), done: 0, total: 0})
+        return list
+    }
     function scheduleSave() { if (initialized && !restoreFailed) saveTimer.restart() }
     function notify(text) { notification = text; notificationTimer.restart() }
     function chooseFile() { if (!restoreFailed && !(currentReader && currentReader.annotationDirty)) fileDialog.open() }
@@ -831,6 +846,48 @@ ApplicationWindow {
             }
             // Search closes the left group, after the panels there (Threads stays at the edge).
             StatusIcon { objectName: "statusSearch"; kind: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K"); onTriggered: window.focusSearch(true) }
+            // Long work: what it is, with a thin bar (filling, or sliding when there is no measure); +N when
+            // more is running, all of it on hover.
+            RowLayout {
+                id: activity
+                objectName: "statusActivity"
+                visible: window.activities.length > 0
+                Layout.leftMargin: 6
+                spacing: 6
+                readonly property var first: window.activities.length ? window.activities[0] : ({label: "", done: 0, total: 0})
+                readonly property bool measured: first.total > 0
+                Label {
+                    objectName: "statusActivityLabel"
+                    Layout.maximumWidth: 300
+                    text: activity.first.label + (window.activities.length > 1 ? "  +" + (window.activities.length - 1) : "")
+                    elide: Text.ElideMiddle; textFormat: Text.PlainText
+                    font.pixelSize: Theme.fontCaption; color: Theme.textSecondary
+                }
+                Item {
+                    objectName: "statusActivityBar"
+                    implicitWidth: 90; implicitHeight: 4
+                    clip: true
+                    Rectangle { anchors.fill: parent; radius: 2; color: Theme.separator }
+                    Rectangle {
+                        visible: activity.measured
+                        height: parent.height; radius: 2; color: Theme.accent
+                        width: parent.width * Math.min(1, activity.first.done / Math.max(1, activity.first.total))
+                        Behavior on width { NumberAnimation { duration: 150 } }
+                    }
+                    Rectangle {
+                        id: slider
+                        visible: !activity.measured
+                        width: parent.width * .35; height: parent.height; radius: 2; color: Theme.accent
+                        NumberAnimation on x {
+                            running: activity.visible && !activity.measured
+                            from: -slider.width; to: 90; duration: 1100; loops: Animation.Infinite
+                        }
+                    }
+                }
+                HoverHandler { id: activityHover }
+                ToolTip.visible: activityHover.hovered && window.activities.length > 1
+                ToolTip.text: window.activities.map(function(a) { return a.label }).join("\n")
+            }
             Label {
                 Layout.fillWidth: true
                 // A notice while there is one.

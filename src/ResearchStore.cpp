@@ -853,3 +853,41 @@ int ResearchStore::listFolder(const QUrl &folder)
     }));
     return requestId;
 }
+
+QVariantList ResearchStore::tasks() const
+{
+    QVariantList list;
+    for (const auto &task : m_tasks) list.append(task);
+    return list;
+}
+
+void ResearchStore::startTask(const QString &id, const QString &label, double total)
+{
+    for (auto &task : m_tasks)
+        if (task.value("id") == id) {
+            task = {{"id", id}, {"label", label}, {"done", 0.0}, {"total", total}};
+            emit tasksChanged();
+            return;
+        }
+    m_tasks.append({{"id", id}, {"label", label}, {"done", 0.0}, {"total", total}});
+    emit tasksChanged();
+}
+
+void ResearchStore::progressTask(const QString &id, double done, double total, const QString &label)
+{
+    for (auto &task : m_tasks)
+        if (task.value("id") == id) {
+            task.insert("done", done);
+            task.insert("total", total);
+            if (!label.isEmpty()) task.insert("label", label);
+            emit tasksChanged();
+            return;
+        }
+}
+
+void ResearchStore::finishTask(const QString &id)
+{
+    const auto before = m_tasks.size();
+    m_tasks.removeIf([&id](const QVariantMap &task) { return task.value("id") == id; });
+    if (m_tasks.size() != before) emit tasksChanged();
+}

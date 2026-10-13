@@ -1736,6 +1736,10 @@ Same file as another library entry</source>
         <translation>백</translation>
     </message>
     <message>
+        <source>Backing up…</source>
+        <translation>배킹 업…</translation>
+    </message>
+    <message>
         <source>Cannot save the session. Check storage and try again.</source>
         <translation>캔낫 세이브 더 세션. 체크 스토리지 앤드 트라이 어게인.</translation>
     </message>
@@ -1934,6 +1938,10 @@ Same file as another library entry</source>
     <message>
         <source>Show Vertical Tabs</source>
         <translation>쇼 버티컬 탭스</translation>
+    </message>
+    <message>
+        <source>Syncing…</source>
+        <translation>싱킹…</translation>
     </message>
     <message>
         <source>This PDF is already in your Library</source>
@@ -2190,6 +2198,10 @@ Same file as another library entry</source>
     <message>
         <source>Added back to the text index.</source>
         <translation>애디드 백 투 더 텍스트 인덱스.</translation>
+    </message>
+    <message>
+        <source>Adding PDFs from %1</source>
+        <translation>애딩 피디에프스 프롬 %1</translation>
     </message>
     <message>
         <source>An unsupported saved layout version was found. Nothing was changed.</source>
@@ -2484,6 +2496,10 @@ Same file as another library entry</source>
         <translation>카피드 %1 오브 %2 피디에프스 인투 더 라이브러리; 더 레스트 스테이 웨어 데이 아.</translation>
     </message>
     <message>
+        <source>Copying PDFs into the Library</source>
+        <translation>카피잉 피디에프스 인투 더 라이브러리</translation>
+    </message>
+    <message>
         <source>Deleted %1 annotation%2 that did not fit this copy.</source>
         <translation>딜리티드 %1 애노테이션%2 댓 디드 낫 핏 디스 카피.</translation>
     </message>
@@ -2550,6 +2566,10 @@ Same file as another library entry</source>
     <message>
         <source>Looking for PDFs in </source>
         <translation>루킹 포 피디에프스 인 </translation>
+    </message>
+    <message>
+        <source>Looking for PDFs in %1… %2 found</source>
+        <translation>루킹 포 피디에프스 인 %1… %2 파운드</translation>
     </message>
     <message>
         <source>Meaning search paused: %1</source>

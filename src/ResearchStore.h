@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QFileInfo>
+#include <functional>
 #include <QObject>
 #include <QHash>
 #include <QImage>
@@ -45,6 +46,8 @@ class ResearchStore final : public QObject {
     Q_PROPERTY(bool relinking READ relinking NOTIFY relinkingChanged)
     // Copying the Library's outside PDFs into papers/ (ResearchStorePapers.cpp).
     Q_PROPERTY(bool copyingPdfs READ copyingPdfs NOTIFY copyingPdfsChanged)
+    // Long work shown in the status bar with a progress bar: [{id, label, done, total}] (total 0: no measure).
+    Q_PROPERTY(QVariantList tasks READ tasks NOTIFY tasksChanged)
     Q_PROPERTY(QStringList annotationColors READ annotationColors CONSTANT)
     // Bumped when paper titles or details change; bind to it next to displayName() calls.
     Q_PROPERTY(int documentsRevision READ documentsRevision NOTIFY documentsChanged)
@@ -151,7 +154,10 @@ public:
     // tree (existing ones with the same name are reused) under parentCollection. Files are not moved.
     // Answered by folderImported(request, added, collections, error).
     Q_INVOKABLE int importFolder(const QUrl &folder, const QString &parentCollection, bool foldersAsCollections);
-    Q_INVOKABLE bool isFolder(const QUrl &url) const { return url.isLocalFile() && QFileInfo(url.toLocalFile()).isDir(); }
+    Q_INVOKABLE bool isFolder(const QUrl &url) const
+    {
+        return url.isLocalFile() && QFileInfo(url.toLocalFile()).isDir();
+    }
     // Collections where similar papers already are, for a paper in none of them (or to add more):
     // answered by collectionsSuggested(request, source, [{id, name}]). No AI; the related-papers
     // search, cached until the library changes.
@@ -318,6 +324,11 @@ public:
     Q_INVOKABLE void copyText(const QString &text);
     // Show a status message from QML through the same channel as store messages.
     Q_INVOKABLE void notify(const QString &text) { emit message(text); }
+    // Long work for the status bar (also from QML: web downloads). The same id updates one entry.
+    QVariantList tasks() const;
+    Q_INVOKABLE void startTask(const QString &id, const QString &label, double total = 0);
+    Q_INVOKABLE void progressTask(const QString &id, double done, double total, const QString &label = QString());
+    Q_INVOKABLE void finishTask(const QString &id);
     Q_INVOKABLE int listFolder(const QUrl &folder);
     Q_INVOKABLE QVariantMap readingPosition(const QUrl &source) const;
     // Plain preferences in the settings table (download folder, search engine, AI language, …).
@@ -383,6 +394,7 @@ signals:
     void homeChanged();
     void relinkingChanged();
     void copyingPdfsChanged();
+    void tasksChanged();
     // Papers moved to the Trash: their open tabs close.
     void papersDeleted(const QVariantList &sources);
     void relinkRequested(const QUrl &source);
@@ -409,8 +421,11 @@ private:
     QHash<QString, QString> m_relinks;
     bool m_relinking = false;
     bool m_copyingPdfs = false;
+    QList<QVariantMap> m_tasks;
+    // progress(done) is called after each file (on the worker).
     static QStringList adoptPdfFiles(const QString &directory, const QString &papers,
-        const QHash<QString, QString> &relinks, const QStringList &paths);
+        const QHash<QString, QString> &relinks, const QStringList &paths,
+        const std::function<void(int)> &progress = {});
     // Same-bytes files met earlier in one batch reuse that copy.
     QUrl adoptPdf(const QUrl &source, QHash<QString, QUrl> *batch);
     static QString defaultPapersFolder(const QString &directory);

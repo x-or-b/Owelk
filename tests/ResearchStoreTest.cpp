@@ -1902,7 +1902,11 @@ private slots:
         text.close();
         QSignalSpy done(&store, &ResearchStore::folderImported);
         const int request = store.importFolder(QUrl::fromLocalFile(root.absolutePath()), QString(), true);
+        // While it runs it is in the status bar's progress; gone once done.
+        QCOMPARE(store.tasks().size(), 1);
+        QVERIFY(store.tasks()[0].toMap()["id"].toString().startsWith("import:"));
         QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+        QTRY_VERIFY(store.tasks().isEmpty());
         QCOMPARE(done[0][0].toInt(), request);
         QCOMPARE(done[0][1].toInt(), 3); // hidden folders and other files are skipped
         QCOMPARE(done[0][2].toInt(), 3); // Papers, Papers/SLAM, Papers/SLAM/LiDAR

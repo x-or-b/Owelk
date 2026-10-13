@@ -237,8 +237,8 @@ QUrl ResearchStore::adoptPdf(const QUrl &source, QHash<QString, QUrl> *batch)
     return keepsPdfs() ? adoptFile(m_database, papersFolder(), url, batch) : url;
 }
 
-QStringList ResearchStore::adoptPdfFiles(
-    const QString &directory, const QString &papers, const QHash<QString, QString> &relinks, const QStringList &paths)
+QStringList ResearchStore::adoptPdfFiles(const QString &directory, const QString &papers,
+    const QHash<QString, QString> &relinks, const QStringList &paths, const std::function<void(int)> &progress)
 {
     // Runs on a worker: its own read-only connection; relinked paths resolve like resolvedSource.
     WorkerConnection db(directory + "/owelk.sqlite3", true);
@@ -248,6 +248,7 @@ QStringList ResearchStore::adoptPdfFiles(
         auto url = QUrl::fromLocalFile(path).toString();
         for (int hop = 0; hop < 16 && relinks.contains(url); ++hop) url = relinks.value(url);
         adopted << adoptFile(db.db, papers, QUrl(url), &batch).toLocalFile();
+        if (progress) progress(adopted.size());
     }
     return adopted;
 }
@@ -283,6 +284,8 @@ void ResearchStore::copyPdfsIntoLibrary()
     if (moves.isEmpty()) return;
     m_copyingPdfs = true;
     emit copyingPdfsChanged();
+    const auto label = ui("Copying PDFs into the Library");
+    startTask("copyPdfs", label, moves.size());
     auto *watcher = new QFutureWatcher<QList<Move>>(this);
     connect(watcher, &QFutureWatcher<QList<Move>>::finished, this, [this, watcher] {
         const auto done = watcher->result();
@@ -306,6 +309,7 @@ void ResearchStore::copyPdfsIntoLibrary()
         emit highlightsChanged();
         m_copyingPdfs = false;
         emit copyingPdfsChanged();
+        finishTask("copyPdfs");
         emit message(copied == done.size()
                 ? QString(ui("Copied %1 PDFs into the Library. The originals were left where they were.")).arg(copied)
                 : QString(ui("Copied %1 of %2 PDFs into the Library; the rest stay where they are."))
@@ -313,8 +317,13 @@ void ResearchStore::copyPdfsIntoLibrary()
                       .arg(done.size()));
     });
     const auto folder = papersFolder();
-    watcher->setFuture(QtConcurrent::run(&m_metadataWorkers, [moves, folder]() mutable {
+    // Its own worker, so it starts at once (the details reader's queue may be long); n of all in the status bar.
+    watcher->setFuture(QtConcurrent::run([this, moves, folder, label]() mutable {
+        int done = 0;
         for (auto &move : moves) {
+            const double total = moves.size(), now = done++;
+            QMetaObject::invokeMethod(
+                this, [this, now, total, label] { progressTask("copyPdfs", now, total, label); }, Qt::QueuedConnection);
             const auto path = move.from.toLocalFile();
             const auto target = uniqueFile(folder, QFileInfo(path).fileName());
             const auto hash = FileFingerprint::sha256(path);

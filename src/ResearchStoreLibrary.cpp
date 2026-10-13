@@ -513,11 +513,18 @@ int ResearchStore::importFolder(const QUrl &folder, const QString &parentCollect
     struct Found {
         QString path, relativeDir;
     };
-    emit message(ui("Looking for PDFs in ") + QFileInfo(root).fileName() + "…");
+    // Shown with its progress in the status bar: looking (files found so far), then copying (n of all).
+    const auto task = QStringLiteral("import:%1").arg(request);
+    const auto name = QFileInfo(root).fileName();
+    startTask(task, ui("Looking for PDFs in ") + name + "…");
+    const auto report = [this, task](double done, double total, const QString &label) {
+        QMetaObject::invokeMethod(this, [=, this] { progressTask(task, done, total, label); }, Qt::QueuedConnection);
+    };
     auto *watcher = new QFutureWatcher<QList<Found>>(this);
     connect(watcher, &QFutureWatcher<QList<Found>>::finished, this, [=, this] {
         const auto found = watcher->result();
         watcher->deleteLater();
+        finishTask(task);
         // Files by folder; each folder is filed into its collection (created on first use).
         QMap<QString, QVariantList> byFolder;
         for (const auto &f : found) byFolder[f.relativeDir].append(QUrl::fromLocalFile(f.path));
@@ -550,8 +557,9 @@ int ResearchStore::importFolder(const QUrl &folder, const QString &parentCollect
                     .arg(made ? QString(" into %1 new collections").arg(made) : QString()));
     });
     const bool keep = keepsPdfs();
-    watcher->setFuture(QtConcurrent::run(
-        &m_metadataWorkers, [root, keep, directory = m_directory, papers = m_papers, relinks = m_relinks] {
+    // Its own worker: the details reader's one-at-a-time queue may hold every paper still to be read.
+    watcher->setFuture(
+        QtConcurrent::run([root, keep, report, name, directory = m_directory, papers = m_papers, relinks = m_relinks] {
             QList<Found> found;
             QDirIterator it(root, {"*.pdf", "*.PDF"}, QDir::Files | QDir::Readable | QDir::NoSymLinks,
                 QDirIterator::Subdirectories);
@@ -563,12 +571,18 @@ int ResearchStore::importFolder(const QUrl &folder, const QString &parentCollect
                 found.append({path,
                     base.relativeFilePath(info.absolutePath()) == "." ? QString()
                                                                       : base.relativeFilePath(info.absolutePath())});
+                if (found.size() % 25 == 0)
+                    report(0, 0, QString(ui("Looking for PDFs in %1… %2 found")).arg(name).arg(found.size()));
             }
             // Kept PDFs are copied here, off the UI thread; the folder's own files stay where they are.
             if (keep) {
                 QStringList paths;
                 for (const auto &f : found) paths << f.path;
-                const auto adopted = adoptPdfFiles(directory, papers, relinks, paths);
+                const auto total = double(paths.size());
+                const auto label = QString(ui("Adding PDFs from %1")).arg(name);
+                report(0, total, label);
+                const auto adopted
+                    = adoptPdfFiles(directory, papers, relinks, paths, [&](int done) { report(done, total, label); });
                 for (int i = 0; i < found.size(); ++i) found[i].path = adopted[i];
             }
             return found;
