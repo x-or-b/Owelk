@@ -74,9 +74,11 @@ Dialog {
                 icon.name: "close"; description: qsTr("Close · Esc")
                 onClicked: root.close()
             }
+            // Inside the dialog's outline, so scrolled content passes under it rather than over it.
             ScrollView {
                 id: scroller
                 anchors.fill: parent
+                anchors.topMargin: 1; anchors.rightMargin: 1; anchors.bottomMargin: 1
                 contentWidth: availableWidth
                 clip: true
                 Item {
