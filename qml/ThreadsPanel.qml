@@ -345,6 +345,7 @@ Rectangle {
         MenuItem {
             objectName: "threadsTrashChat"
             text: chatMenu.ids.length > 1 ? qsTr("Move ") + chatMenu.ids.length + qsTr(" to Trash") : qsTr("Move to Trash")
+            palette.windowText: Theme.danger
             onTriggered: root.trashChats(chatMenu.ids)
         }
     }
@@ -365,6 +366,7 @@ Rectangle {
             objectName: "threadsGroupDelete"
             visible: groupMenu.folder; height: visible ? implicitHeight : 0
             text: qsTr("Delete Thread")
+            palette.windowText: Theme.danger
             onTriggered: researchStore.deleteAiFolder(groupMenu.group.id)
         }
     }

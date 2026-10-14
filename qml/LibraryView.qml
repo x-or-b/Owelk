@@ -648,8 +648,6 @@ Rectangle {
                         highlighted: chosen
                         rightPadding: found.open ? 12 : forYouActions.width + 12
                         onClicked: root.forYouClicked(index)
-                        // A double click goes on to its page.
-                        onDoubleClicked: if (!root.selecting) root.webRequested(modelData.url)
                         contentItem: RowLayout {
                             spacing: 10
                             Rectangle {
