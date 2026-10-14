@@ -101,8 +101,21 @@ Item {
             d.finishDrag(false)
             tryVerify(function() { return researchStore.libraryDocuments({collection: topic}).length === 1 })
             verify(Tree.owner(d.tree, tab) !== null, "the tab stays open")
-            // Clicking the collection opens the Library filtered to it; the navigator's other rows too.
+            // Clicking the collection unfolds it to its papers (all of them); a paper there opens.
+            const name = researchStore.displayName(fixtureSource)
             mouseClick(visibleChild(panel, "panelCollection-Panel Topic"))
+            let paperRow = null
+            tryVerify(function() { paperRow = visibleChild(panel, "panelCollectionPaper-" + name); return paperRow !== null })
+            verify(researchStore.setting("library.openCollections").indexOf(topic) >= 0, "remembered open")
+            mouseClick(paperRow)
+            tryVerify(function() { return workspace.currentReader && researchStore.sameSource(workspace.currentReader.source, fixtureSource) })
+            // Clicked again it folds; Open in Library (its menu) shows it in the Library.
+            mouseClick(visibleChild(panel, "panelCollection-Panel Topic"))
+            tryVerify(function() { return visibleChild(panel, "panelCollectionPaper-" + name) === null })
+            mouseClick(visibleChild(panel, "panelCollection-Panel Topic"), 20, 10, Qt.RightButton)
+            const shelfMenu = findChild(panel, "panelCollectionMenu")
+            tryCompare(shelfMenu, "opened", true)
+            shelfMenu.itemAt(0).triggered(); shelfMenu.close()
             const view = library()
             tryVerify(function() { return view.filter.collection === topic })
             // Favorites unfold in the panel; Open Library goes to the whole Library.

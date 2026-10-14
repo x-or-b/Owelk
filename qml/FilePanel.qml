@@ -6,8 +6,8 @@ import Owelk.Ui
 import "WorkspaceTree.js" as Tree
 
 // The Library panel: the Library made compact beside the reader. Open Library goes to the Library tab
-// (for detailed work); Favorites unfolds the favorite papers; then collections (drop a tab or a paper
-// on one to file it), tags, recent notes and the paper folder. Sections fold; the folder takes the rest.
+// (for detailed work); Favorites unfolds the favorite papers; then collections, which unfold to their
+// papers (drop a tab or a paper on one to file it), tags, recent notes and the paper folder. Sections fold; the folder takes the rest.
 Item {
     id: root
     objectName: "libraryPanel"
@@ -24,6 +24,28 @@ Item {
     function refreshShelf() {
         collections = researchStore.collections(); tags = researchStore.tags()
         favorites = favoritesOpen ? researchStore.libraryDocuments({favorite: true, sort: "opened"}) : []
+        shelfRows = buildShelf()
+    }
+    // A collection unfolds in place to show its papers (all of them); the open ones are remembered.
+    property var openCollections: researchStore.setting("library.openCollections").split(",").filter(function(id) { return id.length })
+    property var shelfRows: []
+    function buildShelf() {
+        const rows = []
+        collections.forEach(function(c) {
+            const open = openCollections.indexOf(c.id) >= 0
+            rows.push(Object.assign({type: "collection", open: open}, c))
+            if (!open) return
+            researchStore.libraryDocuments({collection: c.id, sort: "title"}).forEach(function(d) {
+                rows.push({type: "paper", url: d.url, name: d.name, depth: (c.depth || 0) + 1, collection: c.id, collectionName: c.name})
+            })
+        })
+        return rows
+    }
+    function toggleCollection(id) {
+        const list = openCollections.indexOf(id) >= 0 ? openCollections.filter(function(x) { return x !== id }) : openCollections.concat([id])
+        openCollections = list
+        researchStore.setSetting("library.openCollections", list.join(","))
+        shelfRows = buildShelf()
     }
     function refreshNotes() { notes = researchStore.notes(false).slice(0, 5) }
     function sectionOpen(name, fallback) { return researchStore.setting("library.section." + name, fallback ? "1" : "0") === "1" }
@@ -51,7 +73,8 @@ Item {
         const i = shelf.indexAt(p.x, p.y + shelf.contentY)
         const row = i >= 0 ? shelf.model[i] : null
         if (!row) return null
-        return {handler: root, collection: row.id, name: row.name, source: tab.source}
+        const paper = row.type === "paper"
+        return {handler: root, collection: paper ? row.collection : row.id, name: paper ? row.collectionName : row.name, source: tab.source}
     }
     function dropTab(id, target) {
         if (researchStore.setDocumentCollection(target.source, target.collection, true)) researchStore.notify(qsTr("Added to ") + target.name + ".")
@@ -258,21 +281,30 @@ Item {
             Layout.preferredHeight: Math.min(contentHeight, root.height * .35)
             clip: true
             interactive: contentHeight > height
-            model: root.collections
+            model: root.shelfRows
             delegate: ItemDelegate {
                 id: shelfRow
                 required property var modelData
-                objectName: "panelCollection-" + modelData.name
+                readonly property bool paper: modelData.type === "paper"
+                readonly property string collectionId: paper ? modelData.collection : modelData.id
+                objectName: paper ? "panelCollectionPaper-" + modelData.name : "panelCollection-" + modelData.name
                 width: ListView.view.width
                 height: Theme.rowHeight
-                leftPadding: 26 + 12 * (modelData.depth || 0)
-                rightPadding: 34
+                leftPadding: 38 + 12 * (modelData.depth || 0)
+                rightPadding: paper ? 8 : 34
                 text: modelData.name
-                readonly property bool tabOver: !!root.documents && !!root.documents.dropTarget && root.documents.dropTarget.handler === root && root.documents.dropTarget.collection === modelData.id
+                readonly property bool tabOver: !!root.documents && !!root.documents.dropTarget && root.documents.dropTarget.handler === root && root.documents.dropTarget.collection === collectionId && !paper
                 highlighted: tabOver || drop.containsDrag
-                onClicked: root.libraryFilterRequested({collection: modelData.id})
-                Icon { x: 6 + 12 * (shelfRow.modelData.depth || 0); anchors.verticalCenter: parent.verticalCenter; name: "folder"; size: Theme.fontBody; color: Theme.textTertiary }
-                Label { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: shelfRow.modelData.count; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                // A collection unfolds (its papers below it); a paper opens.
+                onClicked: paper ? root.documentChosen(modelData.url) : root.toggleCollection(modelData.id)
+                Icon {
+                    visible: !shelfRow.paper
+                    x: 6 + 12 * (shelfRow.modelData.depth || 0); anchors.verticalCenter: parent.verticalCenter
+                    name: shelfRow.modelData.open ? "down" : "right"; size: Theme.fontSmall; color: Theme.textTertiary
+                }
+                Icon { x: 20 + 12 * (shelfRow.modelData.depth || 0); anchors.verticalCenter: parent.verticalCenter; name: shelfRow.paper ? "document" : "folder"; size: Theme.fontBody; color: Theme.textTertiary }
+                Label { visible: !shelfRow.paper; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: shelfRow.modelData.count || 0; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                ToolTip.visible: shelfRow.paper && hovered; ToolTip.delay: 600; ToolTip.text: modelData.name
                 // Papers dragged from the Library list are filed here too.
                 DropArea {
                     id: drop
@@ -280,11 +312,17 @@ Item {
                     keys: ["owelk/paper", "text/uri-list"]
                     // A Library paper is filed here; PDF files from the desktop are added to the Library and filed.
                     onDropped: function(event) {
-                        if (event.source && event.source.paperUrls) researchStore.setDocumentsCollection(event.source.paperUrls, shelfRow.modelData.id, true)
-                        else researchStore.addDocuments(event.urls.filter(function(u) { return /\.pdf$/i.test(u.toString()) }), shelfRow.modelData.id)
+                        if (event.source && event.source.paperUrls) researchStore.setDocumentsCollection(event.source.paperUrls, shelfRow.collectionId, true)
+                        else researchStore.addDocuments(event.urls.filter(function(u) { return /\.pdf$/i.test(u.toString()) }), shelfRow.collectionId)
                     }
                 }
-                TapHandler { acceptedButtons: Qt.RightButton; onTapped: { shelfMenu.collection = shelfRow.modelData; shelfMenu.popup() } }
+                TapHandler {
+                    acceptedButtons: Qt.RightButton
+                    onTapped: {
+                        if (shelfRow.paper) { paperMenu.collectionId = shelfRow.modelData.collection; paperMenu.show({url: shelfRow.modelData.url, name: shelfRow.modelData.name}); return }
+                        shelfMenu.collection = shelfRow.modelData; shelfMenu.popup()
+                    }
+                }
             }
         }
         Label {
@@ -395,6 +433,11 @@ Item {
                 onMenuRequested: function(row) { recentMenu.show(row) }
             }
         }
+    }
+    // A paper in an unfolded collection: the paper menu, with Remove from This Collection.
+    PaperMenu {
+        id: paperMenu
+        onOpenRequested: function(source, position) { root.documentChosen(source) }
     }
     PaperMenu {
         id: recentMenu
