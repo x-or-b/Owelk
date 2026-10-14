@@ -201,6 +201,42 @@ Item {
             compare(view.selection.length, 0)
             researchStore.deleteCollection(topic)
         }
+        function test_selectButtonPicksPapersWithoutOpening() {
+            const one = testInput.copyFixture("select one.pdf"), two = testInput.copyFixture("select two.pdf")
+            verify(researchStore.rememberDocument(one)); verify(researchStore.rememberDocument(two))
+            workspace.documents.openLibrary({})
+            const view = library()
+            tryVerify(function() { return view.rows.some(function(r) { return researchStore.sameSource(r.url, two) }) })
+            const first = view.rows.find(function(r) { return researchStore.sameSource(r.url, one) })
+            waitForPolish(view); wait(50)
+            const tabs = Tree.find(workspace.documents.tree, workspace.documents.activeGroup).tabs.length
+            // Select turns a click into picking; the bar offers all/none, actions and Done.
+            mouseClick(visibleChild(view, "librarySelect"))
+            verify(view.selecting)
+            verify(visibleChild(view, "librarySelectAll") !== null)
+            verify(visibleChild(view, "libraryAddPdfs") === null, "the usual buttons step aside")
+            verify(!visibleChild(view, "librarySelectionActions").enabled)
+            mouseClick(visualChild(view, "libraryPaper-" + first.id), 60, 12)
+            compare(view.selection.length, 1)
+            compare(Tree.find(workspace.documents.tree, workspace.documents.activeGroup).tabs.length, tabs, "nothing opened")
+            verify(visibleChild(visualChild(view, "libraryPaper-" + first.id), "librarySelectMark").chosen)
+            mouseClick(visualChild(view, "libraryPaper-" + first.id), 60, 12)
+            compare(view.selection.length, 0, "a second click unpicks")
+            mouseClick(visibleChild(view, "librarySelectAll"))
+            compare(view.selection.length, view.rows.length)
+            verify(view.allSelected)
+            // Actions open the batch menu for the selection.
+            mouseClick(visibleChild(view, "librarySelectionActions"))
+            const batch = findChild(view, "libraryBatchMenu")
+            tryCompare(batch, "opened", true)
+            compare(batch.urls.length, view.rows.length)
+            batch.close()
+            // Esc (or Done) leaves select mode and clears the selection.
+            keyClick(Qt.Key_Escape)
+            verify(!view.selecting)
+            compare(view.selection.length, 0)
+            verify(visibleChild(view, "libraryAddPdfs") !== null)
+        }
         function test_searchResultsOpenCollectionsAndScopeSearch() {
             const id = researchStore.createCollection("Zebra Collection")
             const found = researchStore.searchKnowledge("zebra coll").filter(function(r) { return r.kind === "collection" })
