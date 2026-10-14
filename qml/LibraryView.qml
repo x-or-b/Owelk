@@ -72,8 +72,8 @@ Rectangle {
     // For You: new papers found for what is followed, narrowed to one source when chosen.
     readonly property var forYou: researchStore.forYou
     property string forYouSource: ""
-    // For You reads in a column of at most 720 px, in the middle (like Home).
-    readonly property real forYouInset: Math.max(0, (listColumn.width - 720) / 2)
+    // For You reads in a column of at most 920 px, in the middle.
+    readonly property real forYouInset: Math.max(0, (listColumn.width - 920) / 2)
     // A period chip: all, today, the last 7 or 30 days (by the paper's date, else when it was found).
     property string forYouRange: "all"
     function forYouDay(p) { return new Date((p.date && p.date.length ? p.date : (p.foundAt || "").slice(0, 10)) + "T00:00:00") }
@@ -618,7 +618,7 @@ Rectangle {
                 }
                 ListView {
                     id: forYouList
-                    // A column of reading width, in the middle (like Home).
+                    // A column of reading width, in the middle.
                     Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
                     objectName: "libraryForYou"
                     visible: root.showingForYou

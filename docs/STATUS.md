@@ -26,7 +26,7 @@
 - Home: 이어 읽기 아래 For You(새 논문 5편, 제목 → Library › For You, 톱니 → 설정). 따라가는 것이 없으면 설정으로 가는 한 줄, 새 논문이 없으면 숨김.
 - Library › For You: 전체 목록, 출처별 보기, 다시 확인, 선택해 Add·Dismiss. Add는 PDF를 받아 Paper names 규칙으로 이름 붙이고, Collection에서 온 논문은 그 Collection에 넣고, arXiv·Semantic Scholar의 제목·저자·연도·DOI를 채웁니다. PDF가 없으면 논문 페이지를 웹 탭으로 엽니다. Collection 우클릭 › Follow in For You.
 - For You AI(2단계): 확인 뒤 새 논문을 AI가 따라가는 것과 얼마나 맞는지 점수(0–100)로 매겨 관련도 순으로 놓고 논문마다 한 문장 이유를 붙입니다(Home·Library에 표시, Library의 AI 버튼으로 다시). Settings › For You › Explain with AI(켜는 것이 보내기 동의, AI가 설정돼 있어야 함). 보내는 것: 새 논문의 제목·초록, 주제, 따라가는 Collection의 논문 제목 몇 개.
-- For You 동기화와 정리: 주제·따라가는 Collection·찾은 논문(AI 이유 포함)·Dismiss/Add 기록·마지막 확인 시각이 라이브러리 표(스키마 18, `foryou_*`)로 옮겨져 동기화됩니다. 한 컴퓨터가 확인하고 AI가 이유를 붙인 논문은 다른 컴퓨터에서 다시 찾거나 보내지 않습니다(동기화가 끝난 뒤 확인). 기간·자동 확인·목록 유지 기간(7·15·30·60일·항상, 기본 30일)은 컴퓨터마다. Library › For You는 가운데 720px 열, 제목 옆 논문 수, All·Today·This week·This month 칩, 제목 → AI 이유 → 짧은 정보(저자 et al.·"3 days ago"·출처), 초록은 펼쳤을 때만.
+- For You 동기화와 정리: 주제·따라가는 Collection·찾은 논문(AI 이유 포함)·Dismiss/Add 기록·마지막 확인 시각이 라이브러리 표(스키마 18, `foryou_*`)로 옮겨져 동기화됩니다. 한 컴퓨터가 확인하고 AI가 이유를 붙인 논문은 다른 컴퓨터에서 다시 찾거나 보내지 않습니다(동기화가 끝난 뒤 확인). 기간·자동 확인·목록 유지 기간(7·15·30·60일·항상, 기본 30일)은 컴퓨터마다. Library › For You는 가운데 920px 열, 제목 옆 논문 수, All·Today·This week·This month 칩, 제목 → AI 이유 → 짧은 정보(저자 et al.·"3 days ago"·출처), 초록은 펼쳤을 때만.
 - 마우스 앞·뒤 버튼: 창 어디서나 Back·Forward(웹 탭의 페이지 → 리더의 이동 → 장소 순).
 - Settings: General · Appearance · Shortcuts / Library · For You · Web · Search / AI · Sync & Backup으로 다시 묶음(설정 키는 그대로). 사이드바 검색은 설정 이름과 관련 단어로 찾고, 고르면 그 페이지의 그 설정으로 스크롤해 잠깐 표시합니다. 단축키도 동작 이름으로 찾습니다.
 
