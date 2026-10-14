@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Owelk.Ui
+import "SettingsIndex.js" as SettingsIndex
 
 // App preferences, by category (macOS System Settings layout). Changes apply at once and are
 // stored locally. Only the shown page exists; pages are created when chosen.
@@ -30,6 +31,43 @@ Dialog {
         {id: "sync", name: qsTr("Sync & Backup"), icon: "data"}
     ]
     function openPage(id) { page = id; open() }
+    function pageName(id) { const p = pages.find(function(x) { return x.id === id }); return p ? p.name : "" }
+    // Search: settings whose name or related words hold what is typed; choosing one opens its page there.
+    property string query: ""
+    readonly property var results: query.trim().length ? SettingsIndex.find(query, qsTranslate, pageName) : []
+    property string revealing: ""
+    function reveal(entry) {
+        revealing = entry.anchor
+        page = entry.page
+        revealTimer.restart()
+    }
+    function findAnchor(item, name) {
+        if (!item) return null
+        if (item.objectName === name) return item
+        const children = item.children || []
+        for (let i = 0; i < children.length; ++i) { const found = findAnchor(children[i], name); if (found) return found }
+        return null
+    }
+    // Once the page is laid out: scroll the setting into view and light it up for a moment.
+    Timer {
+        id: revealTimer
+        interval: 60
+        onTriggered: {
+            const target = root.findAnchor(pageLoader.item, root.revealing)
+            root.revealing = ""
+            if (!target || !target.visible) return
+            const at = target.mapToItem(pageContent, 0, 0)
+            const flick = scroller.contentItem
+            flick.contentY = Math.max(0, Math.min(at.y - 16, flick.contentHeight - flick.height))
+            flash.x = at.x - 4; flash.y = at.y - 4
+            flash.width = target.width + 8; flash.height = target.height + 8
+            flashFade.restart()
+        }
+    }
+    onClosed: query = ""
+    // Each page, and Settings itself, opens at the top (a search then scrolls to its setting).
+    onPageChanged: scroller.contentItem.contentY = 0
+    onAboutToShow: scroller.contentItem.contentY = 0
     contentItem: RowLayout {
         spacing: 0
         Rectangle {
@@ -46,8 +84,46 @@ Dialog {
                 anchors.topMargin: 14
                 spacing: 2
                 Label { text: qsTr("Settings"); leftPadding: 8; bottomPadding: 8; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold }
+                TextField {
+                    id: searchField
+                    objectName: "settingsSearch"
+                    Layout.fillWidth: true
+                    Layout.bottomMargin: 8
+                    implicitHeight: Theme.controlHeight
+                    font.pixelSize: Theme.fontSmall
+                    placeholderText: qsTr("Search")
+                    text: root.query
+                    onTextEdited: root.query = text
+                    Keys.onEscapePressed: function(event) { if (text.length) { root.query = ""; event.accepted = true } else event.accepted = false }
+                    Keys.onReturnPressed: if (root.results.length) root.reveal(root.results[0])
+                }
+                // While searching, the settings found take the place of the pages.
                 Repeater {
-                    model: root.pages
+                    model: root.results
+                    delegate: ItemDelegate {
+                        required property var modelData
+                        required property int index
+                        objectName: "settingsResult-" + index
+                        Layout.fillWidth: true
+                        implicitHeight: resultColumn.implicitHeight + 10
+                        leftPadding: 10
+                        onClicked: root.reveal(modelData)
+                        contentItem: ColumnLayout {
+                            id: resultColumn
+                            spacing: 0
+                            Label { Layout.fillWidth: true; text: modelData.shown; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                            Label { Layout.fillWidth: true; text: root.pageName(modelData.page); elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                        }
+                    }
+                }
+                Label {
+                    visible: root.query.trim().length > 0 && root.results.length === 0
+                    leftPadding: 10
+                    text: qsTr("No setting found.")
+                    font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+                }
+                Repeater {
+                    model: root.query.trim().length ? [] : root.pages
                     delegate: ColumnLayout {
                         required property var modelData
                         Layout.fillWidth: true
@@ -97,8 +173,20 @@ Dialog {
                 contentWidth: availableWidth
                 clip: true
                 Item {
+                    id: pageContent
                     width: scroller.availableWidth
                     implicitHeight: pageLoader.implicitHeight + 44
+                    // The setting a search opened, lit for a moment.
+                    Rectangle {
+                        id: flash
+                        objectName: "settingsFlash"
+                        z: 5
+                        radius: Theme.radius
+                        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, .12)
+                        border.color: Theme.accent; border.width: 2
+                        opacity: 0
+                        NumberAnimation on opacity { id: flashFade; running: false; from: 1; to: 0; duration: 1400; easing.type: Easing.InQuad }
+                    }
                     Loader {
                         id: pageLoader
                         objectName: "settingsPageLoader"

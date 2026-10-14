@@ -42,6 +42,7 @@ ColumnLayout {
                     required property var modelData
                     readonly property string current: Shortcuts.keys(modelData.id, root.overrides, Qt.platform.os)
                     readonly property bool clash: current.length > 0 && !!root.clashes[current]
+                    objectName: "settingsRow-shortcut-" + modelData.id
                     implicitHeight: Theme.controlHeight + 8
                     label: qsTranslate("Shortcuts", modelData.name)
                     Button {

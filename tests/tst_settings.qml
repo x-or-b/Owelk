@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtTest
 import Owelk.Ui
 import "../qml" as App
+import "../qml/SettingsIndex.js" as SettingsIndex
 
 Item {
     id: scene
@@ -65,6 +66,38 @@ Item {
             tryVerify(function() { return eye.icon.name === "hidden" })
             eye.clicked()
             tryVerify(function() { return eye.icon.name === "preview" })
+        }
+        // The search index names real places: every anchor is on its page.
+        function test_searchIndexPointsAtRealSettings() {
+            settings.openPage("general"); tryCompare(settings, "opened", true)
+            const missing = []
+            for (const entry of SettingsIndex.all()) {
+                settings.page = entry.page
+                tryVerify(function() { return page() !== null })
+                if (!settings.findAnchor(page(), entry.anchor)) missing.push(entry.page + ":" + entry.anchor)
+            }
+            compare(missing, [])
+        }
+        function test_searchOpensTheSetting() {
+            settings.openPage("general"); tryCompare(settings, "opened", true)
+            const field = visualChild(settings.contentItem, "settingsSearch")
+            field.text = "dark pdf"; field.textEdited()
+            verify(settings.results.length >= 1)
+            compare(settings.results[0].anchor, "settingsRow-darkPages")
+            verify(visualChild(settings.contentItem, "settingsPage-general") === null, "results take the place of the pages")
+            mouseClick(visualChild(settings.contentItem, "settingsResult-0"))
+            compare(settings.page, "appearance")
+            const flash = findChild(settings, "settingsFlash")
+            tryVerify(function() { return flash.opacity > 0 })
+            // Words people type for a setting find it too, and shortcuts are found by their action.
+            field.text = "font"; field.textEdited()
+            verify(settings.results.some(function(r) { return r.anchor === "settingsRow-textSize" }))
+            field.text = "close tab"; field.textEdited()
+            verify(settings.results.some(function(r) { return r.anchor === "settingsRow-shortcut-closeTab" }))
+            field.text = "zzzz nothing"; field.textEdited()
+            compare(settings.results.length, 0)
+            settings.close(); tryCompare(settings, "visible", false)
+            compare(settings.query, "")
         }
         function test_themeAccentAndTextSizeApplyAtOnce() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)

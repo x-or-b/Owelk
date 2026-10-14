@@ -4339,6 +4339,10 @@ You can open the same document twice.</source>
         <translation>라이브러리</translation>
     </message>
     <message>
+        <source>No setting found.</source>
+        <translation>노 세팅 파운드.</translation>
+    </message>
+    <message>
         <source>Search</source>
         <translation>서치</translation>
     </message>
@@ -4404,6 +4408,137 @@ You can open the same document twice.</source>
     <message>
         <source>Vertical tabs list every tab beside the window, with full titles; the panel opens and closes from its button at the top left (</source>
         <translation>버티컬 탭스 리스트 에브리 탭 비사이드 더 윈도, 위드 풀 타이틀스; 더 패널 오픈스 앤드 클로지즈 프롬 잇츠 버튼 앳 더 톱 레프트 (</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsIndex</name>
+    <message>
+        <source>AI provider</source>
+        <translation>에이아이 프로바이더</translation>
+    </message>
+    <message>
+        <source>Accent color</source>
+        <translation>액센트 컬러</translation>
+    </message>
+    <message>
+        <source>App icon</source>
+        <translation>앱 아이콘</translation>
+    </message>
+    <message>
+        <source>Backup</source>
+        <translation>백업</translation>
+    </message>
+    <message>
+        <source>Ctrl+Tab</source>
+        <translation>컨트롤+탭</translation>
+    </message>
+    <message>
+        <source>Dark pages</source>
+        <translation>다크 페이지스</translation>
+    </message>
+    <message>
+        <source>Download folder</source>
+        <translation>다운로드 폴더</translation>
+    </message>
+    <message>
+        <source>Empty the Trash</source>
+        <translation>엠티 더 트래시</translation>
+    </message>
+    <message>
+        <source>Explanations</source>
+        <translation>익스플레네이션스</translation>
+    </message>
+    <message>
+        <source>Export notes as Markdown</source>
+        <translation>익스포트 노츠 애즈 마크다운</translation>
+    </message>
+    <message>
+        <source>Gloss model</source>
+        <translation>글로스 모델</translation>
+    </message>
+    <message>
+        <source>Instructions</source>
+        <translation>인스트럭션스</translation>
+    </message>
+    <message>
+        <source>Keep PDFs in Owelk</source>
+        <translation>킵 피디에프스 인 오웰크</translation>
+    </message>
+    <message>
+        <source>Language</source>
+        <translation>랭귀지</translation>
+    </message>
+    <message>
+        <source>Meaning search</source>
+        <translation>미닝 서치</translation>
+    </message>
+    <message>
+        <source>Name PDFs</source>
+        <translation>네임 피디에프스</translation>
+    </message>
+    <message>
+        <source>On launch</source>
+        <translation>온 런치</translation>
+    </message>
+    <message>
+        <source>PDF folder</source>
+        <translation>피디에프 폴더</translation>
+    </message>
+    <message>
+        <source>PDF links</source>
+        <translation>피디에프 링크스</translation>
+    </message>
+    <message>
+        <source>PDF text index</source>
+        <translation>피디에프 텍스트 인덱스</translation>
+    </message>
+    <message>
+        <source>Paper names</source>
+        <translation>페이퍼 네임스</translation>
+    </message>
+    <message>
+        <source>Preferred language</source>
+        <translation>프리퍼드 랭귀지</translation>
+    </message>
+    <message>
+        <source>Read text with OCR</source>
+        <translation>리드 텍스트 위드 오시알</translation>
+    </message>
+    <message>
+        <source>Reasoning</source>
+        <translation>리즈닝</translation>
+    </message>
+    <message>
+        <source>Rename kept PDFs</source>
+        <translation>리네임 켑트 피디에프스</translation>
+    </message>
+    <message>
+        <source>Search engines</source>
+        <translation>서치 엔진스</translation>
+    </message>
+    <message>
+        <source>Show thinking</source>
+        <translation>쇼 싱킹</translation>
+    </message>
+    <message>
+        <source>Symbol hints</source>
+        <translation>심벌 힌츠</translation>
+    </message>
+    <message>
+        <source>Sync</source>
+        <translation>싱크</translation>
+    </message>
+    <message>
+        <source>Tab layout</source>
+        <translation>탭 레이아웃</translation>
+    </message>
+    <message>
+        <source>Text size</source>
+        <translation>텍스트 사이즈</translation>
+    </message>
+    <message>
+        <source>Theme</source>
+        <translation>테마</translation>
     </message>
 </context>
 <context>
