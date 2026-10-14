@@ -637,7 +637,14 @@ Rectangle {
                         width: forYouList.width
                         height: forYouColumn.implicitHeight + 26
                         topPadding: 13; bottomPadding: 13
-                        separator: index < forYouList.count - 1
+                        // Its own line, under the Add and Dismiss icons too (the list's ends at the text).
+                        Rectangle {
+                            visible: found.index < forYouList.count - 1 && !found.highlighted
+                            anchors.bottom: parent.bottom; anchors.bottomMargin: -1
+                            x: found.leftPadding; width: parent.width - found.leftPadding - 8
+                            height: 1
+                            color: Theme.separator
+                        }
                         highlighted: chosen
                         rightPadding: found.open ? 12 : forYouActions.width + 12
                         onClicked: root.forYouClicked(index)
@@ -725,22 +732,25 @@ Rectangle {
                                 }
                             }
                         }
+                        // Add and Dismiss on hover (and while the PDF comes), like Home; the room stays, so nothing moves.
                         Row {
                             id: forYouActions
                             visible: !root.selecting && !found.open
+                            opacity: found.hovered || addIcon.hovered || dismissIcon.hovered || found.adding ? 1 : 0
                             anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
                             spacing: 2
                             Label { visible: found.adding; anchors.verticalCenter: parent.verticalCenter; text: qsTr("Adding…"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
                             IconButton {
+                                id: addIcon
                                 objectName: "libraryForYouAdd-" + found.index
                                 visible: !found.adding
                                 icon.name: "download"; description: qsTr("Add to the Library")
                                 onClicked: root.forYou.add([found.modelData.id])
                             }
                             IconButton {
+                                id: dismissIcon
                                 objectName: "libraryForYouDismiss-" + found.index
                                 visible: !found.adding
-                                opacity: found.hovered || hovered ? 1 : .35
                                 icon.name: "close"; description: qsTr("Dismiss")
                                 onClicked: root.forYou.dismiss([found.modelData.id])
                             }
