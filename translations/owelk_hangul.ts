@@ -1686,6 +1686,10 @@ Same file as another library entry</source>
         <translation>추즈 페이퍼스</translation>
     </message>
     <message>
+        <source>Close the preview · Esc</source>
+        <translation>클로즈 더 프리뷰 · 이에스씨</translation>
+    </message>
+    <message>
         <source>Collection name</source>
         <translation>컬렉션 네임</translation>
     </message>
@@ -1708,6 +1712,10 @@ Same file as another library entry</source>
     <message>
         <source>Copy Markdown</source>
         <translation>카피 마크다운</translation>
+    </message>
+    <message>
+        <source>Could not get the PDF: </source>
+        <translation>쿠드 낫 겟 더 피디에프: </translation>
     </message>
     <message>
         <source>Delete</source>
@@ -1772,6 +1780,10 @@ Same file as another library entry</source>
     <message>
         <source>Get PDF on Its Page</source>
         <translation>겟 피디에프 온 잇츠 페이지</translation>
+    </message>
+    <message>
+        <source>Getting the PDF…</source>
+        <translation>게팅 더 피디에프…</translation>
     </message>
     <message>
         <source>Inside the collection shown. </source>
@@ -1900,6 +1912,14 @@ Same file as another library entry</source>
     <message>
         <source>Papers, notes and AI conversations stay until you empty the Trash</source>
         <translation>페이퍼스, 노츠 앤드 에이아이 컨버세이션스 스테이 언틸 유 엠티 더 트래시</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>프리뷰</translation>
+    </message>
+    <message>
+        <source>Preview the PDF</source>
+        <translation>프리뷰 더 피디에프</translation>
     </message>
     <message>
         <source>Read</source>
@@ -2980,6 +3000,10 @@ Same file as another library entry</source>
         <translation>노 프리 피디에프 포 “%1”: 잇츠 페이지 오픈스.</translation>
     </message>
     <message>
+        <source>No free PDF to preview.</source>
+        <translation>노 프리 피디에프 투 프리뷰.</translation>
+    </message>
+    <message>
         <source>No groups were suggested.</source>
         <translation>노 그룹스 워 서제스티드.</translation>
     </message>
@@ -3070,6 +3094,10 @@ Same file as another library entry</source>
     <message>
         <source>Please wait until source verification finishes.</source>
         <translation>플리즈 웨이트 언틸 소스 베리피케이션 피니시즈.</translation>
+    </message>
+    <message>
+        <source>Preview: </source>
+        <translation>프리뷰: </translation>
     </message>
     <message>
         <source>Print job sent. Comments are printed as markers, not full note text.</source>

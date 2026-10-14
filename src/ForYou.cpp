@@ -7,7 +7,9 @@
 #include "UiText.h"
 #include "ai/AiService.h"
 
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -272,6 +274,9 @@ void ForYou::ranked(int request, const QVariantList &ranking, const QString &err
 void ForYou::start()
 {
     load();
+    const QDir previews(m_store->dataDirectory() + "/foryou-preview");
+    for (const auto &old : previews.entryInfoList({"*.pdf"}, QDir::Files))
+        if (old.lastModified().daysTo(QDateTime::currentDateTime()) > 7) QFile::remove(old.absoluteFilePath());
     // Once a day, a little after launch (not while the window opens) and again when the date changes.
     m_daily = new QTimer(this);
     m_daily->setInterval(60 * 60 * 1000);
@@ -628,6 +633,7 @@ void ForYou::dropKept()
 
 void ForYou::dismiss(const QStringList &ids)
 {
+    for (const auto &id : ids) QFile::remove(previewPath(id));
     for (const auto &id : ids)
         exec("UPDATE foryou_items SET state='dismissed',paper='{}',score=NULL,why=NULL WHERE id=?", {id});
     load();
@@ -678,6 +684,15 @@ void ForYou::addNext()
         done();
         return;
     }
+    // Read in a preview already: that PDF, without fetching it again.
+    if (QFile previewed(previewPath(id)); previewed.open(QIODevice::ReadOnly)) {
+        const auto bytes = previewed.readAll();
+        previewed.close();
+        if (bytes.startsWith("%PDF") && saveIntoLibrary(paper, bytes)) {
+            done();
+            return;
+        }
+    }
     if (!m_network) m_network = new QNetworkAccessManager(this);
     m_store->startTask("forYouAdd", ui("Downloading ") + paper.value("title").toString());
     QNetworkRequest request{QUrl(pdf)};
@@ -703,24 +718,92 @@ void ForYou::addNext()
             done();
             return;
         }
-        // Named as the Library names papers (Settings › Library › Paper names).
-        PaperMetadata metadata;
-        metadata.title = paper.value("title").toString();
-        metadata.authors = paper.value("authors").toString();
-        metadata.year = paper.value("year").toString();
-        metadata.arxiv = paper.value("arxiv").toString();
-        auto stem = PaperMetadataText::fileStem(metadata, m_store->fileNameParts());
-        if (stem.isEmpty()) stem = metadata.arxiv.isEmpty() ? QStringLiteral("paper") : metadata.arxiv;
-        const auto target = m_store->downloadTarget(stem + ".pdf", true).value("url").toUrl();
-        QFile file(target.toLocalFile());
+        saveIntoLibrary(paper, bytes);
+        done();
+    });
+}
+
+bool ForYou::saveIntoLibrary(const QVariantMap &paper, const QByteArray &bytes)
+{
+    // Named as the Library names papers (Settings › Library › Paper names).
+    PaperMetadata metadata;
+    metadata.title = paper.value("title").toString();
+    metadata.authors = paper.value("authors").toString();
+    metadata.year = paper.value("year").toString();
+    metadata.arxiv = paper.value("arxiv").toString();
+    auto stem = PaperMetadataText::fileStem(metadata, m_store->fileNameParts());
+    if (stem.isEmpty()) stem = metadata.arxiv.isEmpty() ? QStringLiteral("paper") : metadata.arxiv;
+    const auto target = m_store->downloadTarget(stem + ".pdf", true).value("url").toUrl();
+    QFile file(target.toLocalFile());
+    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size()) {
+        m_store->notify(ui("Could not save the PDF."));
+        return false;
+    }
+    file.close();
+    finishAdd(paper, target);
+    QFile::remove(previewPath(paper.value("id").toString()));
+    return true;
+}
+
+QString ForYou::previewPath(const QString &id) const
+{
+    return m_store->dataDirectory() + "/foryou-preview/"
+        + QString(id).replace(QRegularExpression("[^A-Za-z0-9.-]"), "_") + ".pdf";
+}
+
+void ForYou::preview(const QString &id)
+{
+    const auto paper = item(id);
+    const auto fail = [this, id](const QString &why) {
+        QMetaObject::invokeMethod(this, [this, id, why] { emit previewFailed(id, why); }, Qt::QueuedConnection);
+    };
+    if (paper.isEmpty() || !ForYouParse::isPdfAddress(paper.value("pdf").toString())) {
+        fail(ui("No free PDF to preview."));
+        return;
+    }
+    const auto path = previewPath(id);
+    if (QFileInfo(path).size() > 0) {
+        QMetaObject::invokeMethod(
+            this, [this, id, path] { emit previewReady(id, QUrl::fromLocalFile(path)); }, Qt::QueuedConnection);
+        return;
+    }
+    // One preview at a time: a newer one replaces a slower one.
+    if (m_previewReply) m_previewReply->abort();
+    if (!m_network) m_network = new QNetworkAccessManager(this);
+    QNetworkRequest request{QUrl(paper.value("pdf").toString())};
+    request.setHeader(QNetworkRequest::UserAgentHeader, "Owelk/0.1 (local research reader)");
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setTransferTimeout(90000);
+    m_previewing = id;
+    emit previewingChanged();
+    m_store->startTask("forYouPreview", ui("Preview: ") + paper.value("title").toString());
+    auto *reply = m_network->get(request);
+    m_previewReply = reply;
+    connect(reply, &QNetworkReply::downloadProgress, this, [this](qint64 received, qint64 total) {
+        m_store->progressTask("forYouPreview", double(received), total > 0 ? double(total) : 0);
+    });
+    connect(reply, &QNetworkReply::finished, this, [this, reply, id, path] {
+        reply->deleteLater();
+        if (m_previewReply == reply) m_previewReply = nullptr;
+        if (reply->error() == QNetworkReply::OperationCanceledError) return; // Another took its place.
+        m_store->finishTask("forYouPreview");
+        m_previewing.clear();
+        emit previewingChanged();
+        const auto bytes = reply->readAll();
+        if (reply->error() != QNetworkReply::NoError || !bytes.startsWith("%PDF")) {
+            emit previewFailed(id,
+                reply->error() != QNetworkReply::NoError ? reply->errorString()
+                                                         : QString(ui("the answer was not a PDF")));
+            return;
+        }
+        QDir().mkpath(QFileInfo(path).absolutePath());
+        QFile file(path);
         if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size()) {
-            m_store->notify(ui("Could not save the PDF."));
-            done();
+            emit previewFailed(id, ui("Could not save the PDF."));
             return;
         }
         file.close();
-        finishAdd(paper, target);
-        done();
+        emit previewReady(id, QUrl::fromLocalFile(path));
     });
 }
 

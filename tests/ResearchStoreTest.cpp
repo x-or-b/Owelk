@@ -879,11 +879,21 @@ private slots:
         forYou->refresh();
         QTRY_VERIFY_WITH_TIMEOUT(!forYou->checking(), 10000);
         QCOMPARE(forYou->items().size(), 1);
+        // Preview: the PDF comes into a cache, not the Library; Add then uses it without asking again.
+        QSignalSpy previews(forYou, &ForYou::previewReady);
+        forYou->preview("arxiv:2601.00001");
+        QTRY_COMPARE_WITH_TIMEOUT(previews.size(), 1, 10000);
+        const auto previewFile = previews[0][1].toUrl().toLocalFile();
+        QVERIFY(QFileInfo(previewFile).size() > 0);
+        QVERIFY(!store.hasPaper("2601.00001", ""));
+        const auto asked = requests.join('\n').count("/pdf/2601.00001");
         // Add: the PDF comes into the Library, named and described from arXiv.
         forYou->add({"arxiv:2601.00001"});
         QTRY_VERIFY_WITH_TIMEOUT(forYou->adding().isEmpty(), 10000);
         QCOMPARE(forYou->items().size(), 0);
         QVERIFY(store.hasPaper("2601.00001v2", ""));
+        QCOMPARE(requests.join('\n').count("/pdf/2601.00001"), asked);
+        QVERIFY(!QFileInfo::exists(previewFile));
         const auto added
             = store.paperWithFile(QUrl::fromLocalFile(store.papersFolder() + "/Lovelace et al. - "
                                       + QString::number(QDate::currentDate().year()) + " - Fresh LiDAR Odometry.pdf"),

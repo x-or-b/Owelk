@@ -9,6 +9,7 @@
 #include <functional>
 
 class QNetworkAccessManager;
+class QNetworkReply;
 class QTimer;
 class ResearchStore;
 
@@ -35,6 +36,8 @@ class ForYou final : public QObject {
     // The AI reading the papers found (Explain), and what went wrong the last time.
     Q_PROPERTY(bool explaining READ explaining NOTIFY explainingChanged)
     Q_PROPERTY(QString aiProblem READ aiProblem NOTIFY changed)
+    // The paper whose PDF is coming for a preview (its id), or empty.
+    Q_PROPERTY(QString previewing READ previewing NOTIFY previewingChanged)
 public:
     explicit ForYou(ResearchStore *store, QObject *parent = nullptr);
     QVariantList items() const;
@@ -45,6 +48,7 @@ public:
     QStringList adding() const { return m_adding; }
     bool explaining() const { return m_explaining; }
     QString aiProblem() const { return m_aiProblem; }
+    QString previewing() const { return m_previewing; }
     // Reads what was found and starts the daily check (a little after launch, then every hour).
     void start();
     // Read again (rows arrived from another computer).
@@ -67,6 +71,10 @@ public:
     // The AI scores the papers not yet explained (0-100, most relevant first) and gives each one sentence on
     // why (score, why), from what is followed. Done after each check when forYou.ai is on.
     Q_INVOKABLE void explain();
+    // A paper's PDF to read before deciding: fetched into <data>/foryou-preview (kept a week) and not
+    // added to the Library; Add then uses it rather than fetching again. Answered by previewReady(id,
+    // file) or previewFailed(id, why).
+    Q_INVOKABLE void preview(const QString &id);
     // Whether the AI can be asked (set up in Settings › AI, and agreed to).
     Q_INVOKABLE bool aiReady() const;
     Q_INVOKABLE QString aiName() const;
@@ -77,6 +85,9 @@ signals:
     void checkingChanged();
     void addingChanged();
     void explainingChanged();
+    void previewingChanged();
+    void previewReady(const QString &id, const QUrl &file);
+    void previewFailed(const QString &id, const QString &why);
     void webRequested(const QUrl &url);
 
 private:
@@ -90,6 +101,9 @@ private:
     void found(const QVariantList &papers, const QString &source, const QString &sourceName);
     void addNext();
     void finishAdd(const QVariantMap &item, const QUrl &file);
+    // A PDF's bytes into the Library under the paper's name, then finishAdd.
+    bool saveIntoLibrary(const QVariantMap &paper, const QByteArray &bytes);
+    QString previewPath(const QString &id) const;
     // The details Add gives a paper (from arXiv or Semantic Scholar), and its collection.
     void finishDetails(const QVariantMap &paper, const QUrl &url);
     QVariantMap item(const QString &id) const;
@@ -121,6 +135,8 @@ private:
     QStringList m_addQueue;
     // Papers Add sent to the browser (the direct download failed), finished when they reach the Library.
     QHash<QString, QVariantMap> m_viaBrowser;
+    QString m_previewing;
+    QNetworkReply *m_previewReply = nullptr;
     bool m_explaining = false;
     int m_rankRequest = -1;
     QString m_aiProblem;

@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Owelk.Ui
 import QtQuick.Dialogs as Native
+import QtQuick.Pdf
 
 // The Library tab: Papers (filtered by reading state, favorites, collection or tag), Notes, and the
 // Trash (papers, notes and AI conversations together). Papers are referenced, never copied:
@@ -109,10 +110,31 @@ Rectangle {
             selectionAnchor = index
         } else {
             // Open in place: the whole abstract at once (a web page takes a while), with Add and its page.
+            // With a preview showing, the paper clicked is shown there too.
             selection = []; selectionAnchor = index
+            if (previewShown && forYouRows[index].hasPdf) { forYouOpen = id; previewForYou(id); return }
             forYouOpen = forYouOpen === id ? "" : id
         }
     }
+    // A paper read beside the list before deciding (Preview): its PDF on the right, the list moves left.
+    property string forYouPreview: ""
+    property url forYouPreviewUrl: ""
+    property string forYouPreviewError: ""
+    readonly property bool previewShown: showingForYou && forYouPreview.length > 0
+    function previewForYou(id) {
+        if (forYouPreview === id && (forYouPreviewUrl.toString().length || forYou.previewing === id)) return
+        forYouPreview = id; forYouPreviewUrl = ""; forYouPreviewError = ""
+        forYou.preview(id)
+    }
+    function closePreview() { forYouPreview = ""; forYouPreviewUrl = ""; forYouPreviewError = "" }
+    Connections {
+        target: root.forYou
+        function onPreviewReady(id, file) { if (id === root.forYouPreview) root.forYouPreviewUrl = file }
+        function onPreviewFailed(id, why) { if (id === root.forYouPreview) root.forYouPreviewError = why }
+        // Added or dismissed: its preview closes.
+        function onChanged() { if (root.forYouPreview.length && !root.forYou.items.some(function(p) { return p.id === root.forYouPreview })) root.closePreview() }
+    }
+    Shortcut { sequence: "Escape"; enabled: root.previewShown && !root.selecting && root.visible; onActivated: root.closePreview() }
     // The paper opened in place (from a click here or on Home).
     property string forYouOpen: ""
     function openForYou(id) {
@@ -128,7 +150,7 @@ Rectangle {
     signal settingsRequested(string page)
     signal webRequested(url address)
     Connections { target: root.forYou; function onChanged() { const present = root.selectable; root.selection = root.selection.filter(function(u) { return present.indexOf(u) >= 0 }) } }
-    function setView(next) { if (next !== view) setSelecting(false); setFilter(next === "papers" ? {} : {view: next}) }
+    function setView(next) { if (next !== view) { setSelecting(false); closePreview() } setFilter(next === "papers" ? {} : {view: next}) }
     Shortcut { sequence: "Escape"; enabled: root.selecting && root.visible; onActivated: root.setSelecting(false) }
     // Delete or Backspace moves the chosen papers to the Trash (a text field being edited keeps its keys).
     Shortcut {
@@ -716,6 +738,13 @@ Rectangle {
                                         onClicked: root.forYou.add([found.modelData.id])
                                     }
                                     Button {
+                                        objectName: "libraryForYouOpenPreview"
+                                        visible: found.modelData.hasPdf
+                                        flat: true; implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                                        text: qsTr("Preview")
+                                        onClicked: root.previewForYou(found.modelData.id)
+                                    }
+                                    Button {
                                         objectName: "libraryForYouOpenPage"
                                         flat: found.modelData.hasPdf; highlighted: !found.modelData.hasPdf
                                         implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
@@ -738,10 +767,17 @@ Rectangle {
                         Row {
                             id: forYouActions
                             visible: !root.selecting && !found.open
-                            opacity: found.hovered || addIcon.hovered || dismissIcon.hovered || found.adding ? 1 : 0
+                            opacity: found.hovered || previewIcon.hovered || addIcon.hovered || dismissIcon.hovered || found.adding ? 1 : 0
                             anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
                             spacing: 2
                             Label { visible: found.adding; anchors.verticalCenter: parent.verticalCenter; text: qsTr("Adding…"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
+                            IconButton {
+                                id: previewIcon
+                                objectName: "libraryForYouPreview-" + found.index
+                                visible: !found.adding && found.modelData.hasPdf
+                                icon.name: "preview"; description: qsTr("Preview the PDF")
+                                onClicked: { root.forYouOpen = found.modelData.id; root.previewForYou(found.modelData.id) }
+                            }
                             IconButton {
                                 id: addIcon
                                 objectName: "libraryForYouAdd-" + found.index
@@ -1205,6 +1241,69 @@ Rectangle {
                         visible: papers.count === 0
                         text: root.filter.collection ? qsTr("No papers here yet. Add PDFs with +, or drop them here.") : root.query.length || Object.keys(root.filter).length ? qsTr("No papers match.") : qsTr("Papers you open or add with + appear here.")
                         color: Theme.textTertiary
+                    }
+                }
+            }
+            // --- For You's preview: the paper's PDF beside the list, to read before adding it -----------
+            Rectangle { visible: root.previewShown; Layout.preferredWidth: 1; Layout.fillHeight: true; color: Theme.separator }
+            ColumnLayout {
+                id: previewPane
+                objectName: "forYouPreviewPane"
+                visible: root.previewShown
+                Layout.preferredWidth: Math.round(root.width * .56)
+                Layout.fillHeight: true
+                spacing: 0
+                readonly property var paper: root.forYou.items.find(function(p) { return p.id === root.forYouPreview }) || ({})
+                readonly property bool adding: root.forYou.adding.indexOf(root.forYouPreview) >= 0
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Theme.barHeight + 8
+                    Layout.leftMargin: 12; Layout.rightMargin: 8
+                    spacing: 6
+                    Label {
+                        Layout.fillWidth: true
+                        text: previewPane.paper.title || ""
+                        elide: Text.ElideRight; textFormat: Text.PlainText
+                        font.weight: Font.Medium; color: Theme.text
+                    }
+                    Label { visible: previewPane.adding; text: qsTr("Adding…"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
+                    Button {
+                        objectName: "forYouPreviewAdd"
+                        visible: !previewPane.adding && !!previewPane.paper.id
+                        highlighted: true
+                        implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                        text: qsTr("Add to Library")
+                        onClicked: root.forYou.add([root.forYouPreview])
+                    }
+                    Button {
+                        objectName: "forYouPreviewDismiss"
+                        visible: !previewPane.adding && !!previewPane.paper.id
+                        flat: true; implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                        text: qsTr("Dismiss")
+                        onClicked: root.forYou.dismiss([root.forYouPreview])
+                    }
+                    IconButton { objectName: "forYouPreviewClose"; icon.name: "close"; description: qsTr("Close the preview · Esc"); onClicked: root.closePreview() }
+                }
+                Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.separator }
+                Rectangle {
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    color: Theme.pdfBackdrop
+                    clip: true
+                    PdfMultiPageView {
+                        id: previewView
+                        objectName: "forYouPreviewView"
+                        anchors.fill: parent
+                        visible: root.forYouPreviewUrl.toString().length > 0
+                        document: PdfDocument { id: previewDocument; source: root.forYouPreviewUrl }
+                    }
+                    Label {
+                        objectName: "forYouPreviewStatus"
+                        anchors.centerIn: parent
+                        width: Math.min(parent.width - 40, 360)
+                        visible: !previewView.visible
+                        horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
+                        text: root.forYouPreviewError.length ? qsTr("Could not get the PDF: ") + root.forYouPreviewError : qsTr("Getting the PDF…")
+                        color: root.forYouPreviewError.length ? Theme.danger : Theme.textTertiary
                     }
                 }
             }
