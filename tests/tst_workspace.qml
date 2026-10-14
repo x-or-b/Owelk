@@ -870,6 +870,11 @@ Item {
             const title = Tree.tabTitle(Tree.leaves(d.tree)[0].tabs.find(function(t) { return t.id === a }), researchStore.displayName)
             compare(initial.letter, panel.initialOf(title))
             verify(initial.letter.length > 0)
+            // The tab is a square the size of its letter tile, and the tile fills it.
+            const box = visualChild(panel, "verticalTabBox-" + a)
+            compare(box.width, box.height)
+            verify(box.width < panel.width)
+            compare(initial.width, box.width)
             compare(panel.initialOf("“attention” is all"), "A")
             compare(panel.initialOf("  [3D] mapping"), "3")
             compare(panel.initialOf("논문 읽기"), "논")

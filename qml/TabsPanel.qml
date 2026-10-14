@@ -185,7 +185,12 @@ Rectangle {
                     id: groupRow
                     visible: row.type === "header"
                     objectName: row.type === "header" ? "verticalGroupLabel" : ""
-                    anchors.fill: parent; anchors.margins: 2; anchors.leftMargin: 6; anchors.rightMargin: 6
+                    // On the closed rail, the same square as a tab.
+                    readonly property real railInset: (parent.width - Theme.controlHeightSmall - 4) / 2
+                    readonly property real railInsetY: (parent.height - Theme.controlHeightSmall - 4) / 2
+                    anchors.fill: parent
+                    anchors.topMargin: root.open ? 2 : railInsetY; anchors.bottomMargin: root.open ? 2 : railInsetY
+                    anchors.leftMargin: root.open ? 6 : railInset; anchors.rightMargin: root.open ? 6 : railInset
                     radius: Theme.radiusSmall
                     color: row.type === "header" ? Theme.mix(Theme.sidebar, row.groupColor, groupHover.hovered ? .30 : .20) : "transparent"
                     RowLayout {
@@ -248,17 +253,24 @@ Rectangle {
                 }
 
                 // A tab: icon, full title, close on hover; a group's tabs carry its color on the left.
+                // On the closed rail it is a small square, the size of a paper's letter tile.
                 Rectangle {
+                    id: tabBox
+                    objectName: row.tab ? "verticalTabBox-" + row.tab.id : ""
                     visible: row.type === "tab"
-                    anchors.fill: parent; anchors.margins: 1; anchors.leftMargin: 6; anchors.rightMargin: 6
+                    readonly property real railSize: Theme.controlHeightSmall + 4
+                    x: root.open ? 6 : Math.round((parent.width - railSize) / 2)
+                    y: root.open ? 1 : Math.round((parent.height - railSize) / 2)
+                    width: root.open ? parent.width - 12 : railSize
+                    height: root.open ? parent.height - 2 : railSize
                     radius: Theme.radiusSmall
                     color: row.current ? (row.activeStrip ? Theme.selected : Theme.hover) : pointer.containsMouse || closeButton.hovered ? Theme.hover : "transparent"
                     border.width: !!root.controller.dropTarget && root.controller.dropTarget.join === (row.tab ? row.tab.id : "") ? 2 : 0
                     border.color: Theme.accent
                     Rectangle {
                         visible: !!row.label
-                        x: 2; anchors.verticalCenter: parent.verticalCenter
-                        width: 3; height: parent.height - 10; radius: 1.5
+                        x: root.open ? 2 : -5; anchors.verticalCenter: parent.verticalCenter
+                        width: 3; height: parent.height - (root.open ? 10 : 6); radius: 1.5
                         color: row.groupColor
                     }
                     Icon {
@@ -277,16 +289,16 @@ Rectangle {
                         readonly property string letter: root.isPaper(row.tab) ? root.initialOf(row.title) : ""
                         readonly property bool chosen: row.current && row.activeStrip
                         visible: !root.open && letter.length > 0
-                        anchors.centerIn: parent
-                        width: Theme.fontBody + 7; height: width
-                        radius: Theme.radiusSmall
-                        color: chosen ? Theme.mix(Theme.selected, Theme.selectedText, .14) : Theme.mix(Theme.sidebar, Theme.text, pointer.containsMouse ? .13 : .08)
-                        border.width: 1
-                        border.color: chosen ? Theme.mix(Theme.selected, Theme.selectedText, .28) : Theme.mix(Theme.sidebar, Theme.text, .14)
+                        // The same square as the tab: the selection colors it, otherwise a quiet tile.
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: chosen || row.current ? "transparent" : Theme.mix(Theme.sidebar, Theme.text, pointer.containsMouse ? .13 : .08)
+                        border.width: chosen || row.current ? 0 : 1
+                        border.color: Theme.mix(Theme.sidebar, Theme.text, .14)
                         Label {
                             anchors.centerIn: parent
                             text: initialTile.letter
-                            font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold
+                            font.pixelSize: Theme.fontBody; font.weight: Font.DemiBold
                             color: initialTile.chosen ? Theme.selectedText : Theme.textSecondary
                         }
                     }
@@ -304,8 +316,12 @@ Rectangle {
                     MouseArea {
                         id: pointer
                         enabled: row.type === "tab"
+                        // On the rail the whole row answers, not only the square.
                         anchors.fill: parent
-                        anchors.rightMargin: root.open ? closeButton.width + 4 : 0
+                        anchors.rightMargin: root.open ? closeButton.width + 4 : -(tabBox.x)
+                        anchors.leftMargin: root.open ? 0 : -(tabBox.x)
+                        anchors.topMargin: root.open ? 0 : -(tabBox.y)
+                        anchors.bottomMargin: root.open ? 0 : -(tabBox.y)
                         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                         hoverEnabled: true
                         preventStealing: true
