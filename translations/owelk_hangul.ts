@@ -3224,6 +3224,10 @@ Same file as another library entry</source>
         <translation>트랜슬레이트 더 셀렉션 인투 %1. 기브 온리 더 트랜슬레이션, 페이스풀 앤드 내추럴; 킵 이퀘이션스, 심벌스 앤드 사이테이션 마커스 언체인지드.</translation>
     </message>
     <message>
+        <source>Turn on Explain with AI in Settings › For You to send these papers to the AI.</source>
+        <translation>턴 온 익스플레인 위드 에이아이 인 세팅스 › 포 유 투 센드 디즈 페이퍼스 투 더 에이아이.</translation>
+    </message>
+    <message>
         <source>Type a question for your library.</source>
         <translation>타입 어 퀘스천 포 유어 라이브러리.</translation>
     </message>

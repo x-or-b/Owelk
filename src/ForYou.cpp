@@ -140,7 +140,19 @@ QVariantList recommendations(const QByteArray &json)
 ForYou::ForYou(ResearchStore *store, QObject *parent) : QObject(parent), m_store(store)
 {
     connect(store, &ResearchStore::settingsChanged, this, &ForYou::settingsChanged);
-    if (auto *ai = qobject_cast<AiService *>(store->ai())) connect(ai, &AiService::papersRanked, this, &ForYou::ranked);
+    if (auto *ai = qobject_cast<AiService *>(store->ai())) {
+        connect(ai, &AiService::papersRanked, this, &ForYou::ranked);
+        // The AI may be ready only after a check (an account read a little after launch, a key added later):
+        // papers still without a reason are explained then.
+        connect(ai, &AiService::providersChanged, this, [this] {
+            if (m_explaining || m_checking || m_store->setting("forYou.ai", "1") != "1" || !aiReady()) return;
+            for (const auto &value : std::as_const(m_items))
+                if (!value.toMap().contains("why")) {
+                    QMetaObject::invokeMethod(this, &ForYou::explain, Qt::QueuedConnection);
+                    return;
+                }
+        });
+    }
 }
 
 bool ForYou::aiReady() const
@@ -199,7 +211,13 @@ void ForYou::explain()
     }
     if (papers.isEmpty()) return;
     if (!ai->canSend()) {
-        m_aiProblem = ui("Set up AI in Settings › AI to have new papers explained.");
+        // Set up but not agreed to: the switch in Settings › For You is the OK.
+        const auto id = m_store->setting("ai.provider", "claude");
+        bool setUp = false;
+        for (const auto &value : ai->providers())
+            if (value.toMap().value("id").toString() == id) setUp = value.toMap().value("configured").toBool();
+        m_aiProblem = setUp ? ui("Turn on Explain with AI in Settings › For You to send these papers to the AI.")
+                            : ui("Set up AI in Settings › AI to have new papers explained.");
         emit changed();
         return;
     }
