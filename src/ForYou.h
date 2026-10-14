@@ -30,6 +30,9 @@ class ForYou final : public QObject {
     Q_PROPERTY(QString problem READ problem NOTIFY changed)
     // Papers being downloaded by Add (their ids).
     Q_PROPERTY(QStringList adding READ adding NOTIFY addingChanged)
+    // The AI reading the papers found (Explain), and what went wrong the last time.
+    Q_PROPERTY(bool explaining READ explaining NOTIFY explainingChanged)
+    Q_PROPERTY(QString aiProblem READ aiProblem NOTIFY changed)
 public:
     explicit ForYou(ResearchStore *store, QObject *parent = nullptr);
     QVariantList items() const { return m_items; }
@@ -38,6 +41,8 @@ public:
     QDateTime lastChecked() const { return m_lastChecked; }
     QString problem() const { return m_problem; }
     QStringList adding() const { return m_adding; }
+    bool explaining() const { return m_explaining; }
+    QString aiProblem() const { return m_aiProblem; }
     // Reads foryou.json and starts the daily check (a little after launch, then every hour).
     void start();
 
@@ -55,12 +60,19 @@ public:
     // Downloads each paper's PDF into the Library (into its collection when it came from one). A paper
     // with no PDF to fetch opens its page instead (webRequested).
     Q_INVOKABLE void add(const QStringList &ids);
+    // The AI scores the papers not yet explained (0-100, most relevant first) and gives each one sentence on
+    // why (score, why), from what is followed. Done after each check when forYou.ai is on.
+    Q_INVOKABLE void explain();
+    // Whether the AI can be asked (set up in Settings › AI, and agreed to).
+    Q_INVOKABLE bool aiReady() const;
+    Q_INVOKABLE QString aiName() const;
 
 signals:
     void changed();
     void settingsChanged();
     void checkingChanged();
     void addingChanged();
+    void explainingChanged();
     void webRequested(const QUrl &url);
 
 private:
@@ -76,6 +88,11 @@ private:
     void finishAdd(const QVariantMap &item, const QUrl &file);
     QVariantMap item(const QString &id) const;
     void removeItems(const QStringList &ids);
+    void ranked(int request, const QVariantList &ranking, const QString &error);
+    // What is followed, as text for the AI: topics, and some titles from each followed collection.
+    QString interests() const;
+    // Most relevant first (papers the AI scored), then newest.
+    void sortItems();
     void load();
     void save() const;
     QString path() const;
@@ -94,6 +111,9 @@ private:
     QVariantList m_found;
     QStringList m_adding;
     QStringList m_addQueue;
+    bool m_explaining = false;
+    int m_rankRequest = -1;
+    QString m_aiProblem;
 };
 
 namespace ForYouParse {

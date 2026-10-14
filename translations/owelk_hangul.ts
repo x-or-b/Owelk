@@ -1558,6 +1558,10 @@ Same file as another library entry</source>
         <translation>에이아이 컨버세이션</translation>
     </message>
     <message>
+        <source>AI is reading…</source>
+        <translation>에이아이 이즈 리딩…</translation>
+    </message>
+    <message>
         <source>Add</source>
         <translation>애드</translation>
     </message>
@@ -1696,6 +1700,10 @@ Same file as another library entry</source>
     <message>
         <source>Everything</source>
         <translation>에브리싱</translation>
+    </message>
+    <message>
+        <source>Explain with AI</source>
+        <translation>익스플레인 위드 에이아이</translation>
     </message>
     <message>
         <source>Export BibTeX</source>
@@ -2804,6 +2812,10 @@ Same file as another library entry</source>
         <translation>포 유: 1 뉴 페이퍼.</translation>
     </message>
     <message>
+        <source>For You: AI is reading the new papers</source>
+        <translation>포 유: 에이아이 이즈 리딩 더 뉴 페이퍼스</translation>
+    </message>
+    <message>
         <source>For You: looking for new papers</source>
         <translation>포 유: 루킹 포 뉴 페이퍼스</translation>
     </message>
@@ -3072,6 +3084,10 @@ Same file as another library entry</source>
         <translation>시맨틱 스칼라 이즈 비지. 트라이 어게인 인 어 미닛.</translation>
     </message>
     <message>
+        <source>Set up AI in Settings › AI to have new papers explained.</source>
+        <translation>셋 업 에이아이 인 세팅스 › 에이아이 투 해브 뉴 페이퍼스 익스플레인드.</translation>
+    </message>
+    <message>
         <source>Show all %1 matching pages in '%2'</source>
         <translation>쇼 올 %1 매칭 페이지스 인 '%2'</translation>
     </message>
@@ -3086,6 +3102,10 @@ Same file as another library entry</source>
     <message>
         <source>Tag · </source>
         <translation>태그 · </translation>
+    </message>
+    <message>
+        <source>The AI did not rank the papers.</source>
+        <translation>더 에이아이 디드 낫 랭크 더 페이퍼스.</translation>
     </message>
     <message>
         <source>The PDF cannot be read.</source>
@@ -4554,6 +4574,10 @@ You can open the same document twice.</source>
         <translation>데이</translation>
     </message>
     <message>
+        <source>Explain with AI</source>
+        <translation>익스플레인 위드 에이아이</translation>
+    </message>
+    <message>
         <source>Last checked </source>
         <translation>라스트 체크트 </translation>
     </message>
@@ -4578,6 +4602,10 @@ You can open the same document twice.</source>
         <translation>낫 체크트 옛</translation>
     </message>
     <message>
+        <source>Orders new papers by how well they fit what you follow, with one sentence each. Sends their titles and abstracts and what you follow to </source>
+        <translation>오더스 뉴 페이퍼스 바이 하우 웰 데이 핏 왓 유 팔로, 위드 원 센텐스 이치. 센즈 데어 타이틀스 앤드 앱스트랙츠 앤드 왓 유 팔로 투 </translation>
+    </message>
+    <message>
         <source>Papers found wait in Home and in Library › For You until you add or dismiss them. Only the words, categories and arXiv IDs or DOIs above are sent.</source>
         <translation>페이퍼스 파운드 웨이트 인 홈 앤드 인 라이브러리 › 포 유 언틸 유 애드 오어 디스미스 뎀. 온리 더 워즈, 카테고리즈 앤드 아카이브 아이디즈 오어 디오아이즈 어보브 아 센트.</translation>
     </message>
@@ -4592,6 +4620,10 @@ You can open the same document twice.</source>
     <message>
         <source>Remove</source>
         <translation>리무브</translation>
+    </message>
+    <message>
+        <source>Set up AI in Settings › AI first.</source>
+        <translation>셋 업 에이아이 인 세팅스 › 에이아이 퍼스트.</translation>
     </message>
     <message>
         <source>Topics</source>
@@ -4690,6 +4722,10 @@ You can open the same document twice.</source>
     <message>
         <source>Empty the Trash</source>
         <translation>엠티 더 트래시</translation>
+    </message>
+    <message>
+        <source>Explain new papers with AI</source>
+        <translation>익스플레인 뉴 페이퍼스 위드 에이아이</translation>
     </message>
     <message>
         <source>Explanations</source>

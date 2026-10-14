@@ -263,6 +263,7 @@ public slots:
                         const bool grouping = request.contains("Group these tabs");
                         const bool sorting = request.contains("Group these papers");
                         const bool comparing = request.contains("Aspects: ");
+                        const bool ranking = request.contains("decide which new papers to read");
                         QList<QByteArray> pieces = grouping
                             ? QList<QByteArray>{"{\\\"groups\\\": [{\\\"name\\\": \\\"Fixture papers\\\", ",
                                   "\\\"tabs\\\": [\\\"t1\\\", \\\"t2\\\"]}]}"}
@@ -272,6 +273,10 @@ public slots:
                             : comparing
                             ? QList<QByteArray>{"| Paper | Method |\\n|---|---|\\n", "| One 2020 | occlusion |"}
                             : QList<QByteArray>{"Mock ", "answer about **occlusion**."};
+                        // For You: each new paper scored, with a reason.
+                        if (ranking)
+                            pieces = {"{\\\"papers\\\": [{\\\"id\\\": \\\"p1\\\", \\\"score\\\": 92, ",
+                                "\\\"why\\\": \\\"Directly on the odometry you follow.\\\"}]}"};
                         // Asked to rewrite an attached note (or write one): the whole note in Owelk's block.
                         // The latest request comes last in the conversation; earlier ones stay in it.
                         if (request.contains("Write a new note")) {
@@ -285,7 +290,7 @@ public slots:
                                 "# Rewritten\\n\\nNew body.\\n</note_update>"};
                         }
                         // Answers to questions come with a reasoning summary, as Claude's summarized thinking.
-                        if (!grouping && !sorting && !comparing)
+                        if (!grouping && !sorting && !comparing && !ranking)
                             body += "event: content_block_start\ndata: {\"type\":\"content_block_start\","
                                     "\"content_block\":{\"type\":\"thinking\"}}\n\n"
                                     "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":"

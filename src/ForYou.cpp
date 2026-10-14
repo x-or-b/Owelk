@@ -4,6 +4,7 @@
 #include "PaperMetadata.h"
 #include "ResearchStore.h"
 #include "UiText.h"
+#include "ai/AiService.h"
 
 #include <QFile>
 #include <QJsonArray>
@@ -139,6 +140,97 @@ QVariantList recommendations(const QByteArray &json)
 ForYou::ForYou(ResearchStore *store, QObject *parent) : QObject(parent), m_store(store)
 {
     connect(store, &ResearchStore::settingsChanged, this, &ForYou::settingsChanged);
+    if (auto *ai = qobject_cast<AiService *>(store->ai())) connect(ai, &AiService::papersRanked, this, &ForYou::ranked);
+}
+
+bool ForYou::aiReady() const
+{
+    const auto *ai = qobject_cast<AiService *>(m_store->ai());
+    return ai && ai->canSend();
+}
+
+QString ForYou::aiName() const
+{
+    const auto *ai = qobject_cast<AiService *>(m_store->ai());
+    return ai ? ai->providerName() : QString();
+}
+
+QString ForYou::interests() const
+{
+    QStringList lines;
+    for (const auto &value : topics()) {
+        const auto topic = value.toMap();
+        if (!topic.value("on", true).toBool()) continue;
+        auto line = "- Topic: " + topic.value("words").toString();
+        if (!topic.value("categories").toString().isEmpty())
+            line += " (arXiv categories: " + topic.value("categories").toString() + ")";
+        lines << line;
+    }
+    for (const auto &value : m_store->collections()) {
+        const auto collection = value.toMap();
+        if (!following(collection.value("id").toString())) continue;
+        QStringList titles;
+        for (const auto &paper : m_store->libraryDocuments({{"collection", collection.value("id")}, {"limit", 8}}))
+            titles << paper.toMap().value("name").toString().left(160);
+        lines << "- Collection \"" + collection.value("name").toString() + "\": " + titles.join("; ");
+    }
+    return lines.join('\n');
+}
+
+void ForYou::sortItems()
+{
+    std::stable_sort(m_items.begin(), m_items.end(), [](const QVariant &a, const QVariant &b) {
+        const auto score = [](const QVariant &value) {
+            const auto item = value.toMap();
+            return item.contains("score") ? item.value("score").toInt() : -1;
+        };
+        return score(a) > score(b);
+    });
+}
+
+void ForYou::explain()
+{
+    auto *ai = qobject_cast<AiService *>(m_store->ai());
+    if (m_explaining || !ai) return;
+    QVariantList papers;
+    for (const auto &value : std::as_const(m_items)) {
+        const auto item = value.toMap();
+        if (!item.contains("why") && papers.size() < 40) papers.append(item);
+    }
+    if (papers.isEmpty()) return;
+    if (!ai->canSend()) {
+        m_aiProblem = ui("Set up AI in Settings › AI to have new papers explained.");
+        emit changed();
+        return;
+    }
+    m_explaining = true;
+    m_aiProblem.clear();
+    emit explainingChanged();
+    m_store->startTask("forYouAi", ui("For You: AI is reading the new papers"));
+    m_rankRequest = ai->rankPapers(papers, interests());
+}
+
+void ForYou::ranked(int request, const QVariantList &ranking, const QString &error)
+{
+    if (request != m_rankRequest) return;
+    m_rankRequest = -1;
+    m_explaining = false;
+    m_store->finishTask("forYouAi");
+    m_aiProblem = error;
+    QHash<QString, QVariantMap> byId;
+    for (const auto &value : ranking) byId.insert(value.toMap().value("id").toString(), value.toMap());
+    for (auto &value : m_items) {
+        auto item = value.toMap();
+        const auto found = byId.value(item.value("id").toString());
+        if (found.isEmpty()) continue;
+        item.insert("score", found.value("score"));
+        item.insert("why", found.value("why"));
+        value = item;
+    }
+    sortItems();
+    save();
+    emit explainingChanged();
+    emit changed();
 }
 
 void ForYou::start()
@@ -400,6 +492,7 @@ void ForYou::finishCheck()
         if (!m_store->hasPaper(item.value("arxiv").toString(), item.value("doi").toString())) kept.append(item);
     }
     m_items = kept.mid(0, keptItems);
+    sortItems();
     m_found.clear();
     m_lastChecked = QDateTime::currentDateTimeUtc();
     m_problem = m_problems.join(' ');
@@ -410,6 +503,8 @@ void ForYou::finishCheck()
     emit changed();
     if (fresh)
         m_store->notify(fresh == 1 ? ui("For You: 1 new paper.") : QString(ui("For You: %1 new papers.")).arg(fresh));
+    // New papers explained by the AI, when that is on and the AI is set up.
+    if (fresh && m_store->setting("forYou.ai", "1") == "1" && aiReady()) explain();
 }
 
 QVariantMap ForYou::item(const QString &id) const

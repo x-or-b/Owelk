@@ -23,6 +23,7 @@ const entries = [
     {page: "foryou", anchor: "settingsGroup-topics", text: QT_TR_NOOP("For You topics"), words: "recommend new papers follow arxiv words categories feed daily"},
     {page: "foryou", anchor: "settingsGroup-followCollections", text: QT_TR_NOOP("Follow collections"), words: "recommend similar papers semantic scholar for you"},
     {page: "foryou", anchor: "settingsRow-forYouDaily", text: QT_TR_NOOP("Check for new papers once a day"), words: "for you daily automatic recommend"},
+    {page: "foryou", anchor: "settingsRow-forYouAi", text: QT_TR_NOOP("Explain new papers with AI"), words: "for you rank relevance reason why ai recommend"},
     {page: "foryou", anchor: "settingsRow-forYouDays", text: QT_TR_NOOP("New papers from the last"), words: "for you period days week month"},
     {page: "web", anchor: "settingsRow-downloadFolder", text: QT_TR_NOOP("Download folder"), words: "downloads save location"},
     {page: "web", anchor: "settingsRow-namePdfs", text: QT_TR_NOOP("Name PDFs"), words: "download file name website"},

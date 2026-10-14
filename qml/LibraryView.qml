@@ -463,6 +463,18 @@ Rectangle {
                     Layout.fillWidth: true
                     visible: root.showingForYou
                     Label { Layout.fillWidth: true; text: qsTr("For You"); font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
+                    Label {
+                        visible: root.forYou.explaining
+                        text: qsTr("AI is reading…")
+                        font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+                    }
+                    // The AI's view of each paper: most relevant first, one sentence on why.
+                    IconButton {
+                        objectName: "libraryForYouExplain"
+                        icon.name: "ai"; description: qsTr("Explain with AI")
+                        enabled: !root.forYou.explaining && root.forYou.items.some(function(p) { return !p.why })
+                        onClicked: root.forYou.explain()
+                    }
                     IconButton {
                         objectName: "libraryForYouRefresh"
                         icon.name: "reload"; description: qsTr("Check now")
@@ -470,6 +482,13 @@ Rectangle {
                         onClicked: root.forYou.refresh()
                     }
                     IconButton { objectName: "libraryForYouSettings"; icon.name: "settings"; description: qsTr("For You settings"); onClicked: root.settingsRequested("foryou") }
+                }
+                Label {
+                    objectName: "libraryForYouAiProblem"
+                    visible: root.showingForYou && root.forYou.aiProblem.length > 0 && !root.forYou.explaining
+                    Layout.fillWidth: true
+                    text: root.forYou.aiProblem
+                    wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -569,6 +588,19 @@ Rectangle {
                                     Layout.fillWidth: true
                                     text: [found.modelData.authors, found.modelData.date, found.modelData.sourceName].filter(function(t) { return t && t.length }).join("  ·  ")
                                     elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                }
+                                RowLayout {
+                                    visible: !!found.modelData.why
+                                    Layout.fillWidth: true
+                                    spacing: 5
+                                    Icon { name: "ai"; size: Theme.fontCaption; color: Theme.textTertiary; Layout.alignment: Qt.AlignTop; Layout.topMargin: 2 }
+                                    Label {
+                                        objectName: "libraryForYouWhy-" + found.index
+                                        Layout.fillWidth: true
+                                        text: found.modelData.why || ""
+                                        wrapMode: Text.Wrap; textFormat: Text.PlainText
+                                        font.pixelSize: Theme.fontSmall; color: Theme.text
+                                    }
                                 }
                                 Label {
                                     Layout.fillWidth: true

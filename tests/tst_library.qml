@@ -309,15 +309,25 @@ Item {
             tryCompare(settings, "opened", true)
             compare(settings.page, "foryou")
             settings.close(); tryCompare(settings, "visible", false)
-            // A topic: Check finds a paper; Home shows it under For You.
+            // A topic: Check finds a paper, and the AI (set up and agreed to) says why it fits.
+            researchStore.setSetting("ai.baseUrl.claude", testInput.webFixture("/").toString())
+            researchStore.ai.provider = "claude"
+            verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key")); researchStore.ai.giveConsent("claude")
+            researchStore.setSetting("forYou.ai", "1")
+            verify(forYou.aiReady())
             verify(forYou.saveTopics([{words: "odometry", categories: "cs.RO"}]))
             verify(forYou.configured)
             forYou.refresh()
             tryVerify(function() { return !forYou.checking }, 10000)
             compare(forYou.problem, "")
             compare(forYou.items.length, 1)
+            tryVerify(function() { return !forYou.explaining && !!forYou.items[0].why }, 10000)
+            compare(forYou.items[0].why, "Directly on the odometry you follow.")
+            compare(forYou.items[0].score, 92)
+            compare(forYou.aiProblem, "")
             tryVerify(function() { return visualChild(home, "homeForYou-0") !== null && !visualChild(home, "homeForYouHint").visible })
             verify(visualChild(home, "homeForYouHeading").detail.indexOf("1") === 0)
+            compare(visualChild(home, "homeForYouWhy-0").text, "Directly on the odometry you follow.")
             // The heading goes to Library › For You.
             const heading = visualChild(home, "homeForYouHeading").children[0]
             mouseClick(heading, 12, heading.height / 2)
@@ -354,6 +364,7 @@ Item {
             tryVerify(function() { return !forYou.checking }, 10000)
             compare(forYou.items.length, 0, "the added paper is in the Library now")
             researchStore.deletePapers([added[0].url])
+            researchStore.ai.clearApiKey("claude")
             forYou.saveTopics([])
             verify(!forYou.configured)
         }

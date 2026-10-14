@@ -233,15 +233,19 @@ Rectangle {
                                 separator: index < forYouBox.shown.length - 1
                                 rightPadding: actions.width + 12
                                 onClicked: root.webRequested(modelData.url)
-                                ToolTip.visible: hovered && (modelData.abstract || "").length > 0; ToolTip.delay: 700
-                                ToolTip.text: (modelData.abstract || "").slice(0, 600)
+                                readonly property string details: [modelData.authors, modelData.date, modelData.sourceName].filter(function(t) { return t && t.length }).join("  ·  ")
+                                ToolTip.visible: hovered; ToolTip.delay: 700
+                                ToolTip.text: details + ((modelData.abstract || "").length ? "\n\n" + modelData.abstract.slice(0, 600) : "")
                                 contentItem: ColumnLayout {
                                     spacing: 2
                                     Label { Layout.fillWidth: true; text: suggestion.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                                    // Why to read it (the AI's sentence), else who and when.
                                     Label {
+                                        objectName: "homeForYouWhy-" + suggestion.index
                                         Layout.fillWidth: true
-                                        text: [suggestion.modelData.authors, suggestion.modelData.date, suggestion.modelData.sourceName].filter(function(t) { return t && t.length }).join("  ·  ")
-                                        elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                        text: suggestion.modelData.why || suggestion.details
+                                        elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption
+                                        color: suggestion.modelData.why ? Theme.textSecondary : Theme.textTertiary
                                     }
                                 }
                                 // Add and Dismiss on hover (Adding… while the PDF comes).

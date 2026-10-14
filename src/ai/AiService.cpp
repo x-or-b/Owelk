@@ -1005,6 +1005,94 @@ int AiService::organizePapers(const QVariantList &papers, const QStringList &col
         text, &AiService::papersOrganized);
 }
 
+bool AiService::canSend() const
+{
+    const auto id = provider();
+    if (!consented(id)) return false;
+    const auto *about = info(id);
+    if (about && QString(about->kind) == "api") return hasApiKey(id);
+    return id != "codex" || m_codexAccount.value("signedIn").toBool();
+}
+
+QString AiService::providerName() const
+{
+    const auto *about = info(provider());
+    return about ? QString(about->name) : QString();
+}
+
+int AiService::rankPapers(const QVariantList &papers, const QString &interests)
+{
+    const int request = ++m_nextRequest;
+    const auto id = provider();
+    QString error;
+    auto *provider = papers.isEmpty() ? nullptr : createProvider(id, &error);
+    if (!provider) {
+        QMetaObject::invokeMethod(
+            this, [this, request, error] { emit papersRanked(request, {}, error); }, Qt::QueuedConnection);
+        return request;
+    }
+    QHash<QString, QString> ids;
+    QStringList lines;
+    for (qsizetype i = 0; i < papers.size() && i < 40; ++i) {
+        const auto paper = papers[i].toMap();
+        const auto name = "p" + QString::number(i + 1);
+        ids.insert(name, paper.value("id").toString());
+        QStringList about{"Title: " + paper.value("title").toString().left(300)};
+        if (!paper.value("authors").toString().isEmpty())
+            about << "Authors: " + paper.value("authors").toString().left(200);
+        if (!paper.value("year").toString().isEmpty()) about << "Year: " + paper.value("year").toString();
+        if (!paper.value("abstract").toString().isEmpty())
+            about << "Abstract: " + paper.value("abstract").toString().left(1200);
+        lines << QString("<paper id=\"%1\">\n%2\n</paper>").arg(name, about.join('\n'));
+    }
+    const auto language = aiLanguageName(m_store->setting("aiLanguage", "ko"));
+    AiRequest call;
+    call.system = QStringLiteral(
+        "You help a researcher decide which new papers to read. You get what they follow (topics, and titles of "
+        "papers in the collections they follow) and new papers with their abstracts. For each paper, judge how "
+        "relevant it is to what they follow: a score from 0 to 100 (80 or more: directly on their topics; 50 to "
+        "79: related; below 50: tangential), and one short sentence (at most 25 words) on why it is worth reading "
+        "or how it relates to what they follow. Be concrete and do not repeat the title. Write the sentences in "
+        "%1. Reply with JSON only, covering every paper: "
+        "{\"papers\": [{\"id\": \"p1\", \"score\": 85, \"why\": \"…\"}]}.")
+                      .arg(language.isEmpty() ? QStringLiteral("the language of the paper titles") : language);
+    call.text = "What the researcher follows:\n" + interests.left(6000) + "\n\nNew papers:\n\n" + lines.join("\n\n");
+    call.model = model(id);
+    call.maxTokens = 8000;
+    m_running.insert(request, provider);
+    emit busyChanged();
+    const auto done = [this, request, provider] {
+        m_running.remove(request);
+        provider->deleteLater();
+        emit busyChanged();
+    };
+    connect(provider, &AiProvider::finished, this, [this, request, ids, done](const QString &answer, const QString &) {
+        done();
+        QVariantList ranking;
+        const auto start = answer.indexOf('{'), end = answer.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            const auto list = QJsonDocument::fromJson(answer.mid(start, end - start + 1).toUtf8())
+                                  .object()
+                                  .value("papers")
+                                  .toArray();
+            for (const auto &value : list) {
+                const auto entry = value.toObject();
+                const auto paper = ids.value(entry.value("id").toString());
+                if (paper.isEmpty()) continue; // Unknown names are ignored.
+                ranking.append(QVariantMap{{"id", paper}, {"score", qBound(0, entry.value("score").toInt(), 100)},
+                    {"why", entry.value("why").toString().simplified().left(300)}});
+            }
+        }
+        emit papersRanked(request, ranking, ranking.isEmpty() ? ui("The AI did not rank the papers.") : QString());
+    });
+    connect(provider, &AiProvider::failed, this, [this, request, done](const QString &message) {
+        done();
+        emit papersRanked(request, {}, message);
+    });
+    provider->start(call);
+    return request;
+}
+
 int AiService::comparePapers(const QVariantList &papers, const QStringList &aspects)
 {
     const int request = ++m_nextRequest;

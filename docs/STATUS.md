@@ -25,6 +25,8 @@
 - For You: 따라가는 주제(단어 + arXiv 분야)는 arXiv에서, 따라가는 Collection은 Semantic Scholar 추천에서 새 논문을 찾습니다(기간 1일·7일·30일, 출처당 최대 편수). 이미 Library에 있거나 Dismiss한 논문, 기간보다 오래된 논문은 빼고 `<data>/foryou.json`에 둡니다. 요청할 때와(켜져 있으면) 하루 한 번 Owelk를 연 뒤 확인하며, arXiv 요청은 몇 초 간격을 둡니다.
 - Home: 이어 읽기 아래 For You(새 논문 5편, 제목 → Library › For You, 톱니 → 설정). 따라가는 것이 없으면 설정으로 가는 한 줄, 새 논문이 없으면 숨김.
 - Library › For You: 전체 목록, 출처별 보기, 다시 확인, 선택해 Add·Dismiss. Add는 PDF를 받아 Paper names 규칙으로 이름 붙이고, Collection에서 온 논문은 그 Collection에 넣고, arXiv·Semantic Scholar의 제목·저자·연도·DOI를 채웁니다. PDF가 없으면 논문 페이지를 웹 탭으로 엽니다. Collection 우클릭 › Follow in For You.
+- For You AI(2단계): 확인 뒤 새 논문을 AI가 따라가는 것과 얼마나 맞는지 점수(0–100)로 매겨 관련도 순으로 놓고 논문마다 한 문장 이유를 붙입니다(Home·Library에 표시, Library의 AI 버튼으로 다시). Settings › For You › Explain with AI(켜는 것이 보내기 동의, AI가 설정돼 있어야 함). 보내는 것: 새 논문의 제목·초록, 주제, 따라가는 Collection의 논문 제목 몇 개.
+- 마우스 앞·뒤 버튼: 창 어디서나 Back·Forward(웹 탭의 페이지 → 리더의 이동 → 장소 순).
 - Settings: General · Appearance · Shortcuts / Library · For You · Web · Search / AI · Sync & Backup으로 다시 묶음(설정 키는 그대로). 사이드바 검색은 설정 이름과 관련 단어로 찾고, 고르면 그 페이지의 그 설정으로 스크롤해 잠깐 표시합니다. 단축키도 동작 이름으로 찾습니다.
 
 ## 지난 단계 (2026-10-10): 구조 단순화

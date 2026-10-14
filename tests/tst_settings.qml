@@ -126,6 +126,22 @@ Item {
             tryVerify(function() { follow = visualChild(settings.contentItem, "forYouFollow-Follow Me"); return follow !== null })
             verify(!follow.enabled)
             researchStore.deleteCollection(collection)
+            // Explain with AI waits for an AI to be set up; turning it on is the OK to send papers to it.
+            researchStore.ai.provider = "claude"
+            researchStore.ai.clearApiKey("claude")
+            researchStore.setSetting("ai.consent.claude", "")
+            let explain = null
+            tryVerify(function() { explain = visualChild(settings.contentItem, "forYouAi"); return explain !== null })
+            tryVerify(function() { return !explain.enabled })
+            verify(researchStore.ai.setApiKey("claude", "sk-settings-test"))
+            tryVerify(function() { return explain.enabled && !explain.checked })
+            explain.toggle(); explain.toggled()
+            verify(researchStore.ai.consented("claude"))
+            compare(researchStore.setting("forYou.ai"), "1")
+            tryVerify(function() { return explain.checked })
+            verify(forYou.aiReady())
+            researchStore.ai.clearApiKey("claude")
+            researchStore.setSetting("ai.consent.claude", "")
         }
         function test_themeAccentAndTextSizeApplyAtOnce() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)

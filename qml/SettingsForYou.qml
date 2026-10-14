@@ -118,6 +118,27 @@ ColumnLayout {
                 onToggled: researchStore.setSetting("forYou.auto", checked ? "1" : "0")
             }
         }
+        // The AI orders new papers by how well they fit and gives each a reason. Turning it on is the OK to
+        // send their titles and abstracts, with what is followed, to the AI chosen in Settings › AI.
+        SettingsRow {
+            id: aiRow
+            objectName: "settingsRow-forYouAi"
+            readonly property var ai: researchStore.ai
+            readonly property var provider: (root.revision, ai.providers.find(function(p) { return p.id === ai.provider })) || ({})
+            readonly property bool usable: !!provider.configured || provider.id === "ollama"
+            label: qsTr("Explain with AI")
+            detail: !usable ? qsTr("Set up AI in Settings › AI first.")
+                : qsTr("Orders new papers by how well they fit what you follow, with one sentence each. Sends their titles and abstracts and what you follow to ") + (provider.sends || provider.name) + "."
+            Switch {
+                objectName: "forYouAi"
+                enabled: aiRow.usable
+                checked: (root.revision, researchStore.setting("forYou.ai", "1") === "1" && !!aiRow.provider.consented && aiRow.usable)
+                onToggled: {
+                    if (checked) researchStore.ai.giveConsent(researchStore.ai.provider)
+                    researchStore.setSetting("forYou.ai", checked ? "1" : "0")
+                }
+            }
+        }
         SettingsRow {
             objectName: "settingsRow-forYouDays"
             label: qsTr("Papers from the last")

@@ -74,6 +74,13 @@ public:
     // conclusion of each); aspects: the table's columns. Streams comparisonDelta(request, text) and ends
     // with papersCompared(request, markdown, error).
     Q_INVOKABLE int comparePapers(const QVariantList &papers, const QStringList &aspects);
+    // How relevant new papers are to what the reader follows, with one sentence each for why. papers:
+    // [{id, title, authors, year, abstract}]; interests: the topics and followed collections, as text.
+    // Answered by papersRanked(request, [{id, score (0-100), why}], error). Nothing is changed here.
+    Q_INVOKABLE int rankPapers(const QVariantList &papers, const QString &interests);
+    // Whether the chosen provider is set up and the reader agreed to send it material.
+    bool canSend() const;
+    QString providerName() const;
     // Codex app server: account status, ChatGPT sign-in (opens the browser) and sign-out.
     Q_INVOKABLE void refreshCodexAccount();
     Q_INVOKABLE void codexSignIn();
@@ -101,6 +108,7 @@ signals:
     void papersOrganized(int request, const QVariantList &groups, const QString &error);
     void comparisonDelta(int request, const QString &text);
     void papersCompared(int request, const QString &markdown, const QString &error);
+    void papersRanked(int request, const QVariantList &ranking, const QString &error);
     void codexAccountChanged(const QVariantMap &account);
     // models: [{id, name}]
     void modelsLoaded(const QString &provider, const QVariantList &models);
