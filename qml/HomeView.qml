@@ -36,6 +36,10 @@ Rectangle {
         function onDocumentsChanged() { listsLater.restart() }
     }
     signal documentChosen(url source, var position)
+    // A Settings page to open (For You's gear and hint).
+    signal settingsRequested(string page)
+    // A paper's page to read in a web tab.
+    signal webRequested(url address)
     // A note or an AI chat chosen in Home's lists.
     signal resultChosen(var result)
     // A list in a slot of fixed height (rows rows): the rounded box grows with its rows up to the slot and
@@ -72,9 +76,14 @@ Rectangle {
         property alias text: heading.text
         property alias adding: add.visible
         property alias addDescription: add.description
+        // A quiet count after the heading, and a gear for the box's settings.
+        property alias detail: detailLabel.text
+        property alias configurable: gear.visible
+        property alias configureDescription: gear.description
         property bool goes: false
         signal added()
         signal opened()
+        signal configureRequested()
         Layout.fillWidth: true
         Layout.preferredHeight: 32
         Item {
@@ -92,7 +101,9 @@ Rectangle {
                 TapHandler { enabled: boxHeading.goes; onTapped: boxHeading.opened() }
             }
         }
+        Label { id: detailLabel; visible: text.length > 0; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
         IconButton { id: add; visible: false; icon.name: "add"; onClicked: boxHeading.added() }
+        IconButton { id: gear; objectName: boxHeading.objectName + "Settings"; visible: false; icon.name: "settings"; onClicked: boxHeading.configureRequested() }
     }
     Flickable {
         anchors.fill: parent
@@ -155,6 +166,106 @@ Rectangle {
                         highlighted: true
                         text: root.continuation.source ? qsTr("Continue") : qsTr("Open PDF…")
                         onClicked: continueCard.clicked()
+                    }
+                }
+            }
+            // For You: the newest papers found for the topics and collections followed (all of them in
+            // Library › For You). Nothing followed yet: one line that leads to the settings; nothing new: hidden.
+            ColumnLayout {
+                id: forYouBox
+                objectName: "homeForYou"
+                readonly property var forYou: researchStore.forYou
+                readonly property var shown: forYou.items.slice(0, 5)
+                visible: forYou.configured ? shown.length > 0 : true
+                Layout.fillWidth: true
+                spacing: 6
+                BoxHeading {
+                    objectName: "homeForYouHeading"
+                    text: qsTr("For You"); goes: true
+                    detail: forYouBox.forYou.items.length ? forYouBox.forYou.items.length + qsTr(" new") : ""
+                    configurable: true; configureDescription: qsTr("For You settings")
+                    onOpened: root.libraryFilterRequested({view: "foryou"})
+                    onConfigureRequested: root.settingsRequested("foryou")
+                }
+                ItemDelegate {
+                    objectName: "homeForYouHint"
+                    visible: !forYouBox.forYou.configured
+                    Layout.fillWidth: true
+                    padding: 14
+                    onClicked: root.settingsRequested("foryou")
+                    background: Rectangle {
+                        radius: Theme.radiusLarge
+                        color: parent.hovered ? Theme.hover : Theme.content
+                        border.color: Theme.separator
+                    }
+                    contentItem: RowLayout {
+                        spacing: 10
+                        Icon { name: "related"; size: Theme.fontBody + 2; color: Theme.textTertiary }
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("Follow a collection or a topic to see new papers here")
+                            elide: Text.ElideRight; color: Theme.textSecondary
+                        }
+                        Icon { name: "right"; size: Theme.fontBody; color: Theme.textTertiary }
+                    }
+                }
+                Rectangle {
+                    visible: forYouBox.shown.length > 0
+                    Layout.fillWidth: true
+                    implicitHeight: forYouRows.implicitHeight + 8
+                    radius: Theme.radiusLarge
+                    color: Theme.content
+                    border.color: Theme.separator
+                    Column {
+                        id: forYouRows
+                        x: 4; y: 4; width: parent.width - 8
+                        spacing: 1
+                        Repeater {
+                            model: forYouBox.shown
+                            delegate: ItemDelegate {
+                                id: suggestion
+                                required property var modelData
+                                required property int index
+                                readonly property bool adding: forYouBox.forYou.adding.indexOf(modelData.id) >= 0
+                                objectName: "homeForYou-" + index
+                                width: forYouRows.width
+                                height: Theme.rowHeightTall
+                                separator: index < forYouBox.shown.length - 1
+                                rightPadding: actions.width + 12
+                                onClicked: root.webRequested(modelData.url)
+                                ToolTip.visible: hovered && (modelData.abstract || "").length > 0; ToolTip.delay: 700
+                                ToolTip.text: (modelData.abstract || "").slice(0, 600)
+                                contentItem: ColumnLayout {
+                                    spacing: 2
+                                    Label { Layout.fillWidth: true; text: suggestion.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: [suggestion.modelData.authors, suggestion.modelData.date, suggestion.modelData.sourceName].filter(function(t) { return t && t.length }).join("  ·  ")
+                                        elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                    }
+                                }
+                                // Add and Dismiss on hover (Adding… while the PDF comes).
+                                Row {
+                                    id: actions
+                                    anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
+                                    opacity: suggestion.hovered || suggestion.adding ? 1 : 0
+                                    Label { visible: suggestion.adding; anchors.verticalCenter: parent.verticalCenter; text: qsTr("Adding…"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
+                                    IconButton {
+                                        objectName: "homeForYouAdd-" + suggestion.index
+                                        visible: !suggestion.adding
+                                        icon.name: "download"; description: qsTr("Add to the Library")
+                                        onClicked: forYouBox.forYou.add([suggestion.modelData.id])
+                                    }
+                                    IconButton {
+                                        objectName: "homeForYouDismiss-" + suggestion.index
+                                        visible: !suggestion.adding
+                                        icon.name: "close"; description: qsTr("Dismiss")
+                                        onClicked: forYouBox.forYou.dismiss([suggestion.modelData.id])
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

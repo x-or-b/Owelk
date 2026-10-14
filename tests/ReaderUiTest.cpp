@@ -302,6 +302,26 @@ public slots:
                         body = head.contains("/references")
                             ? R"({"data":[{"citedPaper":{"paperId":"r1","title":"Cited Work","year":2018,"externalIds":{"ArXiv":"1801.00001"},"citationCount":3}}]})"
                             : R"({"data":[{"citingPaper":{"paperId":"c1","title":"Later Work","year":2024,"citationCount":9}},{"citingPaper":{"paperId":"c2","title":"Another Work","year":2025}}]})";
+                    } else if (head.contains("/api/query")) {
+                        // arXiv for For You: one new paper today, its PDF the fixture.
+                        type = "application/atom+xml";
+                        const auto today = QDate::currentDate().toString(Qt::ISODate);
+                        body = ("<?xml version=\"1.0\"?><feed xmlns=\"http://www.w3.org/2005/Atom\"><entry>"
+                                "<id>http://arxiv.org/abs/2609.01234v1</id><published>"
+                            + today
+                            + "T08:00:00Z</published><title>Fresh Odometry From arXiv</title><summary>A new "
+                              "odometry method.</summary><author><name>Ada Lovelace</name></author><link title=\"pdf\" "
+                              "href=\"http://127.0.0.1:"
+                            + QString::number(m_web.serverPort()) + "/paper.pdf\"/></entry></feed>")
+                                   .toUtf8();
+                    } else if (head.contains("/recommendations/v1/papers/")) {
+                        // Semantic Scholar for For You: one paper like a followed collection's.
+                        type = "application/json";
+                        body = QStringLiteral("{\"recommendedPapers\":[{\"paperId\":\"r9\",\"title\":\"Like Your "
+                                              "Collection\",\"authors\":[{\"name\":\"Grace Hopper\"}],"
+                                              "\"publicationDate\":\"%1\",\"externalIds\":{\"DOI\":\"10.7/like\"}}]}")
+                                   .arg(QDate::currentDate().toString(Qt::ISODate))
+                                   .toUtf8();
                     } else if (head.contains("/slow.pdf")) {
                         // A large PDF sent in pieces with its size up front, for download progress.
                         QFile pdf(m_directory.filePath("fixture.pdf"));

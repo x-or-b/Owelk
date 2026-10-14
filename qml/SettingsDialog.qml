@@ -25,6 +25,7 @@ Dialog {
         {id: "appearance", name: qsTr("Appearance"), icon: "appearance"},
         {id: "shortcuts", name: qsTr("Shortcuts"), icon: "keyboard", last: true},
         {id: "library", name: qsTr("Library"), icon: "library"},
+        {id: "foryou", name: qsTr("For You"), icon: "related"},
         {id: "web", name: qsTr("Web"), icon: "globe"},
         {id: "search", name: qsTr("Search"), icon: "search", last: true},
         {id: "ai", name: qsTr("AI"), icon: "ai"},
@@ -193,7 +194,7 @@ Dialog {
                         x: 24; y: 20
                         width: parent.width - 48
                         active: root.visible
-                        sourceComponent: ({general: generalPage, appearance: appearancePage, shortcuts: shortcutsPage, library: libraryPage,
+                        sourceComponent: ({general: generalPage, appearance: appearancePage, shortcuts: shortcutsPage, library: libraryPage, foryou: forYouPage,
                                            web: webPage, search: searchPage, ai: aiPage, sync: syncPage})[root.page] || generalPage
                     }
                 }
@@ -204,6 +205,7 @@ Dialog {
     Component { id: appearancePage; SettingsAppearance {} }
     Component { id: shortcutsPage; SettingsShortcuts {} }
     Component { id: libraryPage; SettingsLibrary {} }
+    Component { id: forYouPage; SettingsForYou {} }
     Component { id: webPage; SettingsWeb {} }
     Component { id: searchPage; SettingsSearch {} }
     Component { id: aiPage; SettingsAi {} }

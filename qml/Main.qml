@@ -116,6 +116,13 @@ ApplicationWindow {
         showAi()
         aiController.newThread()
     }
+    // A For You paper's page (its abstract), in a web tab of its own.
+    function openForYouPage(address) {
+        if (window.restoreFailed || !address || !address.toString().length) return
+        homeVisible = false
+        documents.openWeb(address, true)
+    }
+    Connections { target: researchStore.forYou; function onWebRequested(address) { window.openForYouPage(address) } }
     function openAiThread(id) { if (aiController.openThread(id)) showAi() }
     // A new chat from the Threads panel, in the Thread it was asked for (spec.folder).
     function newAiChat(spec) {
@@ -743,6 +750,8 @@ ApplicationWindow {
             onLibraryRequested: if (!window.restoreFailed) documents.openLibrary({})
             onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) documents.openLibrary(filter) }
             onNewNoteRequested: if (!window.restoreFailed) documents.newNote()
+            onSettingsRequested: function(page) { settingsDialog.openPage(page) }
+            onWebRequested: function(address) { window.openForYouPage(address) }
         }
         DocumentWorkspace {
             id: documents
@@ -754,6 +763,7 @@ ApplicationWindow {
             onChanged: window.scheduleSave()
             onEmpty: window.showHome()
             onAiRequested: function(spec) { window.askAi(spec) }
+            onSettingsRequested: function(page) { settingsDialog.openPage(page) }
             onAnnotationsToggled: window.toggleAnnotations()
             onAiResponseRequested: function(id) { window.openAiThread(id) }
             onOpened: window.homeVisible = false

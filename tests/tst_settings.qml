@@ -28,7 +28,7 @@ Item {
         }
         function test_categoriesLoadOneAtATime() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
-            for (const id of ["general", "appearance", "shortcuts", "library", "web", "search", "ai", "sync"]) {
+            for (const id of ["general", "appearance", "shortcuts", "library", "foryou", "web", "search", "ai", "sync"]) {
                 mouseClick(visualChild(settings.contentItem, "settingsPage-" + id))
                 compare(settings.page, id)
                 tryVerify(function() { return page() !== null })
@@ -98,6 +98,34 @@ Item {
             compare(settings.results.length, 0)
             settings.close(); tryCompare(settings, "visible", false)
             compare(settings.query, "")
+        }
+        function test_forYouTopicsAndCollections() {
+            const forYou = researchStore.forYou
+            forYou.saveTopics([])
+            const collection = researchStore.createCollection("Follow Me")
+            settings.openPage("foryou"); tryCompare(settings, "opened", true)
+            let words = null
+            tryVerify(function() { words = visualChild(settings.contentItem, "forYouTopicWords"); return words !== null })
+            // A topic: words and categories, then on and off, then removed.
+            words.text = "visual SLAM, loop closure"
+            visualChild(settings.contentItem, "forYouTopicCategories").text = "cs.RO"
+            visualChild(settings.contentItem, "forYouAddTopic").clicked()
+            compare(forYou.topics().length, 1)
+            compare(forYou.topics()[0].words, "visual SLAM, loop closure")
+            compare(words.text, "")
+            verify(forYou.configured)
+            let toggle = null
+            tryVerify(function() { toggle = visualChild(settings.contentItem, "forYouTopicSwitch-0"); return toggle !== null })
+            toggle.toggle(); toggle.toggled()
+            compare(forYou.topics()[0].on, false)
+            verify(!forYou.configured)
+            visualChild(settings.contentItem, "forYouRemoveTopic-0").clicked()
+            compare(forYou.topics().length, 0)
+            // A collection with no arXiv ID or DOI cannot be followed yet.
+            let follow = null
+            tryVerify(function() { follow = visualChild(settings.contentItem, "forYouFollow-Follow Me"); return follow !== null })
+            verify(!follow.enabled)
+            researchStore.deleteCollection(collection)
         }
         function test_themeAccentAndTextSizeApplyAtOnce() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)

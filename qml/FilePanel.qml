@@ -148,6 +148,13 @@ Item {
         MenuSeparator {}
         MenuItem { text: qsTr("New Sub-collection…"); onTriggered: nameDialog.begin("new", "", shelfMenu.collection.id) }
         MenuItem { objectName: "panelRenameCollection"; text: qsTr("Rename…"); onTriggered: nameDialog.begin("rename", shelfMenu.collection.name, shelfMenu.collection.id) }
+        MenuItem {
+            objectName: "panelCollectionFollow"
+            checkable: true
+            checked: shelfMenu.visible && researchStore.forYou.following(shelfMenu.collection.id || "")
+            text: qsTr("Follow in For You")
+            onTriggered: researchStore.forYou.follow(shelfMenu.collection.id, !researchStore.forYou.following(shelfMenu.collection.id))
+        }
         MenuSeparator {}
         MenuItem { text: "Delete Collection…"; palette.windowText: Theme.danger; onTriggered: deleteConfirm.open() }
     }

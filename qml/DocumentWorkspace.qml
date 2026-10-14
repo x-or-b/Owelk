@@ -352,6 +352,8 @@ Flickable {
     }
     signal aiResponseRequested(string id)
     signal aiRequested(var spec)
+    // A Settings page to open (the Library's For You gear).
+    signal settingsRequested(string page)
     signal annotationsToggled()
     // One library tab per group: reuse it (or the Home tab in front) and apply the filter.
     // One Library tab in the window: opening it again shows that tab (wherever it is) with the filter.

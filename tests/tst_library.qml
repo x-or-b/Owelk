@@ -292,6 +292,60 @@ Item {
             verify(!researchStore.note(one).deleted)
             researchStore.deleteNote(one)
         }
+        function test_forYouOnHomeAndInTheLibrary() {
+            const forYou = researchStore.forYou
+            researchStore.setSetting("forYou.arxivBaseUrl", testInput.webFixture("/api").toString())
+            researchStore.setSetting("forYou.recommendBaseUrl", testInput.webFixture("/recommendations/v1").toString())
+            researchStore.setSetting("forYou.delayMs", "10")
+            forYou.saveTopics([]); researchStore.setSetting("forYou.collections", "")
+            // Nothing followed: Home shows one line that leads to the settings.
+            workspace.homeVisible = true
+            const home = findChild(workspace, "homeView")
+            waitForPolish(home); wait(50)
+            verify(!forYou.configured)
+            verify(visualChild(home, "homeForYouHint").visible)
+            mouseClick(visualChild(home, "homeForYouHint"))
+            const settings = findChild(workspace, "settingsDialog")
+            tryCompare(settings, "opened", true)
+            compare(settings.page, "foryou")
+            settings.close(); tryCompare(settings, "visible", false)
+            // A topic: Check finds a paper; Home shows it under For You.
+            verify(forYou.saveTopics([{words: "odometry", categories: "cs.RO"}]))
+            verify(forYou.configured)
+            forYou.refresh()
+            tryVerify(function() { return !forYou.checking }, 10000)
+            compare(forYou.problem, "")
+            compare(forYou.items.length, 1)
+            tryVerify(function() { return visualChild(home, "homeForYou-0") !== null && !visualChild(home, "homeForYouHint").visible })
+            verify(visualChild(home, "homeForYouHeading").detail.indexOf("1") === 0)
+            // The heading goes to Library › For You.
+            const heading = visualChild(home, "homeForYouHeading").children[0]
+            mouseClick(heading, 12, heading.height / 2)
+            const view = library()
+            tryCompare(view, "view", "foryou")
+            tryVerify(function() { return visualChild(view, "libraryForYou-0") !== null })
+            // Select and Add: the PDF comes into the Library with its arXiv details.
+            waitForPolish(view); wait(50)
+            mouseClick(visibleChild(view, "libraryForYouSelect"))
+            mouseClick(visualChild(view, "libraryForYou-0"), 60, 12)
+            compare(view.selection.length, 1)
+            waitForPolish(visibleChild(view, "libraryForYouCount").parent); wait(20)
+            mouseClick(visibleChild(view, "libraryForYouAddSelection"))
+            tryVerify(function() { return forYou.adding.length === 0 && forYou.items.length === 0 }, 10000)
+            const added = researchStore.libraryDocuments({text: "Fresh Odometry From arXiv"})
+            compare(added.length, 1)
+            compare(researchStore.documentDetails(added[0].url).arxiv, "2609.01234")
+            // Nothing new now: Home hides the box; the Library says when it last looked.
+            tryVerify(function() { return !visualChild(home, "homeForYou").visible })
+            tryVerify(function() { return view.forYouRows.length === 0 })
+            // A paper added is not suggested again.
+            forYou.refresh()
+            tryVerify(function() { return !forYou.checking }, 10000)
+            compare(forYou.items.length, 0, "the added paper is in the Library now")
+            researchStore.deletePapers([added[0].url])
+            forYou.saveTopics([])
+            verify(!forYou.configured)
+        }
         function test_dragPaperOntoCollection() {
             const one = testInput.copyFixture("drag one.pdf")
             verify(researchStore.addDocuments([one], "") === 1)

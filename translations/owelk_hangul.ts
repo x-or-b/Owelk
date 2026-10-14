@@ -1147,6 +1147,10 @@
         <translation>폴더 · </translation>
     </message>
     <message>
+        <source>Follow in For You</source>
+        <translation>팔로 인 포 유</translation>
+    </message>
+    <message>
         <source>Loading…</source>
         <translation>로딩…</translation>
     </message>
@@ -1308,8 +1312,20 @@
 <context>
     <name>HomeView</name>
     <message>
+        <source> new</source>
+        <translation> 뉴</translation>
+    </message>
+    <message>
         <source>AI Conversations</source>
         <translation>에이아이 컨버세이션스</translation>
+    </message>
+    <message>
+        <source>Add to the Library</source>
+        <translation>애드 투 더 라이브러리</translation>
+    </message>
+    <message>
+        <source>Adding…</source>
+        <translation>애딩…</translation>
     </message>
     <message>
         <source>Collections</source>
@@ -1322,6 +1338,22 @@
     <message>
         <source>Continue Reading</source>
         <translation>컨티뉴 리딩</translation>
+    </message>
+    <message>
+        <source>Dismiss</source>
+        <translation>디스미스</translation>
+    </message>
+    <message>
+        <source>Follow a collection or a topic to see new papers here</source>
+        <translation>팔로 어 컬렉션 오어 어 토픽 투 시 뉴 페이퍼스 히어</translation>
+    </message>
+    <message>
+        <source>For You</source>
+        <translation>포 유</translation>
+    </message>
+    <message>
+        <source>For You settings</source>
+        <translation>포 유 세팅스</translation>
     </message>
     <message>
         <source>New note</source>
@@ -1526,6 +1558,10 @@ Same file as another library entry</source>
         <translation>에이아이 컨버세이션</translation>
     </message>
     <message>
+        <source>Add</source>
+        <translation>애드</translation>
+    </message>
+    <message>
         <source>Add Folder…</source>
         <translation>애드 폴더…</translation>
     </message>
@@ -1562,8 +1598,16 @@ Same file as another library entry</source>
         <translation>애드 투 페이버릿츠</translation>
     </message>
     <message>
+        <source>Add to the Library</source>
+        <translation>애드 투 더 라이브러리</translation>
+    </message>
+    <message>
         <source>Add “</source>
         <translation>애드 “</translation>
+    </message>
+    <message>
+        <source>Adding…</source>
+        <translation>애딩…</translation>
     </message>
     <message>
         <source>All Papers</source>
@@ -1588,6 +1632,14 @@ Same file as another library entry</source>
     <message>
         <source>BibTeX copied.</source>
         <translation>빕텍 카피드.</translation>
+    </message>
+    <message>
+        <source>Check now</source>
+        <translation>체크 나우</translation>
+    </message>
+    <message>
+        <source>Choose Topics…</source>
+        <translation>추즈 토픽스…</translation>
     </message>
     <message>
         <source>Choose notes</source>
@@ -1630,12 +1682,20 @@ Same file as another library entry</source>
         <translation>디셀렉트 올</translation>
     </message>
     <message>
+        <source>Dismiss</source>
+        <translation>디스미스</translation>
+    </message>
+    <message>
         <source>Done</source>
         <translation>던</translation>
     </message>
     <message>
         <source>Empty Trash</source>
         <translation>엠티 트래시</translation>
+    </message>
+    <message>
+        <source>Everything</source>
+        <translation>에브리싱</translation>
     </message>
     <message>
         <source>Export BibTeX</source>
@@ -1650,6 +1710,26 @@ Same file as another library entry</source>
         <translation>필터 바이 타이틀, 오서, 이어, 디오아이 오어 파일 네임</translation>
     </message>
     <message>
+        <source>Follow a collection or a topic to see new papers here</source>
+        <translation>팔로 어 컬렉션 오어 어 토픽 투 시 뉴 페이퍼스 히어</translation>
+    </message>
+    <message>
+        <source>Follow in For You</source>
+        <translation>팔로 인 포 유</translation>
+    </message>
+    <message>
+        <source>For You</source>
+        <translation>포 유</translation>
+    </message>
+    <message>
+        <source>For You </source>
+        <translation>포 유 </translation>
+    </message>
+    <message>
+        <source>For You settings</source>
+        <translation>포 유 세팅스</translation>
+    </message>
+    <message>
         <source>Inside the collection shown. </source>
         <translation>인사이드 더 컬렉션 숀. </translation>
     </message>
@@ -1660,6 +1740,10 @@ Same file as another library entry</source>
     <message>
         <source>Last opened</source>
         <translation>라스트 오픈드</translation>
+    </message>
+    <message>
+        <source>Looking for new papers…</source>
+        <translation>루킹 포 뉴 페이퍼스…</translation>
     </message>
     <message>
         <source>Make a collection of the folder, with its subfolders as sub-collections</source>
@@ -1706,12 +1790,20 @@ Same file as another library entry</source>
         <translation>노 페이퍼스 매치.</translation>
     </message>
     <message>
+        <source>Not checked yet.</source>
+        <translation>낫 체크트 옛.</translation>
+    </message>
+    <message>
         <source>Note</source>
         <translation>노트</translation>
     </message>
     <message>
         <source>Notes</source>
         <translation>노츠</translation>
+    </message>
+    <message>
+        <source>Nothing new. Checked </source>
+        <translation>낫싱 뉴. 체크트 </translation>
     </message>
     <message>
         <source>Open</source>
@@ -4371,6 +4463,10 @@ You can open the same document twice.</source>
         <translation>클로즈 · 이에스씨</translation>
     </message>
     <message>
+        <source>For You</source>
+        <translation>포 유</translation>
+    </message>
+    <message>
         <source>General</source>
         <translation>제너럴</translation>
     </message>
@@ -4401,6 +4497,113 @@ You can open the same document twice.</source>
     <message>
         <source>Web</source>
         <translation>웹</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsForYou</name>
+    <message>
+        <source> paper to compare with</source>
+        <translation> 페이퍼 투 컴페어 위드</translation>
+    </message>
+    <message>
+        <source> papers</source>
+        <translation> 페이퍼스</translation>
+    </message>
+    <message>
+        <source> papers to compare with</source>
+        <translation> 페이퍼스 투 컴페어 위드</translation>
+    </message>
+    <message>
+        <source>30 days</source>
+        <translation>30 데이즈</translation>
+    </message>
+    <message>
+        <source>7 days</source>
+        <translation>7 데이즈</translation>
+    </message>
+    <message>
+        <source>A little after Owelk opens</source>
+        <translation>어 리틀 애프터 오웰크 오픈스</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>애드</translation>
+    </message>
+    <message>
+        <source>At most, per topic or collection</source>
+        <translation>앳 모스트, 퍼 토픽 오어 컬렉션</translation>
+    </message>
+    <message>
+        <source>Check Now</source>
+        <translation>체크 나우</translation>
+    </message>
+    <message>
+        <source>Check once a day</source>
+        <translation>체크 원스 어 데이</translation>
+    </message>
+    <message>
+        <source>Checking</source>
+        <translation>체킹</translation>
+    </message>
+    <message>
+        <source>Collections</source>
+        <translation>컬렉션스</translation>
+    </message>
+    <message>
+        <source>Day</source>
+        <translation>데이</translation>
+    </message>
+    <message>
+        <source>Last checked </source>
+        <translation>라스트 체크트 </translation>
+    </message>
+    <message>
+        <source>Looking for new papers…</source>
+        <translation>루킹 포 뉴 페이퍼스…</translation>
+    </message>
+    <message>
+        <source>Make collections in the Library to follow them here.</source>
+        <translation>메이크 컬렉션스 인 더 라이브러리 투 팔로 뎀 히어.</translation>
+    </message>
+    <message>
+        <source>Needs a paper with an arXiv ID or DOI</source>
+        <translation>니즈 어 페이퍼 위드 언 아카이브 아이디 오어 디오아이</translation>
+    </message>
+    <message>
+        <source>New arXiv papers with any of the words (separate them with commas), in any of the categories, such as cs.RO or cs.CV. Either may be left empty.</source>
+        <translation>뉴 아카이브 페이퍼스 위드 애니 오브 더 워즈 (세퍼레이트 뎀 위드 콤마스), 인 애니 오브 더 카테고리즈, 서치 애즈 씨에스.알오 오어 씨에스.씨브이. 이더 메이 비 레프트 엠티.</translation>
+    </message>
+    <message>
+        <source>Not checked yet</source>
+        <translation>낫 체크트 옛</translation>
+    </message>
+    <message>
+        <source>Papers found wait in Home and in Library › For You until you add or dismiss them. Only the words, categories and arXiv IDs or DOIs above are sent.</source>
+        <translation>페이퍼스 파운드 웨이트 인 홈 앤드 인 라이브러리 › 포 유 언틸 유 애드 오어 디스미스 뎀. 온리 더 워즈, 카테고리즈 앤드 아카이브 아이디즈 오어 디오아이즈 어보브 아 센트.</translation>
+    </message>
+    <message>
+        <source>Papers from the last</source>
+        <translation>페이퍼스 프롬 더 라스트</translation>
+    </message>
+    <message>
+        <source>Papers like the ones in a followed collection, from Semantic Scholar. It looks at the papers that have an arXiv ID or a DOI (Paper Details).</source>
+        <translation>페이퍼스 라이크 더 원즈 인 어 팔로드 컬렉션, 프롬 시맨틱 스칼라. 잇 룩스 앳 더 페이퍼스 댓 해브 언 아카이브 아이디 오어 어 디오아이 (페이퍼 디테일스).</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>리무브</translation>
+    </message>
+    <message>
+        <source>Topics</source>
+        <translation>토픽스</translation>
+    </message>
+    <message>
+        <source>Words: lidar odometry, SLAM</source>
+        <translation>워즈: 라이다 오도메트리, 슬램</translation>
+    </message>
+    <message>
+        <source>cs.RO, cs.CV</source>
+        <translation>씨에스.알오, 씨에스.씨브이</translation>
     </message>
 </context>
 <context>
@@ -4469,6 +4672,10 @@ You can open the same document twice.</source>
         <translation>백업</translation>
     </message>
     <message>
+        <source>Check for new papers once a day</source>
+        <translation>체크 포 뉴 페이퍼스 원스 어 데이</translation>
+    </message>
+    <message>
         <source>Ctrl+Tab</source>
         <translation>컨트롤+탭</translation>
     </message>
@@ -4493,6 +4700,14 @@ You can open the same document twice.</source>
         <translation>익스포트 노츠 애즈 마크다운</translation>
     </message>
     <message>
+        <source>Follow collections</source>
+        <translation>팔로 컬렉션스</translation>
+    </message>
+    <message>
+        <source>For You topics</source>
+        <translation>포 유 토픽스</translation>
+    </message>
+    <message>
         <source>Gloss model</source>
         <translation>글로스 모델</translation>
     </message>
@@ -4515,6 +4730,10 @@ You can open the same document twice.</source>
     <message>
         <source>Name PDFs</source>
         <translation>네임 피디에프스</translation>
+    </message>
+    <message>
+        <source>New papers from the last</source>
+        <translation>뉴 페이퍼스 프롬 더 라스트</translation>
     </message>
     <message>
         <source>On launch</source>

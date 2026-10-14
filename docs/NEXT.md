@@ -13,6 +13,12 @@
 - 실제 AI 키로 답변·추론 강도·Fast, 기관 PDF 다운로드, 트랙패드·마우스 버튼.
 - 동기화: Mac(Google Drive for desktop)과 Ubuntu(rclone·Insync)에서 같은 폴더를 골라 논문·주석·노트가 오가는지, 같은 노트를 양쪽에서 고쳤을 때 나중 것이 남는지.
 
+## 1-0. For You 후속
+
+- 실사용 확인: 실제 arXiv·Semantic Scholar로 주제·Collection 결과가 적당한지, 하루 한 번 확인이 거슬리지 않는지.
+- 2단계: AI가 찾은 논문을 관련도 순으로 정리하고 논문마다 한두 줄 이유를 붙이기(사용자 동의 완료, 켜고 끌 수 있게).
+- 주제에 넣을 Collection 고르기(지금은 Unsorted), Semantic Scholar 키(속도 제한 완화) 선택 입력.
+
 ## 1-1. 구조 단순화 후속
 
 - 실사용 확인: 업그레이드 후 예전 Workspaces·Captures가 Collection·주석·노트로 잘 바뀌었는지, Document 패널 Annotations에서 코멘트 쓰기, 논문 옆 새 노트, Library Trash.

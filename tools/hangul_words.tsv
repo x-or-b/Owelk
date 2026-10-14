@@ -106,6 +106,7 @@ cancel	캔슬
 cancelled	캔슬드
 cancels	캔슬스
 cannot	캔낫
+categories	카테고리즈
 cell	셀
 change	체인지
 changed	체인지드
@@ -179,10 +180,12 @@ could	쿠드
 create	크리에이트
 created	크리에이티드
 crossref	크로스레프
+cs	씨에스
 ctrl	컨트롤
 current	커런트
 custom	커스텀
 cut	컷
+cv	씨브이
 cycle	사이클
 damage	대미지
 dark	다크
@@ -215,6 +218,7 @@ document	다큐먼트
 documents	다큐먼츠
 does	더즈
 doi	디오아이
+dois	디오아이즈
 done	던
 down	다운
 download	다운로드
@@ -239,6 +243,7 @@ edited	에디티드
 editing	에디팅
 edits	에디츠
 effort	에포트
+either	이더
 else	엘스
 elsewhere	엘스웨어
 embedded	임베디드
@@ -257,6 +262,7 @@ equations	이퀘이션스
 error	에러
 esc	이에스씨
 every	에브리
+everything	에브리싱
 exact	이그잭트
 example	이그잼플
 examples	이그잼플스
@@ -301,6 +307,7 @@ folder	폴더
 folder's	폴더스
 folders	폴더스
 follow	팔로
+followed	팔로드
 font	폰트
 for	포
 forget	포겟
@@ -353,6 +360,7 @@ hues	휴즈
 i	아이
 icon	아이콘
 id	아이디
+ids	아이디즈
 if	이프
 image	이미지
 images	이미지스
@@ -415,6 +423,7 @@ left	레프트
 length	렝스
 library	라이브러리
 library's	라이브러리스
+lidar	라이다
 light	라이트
 lightness	라이트니스
 like	라이크
@@ -438,6 +447,7 @@ locked	락트
 longer	롱거
 look	룩
 looking	루킹
+looks	룩스
 lose	루즈
 loses	루지즈
 low	로
@@ -496,6 +506,7 @@ nothing	낫싱
 now	나우
 numbers	넘버스
 ocr	오시알
+odometry	오도메트리
 of	오브
 off	오프
 offered	오퍼드
@@ -506,6 +517,7 @@ ollama	올라마
 on	온
 once	원스
 one	원
+ones	원즈
 online	온라인
 only	온리
 onto	온투
@@ -660,6 +672,7 @@ return	리턴
 returned	리턴드
 review	리뷰
 right	라이트
+ro	알오
 room	룸
 row	로우
 rows	로우스
@@ -804,6 +817,7 @@ toggle	토글
 toolbars	툴바스
 top	톱
 topic	토픽
+topics	토픽스
 touched	터치트
 translate	트랜슬레이트
 translation	트랜슬레이션
