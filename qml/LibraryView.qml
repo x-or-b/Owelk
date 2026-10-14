@@ -49,6 +49,40 @@ Rectangle {
     readonly property bool showingTrash: view === "trash"
     function setView(next) { if (next !== "papers") setSelecting(false); setFilter(next === "papers" ? {} : {view: next}) }
     Shortcut { sequence: "Escape"; enabled: root.selecting && root.visible; onActivated: root.setSelecting(false) }
+    // Delete or Backspace moves the chosen papers to the Trash (a text field being edited keeps its keys).
+    Shortcut {
+        sequences: [StandardKey.Delete, "Backspace"]
+        enabled: root.selecting && root.visible && root.selection.length > 0
+                 && !(root.Window.activeFocusItem && root.Window.activeFocusItem.cursorPosition !== undefined)
+        onActivated: root.deleteSelection()
+    }
+    function deleteSelection() { const list = selection; setSelecting(false); Qt.callLater(function() { researchStore.deletePapers(list) }) }
+    // What follows the pointer while papers are dragged onto a collection, the AI panel or a panel's shelf.
+    Rectangle {
+        id: dragGhost
+        objectName: "libraryDragGhost"
+        parent: Overlay.overlay
+        visible: Drag.active
+        z: 1000
+        property var paperUrls: []
+        property string title: ""
+        width: Math.min(260, ghostLabel.implicitWidth + 20); height: Theme.controlHeight
+        radius: Theme.radius
+        color: Theme.raised
+        border.width: 1; border.color: Theme.overlayBorder
+        Drag.keys: ["owelk/paper"]
+        Drag.source: dragGhost
+        Drag.hotSpot: Qt.point(10, height / 2)
+        Label {
+            id: ghostLabel
+            anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
+            verticalAlignment: Text.AlignVCenter
+            text: dragGhost.paperUrls.length > 1 ? dragGhost.paperUrls.length + qsTr(" papers") : dragGhost.title
+            elide: Text.ElideRight; textFormat: Text.PlainText
+            font.pixelSize: Theme.fontSmall; color: Theme.text
+        }
+        function follow(point) { const p = parent.mapFromItem(null, point.x, point.y); x = p.x - 10; y = p.y - height / 2 }
+    }
     property int trashCount: 0
     property var trashRows: []
     readonly property var kindNames: ({paper: qsTr("Paper"), note: qsTr("Note"), ai: qsTr("AI conversation")})
@@ -489,7 +523,7 @@ Rectangle {
                                              : root.rows.length + (root.rows.length === 1 ? qsTr(" paper") : qsTr(" papers"))
                         font.pixelSize: Theme.fontSmall; color: root.selecting && root.selection.length ? Theme.text : Theme.textTertiary
                     }
-                    // Selecting: all or none, what to do with the chosen papers, and Done.
+                    // Selecting: all or none, Delete for the chosen papers, and Done.
                     Button {
                         objectName: "librarySelectAll"
                         visible: root.selecting
@@ -498,14 +532,23 @@ Rectangle {
                         text: root.allSelected ? qsTr("Deselect All") : qsTr("Select All")
                         onClicked: root.selectAll(!root.allSelected)
                     }
-                    IconButton {
-                        id: actionsButton
-                        objectName: "librarySelectionActions"
+                    Button {
+                        objectName: "libraryDeleteSelection"
                         visible: root.selecting
                         enabled: root.selection.length > 0
-                        icon.name: "more"
-                        description: qsTr("Actions for the selected papers")
-                        onClicked: { batchMenu.urls = root.selection; batchMenu.popup(actionsButton, 0, actionsButton.height) }
+                        flat: true; font.pixelSize: Theme.fontSmall; horizontalPadding: 8
+                        implicitHeight: Theme.controlHeightSmall
+                        palette.buttonText: Theme.danger
+                        text: qsTr("Delete")
+                        onClicked: root.deleteSelection()
+                    }
+                    Button {
+                        objectName: "librarySelectDone"
+                        visible: root.selecting
+                        flat: true; font.pixelSize: Theme.fontSmall; horizontalPadding: 8
+                        implicitHeight: Theme.controlHeightSmall
+                        text: qsTr("Done")
+                        onClicked: root.setSelecting(false)
                     }
                     IconButton {
                         id: addButton
@@ -520,6 +563,14 @@ Rectangle {
                             MenuItem { text: qsTr("Add PDFs…"); onTriggered: addDialog.open() }
                             MenuItem { objectName: "libraryAddFolder"; text: qsTr("Add Folder…"); onTriggered: folderDialog.open() }
                         }
+                    }
+                    IconButton {
+                        objectName: "librarySelect"
+                        visible: !root.selecting
+                        enabled: root.rows.length > 0
+                        icon.name: "check"
+                        description: qsTr("Select papers")
+                        onClicked: root.setSelecting(true)
                     }
                     // AI topic collections for the selection, or for the papers listed (Unsorted is the usual place).
                     IconButton {
@@ -546,13 +597,6 @@ Rectangle {
                         enabled: root.rows.length > 0
                         description: qsTr("Export BibTeX")
                         onClicked: bibtexDialog.open()
-                    }
-                    Button {
-                        objectName: "librarySelect"
-                        flat: true; font.pixelSize: Theme.fontSmall; horizontalPadding: 8
-                        implicitHeight: Theme.controlHeightSmall
-                        text: root.selecting ? qsTr("Done") : qsTr("Select")
-                        onClicked: root.setSelecting(!root.selecting)
                     }
                 }
                 Native.FileDialog {
@@ -595,11 +639,24 @@ Rectangle {
                         }
                         ToolTip.visible: hovered; ToolTip.delay: 600
                         ToolTip.text: modelData.fileName + (modelData.duplicate ? qsTr("\nSame file as another library entry") : "") + (modelData.excluded ? qsTr("\nExcluded from text search") : "")
-                        Drag.active: dragHandler.active
-                        Drag.keys: ["owelk/paper"]
-                        Drag.source: paper
-                        Drag.hotSpot: Qt.point(20, 20)
-                        DragHandler { id: dragHandler; target: null; onActiveChanged: if (!active) paper.Drag.drop() }
+                        DragHandler {
+                            id: dragHandler
+                            objectName: "libraryPaperDrag"
+                            target: null
+                            grabPermissions: PointerHandler.CanTakeOverFromAnything
+                            onActiveChanged: {
+                                if (active) {
+                                    dragGhost.paperUrls = paper.paperUrls
+                                    dragGhost.title = paper.modelData.name
+                                    dragGhost.follow(centroid.scenePosition)
+                                    dragGhost.Drag.active = true
+                                } else if (dragGhost.Drag.active) {
+                                    dragGhost.Drag.drop()
+                                    dragGhost.Drag.active = false
+                                }
+                            }
+                            onCentroidChanged: if (active) dragGhost.follow(centroid.scenePosition)
+                        }
                         TapHandler {
                             acceptedButtons: Qt.RightButton
                             onTapped: {

@@ -1434,10 +1434,6 @@ Same file as another library entry</source>
         <translation>에이아이 컨버세이션</translation>
     </message>
     <message>
-        <source>Actions for the selected papers</source>
-        <translation>액션스 포 더 셀렉티드 페이퍼스</translation>
-    </message>
-    <message>
         <source>Add Folder…</source>
         <translation>애드 폴더…</translation>
     </message>
@@ -1516,6 +1512,10 @@ Same file as another library entry</source>
     <message>
         <source>Copy Markdown</source>
         <translation>카피 마크다운</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>딜리트</translation>
     </message>
     <message>
         <source>Deselect All</source>
@@ -1670,12 +1670,12 @@ Same file as another library entry</source>
         <translation>리스토어</translation>
     </message>
     <message>
-        <source>Select</source>
-        <translation>셀렉트</translation>
-    </message>
-    <message>
         <source>Select All</source>
         <translation>셀렉트 올</translation>
+    </message>
+    <message>
+        <source>Select papers</source>
+        <translation>셀렉트 페이퍼스</translation>
     </message>
     <message>
         <source>Tags</source>
