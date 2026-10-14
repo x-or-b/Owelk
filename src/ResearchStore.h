@@ -422,6 +422,7 @@ signals:
     void relinkFinished(bool success, const QString &detail);
 
 private:
+    friend class ForYou; // Its tables live in the library.
     void saveTextSelection(const QUrl &source, int page, const QPointF &from, const QPointF &to,
         const QString &expectedText, const QString &color, const QString &kind = "highlight",
         const QString &body = QString());

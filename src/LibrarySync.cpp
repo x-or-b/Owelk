@@ -40,7 +40,8 @@ const QList<Table> &tables()
         {"highlights", {"id"}}, {"recent_documents", {"document_id"}}, {"reading_positions", {"document_id"}},
         {"collection_documents", {"collection_id", "document_id"}}, {"document_tags", {"document_id", "tag_id"}},
         {"links", {"from_kind", "from_id", "to_kind", "to_id"}}, {"ai_folders", {"id"}}, {"ai_threads", {"id"}},
-        {"ai_messages", {"id"}}, {"ai_responses", {"id"}}};
+        {"ai_messages", {"id"}}, {"ai_responses", {"id"}}, {"foryou_topics", {"id"}},
+        {"foryou_follows", {"collection_id"}}, {"foryou_items", {"id"}}, {"foryou_meta", {"key"}}};
     return list;
 }
 
@@ -115,6 +116,15 @@ bool installTracking(QSqlDatabase &db, QString *error)
         "CREATE TABLE IF NOT EXISTS sync_files(local TEXT NOT NULL, remote TEXT NOT NULL, outgoing INTEGER NOT NULL, "
         "PRIMARY KEY(local,remote,outgoing))"};
     const QString mark = "INSERT OR REPLACE INTO sync_dirty(tbl,key,time,device) VALUES('%1',json_array(%2),%3,NULL);";
+    // A table added in a later version: its rows (written before it was tracked) travel once.
+    QStringList untracked;
+    for (const auto &table : tables()) {
+        QSqlQuery known(db);
+        known.prepare("SELECT 1 FROM sqlite_master WHERE type='trigger' AND name=?");
+        known.addBindValue("sync_" + table.name + "_insert");
+        if (known.exec() && !known.next()) untracked << table.name;
+    }
+    const bool firstTime = untracked.size() == tables().size();
     for (const auto &table : tables()) {
         QStringList fresh, old;
         for (const auto &key : table.keys) {
@@ -130,6 +140,12 @@ bool installTracking(QSqlDatabase &db, QString *error)
                    << head.arg("update", "UPDATE") + oldRow + newRow + " END"
                    << head.arg("delete", "DELETE") + oldRow + " END";
     }
+    if (!firstTime)
+        for (const auto &table : tables())
+            if (untracked.contains(table.name))
+                statements << QStringLiteral("INSERT OR IGNORE INTO sync_dirty(tbl,key,time,device) SELECT '%1',"
+                                             "json_array(%2),%3,NULL FROM %1")
+                                  .arg(table.name, table.keys.join(','), nowMs);
     for (const auto &statement : statements) {
         QSqlQuery query(db);
         if (!query.exec(statement)) {

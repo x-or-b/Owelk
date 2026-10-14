@@ -1,6 +1,7 @@
 #include "ForYou.h"
 
 #include "FileFingerprint.h"
+#include "LibrarySync.h"
 #include "PaperMetadata.h"
 #include "ResearchStore.h"
 #include "UiText.h"
@@ -14,6 +15,7 @@
 #include <QNetworkReply>
 #include <QRegularExpression>
 #include <QTimer>
+#include <QSqlQuery>
 #include <QUuid>
 #include <QXmlStreamReader>
 
@@ -139,7 +141,11 @@ QVariantList recommendations(const QByteArray &json)
 
 ForYou::ForYou(ResearchStore *store, QObject *parent) : QObject(parent), m_store(store)
 {
-    connect(store, &ResearchStore::settingsChanged, this, &ForYou::settingsChanged);
+    // Options (how long papers stay) change what is shown.
+    connect(store, &ResearchStore::settingsChanged, this, [this] {
+        emit settingsChanged();
+        emit changed();
+    });
     if (auto *ai = qobject_cast<AiService *>(store->ai())) {
         connect(ai, &AiService::papersRanked, this, &ForYou::ranked);
         // The AI may be ready only after a check (an account read a little after launch, a key added later):
@@ -191,6 +197,14 @@ QString ForYou::interests() const
 
 void ForYou::sortItems()
 {
+    // Newest first, then (stable) the AI's most relevant first.
+    const auto date = [](const QVariant &value) {
+        const auto item = value.toMap();
+        const auto day = item.value("date").toString();
+        return day.isEmpty() ? item.value("foundAt").toString().left(10) : day;
+    };
+    std::stable_sort(
+        m_items.begin(), m_items.end(), [&](const QVariant &a, const QVariant &b) { return date(a) > date(b); });
     std::stable_sort(m_items.begin(), m_items.end(), [](const QVariant &a, const QVariant &b) {
         const auto score = [](const QVariant &value) {
             const auto item = value.toMap();
@@ -199,7 +213,6 @@ void ForYou::sortItems()
         return score(a) > score(b);
     });
 }
-
 void ForYou::explain()
 {
     auto *ai = qobject_cast<AiService *>(m_store->ai());
@@ -235,22 +248,14 @@ void ForYou::ranked(int request, const QVariantList &ranking, const QString &err
     m_explaining = false;
     m_store->finishTask("forYouAi");
     m_aiProblem = error;
-    QHash<QString, QVariantMap> byId;
-    for (const auto &value : ranking) byId.insert(value.toMap().value("id").toString(), value.toMap());
-    for (auto &value : m_items) {
-        auto item = value.toMap();
-        const auto found = byId.value(item.value("id").toString());
-        if (found.isEmpty()) continue;
-        item.insert("score", found.value("score"));
-        item.insert("why", found.value("why"));
-        value = item;
+    for (const auto &value : ranking) {
+        const auto rank = value.toMap();
+        exec("UPDATE foryou_items SET score=?,why=? WHERE id=? AND state='new'",
+            {rank.value("score"), rank.value("why"), rank.value("id")});
     }
-    sortItems();
-    save();
+    load();
     emit explainingChanged();
-    emit changed();
 }
-
 void ForYou::start()
 {
     load();
@@ -262,41 +267,81 @@ void ForYou::start()
     QTimer::singleShot(8000, this, &ForYou::checkIfDue);
 }
 
-QString ForYou::path() const
+bool ForYou::exec(const QString &sql, const QVariantList &values) const
 {
-    return m_store->dataDirectory() + "/foryou.json";
+    QSqlQuery query(m_store->m_database);
+    query.prepare(sql);
+    for (const auto &value : values) query.addBindValue(value);
+    return query.exec();
 }
 
+void ForYou::reload()
+{
+    load();
+    emit settingsChanged();
+}
 void ForYou::load()
 {
-    QFile file(path());
-    if (!file.open(QIODevice::ReadOnly)) return;
-    const auto saved = QJsonDocument::fromJson(file.readAll()).object();
-    m_items = saved.value("items").toArray().toVariantList();
-    m_dismissed = saved.value("dismissed").toVariant().toStringList();
-    m_lastChecked = QDateTime::fromString(saved.value("checkedAt").toString(), Qt::ISODate);
-    m_problem = saved.value("problem").toString();
+    m_items.clear();
+    m_handled.clear();
+    QSqlQuery query(m_store->m_database);
+    query.exec("SELECT id,state,paper,found_at,score,why FROM foryou_items ORDER BY found_at DESC");
+    int waiting = 0;
+    QStringList old;
+    while (query.next()) {
+        const auto id = query.value(0).toString();
+        if (query.value(1).toString() != "new") {
+            m_handled << id;
+            continue;
+        }
+        // Only the newest few hundred wait; the rest are let go.
+        if (++waiting > keptItems) {
+            old << id;
+            continue;
+        }
+        auto item = QJsonDocument::fromJson(query.value(2).toByteArray()).object().toVariantMap();
+        item.insert({{"id", id}, {"foundAt", query.value(3)}});
+        if (!query.value(4).isNull()) item.insert("score", query.value(4).toInt());
+        if (!query.value(5).toString().isEmpty()) item.insert("why", query.value(5).toString());
+        m_items.append(item);
+    }
+    query.finish();
+    for (const auto &id : std::as_const(old)) exec("DELETE FROM foryou_items WHERE id=?", {id});
+    sortItems();
+    QSqlQuery meta(m_store->m_database);
+    meta.exec("SELECT value FROM foryou_meta WHERE key='checkedAt'");
+    m_lastChecked = meta.next() ? QDateTime::fromString(meta.value(0).toString(), Qt::ISODate) : QDateTime();
     emit changed();
 }
 
-void ForYou::save() const
+QVariantList ForYou::items() const
 {
-    QFile file(path());
-    if (!file.open(QIODevice::WriteOnly)) return;
-    file.write(QJsonDocument(QJsonObject{{"items", QJsonArray::fromVariantList(m_items)},
-                                 {"dismissed", QJsonArray::fromStringList(m_dismissed)},
-                                 {"checkedAt", m_lastChecked.toString(Qt::ISODate)}, {"problem", m_problem}})
-            .toJson(QJsonDocument::Compact));
+    // Kept for the number of days chosen (Settings › For You; 0 keeps them until added or dismissed).
+    const int days = m_store->setting("forYou.keepDays", "30").toInt();
+    if (days <= 0) return m_items;
+    const auto oldest = QDateTime::currentDateTimeUtc().addDays(-days);
+    QVariantList shown;
+    for (const auto &value : m_items)
+        if (QDateTime::fromString(value.toMap().value("foundAt").toString(), Qt::ISODate) >= oldest)
+            shown.append(value);
+    return shown;
 }
 
 QVariantList ForYou::topics() const
 {
-    return QJsonDocument::fromJson(m_store->setting("forYou.topics", "[]").toUtf8()).array().toVariantList();
+    QVariantList list;
+    QSqlQuery query(m_store->m_database);
+    query.exec("SELECT id,words,categories,enabled FROM foryou_topics ORDER BY position,id");
+    while (query.next())
+        list.append(QVariantMap{{"id", query.value(0)}, {"words", query.value(1)}, {"categories", query.value(2)},
+            {"on", query.value(3).toBool()}});
+    return list;
 }
-
 bool ForYou::saveTopics(const QVariantList &topics)
 {
-    QJsonArray kept;
+    // Only rows that change are written, so syncing sends only them.
+    QStringList kept;
+    int position = 0;
     for (const auto &value : topics) {
         const auto topic = value.toMap();
         const auto words = topic.value("words").toString().simplified().left(300);
@@ -304,25 +349,35 @@ bool ForYou::saveTopics(const QVariantList &topics)
         if (words.isEmpty() && categories.isEmpty()) continue;
         auto id = topic.value("id").toString();
         if (id.isEmpty()) id = QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
-        kept.append(QJsonObject{
-            {"id", id}, {"words", words}, {"categories", categories}, {"on", topic.value("on", true).toBool()}});
+        if (!exec("INSERT INTO foryou_topics(id,words,categories,enabled,position) VALUES(?,?,?,?,?) ON CONFLICT(id) "
+                  "DO UPDATE SET words=excluded.words,categories=excluded.categories,enabled=excluded.enabled,"
+                  "position=excluded.position WHERE words<>excluded.words OR categories<>excluded.categories OR "
+                  "enabled<>excluded.enabled OR position<>excluded.position",
+                {id, words, categories, topic.value("on", true).toBool() ? 1 : 0, position++}))
+            return false;
+        kept << id;
     }
-    return m_store->setSetting("forYou.topics", QJsonDocument(kept).toJson(QJsonDocument::Compact));
+    for (const auto &value : this->topics())
+        if (!kept.contains(value.toMap().value("id").toString()))
+            exec("DELETE FROM foryou_topics WHERE id=?", {value.toMap().value("id")});
+    emit settingsChanged();
+    return true;
 }
-
 bool ForYou::following(const QString &collectionId) const
 {
-    return m_store->setting("forYou.collections").split(',', Qt::SkipEmptyParts).contains(collectionId);
+    QSqlQuery query(m_store->m_database);
+    query.prepare("SELECT 1 FROM foryou_follows WHERE collection_id=?");
+    query.addBindValue(collectionId);
+    return query.exec() && query.next();
 }
-
 void ForYou::follow(const QString &collectionId, bool on)
 {
-    auto list = m_store->setting("forYou.collections").split(',', Qt::SkipEmptyParts);
-    list.removeAll(collectionId);
-    if (on && !collectionId.isEmpty()) list << collectionId;
-    m_store->setSetting("forYou.collections", list.join(','));
+    if (collectionId.isEmpty()) return;
+    exec(on ? "INSERT OR IGNORE INTO foryou_follows(collection_id) VALUES(?)"
+            : "DELETE FROM foryou_follows WHERE collection_id=?",
+        {collectionId});
+    emit settingsChanged();
 }
-
 int ForYou::usablePapers(const QString &collectionId) const
 {
     return int(m_store->collectionPaperKeys(collectionId, 1000).size());
@@ -330,15 +385,11 @@ int ForYou::usablePapers(const QString &collectionId) const
 
 bool ForYou::configured() const
 {
-    for (const auto &value : topics())
-        if (value.toMap().value("on", true).toBool()) return true;
-    QStringList existing;
-    for (const auto &value : m_store->collections()) existing << value.toMap().value("id").toString();
-    for (const auto &id : m_store->setting("forYou.collections").split(',', Qt::SkipEmptyParts))
-        if (existing.contains(id)) return true;
-    return false;
+    QSqlQuery query(m_store->m_database);
+    return query.exec("SELECT 1 FROM foryou_topics WHERE enabled=1 UNION ALL SELECT 1 FROM foryou_follows f JOIN "
+                      "collections c ON c.id=f.collection_id LIMIT 1")
+        && query.next();
 }
-
 QDateTime ForYou::since() const
 {
     const int days = qBound(1, m_store->setting("forYou.days", "7").toInt(), 90);
@@ -349,7 +400,7 @@ QVariantList ForYou::sources() const
 {
     QVariantList list;
     QHash<QString, int> counts;
-    for (const auto &value : m_items) {
+    for (const auto &value : items()) {
         const auto item = value.toMap();
         const auto key = item.value("source").toString();
         if (!counts.contains(key)) list.append(QVariantMap{{"key", key}, {"name", item.value("sourceName")}});
@@ -362,14 +413,17 @@ QVariantList ForYou::sources() const
     }
     return list;
 }
-
 void ForYou::checkIfDue()
 {
     if (m_checking || !configured() || m_store->setting("forYou.auto", "1") != "1") return;
+    // Syncing first: another computer may have looked today already (its papers and reasons come along).
+    if (m_store->librarySync() && m_store->librarySync()->running()) {
+        QTimer::singleShot(10000, this, &ForYou::checkIfDue);
+        return;
+    }
     if (m_lastChecked.isValid() && m_lastChecked.toLocalTime().date() == QDate::currentDate()) return;
     refresh();
 }
-
 void ForYou::refresh()
 {
     if (m_checking) return;
@@ -476,7 +530,7 @@ void ForYou::runNext()
 
 void ForYou::found(const QVariantList &papers, const QString &source, const QString &sourceName)
 {
-    QStringList known;
+    QStringList known = m_handled;
     for (const auto &list : {m_items, m_found})
         for (const auto &value : list) known << value.toMap().value("id").toString();
     const auto oldest = since().date();
@@ -486,45 +540,50 @@ void ForYou::found(const QVariantList &papers, const QString &source, const QStr
         const auto id = !arxiv.isEmpty() ? "arxiv:" + arxiv
             : !doi.isEmpty()             ? "doi:" + doi.toLower()
                                          : "s2:" + paper.value("paperId").toString();
-        if (id == "s2:" || known.contains(id) || m_dismissed.contains(id) || m_store->hasPaper(arxiv, doi)) continue;
+        if (id == "s2:" || known.contains(id) || m_store->hasPaper(arxiv, doi)) continue;
         // Recommendations come from any year; only recent ones are new (undated ones are kept).
         const auto date = QDate::fromString(paper.value("date").toString(), Qt::ISODate);
         if (date.isValid() && date < oldest) continue;
-        paper.insert({{"id", id}, {"arxiv", arxiv}, {"source", source}, {"sourceName", sourceName},
-            {"foundAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}});
+        paper.insert({{"id", id}, {"arxiv", arxiv}, {"source", source}, {"sourceName", sourceName}});
         m_found.append(paper);
         known << id;
     }
 }
-
 void ForYou::finishCheck()
 {
-    std::stable_sort(m_found.begin(), m_found.end(), [](const QVariant &a, const QVariant &b) {
-        return a.toMap().value("date").toString() > b.toMap().value("date").toString();
-    });
-    const int fresh = int(m_found.size());
+    const auto now = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+    int fresh = 0;
+    for (const auto &value : std::as_const(m_found)) {
+        auto paper = value.toMap();
+        const auto id = paper.take("id").toString();
+        // Another computer may have found it meanwhile (it came through sync): kept as it is.
+        QSqlQuery insert(m_store->m_database);
+        insert.prepare("INSERT OR IGNORE INTO foryou_items(id,state,paper,found_at) VALUES(?,'new',?,?)");
+        insert.addBindValue(id);
+        insert.addBindValue(
+            QString::fromUtf8(QJsonDocument(QJsonObject::fromVariantMap(paper)).toJson(QJsonDocument::Compact)));
+        insert.addBindValue(now);
+        if (insert.exec() && insert.numRowsAffected() == 1) ++fresh;
+    }
     // What was waiting stays, unless it has reached the Library since.
-    QVariantList kept = m_found;
     for (const auto &value : std::as_const(m_items)) {
         const auto item = value.toMap();
-        if (!m_store->hasPaper(item.value("arxiv").toString(), item.value("doi").toString())) kept.append(item);
+        if (m_store->hasPaper(item.value("arxiv").toString(), item.value("doi").toString()))
+            exec("UPDATE foryou_items SET state='added',paper='{}',score=NULL,why=NULL WHERE id=?", {item.value("id")});
     }
-    m_items = kept.mid(0, keptItems);
-    sortItems();
+    exec("INSERT INTO foryou_meta(key,value) VALUES('checkedAt',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        {now});
     m_found.clear();
-    m_lastChecked = QDateTime::currentDateTimeUtc();
     m_problem = m_problems.join(' ');
     m_checking = false;
-    save();
+    load();
     m_store->finishTask("forYou");
     emit checkingChanged();
-    emit changed();
     if (fresh)
         m_store->notify(fresh == 1 ? ui("For You: 1 new paper.") : QString(ui("For You: %1 new papers.")).arg(fresh));
     // New papers explained by the AI, when that is on and the AI is set up.
     if (fresh && m_store->setting("forYou.ai", "1") == "1" && aiReady()) explain();
 }
-
 QVariantMap ForYou::item(const QString &id) const
 {
     for (const auto &value : m_items)
@@ -532,24 +591,12 @@ QVariantMap ForYou::item(const QString &id) const
     return {};
 }
 
-void ForYou::removeItems(const QStringList &ids)
-{
-    QVariantList kept;
-    for (const auto &value : std::as_const(m_items))
-        if (!ids.contains(value.toMap().value("id").toString())) kept.append(value);
-    m_items = kept;
-}
-
 void ForYou::dismiss(const QStringList &ids)
 {
     for (const auto &id : ids)
-        if (!m_dismissed.contains(id)) m_dismissed << id;
-    m_dismissed = m_dismissed.mid(qMax(0, int(m_dismissed.size()) - 2000));
-    removeItems(ids);
-    save();
-    emit changed();
+        exec("UPDATE foryou_items SET state='dismissed',paper='{}',score=NULL,why=NULL WHERE id=?", {id});
+    load();
 }
-
 void ForYou::add(const QStringList &ids)
 {
     const bool idle = m_adding.isEmpty();
@@ -641,8 +688,7 @@ void ForYou::finishAdd(const QVariantMap &paper, const QUrl &file)
                 {"doi", paper.value("doi").toString().left(200)}, {"arxiv", paper.value("arxiv").toString().left(40)}});
         if (!collection.isEmpty()) m_store->setDocumentCollection(url, collection, true);
     }
-    removeItems({paper.value("id").toString()});
-    save();
-    emit changed();
+    exec("UPDATE foryou_items SET state='added',paper='{}',score=NULL,why=NULL WHERE id=?", {paper.value("id")});
+    load();
     m_store->notify(QString(ui("Added “%1” to the Library.")).arg(paper.value("title").toString()));
 }

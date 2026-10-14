@@ -15,6 +15,7 @@
 #include <QClipboard>
 #include <QDateTime>
 #include <QDir>
+#include <QJsonArray>
 #include <QFile>
 #include <QFileInfo>
 #include <QFutureWatcher>
@@ -401,6 +402,72 @@ bool ResearchStore::initialize(QString *error)
                 "max(updated_at) FROM ai_threads WHERE folder_id IS NOT NULL GROUP BY folder_id",
                 "DELETE FROM links WHERE from_kind='ai' AND to_kind='collection'"},
             {}, true},
+        // For You in the library (so it syncs): topics, followed collections, the papers found with the AI's
+        // reasons and what became of them, and when it last looked. Brought over from the settings and
+        // <data>/foryou.json of the first version.
+        {18,
+            {"CREATE TABLE IF NOT EXISTS foryou_topics (id TEXT PRIMARY KEY, words TEXT NOT NULL DEFAULT '', "
+             "categories TEXT NOT "
+             "NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 1, position INTEGER NOT NULL DEFAULT 0)",
+                "CREATE TABLE IF NOT EXISTS foryou_follows (collection_id TEXT PRIMARY KEY)",
+                "CREATE TABLE IF NOT EXISTS foryou_items (id TEXT PRIMARY KEY, state TEXT NOT NULL DEFAULT 'new', "
+                "paper TEXT NOT "
+                "NULL DEFAULT '{}', found_at TEXT NOT NULL, score INTEGER, why TEXT)",
+                "CREATE TABLE IF NOT EXISTS foryou_meta (key TEXT PRIMARY KEY, value TEXT)"},
+            [this](QSqlDatabase &db, QString *error) {
+                const auto run = [&](const QString &sql, const QVariantList &values) {
+                    QSqlQuery query(db);
+                    query.prepare(sql);
+                    for (const auto &value : values) query.addBindValue(value);
+                    if (query.exec()) return true;
+                    *error = query.lastError().text();
+                    return false;
+                };
+                const auto pref = [&](const QString &key) {
+                    QSqlQuery query(db);
+                    query.prepare("SELECT value FROM settings WHERE key=?");
+                    query.addBindValue("pref." + key);
+                    return query.exec() && query.next() ? query.value(0).toString() : QString();
+                };
+                int position = 0;
+                for (const auto &value : QJsonDocument::fromJson(pref("forYou.topics").toUtf8()).array()) {
+                    const auto topic = value.toObject();
+                    if (!run("INSERT OR IGNORE INTO foryou_topics(id,words,categories,enabled,position) "
+                             "VALUES(?,?,?,?,?)",
+                            {topic.value("id").toString(), topic.value("words").toString(),
+                                topic.value("categories").toString(), topic.value("on").toBool(true) ? 1 : 0,
+                                position++}))
+                        return false;
+                }
+                for (const auto &id : pref("forYou.collections").split(',', Qt::SkipEmptyParts))
+                    if (!run("INSERT OR IGNORE INTO foryou_follows(collection_id) VALUES(?)", {id})) return false;
+                QFile file(m_directory + "/foryou.json");
+                if (file.open(QIODevice::ReadOnly)) {
+                    const auto saved = QJsonDocument::fromJson(file.readAll()).object();
+                    for (const auto &value : saved.value("items").toArray()) {
+                        auto paper = value.toObject();
+                        const auto id = paper.take("id").toString();
+                        const auto foundAt = paper.take("foundAt").toString();
+                        const auto score = paper.take("score"), why = paper.take("why");
+                        if (!run("INSERT OR IGNORE INTO foryou_items(id,state,paper,found_at,score,why) "
+                                 "VALUES(?,?,?,?,?,?)",
+                                {id, "new", QString::fromUtf8(QJsonDocument(paper).toJson(QJsonDocument::Compact)),
+                                    foundAt.isEmpty() ? QDateTime::currentDateTimeUtc().toString(Qt::ISODate) : foundAt,
+                                    score.isDouble() ? QVariant(score.toInt()) : QVariant(), why.toString()}))
+                            return false;
+                    }
+                    for (const auto &id : saved.value("dismissed").toArray())
+                        if (!run("INSERT OR IGNORE INTO foryou_items(id,state,found_at) VALUES(?,'dismissed',?)",
+                                {id.toString(), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}))
+                            return false;
+                    if (const auto checked = saved.value("checkedAt").toString(); !checked.isEmpty())
+                        if (!run("INSERT OR REPLACE INTO foryou_meta(key,value) VALUES('checkedAt',?)", {checked}))
+                            return false;
+                    file.close();
+                    file.rename(m_directory + "/foryou.json.imported");
+                }
+                return run("DELETE FROM settings WHERE key IN ('pref.forYou.topics','pref.forYou.collections')", {});
+            }},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     loadDocumentNames();
@@ -564,6 +631,7 @@ void ResearchStore::syncReceived(const QSet<QString> &tables, const QStringList 
         emit linksChanged();
     }
     if (touched({"ai_threads", "ai_messages", "ai_responses"})) emit aiThreadsChanged();
+    if (touched({"foryou_topics", "foryou_follows", "foryou_items", "foryou_meta"})) m_forYou->reload();
 }
 
 QVariantMap ResearchStore::readingPosition(const QUrl &source) const

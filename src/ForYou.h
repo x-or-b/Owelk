@@ -13,10 +13,11 @@ class ResearchStore;
 
 // For You: new papers in the fields the reader follows. Topics (words and arXiv categories) are looked up
 // on arXiv; followed collections ask Semantic Scholar for papers like theirs (by their arXiv IDs and
-// DOIs). Papers found wait in <data>/foryou.json until added to the Library (the PDF is downloaded, named
-// and filed) or dismissed; papers already in the Library or dismissed are not shown again. Checked when
-// asked and, when on, once a day while Owelk runs. Topics, followed collections and options are settings
-// (forYou.*), kept on this computer.
+// DOIs). Papers found wait until added to the Library (the PDF is downloaded, named and filed) or
+// dismissed; papers already in the Library or dismissed are not shown again. Checked when asked and, when
+// on, once a day while Owelk runs. Topics, followed collections, the papers found with the AI's reasons and
+// what became of them live in the library (foryou_* tables), so they sync; how often and how far back to
+// look are settings (forYou.*) of this computer.
 class ForYou final : public QObject {
     Q_OBJECT
     // The papers waiting, newest first: {id, title, authors, date, year, abstract, arxiv, doi, pdf, url,
@@ -35,7 +36,7 @@ class ForYou final : public QObject {
     Q_PROPERTY(QString aiProblem READ aiProblem NOTIFY changed)
 public:
     explicit ForYou(ResearchStore *store, QObject *parent = nullptr);
-    QVariantList items() const { return m_items; }
+    QVariantList items() const;
     bool configured() const;
     bool checking() const { return m_checking; }
     QDateTime lastChecked() const { return m_lastChecked; }
@@ -43,8 +44,10 @@ public:
     QStringList adding() const { return m_adding; }
     bool explaining() const { return m_explaining; }
     QString aiProblem() const { return m_aiProblem; }
-    // Reads foryou.json and starts the daily check (a little after launch, then every hour).
+    // Reads what was found and starts the daily check (a little after launch, then every hour).
     void start();
+    // Read again (rows arrived from another computer).
+    void reload();
 
     // Topics: [{id, words, categories, on}]; words and categories are comma-separated.
     Q_INVOKABLE QVariantList topics() const;
@@ -87,21 +90,20 @@ private:
     void addNext();
     void finishAdd(const QVariantMap &item, const QUrl &file);
     QVariantMap item(const QString &id) const;
-    void removeItems(const QStringList &ids);
     void ranked(int request, const QVariantList &ranking, const QString &error);
     // What is followed, as text for the AI: topics, and some titles from each followed collection.
     QString interests() const;
     // Most relevant first (papers the AI scored), then newest.
     void sortItems();
     void load();
-    void save() const;
-    QString path() const;
+    bool exec(const QString &sql, const QVariantList &values) const;
     QDateTime since() const;
     ResearchStore *m_store;
     QNetworkAccessManager *m_network = nullptr;
     QTimer *m_daily = nullptr;
     QVariantList m_items;
-    QStringList m_dismissed;
+    // Papers dismissed or added (here or on another computer): not suggested again.
+    QStringList m_handled;
     QDateTime m_lastChecked;
     QString m_problem;
     QStringList m_problems;

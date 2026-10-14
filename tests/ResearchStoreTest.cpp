@@ -886,6 +886,114 @@ private slots:
             QCOMPARE(later->items().size(), 0);
         }
     }
+    void forYouMovesIntoTheLibraryAndSyncs()
+    {
+        QTemporaryDir directory;
+        const auto data = directory.filePath("mac");
+        QString error;
+        QString odometry;
+        {
+            ResearchStore fresh(data);
+            QVERIFY2(fresh.initialize(&error), qPrintable(error));
+            odometry = fresh.createCollection("Odometry");
+        }
+        {
+            // As the first version kept it: topics and follows in settings, papers in foryou.json.
+            auto db = QSqlDatabase::addDatabase("QSQLITE", "v17");
+            db.setDatabaseName(data + "/owelk.sqlite3");
+            QVERIFY(db.open());
+            QSqlQuery query(db);
+            for (const auto &sql : {QString("DROP TABLE foryou_topics"), QString("DROP TABLE foryou_follows"),
+                     QString("DROP TABLE foryou_items"), QString("DROP TABLE foryou_meta"),
+                     QString("INSERT INTO settings VALUES('pref.forYou.topics','[{\"id\":\"t1\",\"words\":\"SLAM\","
+                             "\"categories\":\"cs.RO\",\"on\":true}]')"),
+                     "INSERT INTO settings VALUES('pref.forYou.collections','" + odometry + "')",
+                     QString("PRAGMA user_version=17")})
+                QVERIFY2(query.exec(sql), qPrintable(query.lastError().text() + sql));
+            db.close();
+        }
+        QSqlDatabase::removeDatabase("v17");
+        QFile old(data + "/foryou.json");
+        QVERIFY(old.open(QIODevice::WriteOnly));
+        old.write(R"({"items":[{"id":"arxiv:2601.00001","title":"Kept Paper","date":"2026-01-02","foundAt":"2026-10-01T00:00:00Z","score":88,"why":"On SLAM."}],"dismissed":["doi:10.1/gone"],"checkedAt":"2026-10-01T00:00:00Z"})");
+        old.close();
+        ResearchStore mac(data);
+        QVERIFY2(mac.initialize(&error), qPrintable(error));
+        auto *forYou = qobject_cast<ForYou *>(mac.forYou());
+        QCOMPARE(forYou->topics().size(), 1);
+        QCOMPARE(forYou->topics()[0].toMap()["words"].toString(), QString("SLAM"));
+        QVERIFY(forYou->following(odometry));
+        QVERIFY(mac.setting("forYou.topics").isEmpty());
+        mac.setSetting("forYou.keepDays", "0");
+        QCOMPARE(forYou->items().size(), 1);
+        QCOMPARE(forYou->items()[0].toMap()["why"].toString(), QString("On SLAM."));
+        QCOMPARE(forYou->items()[0].toMap()["score"].toInt(), 88);
+        QVERIFY(forYou->lastChecked().isValid());
+        QVERIFY(!QFileInfo::exists(data + "/foryou.json"));
+        // Kept for the days chosen: a paper found long ago leaves the list (it is not deleted).
+        mac.setSetting("forYou.keepDays", "7");
+        QCOMPARE(forYou->items().size(), 0);
+        mac.setSetting("forYou.keepDays", "0");
+        // Another computer gets the topics, the follows and the papers with the AI's reasons, so nothing is
+        // asked twice; what is dismissed on one goes on the other.
+        const auto drive = directory.filePath("Drive");
+        QVERIFY(QDir().mkpath(drive));
+        QCOMPARE(mac.librarySync()->setFolder(QUrl::fromLocalFile(drive)), QString());
+        QVERIFY(mac.librarySync()->syncBlocking().error.isEmpty());
+        ResearchStore laptop(directory.filePath("laptop"));
+        QVERIFY2(laptop.initialize(&error), qPrintable(error));
+        laptop.setSetting("forYou.keepDays", "0");
+        QCOMPARE(laptop.librarySync()->setFolder(QUrl::fromLocalFile(drive)), QString());
+        QVERIFY(laptop.librarySync()->syncBlocking().error.isEmpty());
+        auto *other = qobject_cast<ForYou *>(laptop.forYou());
+        QCOMPARE(other->topics().size(), 1);
+        QVERIFY(other->following(odometry));
+        QCOMPARE(other->items().size(), 1);
+        QCOMPARE(other->items()[0].toMap()["why"].toString(), QString("On SLAM."));
+        QCOMPARE(other->lastChecked(), forYou->lastChecked());
+        other->dismiss({"arxiv:2601.00001"});
+        QVERIFY(laptop.librarySync()->syncBlocking().error.isEmpty());
+        QVERIFY(mac.librarySync()->syncBlocking().error.isEmpty());
+        QCOMPARE(forYou->items().size(), 0);
+    }
+    void forYouTopicsTravelAfterAnUpgradeWhileSyncing()
+    {
+        // Syncing already, then upgraded: the topics brought into the library still travel.
+        QTemporaryDir directory;
+        const auto data = directory.filePath("mac"), drive = directory.filePath("Drive");
+        QVERIFY(QDir().mkpath(drive));
+        QString error;
+        {
+            ResearchStore fresh(data);
+            QVERIFY2(fresh.initialize(&error), qPrintable(error));
+            QCOMPARE(fresh.librarySync()->setFolder(QUrl::fromLocalFile(drive)), QString());
+            QVERIFY(fresh.librarySync()->syncBlocking().error.isEmpty());
+        }
+        {
+            auto db = QSqlDatabase::addDatabase("QSQLITE", "v17sync");
+            db.setDatabaseName(data + "/owelk.sqlite3");
+            QVERIFY(db.open());
+            QSqlQuery query(db);
+            for (const auto &sql : {QString("DROP TABLE foryou_topics"), QString("DROP TABLE foryou_follows"),
+                     QString("DROP TABLE foryou_items"), QString("DROP TABLE foryou_meta"),
+                     QString("INSERT INTO settings VALUES('pref.forYou.topics','[{\"id\":\"t9\",\"words\":\"lidar\","
+                             "\"categories\":\"\",\"on\":true}]')"),
+                     QString("PRAGMA user_version=17")})
+                QVERIFY2(query.exec(sql), qPrintable(query.lastError().text() + sql));
+            db.close();
+        }
+        QSqlDatabase::removeDatabase("v17sync");
+        ResearchStore mac(data);
+        QVERIFY2(mac.initialize(&error), qPrintable(error));
+        QVERIFY(mac.librarySync()->syncBlocking().error.isEmpty());
+        ResearchStore laptop(directory.filePath("laptop"));
+        QVERIFY2(laptop.initialize(&error), qPrintable(error));
+        QCOMPARE(laptop.librarySync()->setFolder(QUrl::fromLocalFile(drive)), QString());
+        QVERIFY(laptop.librarySync()->syncBlocking().error.isEmpty());
+        const auto topics = qobject_cast<ForYou *>(laptop.forYou())->topics();
+        QCOMPARE(topics.size(), 1);
+        QCOMPARE(topics[0].toMap()["words"].toString(), QString("lidar"));
+    }
     void citationsComeFromSemanticScholarAndMatchTheLibrary()
     {
         // A local stand-in for Semantic Scholar: answers by path and records what was asked.
