@@ -407,7 +407,7 @@ Rectangle {
                 onNewNoteRequested: { root.controller.activateGroup(root.groupId); root.controller.newNote() }
                 onAskNotesRequested: function(ids) { root.controller.aiRequested({attach: true, notes: ids}) }
                 onSettingsRequested: function(page) { root.controller.settingsRequested(page) }
-                onWebRequested: function(address) { root.controller.activateGroup(root.groupId); root.controller.openWeb(address, true) }
+                onWebRequested: function(address) { root.controller.activateGroup(root.groupId); root.controller.openWeb(address, true, "", true) }
                 onAskLibraryRequested: function(collection, collectionName) {
                     root.controller.aiRequested({action: "ask", scope: "library", collection: collection, collectionName: collectionName})
                 }

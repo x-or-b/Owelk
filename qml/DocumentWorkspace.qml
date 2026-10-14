@@ -224,12 +224,14 @@ Flickable {
         if (Tree.isWebAddress(value)) return openWeb(value, forceNew)
         return false
     }
-    function openWeb(url, forceNew, title) {
+    // paperPage: a page opened to get one paper (For You); the PDF downloaded there takes its place.
+    function openWeb(url, forceNew, title, paperPage) {
         if (!Tree.isWebAddress(url)) return false
         prepare()
         const g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]
         const home = !forceNew && g.tabs.find(function(t) { return t.id === g.activeTab && t.kind === "home" })
         const t = Tree.webTab(url, title)
+        if (paperPage) t.paperPage = true
         if (home) { t.id = home.id; g.tabs[g.tabs.indexOf(home)] = t }
         else g.tabs.push(t)
         g.activeTab = t.id; activeGroup = g.id
@@ -254,7 +256,7 @@ Flickable {
         prepare()
         const t = Tree.tab(file, researchStore.readingPosition(file))
         const at = g.tabs.findIndex(function(tab) { return tab.id === tabId })
-        if (replace && at >= 0) g.tabs[at] = t
+        if ((replace || (at >= 0 && g.tabs[at].paperPage)) && at >= 0) g.tabs[at] = t
         else g.tabs.splice(at + 1, 0, t)
         g.activeTab = t.id; activeGroup = g.id
         sync(); changed(); opened()

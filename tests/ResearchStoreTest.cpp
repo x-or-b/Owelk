@@ -963,6 +963,56 @@ private slots:
         QVERIFY(store.updateDocumentDetails(got, {{"title", "Journal Only"}, {"doi", "10.1/J"}}));
         QTRY_COMPARE_WITH_TIMEOUT(forYou->items().size(), 0, 10000);
     }
+    void forYouAddGoesThroughTheBrowserWhenTheDownloadFails()
+    {
+        // arXiv answers the query; its "PDF" address answers with a web page instead.
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        const auto base = QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort());
+        const auto today = QDate::currentDate().toString(Qt::ISODate);
+        connect(&server, &QTcpServer::newConnection, &server, [&] {
+            auto *socket = server.nextPendingConnection();
+            connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
+                const auto head = QString::fromUtf8(socket->readAll()).section("\r\n", 0, 0);
+                const QByteArray body = head.contains("/api/query")
+                    ? QStringLiteral("<?xml version=\"1.0\"?><feed xmlns=\"http://www.w3.org/2005/Atom\"><entry><id>"
+                                     "http://arxiv.org/abs/2609.07777v1</id><published>%1T08:00:00Z</published><title>"
+                                     "Behind A Wall</title><author><name>Ada Lovelace</name></author><link title=\"pdf\" "
+                                     "href=\"%2/pdf/wall\"/></entry></feed>")
+                          .arg(today, base)
+                          .toUtf8()
+                    : QByteArray("<html><body>Please verify you are human.</body></html>");
+                socket->write("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\nContent-Length: "
+                    + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+                socket->disconnectFromHost();
+            });
+        });
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        store.setSetting("forYou.arxivBaseUrl", base + "/api");
+        store.setSetting("forYou.delayMs", "10");
+        auto *forYou = qobject_cast<ForYou *>(store.forYou());
+        QVERIFY(forYou->saveTopics({QVariantMap{{"words", "walls"}}}));
+        forYou->refresh();
+        QTRY_VERIFY_WITH_TIMEOUT(!forYou->checking(), 10000);
+        QCOMPARE(forYou->items().size(), 1);
+        // Add: the download is not a PDF, so the PDF's address opens in the browser instead.
+        QSignalSpy pages(forYou, &ForYou::webRequested);
+        forYou->add({"arxiv:2609.07777"});
+        QTRY_COMPARE_WITH_TIMEOUT(pages.size(), 1, 10000);
+        QCOMPARE(pages[0][0].toUrl().toString(), base + "/pdf/wall");
+        QCOMPARE(forYou->items().size(), 1);
+        // The browser's download reaches the Library: it gets Add's details and leaves the list.
+        const auto got = QUrl::fromLocalFile(directory.filePath("wall.pdf"));
+        writeFixture(got.toLocalFile(), "Some Title The PDF Shows");
+        QVERIFY(store.rememberDocument(got));
+        QVERIFY(store.updateDocumentDetails(got, {{"title", "Some Title The PDF Shows"}, {"arxiv", "2609.07777v1"}}));
+        QTRY_COMPARE_WITH_TIMEOUT(forYou->items().size(), 0, 10000);
+        QCOMPARE(store.documentDetails(got)["title"].toString(), QString("Behind A Wall"));
+        QCOMPARE(store.documentDetails(got)["authors"].toString(), QString("Ada Lovelace"));
+    }
     void forYouMovesIntoTheLibraryAndSyncs()
     {
         QTemporaryDir directory;

@@ -63,6 +63,13 @@ Item {
             tryVerify(function() { return activeTab().kind !== "web" }, 15000)
             verify(!Tree.owner(d.tree, fetching))
             verify(researchStore.downloadTarget("paper.pdf").fileName !== "paper.pdf") // Never overwrites.
+            // A page opened to get one paper (For You) gives way to the PDF downloaded from it.
+            verify(d.openWeb(page.toString(), true, "", true))
+            const paperPage = activeTab().id
+            tryCompare(activeTab(), "title", "Owelk Test Page", 15000)
+            webPane().view.runJavaScript("document.getElementById('pdf').click()")
+            tryVerify(function() { return activeTab().kind !== "web" }, 15000)
+            verify(!Tree.owner(d.tree, paperPage), "the paper's page tab closed")
         }
         function test_downloadShowsProgressAndPdfsCanStayInTheTab() {
             const d = workspace.documents

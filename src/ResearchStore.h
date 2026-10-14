@@ -77,7 +77,9 @@ public:
     QObject *sync() const;
     QObject *forYou() const;
     // Whether a paper with this arXiv ID (any version) or DOI is in the Library.
-    bool hasPaper(const QString &arxiv, const QString &doi) const;
+    bool hasPaper(const QString &arxiv, const QString &doi) const { return !paperUrlFor(arxiv, doi).isEmpty(); }
+    // That paper's URL, or empty.
+    QUrl paperUrlFor(const QString &arxiv, const QString &doi) const;
     // A collection's papers as Semantic Scholar knows them ("ArXiv:2401.12345", "DOI:10.…"), newest first.
     QStringList collectionPaperKeys(const QString &collectionId, int limit) const;
     // The paper a just-added file became: the file itself, or the paper with the same bytes.

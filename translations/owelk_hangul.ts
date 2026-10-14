@@ -2832,10 +2832,6 @@ Same file as another library entry</source>
         <translation>카피잉 피디에프스 인투 더 라이브러리</translation>
     </message>
     <message>
-        <source>Could not download “%1”. Its page opens instead.</source>
-        <translation>쿠드 낫 다운로드 “%1”. 잇츠 페이지 오픈스 인스테드.</translation>
-    </message>
-    <message>
         <source>Could not save the PDF.</source>
         <translation>쿠드 낫 세이브 더 피디에프.</translation>
     </message>
@@ -2894,6 +2890,10 @@ Same file as another library entry</source>
     <message>
         <source>For You: looking for new papers</source>
         <translation>포 유: 루킹 포 뉴 페이퍼스</translation>
+    </message>
+    <message>
+        <source>Getting “%1” through the browser (%2).</source>
+        <translation>게팅 “%1” 스루 더 브라우저 (%2).</translation>
     </message>
     <message>
         <source>Give the selected term in %1 first, as "**term** — translation"; then, in one or two short sentences, what it means in this passage.</source>
@@ -3362,6 +3362,10 @@ Same file as another library entry</source>
     <message>
         <source>arXiv did not answer for “%1”.</source>
         <translation>아카이브 디드 낫 앤서 포 “%1”.</translation>
+    </message>
+    <message>
+        <source>the answer was not a PDF</source>
+        <translation>더 앤서 워즈 낫 어 피디에프</translation>
     </message>
     <message>
         <source>these papers</source>

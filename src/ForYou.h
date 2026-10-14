@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QDateTime>
+#include <QHash>
 #include <QObject>
 #include <QStringList>
 #include <QVariantList>
@@ -89,6 +90,8 @@ private:
     void found(const QVariantList &papers, const QString &source, const QString &sourceName);
     void addNext();
     void finishAdd(const QVariantMap &item, const QUrl &file);
+    // The details Add gives a paper (from arXiv or Semantic Scholar), and its collection.
+    void finishDetails(const QVariantMap &paper, const QUrl &url);
     QVariantMap item(const QString &id) const;
     void ranked(int request, const QVariantList &ranking, const QString &error);
     // Papers now in the Library (added here, or a PDF got from their page) leave the list.
@@ -116,6 +119,8 @@ private:
     QVariantList m_found;
     QStringList m_adding;
     QStringList m_addQueue;
+    // Papers Add sent to the browser (the direct download failed), finished when they reach the Library.
+    QHash<QString, QVariantMap> m_viaBrowser;
     bool m_explaining = false;
     int m_rankRequest = -1;
     QString m_aiProblem;

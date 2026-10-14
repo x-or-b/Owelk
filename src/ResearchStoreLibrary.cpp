@@ -591,15 +591,15 @@ int ResearchStore::importFolder(const QUrl &folder, const QString &parentCollect
     return request;
 }
 
-bool ResearchStore::hasPaper(const QString &arxiv, const QString &doi) const
+QUrl ResearchStore::paperUrlFor(const QString &arxiv, const QString &doi) const
 {
     const auto id = QString(arxiv).trimmed().remove(QRegularExpression("v\\d+$"));
-    if (id.isEmpty() && doi.trimmed().isEmpty()) return false;
+    if (id.isEmpty() && doi.trimmed().isEmpty()) return {};
     QSqlQuery query(m_database);
-    query.prepare("SELECT 1 FROM documents WHERE removed_at IS NULL AND ((?<>'' AND (arxiv=? OR arxiv GLOB ?)) OR "
+    query.prepare("SELECT url FROM documents WHERE removed_at IS NULL AND ((?<>'' AND (arxiv=? OR arxiv GLOB ?)) OR "
                   "(?<>'' AND lower(doi)=lower(?))) LIMIT 1");
     for (const auto &value : {id, id, id + "v*", doi.trimmed(), doi.trimmed()}) query.addBindValue(value);
-    return query.exec() && query.next();
+    return query.exec() && query.next() ? QUrl(query.value(0).toString()) : QUrl();
 }
 
 QStringList ResearchStore::collectionPaperKeys(const QString &collectionId, int limit) const

@@ -120,7 +120,7 @@ ApplicationWindow {
     function openForYouPage(address) {
         if (window.restoreFailed || !address || !address.toString().length) return
         homeVisible = false
-        documents.openWeb(address, true)
+        documents.openWeb(address, true, "", true)
     }
     Connections { target: researchStore.forYou; function onWebRequested(address) { window.openForYouPage(address) } }
     function openAiThread(id) { if (aiController.openThread(id)) showAi() }

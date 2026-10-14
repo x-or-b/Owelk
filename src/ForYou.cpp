@@ -15,6 +15,7 @@
 #include <QNetworkReply>
 #include <QRegularExpression>
 #include <QTimer>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QUuid>
 #include <QXmlStreamReader>
@@ -284,7 +285,9 @@ bool ForYou::exec(const QString &sql, const QVariantList &values) const
     QSqlQuery query(m_store->m_database);
     query.prepare(sql);
     for (const auto &value : values) query.addBindValue(value);
-    return query.exec();
+    if (query.exec()) return true;
+    qWarning("For You: %s", qPrintable(query.lastError().text()));
+    return false;
 }
 
 void ForYou::reload()
@@ -366,7 +369,9 @@ bool ForYou::saveTopics(const QVariantList &topics)
                   "DO UPDATE SET words=excluded.words,categories=excluded.categories,enabled=excluded.enabled,"
                   "position=excluded.position WHERE words<>excluded.words OR categories<>excluded.categories OR "
                   "enabled<>excluded.enabled OR position<>excluded.position",
-                {id, words, categories, topic.value("on", true).toBool() ? 1 : 0, position++}))
+                // An empty part is "", not NULL (a null QString binds as NULL).
+                {id, words.isNull() ? QString("") : words, categories.isNull() ? QString("") : categories,
+                    topic.value("on", true).toBool() ? 1 : 0, position++}))
             return false;
         kept << id;
     }
@@ -609,11 +614,14 @@ void ForYou::dropKept()
     bool changed = false;
     for (const auto &value : std::as_const(m_items)) {
         const auto item = value.toMap();
-        if (m_adding.contains(item.value("id").toString())) continue;
-        if (m_store->hasPaper(item.value("arxiv").toString(), item.value("doi").toString())) {
-            exec("UPDATE foryou_items SET state='added',paper='{}',score=NULL,why=NULL WHERE id=?", {item.value("id")});
-            changed = true;
-        }
+        const auto id = item.value("id").toString();
+        if (m_adding.contains(id)) continue;
+        const auto url = m_store->paperUrlFor(item.value("arxiv").toString(), item.value("doi").toString());
+        if (url.isEmpty()) continue;
+        // Got through the browser for Add: its details and collection, as Add gives them.
+        if (m_viaBrowser.contains(id)) finishDetails(m_viaBrowser.take(id), url);
+        exec("UPDATE foryou_items SET state='added',paper='{}',score=NULL,why=NULL WHERE id=?", {id});
+        changed = true;
     }
     if (changed) load();
 }
@@ -684,9 +692,14 @@ void ForYou::addNext()
         reply->deleteLater();
         const auto bytes = reply->readAll();
         if (reply->error() != QNetworkReply::NoError || !bytes.startsWith("%PDF")) {
+            // The browser often gets it where this did not (another network path, a site that wants one): the
+            // PDF itself opens in a web tab, is downloaded there, and is finished when it reaches the Library.
+            const QString why = reply->error() != QNetworkReply::NoError ? reply->errorString()
+                                                                         : QString(ui("the answer was not a PDF"));
             m_store->notify(
-                QString(ui("Could not download “%1”. Its page opens instead.")).arg(paper.value("title").toString()));
-            if (!paper.value("url").toString().isEmpty()) emit webRequested(QUrl(paper.value("url").toString()));
+                QString(ui("Getting “%1” through the browser (%2).")).arg(paper.value("title").toString(), why));
+            m_viaBrowser.insert(paper.value("id").toString(), paper);
+            emit webRequested(QUrl(paper.value("pdf").toString()));
             done();
             return;
         }
@@ -711,6 +724,18 @@ void ForYou::addNext()
     });
 }
 
+void ForYou::finishDetails(const QVariantMap &paper, const QUrl &url)
+{
+    static const QRegularExpression year("^\\d{4}$");
+    m_store->updateDocumentDetails(url,
+        {{"title", paper.value("title").toString().left(300)},
+            {"authors", paper.value("authors").toString().left(1000)},
+            {"year", year.match(paper.value("year").toString()).hasMatch() ? paper.value("year") : QString()},
+            {"doi", paper.value("doi").toString().left(200)}, {"arxiv", paper.value("arxiv").toString().left(40)}});
+    const auto source = paper.value("source").toString();
+    if (source.startsWith("collection:")) m_store->setDocumentCollection(url, source.mid(11), true);
+}
+
 void ForYou::finishAdd(const QVariantMap &paper, const QUrl &file)
 {
     const auto hash = FileFingerprint::sha256(file.toLocalFile());
@@ -719,16 +744,14 @@ void ForYou::finishAdd(const QVariantMap &paper, const QUrl &file)
     m_store->addDocuments({file}, collection);
     // The same bytes may already be a paper (then the download was not kept): that one.
     const auto url = m_store->paperWithFile(file, hash);
-    if (url.isValid() && !url.isEmpty()) {
-        static const QRegularExpression year("^\\d{4}$");
-        m_store->updateDocumentDetails(url,
-            {{"title", paper.value("title").toString().left(300)},
-                {"authors", paper.value("authors").toString().left(1000)},
-                {"year", year.match(paper.value("year").toString()).hasMatch() ? paper.value("year") : QString()},
-                {"doi", paper.value("doi").toString().left(200)}, {"arxiv", paper.value("arxiv").toString().left(40)}});
-        if (!collection.isEmpty()) m_store->setDocumentCollection(url, collection, true);
-    }
-    exec("UPDATE foryou_items SET state='added',paper='{}',score=NULL,why=NULL WHERE id=?", {paper.value("id")});
+    if (url.isValid() && !url.isEmpty()) finishDetails(paper, url);
+    const auto id = paper.value("id").toString();
+    // Off the list; once more a moment later should the library be busy (syncing) just then.
+    if (!exec("UPDATE foryou_items SET state='added',paper='{}',score=NULL,why=NULL WHERE id=?", {id}))
+        QTimer::singleShot(1500, this, [this, id] {
+            exec("UPDATE foryou_items SET state='added',paper='{}',score=NULL,why=NULL WHERE id=?", {id});
+            load();
+        });
     load();
     m_store->notify(QString(ui("Added “%1” to the Library.")).arg(paper.value("title").toString()));
 }
