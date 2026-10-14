@@ -36,6 +36,12 @@ Rectangle {
     Component.onDestruction: controller.removeDropHandler(root)
 
     function iconFor(t) { return t.kind === "web" ? "globe" : t.kind === "note" ? "note" : t.kind === "library" ? "library" : t.kind === "home" ? "home" : "document" }
+    function isPaper(t) { return !!t && ["web", "note", "library", "home"].indexOf(t.kind) < 0 }
+    // A paper's first letter for the closed rail, past leading quotes, brackets and punctuation.
+    function initialOf(title) {
+        const text = String(title || "").replace(/^[\s"'`“”‘’«»()\[\]{}<>.,:;!?\-–—_*#~|\/\\]+/, "")
+        return text.length ? String.fromCodePoint(text.codePointAt(0)).toUpperCase() : ""
+    }
     function view(stripId) { return controller.groupView(stripId) }
 
     // --- Dropping a dragged tab on this list -------------------------------------------------
@@ -259,9 +265,30 @@ Rectangle {
                         id: kindIcon
                         x: root.open ? (row.label ? 12 : 8) : (parent.width - width) / 2
                         anchors.verticalCenter: parent.verticalCenter
+                        visible: !initialTile.visible
                         name: row.tab ? root.iconFor(row.tab) : ""
                         size: Theme.fontBody + 1
                         color: row.current && row.activeStrip ? Theme.selectedText : Theme.icon
+                    }
+                    // Closed rail: a paper shows its title's first letter on a small tile instead of the icon.
+                    Rectangle {
+                        id: initialTile
+                        objectName: row.tab ? "verticalTabInitial-" + row.tab.id : ""
+                        readonly property string letter: root.isPaper(row.tab) ? root.initialOf(row.title) : ""
+                        readonly property bool chosen: row.current && row.activeStrip
+                        visible: !root.open && letter.length > 0
+                        anchors.centerIn: parent
+                        width: Theme.fontBody + 7; height: width
+                        radius: Theme.radiusSmall
+                        color: chosen ? Theme.mix(Theme.selected, Theme.selectedText, .14) : Theme.mix(Theme.sidebar, Theme.text, pointer.containsMouse ? .13 : .08)
+                        border.width: 1
+                        border.color: chosen ? Theme.mix(Theme.selected, Theme.selectedText, .28) : Theme.mix(Theme.sidebar, Theme.text, .14)
+                        Label {
+                            anchors.centerIn: parent
+                            text: initialTile.letter
+                            font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold
+                            color: initialTile.chosen ? Theme.selectedText : Theme.textSecondary
+                        }
                     }
                     Label {
                         visible: root.open

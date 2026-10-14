@@ -864,7 +864,18 @@ Item {
             // Closed, the panel is a thin rail.
             workspace.setTabsPanel(false)
             tryVerify(function() { return panel.width < 60 })
+            // There a paper shows its title's first letter instead of the paper icon.
+            const initial = visualChild(panel, "verticalTabInitial-" + a)
+            tryVerify(function() { return initial && initial.visible })
+            const title = Tree.tabTitle(Tree.leaves(d.tree)[0].tabs.find(function(t) { return t.id === a }), researchStore.displayName)
+            compare(initial.letter, panel.initialOf(title))
+            verify(initial.letter.length > 0)
+            compare(panel.initialOf("“attention” is all"), "A")
+            compare(panel.initialOf("  [3D] mapping"), "3")
+            compare(panel.initialOf("논문 읽기"), "논")
+            compare(panel.initialOf("—"), "")
             workspace.setTabsPanel(true)
+            tryCompare(initial, "visible", false)
             Theme.verticalTabs = false
             tryCompare(panel, "visible", false)
             compare(view.stripHeight, Theme.barHeight)
