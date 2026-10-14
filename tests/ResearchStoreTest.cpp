@@ -1686,11 +1686,29 @@ private slots:
         QVERIFY(PaperMetadataText::fileStem(paper).size() <= 120);
         QCOMPARE(PaperMetadataText::fileStem({"A/B Test: Faster.", "", "", "", ""}), QString("A B Test - Faster"));
         QVERIFY(PaperMetadataText::fileStem({}).isEmpty());
+        // Parts chosen in Settings, in their order; a part the paper lacks is left out.
+        paper.title = "OpenFrontier: General Navigation with Visual-Language Grounded Frontiers";
+        QCOMPARE(PaperMetadataText::fileStem(paper, {"author", "year", "title"}),
+            QString("Padilla-Cerdio et al. - 2026 - OpenFrontier - General Navigation with Visual-Language Grounded "
+                    "Frontiers"));
+        QCOMPARE(PaperMetadataText::fileStem(paper, {"title", "year"}),
+            QString("OpenFrontier - General Navigation with Visual-Language Grounded Frontiers - 2026"));
+        QCOMPARE(PaperMetadataText::fileStem({"Solo", "Jane Doe", "20xx", "", ""}, {"author", "year", "title"}),
+            QString("Doe - Solo"));
+        QCOMPARE(PaperMetadataText::fileStem({"Untitled Authors", "", "", "", ""}, {"author", "title"}),
+            QString("Untitled Authors"));
+        paper.title = QString(200, 'y');
+        QVERIFY(PaperMetadataText::fileStem(paper, {"author", "year", "title"}).size() <= 120);
 
         QTemporaryDir directory;
         ResearchStore store(directory.filePath("data"));
         QString error;
         QVERIFY2(store.initialize(&error), qPrintable(error));
+        QCOMPARE(store.fileNameParts(), QStringList{"title"});
+        QVERIFY(store.setSetting("pdfNames.parts", "year,-author,title,-arxiv"));
+        QCOMPARE(store.fileNameParts(), (QStringList{"year", "title"}));
+        QCOMPARE(store.sampleFileName(store.fileNameParts()), QString("2017 - Attention Is All You Need.pdf"));
+        QVERIFY(store.setSetting("pdfNames.parts", "title"));
         QSignalSpy named(&store, &ResearchStore::downloadNamed);
         const auto download = store.downloadTarget("2305.01234v2.pdf", true)["url"].toUrl();
         writeFixture(download.toLocalFile(), "Downloaded Paper Title");

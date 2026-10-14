@@ -1654,8 +1654,8 @@ Same file as another library entry</source>
         <translation>리무브 프롬 디스 컬렉션</translation>
     </message>
     <message>
-        <source>Rename Files to Titles</source>
-        <translation>리네임 파일스 투 타이틀스</translation>
+        <source>Rename Files from Details</source>
+        <translation>리네임 파일스 프롬 디테일스</translation>
     </message>
     <message>
         <source>Rename collection</source>
@@ -2772,12 +2772,12 @@ Same file as another library entry</source>
         <translation>리무브드 프롬 더 텍스트 인덱스. 잇츠 페이지스 노 롱거 어피어 인 피디에프 텍스트 서치.</translation>
     </message>
     <message>
-        <source>Renamed %1 PDFs after their titles.</source>
-        <translation>리네임드 %1 피디에프스 애프터 데어 타이틀스.</translation>
+        <source>Renamed %1 PDFs from their paper details.</source>
+        <translation>리네임드 %1 피디에프스 프롬 데어 페이퍼 디테일스.</translation>
     </message>
     <message>
-        <source>Renamed the PDF after its title.</source>
-        <translation>리네임드 더 피디에프 애프터 잇츠 타이틀.</translation>
+        <source>Renamed the PDF from its paper details.</source>
+        <translation>리네임드 더 피디에프 프롬 잇츠 페이퍼 디테일스.</translation>
     </message>
     <message>
         <source>Restored the backup. The previous data is in </source>
@@ -3186,8 +3186,8 @@ Same file as another library entry</source>
         <translation>리무브 프롬 디스 컬렉션</translation>
     </message>
     <message>
-        <source>Rename File to Title</source>
-        <translation>리네임 파일 투 타이틀</translation>
+        <source>Rename File from Details</source>
+        <translation>리네임 파일 프롬 디테일스</translation>
     </message>
     <message>
         <source>Tags</source>
@@ -4563,8 +4563,8 @@ You can open the same document twice.</source>
         <translation>, 홈) 오퍼스 더 엔진스 숀 히어 앤드 스타츠 온 더 디폴트 원. </translation>
     </message>
     <message>
-        <source>A downloaded PDF is named after its paper when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.</source>
-        <translation>어 다운로디드 피디에프 이즈 네임드 애프터 잇츠 페이퍼 웬 잇츠 퍼스트 페이지 쇼즈 더 타이틀; 파일스 올레디 인 더 라이브러리 킵 데어 네임스. 이그지스팅 파일스 아 네버 오버리튼. 인 어 웹 탭, 쇼 히어 리즈 어 피디에프 인 플레이스; 오픈 인 리더 센즈 잇 투 더 리더, 웨어 애노테이션스 앤드 노츠 워크.</translation>
+        <source>A downloaded PDF is named from its paper (File names below) when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.</source>
+        <translation>어 다운로디드 피디에프 이즈 네임드 프롬 잇츠 페이퍼 (파일 네임스 빌로우) 웬 잇츠 퍼스트 페이지 쇼즈 더 타이틀; 파일스 올레디 인 더 라이브러리 킵 데어 네임스. 이그지스팅 파일스 아 네버 오버리튼. 인 어 웹 탭, 쇼 히어 리즈 어 피디에프 인 플레이스; 오픈 인 리더 센즈 잇 투 더 리더, 웨어 애노테이션스 앤드 노츠 워크.</translation>
     </message>
     <message>
         <source>Add</source>
@@ -4599,12 +4599,36 @@ You can open the same document twice.</source>
         <translation>다운로디드 피디에프스 고 투 오웰크스 오운 피디에프 폴더 (세팅스 › 데이터); 아더 파일스 고 투 더 폴더 어보브. </translation>
     </message>
     <message>
+        <source>Example: </source>
+        <translation>이그잼플: </translation>
+    </message>
+    <message>
+        <source>File names</source>
+        <translation>파일 네임스</translation>
+    </message>
+    <message>
+        <source>First author</source>
+        <translation>퍼스트 오서</translation>
+    </message>
+    <message>
+        <source>From the paper</source>
+        <translation>프롬 더 페이퍼</translation>
+    </message>
+    <message>
         <source>Hide from the search box</source>
         <translation>하이드 프롬 더 서치 박스</translation>
     </message>
     <message>
         <source>Kept PDFs</source>
         <translation>켑트 피디에프스</translation>
+    </message>
+    <message>
+        <source>Move down</source>
+        <translation>무브 다운</translation>
+    </message>
+    <message>
+        <source>Move up</source>
+        <translation>무브 업</translation>
     </message>
     <message>
         <source>Name</source>
@@ -4631,20 +4655,16 @@ You can open the same document twice.</source>
         <translation>피디에프스</translation>
     </message>
     <message>
-        <source>Paper title</source>
-        <translation>페이퍼 타이틀</translation>
-    </message>
-    <message>
         <source>Remove</source>
         <translation>리무브</translation>
     </message>
     <message>
-        <source>Rename Owelk's copies after their paper titles, as downloads are. Files outside Owelk's folder are never renamed.</source>
-        <translation>리네임 오웰크스 카피스 애프터 데어 페이퍼 타이틀스, 애즈 다운로즈 아. 파일스 아웃사이드 오웰크스 폴더 아 네버 리네임드.</translation>
+        <source>Rename Now</source>
+        <translation>리네임 나우</translation>
     </message>
     <message>
-        <source>Rename to Titles</source>
-        <translation>리네임 투 타이틀스</translation>
+        <source>Rename Owelk's copies the same way. Files outside Owelk's folder are never renamed.</source>
+        <translation>리네임 오웰크스 카피스 더 세임 웨이. 파일스 아웃사이드 오웰크스 폴더 아 네버 리네임드.</translation>
     </message>
     <message>
         <source>Search engines</source>
@@ -4671,8 +4691,20 @@ You can open the same document twice.</source>
         <translation>더 서치 박스 (</translation>
     </message>
     <message>
+        <source>Title</source>
+        <translation>타이틀</translation>
+    </message>
+    <message>
         <source>Type a site such as google.com, or an address with %s for the words.</source>
         <translation>타입 어 사이트 서치 애즈 구글.컴, 오어 언 어드레스 위드 %에스 포 더 워즈.</translation>
+    </message>
+    <message>
+        <source>Year</source>
+        <translation>이어</translation>
+    </message>
+    <message>
+        <source>arXiv ID</source>
+        <translation>아카이브 아이디</translation>
     </message>
 </context>
 <context>

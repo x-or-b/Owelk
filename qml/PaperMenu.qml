@@ -69,7 +69,7 @@ Item {
         MenuItem {
             objectName: "renameToTitleOption"
             visible: menu.opened && researchStore.keptByOwelk(root.paper.url); height: visible ? implicitHeight : 0
-            text: qsTr("Rename File to Title")
+            text: qsTr("Rename File from Details")
             onTriggered: researchStore.renamePapersToTitles([root.paper.url])
         }
         MenuItem { text: qsTr("Locate Original PDF…"); onTriggered: researchStore.requestRelink(root.paper.url) }

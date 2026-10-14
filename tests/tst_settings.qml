@@ -37,6 +37,25 @@ Item {
             verify(visualChild(settings.contentItem, "backUpNow") !== null)
             verify(visualChild(settings.contentItem, "syncFolder") !== null)
         }
+        function test_fileNamePartsTurnOnAndMove() {
+            researchStore.setSetting("pdfNames.parts", "")
+            settings.openPage("web"); tryCompare(settings, "opened", true)
+            let year = null
+            tryVerify(function() { year = visualChild(settings.contentItem, "pdfNameSwitch-year"); return year !== null })
+            const p = page()
+            compare(p.namesOn, ["title"])
+            verify(!visualChild(settings.contentItem, "pdfNameSwitch-title").enabled, "the last part on stays on")
+            year.toggle(); year.toggled()
+            compare(researchStore.setting("pdfNames.parts"), "title,-author,year,-arxiv")
+            // Year moves up, above the title.
+            tryVerify(function() { return visualChild(settings.contentItem, "pdfNameUp-year") !== null })
+            visualChild(settings.contentItem, "pdfNameUp-year").clicked()
+            visualChild(settings.contentItem, "pdfNameUp-year").clicked()
+            compare(p.namesOn, ["year", "title"])
+            compare(researchStore.sampleFileName(p.namesOn), "2017 - Attention Is All You Need.pdf")
+            verify(findChild(settings, "pdfNameGroup").note.indexOf("2017 - Attention") >= 0)
+            researchStore.setSetting("pdfNames.parts", "")
+        }
         function test_themeAccentAndTextSizeApplyAtOnce() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
             tryVerify(function() { return visualChild(settings.contentItem, "themeTile-dark") !== null })

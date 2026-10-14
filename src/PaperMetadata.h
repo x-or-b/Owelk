@@ -28,7 +28,8 @@ QString findDoi(const QString &text);
 QString findArxiv(const QString &text);
 // Person names from the lines between a title and its abstract; affiliations and footnote marks are dropped.
 QStringList authorNames(const QStringList &lines);
-// A readable file name (without .pdf) for a paper: its title, safe on every system.
-// Empty when the title is unknown.
-QString fileStem(const PaperMetadata &paper);
+// A readable file name (without .pdf) for a paper, safe on every system: the parts asked for, in their
+// order, joined with " - " ("title", "author": first author's family name, "year", "arxiv"; Settings ›
+// Web). Empty when the title is unknown; a part the paper lacks is left out.
+QString fileStem(const PaperMetadata &paper, const QStringList &parts = {QStringLiteral("title")});
 }

@@ -139,6 +139,22 @@ void ResearchStore::relocatePapers()
     if (moved) m_startupMessage = QString(ui("Owelk's PDFs now live in %1.")).arg(QDir::toNativeSeparators(m_papers));
 }
 
+QStringList ResearchStore::fileNameParts() const
+{
+    QStringList parts;
+    for (const auto &part : setting("pdfNames.parts", "title").split(',', Qt::SkipEmptyParts))
+        if (!part.startsWith('-')) parts << part.trimmed();
+    return parts.isEmpty() ? QStringList{"title"} : parts;
+}
+
+QString ResearchStore::sampleFileName(const QStringList &parts) const
+{
+    return PaperMetadataText::fileStem(
+               {"Attention Is All You Need", "Ashish Vaswani, Noam Shazeer", "2017", "", "1706.03762"},
+               parts.isEmpty() ? QStringList{"title"} : parts)
+        + ".pdf";
+}
+
 void ResearchStore::nameDownloadedPdf(const QUrl &file)
 {
     const auto path = file.toLocalFile();
@@ -166,8 +182,8 @@ void ResearchStore::nameDownloadedPdf(const QUrl &file)
         }
         emit downloadNamed(file, named);
     });
-    watcher->setFuture(QtConcurrent::run(&m_metadataWorkers, [path] {
-        return Named(PaperMetadataText::fileStem(extractPaperMetadata(path)), FileFingerprint::sha256(path));
+    watcher->setFuture(QtConcurrent::run(&m_metadataWorkers, [path, parts = fileNameParts()] {
+        return Named(PaperMetadataText::fileStem(extractPaperMetadata(path), parts), FileFingerprint::sha256(path));
     }));
 }
 
@@ -180,19 +196,23 @@ bool ResearchStore::keptByOwelk(const QUrl &source) const
 int ResearchStore::renamePapersToTitles(const QVariantList &sources)
 {
     int renamed = 0;
+    const auto parts = fileNameParts();
     for (const auto &value : sources) {
         const auto from = resolvedSource(value.toUrl());
         const auto path = from.toLocalFile();
         if (!keptByOwelk(from) || !QFileInfo(path).isFile()) continue;
         QSqlQuery query(m_database);
-        query.prepare("SELECT title,sha256 FROM documents WHERE url=?");
+        query.prepare("SELECT title,authors,year,arxiv,sha256 FROM documents WHERE url=?");
         query.addBindValue(from.toString());
         if (!query.exec() || !query.next()) continue;
         PaperMetadata paper;
         paper.title = query.value(0).toString();
-        const auto hash = query.value(1).toString();
+        paper.authors = query.value(1).toString();
+        paper.year = query.value(2).toString();
+        paper.arxiv = query.value(3).toString();
+        const auto hash = query.value(4).toString();
         query.finish();
-        const auto stem = PaperMetadataText::fileStem(paper);
+        const auto stem = PaperMetadataText::fileStem(paper, parts);
         if (stem.isEmpty() || stem == QFileInfo(path).completeBaseName()) continue;
         const auto target = uniqueFile(papersFolder(), stem + ".pdf");
         if (!QFile::rename(path, target)) continue;
@@ -212,8 +232,8 @@ int ResearchStore::renamePapersToTitles(const QVariantList &sources)
     }
     if (renamed) {
         announceDocumentsChanged();
-        emit message(renamed == 1 ? ui("Renamed the PDF after its title.")
-                                  : QString(ui("Renamed %1 PDFs after their titles.")).arg(renamed));
+        emit message(renamed == 1 ? ui("Renamed the PDF from its paper details.")
+                                  : QString(ui("Renamed %1 PDFs from their paper details.")).arg(renamed));
     } else {
         emit message(ui("No PDF needed a new name (only Owelk's own copies with a known title are renamed)."));
     }

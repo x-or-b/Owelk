@@ -7,6 +7,7 @@
 #include <QFileInfo>
 #include <QPdfDocument>
 #include <QPdfSelection>
+#include <QHash>
 #include <QRegularExpression>
 #include <algorithm>
 
@@ -204,22 +205,47 @@ QStringList authorNames(const QStringList &lines)
 }
 
 namespace PaperMetadataText {
-QString fileStem(const PaperMetadata &paper)
+QString fileStem(const PaperMetadata &paper, const QStringList &parts)
 {
     // "Title: Subtitle" reads as "Title - Subtitle"; characters Windows, macOS or Linux refuse in a file
     // name become spaces.
-    auto title = QString(paper.title)
-                     .replace(QRegularExpression("\\s*:\\s+"), " - ")
-                     .replace(QRegularExpression("[\\x00-\\x1f\\\\/:*?\"<>|]"), " ")
-                     .simplified();
+    const auto clean = [](QString text) {
+        return text.replace(QRegularExpression("\\s*:\\s+"), " - ")
+            .replace(QRegularExpression("[\\x00-\\x1f\\\\/:*?\"<>|]"), " ")
+            .simplified();
+    };
+    auto title = clean(paper.title);
     if (title.isEmpty()) return {};
-    if (title.size() > 120) {
-        title.truncate(120);
+    // The first author's family name, "et al." when there are more.
+    const auto names = paper.authors.split(QRegularExpression("\\s*(?:[,;&]|\\band\\b)\\s*"), Qt::SkipEmptyParts);
+    QString author;
+    if (!names.isEmpty()) {
+        author = clean(names.first()).section(' ', -1);
+        if (!author.isEmpty() && names.size() > 1) author += " et al.";
+    }
+    const auto year
+        = QRegularExpression("^\\d{4}$").match(paper.year.trimmed()).hasMatch() ? paper.year.trimmed() : QString();
+    const auto arxiv = clean(paper.arxiv);
+    const QHash<QString, QString> values{{"author", author}, {"year", year}, {"arxiv", arxiv}};
+    // The title gets what the other parts leave of 120 characters.
+    int others = 0;
+    for (const auto &part : parts)
+        if (part != "title" && !values.value(part).isEmpty()) others += int(values.value(part).size()) + 3;
+    const int room = qMax(40, 120 - others);
+    if (title.size() > room) {
+        title.truncate(room);
         const auto space = title.lastIndexOf(' ');
-        if (space > 60) title.truncate(space);
+        if (space > room / 2) title.truncate(space);
     }
     while (title.endsWith('.') || title.endsWith(' ') || title.endsWith('-')) title.chop(1);
-    return title;
+    QStringList pieces;
+    for (const auto &part : parts) {
+        const auto value = part == "title" ? title : values.value(part);
+        if (!value.isEmpty() && !pieces.contains(value)) pieces << value;
+    }
+    auto stem = pieces.isEmpty() ? title : pieces.join(" - ");
+    while (stem.endsWith('.') || stem.endsWith(' ') || stem.endsWith('-')) stem.chop(1);
+    return stem;
 }
 }
 
