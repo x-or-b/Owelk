@@ -224,7 +224,8 @@ Flickable {
         if (Tree.isWebAddress(value)) return openWeb(value, forceNew)
         return false
     }
-    // paperPage: a page opened to get one paper (For You); the PDF downloaded there takes its place.
+    // paperPage: a page opened to get one paper (For You); the PDF downloaded there joins the Library and
+    // the page closes (openDownloaded).
     function openWeb(url, forceNew, title, paperPage) {
         if (!Tree.isWebAddress(url)) return false
         prepare()
@@ -250,13 +251,21 @@ Flickable {
     }
     // A downloaded PDF replaces the web tab that only existed to fetch it, or opens next to it.
     function openDownloaded(tabId, file, replace) {
-        if (!researchStore.rememberDocument(file)) return false
         const g = Tree.owner(tree, tabId)
+        // A page opened to get a paper (For You): its PDF is added, not opened (so it stays unread), as Add
+        // does, and the page closes.
+        const page = g ? g.tabs.find(function(tab) { return tab.id === tabId }) : null
+        if (page && page.paperPage) {
+            if (researchStore.addDocuments([file], "") < 1) return false
+            closeTab(tabId)
+            return true
+        }
+        if (!researchStore.rememberDocument(file)) return false
         if (!g) return openDocument(file)
         prepare()
         const t = Tree.tab(file, researchStore.readingPosition(file))
         const at = g.tabs.findIndex(function(tab) { return tab.id === tabId })
-        if ((replace || (at >= 0 && g.tabs[at].paperPage)) && at >= 0) g.tabs[at] = t
+        if (replace && at >= 0) g.tabs[at] = t
         else g.tabs.splice(at + 1, 0, t)
         g.activeTab = t.id; activeGroup = g.id
         sync(); changed(); opened()

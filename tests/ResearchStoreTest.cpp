@@ -969,9 +969,14 @@ private slots:
         // A PDF of it that reaches the Library some other way (downloaded from that page) takes it off the list.
         const auto got = QUrl::fromLocalFile(directory.filePath("got.pdf"));
         writeFixture(got.toLocalFile(), "Journal Only");
-        QVERIFY(store.rememberDocument(got));
-        QVERIFY(store.updateDocumentDetails(got, {{"title", "Journal Only"}, {"doi", "10.1/J"}}));
+        QCOMPARE(store.addDocuments({got}), 1);
+        QVERIFY(store.updateDocumentDetails(got, {{"title", "What The PDF Says"}, {"doi", "10.1/J"}}));
         QTRY_COMPARE_WITH_TIMEOUT(forYou->items().size(), 0, 10000);
+        // Its page was opened for it, so it gets Add's details and collection, and stays unread.
+        const auto arrived = store.paperUrlFor("", "10.1/j");
+        QCOMPARE(store.documentDetails(arrived)["title"].toString(), QString("Journal Only"));
+        QCOMPARE(store.documentDetails(arrived)["readingState"].toString(), QString("unread"));
+        QCOMPARE(store.libraryDocuments({{"collection", topic}}).size(), 2);
     }
     void forYouAddGoesThroughTheBrowserWhenTheDownloadFails()
     {

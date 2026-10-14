@@ -680,6 +680,7 @@ void ForYou::addNext()
         // No free PDF: its page, where the reader may get one (a PDF downloaded there joins the Library, and
         // the paper then leaves For You).
         m_store->notify(QString(ui("No free PDF for “%1”: its page opens.")).arg(paper.value("title").toString()));
+        m_viaBrowser.insert(id, paper);
         if (!paper.value("url").toString().isEmpty()) emit webRequested(QUrl(paper.value("url").toString()));
         done();
         return;
@@ -749,6 +750,12 @@ QString ForYou::previewPath(const QString &id) const
 {
     return m_store->dataDirectory() + "/foryou-preview/"
         + QString(id).replace(QRegularExpression("[^A-Za-z0-9.-]"), "_") + ".pdf";
+}
+
+void ForYou::expect(const QString &id)
+{
+    const auto paper = item(id);
+    if (!paper.isEmpty()) m_viaBrowser.insert(id, paper);
 }
 
 void ForYou::preview(const QString &id)

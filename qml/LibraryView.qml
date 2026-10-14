@@ -144,6 +144,8 @@ Rectangle {
             if (at >= 0) forYouList.positionViewAtIndex(at, ListView.Contain)
         })
     }
+    // Its page, in a tab that gives way to the PDF downloaded there (which then gets Add's details).
+    function openForYouPage(paper) { forYou.expect(paper.id); root.webRequested(paper.url) }
     function addForYou(ids) { const list = ids.slice(); setSelecting(false); forYou.add(list) }
     function dismissForYou(ids) { const list = ids.slice(); setSelecting(false); forYou.dismiss(list) }
     // A Settings page (For You's gear), and a paper's page to read in a web tab.
@@ -749,7 +751,7 @@ Rectangle {
                                         flat: found.modelData.hasPdf; highlighted: !found.modelData.hasPdf
                                         implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
                                         text: found.modelData.hasPdf ? qsTr("Open Page") : qsTr("Get PDF on Its Page")
-                                        onClicked: root.webRequested(found.modelData.url)
+                                        onClicked: root.openForYouPage(found.modelData)
                                         ToolTip.visible: hovered && !found.modelData.hasPdf; ToolTip.delay: 400
                                         ToolTip.text: qsTr("No free PDF was found. A PDF you download there joins the Library, and the paper leaves For You.")
                                     }
@@ -784,7 +786,7 @@ Rectangle {
                                 visible: !found.adding
                                 icon.name: found.modelData.hasPdf ? "download" : "external"
                                 description: found.modelData.hasPdf ? qsTr("Add to the Library") : qsTr("No free PDF: open its page")
-                                onClicked: found.modelData.hasPdf ? root.forYou.add([found.modelData.id]) : root.webRequested(found.modelData.url)
+                                onClicked: found.modelData.hasPdf ? root.forYou.add([found.modelData.id]) : root.openForYouPage(found.modelData)
                             }
                             IconButton {
                                 id: dismissIcon

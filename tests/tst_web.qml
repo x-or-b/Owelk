@@ -63,13 +63,19 @@ Item {
             tryVerify(function() { return activeTab().kind !== "web" }, 15000)
             verify(!Tree.owner(d.tree, fetching))
             verify(researchStore.downloadTarget("paper.pdf").fileName !== "paper.pdf") // Never overwrites.
-            // A page opened to get one paper (For You) gives way to the PDF downloaded from it.
+            // A page opened to get one paper (For You): the PDF downloaded there joins the Library unopened
+            // (still unread, as Add leaves it) and the page closes.
+            const before = researchStore.libraryDocuments({}).map(function(r) { return r.url.toString() })
+            const tabsBefore = Tree.leaves(d.tree).reduce(function(n, g) { return n + g.tabs.length }, 0)
             verify(d.openWeb(page.toString(), true, "", true))
             const paperPage = activeTab().id
             tryCompare(activeTab(), "title", "Owelk Test Page", 15000)
             webPane().view.runJavaScript("document.getElementById('pdf').click()")
-            tryVerify(function() { return activeTab().kind !== "web" }, 15000)
-            verify(!Tree.owner(d.tree, paperPage), "the paper's page tab closed")
+            tryVerify(function() { return !Tree.owner(d.tree, paperPage) }, 15000)
+            compare(Tree.leaves(d.tree).reduce(function(n, g) { return n + g.tabs.length }, 0), tabsBefore, "nothing opened")
+            let added = null
+            tryVerify(function() { added = researchStore.libraryDocuments({}).find(function(r) { return before.indexOf(r.url.toString()) < 0 }); return !!added }, 10000)
+            compare(added.readingState, "unread")
         }
         function test_downloadShowsProgressAndPdfsCanStayInTheTab() {
             const d = workspace.documents

@@ -75,6 +75,9 @@ public:
     // added to the Library; Add then uses it rather than fetching again. Answered by previewReady(id,
     // file) or previewFailed(id, why).
     Q_INVOKABLE void preview(const QString &id);
+    // A paper's page opened (Open Page, Get PDF on Its Page): a PDF of it that then reaches the Library gets
+    // Add's details and collection, and the paper leaves the list.
+    Q_INVOKABLE void expect(const QString &id);
     // Whether the AI can be asked (set up in Settings › AI, and agreed to).
     Q_INVOKABLE bool aiReady() const;
     Q_INVOKABLE QString aiName() const;
