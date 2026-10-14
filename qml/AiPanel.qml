@@ -193,9 +193,12 @@ Item {
                 Layout.fillWidth: true
                 spacing: 6
                 Icon { name: "note"; size: Theme.fontBody; color: Theme.icon }
+                // A rewritten note is named as it is now (the one that will change), with its new title after.
                 Label {
+                    objectName: "aiNoteTitle"
                     Layout.fillWidth: true
-                    text: card.block.title || (card.updates ? card.target.title : qsTr("New note"))
+                    text: card.updates ? card.target.title + (card.block.title && card.block.title !== card.target.title ? " \u2192 " + card.block.title : "")
+                                       : card.block.title || qsTr("New note")
                     elide: Text.ElideRight; textFormat: Text.PlainText
                     font.weight: Font.DemiBold; color: Theme.text
                 }

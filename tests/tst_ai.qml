@@ -636,6 +636,7 @@ Item {
             let card = null
             tryVerify(function() { card = findChild(p, "aiNoteCard-" + at + "-0"); return card !== null && card.visible })
             verify(findChild(p, "aiMessage-" + at).text.indexOf("note_update") < 0)
+            compare(findChild(card, "aiNoteTitle").text, "Draft \u2192 Rewritten", "the note that will change, by its name now")
             compare(researchStore.note(note).body, "old body\n")
             findChild(card, "aiNoteApply").clicked()
             compare(researchStore.note(note).body, "# Rewritten\n\nNew body.")
@@ -660,6 +661,19 @@ Item {
             // Plain answers carry no card.
             compare(ai.noteBlocks("Just text.").notes.length, 0)
             compare(ai.noteBlocks("Partly <note_new title=\"x\">still").preparing, true)
+            // The card opens the note; the note's own AI button attaches it to a chat.
+            findChild(card, "aiNoteOpen").clicked()
+            tryVerify(function() { const g = Tree.find(workspace.documents.tree, workspace.documents.activeGroup); const t = g.tabs.find(function(x) { return x.id === g.activeTab }); return t.kind === "note" && t.noteId === made })
+            ai.newThread("")
+            let button = null
+            tryVerify(function() {
+                const pane = visualChild(workspace.documents.groupView(workspace.documents.activeGroup), "notePane")
+                button = pane && pane.noteId === made ? visualChild(pane, "noteAskAiButton") : null
+                return button !== null && button.visible
+            }, 5000)
+            button.clicked()
+            tryVerify(function() { return (ai.spec.noteIds || []).indexOf(made) >= 0 })
+            verify(workspace.aiVisible)
             researchStore.deleteNote(note); researchStore.deleteNote(made)
         }
         function test_9z_organizeTabsAppliesOnlyOnApply() {
