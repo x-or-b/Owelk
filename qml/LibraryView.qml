@@ -499,6 +499,12 @@ Rectangle {
                                              : root.forYouRows.length + (root.forYouRows.length === 1 ? qsTr(" paper") : qsTr(" papers"))
                         font.pixelSize: Theme.fontSmall; color: root.selecting && root.selection.length ? Theme.text : Theme.textTertiary
                     }
+                    IconButton {
+                        objectName: "libraryForYouSelect"
+                        visible: !root.selecting
+                        icon.name: "check"; description: qsTr("Select papers")
+                        onClicked: root.setSelecting(true)
+                    }
                     ComboBox {
                         objectName: "libraryForYouSource"
                         visible: !root.selecting && sources.length > 1
@@ -541,12 +547,6 @@ Rectangle {
                         implicitHeight: Theme.controlHeightSmall
                         text: qsTr("Done")
                         onClicked: root.setSelecting(false)
-                    }
-                    IconButton {
-                        objectName: "libraryForYouSelect"
-                        visible: !root.selecting
-                        icon.name: "check"; description: qsTr("Select papers")
-                        onClicked: root.setSelecting(true)
                     }
                 }
                 ListView {
