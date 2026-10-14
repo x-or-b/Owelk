@@ -4567,8 +4567,12 @@ You can open the same document twice.</source>
         <translation>, 홈) 오퍼스 더 엔진스 숀 히어 앤드 스타츠 온 더 디폴트 원. </translation>
     </message>
     <message>
-        <source>A downloaded PDF is named from its paper (File names below) when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.</source>
-        <translation>어 다운로디드 피디에프 이즈 네임드 프롬 잇츠 페이퍼 (파일 네임스 빌로우) 웬 잇츠 퍼스트 페이지 쇼즈 더 타이틀; 파일스 올레디 인 더 라이브러리 킵 데어 네임스. 이그지스팅 파일스 아 네버 오버리튼. 인 어 웹 탭, 쇼 히어 리즈 어 피디에프 인 플레이스; 오픈 인 리더 센즈 잇 투 더 리더, 웨어 애노테이션스 앤드 노츠 워크.</translation>
+        <source>. Owelk shows papers by this name (Library, tabs, search); downloads and Rename Now name their files the same way.</source>
+        <translation>. 오웰크 쇼즈 페이퍼스 바이 디스 네임 (라이브러리, 탭스, 서치); 다운로즈 앤드 리네임 나우 네임 데어 파일스 더 세임 웨이.</translation>
+    </message>
+    <message>
+        <source>A downloaded PDF is named from its paper (Paper names below) when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.</source>
+        <translation>어 다운로디드 피디에프 이즈 네임드 프롬 잇츠 페이퍼 (페이퍼 네임스 빌로우) 웬 잇츠 퍼스트 페이지 쇼즈 더 타이틀; 파일스 올레디 인 더 라이브러리 킵 데어 네임스. 이그지스팅 파일스 아 네버 오버리튼. 인 어 웹 탭, 쇼 히어 리즈 어 피디에프 인 플레이스; 오픈 인 리더 센즈 잇 투 더 리더, 웨어 애노테이션스 앤드 노츠 워크.</translation>
     </message>
     <message>
         <source>Add</source>
@@ -4605,10 +4609,6 @@ You can open the same document twice.</source>
     <message>
         <source>Example: </source>
         <translation>이그잼플: </translation>
-    </message>
-    <message>
-        <source>File names</source>
-        <translation>파일 네임스</translation>
     </message>
     <message>
         <source>First author</source>
@@ -4657,6 +4657,10 @@ You can open the same document twice.</source>
     <message>
         <source>PDFs</source>
         <translation>피디에프스</translation>
+    </message>
+    <message>
+        <source>Paper names</source>
+        <translation>페이퍼 네임스</translation>
     </message>
     <message>
         <source>Remove</source>

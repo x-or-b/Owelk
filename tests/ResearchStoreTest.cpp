@@ -1184,6 +1184,17 @@ private slots:
         QSignalSpy said(&store, &ResearchStore::message);
         QCOMPARE(store.renamePapersToTitles({renamed}), 0);
         QCOMPARE(said.last().at(0).toString(), QString("Every PDF already has this name."));
+        // Owelk shows the paper by the same parts (the title as written), everywhere it names it.
+        QVERIFY(store.updateDocumentDetails(
+            renamed, {{"title", "Radar: Odometry at Night"}, {"authors", "Ada Lovelace, Alan Turing"}, {"year", "1843"}}));
+        QVERIFY(store.setSetting("pdfNames.parts", "author,year,title,-arxiv"));
+        QCOMPARE(store.displayName(renamed), QString("Lovelace et al. - 1843 - Radar: Odometry at Night"));
+        const auto rows = store.libraryDocuments();
+        QVERIFY(std::any_of(rows.cbegin(), rows.cend(), [&](const QVariant &row) {
+            return row.toMap()["name"].toString() == "Lovelace et al. - 1843 - Radar: Odometry at Night";
+        }));
+        QVERIFY(store.setSetting("pdfNames.parts", "title,-author,-year,-arxiv"));
+        QCOMPARE(store.displayName(renamed), QString("Radar: Odometry at Night"));
     }
     void aiChatsMoveIntoThreadsOnUpgrade()
     {

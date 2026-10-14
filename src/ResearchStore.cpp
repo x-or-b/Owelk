@@ -800,6 +800,12 @@ bool ResearchStore::setSetting(const QString &key, const QString &value)
     query.addBindValue("pref." + key);
     query.addBindValue(value.isNull() ? QStringLiteral("") : value);
     if (!query.exec()) return false;
+    // Papers are shown by the parts chosen for their names.
+    if (key == "pdfNames.parts") {
+        loadDocumentNames();
+        announceDocumentsChanged();
+        emit recentDocumentsChanged();
+    }
     emit settingsChanged();
     return true;
 }

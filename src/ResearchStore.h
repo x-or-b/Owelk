@@ -417,6 +417,8 @@ private:
     void loadDocumentNames();
     void syncNoteLinks(const QString &noteId, const QString &body);
     void rememberTitle(const QUrl &url, const QString &title);
+    // A paper's shown name from its details (pdfNames.parts); a web page's title as it is.
+    void rememberPaperName(const QUrl &url);
     void refreshMetadata(const QString &id, const QUrl &url, bool force, bool checkDuplicate = false);
     void reportDuplicate(const QString &id, const QUrl &url, const QString &hash);
     void announceDocumentsChanged();
@@ -445,6 +447,7 @@ private:
     QThreadPool m_verifiers;
     QThreadPool m_metadataWorkers;
     QHash<QString, QString> m_titles;
+    QStringList m_nameParts{QStringLiteral("title")};
     QSet<QString> m_metadataPending;
     QSet<QString> m_duplicateChecks;
     int m_documentsRevision = 0;

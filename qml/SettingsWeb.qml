@@ -53,7 +53,7 @@ ColumnLayout {
     SettingsGroup {
         title: qsTr("PDFs")
         note: (root.keepsPdfs ? qsTr("Downloaded PDFs go to Owelk's own PDF folder (Settings › Data); other files go to the folder above. ") : "")
-            + qsTr("A downloaded PDF is named from its paper (File names below) when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.")
+            + qsTr("A downloaded PDF is named from its paper (Paper names below) when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.")
         SettingsRow {
             label: root.keepsPdfs ? qsTr("Other downloads to") : qsTr("Download to")
             wide: true
@@ -81,11 +81,12 @@ ColumnLayout {
             }
         }
     }
-    // Which paper details make a file name, in which order.
+    // Which paper details make a paper's name (shown in Owelk and given to its file), in which order.
     SettingsGroup {
         objectName: "pdfNameGroup"
-        title: qsTr("File names")
-        note: qsTr("Example: ") + researchStore.sampleFileName(root.namesOn)
+        title: qsTr("Paper names")
+        note: qsTr("Example: ") + researchStore.sampleFileName(root.namesOn).replace(/\.pdf$/, "")
+            + qsTr(". Owelk shows papers by this name (Library, tabs, search); downloads and Rename Now name their files the same way.")
         Repeater {
             model: root.nameParts
             delegate: SettingsRow {

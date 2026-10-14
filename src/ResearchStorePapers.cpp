@@ -232,7 +232,7 @@ int ResearchStore::renamePapersToTitles(const QVariantList &sources)
         if (!hash.isEmpty()) FileFingerprint::remember(target, FileFingerprint::stamp(target), hash);
         m_relinks.insert(from.toString(), to.toString());
         rememberTitle(from, {});
-        rememberTitle(to, paper.title);
+        rememberPaperName(to);
         m_index->relocateSource(from, to);
         emit sourceRelinked(from, to);
         ++renamed;

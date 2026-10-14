@@ -32,4 +32,6 @@ QStringList authorNames(const QStringList &lines);
 // order, joined with " - " ("title", "author": first author's family name, "year", "arxiv"; Settings ›
 // Web). Empty when the title is unknown; a part the paper lacks is left out.
 QString fileStem(const PaperMetadata &paper, const QStringList &parts = {QStringLiteral("title")});
+// How Owelk shows a paper (Library, tabs, search): the same parts in the same order, the title as written.
+QString paperName(const PaperMetadata &paper, const QStringList &parts);
 }
