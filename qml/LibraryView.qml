@@ -72,7 +72,33 @@ Rectangle {
     // For You: new papers found for what is followed, narrowed to one source when chosen.
     readonly property var forYou: researchStore.forYou
     property string forYouSource: ""
-    readonly property var forYouRows: forYou.items.filter(function(p) { return !forYouSource.length || p.source === forYouSource })
+    // For You reads in a column of at most 720 px, in the middle (like Home).
+    readonly property real forYouInset: Math.max(0, (listColumn.width - 720) / 2)
+    // A period chip: all, today, the last 7 or 30 days (by the paper's date, else when it was found).
+    property string forYouRange: "all"
+    function forYouDay(p) { return new Date((p.date && p.date.length ? p.date : (p.foundAt || "").slice(0, 10)) + "T00:00:00") }
+    function inForYouRange(p, range) {
+        if (range === "all") return true
+        const today = new Date(); today.setHours(0, 0, 0, 0)
+        const age = Math.round((today - forYouDay(p)) / 86400000)
+        return range === "today" ? age <= 0 : range === "week" ? age < 7 : age < 30
+    }
+    readonly property var forYouFromSource: forYou.items.filter(function(p) { return !forYouSource.length || p.source === forYouSource })
+    readonly property var forYouRows: forYouFromSource.filter(function(p) { return root.inForYouRange(p, root.forYouRange) })
+    // "Lovelace et al." and "Today", "3 days ago": the details at a glance.
+    function shortAuthors(authors) {
+        const names = (authors || "").split(/\s*,\s*/).filter(function(n) { return n.length })
+        if (!names.length) return ""
+        const family = names[0].split(/\s+/).pop()
+        return names.length > 1 ? family + qsTr(" et al.") : family
+    }
+    function relativeDay(p) {
+        const day = forYouDay(p)
+        if (isNaN(day.getTime())) return ""
+        const today = new Date(); today.setHours(0, 0, 0, 0)
+        const age = Math.round((today - day) / 86400000)
+        return age <= 0 ? qsTr("Today") : age === 1 ? qsTr("Yesterday") : age < 7 ? age + qsTr(" days ago") : day.toLocaleDateString(Qt.locale(), Locale.ShortFormat)
+    }
     function forYouClicked(index) {
         const id = forYouRows[index].id, mods = researchStore.keyboardModifiers()
         if (mods & Qt.ShiftModifier && selectionAnchor >= 0) {
@@ -467,15 +493,25 @@ Rectangle {
             }
             Rectangle { visible: root.showingPapers; Layout.preferredWidth: 1; Layout.fillHeight: true; color: Theme.separator }
             ColumnLayout {
+                id: listColumn
                 Layout.fillWidth: true; Layout.fillHeight: true
                 Layout.margins: 12
                 spacing: 8
                 // For You: new papers for the topics and collections followed; add them, dismiss them, or
                 // read their page. Select works as for papers (Add, Dismiss).
                 RowLayout {
-                    Layout.fillWidth: true
+                    Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
                     visible: root.showingForYou
-                    Label { Layout.fillWidth: true; text: qsTr("For You"); font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
+                    spacing: 8
+                    Label { text: qsTr("For You"); font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
+                    Label {
+                        objectName: "libraryForYouCount"
+                        Layout.alignment: Qt.AlignBaseline
+                        visible: root.forYou.items.length > 0
+                        text: root.forYouRows.length + (root.forYouRows.length === 1 ? qsTr(" paper") : qsTr(" papers"))
+                        font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+                    }
+                    Item { Layout.fillWidth: true }
                     Label {
                         visible: root.forYou.explaining
                         text: qsTr("AI is reading…")
@@ -499,19 +535,37 @@ Rectangle {
                 Label {
                     objectName: "libraryForYouAiProblem"
                     visible: root.showingForYou && root.forYou.aiProblem.length > 0 && !root.forYou.explaining
-                    Layout.fillWidth: true
+                    Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
                     text: root.forYou.aiProblem
                     wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                 }
                 RowLayout {
-                    Layout.fillWidth: true
+                    Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
                     visible: root.showingForYou && root.forYou.items.length > 0
-                    Label {
-                        objectName: "libraryForYouCount"; Layout.fillWidth: true
-                        text: root.selecting ? (root.selection.length ? root.selection.length + qsTr(" selected") : qsTr("Choose papers"))
-                                             : root.forYouRows.length + (root.forYouRows.length === 1 ? qsTr(" paper") : qsTr(" papers"))
-                        font.pixelSize: Theme.fontSmall; color: root.selecting && root.selection.length ? Theme.text : Theme.textTertiary
+                    spacing: 4
+                    Repeater {
+                        model: root.selecting ? [] : [{key: "all", name: qsTr("All")}, {key: "today", name: qsTr("Today")},
+                                                      {key: "week", name: qsTr("This week")}, {key: "month", name: qsTr("This month")}]
+                        delegate: Chip {
+                            required property var modelData
+                            readonly property int count: root.forYouFromSource.filter(function(p) { return root.inForYouRange(p, modelData.key) }).length
+                            objectName: "libraryForYouRange-" + modelData.key
+                            text: modelData.name
+                            checkable: true
+                            checked: root.forYouRange === modelData.key
+                            // A period with nothing in it is quiet (still the one shown when chosen).
+                            enabled: count > 0 || checked
+                            ToolTip.text: count + (count === 1 ? qsTr(" paper") : qsTr(" papers"))
+                            onClicked: root.forYouRange = modelData.key
+                        }
                     }
+                    Label {
+                        objectName: "libraryForYouSelected"
+                        visible: root.selecting
+                        text: root.selection.length ? root.selection.length + qsTr(" selected") : qsTr("Choose papers")
+                        font.pixelSize: Theme.fontSmall; color: root.selection.length ? Theme.text : Theme.textTertiary
+                    }
+                    Item { Layout.fillWidth: true }
                     IconButton {
                         objectName: "libraryForYouSelect"
                         visible: !root.selecting
@@ -564,9 +618,11 @@ Rectangle {
                 }
                 ListView {
                     id: forYouList
+                    // A column of reading width, in the middle (like Home).
+                    Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
                     objectName: "libraryForYou"
                     visible: root.showingForYou
-                    Layout.fillWidth: true; Layout.fillHeight: true
+                    Layout.fillHeight: true
                     clip: true
                     model: root.showingForYou ? root.forYouRows : []
                     ScrollBar.vertical: ScrollBar {}
@@ -579,7 +635,8 @@ Rectangle {
                         readonly property bool open: root.forYouOpen === modelData.id && !root.selecting
                         objectName: "libraryForYou-" + index
                         width: forYouList.width
-                        height: forYouColumn.implicitHeight + 16
+                        height: forYouColumn.implicitHeight + 26
+                        topPadding: 13; bottomPadding: 13
                         separator: index < forYouList.count - 1
                         highlighted: chosen
                         rightPadding: found.open ? 12 : forYouActions.width + 12
@@ -595,35 +652,48 @@ Rectangle {
                                 border.width: found.chosen ? 0 : 1.5; border.color: Theme.border
                                 Icon { anchors.centerIn: parent; visible: found.chosen; name: "check"; size: 11; color: Theme.onAccent }
                             }
+                            // The title, why it fits (the AI's sentence), then who, when and from where, small;
+                            // the abstract when opened.
                             ColumnLayout {
                                 id: forYouColumn
                                 Layout.fillWidth: true
-                                spacing: 2
-                                Label { Layout.fillWidth: true; text: found.modelData.title; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                                spacing: 5
                                 Label {
                                     Layout.fillWidth: true
-                                    text: [found.modelData.authors, found.modelData.date, found.modelData.sourceName].filter(function(t) { return t && t.length }).join("  ·  ")
-                                    elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                    text: found.modelData.title
+                                    wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; textFormat: Text.PlainText
+                                    font.pixelSize: Theme.fontBody; font.weight: Font.Medium; color: Theme.text
+                                    lineHeight: 1.1
                                 }
                                 RowLayout {
                                     visible: !!found.modelData.why
                                     Layout.fillWidth: true
-                                    spacing: 5
-                                    Icon { name: "ai"; size: Theme.fontCaption; color: Theme.textTertiary; Layout.alignment: Qt.AlignTop; Layout.topMargin: 2 }
+                                    spacing: 6
+                                    Icon { name: "ai"; size: Theme.fontCaption; color: Theme.textTertiary; Layout.alignment: Qt.AlignTop; Layout.topMargin: 3 }
                                     Label {
                                         objectName: "libraryForYouWhy-" + found.index
                                         Layout.fillWidth: true
                                         text: found.modelData.why || ""
                                         wrapMode: Text.Wrap; textFormat: Text.PlainText
-                                        font.pixelSize: Theme.fontSmall; color: Theme.text
+                                        font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
+                                        lineHeight: 1.15
                                     }
                                 }
                                 Label {
+                                    objectName: "libraryForYouMeta-" + found.index
                                     Layout.fillWidth: true
-                                    visible: (found.modelData.abstract || "").length > 0
+                                    text: [root.shortAuthors(found.modelData.authors), root.relativeDay(found.modelData), found.modelData.sourceName].filter(function(t) { return t && t.length }).join("  ·  ")
+                                    elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                }
+                                Label {
+                                    objectName: "libraryForYouAbstract-" + found.index
+                                    Layout.fillWidth: true
+                                    Layout.topMargin: 4
+                                    visible: found.open && (found.modelData.abstract || "").length > 0
                                     text: found.modelData.abstract || ""
-                                    wrapMode: Text.Wrap; maximumLineCount: found.open ? 1000 : 2; elide: Text.ElideRight; textFormat: Text.PlainText
-                                    font.pixelSize: Theme.fontCaption; color: Theme.textSecondary
+                                    wrapMode: Text.Wrap; textFormat: Text.PlainText
+                                    font.pixelSize: Theme.fontSmall; color: Theme.text
+                                    lineHeight: 1.2
                                 }
                                 // Opened: what to do with it.
                                 RowLayout {

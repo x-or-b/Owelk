@@ -12,6 +12,8 @@ ColumnLayout {
     // Read again after a change here.
     property int revision: 0
     Connections { target: researchStore; function onSettingsChanged() { root.revision++ } }
+    // Topics and followed collections live in the library (they sync).
+    Connections { target: root.forYou; function onSettingsChanged() { root.revision++ } }
     readonly property var topics: (revision, forYou.topics())
     readonly property var collections: (revision, researchStore.documentsRevision, researchStore.collections())
     function saveTopics(list) { forYou.saveTopics(list) }
@@ -149,6 +151,19 @@ ColumnLayout {
                 model: [qsTr("Day"), qsTr("7 days"), qsTr("30 days")]
                 currentIndex: Math.max(0, days.indexOf(Number((root.revision, researchStore.setting("forYou.days", "7")))))
                 onActivated: function(index) { researchStore.setSetting("forYou.days", String(days[index])) }
+            }
+        }
+        SettingsRow {
+            objectName: "settingsRow-forYouKeep"
+            label: qsTr("Keep papers in the list")
+            detail: qsTr("Until you add or dismiss them, for at most")
+            ComboBox {
+                objectName: "forYouKeep"
+                Layout.preferredWidth: 140
+                readonly property var days: [7, 15, 30, 60, 0]
+                model: [qsTr("7 days"), qsTr("15 days"), qsTr("30 days"), qsTr("60 days"), qsTr("Always")]
+                currentIndex: Math.max(0, days.indexOf(Number((root.revision, researchStore.setting("forYou.keepDays", "30")))))
+                onActivated: function(index) { researchStore.setSetting("forYou.keepDays", String(days[index])) }
             }
         }
         SettingsRow {

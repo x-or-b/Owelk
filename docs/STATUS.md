@@ -14,7 +14,7 @@
 | 12–16. 검색·커맨드 | FTS5 본문(+OCR), 단어 순서 무관·점수 순위, 범위 칩·검색어 조건, 선택적 의미 검색(Ollama·OpenAI), 명령 팔레트 | — |
 | 17–21. 주석·연결 | 5색 주석·코멘트, 영역 표시(캡션 함께), 노트 링크·역링크, 주석 포함 PDF 내보내기(표준 주석). 이전 Captures는 주석·노트로 통합(스키마 15) | Figure 자동 인식 |
 | 22–27. 노트·AI | Markdown 노트, AI 4종(Claude API, OpenAI API, ChatGPT 계정, Ollama), 모델·추론 강도·Fast, 이미지·PDF/웹 영역 첨부(저장 안 함), Threads 패널(채팅 폴더: 논문별 자동 생성·직접 만들기·끌어 옮기기, 최근·이름 정렬, 검색), 채팅에 여러 논문(3편까지 전문, 그 이상은 구절 검색)·Collection·라이브러리 전체 첨부, 노트 첨부와 AI 노트 제안(고친 노트·새 노트를 카드로 보여 주고 Apply/Create를 눌러야 저장, Undo), 선호 언어, 논문 비교표, 쪽별 번역·논문 요약, 탭·Collection AI 정리 | 라이브러리 전체에 묻기(v0.6) |
-| 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, 공유 폴더를 통한 컴퓨터 간 동기화(Google Drive·Dropbox·Syncthing, 항목별 나중 변경 우선), SQLite(라이브러리 스키마 17, 색인 4, 업그레이드 전 백업), 백업·복원, Markdown·BibTeX 내보내기, 단축키 변경, macOS·Linux·Windows 키 저장소, 로컬 설치 스크립트(macOS·Linux `install-local.sh`, Windows `install-local.ps1`), 자동 테스트 7묶음 | Linux/Windows 실기기, 배포 패키지 |
+| 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, 공유 폴더를 통한 컴퓨터 간 동기화(Google Drive·Dropbox·Syncthing, 항목별 나중 변경 우선), SQLite(라이브러리 스키마 18, 색인 4, 업그레이드 전 백업), 백업·복원, Markdown·BibTeX 내보내기, 단축키 변경, macOS·Linux·Windows 키 저장소, 로컬 설치 스크립트(macOS·Linux `install-local.sh`, Windows `install-local.ps1`), 자동 테스트 7묶음 | Linux/Windows 실기기, 배포 패키지 |
 
 ## 우선순위
 
@@ -26,6 +26,7 @@
 - Home: 이어 읽기 아래 For You(새 논문 5편, 제목 → Library › For You, 톱니 → 설정). 따라가는 것이 없으면 설정으로 가는 한 줄, 새 논문이 없으면 숨김.
 - Library › For You: 전체 목록, 출처별 보기, 다시 확인, 선택해 Add·Dismiss. Add는 PDF를 받아 Paper names 규칙으로 이름 붙이고, Collection에서 온 논문은 그 Collection에 넣고, arXiv·Semantic Scholar의 제목·저자·연도·DOI를 채웁니다. PDF가 없으면 논문 페이지를 웹 탭으로 엽니다. Collection 우클릭 › Follow in For You.
 - For You AI(2단계): 확인 뒤 새 논문을 AI가 따라가는 것과 얼마나 맞는지 점수(0–100)로 매겨 관련도 순으로 놓고 논문마다 한 문장 이유를 붙입니다(Home·Library에 표시, Library의 AI 버튼으로 다시). Settings › For You › Explain with AI(켜는 것이 보내기 동의, AI가 설정돼 있어야 함). 보내는 것: 새 논문의 제목·초록, 주제, 따라가는 Collection의 논문 제목 몇 개.
+- For You 동기화와 정리: 주제·따라가는 Collection·찾은 논문(AI 이유 포함)·Dismiss/Add 기록·마지막 확인 시각이 라이브러리 표(스키마 18, `foryou_*`)로 옮겨져 동기화됩니다. 한 컴퓨터가 확인하고 AI가 이유를 붙인 논문은 다른 컴퓨터에서 다시 찾거나 보내지 않습니다(동기화가 끝난 뒤 확인). 기간·자동 확인·목록 유지 기간(7·15·30·60일·항상, 기본 30일)은 컴퓨터마다. Library › For You는 가운데 720px 열, 제목 옆 논문 수, All·Today·This week·This month 칩, 제목 → AI 이유 → 짧은 정보(저자 et al.·"3 days ago"·출처), 초록은 펼쳤을 때만.
 - 마우스 앞·뒤 버튼: 창 어디서나 Back·Forward(웹 탭의 페이지 → 리더의 이동 → 장소 순).
 - Settings: General · Appearance · Shortcuts / Library · For You · Web · Search / AI · Sync & Backup으로 다시 묶음(설정 키는 그대로). 사이드바 검색은 설정 이름과 관련 단어로 찾고, 고르면 그 페이지의 그 설정으로 스크롤해 잠깐 표시합니다. 단축키도 동작 이름으로 찾습니다.
 

@@ -344,12 +344,24 @@ Item {
             tryCompare(view, "view", "foryou")
             tryVerify(function() { return visualChild(view, "libraryForYou-0") !== null })
             verify(Tree.validate(workspace.documents.snapshot().tree, {}, 0), "a For You tab is a valid saved tab")
+            // Period chips: All, Today, This week, This month; rows show short details, the abstract when opened.
+            compare(visibleChild(view, "libraryForYouRange-all").checked, true)
+            verify(visibleChild(view, "libraryForYouRange-today").enabled)
+            mouseClick(visibleChild(view, "libraryForYouRange-today"))
+            compare(view.forYouRange, "today")
+            compare(view.forYouRows.length, 1)
+            const meta = visualChild(view, "libraryForYouMeta-0").text
+            verify(meta.indexOf("Lovelace") === 0 && meta.indexOf("Today") > 0, meta)
+            verify(!visualChild(view, "libraryForYouAbstract-0").visible)
+            mouseClick(visibleChild(view, "libraryForYouRange-all"))
+            compare(view.forYouRange, "all")
             // A click opens the paper in place (its whole abstract, Add, its page); Open Page goes to the web.
             waitForPolish(view); wait(50)
             const libraryTab = activeTab().id
             mouseClick(visualChild(view, "libraryForYou-0"), 60, 12)
             compare(view.forYouOpen, forYou.items[0].id)
             compare(activeTab().kind, "library", "no web tab yet")
+            tryVerify(function() { return visualChild(view, "libraryForYouAbstract-0").visible })
             let openPage = null
             tryVerify(function() { openPage = visibleChild(view, "libraryForYouOpenPage"); return openPage !== null })
             wait(500) // Not a double click.
@@ -370,7 +382,7 @@ Item {
             mouseClick(visibleChild(view, "libraryForYouSelect"))
             mouseClick(visualChild(view, "libraryForYou-0"), 60, 12)
             compare(view.selection.length, 1)
-            waitForPolish(visibleChild(view, "libraryForYouCount").parent); wait(20)
+            waitForPolish(visibleChild(view, "libraryForYouSelected").parent); wait(20)
             mouseClick(visibleChild(view, "libraryForYouAddSelection"))
             tryVerify(function() { return forYou.adding.length === 0 && forYou.items.length === 0 }, 10000)
             const added = researchStore.libraryDocuments({text: "Fresh Odometry From arXiv"})

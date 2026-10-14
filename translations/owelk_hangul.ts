@@ -1506,6 +1506,14 @@ Same file as another library entry</source>
         <translation> 데이즈</translation>
     </message>
     <message>
+        <source> days ago</source>
+        <translation> 데이즈 어고</translation>
+    </message>
+    <message>
+        <source> et al.</source>
+        <translation> 엣 알.</translation>
+    </message>
+    <message>
         <source> for good?</source>
         <translation> 포 굿?</translation>
     </message>
@@ -1616,6 +1624,10 @@ Same file as another library entry</source>
     <message>
         <source>Adding…</source>
         <translation>애딩…</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>올</translation>
     </message>
     <message>
         <source>All Papers</source>
@@ -1910,8 +1922,20 @@ Same file as another library entry</source>
         <translation>더 피디에프스 스테이 웨어 데이 아; 타이틀스 앤드 텍스트 아 리드 인 더 백그라운드. 히든 폴더스 아 스킵트.</translation>
     </message>
     <message>
+        <source>This month</source>
+        <translation>디스 먼스</translation>
+    </message>
+    <message>
+        <source>This week</source>
+        <translation>디스 위크</translation>
+    </message>
+    <message>
         <source>Title</source>
         <translation>타이틀</translation>
+    </message>
+    <message>
+        <source>Today</source>
+        <translation>투데이</translation>
     </message>
     <message>
         <source>Trash</source>
@@ -1936,6 +1960,10 @@ Same file as another library entry</source>
     <message>
         <source>Year</source>
         <translation>이어</translation>
+    </message>
+    <message>
+        <source>Yesterday</source>
+        <translation>예스터데이</translation>
     </message>
     <message>
         <source>deleted in </source>
@@ -4546,8 +4574,16 @@ You can open the same document twice.</source>
         <translation> 페이퍼스 투 컴페어 위드</translation>
     </message>
     <message>
+        <source>15 days</source>
+        <translation>15 데이즈</translation>
+    </message>
+    <message>
         <source>30 days</source>
         <translation>30 데이즈</translation>
+    </message>
+    <message>
+        <source>60 days</source>
+        <translation>60 데이즈</translation>
     </message>
     <message>
         <source>7 days</source>
@@ -4560,6 +4596,10 @@ You can open the same document twice.</source>
     <message>
         <source>Add</source>
         <translation>애드</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>올웨이즈</translation>
     </message>
     <message>
         <source>At most, per topic or collection</source>
@@ -4588,6 +4628,10 @@ You can open the same document twice.</source>
     <message>
         <source>Explain with AI</source>
         <translation>익스플레인 위드 에이아이</translation>
+    </message>
+    <message>
+        <source>Keep papers in the list</source>
+        <translation>킵 페이퍼스 인 더 리스트</translation>
     </message>
     <message>
         <source>Last checked </source>
@@ -4640,6 +4684,10 @@ You can open the same document twice.</source>
     <message>
         <source>Topics</source>
         <translation>토픽스</translation>
+    </message>
+    <message>
+        <source>Until you add or dismiss them, for at most</source>
+        <translation>언틸 유 애드 오어 디스미스 뎀, 포 앳 모스트</translation>
     </message>
     <message>
         <source>Words: lidar odometry, SLAM</source>
@@ -4762,6 +4810,10 @@ You can open the same document twice.</source>
     <message>
         <source>Instructions</source>
         <translation>인스트럭션스</translation>
+    </message>
+    <message>
+        <source>Keep For You papers</source>
+        <translation>킵 포 유 페이퍼스</translation>
     </message>
     <message>
         <source>Keep PDFs in Owelk</source>

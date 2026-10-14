@@ -229,7 +229,7 @@ Rectangle {
                                 readonly property bool adding: forYouBox.forYou.adding.indexOf(modelData.id) >= 0
                                 objectName: "homeForYou-" + index
                                 width: forYouRows.width
-                                height: Theme.rowHeightTall
+                                height: Theme.rowHeightTall + 10
                                 separator: index < forYouBox.shown.length - 1
                                 rightPadding: actions.width + 12
                                 // Opens in Library › For You, the whole abstract shown (a web page takes a while).
@@ -238,8 +238,8 @@ Rectangle {
                                 ToolTip.visible: hovered; ToolTip.delay: 700
                                 ToolTip.text: details + ((modelData.abstract || "").length ? "\n\n" + modelData.abstract.slice(0, 600) : "")
                                 contentItem: ColumnLayout {
-                                    spacing: 2
-                                    Label { Layout.fillWidth: true; text: suggestion.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                                    spacing: 3
+                                    Label { Layout.fillWidth: true; text: suggestion.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; font.weight: Font.Medium; color: Theme.text }
                                     // Why to read it (the AI's sentence), else who and when.
                                     Label {
                                         objectName: "homeForYouWhy-" + suggestion.index
