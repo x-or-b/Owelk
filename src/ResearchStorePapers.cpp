@@ -195,7 +195,7 @@ bool ResearchStore::keptByOwelk(const QUrl &source) const
 
 int ResearchStore::renamePapersToTitles(const QVariantList &sources)
 {
-    int renamed = 0;
+    int renamed = 0, named = 0;
     const auto parts = fileNameParts();
     for (const auto &value : sources) {
         const auto from = resolvedSource(value.toUrl());
@@ -213,7 +213,14 @@ int ResearchStore::renamePapersToTitles(const QVariantList &sources)
         const auto hash = query.value(4).toString();
         query.finish();
         const auto stem = PaperMetadataText::fileStem(paper, parts);
-        if (stem.isEmpty() || stem == QFileInfo(path).completeBaseName()) continue;
+        if (stem.isEmpty()) continue;
+        // Already named so ("Name" or, beside another file of that name, "Name (2)").
+        const auto base = QFileInfo(path).completeBaseName();
+        if (base == stem
+            || QRegularExpression("^" + QRegularExpression::escape(stem) + " \\(\\d+\\)$").match(base).hasMatch()) {
+            ++named;
+            continue;
+        }
         const auto target = uniqueFile(papersFolder(), stem + ".pdf");
         if (!QFile::rename(path, target)) continue;
         const auto to = QUrl::fromLocalFile(target);
@@ -235,7 +242,8 @@ int ResearchStore::renamePapersToTitles(const QVariantList &sources)
         emit message(renamed == 1 ? ui("Renamed the PDF from its paper details.")
                                   : QString(ui("Renamed %1 PDFs from their paper details.")).arg(renamed));
     } else {
-        emit message(ui("No PDF needed a new name (only Owelk's own copies with a known title are renamed)."));
+        emit message(named ? ui("Every PDF already has this name.")
+                           : ui("No PDF needed a new name (only Owelk's own copies with a known title are renamed)."));
     }
     return renamed;
 }

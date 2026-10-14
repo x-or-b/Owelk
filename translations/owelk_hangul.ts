@@ -2548,6 +2548,10 @@ Same file as another library entry</source>
         <translation>엔터 어 코멘트 (업 투 10,000 캐릭터스).</translation>
     </message>
     <message>
+        <source>Every PDF already has this name.</source>
+        <translation>에브리 피디에프 올레디 해즈 디스 네임.</translation>
+    </message>
+    <message>
         <source>Exported %1 entries to %2</source>
         <translation>익스포티드 %1 엔트리스 투 %2</translation>
     </message>

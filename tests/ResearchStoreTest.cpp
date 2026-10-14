@@ -1180,8 +1180,10 @@ private slots:
         QCOMPARE(store.displayName(renamed), QString("Radar: Odometry at Night"));
         QVERIFY(QFileInfo::exists(original)); // The file it came from is untouched.
         QCOMPARE(QFileInfo(store.resolvedSource(outside).toLocalFile()).fileName(), QString("outside.pdf"));
-        // Already named after its title: nothing to do.
+        // Already named after its title: nothing to do, and it says so.
+        QSignalSpy said(&store, &ResearchStore::message);
         QCOMPARE(store.renamePapersToTitles({renamed}), 0);
+        QCOMPARE(said.last().at(0).toString(), QString("Every PDF already has this name."));
     }
     void aiChatsMoveIntoThreadsOnUpgrade()
     {
