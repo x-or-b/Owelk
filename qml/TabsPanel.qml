@@ -282,19 +282,16 @@ Rectangle {
                         size: Theme.fontBody + 1
                         color: row.current && row.activeStrip ? Theme.selectedText : Theme.icon
                     }
-                    // Closed rail: a paper shows its title's first letter on a small tile instead of the icon.
+                    // Closed rail: a paper shows its title's first letter instead of the icon.
                     Rectangle {
                         id: initialTile
                         objectName: row.tab ? "verticalTabInitial-" + row.tab.id : ""
                         readonly property string letter: root.isPaper(row.tab) ? root.initialOf(row.title) : ""
                         readonly property bool chosen: row.current && row.activeStrip
                         visible: !root.open && letter.length > 0
-                        // The same square as the tab: the selection colors it, otherwise a quiet tile.
+                        // The letter alone, like the other tabs' icons; the tab's square shows hover and selection.
                         anchors.fill: parent
-                        radius: parent.radius
-                        color: chosen || row.current ? "transparent" : Theme.mix(Theme.sidebar, Theme.text, pointer.containsMouse ? .13 : .08)
-                        border.width: chosen || row.current ? 0 : 1
-                        border.color: Theme.mix(Theme.sidebar, Theme.text, .14)
+                        color: "transparent"
                         Label {
                             anchors.centerIn: parent
                             text: initialTile.letter
