@@ -9,6 +9,8 @@ ToolButton {
     readonly property var indexer: researchStore.paperIndex
     readonly property var records: indexer.documents
     readonly property int unavailable: records.filter(function(d) { return ["failed", "missing", "locked", "empty"].indexOf(d.state) >= 0 }).length
+    // Papers whose PDF is gone (deleted, or never arrived): they can leave the Library from here.
+    readonly property var missing: records.filter(function(d) { return d.state === "missing" }).map(function(d) { return d.source })
     // Quiet: shown only while indexing, paused, or when some PDFs cannot be read.
     property bool quiet: false
     visible: !quiet || indexer.busy || indexer.paused || unavailable > 0
@@ -34,9 +36,18 @@ ToolButton {
             RowLayout {
                 Layout.fillWidth: true
                 Label { Layout.fillWidth: true; text: root.indexer.progress || (root.indexer.paused ? qsTr("Paused") : "Up to date"); elide: Text.ElideMiddle }
+                Button {
+                    objectName: "removeMissingPdfs"
+                    visible: root.missing.length > 1
+                    flat: true; implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                    palette.buttonText: Theme.danger
+                    text: qsTr("Remove ") + root.missing.length + qsTr(" Missing")
+                    onClicked: { const list = root.missing; Qt.callLater(function() { researchStore.removeFromLibrary(list) }) }
+                }
                 IconButton { objectName: "pauseIndex"; icon.name: root.indexer.paused ? "play" : "pause"; description: root.indexer.paused ? qsTr("Resume indexing") : qsTr("Pause indexing"); onClicked: root.indexer.setPaused(!root.indexer.paused) }
             }
             ListView {
+                objectName: "indexDetailsList"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 320
                 model: details.visible ? root.records : []
@@ -44,6 +55,7 @@ ToolButton {
                 ScrollBar.vertical: ScrollBar {}
                 delegate: ItemDelegate {
                     required property var modelData
+                    required property int index
                     width: ListView.view.width
                     height: 76
                     contentItem: RowLayout {
@@ -60,6 +72,13 @@ ToolButton {
                         }
                         IconButton { icon.name: "reload"; description: qsTr("Retry"); visible: ["failed", "missing", "locked", "paused"].indexOf(modelData.state) >= 0; onClicked: root.indexer.retry(modelData.source) }
                         IconButton { icon.name: "locate"; description: qsTr("Locate the original PDF…"); onClicked: { const source = modelData.source; details.close(); researchStore.requestRelink(source) } }
+                        // A PDF that is gone and not wanted: the paper leaves the Library (and this list).
+                        IconButton {
+                            objectName: "removeMissing-" + index
+                            visible: modelData.state === "missing"
+                            icon.name: "trash"; tint: Theme.danger; description: qsTr("Remove from the Library")
+                            onClicked: { const source = modelData.source; Qt.callLater(function() { researchStore.removeFromLibrary([source]) }) }
+                        }
                     }
                     ToolTip.visible: hovered
                     ToolTip.text: modelData.source.toString()

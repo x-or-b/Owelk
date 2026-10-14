@@ -61,6 +61,15 @@ public:
         QFile::copy(from, path);
         return QUrl::fromLocalFile(path);
     }
+    // A copy with bytes of its own (a comment after the end), so the Library takes it as another paper.
+    Q_INVOKABLE QUrl uniqueFixture(const QString &name)
+    {
+        const auto url = copyFixture(name);
+        QFile file(url.toLocalFile());
+        if (file.open(QIODevice::Append)) file.write("\n% " + QUuid::createUuid().toByteArray() + "\n");
+        return url;
+    }
+    Q_INVOKABLE bool removeFile(const QUrl &url) const { return QFile::remove(url.toLocalFile()); }
     Q_INVOKABLE QUrl copyFixture(const QString &name)
     {
         const auto path = m_directory.filePath(name);

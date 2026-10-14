@@ -497,6 +497,7 @@ bool ResearchStore::initialize(QString *error)
     m_forYou->start();
     // Papers past their days in the Trash go a little after start, not while the window opens.
     QTimer::singleShot(20000, this, &ResearchStore::purgeExpired);
+    QTimer::singleShot(25000, this, &ResearchStore::pruneIndex);
     // Durable redirects also replay any search-cache update interrupted by process exit.
     for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)
         m_index->relocateSource(QUrl(it.key()), resolvedSource(QUrl(it.value())));
@@ -632,6 +633,24 @@ void ResearchStore::syncReceived(const QSet<QString> &tables, const QStringList 
     }
     if (touched({"ai_threads", "ai_messages", "ai_responses"})) emit aiThreadsChanged();
     if (touched({"foryou_topics", "foryou_follows", "foryou_items", "foryou_meta"})) m_forYou->reload();
+    // Papers removed or deleted on another computer leave this computer's text index too.
+    if (touched({"documents"})) pruneIndex();
+}
+
+int ResearchStore::pruneIndex()
+{
+    QSet<QString> kept;
+    QSqlQuery query(m_database);
+    if (!query.exec("SELECT url FROM documents WHERE removed_at IS NULL")) return 0;
+    while (query.next()) kept.insert(resolvedSource(QUrl(query.value(0).toString())).toString());
+    int pruned = 0;
+    for (const auto &value : m_index->documents()) {
+        const auto source = value.toMap().value("source").toUrl();
+        if (kept.contains(resolvedSource(source).toString())) continue;
+        m_index->remove(source);
+        ++pruned;
+    }
+    return pruned;
 }
 
 QVariantMap ResearchStore::readingPosition(const QUrl &source) const

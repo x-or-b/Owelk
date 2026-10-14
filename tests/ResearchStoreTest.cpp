@@ -786,8 +786,11 @@ private slots:
                 buffer->append(socket->readAll());
                 const auto end = buffer->indexOf("\r\n\r\n");
                 if (end < 0) return;
-                const auto length = QRegularExpression("Content-Length: (\\d+)", QRegularExpression::CaseInsensitiveOption)
-                                        .match(QString::fromLatin1(buffer->left(end))).captured(1).toInt();
+                const auto length
+                    = QRegularExpression("Content-Length: (\\d+)", QRegularExpression::CaseInsensitiveOption)
+                          .match(QString::fromLatin1(buffer->left(end)))
+                          .captured(1)
+                          .toInt();
                 if (buffer->size() < end + 4 + length) return;
                 const auto head = QString::fromUtf8(buffer->left(end));
                 requests.append(QString::fromUtf8(*buffer));
@@ -795,20 +798,30 @@ private slots:
                 if (head.contains("/api/query")) {
                     type = "application/atom+xml";
                     body = QStringLiteral(
-                        "<?xml version=\"1.0\"?><feed xmlns=\"http://www.w3.org/2005/Atom\" xmlns:arxiv=\"http://arxiv.org/schemas/atom\">"
+                        "<?xml version=\"1.0\"?><feed xmlns=\"http://www.w3.org/2005/Atom\" "
+                        "xmlns:arxiv=\"http://arxiv.org/schemas/atom\">"
                         "<entry><id>http://arxiv.org/abs/2601.00001v2</id><published>%1T10:00:00Z</published>"
                         "<title>Fresh  LiDAR"
-                        " Odometry</title><summary>New method.</summary><author><name>Ada Lovelace</name></author><author><name>Alan Turing</name></author>"
-                        "<link title=\"pdf\" href=\"%2/pdf/2601.00001v2\" rel=\"related\" type=\"application/pdf\"/><arxiv:doi>10.9/fresh</arxiv:doi></entry>"
-                        "<entry><id>http://arxiv.org/abs/2601.00002v1</id><published>%1T09:00:00Z</published><title>Already Kept</title>"
+                        " Odometry</title><summary>New method.</summary><author><name>Ada "
+                        "Lovelace</name></author><author><name>Alan Turing</name></author>"
+                        "<link title=\"pdf\" href=\"%2/pdf/2601.00001v2\" rel=\"related\" "
+                        "type=\"application/pdf\"/><arxiv:doi>10.9/fresh</arxiv:doi></entry>"
+                        "<entry><id>http://arxiv.org/abs/2601.00002v1</id><published>%1T09:00:00Z</"
+                        "published><title>Already Kept</title>"
                         "<author><name>Kept Author</name></author></entry></feed>")
                                .arg(today, base)
                                .toUtf8();
                 } else if (head.contains("/recommendations/v1/papers/")) {
                     body = QStringLiteral(
-                        "{\"recommendedPapers\":[{\"paperId\":\"s1\",\"title\":\"Like Your Collection\",\"authors\":[{\"name\":\"Grace Hopper\"}],\"year\":2026,\"publicationDate\":\"%1\",\"externalIds\":{\"DOI\":\"10.5/like\"},\"openAccessPdf\":{\"url\":\"%2/pdf/like\"}},"
-                        "                        {\"paperId\":\"s2\",\"title\":\"Old Classic\",\"year\":2010,\"publicationDate\":\"2010-05-01\",\"externalIds\":{\"DOI\":\"10.5/old\"}},"
-                        "                        {\"paperId\":\"s3\",\"title\":\"Fresh LiDAR Odometry\",\"publicationDate\":\"%1\",\"externalIds\":{\"ArXiv\":\"2601.00001\"}}]}")
+                        "{\"recommendedPapers\":[{\"paperId\":\"s1\",\"title\":\"Like Your "
+                        "Collection\",\"authors\":[{\"name\":\"Grace "
+                        "Hopper\"}],\"year\":2026,\"publicationDate\":\"%1\",\"externalIds\":{\"DOI\":\"10.5/"
+                        "like\"},\"openAccessPdf\":{\"url\":\"%2/pdf/like\"}},"
+                        "                        {\"paperId\":\"s2\",\"title\":\"Old "
+                        "Classic\",\"year\":2010,\"publicationDate\":\"2010-05-01\",\"externalIds\":{\"DOI\":\"10.5/"
+                        "old\"}},"
+                        "                        {\"paperId\":\"s3\",\"title\":\"Fresh LiDAR "
+                        "Odometry\",\"publicationDate\":\"%1\",\"externalIds\":{\"ArXiv\":\"2601.00001\"}}]}")
                                .arg(today, base)
                                .toUtf8();
                 } else if (head.contains("/pdf/")) {
@@ -845,7 +858,8 @@ private slots:
         forYou->refresh();
         QTRY_VERIFY_WITH_TIMEOUT(!forYou->checking(), 10000);
         QVERIFY2(forYou->problem().isEmpty(), qPrintable(forYou->problem()));
-        QVERIFY(requests.join('\n').contains("search_query=%28all%3A%22lidar+odometry%22+OR+all%3ASLAM%29+AND+cat%3Acs.RO"));
+        QVERIFY(requests.join('\n').contains(
+            "search_query=%28all%3A%22lidar+odometry%22+OR+all%3ASLAM%29+AND+cat%3Acs.RO"));
         QVERIFY(requests.join('\n').contains("\"positivePaperIds\":[\"ArXiv:2601.00002\"]"));
         // New papers only: not the kept one, not the old one, and the same paper once.
         auto items = forYou->items();
@@ -870,10 +884,10 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(forYou->adding().isEmpty(), 10000);
         QCOMPARE(forYou->items().size(), 0);
         QVERIFY(store.hasPaper("2601.00001v2", ""));
-        const auto added = store.paperWithFile(QUrl::fromLocalFile(store.papersFolder() + "/Lovelace et al. - "
-                                                       + QString::number(QDate::currentDate().year())
-                                                       + " - Fresh LiDAR Odometry.pdf"),
-            {});
+        const auto added
+            = store.paperWithFile(QUrl::fromLocalFile(store.papersFolder() + "/Lovelace et al. - "
+                                      + QString::number(QDate::currentDate().year()) + " - Fresh LiDAR Odometry.pdf"),
+                {});
         QVERIFY(!added.isEmpty());
         QCOMPARE(store.documentDetails(added)["arxiv"].toString(), QString("2601.00001"));
         QCOMPARE(store.documentDetails(added)["doi"].toString(), QString("10.9/fresh"));
@@ -915,7 +929,8 @@ private slots:
         QSqlDatabase::removeDatabase("v17");
         QFile old(data + "/foryou.json");
         QVERIFY(old.open(QIODevice::WriteOnly));
-        old.write(R"({"items":[{"id":"arxiv:2601.00001","title":"Kept Paper","date":"2026-01-02","foundAt":"2026-10-01T00:00:00Z","score":88,"why":"On SLAM."}],"dismissed":["doi:10.1/gone"],"checkedAt":"2026-10-01T00:00:00Z"})");
+        old.write(
+            R"({"items":[{"id":"arxiv:2601.00001","title":"Kept Paper","date":"2026-01-02","foundAt":"2026-10-01T00:00:00Z","score":88,"why":"On SLAM."}],"dismissed":["doi:10.1/gone"],"checkedAt":"2026-10-01T00:00:00Z"})");
         old.close();
         ResearchStore mac(data);
         QVERIFY2(mac.initialize(&error), qPrintable(error));
@@ -1423,8 +1438,8 @@ private slots:
         QCOMPARE(store.renamePapersToTitles({renamed}), 0);
         QCOMPARE(said.last().at(0).toString(), QString("Every PDF already has this name."));
         // Owelk shows the paper by the same parts (the title as written), everywhere it names it.
-        QVERIFY(store.updateDocumentDetails(
-            renamed, {{"title", "Radar: Odometry at Night"}, {"authors", "Ada Lovelace, Alan Turing"}, {"year", "1843"}}));
+        QVERIFY(store.updateDocumentDetails(renamed,
+            {{"title", "Radar: Odometry at Night"}, {"authors", "Ada Lovelace, Alan Turing"}, {"year", "1843"}}));
         QVERIFY(store.setSetting("pdfNames.parts", "author,year,title,-arxiv"));
         QCOMPARE(store.displayName(renamed), QString("Lovelace et al. - 1843 - Radar: Odometry at Night"));
         const auto rows = store.libraryDocuments();
@@ -1675,6 +1690,34 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(store.documentDetails(a)["title"].toString() != "Context and Observation", 10000);
         QVERIFY(store.updateDocumentDetails(b, {{"title", "Observation in Context"}}));
         QCOMPARE(firstPaper(), b);
+    }
+    void textIndexKeepsOnlyLibraryPapers()
+    {
+        // A paper deleted on another computer arrives as a missing row: its index entry goes too.
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY(store.initialize(&error));
+        const auto a = QUrl::fromLocalFile(directory.filePath("a.pdf")),
+                   b = QUrl::fromLocalFile(directory.filePath("b.pdf"));
+        writeFixture(a.toLocalFile());
+        writeFixture(b.toLocalFile());
+        QVERIFY(store.rememberDocument(a));
+        QVERIFY(store.rememberDocument(b));
+        auto *index = qobject_cast<PaperIndex *>(store.paperIndex());
+        QTRY_VERIFY_WITH_TIMEOUT(!index->busy() && index->documents().size() == 2, 20000);
+        {
+            WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3");
+            QSqlQuery query(db.db);
+            query.prepare("DELETE FROM documents WHERE url=?");
+            query.addBindValue(b.toString());
+            QVERIFY(query.exec());
+        }
+        QFile::remove(b.toLocalFile());
+        QCOMPARE(store.pruneIndex(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(index->documents().size(), 1, 10000);
+        QCOMPARE(index->documents()[0].toMap()["source"].toUrl(), a);
+        QCOMPARE(store.pruneIndex(), 0);
     }
     void relatedPapersAndNotesShareDistinctiveWords()
     {

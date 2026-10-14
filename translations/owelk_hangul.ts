@@ -1407,6 +1407,10 @@
 <context>
     <name>IndexStatus</name>
     <message>
+        <source> Missing</source>
+        <translation> 미싱</translation>
+    </message>
+    <message>
         <source> pages with text</source>
         <translation> 페이지스 위드 텍스트</translation>
     </message>
@@ -1449,6 +1453,14 @@
     <message>
         <source>Paused</source>
         <translation>포즈드</translation>
+    </message>
+    <message>
+        <source>Remove </source>
+        <translation>리무브 </translation>
+    </message>
+    <message>
+        <source>Remove from the Library</source>
+        <translation>리무브 프롬 더 라이브러리</translation>
     </message>
     <message>
         <source>Resume indexing</source>

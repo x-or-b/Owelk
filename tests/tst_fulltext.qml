@@ -212,6 +212,29 @@ Item {
             mouseClick(findChild(details, "pauseIndex")); compare(researchStore.paperIndex.paused, true)
             mouseClick(findChild(details, "pauseIndex")); compare(researchStore.paperIndex.paused, false)
             details.close()
+            // A paper whose PDF is gone can leave the Library from the list.
+            const gone = testInput.uniqueFixture("gone.pdf")
+            const before = researchStore.libraryDocuments({}).map(function(d) { return d.url.toString() })
+            verify(researchStore.addDocuments([gone], "") === 1)
+            const kept = researchStore.libraryDocuments({}).find(function(d) { return before.indexOf(d.url.toString()) < 0 })
+            verify(kept !== undefined, "a paper of its own")
+            tryVerify(function() { return status.records.some(function(d) { return researchStore.sameSource(d.source, kept.url) && d.state === "ready" }) }, 20000)
+            verify(testInput.removeFile(kept.url))
+            researchStore.paperIndex.retry(kept.url)
+            tryVerify(function() { return status.missing.some(function(u) { return researchStore.sameSource(u, kept.url) }) }, 20000)
+            mouseClick(status)
+            tryCompare(details, "opened", true)
+            let remove = null
+            tryVerify(function() {
+                const at = status.records.findIndex(function(d) { return researchStore.sameSource(d.source, kept.url) })
+                if (at >= 0) findChild(details, "indexDetailsList").positionViewAtIndex(at, ListView.Contain)
+                remove = at >= 0 ? visualChild(findChild(details, "indexDetailsList").contentItem, "removeMissing-" + at) : null
+                return remove !== null && remove.visible
+            })
+            remove.clicked()
+            tryVerify(function() { return !researchStore.libraryDocuments({}).some(function(d) { return researchStore.sameSource(d.url, kept.url) }) })
+            tryVerify(function() { return !status.missing.some(function(u) { return researchStore.sameSource(u, kept.url) }) }, 10000)
+            details.close()
             status.quiet = true
         }
     }
