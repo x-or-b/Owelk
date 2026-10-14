@@ -124,6 +124,10 @@
         <translation>언타이틀드 노트</translation>
     </message>
     <message>
+        <source>Up to 10 notes per question.</source>
+        <translation>업 투 10 노츠 퍼 퀘스천.</translation>
+    </message>
+    <message>
         <source>Up to 6 images per question.</source>
         <translation>업 투 6 이미지스 퍼 퀘스천.</translation>
     </message>
@@ -1482,8 +1486,16 @@ Same file as another library entry</source>
         <translation> 아이템스</translation>
     </message>
     <message>
+        <source> note</source>
+        <translation> 노트</translation>
+    </message>
+    <message>
         <source> note links</source>
         <translation> 노트 링크스</translation>
+    </message>
+    <message>
+        <source> notes</source>
+        <translation> 노츠</translation>
     </message>
     <message>
         <source> notes link</source>
@@ -1558,6 +1570,14 @@ Same file as another library entry</source>
         <translation>올 페이퍼스</translation>
     </message>
     <message>
+        <source>Ask AI</source>
+        <translation>애스크 에이아이</translation>
+    </message>
+    <message>
+        <source>Ask AI…</source>
+        <translation>애스크 에이아이…</translation>
+    </message>
+    <message>
         <source>Ask this collection with AI</source>
         <translation>애스크 디스 컬렉션 위드 에이아이</translation>
     </message>
@@ -1568,6 +1588,10 @@ Same file as another library entry</source>
     <message>
         <source>BibTeX copied.</source>
         <translation>빕텍 카피드.</translation>
+    </message>
+    <message>
+        <source>Choose notes</source>
+        <translation>추즈 노츠</translation>
     </message>
     <message>
         <source>Choose papers</source>
@@ -1584,6 +1608,10 @@ Same file as another library entry</source>
     <message>
         <source>Compare with AI…</source>
         <translation>컴페어 위드 에이아이…</translation>
+    </message>
+    <message>
+        <source>Copied.</source>
+        <translation>카피드.</translation>
     </message>
     <message>
         <source>Copy BibTeX</source>
@@ -1644,6 +1672,10 @@ Same file as another library entry</source>
     <message>
         <source>Move Note to Trash</source>
         <translation>무브 노트 투 트래시</translation>
+    </message>
+    <message>
+        <source>Move Notes to Trash</source>
+        <translation>무브 노츠 투 트래시</translation>
     </message>
     <message>
         <source>New Collection…</source>
@@ -1752,6 +1784,10 @@ Same file as another library entry</source>
     <message>
         <source>Select All</source>
         <translation>셀렉트 올</translation>
+    </message>
+    <message>
+        <source>Select notes</source>
+        <translation>셀렉트 노츠</translation>
     </message>
     <message>
         <source>Select papers</source>

@@ -23,8 +23,26 @@ Rectangle {
     // Select mode (the Select button): a click picks a paper instead of opening it.
     property bool selecting: false
     function setSelecting(on) { selecting = on; if (!on) { selection = []; selectionAnchor = -1 } }
-    readonly property bool allSelected: rows.length > 0 && selection.length === rows.length
-    function selectAll(on) { selection = on ? rows.map(function(r) { return r.url.toString() }) : []; selectionAnchor = -1 }
+    // What can be chosen in the list shown: papers (URLs) or notes (ids).
+    readonly property var selectable: showingNotes ? noteRows.map(function(n) { return n.id }) : rows.map(function(r) { return r.url.toString() })
+    readonly property bool allSelected: selectable.length > 0 && selection.length === selectable.length
+    function selectAll(on) { selection = on ? selectable.slice() : []; selectionAnchor = -1 }
+    function noteClicked(index) {
+        const id = noteRows[index].id, mods = researchStore.keyboardModifiers()
+        if (mods & Qt.ShiftModifier && selectionAnchor >= 0) {
+            const a = Math.min(selectionAnchor, index), b = Math.max(selectionAnchor, index)
+            selection = noteRows.slice(a, b + 1).map(function(n) { return n.id })
+        } else if (selecting || mods & Qt.ControlModifier) {
+            selection = selection.indexOf(id) >= 0 ? selection.filter(function(n) { return n !== id }) : selection.concat([id])
+            selectionAnchor = index
+        } else {
+            selection = []; selectionAnchor = index
+            root.noteChosen(id)
+        }
+    }
+    // The chosen notes in a new AI chat, to ask about them or have them rewritten.
+    signal askNotesRequested(var ids)
+    function askAboutNotes(ids) { const list = ids.slice(); setSelecting(false); root.askNotesRequested(list) }
     function isSelected(url) { return selection.indexOf(url.toString()) >= 0 }
     function rowClicked(index) {
         const row = rows[index], url = row.url.toString(), mods = researchStore.keyboardModifiers()
@@ -47,7 +65,7 @@ Rectangle {
     readonly property string view: filter.view === "notes" || filter.view === "trash" ? filter.view : "papers"
     readonly property bool showingNotes: view === "notes"
     readonly property bool showingTrash: view === "trash"
-    function setView(next) { if (next !== "papers") setSelecting(false); setFilter(next === "papers" ? {} : {view: next}) }
+    function setView(next) { if (next !== view) setSelecting(false); setFilter(next === "papers" ? {} : {view: next}) }
     Shortcut { sequence: "Escape"; enabled: root.selecting && root.visible; onActivated: root.setSelecting(false) }
     // Delete or Backspace moves the chosen papers to the Trash (a text field being edited keeps its keys).
     Shortcut {
@@ -56,7 +74,11 @@ Rectangle {
                  && !(root.Window.activeFocusItem && root.Window.activeFocusItem.cursorPosition !== undefined)
         onActivated: root.deleteSelection()
     }
-    function deleteSelection() { const list = selection; setSelecting(false); Qt.callLater(function() { researchStore.deletePapers(list) }) }
+    function deleteSelection() {
+        const list = selection, notes = showingNotes
+        setSelecting(false)
+        Qt.callLater(function() { if (notes) list.forEach(function(id) { researchStore.deleteNote(id) }); else researchStore.deletePapers(list) })
+    }
     // What follows the pointer while papers are dragged onto a collection, the AI panel or a panel's shelf.
     Rectangle {
         id: dragGhost
@@ -108,11 +130,11 @@ Rectangle {
         f.sort = sort
         rows = researchStore.libraryDocuments(f)
         unsortedCount = researchStore.unsortedCount()
-        const present = rows.map(function(r) { return r.url.toString() })
-        selection = selection.filter(function(u) { return present.indexOf(u) >= 0 })
         collectionRows = researchStore.collections()
         tagRows = researchStore.tags()
         noteRows = showingNotes ? researchStore.notes(false) : []
+        const present = selectable
+        selection = selection.filter(function(u) { return present.indexOf(u) >= 0 })
         trashCount = researchStore.trashCount()
         trashRows = showingTrash ? researchStore.trash() : []
     }
@@ -187,9 +209,25 @@ Rectangle {
         objectName: "libraryNoteMenu"
         property string noteId: ""
         MenuItem { text: qsTr("Open"); onTriggered: root.noteChosen(noteMenu.noteId) }
+        MenuItem { text: qsTr("Ask AI…"); onTriggered: root.askAboutNotes([noteMenu.noteId]) }
         MenuItem { text: qsTr("Copy Markdown"); onTriggered: researchStore.copyText(researchStore.note(noteMenu.noteId).body || "") }
         MenuSeparator {}
         MenuItem { text: qsTr("Move Note to Trash"); palette.windowText: Theme.danger; onTriggered: researchStore.deleteNote(noteMenu.noteId) }
+    }
+    // Several selected notes: ask the AI about them, copy them, or move them to the Trash.
+    Menu {
+        id: noteBatchMenu
+        objectName: "libraryNoteBatchMenu"
+        property var ids: []
+        MenuItem { enabled: false; text: noteBatchMenu.ids.length + (noteBatchMenu.ids.length === 1 ? qsTr(" note") : qsTr(" notes")) }
+        MenuSeparator {}
+        MenuItem { objectName: "noteBatchAsk"; text: qsTr("Ask AI…"); onTriggered: root.askAboutNotes(noteBatchMenu.ids) }
+        MenuItem {
+            text: qsTr("Copy Markdown")
+            onTriggered: { researchStore.copyText(noteBatchMenu.ids.map(function(id) { const n = researchStore.note(id); return "# " + (n.title || "") + "\n\n" + (n.body || "").trim() }).join("\n\n---\n\n")); researchStore.notify(qsTr("Copied.")) }
+        }
+        MenuSeparator {}
+        MenuItem { text: qsTr("Move Notes to Trash"); palette.windowText: Theme.danger; onTriggered: { const list = noteBatchMenu.ids; root.setSelecting(false); Qt.callLater(function() { list.forEach(function(id) { researchStore.deleteNote(id) }) }) } }
     }
     // Several selected papers: what applies to all of them.
     Menu {
@@ -471,7 +509,60 @@ Rectangle {
                     Layout.fillWidth: true
                     visible: root.showingNotes
                     Label { Layout.fillWidth: true; text: qsTr("Notes"); font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
-                    IconButton { objectName: "libraryNewNote"; icon.name: "note"; description: qsTr("New note"); onClicked: root.newNoteRequested() }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: root.showingNotes
+                    Label {
+                        objectName: "libraryNoteCount"; Layout.fillWidth: true
+                        text: root.selecting ? (root.selection.length ? root.selection.length + qsTr(" selected") : qsTr("Choose notes"))
+                                             : root.noteRows.length + (root.noteRows.length === 1 ? qsTr(" note") : qsTr(" notes"))
+                        font.pixelSize: Theme.fontSmall; color: root.selecting && root.selection.length ? Theme.text : Theme.textTertiary
+                    }
+                    Button {
+                        objectName: "libraryNoteSelectAll"
+                        visible: root.selecting
+                        flat: true; font.pixelSize: Theme.fontSmall; horizontalPadding: 8
+                        implicitHeight: Theme.controlHeightSmall
+                        text: root.allSelected ? qsTr("Deselect All") : qsTr("Select All")
+                        onClicked: root.selectAll(!root.allSelected)
+                    }
+                    Button {
+                        objectName: "libraryNoteAsk"
+                        visible: root.selecting
+                        enabled: root.selection.length > 0
+                        flat: true; font.pixelSize: Theme.fontSmall; horizontalPadding: 8
+                        implicitHeight: Theme.controlHeightSmall
+                        text: qsTr("Ask AI")
+                        onClicked: root.askAboutNotes(root.selection)
+                    }
+                    Button {
+                        objectName: "libraryNoteDelete"
+                        visible: root.selecting
+                        enabled: root.selection.length > 0
+                        flat: true; font.pixelSize: Theme.fontSmall; horizontalPadding: 8
+                        implicitHeight: Theme.controlHeightSmall
+                        palette.buttonText: Theme.danger
+                        text: qsTr("Delete")
+                        onClicked: root.deleteSelection()
+                    }
+                    Button {
+                        objectName: "libraryNoteDone"
+                        visible: root.selecting
+                        flat: true; font.pixelSize: Theme.fontSmall; horizontalPadding: 8
+                        implicitHeight: Theme.controlHeightSmall
+                        text: qsTr("Done")
+                        onClicked: root.setSelecting(false)
+                    }
+                    IconButton { objectName: "libraryNewNote"; visible: !root.selecting; icon.name: "add"; description: qsTr("New note"); onClicked: root.newNoteRequested() }
+                    IconButton {
+                        objectName: "libraryNoteSelect"
+                        visible: !root.selecting
+                        enabled: root.noteRows.length > 0
+                        icon.name: "check"
+                        description: qsTr("Select notes")
+                        onClicked: root.setSelecting(true)
+                    }
                 }
                 ListView {
                     id: noteList
@@ -485,14 +576,35 @@ Rectangle {
                         required property var modelData
                         objectName: "libraryNote-" + modelData.id
                         required property int index
+                        readonly property bool chosen: root.selection.indexOf(modelData.id) >= 0
                         width: noteList.width; height: Theme.rowHeightTall
                         separator: index < noteList.count - 1
-                        onClicked: root.noteChosen(modelData.id)
-                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: { noteMenu.noteId = noteItem.modelData.id; noteMenu.popup() } }
-                        contentItem: ColumnLayout {
-                            spacing: 2
-                            Label { Layout.fillWidth: true; text: noteItem.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
-                            Label { Layout.fillWidth: true; text: noteItem.modelData.snippet || " "; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                        highlighted: chosen
+                        onClicked: root.noteClicked(index)
+                        // Right-click on a chosen note acts on all chosen ones.
+                        TapHandler {
+                            acceptedButtons: Qt.RightButton
+                            onTapped: {
+                                if (noteItem.chosen && (root.selection.length > 1 || root.selecting)) { noteBatchMenu.ids = root.selection.slice(); noteBatchMenu.popup() }
+                                else { root.selection = []; noteMenu.noteId = noteItem.modelData.id; noteMenu.popup() }
+                            }
+                        }
+                        contentItem: RowLayout {
+                            spacing: 10
+                            Rectangle {
+                                objectName: "libraryNoteMark"
+                                visible: root.selecting
+                                Layout.preferredWidth: 16; Layout.preferredHeight: 16; radius: 8
+                                color: noteItem.chosen ? Theme.accent : "transparent"
+                                border.width: noteItem.chosen ? 0 : 1.5; border.color: Theme.border
+                                Icon { anchors.centerIn: parent; visible: noteItem.chosen; name: "check"; size: 11; color: Theme.onAccent }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+                                Label { Layout.fillWidth: true; text: noteItem.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                                Label { Layout.fillWidth: true; text: noteItem.modelData.snippet || " "; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                            }
                         }
                     }
                     Label { anchors.centerIn: parent; visible: noteList.count === 0; text: qsTr("No notes yet."); color: Theme.textTertiary }

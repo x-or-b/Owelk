@@ -262,6 +262,36 @@ Item {
             verify(visibleChild(view, "libraryAddPdfs") !== null)
             researchStore.restoreFromTrash([{kind: "paper", id: second.id}])
         }
+        function test_notesSelectAskAiAndDelete() {
+            const one = researchStore.createNote("Select note one", "first"), two = researchStore.createNote("Select note two", "second")
+            workspace.documents.openLibrary({view: "notes"})
+            const view = library()
+            tryVerify(function() { return view.noteRows.some(function(n) { return n.id === two }) })
+            waitForPolish(view); wait(50)
+            mouseClick(visibleChild(view, "libraryNoteSelect"))
+            verify(view.selecting)
+            verify(!visibleChild(view, "libraryNoteAsk").enabled)
+            mouseClick(visualChild(view, "libraryNote-" + one), 60, 12)
+            mouseClick(visualChild(view, "libraryNote-" + two), 60, 12)
+            compare(view.selection.length, 2)
+            verify(visualChild(view, "libraryNote-" + one).highlighted)
+            compare(activeTab().kind, "library", "nothing opened")
+            // Ask AI: a new chat with both notes attached.
+            waitForPolish(visibleChild(view, "libraryNoteCount").parent); wait(20)
+            mouseClick(visibleChild(view, "libraryNoteAsk"))
+            const ai = findChild(workspace, "aiController")
+            tryVerify(function() { return (ai.spec.noteIds || []).length === 2 })
+            verify(ai.attachments.filter(function(a) { return a.kind === "note" }).length === 2)
+            verify(!view.selecting)
+            // Backspace moves chosen notes to the Trash.
+            mouseClick(visibleChild(view, "libraryNoteSelect"))
+            mouseClick(visualChild(view, "libraryNote-" + two), 60, 12)
+            view.forceActiveFocus()
+            keyClick(Qt.Key_Backspace)
+            tryVerify(function() { return researchStore.note(two).deleted })
+            verify(!researchStore.note(one).deleted)
+            researchStore.deleteNote(one)
+        }
         function test_dragPaperOntoCollection() {
             const one = testInput.copyFixture("drag one.pdf")
             verify(researchStore.addDocuments([one], "") === 1)

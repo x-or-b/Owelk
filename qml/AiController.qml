@@ -185,10 +185,18 @@ Item {
     function attachNote(id) {
         ensureConversation()
         const next = Object.assign({}, spec), list = (next.noteIds || []).slice()
-        if (list.indexOf(id) < 0 && list.length < 5) list.push(id)
+        if (list.indexOf(id) < 0 && list.length < 10) list.push(id)
+        else if (list.length >= 10) error = qsTr("Up to 10 notes per question.")
         next.noteIds = list
         spec = next
         focusRequested()
+    }
+    // Notes chosen in the Library: a new chat about them (no paper unless one is added).
+    function attachNotes(ids) {
+        reset()
+        threadId = ""; thread = ({}); spec = ({})
+        conversationOpen = true
+        ids.forEach(function(id) { attachNote(id) })
     }
     // Notes an answer proposes (<note_update id title>…</note_update>, <note_new title>…</note_new>): the
     // answer's text without them, the notes, its text with each note's Markdown in place (to copy or save),
@@ -295,6 +303,7 @@ Item {
             else if (next.image) attachPicture(next)
             else if (next.selection) attachText(next)
             else if (next.note) attachNote(next.note)
+            else if (next.notes) attachNotes(next.notes)
             return
         }
         reset()

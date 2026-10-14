@@ -405,6 +405,7 @@ Rectangle {
                 onDocumentChosen: function(source, position) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source, position, true) }
                 onNoteChosen: function(id) { root.controller.activateGroup(root.groupId); root.controller.openNote(id, true) }
                 onNewNoteRequested: { root.controller.activateGroup(root.groupId); root.controller.newNote() }
+                onAskNotesRequested: function(ids) { root.controller.aiRequested({attach: true, notes: ids}) }
                 onAskLibraryRequested: function(collection, collectionName) {
                     root.controller.aiRequested({action: "ask", scope: "library", collection: collection, collectionName: collectionName})
                 }
