@@ -464,6 +464,14 @@ ApplicationWindow {
             acceptedButtons: Qt.AllButtons
             onActiveChanged: if (active) window.releaseFocusAt(point.scenePosition)
         }
+        // A mouse's Back and Forward buttons (buttons 4 and 5), anywhere in the window: the same Back and
+        // Forward as the arrows (a web tab's pages first). Taken here, so a web page does not go back twice.
+        TapHandler {
+            objectName: "mouseBackForward"
+            acceptedButtons: Qt.BackButton | Qt.ForwardButton
+            gesturePolicy: TapHandler.WithinBounds
+            onTapped: function(eventPoint, button) { if (button === Qt.BackButton) window.goBack(); else window.goForward() }
+        }
     }
     // Windows and Linux: the menus move behind the top bar's ≡ (their shortcuts keep working), so the window has
     // no separate menu bar under its title bar. macOS keeps them in the system menu bar.

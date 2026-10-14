@@ -231,6 +231,12 @@ Item {
             mouseClick(findChild(workspace, "topForward"))
             tryCompare(workspace, "homeVisible", false)
             compare(workspace.documents.currentTab, library)
+            // A mouse's Back and Forward buttons do the same.
+            mouseClick(workspace, workspace.width / 2, workspace.height / 2, Qt.BackButton)
+            tryCompare(workspace, "homeVisible", true)
+            mouseClick(workspace, workspace.width / 2, workspace.height / 2, Qt.ForwardButton)
+            tryCompare(workspace, "homeVisible", false)
+            compare(workspace.documents.currentTab, library)
             // A new place cuts off what was ahead.
             workspace.showHome()
             tryVerify(function() { return workspace.places[workspace.placeIndex] === "home" })
