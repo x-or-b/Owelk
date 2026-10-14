@@ -82,9 +82,19 @@ Rectangle {
             selection = selection.indexOf(id) >= 0 ? selection.filter(function(p) { return p !== id }) : selection.concat([id])
             selectionAnchor = index
         } else {
+            // Open in place: the whole abstract at once (a web page takes a while), with Add and its page.
             selection = []; selectionAnchor = index
-            root.webRequested(forYouRows[index].url)
+            forYouOpen = forYouOpen === id ? "" : id
         }
+    }
+    // The paper opened in place (from a click here or on Home).
+    property string forYouOpen: ""
+    function openForYou(id) {
+        forYouOpen = id
+        Qt.callLater(function() {
+            const at = root.forYouRows.findIndex(function(p) { return p.id === id })
+            if (at >= 0) forYouList.positionViewAtIndex(at, ListView.Contain)
+        })
     }
     function addForYou(ids) { const list = ids.slice(); setSelecting(false); forYou.add(list) }
     function dismissForYou(ids) { const list = ids.slice(); setSelecting(false); forYou.dismiss(list) }
@@ -179,7 +189,10 @@ Rectangle {
     function setFilter(next) { filter = next; selection = []; selectionAnchor = -1; filterEdited(next); refresh() }
     function selected(key, value) { return key === "all" ? Object.keys(filter).length === 0 : filter[key] === value }
     onQueryChanged: refreshTimer.restart()
-    onFilterChanged: if (filter.collection) researchStore.markOpened("collection", filter.collection)
+    onFilterChanged: {
+        if (filter.collection) researchStore.markOpened("collection", filter.collection)
+        if (filter.open) openForYou(filter.open)
+    }
     onSortChanged: refresh()
     Component.onCompleted: refresh()
     Timer { id: refreshTimer; interval: 120; onTriggered: root.refresh() }
@@ -563,13 +576,16 @@ Rectangle {
                         required property int index
                         readonly property bool chosen: root.selection.indexOf(modelData.id) >= 0
                         readonly property bool adding: root.forYou.adding.indexOf(modelData.id) >= 0
+                        readonly property bool open: root.forYouOpen === modelData.id && !root.selecting
                         objectName: "libraryForYou-" + index
                         width: forYouList.width
                         height: forYouColumn.implicitHeight + 16
                         separator: index < forYouList.count - 1
                         highlighted: chosen
-                        rightPadding: forYouActions.width + 12
+                        rightPadding: found.open ? 12 : forYouActions.width + 12
                         onClicked: root.forYouClicked(index)
+                        // A double click goes on to its page.
+                        onDoubleClicked: if (!root.selecting) root.webRequested(modelData.url)
                         contentItem: RowLayout {
                             spacing: 10
                             Rectangle {
@@ -606,14 +622,42 @@ Rectangle {
                                     Layout.fillWidth: true
                                     visible: (found.modelData.abstract || "").length > 0
                                     text: found.modelData.abstract || ""
-                                    wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; textFormat: Text.PlainText
+                                    wrapMode: Text.Wrap; maximumLineCount: found.open ? 1000 : 2; elide: Text.ElideRight; textFormat: Text.PlainText
                                     font.pixelSize: Theme.fontCaption; color: Theme.textSecondary
+                                }
+                                // Opened: what to do with it.
+                                RowLayout {
+                                    visible: found.open
+                                    Layout.topMargin: 6
+                                    spacing: 6
+                                    Label { visible: found.adding; text: qsTr("Adding…"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
+                                    Button {
+                                        objectName: "libraryForYouOpenAdd"
+                                        visible: !found.adding
+                                        highlighted: true
+                                        implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                                        text: qsTr("Add to Library")
+                                        onClicked: root.forYou.add([found.modelData.id])
+                                    }
+                                    Button {
+                                        objectName: "libraryForYouOpenPage"
+                                        flat: true; implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                                        text: qsTr("Open Page")
+                                        onClicked: root.webRequested(found.modelData.url)
+                                    }
+                                    Button {
+                                        objectName: "libraryForYouOpenDismiss"
+                                        visible: !found.adding
+                                        flat: true; implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                                        text: qsTr("Dismiss")
+                                        onClicked: root.forYou.dismiss([found.modelData.id])
+                                    }
                                 }
                             }
                         }
                         Row {
                             id: forYouActions
-                            visible: !root.selecting
+                            visible: !root.selecting && !found.open
                             anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
                             spacing: 2
                             Label { visible: found.adding; anchors.verticalCenter: parent.verticalCenter; text: qsTr("Adding…"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }

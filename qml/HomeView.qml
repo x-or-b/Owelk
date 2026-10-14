@@ -232,7 +232,8 @@ Rectangle {
                                 height: Theme.rowHeightTall
                                 separator: index < forYouBox.shown.length - 1
                                 rightPadding: actions.width + 12
-                                onClicked: root.webRequested(modelData.url)
+                                // Opens in Library › For You, the whole abstract shown (a web page takes a while).
+                                onClicked: root.libraryFilterRequested({view: "foryou", open: modelData.id})
                                 readonly property string details: [modelData.authors, modelData.date, modelData.sourceName].filter(function(t) { return t && t.length }).join("  ·  ")
                                 ToolTip.visible: hovered; ToolTip.delay: 700
                                 ToolTip.text: details + ((modelData.abstract || "").length ? "\n\n" + modelData.abstract.slice(0, 600) : "")

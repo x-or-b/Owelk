@@ -1602,6 +1602,10 @@ Same file as another library entry</source>
         <translation>애드 투 페이버릿츠</translation>
     </message>
     <message>
+        <source>Add to Library</source>
+        <translation>애드 투 라이브러리</translation>
+    </message>
+    <message>
         <source>Add to the Library</source>
         <translation>애드 투 더 라이브러리</translation>
     </message>
@@ -1816,6 +1820,10 @@ Same file as another library entry</source>
     <message>
         <source>Open</source>
         <translation>오픈</translation>
+    </message>
+    <message>
+        <source>Open Page</source>
+        <translation>오픈 페이지</translation>
     </message>
     <message>
         <source>Organize into Collections with AI…</source>

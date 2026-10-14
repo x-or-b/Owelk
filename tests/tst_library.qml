@@ -331,17 +331,34 @@ Item {
             tryVerify(function() { return visualChild(home, "homeForYou-0") !== null && !visualChild(home, "homeForYouHint").visible })
             verify(visualChild(home, "homeForYouHeading").detail.indexOf("1") === 0)
             compare(visualChild(home, "homeForYouWhy-0").text, "Directly on the odometry you follow.")
+            // A paper on Home opens in Library › For You, already open.
+            mouseClick(visualChild(home, "homeForYou-0"), 60, 12)
+            let view = library()
+            tryCompare(view, "forYouOpen", forYou.items[0].id)
+            workspace.homeVisible = true
             // The heading goes to Library › For You.
             const heading = visualChild(home, "homeForYouHeading").children[0]
+            waitForPolish(home); wait(50)
             mouseClick(heading, 12, heading.height / 2)
-            let view = library()
+            view = library()
             tryCompare(view, "view", "foryou")
             tryVerify(function() { return visualChild(view, "libraryForYou-0") !== null })
             verify(Tree.validate(workspace.documents.snapshot().tree, {}, 0), "a For You tab is a valid saved tab")
-            // A paper's row opens its page in a web tab.
+            // A click opens the paper in place (its whole abstract, Add, its page); Open Page goes to the web.
             waitForPolish(view); wait(50)
             const libraryTab = activeTab().id
             mouseClick(visualChild(view, "libraryForYou-0"), 60, 12)
+            compare(view.forYouOpen, forYou.items[0].id)
+            compare(activeTab().kind, "library", "no web tab yet")
+            let openPage = null
+            tryVerify(function() { openPage = visibleChild(view, "libraryForYouOpenPage"); return openPage !== null })
+            wait(500) // Not a double click.
+            mouseClick(visualChild(view, "libraryForYou-0"), 60, 12)
+            compare(view.forYouOpen, "", "a second click closes it")
+            wait(500)
+            mouseClick(visualChild(view, "libraryForYou-0"), 60, 12)
+            tryVerify(function() { openPage = visibleChild(view, "libraryForYouOpenPage"); return openPage !== null })
+            openPage.clicked()
             tryVerify(function() { return activeTab().kind === "web" && activeTab().source.indexOf("arxiv.org/abs/2609.01234") >= 0 })
             const page = activeTab().id
             workspace.documents.activateTab(libraryTab)
