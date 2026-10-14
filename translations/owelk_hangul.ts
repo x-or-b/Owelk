@@ -2352,6 +2352,10 @@ Same file as another library entry</source>
         <translation>애디드 백 투 더 텍스트 인덱스.</translation>
     </message>
     <message>
+        <source>Added “%1” to the Library.</source>
+        <translation>애디드 “%1” 투 더 라이브러리.</translation>
+    </message>
+    <message>
         <source>Adding PDFs from %1</source>
         <translation>애딩 피디에프스 프롬 %1</translation>
     </message>
@@ -2652,12 +2656,24 @@ Same file as another library entry</source>
         <translation>카피잉 피디에프스 인투 더 라이브러리</translation>
     </message>
     <message>
+        <source>Could not download “%1”. Its page opens instead.</source>
+        <translation>쿠드 낫 다운로드 “%1”. 잇츠 페이지 오픈스 인스테드.</translation>
+    </message>
+    <message>
+        <source>Could not save the PDF.</source>
+        <translation>쿠드 낫 세이브 더 피디에프.</translation>
+    </message>
+    <message>
         <source>Deleted %1 annotation%2 that did not fit this copy.</source>
         <translation>딜리티드 %1 애노테이션%2 댓 디드 낫 핏 디스 카피.</translation>
     </message>
     <message>
         <source>Deleted conversation</source>
         <translation>딜리티드 컨버세이션</translation>
+    </message>
+    <message>
+        <source>Downloading </source>
+        <translation>다운로딩 </translation>
     </message>
     <message>
         <source>Draw a stroke of up to 5,000 points.</source>
@@ -2686,6 +2702,18 @@ Same file as another library entry</source>
     <message>
         <source>Exported to </source>
         <translation>익스포티드 투 </translation>
+    </message>
+    <message>
+        <source>For You: %1 new papers.</source>
+        <translation>포 유: %1 뉴 페이퍼스.</translation>
+    </message>
+    <message>
+        <source>For You: 1 new paper.</source>
+        <translation>포 유: 1 뉴 페이퍼.</translation>
+    </message>
+    <message>
+        <source>For You: looking for new papers</source>
+        <translation>포 유: 루킹 포 뉴 페이퍼스</translation>
     </message>
     <message>
         <source>Give the selected term in %1 first, as "**term** — translation"; then, in one or two short sentences, what it means in this passage.</source>
@@ -2940,6 +2968,10 @@ Same file as another library entry</source>
         <translation>셀렉트 텍스트 인 어 피디에프 퍼스트.</translation>
     </message>
     <message>
+        <source>Semantic Scholar did not answer for “%1”.</source>
+        <translation>시맨틱 스칼라 디드 낫 앤서 포 “%1”.</translation>
+    </message>
+    <message>
         <source>Semantic Scholar does not know this paper.</source>
         <translation>시맨틱 스칼라 더즈 낫 노 디스 페이퍼.</translation>
     </message>
@@ -3132,6 +3164,10 @@ Same file as another library entry</source>
         <translation>유 소트 어 리서처스 페이퍼스 인투 어 퓨 토픽 컬렉션스. 유즈 쇼트, 스페시픽 네임스 (2-5 워즈) 인 더 랭귀지 오브 더 페이퍼 타이틀스. 웬 페이퍼스 핏 어 컬렉션 댓 올레디 이그지스츠, 유즈 잇츠 이그잭트 네임. 리브 어 페이퍼 아웃 웬 잇 핏츠 노 그룹, 앤드 두 낫 메이크 어 그룹 포 어 싱글 페이퍼 언레스 잇 핏츠 언 이그지스팅 컬렉션. 리플라이 위드 제이슨 온리: {"그룹스": [{"네임": "…", "페이퍼스": ["피1", "피2"]}]}.</translation>
     </message>
     <message>
+        <source>arXiv did not answer for “%1”.</source>
+        <translation>아카이브 디드 낫 앤서 포 “%1”.</translation>
+    </message>
+    <message>
         <source>these papers</source>
         <translation>디즈 페이퍼스</translation>
     </message>
@@ -3142,6 +3178,10 @@ Same file as another library entry</source>
     <message>
         <source>your library</source>
         <translation>유어 라이브러리</translation>
+    </message>
+    <message>
+        <source>“%1” has no paper with an arXiv ID or DOI to look for others like it.</source>
+        <translation>“%1” 해즈 노 페이퍼 위드 언 아카이브 아이디 오어 디오아이 투 룩 포 아더스 라이크 잇.</translation>
     </message>
 </context>
 <context>

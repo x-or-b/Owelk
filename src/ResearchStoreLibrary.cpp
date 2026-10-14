@@ -11,6 +11,7 @@
 #include <QGuiApplication>
 #include <QSet>
 #include <QSqlError>
+#include <QRegularExpression>
 #include <QSqlQuery>
 #include <QUuid>
 
@@ -588,4 +589,43 @@ int ResearchStore::importFolder(const QUrl &folder, const QString &parentCollect
             return found;
         }));
     return request;
+}
+
+bool ResearchStore::hasPaper(const QString &arxiv, const QString &doi) const
+{
+    const auto id = QString(arxiv).trimmed().remove(QRegularExpression("v\\d+$"));
+    if (id.isEmpty() && doi.trimmed().isEmpty()) return false;
+    QSqlQuery query(m_database);
+    query.prepare("SELECT 1 FROM documents WHERE removed_at IS NULL AND ((?<>'' AND (arxiv=? OR arxiv GLOB ?)) OR "
+                  "(?<>'' AND lower(doi)=lower(?))) LIMIT 1");
+    for (const auto &value : {id, id, id + "v*", doi.trimmed(), doi.trimmed()}) query.addBindValue(value);
+    return query.exec() && query.next();
+}
+
+QStringList ResearchStore::collectionPaperKeys(const QString &collectionId, int limit) const
+{
+    QStringList keys;
+    QSqlQuery query(m_database);
+    query.prepare("SELECT d.arxiv,d.doi FROM collection_documents c JOIN documents d ON d.id=c.document_id "
+                  "WHERE c.collection_id=? AND d.removed_at IS NULL ORDER BY d.added_at DESC");
+    query.addBindValue(collectionId);
+    if (!query.exec()) return keys;
+    while (query.next() && keys.size() < limit) {
+        const auto arxiv = query.value(0).toString().trimmed().remove(QRegularExpression("v\\d+$"));
+        const auto doi = query.value(1).toString().trimmed();
+        if (!arxiv.isEmpty())
+            keys << "ArXiv:" + arxiv;
+        else if (!doi.isEmpty())
+            keys << "DOI:" + doi;
+    }
+    return keys;
+}
+
+QUrl ResearchStore::paperWithFile(const QUrl &file, const QString &sha256) const
+{
+    QSqlQuery query(m_database);
+    query.prepare("SELECT url FROM documents WHERE removed_at IS NULL AND (url=? OR (?<>'' AND sha256=?)) "
+                  "ORDER BY url=? DESC LIMIT 1");
+    for (const auto &value : {file.toString(), sha256, sha256, file.toString()}) query.addBindValue(value);
+    return query.exec() && query.next() ? QUrl(query.value(0).toString()) : QUrl();
 }
