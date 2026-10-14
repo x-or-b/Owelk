@@ -1368,6 +1368,10 @@
         <translation>노 컨버세이션스 옛</translation>
     </message>
     <message>
+        <source>No free PDF: open its page</source>
+        <translation>노 프리 피디에프: 오픈 잇츠 페이지</translation>
+    </message>
+    <message>
         <source>No notes yet</source>
         <translation>노 노츠 옛</translation>
     </message>
@@ -1766,6 +1770,10 @@ Same file as another library entry</source>
         <translation>포 유 세팅스</translation>
     </message>
     <message>
+        <source>Get PDF on Its Page</source>
+        <translation>겟 피디에프 온 잇츠 페이지</translation>
+    </message>
+    <message>
         <source>Inside the collection shown. </source>
         <translation>인사이드 더 컬렉션 숀. </translation>
     </message>
@@ -1812,6 +1820,18 @@ Same file as another library entry</source>
     <message>
         <source>New note</source>
         <translation>뉴 노트</translation>
+    </message>
+    <message>
+        <source>No free PDF</source>
+        <translation>노 프리 피디에프</translation>
+    </message>
+    <message>
+        <source>No free PDF was found. A PDF you download there joins the Library, and the paper leaves For You.</source>
+        <translation>노 프리 피디에프 워즈 파운드. 어 피디에프 유 다운로드 데어 조인스 더 라이브러리, 앤드 더 페이퍼 리브스 포 유.</translation>
+    </message>
+    <message>
+        <source>No free PDF: open its page</source>
+        <translation>노 프리 피디에프: 오픈 잇츠 페이지</translation>
     </message>
     <message>
         <source>No notes yet.</source>
@@ -2468,6 +2488,14 @@ Same file as another library entry</source>
         <translation> · 웨이팅 포 %1 파일스 프롬 더 폴더</translation>
     </message>
     <message>
+        <source>%1 papers have no free PDF; open their pages from the list.</source>
+        <translation>%1 페이퍼스 해브 노 프리 피디에프; 오픈 데어 페이지스 프롬 더 리스트.</translation>
+    </message>
+    <message>
+        <source>1 paper has no free PDF; open its page from the list.</source>
+        <translation>1 페이퍼 해즈 노 프리 피디에프; 오픈 잇츠 페이지 프롬 더 리스트.</translation>
+    </message>
+    <message>
         <source>A print dialog or job is already open. Finish or cancel it first.</source>
         <translation>어 프린트 다이얼로그 오어 잡 이즈 올레디 오픈. 피니시 오어 캔슬 잇 퍼스트.</translation>
     </message>
@@ -2946,6 +2974,10 @@ Same file as another library entry</source>
     <message>
         <source>No comparison came back.</source>
         <translation>노 컴패리슨 케임 백.</translation>
+    </message>
+    <message>
+        <source>No free PDF for “%1”: its page opens.</source>
+        <translation>노 프리 피디에프 포 “%1”: 잇츠 페이지 오픈스.</translation>
     </message>
     <message>
         <source>No groups were suggested.</source>

@@ -900,6 +900,69 @@ private slots:
             QCOMPARE(later->items().size(), 0);
         }
     }
+    void forYouPapersWithoutAFreePdf()
+    {
+        QVERIFY(ForYouParse::isPdfAddress("https://arxiv.org/pdf/2601.00001"));
+        QVERIFY(!ForYouParse::isPdfAddress("https://doi.org/10.1109/x"));
+        QVERIFY(!ForYouParse::isPdfAddress(""));
+        // A Semantic Scholar "open PDF" that is only a DOI link is no PDF; an arXiv ID still gives one.
+        const auto parsed = ForYouParse::recommendations(
+            "{\"recommendedPapers\":[{\"paperId\":\"a\",\"title\":\"Journal Only\",\"externalIds\":{\"DOI\":\"10.1/j\"},"
+            "\"openAccessPdf\":{\"url\":\"https://doi.org/10.1/j\"}},{\"paperId\":\"b\",\"title\":\"Also On arXiv\","
+            "\"externalIds\":{\"ArXiv\":\"2601.00009\"},\"openAccessPdf\":{\"url\":\"\"}}]}");
+        QCOMPARE(parsed.size(), 2);
+        QCOMPARE(parsed[0].toMap()["pdf"].toString(), QString());
+        QCOMPARE(parsed[1].toMap()["pdf"].toString(), QString("https://arxiv.org/pdf/2601.00009"));
+        // A stand-in Semantic Scholar recommending one journal paper.
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        connect(&server, &QTcpServer::newConnection, &server, [&] {
+            auto *socket = server.nextPendingConnection();
+            connect(socket, &QTcpSocket::readyRead, socket, [socket] {
+                if (!socket->readAll().contains("\r\n\r\n")) return;
+                const QByteArray body = QStringLiteral(
+                    "{\"recommendedPapers\":[{\"paperId\":\"j1\",\"title\":\"Journal Only\",\"publicationDate\":\"%1\","
+                    "\"externalIds\":{\"DOI\":\"10.1/j\"},\"openAccessPdf\":{\"url\":\"https://doi.org/10.1/j\"}}]}")
+                                            .arg(QDate::currentDate().toString(Qt::ISODate))
+                                            .toUtf8();
+                socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: "
+                    + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+                socket->disconnectFromHost();
+            });
+        });
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        store.setSetting("forYou.recommendBaseUrl", QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort()));
+        store.setSetting("forYou.delayMs", "10");
+        const auto seed = QUrl::fromLocalFile(directory.filePath("seed.pdf"));
+        writeFixture(seed.toLocalFile(), "Seed Paper");
+        QVERIFY(store.rememberDocument(seed));
+        QVERIFY(store.updateDocumentDetails(seed, {{"title", "Seed Paper"}, {"arxiv", "2501.00001"}}));
+        const auto topic = store.createCollection("Journals");
+        QVERIFY(store.setDocumentCollection(seed, topic, true));
+        auto *forYou = qobject_cast<ForYou *>(store.forYou());
+        forYou->follow(topic, true);
+        forYou->refresh();
+        QTRY_VERIFY_WITH_TIMEOUT(!forYou->checking(), 10000);
+        QCOMPARE(forYou->items().size(), 1);
+        QVERIFY(!forYou->items()[0].toMap()["hasPdf"].toBool());
+        // Added with others, it is left (its page would open a tab of its own); alone, its page opens.
+        QSignalSpy pages(forYou, &ForYou::webRequested);
+        forYou->add({"doi:10.1/j", "doi:10.1/missing"});
+        QCOMPARE(pages.size(), 0);
+        QVERIFY(forYou->adding().isEmpty());
+        forYou->add({"doi:10.1/j"});
+        QTRY_COMPARE_WITH_TIMEOUT(pages.size(), 1, 5000);
+        QCOMPARE(forYou->items().size(), 1);
+        // A PDF of it that reaches the Library some other way (downloaded from that page) takes it off the list.
+        const auto got = QUrl::fromLocalFile(directory.filePath("got.pdf"));
+        writeFixture(got.toLocalFile(), "Journal Only");
+        QVERIFY(store.rememberDocument(got));
+        QVERIFY(store.updateDocumentDetails(got, {{"title", "Journal Only"}, {"doi", "10.1/J"}}));
+        QTRY_COMPARE_WITH_TIMEOUT(forYou->items().size(), 0, 10000);
+    }
     void forYouMovesIntoTheLibraryAndSyncs()
     {
         QTemporaryDir directory;

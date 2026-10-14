@@ -20,8 +20,8 @@ class ResearchStore;
 // look are settings (forYou.*) of this computer.
 class ForYou final : public QObject {
     Q_OBJECT
-    // The papers waiting, newest first: {id, title, authors, date, year, abstract, arxiv, doi, pdf, url,
-    // source, sourceName}.
+    // The papers waiting, most relevant first: {id, title, authors, date, year, abstract, arxiv, doi, pdf,
+    // hasPdf (a free PDF to fetch), url, source, sourceName, score, why}.
     Q_PROPERTY(QVariantList items READ items NOTIFY changed)
     // Whether anything is followed (a topic turned on or a collection).
     Q_PROPERTY(bool configured READ configured NOTIFY settingsChanged)
@@ -91,6 +91,8 @@ private:
     void finishAdd(const QVariantMap &item, const QUrl &file);
     QVariantMap item(const QString &id) const;
     void ranked(int request, const QVariantList &ranking, const QString &error);
+    // Papers now in the Library (added here, or a PDF got from their page) leave the list.
+    void dropKept();
     // What is followed, as text for the AI: topics, and some titles from each followed collection.
     QString interests() const;
     // Most relevant first (papers the AI scored), then newest.
@@ -101,6 +103,7 @@ private:
     ResearchStore *m_store;
     QNetworkAccessManager *m_network = nullptr;
     QTimer *m_daily = nullptr;
+    QTimer *m_libraryCheck = nullptr;
     QVariantList m_items;
     // Papers dismissed or added (here or on another computer): not suggested again.
     QStringList m_handled;
@@ -125,4 +128,6 @@ QString arxivQuery(const QString &words, const QString &categories, const QDateT
 // Papers in an arXiv API answer (Atom) or a Semantic Scholar recommendations answer (JSON).
 QVariantList arxivEntries(const QByteArray &atom);
 QVariantList recommendations(const QByteArray &json);
+// An address a PDF can be fetched from (not a DOI link, which leads to a publisher's page).
+bool isPdfAddress(const QString &address);
 }

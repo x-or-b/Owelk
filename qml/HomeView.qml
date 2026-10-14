@@ -259,8 +259,9 @@ Rectangle {
                                     IconButton {
                                         objectName: "homeForYouAdd-" + suggestion.index
                                         visible: !suggestion.adding
-                                        icon.name: "download"; description: qsTr("Add to the Library")
-                                        onClicked: forYouBox.forYou.add([suggestion.modelData.id])
+                                        icon.name: suggestion.modelData.hasPdf ? "download" : "external"
+                                        description: suggestion.modelData.hasPdf ? qsTr("Add to the Library") : qsTr("No free PDF: open its page")
+                                        onClicked: suggestion.modelData.hasPdf ? forYouBox.forYou.add([suggestion.modelData.id]) : root.webRequested(suggestion.modelData.url)
                                     }
                                     IconButton {
                                         objectName: "homeForYouDismiss-" + suggestion.index

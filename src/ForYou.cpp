@@ -111,6 +111,12 @@ QVariantList arxivEntries(const QByteArray &atom)
     return list;
 }
 
+bool isPdfAddress(const QString &address)
+{
+    const QUrl url(address);
+    return url.isValid() && url.scheme().startsWith("http") && !url.host().endsWith("doi.org");
+}
+
 QVariantList recommendations(const QByteArray &json)
 {
     QVariantList list;
@@ -126,6 +132,7 @@ QVariantList recommendations(const QByteArray &json)
         const auto date = paper.value("publicationDate").toString();
         const auto year = paper.value("year").isDouble() ? QString::number(paper.value("year").toInt()) : date.left(4);
         auto pdf = paper.value("openAccessPdf").toObject().value("url").toString();
+        if (!ForYouParse::isPdfAddress(pdf)) pdf.clear(); // A DOI link leads to the publisher's page, not a PDF.
         if (pdf.isEmpty() && !arxiv.isEmpty()) pdf = "https://arxiv.org/pdf/" + arxiv;
         list.append(QVariantMap{{"title", title}, {"authors", authors.join(", ")}, {"date", date}, {"year", year},
             {"abstract", paper.value("abstract").toString().simplified()}, {"arxiv", arxiv}, {"doi", doi}, {"pdf", pdf},
@@ -146,6 +153,11 @@ ForYou::ForYou(ResearchStore *store, QObject *parent) : QObject(parent), m_store
         emit settingsChanged();
         emit changed();
     });
+    m_libraryCheck = new QTimer(this);
+    m_libraryCheck->setSingleShot(true);
+    m_libraryCheck->setInterval(2000);
+    connect(m_libraryCheck, &QTimer::timeout, this, &ForYou::dropKept);
+    connect(store, &ResearchStore::documentsChanged, m_libraryCheck, qOverload<>(&QTimer::start));
     if (auto *ai = qobject_cast<AiService *>(store->ai())) {
         connect(ai, &AiService::papersRanked, this, &ForYou::ranked);
         // The AI may be ready only after a check (an account read a little after launch, a key added later):
@@ -301,6 +313,7 @@ void ForYou::load()
         }
         auto item = QJsonDocument::fromJson(query.value(2).toByteArray()).object().toVariantMap();
         item.insert({{"id", id}, {"foundAt", query.value(3)}});
+        item.insert("hasPdf", ForYouParse::isPdfAddress(item.value("pdf").toString()));
         if (!query.value(4).isNull()) item.insert("score", query.value(4).toInt());
         if (!query.value(5).toString().isEmpty()) item.insert("why", query.value(5).toString());
         m_items.append(item);
@@ -591,6 +604,20 @@ QVariantMap ForYou::item(const QString &id) const
     return {};
 }
 
+void ForYou::dropKept()
+{
+    bool changed = false;
+    for (const auto &value : std::as_const(m_items)) {
+        const auto item = value.toMap();
+        if (m_adding.contains(item.value("id").toString())) continue;
+        if (m_store->hasPaper(item.value("arxiv").toString(), item.value("doi").toString())) {
+            exec("UPDATE foryou_items SET state='added',paper='{}',score=NULL,why=NULL WHERE id=?", {item.value("id")});
+            changed = true;
+        }
+    }
+    if (changed) load();
+}
+
 void ForYou::dismiss(const QStringList &ids)
 {
     for (const auto &id : ids)
@@ -600,11 +627,22 @@ void ForYou::dismiss(const QStringList &ids)
 void ForYou::add(const QStringList &ids)
 {
     const bool idle = m_adding.isEmpty();
-    for (const auto &id : ids)
-        if (!m_adding.contains(id) && !item(id).isEmpty()) {
-            m_adding << id;
-            m_addQueue << id;
+    int pageOnly = 0;
+    for (const auto &id : ids) {
+        const auto paper = item(id);
+        if (m_adding.contains(id) || paper.isEmpty()) continue;
+        // Several at once: a paper with no free PDF is left (its page would open in a tab of its own).
+        if (ids.size() > 1 && !paper.value("hasPdf").toBool()) {
+            ++pageOnly;
+            continue;
         }
+        m_adding << id;
+        m_addQueue << id;
+    }
+    if (pageOnly)
+        m_store->notify(QString(pageOnly == 1 ? ui("1 paper has no free PDF; open its page from the list.")
+                                              : ui("%1 papers have no free PDF; open their pages from the list."))
+                .arg(pageOnly));
     emit addingChanged();
     if (idle) addNext();
 }
@@ -624,8 +662,10 @@ void ForYou::addNext()
         addNext();
     };
     const auto pdf = paper.value("pdf").toString();
-    if (pdf.isEmpty()) {
-        // No PDF to fetch: its page, where the reader can find one.
+    if (!ForYouParse::isPdfAddress(pdf)) {
+        // No free PDF: its page, where the reader may get one (a PDF downloaded there joins the Library, and
+        // the paper then leaves For You).
+        m_store->notify(QString(ui("No free PDF for “%1”: its page opens.")).arg(paper.value("title").toString()));
         if (!paper.value("url").toString().isEmpty()) emit webRequested(QUrl(paper.value("url").toString()));
         done();
         return;

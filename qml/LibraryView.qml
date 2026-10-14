@@ -687,7 +687,8 @@ Rectangle {
                                 Label {
                                     objectName: "libraryForYouMeta-" + found.index
                                     Layout.fillWidth: true
-                                    text: [root.shortAuthors(found.modelData.authors), root.relativeDay(found.modelData), found.modelData.sourceName].filter(function(t) { return t && t.length }).join("  ·  ")
+                                    text: [root.shortAuthors(found.modelData.authors), root.relativeDay(found.modelData), found.modelData.sourceName,
+                                           found.modelData.hasPdf ? "" : qsTr("No free PDF")].filter(function(t) { return t && t.length }).join("  ·  ")
                                     elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                                 }
                                 Label {
@@ -708,7 +709,7 @@ Rectangle {
                                     Label { visible: found.adding; text: qsTr("Adding…"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
                                     Button {
                                         objectName: "libraryForYouOpenAdd"
-                                        visible: !found.adding
+                                        visible: !found.adding && found.modelData.hasPdf
                                         highlighted: true
                                         implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
                                         text: qsTr("Add to Library")
@@ -716,9 +717,12 @@ Rectangle {
                                     }
                                     Button {
                                         objectName: "libraryForYouOpenPage"
-                                        flat: true; implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
-                                        text: qsTr("Open Page")
+                                        flat: found.modelData.hasPdf; highlighted: !found.modelData.hasPdf
+                                        implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                                        text: found.modelData.hasPdf ? qsTr("Open Page") : qsTr("Get PDF on Its Page")
                                         onClicked: root.webRequested(found.modelData.url)
+                                        ToolTip.visible: hovered && !found.modelData.hasPdf; ToolTip.delay: 400
+                                        ToolTip.text: qsTr("No free PDF was found. A PDF you download there joins the Library, and the paper leaves For You.")
                                     }
                                     Button {
                                         objectName: "libraryForYouOpenDismiss"
@@ -742,8 +746,9 @@ Rectangle {
                                 id: addIcon
                                 objectName: "libraryForYouAdd-" + found.index
                                 visible: !found.adding
-                                icon.name: "download"; description: qsTr("Add to the Library")
-                                onClicked: root.forYou.add([found.modelData.id])
+                                icon.name: found.modelData.hasPdf ? "download" : "external"
+                                description: found.modelData.hasPdf ? qsTr("Add to the Library") : qsTr("No free PDF: open its page")
+                                onClicked: found.modelData.hasPdf ? root.forYou.add([found.modelData.id]) : root.webRequested(found.modelData.url)
                             }
                             IconButton {
                                 id: dismissIcon
