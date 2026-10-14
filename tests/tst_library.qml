@@ -321,9 +321,20 @@ Item {
             // The heading goes to Library › For You.
             const heading = visualChild(home, "homeForYouHeading").children[0]
             mouseClick(heading, 12, heading.height / 2)
-            const view = library()
+            let view = library()
             tryCompare(view, "view", "foryou")
             tryVerify(function() { return visualChild(view, "libraryForYou-0") !== null })
+            verify(Tree.validate(workspace.documents.snapshot().tree, {}, 0), "a For You tab is a valid saved tab")
+            // A paper's row opens its page in a web tab.
+            waitForPolish(view); wait(50)
+            const libraryTab = activeTab().id
+            mouseClick(visualChild(view, "libraryForYou-0"), 60, 12)
+            tryVerify(function() { return activeTab().kind === "web" && activeTab().source.indexOf("arxiv.org/abs/2609.01234") >= 0 })
+            const page = activeTab().id
+            workspace.documents.activateTab(libraryTab)
+            workspace.documents.closeTab(page)
+            view = library()
+            tryCompare(view, "view", "foryou")
             // Select and Add: the PDF comes into the Library with its arXiv details.
             waitForPolish(view); wait(50)
             mouseClick(visibleChild(view, "libraryForYouSelect"))
