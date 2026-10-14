@@ -25,7 +25,7 @@ Dialog {
         {id: "appearance", name: qsTr("Appearance"), icon: "appearance"},
         {id: "shortcuts", name: qsTr("Shortcuts"), icon: "keyboard", last: true},
         {id: "library", name: qsTr("Library"), icon: "library"},
-        {id: "foryou", name: qsTr("For You"), icon: "related"},
+        {id: "foryou", name: qsTr("For You"), icon: "forYou"},
         {id: "web", name: qsTr("Web"), icon: "globe"},
         {id: "search", name: qsTr("Search"), icon: "search", last: true},
         {id: "ai", name: qsTr("AI"), icon: "ai"},

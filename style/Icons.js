@@ -48,6 +48,7 @@ var glyphs = {
     "gloss": "\ue0fe",
     "preview": "\ue0ba",
     "hidden": "\ue0bb",
+    "forYou": "\ue0f2",
     "check": "\ue06c",
     "home": "\ue0f5",
     "library": "\ue100",

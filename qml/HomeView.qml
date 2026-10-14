@@ -200,7 +200,7 @@ Rectangle {
                     }
                     contentItem: RowLayout {
                         spacing: 10
-                        Icon { name: "related"; size: Theme.fontBody + 2; color: Theme.textTertiary }
+                        Icon { name: "forYou"; size: Theme.fontBody + 2; color: Theme.textTertiary }
                         Label {
                             Layout.fillWidth: true
                             text: qsTr("Follow a collection or a topic to see new papers here")
