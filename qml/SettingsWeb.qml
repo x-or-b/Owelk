@@ -14,36 +14,6 @@ ColumnLayout {
     readonly property var engines: (revision, WebSearch.all(researchStore))
     readonly property string defaultEngine: (revision, WebSearch.template(researchStore))
     readonly property bool keepsPdfs: researchStore.setting("library.keepPdfs", "1") === "1"
-    // File names from paper details: every part in its order, on or off ("author,year,title,-arxiv").
-    readonly property var nameKeys: ["title", "author", "year", "arxiv"]
-    readonly property var nameLabels: ({title: qsTr("Title"), author: qsTr("First author"), year: qsTr("Year"), arxiv: qsTr("arXiv ID")})
-    readonly property var nameParts: {
-        revision
-        const list = researchStore.setting("pdfNames.parts", "title").split(",").filter(function(p) { return p.length })
-            .map(function(p) { return {key: p.replace(/^-/, ""), on: p[0] !== "-"} })
-            .filter(function(p) { return root.nameKeys.indexOf(p.key) >= 0 })
-        root.nameKeys.forEach(function(k) { if (!list.some(function(p) { return p.key === k })) list.push({key: k, on: false}) })
-        // Nothing on (or nothing saved): the title, as before.
-        if (!list.some(function(p) { return p.on })) list.find(function(p) { return p.key === "title" }).on = true
-        return list
-    }
-    readonly property var namesOn: nameParts.filter(function(p) { return p.on }).map(function(p) { return p.key })
-    function saveNames(list) {
-        researchStore.setSetting("pdfNames.parts", list.map(function(p) { return (p.on ? "" : "-") + p.key }).join(","))
-        revision++
-    }
-    function moveName(index, step) {
-        const list = nameParts.slice(), to = index + step
-        if (to < 0 || to >= list.length) return
-        const item = list.splice(index, 1)[0]
-        list.splice(to, 0, item)
-        saveNames(list)
-    }
-    function switchName(index, on) {
-        const list = nameParts.map(function(p) { return {key: p.key, on: p.on} })
-        list[index].on = on
-        saveNames(list)
-    }
     function folder() { const f = researchStore.setting("downloadFolder"); return f.length ? f : researchStore.downloadTarget("x").directory }
     Native.FolderDialog {
         id: folderDialog
@@ -51,16 +21,19 @@ ColumnLayout {
         onAccepted: if (researchStore.setSetting("downloadFolder", researchStore.localPath(selectedFolder))) folderField.text = root.folder()
     }
     SettingsGroup {
-        title: qsTr("PDFs")
-        note: (root.keepsPdfs ? qsTr("Downloaded PDFs go to Owelk's own PDF folder (Settings › Data); other files go to the folder above. ") : "")
-            + qsTr("A downloaded PDF is named from its paper (Paper names below) when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.")
+        objectName: "settingsGroup-downloads"
+        title: qsTr("Downloads")
+        note: (root.keepsPdfs ? qsTr("Downloaded PDFs go to Owelk's own PDF folder (Settings › Library); other files go to the folder above. ") : "")
+            + qsTr("A downloaded PDF is named from its paper (Settings › Library › Paper names) when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.")
         SettingsRow {
+            objectName: "settingsRow-downloadFolder"
             label: root.keepsPdfs ? qsTr("Other downloads to") : qsTr("Download to")
             wide: true
             TextField { id: folderField; objectName: "downloadFolderField"; Layout.fillWidth: true; readOnly: true; text: root.folder() }
             IconButton { icon.name: "open"; description: qsTr("Choose a folder…"); onClicked: folderDialog.open() }
         }
         SettingsRow {
+            objectName: "settingsRow-namePdfs"
             label: qsTr("Name PDFs")
             ComboBox {
                 objectName: "webPdfNamesBox"
@@ -71,6 +44,7 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            objectName: "settingsRow-pdfLinks"
             label: qsTr("PDF links")
             ComboBox {
                 objectName: "webPdfModeBox"
@@ -81,54 +55,8 @@ ColumnLayout {
             }
         }
     }
-    // Which paper details make a paper's name (shown in Owelk and given to its file), in which order.
     SettingsGroup {
-        objectName: "pdfNameGroup"
-        title: qsTr("Paper names")
-        note: qsTr("Example: ") + researchStore.sampleFileName(root.namesOn).replace(/\.pdf$/, "")
-            + qsTr(". Owelk shows papers by this name (Library, tabs, search); downloads and Rename Now name their files the same way.")
-        Repeater {
-            model: root.nameParts
-            delegate: SettingsRow {
-                id: partRow
-                required property var modelData
-                required property int index
-                objectName: "pdfNamePart-" + modelData.key
-                label: root.nameLabels[modelData.key]
-                opacity: modelData.on ? 1 : .55
-                IconButton {
-                    objectName: "pdfNameUp-" + partRow.modelData.key
-                    icon.name: "up"; description: qsTr("Move up")
-                    enabled: partRow.index > 0
-                    onClicked: root.moveName(partRow.index, -1)
-                }
-                IconButton {
-                    objectName: "pdfNameDown-" + partRow.modelData.key
-                    icon.name: "down"; description: qsTr("Move down")
-                    enabled: partRow.index < root.nameParts.length - 1
-                    onClicked: root.moveName(partRow.index, 1)
-                }
-                Switch {
-                    objectName: "pdfNameSwitch-" + partRow.modelData.key
-                    checked: partRow.modelData.on
-                    // One part stays on.
-                    enabled: !(partRow.modelData.on && root.namesOn.length === 1)
-                    onToggled: root.switchName(partRow.index, checked)
-                }
-            }
-        }
-        // PDFs added or opened from elsewhere keep their file names in Owelk's folder until renamed here.
-        SettingsRow {
-            label: qsTr("Kept PDFs")
-            detail: qsTr("Rename Owelk's copies the same way. Files outside Owelk's folder are never renamed.")
-            Button {
-                objectName: "renameKeptPdfs"
-                text: qsTr("Rename Now")
-                onClicked: researchStore.renamePapersToTitles(researchStore.libraryDocuments({}).map(function(d) { return d.url }))
-            }
-        }
-    }
-    SettingsGroup {
+        objectName: "settingsGroup-engines"
         title: qsTr("Search engines")
         note: qsTr("The search box (") + Platform.keys("Ctrl+K") + qsTr(", Home) offers the engines shown here and starts on the default one. ")
             + Platform.keys("Ctrl+L") + qsTr(" opens the default engine's page when no web tab is in front.")

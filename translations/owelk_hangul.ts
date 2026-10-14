@@ -4264,24 +4264,8 @@ You can open the same document twice.</source>
         <translation>다큐먼츠 앤드 리스츠</translation>
     </message>
     <message>
-        <source>Horizontal</source>
-        <translation>호리존털</translation>
-    </message>
-    <message>
         <source>Hover, selection and secondary text are worked out from these colors, so the theme stays consistent.</source>
         <translation>호버, 셀렉션 앤드 세컨더리 텍스트 아 워크트 아웃 프롬 디즈 컬러스, 소 더 테마 스테이즈 컨시스턴트.</translation>
-    </message>
-    <message>
-        <source>Language</source>
-        <translation>랭귀지</translation>
-    </message>
-    <message>
-        <source>Last Tabs</source>
-        <translation>라스트 탭스</translation>
-    </message>
-    <message>
-        <source>Last Used</source>
-        <translation>라스트 유즈드</translation>
     </message>
     <message>
         <source>Lines</source>
@@ -4290,14 +4274,6 @@ You can open the same document twice.</source>
     <message>
         <source>Menus and popovers</source>
         <translation>메뉴스 앤드 팝오버스</translation>
-    </message>
-    <message>
-        <source>Next Tab</source>
-        <translation>넥스트 탭</translation>
-    </message>
-    <message>
-        <source>On launch</source>
-        <translation>온 런치</translation>
     </message>
     <message>
         <source>PDF pages</source>
@@ -4310,10 +4286,6 @@ You can open the same document twice.</source>
     <message>
         <source>Sidebars</source>
         <translation>사이드바스</translation>
-    </message>
-    <message>
-        <source>Tabs</source>
-        <translation>탭스</translation>
     </message>
     <message>
         <source>Text</source>
@@ -4340,6 +4312,92 @@ You can open the same document twice.</source>
         <translation>유즈드 포 셀렉션, 더 메인 버튼 오브 이치 에어리어, 포커스 앤드 링크스. 애노테이션 잉크스 킵 데어 오운 컬러스.</translation>
     </message>
     <message>
+        <source>Window and toolbars</source>
+        <translation>윈도 앤드 툴바스</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>AI</source>
+        <translation>에이아이</translation>
+    </message>
+    <message>
+        <source>Appearance</source>
+        <translation>어피어런스</translation>
+    </message>
+    <message>
+        <source>Close · Esc</source>
+        <translation>클로즈 · 이에스씨</translation>
+    </message>
+    <message>
+        <source>General</source>
+        <translation>제너럴</translation>
+    </message>
+    <message>
+        <source>Library</source>
+        <translation>라이브러리</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>서치</translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>세팅스</translation>
+    </message>
+    <message>
+        <source>Shortcuts</source>
+        <translation>쇼트컷츠</translation>
+    </message>
+    <message>
+        <source>Sync &amp; Backup</source>
+        <translation>싱크 &amp; 백업</translation>
+    </message>
+    <message>
+        <source>Web</source>
+        <translation>웹</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsGeneral</name>
+    <message>
+        <source>Horizontal</source>
+        <translation>호리존털</translation>
+    </message>
+    <message>
+        <source>Language</source>
+        <translation>랭귀지</translation>
+    </message>
+    <message>
+        <source>Last Tabs</source>
+        <translation>라스트 탭스</translation>
+    </message>
+    <message>
+        <source>Last Used</source>
+        <translation>라스트 유즈드</translation>
+    </message>
+    <message>
+        <source>Launch</source>
+        <translation>런치</translation>
+    </message>
+    <message>
+        <source>Next Tab</source>
+        <translation>넥스트 탭</translation>
+    </message>
+    <message>
+        <source>On launch</source>
+        <translation>온 런치</translation>
+    </message>
+    <message>
+        <source>Tab layout</source>
+        <translation>탭 레이아웃</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>탭스</translation>
+    </message>
+    <message>
         <source>Vertical</source>
         <translation>버티컬</translation>
     </message>
@@ -4347,17 +4405,9 @@ You can open the same document twice.</source>
         <source>Vertical tabs list every tab beside the window, with full titles; the panel opens and closes from its button at the top left (</source>
         <translation>버티컬 탭스 리스트 에브리 탭 비사이드 더 윈도, 위드 풀 타이틀스; 더 패널 오픈스 앤드 클로지즈 프롬 잇츠 버튼 앳 더 톱 레프트 (</translation>
     </message>
-    <message>
-        <source>Window and toolbars</source>
-        <translation>윈도 앤드 툴바스</translation>
-    </message>
 </context>
 <context>
-    <name>SettingsData</name>
-    <message>
-        <source> notes exported.</source>
-        <translation> 노츠 익스포티드.</translation>
-    </message>
+    <name>SettingsLibrary</name>
     <message>
         <source> paper still reads its PDF from elsewhere</source>
         <translation> 페이퍼 스틸 리즈 잇츠 피디에프 프롬 엘스웨어</translation>
@@ -4367,8 +4417,8 @@ You can open the same document twice.</source>
         <translation> 페이퍼스 스틸 리드 데어 피디에프스 프롬 엘스웨어</translation>
     </message>
     <message>
-        <source>A backup copies the library (papers' details, notes, annotations, AI threads) and its images into a folder. Your PDFs stay where they are and are not copied. Automatic backups go to the data folder's backups/auto.</source>
-        <translation>어 백업 카피스 더 라이브러리 (페이퍼스' 디테일스, 노츠, 애노테이션스, 에이아이 스레즈) 앤드 잇츠 이미지스 인투 어 폴더. 유어 피디에프스 스테이 웨어 데이 아 앤드 아 낫 카피드. 오토매틱 백업스 고 투 더 데이터 폴더스 백업스/오토.</translation>
+        <source>. Owelk shows papers by this name (Library, tabs, search); downloads and Rename Now name their files the same way.</source>
+        <translation>. 오웰크 쇼즈 페이퍼스 바이 디스 네임 (라이브러리, 탭스, 서치); 다운로즈 앤드 리네임 나우 네임 데어 파일스 더 세임 웨이.</translation>
     </message>
     <message>
         <source>After 30 days</source>
@@ -4377,46 +4427,6 @@ You can open the same document twice.</source>
     <message>
         <source>After 7 days</source>
         <translation>애프터 7 데이즈</translation>
-    </message>
-    <message>
-        <source>All notes as Markdown</source>
-        <translation>올 노츠 애즈 마크다운</translation>
-    </message>
-    <message>
-        <source>Back up automatically</source>
-        <translation>백 업 오토매티컬리</translation>
-    </message>
-    <message>
-        <source>Back up now</source>
-        <translation>백 업 나우</translation>
-    </message>
-    <message>
-        <source>Backing Up…</source>
-        <translation>배킹 업…</translation>
-    </message>
-    <message>
-        <source>Backup</source>
-        <translation>백업</translation>
-    </message>
-    <message>
-        <source>Choose Backup…</source>
-        <translation>추즈 백업…</translation>
-    </message>
-    <message>
-        <source>Choose Folder…</source>
-        <translation>추즈 폴더…</translation>
-    </message>
-    <message>
-        <source>Choose an Owelk backup folder</source>
-        <translation>추즈 언 오웰크 백업 폴더</translation>
-    </message>
-    <message>
-        <source>Choose the shared folder to sync with</source>
-        <translation>추즈 더 셰어드 폴더 투 싱크 위드</translation>
-    </message>
-    <message>
-        <source>Choose where to put the backup</source>
-        <translation>추즈 웨어 투 풋 더 백업</translation>
     </message>
     <message>
         <source>Copy Into Owelk</source>
@@ -4435,119 +4445,80 @@ You can open the same document twice.</source>
         <translation>이치 카피 이즈 체크트 바이트 포 바이트 비포 더 페이퍼 유지즈 잇.</translation>
     </message>
     <message>
-        <source>Each note becomes a Markdown file. A paper's annotations are exported from the reader's ⋯ menu.</source>
-        <translation>이치 노트 비컴스 어 마크다운 파일. 어 페이퍼스 애노테이션스 아 익스포티드 프롬 더 리더스 ⋯ 메뉴.</translation>
-    </message>
-    <message>
         <source>Empty the Trash</source>
         <translation>엠티 더 트래시</translation>
     </message>
     <message>
-        <source>Export</source>
-        <translation>익스포트</translation>
+        <source>Example: </source>
+        <translation>이그잼플: </translation>
     </message>
     <message>
-        <source>Export every note as Markdown to…</source>
-        <translation>익스포트 에브리 노트 애즈 마크다운 투…</translation>
-    </message>
-    <message>
-        <source>Export…</source>
-        <translation>익스포트…</translation>
+        <source>First author</source>
+        <translation>퍼스트 오서</translation>
     </message>
     <message>
         <source>Keep PDFs in Owelk</source>
         <translation>킵 피디에프스 인 오웰크</translation>
     </message>
     <message>
-        <source>Keeps this library the same on your other computers. Choose a folder inside Google Drive, Dropbox or Syncthing (for example My Drive) on each computer; Owelk works in an Owelk folder there and copies the Library's PDFs into it, so there is nothing to move by hand. On Ubuntu, reach Google Drive with rclone or Insync. Papers, annotations, notes, collections, reading state and AI threads travel; when one item changes on two computers, the later change wins.</source>
-        <translation>킵스 디스 라이브러리 더 세임 온 유어 아더 컴퓨터스. 추즈 어 폴더 인사이드 구글 드라이브, 드롭박스 오어 싱크싱 (포 이그잼플 마이 드라이브) 온 이치 컴퓨터; 오웰크 워크스 인 언 오웰크 폴더 데어 앤드 카피스 더 라이브러리스 피디에프스 인투 잇, 소 데어 이즈 낫싱 투 무브 바이 핸드. 온 우분투, 리치 구글 드라이브 위드 알클론 오어 인싱크. 페이퍼스, 애노테이션스, 노츠, 컬렉션스, 리딩 스테이트 앤드 에이아이 스레즈 트래블; 웬 원 아이템 체인지스 온 투 컴퓨터스, 더 레이터 체인지 윈스.</translation>
-    </message>
-    <message>
-        <source>Library</source>
-        <translation>라이브러리</translation>
+        <source>Kept PDFs</source>
+        <translation>켑트 피디에프스</translation>
     </message>
     <message>
         <source>Like a note app, Owelk keeps its own copy of every PDF you open, add or download, in its data folder. The original files are never moved or deleted; you can remove them yourself.</source>
         <translation>라이크 어 노트 앱, 오웰크 킵스 잇츠 오운 카피 오브 에브리 피디에프 유 오픈, 애드 오어 다운로드, 인 잇츠 데이터 폴더. 더 오리지널 파일스 아 네버 무브드 오어 딜리티드; 유 캔 리무브 뎀 유어셀프.</translation>
     </message>
     <message>
+        <source>Move down</source>
+        <translation>무브 다운</translation>
+    </message>
+    <message>
+        <source>Move up</source>
+        <translation>무브 업</translation>
+    </message>
+    <message>
         <source>Never</source>
         <translation>네버</translation>
     </message>
     <message>
-        <source>No other computer has synced yet</source>
-        <translation>노 아더 컴퓨터 해즈 싱크트 옛</translation>
-    </message>
-    <message>
-        <source>Off</source>
-        <translation>오프</translation>
-    </message>
-    <message>
-        <source>Once a day; keeps the last 7</source>
-        <translation>원스 어 데이; 킵스 더 라스트 7</translation>
-    </message>
-    <message>
-        <source>Owelk replaces its library with the backup the next time it starts. The current library is moved to the data folder's backups, not deleted. Your PDFs are not touched.</source>
-        <translation>오웰크 리플레이시즈 잇츠 라이브러리 위드 더 백업 더 넥스트 타임 잇 스타츠. 더 커런트 라이브러리 이즈 무브드 투 더 데이터 폴더스 백업스, 낫 딜리티드. 유어 피디에프스 아 낫 터치트.</translation>
+        <source>PDF files</source>
+        <translation>피디에프 파일스</translation>
     </message>
     <message>
         <source>PDF folder</source>
         <translation>피디에프 폴더</translation>
     </message>
     <message>
-        <source>Quit and reopen Owelk to finish restoring.</source>
-        <translation>큇 앤드 리오픈 오웰크 투 피니시 리스토어링.</translation>
+        <source>Paper names</source>
+        <translation>페이퍼 네임스</translation>
     </message>
     <message>
-        <source>Restore from a backup</source>
-        <translation>리스토어 프롬 어 백업</translation>
+        <source>Rename Now</source>
+        <translation>리네임 나우</translation>
     </message>
     <message>
-        <source>Restore this backup?</source>
-        <translation>리스토어 디스 백업?</translation>
+        <source>Rename Owelk's copies the same way. Files outside Owelk's folder are never renamed.</source>
+        <translation>리네임 오웰크스 카피스 더 세임 웨이. 파일스 아웃사이드 오웰크스 폴더 아 네버 리네임드.</translation>
     </message>
     <message>
         <source>Show Folder</source>
         <translation>쇼 폴더</translation>
     </message>
     <message>
-        <source>Sync</source>
-        <translation>싱크</translation>
+        <source>Title</source>
+        <translation>타이틀</translation>
     </message>
     <message>
-        <source>Sync Now</source>
-        <translation>싱크 나우</translation>
+        <source>Trash</source>
+        <translation>트래시</translation>
     </message>
     <message>
-        <source>Sync folder</source>
-        <translation>싱크 폴더</translation>
+        <source>Year</source>
+        <translation>이어</translation>
     </message>
     <message>
-        <source>Syncing…</source>
-        <translation>싱킹…</translation>
-    </message>
-    <message>
-        <source>Turn Off</source>
-        <translation>턴 오프</translation>
-    </message>
-    <message>
-        <source>Waiting to sync</source>
-        <translation>웨이팅 투 싱크</translation>
-    </message>
-    <message>
-        <source>With </source>
-        <translation>위드 </translation>
-    </message>
-</context>
-<context>
-    <name>SettingsDialog</name>
-    <message>
-        <source>Close · Esc</source>
-        <translation>클로즈 · 이에스씨</translation>
-    </message>
-    <message>
-        <source>Settings</source>
-        <translation>세팅스</translation>
+        <source>arXiv ID</source>
+        <translation>아카이브 아이디</translation>
     </message>
 </context>
 <context>
@@ -4681,6 +4652,133 @@ You can open the same document twice.</source>
     </message>
 </context>
 <context>
+    <name>SettingsSync</name>
+    <message>
+        <source> notes exported.</source>
+        <translation> 노츠 익스포티드.</translation>
+    </message>
+    <message>
+        <source>A backup copies the library (papers' details, notes, annotations, AI threads) and its images into a folder. Your PDFs stay where they are and are not copied. Automatic backups go to the data folder's backups/auto.</source>
+        <translation>어 백업 카피스 더 라이브러리 (페이퍼스' 디테일스, 노츠, 애노테이션스, 에이아이 스레즈) 앤드 잇츠 이미지스 인투 어 폴더. 유어 피디에프스 스테이 웨어 데이 아 앤드 아 낫 카피드. 오토매틱 백업스 고 투 더 데이터 폴더스 백업스/오토.</translation>
+    </message>
+    <message>
+        <source>All notes as Markdown</source>
+        <translation>올 노츠 애즈 마크다운</translation>
+    </message>
+    <message>
+        <source>Back up automatically</source>
+        <translation>백 업 오토매티컬리</translation>
+    </message>
+    <message>
+        <source>Back up now</source>
+        <translation>백 업 나우</translation>
+    </message>
+    <message>
+        <source>Backing Up…</source>
+        <translation>배킹 업…</translation>
+    </message>
+    <message>
+        <source>Backup</source>
+        <translation>백업</translation>
+    </message>
+    <message>
+        <source>Choose Backup…</source>
+        <translation>추즈 백업…</translation>
+    </message>
+    <message>
+        <source>Choose Folder…</source>
+        <translation>추즈 폴더…</translation>
+    </message>
+    <message>
+        <source>Choose an Owelk backup folder</source>
+        <translation>추즈 언 오웰크 백업 폴더</translation>
+    </message>
+    <message>
+        <source>Choose the shared folder to sync with</source>
+        <translation>추즈 더 셰어드 폴더 투 싱크 위드</translation>
+    </message>
+    <message>
+        <source>Choose where to put the backup</source>
+        <translation>추즈 웨어 투 풋 더 백업</translation>
+    </message>
+    <message>
+        <source>Each note becomes a Markdown file. A paper's annotations are exported from the reader's ⋯ menu.</source>
+        <translation>이치 노트 비컴스 어 마크다운 파일. 어 페이퍼스 애노테이션스 아 익스포티드 프롬 더 리더스 ⋯ 메뉴.</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>익스포트</translation>
+    </message>
+    <message>
+        <source>Export every note as Markdown to…</source>
+        <translation>익스포트 에브리 노트 애즈 마크다운 투…</translation>
+    </message>
+    <message>
+        <source>Export…</source>
+        <translation>익스포트…</translation>
+    </message>
+    <message>
+        <source>Keeps this library the same on your other computers. Choose a folder inside Google Drive, Dropbox or Syncthing (for example My Drive) on each computer; Owelk works in an Owelk folder there and copies the Library's PDFs into it, so there is nothing to move by hand. On Ubuntu, reach Google Drive with rclone or Insync. Papers, annotations, notes, collections, reading state and AI threads travel; when one item changes on two computers, the later change wins.</source>
+        <translation>킵스 디스 라이브러리 더 세임 온 유어 아더 컴퓨터스. 추즈 어 폴더 인사이드 구글 드라이브, 드롭박스 오어 싱크싱 (포 이그잼플 마이 드라이브) 온 이치 컴퓨터; 오웰크 워크스 인 언 오웰크 폴더 데어 앤드 카피스 더 라이브러리스 피디에프스 인투 잇, 소 데어 이즈 낫싱 투 무브 바이 핸드. 온 우분투, 리치 구글 드라이브 위드 알클론 오어 인싱크. 페이퍼스, 애노테이션스, 노츠, 컬렉션스, 리딩 스테이트 앤드 에이아이 스레즈 트래블; 웬 원 아이템 체인지스 온 투 컴퓨터스, 더 레이터 체인지 윈스.</translation>
+    </message>
+    <message>
+        <source>No other computer has synced yet</source>
+        <translation>노 아더 컴퓨터 해즈 싱크트 옛</translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation>오프</translation>
+    </message>
+    <message>
+        <source>Once a day; keeps the last 7</source>
+        <translation>원스 어 데이; 킵스 더 라스트 7</translation>
+    </message>
+    <message>
+        <source>Owelk replaces its library with the backup the next time it starts. The current library is moved to the data folder's backups, not deleted. Your PDFs are not touched.</source>
+        <translation>오웰크 리플레이시즈 잇츠 라이브러리 위드 더 백업 더 넥스트 타임 잇 스타츠. 더 커런트 라이브러리 이즈 무브드 투 더 데이터 폴더스 백업스, 낫 딜리티드. 유어 피디에프스 아 낫 터치트.</translation>
+    </message>
+    <message>
+        <source>Quit and reopen Owelk to finish restoring.</source>
+        <translation>큇 앤드 리오픈 오웰크 투 피니시 리스토어링.</translation>
+    </message>
+    <message>
+        <source>Restore from a backup</source>
+        <translation>리스토어 프롬 어 백업</translation>
+    </message>
+    <message>
+        <source>Restore this backup?</source>
+        <translation>리스토어 디스 백업?</translation>
+    </message>
+    <message>
+        <source>Sync</source>
+        <translation>싱크</translation>
+    </message>
+    <message>
+        <source>Sync Now</source>
+        <translation>싱크 나우</translation>
+    </message>
+    <message>
+        <source>Sync folder</source>
+        <translation>싱크 폴더</translation>
+    </message>
+    <message>
+        <source>Syncing…</source>
+        <translation>싱킹…</translation>
+    </message>
+    <message>
+        <source>Turn Off</source>
+        <translation>턴 오프</translation>
+    </message>
+    <message>
+        <source>Waiting to sync</source>
+        <translation>웨이팅 투 싱크</translation>
+    </message>
+    <message>
+        <source>With </source>
+        <translation>위드 </translation>
+    </message>
+</context>
+<context>
     <name>SettingsWeb</name>
     <message>
         <source> opens the default engine's page when no web tab is in front.</source>
@@ -4691,12 +4789,8 @@ You can open the same document twice.</source>
         <translation>, 홈) 오퍼스 더 엔진스 숀 히어 앤드 스타츠 온 더 디폴트 원. </translation>
     </message>
     <message>
-        <source>. Owelk shows papers by this name (Library, tabs, search); downloads and Rename Now name their files the same way.</source>
-        <translation>. 오웰크 쇼즈 페이퍼스 바이 디스 네임 (라이브러리, 탭스, 서치); 다운로즈 앤드 리네임 나우 네임 데어 파일스 더 세임 웨이.</translation>
-    </message>
-    <message>
-        <source>A downloaded PDF is named from its paper (Paper names below) when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.</source>
-        <translation>어 다운로디드 피디에프 이즈 네임드 프롬 잇츠 페이퍼 (페이퍼 네임스 빌로우) 웬 잇츠 퍼스트 페이지 쇼즈 더 타이틀; 파일스 올레디 인 더 라이브러리 킵 데어 네임스. 이그지스팅 파일스 아 네버 오버리튼. 인 어 웹 탭, 쇼 히어 리즈 어 피디에프 인 플레이스; 오픈 인 리더 센즈 잇 투 더 리더, 웨어 애노테이션스 앤드 노츠 워크.</translation>
+        <source>A downloaded PDF is named from its paper (Settings › Library › Paper names) when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.</source>
+        <translation>어 다운로디드 피디에프 이즈 네임드 프롬 잇츠 페이퍼 (세팅스 › 라이브러리 › 페이퍼 네임스) 웬 잇츠 퍼스트 페이지 쇼즈 더 타이틀; 파일스 올레디 인 더 라이브러리 킵 데어 네임스. 이그지스팅 파일스 아 네버 오버리튼. 인 어 웹 탭, 쇼 히어 리즈 어 피디에프 인 플레이스; 오픈 인 리더 센즈 잇 투 더 리더, 웨어 애노테이션스 앤드 노츠 워크.</translation>
     </message>
     <message>
         <source>Add</source>
@@ -4727,16 +4821,12 @@ You can open the same document twice.</source>
         <translation>다운로드 투</translation>
     </message>
     <message>
-        <source>Downloaded PDFs go to Owelk's own PDF folder (Settings › Data); other files go to the folder above. </source>
-        <translation>다운로디드 피디에프스 고 투 오웰크스 오운 피디에프 폴더 (세팅스 › 데이터); 아더 파일스 고 투 더 폴더 어보브. </translation>
+        <source>Downloaded PDFs go to Owelk's own PDF folder (Settings › Library); other files go to the folder above. </source>
+        <translation>다운로디드 피디에프스 고 투 오웰크스 오운 피디에프 폴더 (세팅스 › 라이브러리); 아더 파일스 고 투 더 폴더 어보브. </translation>
     </message>
     <message>
-        <source>Example: </source>
-        <translation>이그잼플: </translation>
-    </message>
-    <message>
-        <source>First author</source>
-        <translation>퍼스트 오서</translation>
+        <source>Downloads</source>
+        <translation>다운로즈</translation>
     </message>
     <message>
         <source>From the paper</source>
@@ -4745,18 +4835,6 @@ You can open the same document twice.</source>
     <message>
         <source>Hide from the search box</source>
         <translation>하이드 프롬 더 서치 박스</translation>
-    </message>
-    <message>
-        <source>Kept PDFs</source>
-        <translation>켑트 피디에프스</translation>
-    </message>
-    <message>
-        <source>Move down</source>
-        <translation>무브 다운</translation>
-    </message>
-    <message>
-        <source>Move up</source>
-        <translation>무브 업</translation>
     </message>
     <message>
         <source>Name</source>
@@ -4779,24 +4857,8 @@ You can open the same document twice.</source>
         <translation>피디에프 링크스</translation>
     </message>
     <message>
-        <source>PDFs</source>
-        <translation>피디에프스</translation>
-    </message>
-    <message>
-        <source>Paper names</source>
-        <translation>페이퍼 네임스</translation>
-    </message>
-    <message>
         <source>Remove</source>
         <translation>리무브</translation>
-    </message>
-    <message>
-        <source>Rename Now</source>
-        <translation>리네임 나우</translation>
-    </message>
-    <message>
-        <source>Rename Owelk's copies the same way. Files outside Owelk's folder are never renamed.</source>
-        <translation>리네임 오웰크스 카피스 더 세임 웨이. 파일스 아웃사이드 오웰크스 폴더 아 네버 리네임드.</translation>
     </message>
     <message>
         <source>Search engines</source>
@@ -4823,20 +4885,8 @@ You can open the same document twice.</source>
         <translation>더 서치 박스 (</translation>
     </message>
     <message>
-        <source>Title</source>
-        <translation>타이틀</translation>
-    </message>
-    <message>
         <source>Type a site such as google.com, or an address with %s for the words.</source>
         <translation>타입 어 사이트 서치 애즈 구글.컴, 오어 언 어드레스 위드 %에스 포 더 워즈.</translation>
-    </message>
-    <message>
-        <source>Year</source>
-        <translation>이어</translation>
-    </message>
-    <message>
-        <source>arXiv ID</source>
-        <translation>아카이브 아이디</translation>
     </message>
 </context>
 <context>

@@ -17,14 +17,17 @@ Dialog {
     topPadding: 0
     header: null
     footer: null
-    property string page: "appearance"
+    property string page: "general"
+    // In three groups: the app itself, papers and where they come from, then AI and keeping the library.
     readonly property var pages: [
-        {id: "appearance", name: "Appearance", icon: "appearance"},
-        {id: "web", name: "Web", icon: "globe"},
-        {id: "search", name: "Search", icon: "search"},
-        {id: "ai", name: "AI", icon: "ai"},
-        {id: "shortcuts", name: "Shortcuts", icon: "keyboard"},
-        {id: "data", name: "Data", icon: "data"}
+        {id: "general", name: qsTr("General"), icon: "settings"},
+        {id: "appearance", name: qsTr("Appearance"), icon: "appearance"},
+        {id: "shortcuts", name: qsTr("Shortcuts"), icon: "keyboard", last: true},
+        {id: "library", name: qsTr("Library"), icon: "library"},
+        {id: "web", name: qsTr("Web"), icon: "globe"},
+        {id: "search", name: qsTr("Search"), icon: "search", last: true},
+        {id: "ai", name: qsTr("AI"), icon: "ai"},
+        {id: "sync", name: qsTr("Sync & Backup"), icon: "data"}
     ]
     function openPage(id) { page = id; open() }
     contentItem: RowLayout {
@@ -45,19 +48,31 @@ Dialog {
                 Label { text: qsTr("Settings"); leftPadding: 8; bottomPadding: 8; font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold }
                 Repeater {
                     model: root.pages
-                    delegate: ItemDelegate {
+                    delegate: ColumnLayout {
                         required property var modelData
-                        objectName: "settingsPage-" + modelData.id
                         Layout.fillWidth: true
-                        height: Theme.rowHeight + 2
-                        leftPadding: 34
-                        text: modelData.name
-                        highlighted: root.page === modelData.id
-                        onClicked: root.page = modelData.id
-                        Icon {
-                            x: 10; anchors.verticalCenter: parent.verticalCenter
-                            name: parent.modelData.icon
-                            color: parent.highlighted ? Theme.selectedText : Theme.textSecondary
+                        spacing: 0
+                        ItemDelegate {
+                            objectName: "settingsPage-" + parent.modelData.id
+                            Layout.fillWidth: true
+                            implicitHeight: Theme.rowHeight + 2
+                            leftPadding: 34
+                            text: parent.modelData.name
+                            highlighted: root.page === parent.modelData.id
+                            onClicked: root.page = parent.modelData.id
+                            Icon {
+                                x: 10; anchors.verticalCenter: parent.verticalCenter
+                                name: parent.parent.modelData.icon
+                                color: parent.highlighted ? Theme.selectedText : Theme.textSecondary
+                            }
+                        }
+                        // A quiet line closes each group.
+                        Rectangle {
+                            visible: !!parent.modelData.last
+                            Layout.fillWidth: true; Layout.leftMargin: 8; Layout.rightMargin: 8
+                            Layout.topMargin: 6; Layout.bottomMargin: 6
+                            implicitHeight: 1
+                            color: Theme.separator
                         }
                     }
                 }
@@ -90,16 +105,19 @@ Dialog {
                         x: 24; y: 20
                         width: parent.width - 48
                         active: root.visible
-                        sourceComponent: ({appearance: appearancePage, web: webPage, search: searchPage, ai: aiPage, shortcuts: shortcutsPage, data: dataPage})[root.page]
+                        sourceComponent: ({general: generalPage, appearance: appearancePage, shortcuts: shortcutsPage, library: libraryPage,
+                                           web: webPage, search: searchPage, ai: aiPage, sync: syncPage})[root.page] || generalPage
                     }
                 }
             }
         }
     }
+    Component { id: generalPage; SettingsGeneral {} }
     Component { id: appearancePage; SettingsAppearance {} }
+    Component { id: shortcutsPage; SettingsShortcuts {} }
+    Component { id: libraryPage; SettingsLibrary {} }
     Component { id: webPage; SettingsWeb {} }
     Component { id: searchPage; SettingsSearch {} }
     Component { id: aiPage; SettingsAi {} }
-    Component { id: shortcutsPage; SettingsShortcuts {} }
-    Component { id: dataPage; SettingsData {} }
+    Component { id: syncPage; SettingsSync {} }
 }

@@ -48,9 +48,11 @@ ColumnLayout {
     }
     Component.onCompleted: refreshProvider()
     SettingsGroup {
+        objectName: "settingsGroup-answers"
         title: qsTr("Answers")
         note: qsTr("Used for Explain, Summarize and other one-click actions, and as the Translate target. A question you type is answered in the language you wrote it in.")
         SettingsRow {
+            objectName: "settingsRow-aiLanguage"
             label: qsTr("Preferred language")
             ComboBox {
                 objectName: "aiLanguageBox"
@@ -61,6 +63,7 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            objectName: "settingsRow-explanations"
             label: qsTr("Explanations")
             detail: qsTr("How every answer is written")
             ComboBox {
@@ -72,6 +75,7 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            objectName: "settingsRow-instructions"
             label: qsTr("Instructions")
             detail: qsTr("Added to every question, for example: \"Put English terms in brackets\" or \"I know Kalman filters\"")
             wide: true
@@ -86,6 +90,7 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            objectName: "settingsRow-symbolHints"
             label: qsTr("Symbol hints")
             detail: qsTr("Once a paper's symbols are listed (Document panel › Symbols), pointing at one shows its meaning")
             Switch {
@@ -95,6 +100,7 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            objectName: "settingsRow-showThinking"
             label: qsTr("Show thinking")
             detail: qsTr("A short summary of the model's reasoning, folded above each answer")
             Switch {
@@ -105,10 +111,12 @@ ColumnLayout {
         }
     }
     SettingsGroup {
+        objectName: "settingsGroup-provider"
         title: qsTr("Provider")
         note: qsTr("Keys are stored in ") + root.ai.keyStorage() + ". Before the first request to a provider, Owelk shows what will be sent. "
             + qsTr("Claude is available with an API key; signing in with a Claude.ai account is not offered because Anthropic does not allow it for third-party apps.")
         SettingsRow {
+            objectName: "settingsRow-provider"
             label: qsTr("Provider")
             ComboBox {
                 objectName: "aiSettingsProvider"
@@ -121,6 +129,7 @@ ColumnLayout {
         }
         SettingsRow {
             visible: root.needsKey
+            objectName: "settingsRow-apiKey"
             label: qsTr("API key")
             wide: true
             TextField {
@@ -146,6 +155,7 @@ ColumnLayout {
         }
         SettingsRow {
             visible: root.current.id === "codex"
+            objectName: "settingsRow-account"
             label: qsTr("Account")
             detail: root.codexAccount.available === false ? qsTr("Codex CLI not found — install it to sign in")
                 : root.codexAccount.signedIn ? qsTr("Signed in") + (root.codexAccount.email ? qsTr(" as ") + root.codexAccount.email : "") : qsTr("Not signed in")
@@ -158,6 +168,7 @@ ColumnLayout {
         }
         SettingsRow {
             visible: root.current.id === "ollama"
+            objectName: "settingsRow-host"
             label: qsTr("Host")
             wide: true
             TextField {
@@ -168,6 +179,7 @@ ColumnLayout {
         }
         // The model and reasoning effort the AI panel starts with (the same choice as its model menu).
         SettingsRow {
+            objectName: "settingsRow-model"
             label: qsTr("Model")
             ComboBox {
                 id: modelBox
@@ -188,6 +200,7 @@ ColumnLayout {
         }
         SettingsRow {
             visible: modelBox.custom
+            objectName: "settingsRow-modelName"
             label: qsTr("Model name")
             wide: true
             TextField {
@@ -201,6 +214,7 @@ ColumnLayout {
         }
         SettingsRow {
             visible: (root.chatInfo.efforts || []).length > 0
+            objectName: "settingsRow-reasoning"
             label: qsTr("Reasoning")
             detail: qsTr("Higher thinks longer and costs more")
             ComboBox {
@@ -215,6 +229,7 @@ ColumnLayout {
         }
         // Gloss (a word's meaning or a passage's translation beside the selection): quick by default.
         SettingsRow {
+            objectName: "settingsRow-glossModel"
             label: qsTr("Gloss model")
             ComboBox {
                 objectName: "aiGlossModelBox"
@@ -226,6 +241,7 @@ ColumnLayout {
         }
         SettingsRow {
             visible: (root.glossInfo.efforts || []).length > 0
+            objectName: "settingsRow-glossReasoning"
             label: qsTr("Gloss reasoning")
             ComboBox {
                 id: glossEffortBox
@@ -241,6 +257,7 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            objectName: "settingsRow-connection"
             label: qsTr("Connection")
             detail: root.testResult
             Icon { visible: root.testResult.length > 0 && root.testResult !== "Testing…"; name: root.testOk ? "ok" : "alert"; color: root.testOk ? Theme.accent : Theme.danger }

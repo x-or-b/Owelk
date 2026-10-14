@@ -16,18 +16,22 @@ ColumnLayout {
     Connections { target: researchStore; function onOcrChanged() { root.ocr = researchStore.ocrStatus() } }
     // Meaning search: off by default; an engine embeds the library in the background.
     SettingsGroup {
+        objectName: "settingsGroup-textIndex"
         title: qsTr("PDF text index")
         note: qsTr("The words of the PDFs you open, kept on this computer for search. Click for each PDF's state, pause, or retry.")
         SettingsRow {
+            objectName: "settingsRow-indexStatus"
             label: qsTr("Status")
             IndexStatus { Layout.fillWidth: true }
         }
     }
     SettingsGroup {
+        objectName: "settingsGroup-meaning"
         title: qsTr("Meaning search")
         note: qsTr("Finds passages, notes and answers by meaning as well as by words; results appear under \"Similar meaning\". Keyword search always works without it. ")
             + qsTr("Ollama runs on this computer (install it, then `ollama pull nomic-embed-text`). OpenAI uses your OpenAI API key and is billed per use. Indexing pauses while you read.")
         SettingsRow {
+            objectName: "settingsRow-meaningEngine"
             label: qsTr("Engine")
             ComboBox {
                 objectName: "semanticEngineBox"
@@ -48,6 +52,7 @@ ColumnLayout {
         }
         SettingsRow {
             visible: root.semantic.enabled
+            objectName: "settingsRow-meaningModel"
             label: qsTr("Model")
             wide: true
             TextField {
@@ -59,6 +64,7 @@ ColumnLayout {
         }
         SettingsRow {
             visible: root.semantic.enabled || root.stored > 0
+            objectName: "settingsRow-meaningIndex"
             label: qsTr("Index")
             detail: root.semantic.progress.length ? root.semantic.progress : root.stored + qsTr(" passages indexed")
             Label { objectName: "semanticStatus"; visible: root.semantic.error.length > 0; text: root.semantic.error; color: Theme.danger; elide: Text.ElideRight; Layout.maximumWidth: 260 }
@@ -68,11 +74,13 @@ ColumnLayout {
     }
     // OCR for scanned pages, with the Tesseract the reader installed.
     SettingsGroup {
+        objectName: "settingsGroup-ocr"
         title: qsTr("Scanned pages")
         note: root.ocr.found
             ? qsTr("Pages without a text layer are read by Tesseract (") + root.ocr.program + qsTr(") in the background and become searchable. OCR text is for search only; it cannot be selected on the page.")
             : qsTr("To search scanned PDFs, install Tesseract: macOS `brew install tesseract tesseract-lang`, Linux `sudo apt install tesseract-ocr tesseract-ocr-kor`, Windows the UB Mannheim installer. Owelk finds it on its next start.")
         SettingsRow {
+            objectName: "settingsRow-ocr"
             label: qsTr("Read text with OCR")
             detail: root.ocr.found ? "" : qsTr("Tesseract not found")
             Switch {
@@ -84,6 +92,7 @@ ColumnLayout {
         }
         SettingsRow {
             visible: root.ocr.found && root.ocr.enabled
+            objectName: "settingsRow-ocrLanguages"
             label: qsTr("Languages")
             detail: qsTr("Installed: ") + (root.ocr.installed || []).join(", ")
             TextField {

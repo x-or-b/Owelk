@@ -62,6 +62,7 @@ ColumnLayout {
         Accessible.name: tile.name + qsTr(" theme")
     }
     SettingsGroup {
+        objectName: "settingsGroup-theme"
         title: qsTr("Theme")
         Item {
             width: parent.width
@@ -79,6 +80,7 @@ ColumnLayout {
         }
     }
     SettingsGroup {
+        objectName: "settingsGroup-accent"
         title: qsTr("Accent color")
         note: qsTr("Used for selection, the main button of each area, focus and links. Annotation inks keep their own colors.")
         SettingsRow {
@@ -102,6 +104,7 @@ ColumnLayout {
         }
     }
     SettingsGroup {
+        objectName: "settingsGroup-appIcon"
         title: qsTr("App icon")
         note: Qt.platform.os === "osx" ? qsTr("Changes the icon in the Dock and on the app in Finder. If the Dock keeps the old one, it updates after Owelk restarts.")
                                        : qsTr("Changes the icon in the taskbar and title bars.")
@@ -128,46 +131,11 @@ ColumnLayout {
         }
     }
     SettingsGroup {
-        title: qsTr("Tabs")
-        note: qsTr("Vertical tabs list every tab beside the window, with full titles; the panel opens and closes from its button at the top left (") + Platform.keys("Ctrl+Shift+B") + ")."
-        SettingsRow {
-            label: "Tab layout"
-            TabBar {
-                objectName: "tabLayout"
-                currentIndex: Theme.verticalTabs ? 1 : 0
-                TabButton { text: qsTr("Horizontal"); width: 96; onClicked: Theme.verticalTabs = false }
-                TabButton { objectName: "verticalTabsOption"; text: qsTr("Vertical"); width: 96; onClicked: Theme.verticalTabs = true }
-            }
-        }
-        // Control+Tab: through the tabs in order, or back and forth between the last two used.
-        SettingsRow {
-            label: Qt.platform.os === "osx" ? "\u2303Tab" : "Ctrl+Tab"
-            TabBar {
-                id: controlTabBar
-                objectName: "controlTabMode"
-                property string chosen: researchStore.setting("tabs.controlTab", "next")
-                currentIndex: chosen === "recent" ? 1 : 0
-                TabButton { text: qsTr("Next Tab"); width: 96; onClicked: { controlTabBar.chosen = "next"; researchStore.setSetting("tabs.controlTab", "next") } }
-                TabButton { objectName: "controlTabRecent"; text: qsTr("Last Used"); width: 96; onClicked: { controlTabBar.chosen = "recent"; researchStore.setSetting("tabs.controlTab", "recent") } }
-            }
-        }
-        // What a new launch shows: Home (the tabs wait behind it) or the tabs as they were left.
-        SettingsRow {
-            label: qsTr("On launch")
-            TabBar {
-                id: startupBar
-                objectName: "startupView"
-                property string chosen: researchStore.setting("startup.view", "home")
-                currentIndex: chosen === "tabs" ? 1 : 0
-                TabButton { text: "Home"; width: 96; onClicked: { startupBar.chosen = "home"; researchStore.setSetting("startup.view", "home") } }
-                TabButton { objectName: "startupTabsOption"; text: qsTr("Last Tabs"); width: 96; onClicked: { startupBar.chosen = "tabs"; researchStore.setSetting("startup.view", "tabs") } }
-            }
-        }
-    }
-    SettingsGroup {
+        objectName: "settingsGroup-text"
         title: qsTr("Text")
         note: qsTr("Scales all text and the controls around it. PDF pages keep their own zoom.")
         SettingsRow {
+            objectName: "settingsRow-textSize"
             label: qsTr("Text size")
             Icon { name: "text"; size: Theme.fontCaption; color: Theme.textTertiary }
             Slider {
@@ -180,29 +148,21 @@ ColumnLayout {
             Icon { name: "text"; size: Theme.fontTitle; color: Theme.textTertiary }
             Label { text: Theme.textSize + qsTr(" pt"); color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
         }
-        // English as written, or every word spelled out in Hangul. The choices keep their own names.
-        SettingsRow {
-            visible: typeof uiLanguage !== "undefined" && uiLanguage.available
-            label: qsTr("Language")
-            TabBar {
-                objectName: "interfaceLanguage"
-                currentIndex: typeof uiLanguage !== "undefined" && uiLanguage.language === "hangul" ? 1 : 0
-                TabButton { text: "English"; width: 96; onClicked: uiLanguage.choose("en") }
-                TabButton { objectName: "hangulOption"; text: "\ud55c\uae00"; width: 96; onClicked: uiLanguage.choose("hangul") }
-            }
-        }
     }
     SettingsGroup {
         visible: Theme.canInvertPages
+        objectName: "settingsGroup-pdfPages"
         title: qsTr("PDF pages")
         note: qsTr("Dark pages invert lightness and keep hues, so figures stay recognizable. Exports and printing use the original colors.")
         SettingsRow {
+            objectName: "settingsRow-darkPages"
             label: qsTr("Dark pages")
             Switch { objectName: "invertPagesSwitch"; checked: Theme.invertPages; onToggled: Theme.invertPages = checked }
         }
     }
     SettingsGroup {
         visible: Theme.theme === "custom"
+        objectName: "settingsGroup-customTheme"
         title: qsTr("Custom theme")
         note: qsTr("Hover, selection and secondary text are worked out from these colors, so the theme stays consistent.")
         Repeater {

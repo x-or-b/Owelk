@@ -8,56 +8,15 @@ import Owelk.Ui
 // images; restore is applied on next start) and exports.
 ColumnLayout {
     id: root
-    objectName: "dataSettings"
+    objectName: "syncSettings"
     spacing: 22
     property string result: ""
     property string syncProblem: ""
     readonly property var sync: researchStore.sync
     readonly property bool syncing: sync.folder.length > 0
-    property bool keepPdfs: researchStore.setting("library.keepPdfs", "1") === "1"
-    // Read again after copying or when papers change.
-    readonly property int outside: researchStore.documentsRevision >= 0 && !researchStore.copyingPdfs ? researchStore.outsidePdfCount() : 0
     Connections { target: researchStore; function onBackupFinished(ok, path, message) { root.result = message } }
     SettingsGroup {
-        title: qsTr("Library")
-        note: qsTr("Like a note app, Owelk keeps its own copy of every PDF you open, add or download, in its data folder. The original files are never moved or deleted; you can remove them yourself.")
-        SettingsRow {
-            label: qsTr("Keep PDFs in Owelk")
-            Switch {
-                objectName: "keepPdfs"
-                checked: root.keepPdfs
-                onToggled: { researchStore.setSetting("library.keepPdfs", checked ? "1" : "0"); root.keepPdfs = checked }
-            }
-        }
-        SettingsRow {
-            visible: root.keepPdfs && (root.outside > 0 || researchStore.copyingPdfs)
-            label: researchStore.copyingPdfs ? qsTr("Copying PDFs…") : root.outside + (root.outside === 1 ? qsTr(" paper still reads its PDF from elsewhere") : qsTr(" papers still read their PDFs from elsewhere"))
-            detail: qsTr("Each copy is checked byte for byte before the paper uses it.")
-            Button {
-                objectName: "copyPdfsIn"
-                text: qsTr("Copy Into Owelk")
-                enabled: !researchStore.copyingPdfs
-                onClicked: researchStore.copyPdfsIntoLibrary()
-            }
-        }
-        SettingsRow {
-            label: qsTr("Empty the Trash")
-            detail: qsTr("Deleted papers, notes and AI conversations wait in Library › Trash until then")
-            ComboBox {
-                objectName: "trashDaysBox"
-                Layout.preferredWidth: 160
-                readonly property var days: [7, 30, 0]
-                model: [qsTr("After 7 days"), qsTr("After 30 days"), qsTr("Never")]
-                currentIndex: Math.max(0, days.indexOf(researchStore.trashDays()))
-                onActivated: function(index) { researchStore.setSetting("trash.days", String(days[index])) }
-            }
-        }
-        SettingsRow {
-            label: qsTr("PDF folder")
-            Button { objectName: "showPapersFolder"; text: qsTr("Show Folder"); onClicked: Qt.openUrlExternally(researchStore.papersFolderUrl()) }
-        }
-    }
-    SettingsGroup {
+        objectName: "settingsGroup-sync"
         title: qsTr("Sync")
         note: root.syncProblem.length ? root.syncProblem
             : qsTr("Keeps this library the same on your other computers. Choose a folder inside Google Drive, Dropbox or Syncthing (for example My Drive) on each computer; Owelk works in an Owelk folder there and copies the Library's PDFs into it, so there is nothing to move by hand. On Ubuntu, reach Google Drive with rclone or Insync. Papers, annotations, notes, collections, reading state and AI threads travel; when one item changes on two computers, the later change wins.")
@@ -81,6 +40,7 @@ ColumnLayout {
         }
     }
     SettingsGroup {
+        objectName: "settingsGroup-backup"
         title: qsTr("Backup")
         note: root.result.length ? root.result
             : qsTr("A backup copies the library (papers' details, notes, annotations, AI threads) and its images into a folder. Your PDFs stay where they are and are not copied. Automatic backups go to the data folder's backups/auto.")
@@ -108,6 +68,7 @@ ColumnLayout {
         }
     }
     SettingsGroup {
+        objectName: "settingsGroup-export"
         title: qsTr("Export")
         note: qsTr("Each note becomes a Markdown file. A paper's annotations are exported from the reader's ⋯ menu.")
         SettingsRow {

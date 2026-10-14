@@ -27,7 +27,7 @@ Item {
         }
         function test_categoriesLoadOneAtATime() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
-            for (const id of ["appearance", "web", "search", "ai", "shortcuts", "data"]) {
+            for (const id of ["general", "appearance", "shortcuts", "library", "web", "search", "ai", "sync"]) {
                 mouseClick(visualChild(settings.contentItem, "settingsPage-" + id))
                 compare(settings.page, id)
                 tryVerify(function() { return page() !== null })
@@ -39,7 +39,7 @@ Item {
         }
         function test_fileNamePartsTurnOnAndMove() {
             researchStore.setSetting("pdfNames.parts", "")
-            settings.openPage("web"); tryCompare(settings, "opened", true)
+            settings.openPage("library"); tryCompare(settings, "opened", true)
             let year = null
             tryVerify(function() { year = visualChild(settings.contentItem, "pdfNameSwitch-year"); return year !== null })
             const p = page()
