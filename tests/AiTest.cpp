@@ -135,6 +135,15 @@ private slots:
         // "Same as the paper" still needs a translation target.
         prompt = buildAiPrompt("translate", "source", {}, materials);
         QVERIFY(prompt.text.contains("into English"));
+        QVERIFY(!prompt.system.contains("note_update"));
+        // Attached notes go with their id and title, and questions may get a whole note back to apply.
+        materials.notes = {"Old body"};
+        materials.noteIds = {"n1"};
+        materials.noteTitles = {"A \"quoted\" title"};
+        prompt = buildAiPrompt("ask", "ko", "Rewrite it", materials);
+        QVERIFY(prompt.text.contains("<note id=\"n1\" title=\"A &quot;quoted&quot; title\">\nOld body\n</note>"));
+        QVERIFY(prompt.system.contains("<note_update id=\"ID\""));
+        QVERIFY(prompt.system.contains("<note_new title="));
     }
     void keychainRoundTrip()
     {

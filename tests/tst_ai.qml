@@ -618,6 +618,50 @@ Item {
             compare(c.tool, "")
             compare(ai.images.length, 0)
         }
+        function test_9y_aNoteProposedByTheAiChangesOnlyOnApply() {
+            verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key")); researchStore.ai.giveConsent("claude")
+            const note = researchStore.createNote("Draft", "old body\n")
+            const ai = findChild(workspace, "aiController")
+            workspace.showAi()
+            ai.newThread("")
+            ai.attachNote(note)
+            verify(ai.attachments.some(function(a) { return a.kind === "note" && a.label.indexOf("Draft") >= 0 }))
+            verify(ai.send("Rewrite my note more clearly"))
+            tryCompare(ai, "streaming", false, 10000)
+            const at = ai.messages.length - 1
+            verify(ai.messages[at].content.indexOf("<note_update") >= 0)
+            compare(ai.messages[at - 1].context.notes, ["Draft"])
+            // The answer shows its words and a card; the note is untouched until Apply.
+            const p = panel()
+            let card = null
+            tryVerify(function() { card = findChild(p, "aiNoteCard-" + at + "-0"); return card !== null && card.visible })
+            verify(findChild(p, "aiMessage-" + at).text.indexOf("note_update") < 0)
+            compare(researchStore.note(note).body, "old body\n")
+            findChild(card, "aiNoteApply").clicked()
+            compare(researchStore.note(note).body, "# Rewritten\n\nNew body.")
+            compare(researchStore.note(note).title, "Rewritten")
+            verify(!!ai.appliedNotes[ai.noteKey(at, 0)])
+            // Undo puts the note back as it was.
+            findChild(card, "aiNoteUndo").clicked()
+            compare(researchStore.note(note).body, "old body\n")
+            compare(researchStore.note(note).title, "Draft")
+            // A new note is created only on Create Note, linked to the conversation.
+            verify(ai.send("Write a new note about it"))
+            tryCompare(ai, "streaming", false, 10000)
+            const next = ai.messages.length - 1
+            tryVerify(function() { card = findChild(p, "aiNoteCard-" + next + "-0"); return card !== null && card.visible })
+            const count = researchStore.notes(false).length
+            findChild(card, "aiNoteApply").clicked()
+            compare(researchStore.notes(false).length, count + 1)
+            const made = ai.appliedNotes[ai.noteKey(next, 0)].noteId
+            compare(researchStore.note(made).title, "Fresh note")
+            verify(researchStore.note(made).body.indexOf("A fresh note.") === 0)
+            verify(researchStore.note(made).body.indexOf("owelk://ai/" + ai.threadId) > 0)
+            // Plain answers carry no card.
+            compare(ai.noteBlocks("Just text.").notes.length, 0)
+            compare(ai.noteBlocks("Partly <note_new title=\"x\">still").preparing, true)
+            researchStore.deleteNote(note); researchStore.deleteNote(made)
+        }
         function test_9z_organizeTabsAppliesOnlyOnApply() {
             verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
             researchStore.ai.provider = "claude"

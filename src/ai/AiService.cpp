@@ -288,10 +288,15 @@ int AiService::ask(const QVariantMap &input)
         if (QFileInfo(path).isFile() && userImages.size() < 6) userImages << path;
     }
     const auto attachments = attachmentDirectory();
-    QStringList notes;
-    for (const auto &noteId : spec.value("noteIds").toStringList())
-        notes << m_store->note(noteId).value("body").toString();
-    prepared.insert("notes", notes);
+    QStringList notes, noteIds, noteTitles;
+    for (const auto &noteId : spec.value("noteIds").toStringList()) {
+        const auto note = m_store->note(noteId);
+        if (note.isEmpty() || note.value("deleted").toBool()) continue;
+        notes << note.value("body").toString();
+        noteIds << noteId;
+        noteTitles << note.value("title").toString();
+    }
+    prepared.insert({{"notes", notes}, {"noteIds", noteIds}, {"noteTitles", noteTitles}});
     m_running.insert(request, nullptr);
     emit busyChanged();
     struct Material {
@@ -527,6 +532,8 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     if (!materials.paperText.isEmpty()) materials.paperMarkers = prepared.value("paperMarkers").toStringList();
     materials.libraryText = prepared.value("libraryText").toString();
     materials.notes = prepared.value("notes").toStringList();
+    materials.noteIds = prepared.value("noteIds").toStringList();
+    materials.noteTitles = prepared.value("noteTitles").toStringList();
     materials.pageNumber = spec.value("scope").toString() == "page" ? spec.value("page").toInt() + 1 : 0;
     materials.level = m_store->setting("ai.explainLevel", "easy");
     materials.instructions = m_store->setting("ai.instructions").left(2000);
@@ -619,6 +626,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         if (!spec.value("paperNames").toStringList().isEmpty()) attachments << "papers";
         if (!attached.libraryText.isEmpty()) attachments << "library";
         if (!attached.quote.isEmpty()) attachments << "quote";
+        if (!attached.notes.isEmpty()) attachments << "notes";
         m_store->appendAiMessage(threadId,
             {{"role", "user"}, {"content", sent}, {"display", display}, {"provider", id}, {"model", usedModel},
                 {"context",
@@ -627,6 +635,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
                         {"papers", spec.value("paperNames")}, {"searched", spec.value("searchedNames")},
                         {"searchUrls", spec.value("searchUrls")}, {"wholeLibrary", spec.value("wholeLibrary")},
                         {"collection", spec.value("collection")}, {"collectionName", spec.value("collectionName")},
+                        {"notes", attached.noteTitles},
                         {"images", spec.value("imageNames").toStringList().mid(0, sentImages.size())},
                         {"imageFiles", sentImages}}}});
         // The reasoning summary sits in the answer's context: shown folded, never copied or resent.

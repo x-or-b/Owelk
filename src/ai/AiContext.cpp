@@ -68,6 +68,15 @@ AiPrompt buildAiPrompt(
             prompt.system += "\n\nThe reader's own instructions (follow them unless they conflict with the above):\n"
                 + materials.instructions.trimmed();
     }
+    // Notes: the answer proposes a whole note in a block Owelk shows as a card; the reader applies it.
+    if (action != "translate" && action != "notation")
+        prompt.system += QStringLiteral(
+            "\n\nThe reader keeps Markdown notes in Owelk. Only when the reader asks you to write a note or to change "
+            "or add to one, put the whole note after your reply in one block: <note_update id=\"ID\" "
+            "title=\"Title\">the complete revised Markdown</note_update> for a note given above (keep everything "
+            "they did not ask to change), or <note_new title=\"Title\">Markdown</note_new> for a new note. Owelk "
+            "shows the block to the reader, who decides whether to apply it, so do not say it is saved. Never write "
+            "these blocks otherwise.");
     // Paper text comes with page numbers: answers point to their places, which Owelk turns into links.
     if (materials.paperMarkers.size() > 1 && action != "translate")
         prompt.system += " The material holds several papers, each opened by a line such as \"=== P2: Title ===\" ("
@@ -101,8 +110,11 @@ AiPrompt buildAiPrompt(
     if (!materials.quote.isEmpty())
         parts << "<quoted_from_conversation>\n" + clip(materials.quote, remaining, cut)
                 + "\n</quoted_from_conversation>";
-    for (const auto &note : materials.notes)
-        if (!note.trimmed().isEmpty()) parts << "<note>\n" + clip(note, remaining, cut) + "\n</note>";
+    const auto attribute = [](QString value) { return value.replace('&', "&amp;").replace('"', "&quot;"); };
+    for (int i = 0; i < materials.notes.size(); ++i)
+        parts << QStringLiteral("<note id=\"%1\" title=\"%2\">\n")
+                     .arg(attribute(materials.noteIds.value(i)), attribute(materials.noteTitles.value(i)))
+                + clip(materials.notes.at(i), remaining, cut) + "\n</note>";
     if (!materials.pageText.isEmpty())
         parts << QStringLiteral("<page%1>\n")
                      .arg(materials.pageNumber ? QStringLiteral(" number=\"%1\"").arg(materials.pageNumber) : QString())

@@ -177,6 +177,10 @@ public:
     Q_INVOKABLE QString createNote(const QString &title = QString(), const QString &body = QString());
     Q_INVOKABLE QVariantMap note(const QString &id) const;
     Q_INVOKABLE bool saveNote(const QString &id, const QString &title, const QString &body);
+    // A note rewritten as a whole (an AI proposal the reader applied, or its undo). An editor showing it
+    // saves its own typing first (noteReplacing), so what is replaced is current. Answers the title and
+    // body it had, for Undo; empty when the note is gone.
+    Q_INVOKABLE QVariantMap replaceNote(const QString &id, const QString &title, const QString &body);
     Q_INVOKABLE QVariantList notes(bool trashed = false) const;
     Q_INVOKABLE bool deleteNote(const QString &id);
     Q_INVOKABLE bool restoreNote(const QString &id);
@@ -367,6 +371,7 @@ signals:
     void settingsChanged();
     void notesChanged();
     void noteAppended(const QString &noteId, const QString &markdown);
+    void noteReplacing(const QString &noteId);
     void linksChanged();
     void relatedFound(int request, const QVariantList &papers, const QVariantList &notes);
     void collectionsSuggested(int request, const QUrl &source, const QVariantList &suggestions);

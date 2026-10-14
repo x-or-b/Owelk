@@ -83,6 +83,16 @@ bool ResearchStore::saveNote(const QString &id, const QString &title, const QStr
     return true;
 }
 
+QVariantMap ResearchStore::replaceNote(const QString &id, const QString &title, const QString &body)
+{
+    emit noteReplacing(id);
+    const auto before = note(id);
+    if (before.isEmpty() || before.value("deleted").toBool()) return {};
+    const auto name = title.simplified().isEmpty() ? before.value("title").toString() : title;
+    if (!saveNote(id, name, body)) return {};
+    return {{"title", before.value("title")}, {"body", before.value("body")}};
+}
+
 QVariantList ResearchStore::notes(bool trashed) const
 {
     QVariantList rows;

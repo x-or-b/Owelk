@@ -118,6 +118,7 @@ Item {
                 list.push({kind: kind, label: context.collectionName ? qsTr("Collection · ") + context.collectionName
                                              : !context.wholeLibrary && (context.searched || []).length > 1 ? qsTr("Passages from ") + context.searched.length + qsTr(" papers")
                                              : qsTr("Library passages")})
+            else if (kind === "notes") (context.notes || []).forEach(function(title) { list.push({kind: "note", label: qsTr("Note · ") + title}) })
             else if (kind === "image") {
                 const names = context.images || [], files = context.imageFiles || []
                 for (let i = 0; i < Math.max(1, names.length, files.length); ++i)
@@ -165,6 +166,82 @@ Item {
                 x: 10; width: parent.width - 10
                 text: parent.visible ? researchStore.markdownHtml(fold.summary, Theme.accent, Theme.textSecondary, Theme.fontSmall) : ""
                 color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
+            }
+        }
+    }
+    // A note an answer proposes: its title, the start of it, and Apply (a note given to the AI) or Create
+    // (a new one). Nothing is written before that click; afterwards Open, and Undo for a rewritten note.
+    component NoteCard: Rectangle {
+        id: card
+        property var block: ({})
+        property int messageIndex: -1
+        property int blockIndex: 0
+        readonly property var applied: root.c ? root.c.appliedNotes[root.c.noteKey(messageIndex, blockIndex)] : undefined
+        property int notesRevision: 0
+        Connections { target: researchStore; function onNotesChanged() { card.notesRevision++ } }
+        readonly property var target: block.kind === "update" && block.id ? (notesRevision, researchStore.note(block.id)) : ({})
+        readonly property bool updates: !!target.id && !target.deleted
+        implicitHeight: cardColumn.implicitHeight + 20
+        radius: Theme.radius
+        color: Theme.raised
+        border.width: 1; border.color: Theme.separator
+        ColumnLayout {
+            id: cardColumn
+            x: 10; y: 10; width: parent.width - 20
+            spacing: 4
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                Icon { name: "note"; size: Theme.fontBody; color: Theme.icon }
+                Label {
+                    Layout.fillWidth: true
+                    text: card.block.title || (card.updates ? card.target.title : qsTr("New note"))
+                    elide: Text.ElideRight; textFormat: Text.PlainText
+                    font.weight: Font.DemiBold; color: Theme.text
+                }
+                Label {
+                    text: card.updates ? qsTr("Changes") : qsTr("New")
+                    font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                }
+            }
+            Label {
+                Layout.fillWidth: true
+                text: (card.block.body || "").replace(/[#*_`>]/g, "").replace(/\n{2,}/g, "\n").trim()
+                maximumLineCount: 4; elide: Text.ElideRight; wrapMode: Text.Wrap; textFormat: Text.PlainText
+                font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 2
+                spacing: 4
+                Button {
+                    objectName: "aiNoteApply"
+                    visible: !card.applied
+                    highlighted: true
+                    implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                    text: card.updates ? qsTr("Apply to Note") : qsTr("Create Note")
+                    onClicked: root.c.applyNote(card.messageIndex, card.blockIndex)
+                }
+                Label {
+                    visible: !!card.applied
+                    text: card.applied && card.applied.created ? qsTr("Created") : qsTr("Applied")
+                    font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
+                }
+                Item { Layout.fillWidth: true }
+                Button {
+                    objectName: "aiNoteUndo"
+                    visible: !!card.applied && !!card.applied.before
+                    flat: true; implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                    text: qsTr("Undo")
+                    onClicked: root.c.undoNote(card.messageIndex, card.blockIndex)
+                }
+                Button {
+                    objectName: "aiNoteOpen"
+                    visible: !!card.applied || card.updates
+                    flat: true; implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                    text: qsTr("Open")
+                    onClicked: root.linkActivated("owelk://note/" + (card.applied ? card.applied.noteId : card.block.id))
+                }
             }
         }
     }
@@ -291,6 +368,8 @@ Item {
                 id: message
                 required property var modelData
                 required property int index
+                // An answer's text and the notes it proposes.
+                readonly property var parts: modelData.role === "assistant" && root.c ? root.c.noteBlocks(modelData.content) : ({text: "", notes: [], plain: ""})
                 width: ListView.view.width
                 spacing: 4
                 // What went with the question, above it.
@@ -324,10 +403,22 @@ Item {
                     seconds: context.thinkingSeconds || 0
                 }
                 AnswerText {
-                    visible: message.modelData.role === "assistant"
+                    visible: message.modelData.role === "assistant" && message.parts.text.length > 0
                     objectName: "aiMessage-" + message.index
                     Layout.fillWidth: true
-                    text: visible ? researchStore.markdownHtml(message.modelData.content, Theme.accent, Theme.text, Theme.fontBody) : ""
+                    text: visible ? researchStore.markdownHtml(message.parts.text, Theme.accent, Theme.text, Theme.fontBody) : ""
+                }
+                Repeater {
+                    model: message.modelData.role === "assistant" ? message.parts.notes : []
+                    delegate: NoteCard {
+                        required property var modelData
+                        required property int index
+                        Layout.fillWidth: true
+                        objectName: "aiNoteCard-" + message.index + "-" + index
+                        block: modelData
+                        messageIndex: message.index
+                        blockIndex: index
+                    }
                 }
                 Label {
                     objectName: "aiCutOff-" + message.index
@@ -339,7 +430,7 @@ Item {
                 RowLayout {
                     visible: message.modelData.role === "assistant"
                     spacing: 0
-                    IconButton { icon.name: "copy"; description: qsTr("Copy answer"); glyphSize: Theme.fontBody; onClicked: researchStore.copyText(message.modelData.content) }
+                    IconButton { icon.name: "copy"; description: qsTr("Copy answer"); glyphSize: Theme.fontBody; onClicked: researchStore.copyText(message.parts.plain) }
                     // A new note, or one of the notes about this paper (a menu when there are some).
                     IconButton {
                         id: saveNoteButton
@@ -395,11 +486,19 @@ Item {
                     onSummaryChanged: conversation.follow()
                 }
                 AnswerText {
+                    id: liveAnswer
                     objectName: "aiAnswer"
-                    visible: root.c && root.c.answer.length > 0
+                    readonly property var parts: root.c && root.c.answer.length ? root.c.noteBlocks(root.c.answer) : ({text: "", notes: [], preparing: false})
+                    visible: parts.text.length > 0
                     Layout.fillWidth: true
-                    text: root.c && root.c.answer.length ? researchStore.markdownHtml(root.c.answer, Theme.accent, Theme.text, Theme.fontBody) : ""
+                    text: visible ? researchStore.markdownHtml(parts.text, Theme.accent, Theme.text, Theme.fontBody) : ""
                     onTextChanged: conversation.follow()
+                }
+                Label {
+                    objectName: "aiPreparingNote"
+                    visible: liveAnswer.parts.notes.length > 0 || liveAnswer.parts.preparing
+                    text: qsTr("Writing a note…")
+                    textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
                 }
                 Label {
                     objectName: "aiError"
@@ -538,6 +637,7 @@ Item {
                     MenuItem { objectName: "aiAttachPapers"; text: qsTr("Papers…"); onTriggered: picker.begin("papers") }
                     MenuItem { objectName: "aiAttachCollection"; text: qsTr("Collection…"); onTriggered: picker.begin("collection") }
                     MenuItem { objectName: "aiAttachLibrary"; text: qsTr("Whole Library"); onTriggered: root.c.attachCollection("", "") }
+                    MenuItem { objectName: "aiAttachNote"; text: qsTr("Note…"); onTriggered: picker.begin("notes") }
                     MenuSeparator {}
                     MenuItem { objectName: "aiAttachRegion"; text: qsTr("Region of the PDF…"); enabled: root.c && root.c.reader !== null; onTriggered: root.c.captureRegion() }
                     MenuItem { objectName: "aiAttachImage"; text: qsTr("Image…"); onTriggered: imageDialog.open() }
@@ -682,6 +782,7 @@ Item {
         }
         function choose(row) {
             if (mode === "papers") toggle(row.url)
+            else if (mode === "notes") { close(); root.c.attachNote(row.id) }
             else { close(); root.c.attachCollection(row.id, row.name) }
         }
         parent: attachButton
@@ -695,6 +796,9 @@ Item {
             if (!visible || !root.c) return []
             const words = needle.toLowerCase()
             const match = function(name) { return !words.length || name.toLowerCase().indexOf(words) >= 0 }
+            if (mode === "notes")
+                return researchStore.notes(false).filter(function(n) { return match(n.title || "") && (root.c.spec.noteIds || []).indexOf(n.id) < 0 })
+                    .map(function(n) { return {type: "note", id: n.id, name: n.title || qsTr("Untitled note")} })
             if (mode === "collection")
                 return researchStore.collections().filter(function(c) { return match(c.name) })
                     .map(function(c) { return {type: "collection", id: c.id, name: c.name, count: c.count} })
@@ -721,11 +825,11 @@ Item {
                 Layout.fillWidth: true
                 implicitHeight: Theme.controlHeight
                 font.pixelSize: Theme.fontSmall
-                placeholderText: picker.mode === "papers" ? qsTr("Search papers") : qsTr("Search collections")
+                placeholderText: picker.mode === "papers" ? qsTr("Search papers") : picker.mode === "notes" ? qsTr("Search notes") : qsTr("Search collections")
                 Keys.onEscapePressed: picker.close()
                 Keys.onReturnPressed: {
                     if (picker.mode === "papers") picker.attach()
-                    else { const first = picker.rows.find(function(r) { return r.type === "collection" }); if (first) picker.choose(first) }
+                    else { const first = picker.rows.find(function(r) { return r.type === "collection" || r.type === "note" }); if (first) picker.choose(first) }
                 }
             }
             ListView {
@@ -758,7 +862,7 @@ Item {
                     Icon {
                         visible: !pick.section
                         x: 6; anchors.verticalCenter: parent.verticalCenter
-                        name: pick.modelData.type === "collection" ? "folder" : pick.picked ? "check" : "document"
+                        name: pick.modelData.type === "collection" ? "folder" : pick.modelData.type === "note" ? "note" : pick.picked ? "check" : "document"
                         size: Theme.fontBody; color: pick.picked ? Theme.selectedText : Theme.textTertiary
                     }
                     onClicked: picker.choose(modelData)
@@ -766,7 +870,7 @@ Item {
                 Label {
                     anchors.centerIn: parent
                     visible: pickerList.count === 0
-                    text: picker.mode === "papers" ? qsTr("No paper found.") : qsTr("No collection found.")
+                    text: picker.mode === "papers" ? qsTr("No paper found.") : picker.mode === "notes" ? qsTr("No note found.") : qsTr("No collection found.")
                     color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
                 }
             }

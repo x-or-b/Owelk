@@ -177,8 +177,78 @@ Item {
         ;(s.papers || []).forEach(function(url, index) { list.push({kind: "extra", index: index, label: qsTr("Paper · ") + researchStore.displayName(url)}) })
         if (s.scope === "library") list.push({kind: "library", label: (s.collection ? qsTr("Collection · ") + s.collectionName : qsTr("Whole library")) + qsTr(" · passages that answer the question")})
         else if (searchesPapers(s)) list.push({kind: "passages", fixed: true, label: qsTr("Several papers · passages that answer the question")})
+        ;(s.noteIds || []).forEach(function(id, index) { list.push({kind: "note", index: index, label: qsTr("Note · ") + (researchStore.note(id).title || qsTr("Untitled note"))}) })
         images.forEach(function(image, index) { list.push({kind: "image", index: index, label: image.name, url: image.url}) })
         return list
+    }
+    // A note to talk about (or have rewritten): its text goes with the next question.
+    function attachNote(id) {
+        ensureConversation()
+        const next = Object.assign({}, spec), list = (next.noteIds || []).slice()
+        if (list.indexOf(id) < 0 && list.length < 5) list.push(id)
+        next.noteIds = list
+        spec = next
+        focusRequested()
+    }
+    // Notes an answer proposes (<note_update id title>…</note_update>, <note_new title>…</note_new>): the
+    // answer's text without them, the notes, its text with each note's Markdown in place (to copy or save),
+    // and whether one is still being written (while streaming).
+    function noteBlocks(content) {
+        const notes = [], value = function(attrs, name) {
+            const m = new RegExp(name + '="([^"]*)"').exec(attrs)
+            return m ? m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&") : ""
+        }
+        const pattern = /<note_(update|new)\b([^>]*)>([\s\S]*?)<\/note_\1>/g
+        let text = content || "", plain = text
+        text = text.replace(pattern, function(all, kind, attrs, body) {
+            notes.push({kind: kind, id: kind === "update" ? value(attrs, "id") : "", title: value(attrs, "title"), body: body.replace(/^\n+|\s+$/g, "")})
+            return ""
+        })
+        plain = plain.replace(pattern, function(all, kind, attrs, body) { return body.trim() })
+        const open = text.search(/<note_(update|new)\b/)
+        const preparing = open >= 0
+        if (preparing) { text = text.slice(0, open); plain = plain.slice(0, plain.search(/<note_(update|new)\b/)) }
+        return {text: text.trim(), plain: plain.trim(), notes: notes, preparing: preparing}
+    }
+    // Proposals applied in this session (by thread, answer and block), for Open and Undo.
+    property var appliedNotes: ({})
+    function noteKey(index, n) { return threadId + ":" + index + ":" + n }
+    // Applies a proposed note: the attached note rewritten (Undo puts it back), or a new note that links
+    // to this conversation and its paper.
+    function applyNote(index, n) {
+        const block = noteBlocks((messages[index] || {}).content).notes[n]
+        if (!block) return ""
+        const key = noteKey(index, n), done = Object.assign({}, appliedNotes)
+        const existing = block.kind === "update" && block.id.length ? researchStore.note(block.id) : ({})
+        if (existing.id && !existing.deleted) {
+            const before = researchStore.replaceNote(block.id, block.title, block.body)
+            if (!before.body && before.body !== "") return ""
+            done[key] = {noteId: block.id, before: before}
+            appliedNotes = done
+            researchStore.notify(qsTr("Note updated."))
+            return block.id
+        }
+        const lines = [block.body, "", "---", "- " + researchStore.markdownLink("ai", threadId)]
+        if (thread.source && thread.source.toString().length) {
+            const paper = researchStore.documentLinkId(thread.source)
+            if (paper.length) lines.push("- " + researchStore.markdownLink("document", paper))
+        }
+        const id = researchStore.createNote(block.title || thread.title || "AI", lines.join("\n") + "\n")
+        if (!id.length) return ""
+        done[key] = {noteId: id, created: true}
+        appliedNotes = done
+        researchStore.notify(qsTr("Note created."))
+        return id
+    }
+    function undoNote(index, n) {
+        const key = noteKey(index, n), applied = appliedNotes[key]
+        if (!applied || !applied.before) return false
+        if (!Object.keys(researchStore.replaceNote(applied.noteId, applied.before.title, applied.before.body)).length) return false
+        const done = Object.assign({}, appliedNotes)
+        delete done[key]
+        appliedNotes = done
+        researchStore.notify(qsTr("Note restored."))
+        return true
     }
     // Several papers are read whole up to three; past that (or once a chat has searched them) each question
     // gets the passages that answer it, as for a collection (AiService::ask).
@@ -224,6 +294,7 @@ Item {
             if (next.region) attachFigure(next)
             else if (next.image) attachPicture(next)
             else if (next.selection) attachText(next)
+            else if (next.note) attachNote(next.note)
             return
         }
         reset()
@@ -306,6 +377,7 @@ Item {
             return
         }
         if (kind === "quote") delete next.quote
+        if (kind === "note") next.noteIds = (next.noteIds || []).filter(function(_, i) { return i !== index })
         if (kind === "extra") next.papers = (next.papers || []).filter(function(_, i) { return i !== index })
         // Without the collection: the chat's paper again (already in the conversation, or read now), else the
         // one in the reader.
@@ -385,7 +457,7 @@ Item {
         if (!message || message.role !== "assistant" || !threadId.length) return ""
         const asked = index > 0 && messages[index - 1].role === "user" ? (messages[index - 1].display || messages[index - 1].content || "").trim() : ""
         const lines = asked.length ? ["> " + asked.split("\n").join("\n> "), ""] : []
-        lines.push(message.content, "", "---", "- " + researchStore.markdownLink("ai", threadId))
+        lines.push(noteBlocks(message.content).plain, "", "---", "- " + researchStore.markdownLink("ai", threadId))
         if (thread.source && thread.source.toString().length) {
             const paper = researchStore.documentLinkId(thread.source)
             if (paper.length) lines.push("- " + researchStore.markdownLink("document", paper))

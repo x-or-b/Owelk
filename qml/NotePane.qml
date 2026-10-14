@@ -66,17 +66,23 @@ Rectangle {
             const kept = body.text.replace(/\n+$/, "")
             body.text = kept + (kept.length ? "\n\n" : "") + markdown.trim() + "\n"
         }
+        // A note rewritten as a whole (an AI proposal applied, or undone): typing not yet saved is saved
+        // first, so Undo brings it back; the new text then loads below.
+        function onNoteReplacing(noteId) { if (noteId === root.loadedId && root.dirty) root.save() }
         function onNotesChanged() {
             if (root.dirty || !root.noteId.length) return
             const row = researchStore.note(root.noteId)
             if (row.deleted) { root.controller.closeNoteTabs(root.noteId); return }
             root.loading = true
             if ((row.body || "") !== body.text) body.text = row.body || ""
+            if ((row.title || "") !== titleField.text) { titleField.text = row.title || ""; root.controller.updateNoteTab(root.noteId, titleField.text) }
             root.loading = false
             root.dirty = false
         }
         function onLinksChanged() { root.backlinks = researchStore.backlinks("note", root.noteId) }
     }
+    // The AI panel with this note attached: questions about it, or changes it can apply.
+    function askAi() { save(); controller.aiRequested({attach: true, note: noteId}) }
     function openLink(link) {
         if (/^owelk:/.test(link) || /^https?:/.test(link)) controller.openLink(link)
     }
@@ -101,6 +107,7 @@ Rectangle {
             TapHandler { acceptedButtons: Qt.RightButton; onTapped: noteMenu.popup() }
             Menu {
                 id: noteMenu
+                MenuItem { objectName: "noteAskAi"; text: qsTr("Ask AI about This Note"); onTriggered: root.askAi() }
                 MenuItem { text: qsTr("Copy Markdown"); onTriggered: researchStore.copyText(body.text) }
                 MenuSeparator {}
                 MenuItem {
@@ -130,6 +137,10 @@ Rectangle {
             IconButton {
                 objectName: "noteInsertLink"; icon.name: "link"; description: qsTr("Insert link · [[")
                 onClicked: { root.preview = false; linkPicker.open() }
+            }
+            IconButton {
+                objectName: "noteAskAiButton"; icon.name: "ai"; description: qsTr("Ask AI about this note")
+                onClicked: root.askAi()
             }
             // Saving is automatic; a quiet word says it happened.
             Label {

@@ -52,6 +52,22 @@
         <translation>디폴트 모델</translation>
     </message>
     <message>
+        <source>Note created.</source>
+        <translation>노트 크리에이티드.</translation>
+    </message>
+    <message>
+        <source>Note restored.</source>
+        <translation>노트 리스토어드.</translation>
+    </message>
+    <message>
+        <source>Note updated.</source>
+        <translation>노트 업데이티드.</translation>
+    </message>
+    <message>
+        <source>Note · </source>
+        <translation>노트 · </translation>
+    </message>
+    <message>
         <source>Ollama (this computer)</source>
         <translation>올라마 (디스 컴퓨터)</translation>
     </message>
@@ -102,6 +118,10 @@
     <message>
         <source>Sign in with ChatGPT in Settings → AI.</source>
         <translation>사인 인 위드 챗지피티 인 세팅스 → 에이아이.</translation>
+    </message>
+    <message>
+        <source>Untitled note</source>
+        <translation>언타이틀드 노트</translation>
     </message>
     <message>
         <source>Up to 6 images per question.</source>
@@ -189,6 +209,14 @@
         <translation>애드 투 “</translation>
     </message>
     <message>
+        <source>Applied</source>
+        <translation>어플라이드</translation>
+    </message>
+    <message>
+        <source>Apply to Note</source>
+        <translation>어플라이 투 노트</translation>
+    </message>
+    <message>
         <source>Ask About This</source>
         <translation>애스크 어바웃 디스</translation>
     </message>
@@ -225,6 +253,10 @@
         <translation>백 투 더 퀘스천</translation>
     </message>
     <message>
+        <source>Changes</source>
+        <translation>체인지스</translation>
+    </message>
+    <message>
         <source>Chat</source>
         <translation>챗</translation>
     </message>
@@ -243,6 +275,14 @@
     <message>
         <source>Copy answer</source>
         <translation>카피 앤서</translation>
+    </message>
+    <message>
+        <source>Create Note</source>
+        <translation>크리에이트 노트</translation>
+    </message>
+    <message>
+        <source>Created</source>
+        <translation>크리에이티드</translation>
     </message>
     <message>
         <source>Default model</source>
@@ -289,6 +329,10 @@
         <translation>모델</translation>
     </message>
     <message>
+        <source>New</source>
+        <translation>뉴</translation>
+    </message>
+    <message>
         <source>New Chat</source>
         <translation>뉴 챗</translation>
     </message>
@@ -301,16 +345,36 @@
         <translation>뉴 챗</translation>
     </message>
     <message>
+        <source>New note</source>
+        <translation>뉴 노트</translation>
+    </message>
+    <message>
         <source>No collection found.</source>
         <translation>노 컬렉션 파운드.</translation>
+    </message>
+    <message>
+        <source>No note found.</source>
+        <translation>노 노트 파운드.</translation>
     </message>
     <message>
         <source>No paper found.</source>
         <translation>노 페이퍼 파운드.</translation>
     </message>
     <message>
+        <source>Note · </source>
+        <translation>노트 · </translation>
+    </message>
+    <message>
+        <source>Note…</source>
+        <translation>노트…</translation>
+    </message>
+    <message>
         <source>Nothing new to attach: pictures and PDFs only, each once.</source>
         <translation>낫싱 뉴 투 어태치: 픽처스 앤드 피디에프스 온리, 이치 원스.</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>오픈</translation>
     </message>
     <message>
         <source>Open Settings…</source>
@@ -371,6 +435,10 @@
     <message>
         <source>Search models</source>
         <translation>서치 모델스</translation>
+    </message>
+    <message>
+        <source>Search notes</source>
+        <translation>서치 노츠</translation>
     </message>
     <message>
         <source>Search papers</source>
@@ -437,12 +505,24 @@
         <translation>트랜슬레이트 페이지 </translation>
     </message>
     <message>
+        <source>Undo</source>
+        <translation>언두</translation>
+    </message>
+    <message>
+        <source>Untitled note</source>
+        <translation>언타이틀드 노트</translation>
+    </message>
+    <message>
         <source>Up to 3 are read whole; more are searched.</source>
         <translation>업 투 3 아 리드 홀; 모어 아 서치트.</translation>
     </message>
     <message>
         <source>Whole Library</source>
         <translation>홀 라이브러리</translation>
+    </message>
+    <message>
+        <source>Writing a note…</source>
+        <translation>라이팅 어 노트…</translation>
     </message>
     <message>
         <source>s </source>
@@ -2005,6 +2085,14 @@ Same file as another library entry</source>
     <message>
         <source>Annotation</source>
         <translation>애노테이션</translation>
+    </message>
+    <message>
+        <source>Ask AI about This Note</source>
+        <translation>애스크 에이아이 어바웃 디스 노트</translation>
+    </message>
+    <message>
+        <source>Ask AI about this note</source>
+        <translation>애스크 에이아이 어바웃 디스 노트</translation>
     </message>
     <message>
         <source>Copy Markdown</source>

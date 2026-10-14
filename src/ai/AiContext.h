@@ -13,7 +13,8 @@ struct AiMaterials {
     QString libraryText; // Passages from several papers, each marked [n] (for "Ask your library").
     // Several papers in paperText, each opened by "=== P2: Title ===": "P1: Title", "P2: Title"…
     QStringList paperMarkers;
-    QStringList notes;
+    // Notes the reader attached: their Markdown, with ids and titles so an answer can propose changes.
+    QStringList notes, noteIds, noteTitles;
     int pageNumber = 0; // 1-based; 0 when unknown.
     bool hasImage = false;
     // What attached images from a paper are: "Figure 3, page 5", "Equation (2), page 3".

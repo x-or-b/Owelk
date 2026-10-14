@@ -263,7 +263,7 @@ public slots:
                         const bool grouping = request.contains("Group these tabs");
                         const bool sorting = request.contains("Group these papers");
                         const bool comparing = request.contains("Aspects: ");
-                        const QList<QByteArray> pieces = grouping
+                        QList<QByteArray> pieces = grouping
                             ? QList<QByteArray>{"{\\\"groups\\\": [{\\\"name\\\": \\\"Fixture papers\\\", ",
                                   "\\\"tabs\\\": [\\\"t1\\\", \\\"t2\\\"]}]}"}
                             : sorting
@@ -272,6 +272,18 @@ public slots:
                             : comparing
                             ? QList<QByteArray>{"| Paper | Method |\\n|---|---|\\n", "| One 2020 | occlusion |"}
                             : QList<QByteArray>{"Mock ", "answer about **occlusion**."};
+                        // Asked to rewrite an attached note (or write one): the whole note in Owelk's block.
+                        // The latest request comes last in the conversation; earlier ones stay in it.
+                        if (request.contains("Write a new note")) {
+                            pieces = {"Done.\\n<note_new title=\\\"Fresh note\\\">\\nA fresh ", "note.\\n</note_new>"};
+                        } else if (request.contains("Rewrite my note")) {
+                            const auto id = QRegularExpression("note id=\\\\\"([^\\\\\"]+)\\\\\"")
+                                                .match(QString::fromUtf8(request))
+                                                .captured(1);
+                            pieces = {
+                                "Here it is.\\n<note_update id=\\\"" + id.toUtf8() + "\\\" title=\\\"Rewritten\\\">\\n",
+                                "# Rewritten\\n\\nNew body.\\n</note_update>"};
+                        }
                         // Answers to questions come with a reasoning summary, as Claude's summarized thinking.
                         if (!grouping && !sorting && !comparing)
                             body += "event: content_block_start\ndata: {\"type\":\"content_block_start\","
