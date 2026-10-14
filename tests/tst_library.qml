@@ -399,6 +399,12 @@ Item {
             const pdfView = findChild(view, "forYouPreviewView")
             tryVerify(function() { return pdfView.visible && pdfView.document.status === PdfDocument.Ready }, 10000)
             verify(pane.width > view.width * .4)
+            // ⌘/Ctrl + wheel zooms every page at once (the scale is the view's, not one page's).
+            const scale = pdfView.renderScale
+            mouseWheel(pdfView, pdfView.width / 2, pdfView.height / 3, 0, 240, Qt.NoButton, Qt.ControlModifier)
+            tryVerify(function() { return pdfView.renderScale > scale * 1.2 })
+            mouseWheel(pdfView, pdfView.width / 2, pdfView.height / 3, 0, -240, Qt.NoButton, Qt.ControlModifier)
+            tryVerify(function() { return Math.abs(pdfView.renderScale - scale) < .01 })
             view.forceActiveFocus()
             keyClick(Qt.Key_Escape)
             tryCompare(pane, "visible", false)

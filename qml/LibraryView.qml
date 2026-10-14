@@ -1298,6 +1298,44 @@ Rectangle {
                         visible: root.forYouPreviewUrl.toString().length > 0
                         document: PdfDocument { id: previewDocument; source: root.forYouPreviewUrl }
                     }
+                    // Pinch and ⌘/Ctrl + wheel zoom every page together, keeping the place under the pointer (the
+                    // view's own pinch grows only the page under the fingers, the others catching up after).
+                    Item {
+                        id: previewZoom
+                        anchors.fill: previewView
+                        visible: previewView.visible
+                        // The view's scrolling table (not public; found by what it has).
+                        readonly property var table: {
+                            const children = previewView.children
+                            for (let i = 0; i < children.length; ++i) if (children[i].rowHeightProvider !== undefined) return children[i]
+                            return null
+                        }
+                        function zoomTo(scale, at) {
+                            const before = previewView.renderScale, after = Math.max(.25, Math.min(6, scale))
+                            if (Math.abs(after - before) < .001) return
+                            const t = table, x = t ? t.contentX + at.x : 0, y = t ? t.contentY + at.y : 0
+                            previewView.renderScale = after
+                            if (!t) return
+                            t.contentX = Math.max(0, x * after / before - at.x)
+                            t.contentY = Math.max(0, y * after / before - at.y)
+                            t.returnToBounds()
+                        }
+                        PinchHandler {
+                            objectName: "forYouPreviewPinch"
+                            target: null
+                            // Not handed to the page's own pinch.
+                            grabPermissions: PointerHandler.TakeOverForbidden
+                            property real startScale: 1
+                            onActiveChanged: if (active) startScale = previewView.renderScale
+                            onActiveScaleChanged: if (active) previewZoom.zoomTo(startScale * activeScale, centroid.position)
+                        }
+                        WheelHandler {
+                            objectName: "forYouPreviewWheelZoom"
+                            target: null
+                            acceptedModifiers: Qt.ControlModifier
+                            onWheel: function(event) { previewZoom.zoomTo(previewView.renderScale * Math.pow(1.0015, event.angleDelta.y), Qt.point(event.x, event.y)) }
+                        }
+                    }
                     Label {
                         objectName: "forYouPreviewStatus"
                         anchors.centerIn: parent
