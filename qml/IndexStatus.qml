@@ -71,7 +71,8 @@ ToolButton {
                             }
                         }
                         IconButton { icon.name: "reload"; description: qsTr("Retry"); visible: ["failed", "missing", "locked", "paused"].indexOf(modelData.state) >= 0; onClicked: root.indexer.retry(modelData.source) }
-                        IconButton { icon.name: "locate"; description: qsTr("Locate the original PDF…"); onClicked: { const source = modelData.source; details.close(); researchStore.requestRelink(source) } }
+                        // Asked before the list closes: closing it removes this row, and what follows would not run.
+                        IconButton { objectName: "locateOriginal-" + index; icon.name: "locate"; description: qsTr("Locate the original PDF…"); onClicked: { researchStore.requestRelink(modelData.source); details.close() } }
                         // A PDF that is gone and not wanted: the paper leaves the Library (and this list).
                         IconButton {
                             objectName: "removeMissing-" + index

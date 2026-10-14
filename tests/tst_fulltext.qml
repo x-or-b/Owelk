@@ -211,6 +211,18 @@ Item {
             tryCompare(details, "opened", true)
             mouseClick(findChild(details, "pauseIndex")); compare(researchStore.paperIndex.paused, true)
             mouseClick(findChild(details, "pauseIndex")); compare(researchStore.paperIndex.paused, false)
+            // Locate opens the relink dialog for that paper (the list closes).
+            let locate = null
+            tryVerify(function() { locate = visualChild(findChild(details, "indexDetailsList").contentItem, "locateOriginal-0"); return locate !== null })
+            mouseClick(locate)
+            const relink = findChild(workspace, "relinkDialog")
+            tryCompare(relink, "opened", true)
+            compare(relink.source, status.records[0].source)
+            tryCompare(details, "visible", false)
+            relink.close()
+            tryCompare(relink, "visible", false)
+            mouseClick(status)
+            tryCompare(details, "opened", true)
             details.close()
             // A paper whose PDF is gone can leave the Library from the list.
             const gone = testInput.uniqueFixture("gone.pdf")
