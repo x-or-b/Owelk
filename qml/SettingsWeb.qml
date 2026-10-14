@@ -165,7 +165,7 @@ ColumnLayout {
                 IconButton {
                     objectName: "showEngine-" + engineRow.modelData.name
                     enabled: !engineRow.isDefault
-                    icon.name: "preview"
+                    icon.name: engineRow.isHidden ? "hidden" : "preview"
                     tint: engineRow.isHidden ? Theme.textDisabled : Theme.icon
                     description: engineRow.isDefault ? qsTr("The default engine is always shown") : engineRow.isHidden ? qsTr("Show in the search box") : qsTr("Hide from the search box")
                     onClicked: { WebSearch.setHidden(researchStore, engineRow.modelData.template, !engineRow.isHidden); root.revision++ }

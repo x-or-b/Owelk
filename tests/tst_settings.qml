@@ -56,6 +56,16 @@ Item {
             verify(findChild(settings, "pdfNameGroup").note.indexOf("2017 - Attention") >= 0)
             researchStore.setSetting("pdfNames.parts", "")
         }
+        function test_hiddenEngineShowsCrossedEye() {
+            settings.openPage("web"); tryCompare(settings, "opened", true)
+            let eye = null
+            tryVerify(function() { eye = visualChild(settings.contentItem, "showEngine-DuckDuckGo"); return eye !== null })
+            compare(eye.icon.name, "preview")
+            eye.clicked()
+            tryVerify(function() { return eye.icon.name === "hidden" })
+            eye.clicked()
+            tryVerify(function() { return eye.icon.name === "preview" })
+        }
         function test_themeAccentAndTextSizeApplyAtOnce() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
             tryVerify(function() { return visualChild(settings.contentItem, "themeTile-dark") !== null })

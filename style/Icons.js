@@ -47,6 +47,7 @@ var glyphs = {
     "symbols": "\ue201",
     "gloss": "\ue0fe",
     "preview": "\ue0ba",
+    "hidden": "\ue0bb",
     "check": "\ue06c",
     "home": "\ue0f5",
     "library": "\ue100",
