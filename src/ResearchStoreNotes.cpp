@@ -250,9 +250,9 @@ QString takeMath(const QString &markdown, QList<MathSpan> *found)
     return found->isEmpty() ? markdown : out + markdown.mid(last);
 }
 
-// Pictures (![](…)): Qt's Markdown reader leaves them out, so they are taken out first and put back
-// after it. Only files on this computer are shown, never fetched from the web; annotations/… is
-// relative to the data folder (clips kept with the library).
+// Pictures (![](…)) of files on this computer are taken out first and put back after Qt's Markdown
+// reader; annotations/… is relative to the data folder (clips kept with the library). Any other picture
+// is never fetched from the web (markdownHtml keeps only its alt text).
 QString takePictures(const QString &markdown, const QString &directory, QStringList *found)
 {
     static const QRegularExpression picture(R"(!\[[^\]\n]*\]\(([^)\s]+)\))");
@@ -282,6 +282,11 @@ QString ResearchStore::markdownHtml(const QString &markdown, const QString &link
     QTextDocument document;
     document.setMarkdown(prepared);
     auto html = document.toHtml();
+    // Pictures Qt made itself (a web address, a reference-style picture) would be fetched when shown, which
+    // a prompt hidden in a paper could use to send words away: their alt text stays instead.
+    static const QRegularExpression foreign(R"(<img\b[^>]*>)"), alt(R"re(\balt="([^"]*)")re");
+    for (auto m = foreign.match(html); m.hasMatch(); m = foreign.match(html, m.capturedStart()))
+        html.replace(m.capturedStart(), m.capturedLength(), alt.match(m.captured()).captured(1));
     static const QRegularExpression blue("color:\\s*#0000ff", QRegularExpression::CaseInsensitiveOption);
     if (QColor::isValidColorName(linkColor)) html.replace(blue, "color:" + linkColor);
     // A conversation deleted for good leaves its link's place, greyed, not a link that goes nowhere.

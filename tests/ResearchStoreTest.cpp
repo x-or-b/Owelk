@@ -393,6 +393,13 @@ private slots:
         QVERIFY(plain.contains("Energy"));
         // Without math the HTML is what Qt makes of the Markdown.
         QVERIFY(!store.markdownHtml("Plain **text**", "#3366cc").contains("image://"));
+        // Pictures on the web are never fetched (an AI answer could carry words away in the address): their
+        // alt text stays.
+        const auto remote = store.markdownHtml(
+            "See ![the chart](https://example.com/c.png?q=secret) and ![x][r]\n\n[r]: https://example.com/d.png",
+            "#3366cc");
+        QVERIFY(!remote.contains("<img") && !remote.contains("example.com"));
+        QVERIFY(remote.contains("the chart"));
     }
     void quotedPassagesAreFoundOnTheirPage()
     {
