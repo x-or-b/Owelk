@@ -63,7 +63,9 @@ Popup {
     // or the web when nothing matches; never the web in the meantime.
     property bool acceptPending: false
     function accept() {
-        if (webRow.isAddress) { chooseWeb(); return }
+        // An address, or the web row chosen with the arrows while results were still coming (waiting never
+        // chooses it by itself): the web at once.
+        if (webRow.isAddress || (webSelected && search.waiting)) { chooseWeb(); return }
         if (search.delay.running) refresh()
         acceptPending = search.waiting
         if (acceptPending) return
