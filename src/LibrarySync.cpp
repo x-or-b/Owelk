@@ -13,6 +13,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLocale>
+#include <QRegularExpression>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QSqlRecord>
@@ -68,6 +69,27 @@ QString refersTo(const QString &table, const QString &column, const QVariantMap 
 QString segmentName(int sequence)
 {
     return QStringLiteral("%1.jsonl").arg(sequence, 8, 10, QLatin1Char('0'));
+}
+
+// Names from the folder become paths on this computer: an annotation image is a plain file name and a paper's
+// file is named by its SHA-256, nothing else (no "../", no folders).
+bool plainName(const QString &name)
+{
+    return !name.isEmpty() && !name.startsWith('.') && !name.contains('/') && !name.contains('\\')
+        && !name.contains(':');
+}
+
+bool isSha256(const QString &text)
+{
+    static const QRegularExpression hex("^[0-9a-f]{64}$");
+    return hex.match(text).hasMatch();
+}
+
+// A file the folder holds for a row: Papers/<SHA-256>.pdf or Files/annotations/<name>.
+bool safeRemote(const QString &remote)
+{
+    if (remote.startsWith("Papers/") && remote.endsWith(".pdf")) return isSha256(remote.mid(7, remote.size() - 11));
+    return remote.startsWith("Files/annotations/") && plainName(remote.mid(18));
 }
 
 QJsonObject readJson(const QString &path)
@@ -520,7 +542,7 @@ bool Pass::upsert(const QString &table, QVariantMap row, const QStringList &keys
             values << row.value(field);
         }
         // A paper that arrived before its file was fingerprinted is fetched once the fingerprint is known.
-        if (table == "documents" && row.value("kind").toString() != "web" && !row.value("sha256").toString().isEmpty()
+        if (table == "documents" && row.value("kind").toString() != "web" && isSha256(row.value("sha256").toString())
             && row.value("removed_at").isNull()) {
             QSqlQuery url(m_db);
             if (!run(url, "SELECT url FROM documents WHERE " + where(keys), keyValues)) return false;
@@ -538,13 +560,13 @@ bool Pass::upsert(const QString &table, QVariantMap row, const QStringList &keys
         row["url"] = QUrl::fromLocalFile(path).toString();
         const auto sha = row.value("sha256").toString();
         // Papers taken out of the Library are listed without their file (only Library papers are sent).
-        if (!sha.isEmpty() && row.value("removed_at").isNull()
+        if (isSha256(sha) && row.value("removed_at").isNull()
             && !run("INSERT OR IGNORE INTO sync_files(local,remote,outgoing) VALUES(?,?,0)",
                 {path, "Papers/" + sha + ".pdf"}))
             return false;
     }
     const auto image = row.value("image").toString();
-    if (!image.isEmpty() && table == "highlights") {
+    if (plainName(image) && table == "highlights") {
         if (!run("INSERT OR IGNORE INTO sync_files(local,remote,outgoing) VALUES(?,?,0)",
                 {m_data + "/annotations/" + image, "Files/annotations/" + image}))
             return false;
@@ -623,10 +645,10 @@ bool Pass::exportChanges()
             // Files the row needs go to the folder after the rows (the other computer waits for them).
             QString local, remote;
             if (change.table == "documents" && text("kind") == "pdf" && object.value("removed_at").isNull()
-                && !text("sha256").isEmpty()) {
+                && isSha256(text("sha256"))) {
                 local = QUrl(text("url")).toLocalFile();
                 remote = "Papers/" + text("sha256") + ".pdf";
-            } else if (change.table == "highlights" && !text("image").isEmpty()) {
+            } else if (change.table == "highlights" && plainName(text("image"))) {
                 local = m_data + "/annotations/" + text("image");
                 remote = "Files/annotations/" + text("image");
             }
@@ -729,6 +751,11 @@ void Pass::moveFiles()
     }
     for (const auto &item : std::as_const(items)) {
         if (m_cancel->load()) return;
+        if (!safeRemote(item.remote)) {
+            run("DELETE FROM sync_files WHERE local=? AND remote=? AND outgoing=?",
+                {item.local, item.remote, item.outgoing});
+            continue;
+        }
         const auto remote = m_folder + "/" + item.remote;
         bool done = true;
         if (item.outgoing) {

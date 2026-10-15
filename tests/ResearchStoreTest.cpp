@@ -424,6 +424,38 @@ private slots:
         // Read again once, not on every pass.
         QCOMPARE(ubuntu.librarySync()->syncBlocking().received, 0);
     }
+    void syncKeepsFileNamesFromTheFolderInPlace()
+    {
+        QTemporaryDir directory;
+        const auto drive = directory.filePath("Drive");
+        QVERIFY(QDir().mkpath(drive));
+        QString error;
+        ResearchStore mac(directory.filePath("mac"));
+        QVERIFY2(mac.initialize(&error), qPrintable(error));
+        auto *sync = mac.librarySync();
+        QCOMPARE(sync->setFolder(QUrl::fromLocalFile(drive)), QString());
+        QVERIFY(sync->syncBlocking().error.isEmpty());
+        // A row naming its image "../escaped.png" (written by hand or by a broken program) must not reach a file
+        // outside the annotation images.
+        QVERIFY(QDir().mkpath(drive + "/Owelk/devices/other") && QDir().mkpath(drive + "/Owelk/Files"));
+        QFile planted(drive + "/Owelk/Files/escaped.png");
+        QVERIFY(planted.open(QIODevice::WriteOnly) && planted.write("x") == 1);
+        planted.close();
+        const auto stamp = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+        const QJsonObject row{{"id", "h1"}, {"document_id", "d1"}, {"sha256", "x"}, {"page", 0}, {"text", ""},
+            {"rectangles", "[]"}, {"start_index", -1}, {"end_index", -1}, {"created_at", stamp}, {"kind", "image"},
+            {"image", "../escaped.png"}};
+        QFile log(drive + "/Owelk/devices/other/00000001.jsonl");
+        QVERIFY(log.open(QIODevice::WriteOnly));
+        log.write(QJsonDocument(QJsonObject{{"t", "highlights"}, {"k", QJsonArray{"h1"}},
+                                    {"v", QDateTime::currentMSecsSinceEpoch()}, {"d", "other"}, {"r", row}})
+                      .toJson(QJsonDocument::Compact)
+            + '\n');
+        log.close();
+        QVERIFY(sync->syncBlocking().error.isEmpty());
+        QVERIFY(sync->syncBlocking().error.isEmpty());
+        QVERIFY(!QFileInfo::exists(mac.dataDirectory() + "/escaped.png"));
+    }
     void markdownShowsMathAsImages()
     {
         QTemporaryDir directory;

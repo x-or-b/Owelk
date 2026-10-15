@@ -468,6 +468,8 @@ int ResearchStore::purgePapers(const QVariantList &sources)
     for (const auto &url : std::as_const(files))
         if (url.toLocalFile().startsWith(papersFolder() + "/")) QFile::moveToTrash(url.toLocalFile());
     for (const auto &image : std::as_const(annotationImages)) {
+        // A plain file name only (names can come from another computer through sync).
+        if (image.startsWith('.') || image.contains('/') || image.contains('\\')) continue;
         QSqlQuery used(m_database);
         used.prepare("SELECT 1 FROM highlights WHERE image=?");
         used.addBindValue(image);
