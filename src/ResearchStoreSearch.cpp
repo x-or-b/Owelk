@@ -203,12 +203,14 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QList<QUrl> &indexed, c
     }
     if ((target == "all" || target == "ai") && scope.isEmpty() && !allowed) {
         QSqlQuery answers(db);
-        // One result per thread: its title, or the latest message mentioning the words.
+        // One result per thread: its title, or the latest messages mentioning the words. A question counts by what
+        // was typed (what was sent also carries the attached papers' text), an answer by its text, as aiThreads.
         answers.prepare(
-            "SELECT t.id,t.title,(SELECT group_concat(m.display || ' ' || m.content, ' ') FROM (SELECT display, "
-            "content FROM ai_messages WHERE thread_id=t.id AND instr(lower(display || ' ' || content),lower(?))>0 "
-            "ORDER BY created_at DESC LIMIT 4) m) AS hit FROM ai_threads t WHERE t.trashed_at IS NULL AND "
-            "(instr(lower(t.title),lower(?))>0 OR hit IS NOT NULL) ORDER BY t.updated_at DESC LIMIT 60");
+            "SELECT t.id,t.title,(SELECT group_concat(m.said, ' ') FROM (SELECT CASE WHEN role='user' THEN display "
+            "ELSE content END AS said FROM ai_messages WHERE thread_id=t.id AND instr(lower(CASE WHEN role='user' "
+            "THEN display ELSE content END),lower(?))>0 ORDER BY created_at DESC LIMIT 4) m) AS hit FROM ai_threads t "
+            "WHERE t.trashed_at IS NULL AND (instr(lower(t.title),lower(?))>0 OR hit IS NOT NULL) "
+            "ORDER BY t.updated_at DESC LIMIT 60");
         answers.addBindValue(query.probe);
         answers.addBindValue(query.probe);
         int count = 0;

@@ -2220,6 +2220,18 @@ private slots:
         QCOMPARE(store.aiThreads("100%").size(), 1);
         QCOMPARE(store.aiThreads("Methods").size(), 1);
         QVERIFY(store.aiThreads("no_such").isEmpty());
+        // A question is found by what was typed, not by the paper text sent along with it: here and in the search.
+        QVERIFY(store.appendAiMessage(loose,
+            {{"role", "user"}, {"display", "What about depth?"}, {"content", "<paper>quaternion appendix</paper>"}}));
+        const auto ai = [&](const QString &words) {
+            int found = 0;
+            for (const auto &row : store.searchKnowledge(words, {}, "ai")) found += row.toMap()["kind"] == "ai";
+            return found;
+        };
+        QCOMPARE(ai("transformer depth"), 1);
+        QCOMPARE(ai("What about depth"), 1);
+        QCOMPARE(ai("quaternion"), 0);
+        QVERIFY(store.aiThreads("quaternion").isEmpty());
     }
     void oneTrashForPapersNotesAndConversations()
     {
