@@ -857,9 +857,10 @@ Flickable {
                     if (!pressed) return
                     const p = mapToItem(root.contentItem, mouse.x, mouse.y)
                     Tree.find(root.tree, model.nodeId).ratio = Math.max(.01, Math.min(.99, ratio + ((model.horizontal ? p.x : p.y) - origin) / model.span))
-                    root.sync()
+                    // While dragging only the splits move (place without rebuilding them or the tab lists).
+                    root.place(false)
                 }
-                onReleased: root.changed()
+                onReleased: { root.sync(); root.changed() }
             }
         }
     }
