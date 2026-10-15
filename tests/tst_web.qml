@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import QtWebEngine
 import "../qml" as App
 import "../qml/WebSearch.js" as WebSearch
 import "../qml/WorkspaceTree.js" as Tree
@@ -110,6 +111,37 @@ Item {
             tryVerify(function() { return activeTab().kind !== "web" }, 15000)
             compare(Tree.leaves(d.tree)[0].tabs.length, before + 1) // The web tab stays.
             again.browserPdf = false
+        }
+        function test_otherFilesAndPopupsWaitForTheReader() {
+            const d = workspace.documents
+            verify(d.openResource(testInput.webFixture("/page.html")))
+            const pane = webPane()
+            tryCompare(activeTab(), "title", "Owelk Test Page", 15000)
+            // A file that is not a PDF waits for Save; nothing is written before.
+            downloads.clear(); downloads.target = pane
+            const ask = findChild(pane, "webDownloadAsk")
+            pane.view.url = testInput.webFixture("/data.zip")
+            tryCompare(ask, "visible", true, 15000)
+            const request = pane.pendingDownload
+            wait(300)
+            compare(downloads.count, 0)
+            findChild(pane, "webDownloadSave").clicked()
+            compare(ask.visible, false)
+            tryCompare(downloads, "count", 1)
+            tryCompare(request, "state", WebEngineDownloadRequest.DownloadCompleted, 10000)
+            // Cancel drops it.
+            pane.view.url = testInput.webFixture("/data.zip")
+            tryCompare(ask, "visible", true, 15000)
+            const declined = pane.pendingDownload
+            findChild(pane, "webDownloadDecline").clicked()
+            tryCompare(declined, "state", WebEngineDownloadRequest.DownloadCancelled)
+            compare(downloads.count, 1)
+            // A pop-up the page opens by itself does not become a tab.
+            const tabs = Tree.leaves(d.tree).reduce(function(n, g) { return n + g.tabs.length }, 0)
+            pane.view.url = testInput.webFixture("/popup.html")
+            tryCompare(activeTab(), "title", "Popup Page", 15000)
+            wait(800)
+            compare(Tree.leaves(d.tree).reduce(function(n, g) { return n + g.tabs.length }, 0), tabs)
         }
         function test_downloadBarFillsWithTheFileSize() {
             const d = workspace.documents

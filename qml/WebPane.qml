@@ -70,50 +70,65 @@ Rectangle {
         return download.mimeType === "application/pdf" || /\.pdf$/i.test(download.suggestedFileName || "")
             || /\.pdf([?#]|$)/i.test(download.url.toString())
     }
+    // Another kind of file a page wants to save waits here until Save or Cancel (PDFs are taken at once).
+    property var pendingDownload: null
+    function startDownload(download) {
+        const pdf = root.isPdf(download)
+        const target = researchStore.downloadTarget(download.suggestedFileName || (pdf ? "download.pdf" : "download"), pdf)
+        download.downloadDirectory = target.directory
+        download.downloadFileName = target.fileName
+        const replace = !view.canGoBack && download.url.toString() === root.openedUrl
+        const fetched = root.fetchPdf
+        root.fetchPdf = false
+        // Also in the status bar's progress, whichever tab is in front.
+        const task = "download:" + download.id
+        const label = qsTr("Downloading ") + target.fileName
+        researchStore.startTask(task, label, download.totalBytes > 0 ? download.totalBytes : 0)
+        download.receivedBytesChanged.connect(function() { researchStore.progressTask(task, download.receivedBytes, download.totalBytes > 0 ? download.totalBytes : 0) })
+        download.isFinishedChanged.connect(function() {
+            researchStore.finishTask(task)
+            if (root.download === download) root.download = null
+            if (download.state === WebEngineDownloadRequest.DownloadCompleted) {
+                // A PDF shown in this tab opens beside it; the tab stays on the page.
+                if (pdf) {
+                    root.downloadOpening = true
+                    // Opens under the paper's name once the store has read it (Settings › Web).
+                    const named = function(file, to) {
+                        if (file.toString() !== target.url.toString()) return
+                        researchStore.downloadNamed.disconnect(named)
+                        root.downloadOpening = false
+                        root.controller.openDownloaded(root.tabId, to, replace && !fetched)
+                    }
+                    researchStore.downloadNamed.connect(named)
+                    researchStore.nameDownloadedPdf(target.url)
+                } else researchStore.notify(qsTr("Saved ") + target.fileName + qsTr(" to ") + target.directory)
+            } else if (download.state === WebEngineDownloadRequest.DownloadInterrupted) {
+                researchStore.notify(qsTr("Download failed: ") + download.interruptReasonString)
+            } else if (download.state === WebEngineDownloadRequest.DownloadCancelled) {
+                researchStore.notify(qsTr("Download cancelled."))
+            }
+        })
+        root.download = download
+        root.downloadStarted(target.fileName)
+        download.accept()
+    }
+    function answerDownload(save) {
+        const download = pendingDownload
+        pendingDownload = null
+        if (!download) return
+        if (save) startDownload(download)
+        else download.cancel()
+    }
     Connections {
         target: root.controller.webProfile
         function onDownloadRequested(download) {
             // The profile is shared by every web tab; handle only this view's downloads.
             if (download.view !== undefined && download.view !== null && download.view !== view) return
             if ((download.view === undefined || download.view === null) && !root.isActive) return
-            const pdf = root.isPdf(download)
-            const target = researchStore.downloadTarget(download.suggestedFileName || (pdf ? "download.pdf" : "download"), pdf)
-            download.downloadDirectory = target.directory
-            download.downloadFileName = target.fileName
-            const replace = !view.canGoBack && download.url.toString() === root.openedUrl
-            const fetched = root.fetchPdf
-            root.fetchPdf = false
-            // Also in the status bar's progress, whichever tab is in front.
-            const task = "download:" + download.id
-            const label = qsTr("Downloading ") + target.fileName
-            researchStore.startTask(task, label, download.totalBytes > 0 ? download.totalBytes : 0)
-            download.receivedBytesChanged.connect(function() { researchStore.progressTask(task, download.receivedBytes, download.totalBytes > 0 ? download.totalBytes : 0) })
-            download.isFinishedChanged.connect(function() {
-                researchStore.finishTask(task)
-                if (root.download === download) root.download = null
-                if (download.state === WebEngineDownloadRequest.DownloadCompleted) {
-                    // A PDF shown in this tab opens beside it; the tab stays on the page.
-                    if (pdf) {
-                        root.downloadOpening = true
-                        // Opens under the paper's name once the store has read it (Settings › Web).
-                        const named = function(file, to) {
-                            if (file.toString() !== target.url.toString()) return
-                            researchStore.downloadNamed.disconnect(named)
-                            root.downloadOpening = false
-                            root.controller.openDownloaded(root.tabId, to, replace && !fetched)
-                        }
-                        researchStore.downloadNamed.connect(named)
-                        researchStore.nameDownloadedPdf(target.url)
-                    } else researchStore.notify(qsTr("Saved ") + target.fileName + qsTr(" to ") + target.directory)
-                } else if (download.state === WebEngineDownloadRequest.DownloadInterrupted) {
-                    researchStore.notify(qsTr("Download failed: ") + download.interruptReasonString)
-                } else if (download.state === WebEngineDownloadRequest.DownloadCancelled) {
-                    researchStore.notify(qsTr("Download cancelled."))
-                }
-            })
-            root.download = download
-            root.downloadStarted(target.fileName)
-            download.accept()
+            if (root.isPdf(download)) { root.startDownload(download); return }
+            // A page may start a download by itself; anything but a PDF is saved only when asked.
+            if (root.pendingDownload) root.pendingDownload.cancel()
+            root.pendingDownload = download
         }
     }
     ColumnLayout {
@@ -197,6 +212,35 @@ Rectangle {
                 }
             }
         }
+        // A file that is not a PDF: saved only when asked.
+        Rectangle {
+            objectName: "webDownloadAsk"
+            Layout.fillWidth: true
+            Layout.preferredHeight: Theme.barHeight
+            visible: root.pendingDownload !== null
+            color: Theme.sidebar
+            RowLayout {
+                anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 4
+                spacing: 6
+                Label {
+                    Layout.fillWidth: true; Layout.minimumWidth: 0
+                    elide: Text.ElideMiddle; font.pixelSize: Theme.fontSmall; color: Theme.text; textFormat: Text.PlainText
+                    text: root.pendingDownload ? qsTr("This page wants to save %1.").arg(root.pendingDownload.suggestedFileName || qsTr("a file")) : ""
+                }
+                Button {
+                    objectName: "webDownloadSave"
+                    text: qsTr("Save"); highlighted: true
+                    implicitHeight: Theme.controlHeight
+                    onClicked: root.answerDownload(true)
+                }
+                Button {
+                    objectName: "webDownloadDecline"
+                    text: qsTr("Cancel")
+                    implicitHeight: Theme.controlHeight
+                    onClicked: root.answerDownload(false)
+                }
+            }
+        }
         // Download progress: name, file size and a bar that fills with the bytes received. A server that
         // does not send the size gets no bar (only the size so far): a sliding bar would say nothing.
         Rectangle {
@@ -260,7 +304,11 @@ Rectangle {
             settings.pluginsEnabled: root.browserPdf
             onUrlChanged: if (root.tabId.length) root.controller.updateWebTab(root.tabId, url.toString(), title)
             onTitleChanged: if (root.tabId.length) root.controller.updateWebTab(root.tabId, url.toString(), title)
-            onNewWindowRequested: function(request) { root.controller.openWeb(request.requestedUrl.toString(), true) }
+            // A link opened in a new window becomes a tab; a pop-up the page opens by itself (ads) does not.
+            onNewWindowRequested: function(request) {
+                if (request.userInitiated) root.controller.openWeb(request.requestedUrl.toString(), true)
+                else researchStore.notify(qsTr("Blocked a pop-up from this page."))
+            }
             onActiveFocusChanged: if (activeFocus) root.activated()
             onLoadingChanged: function(request) {
                 if (request.status === WebEngineView.LoadStartedStatus) root.embeddedPdf = ""

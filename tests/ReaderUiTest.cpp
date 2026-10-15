@@ -361,6 +361,14 @@ public slots:
                         });
                         timer->start(120);
                         return;
+                    } else if (head.contains("/data.zip")) {
+                        // Not a PDF: saved only when the reader agrees.
+                        body = "PK fixture";
+                        type = "application/zip\r\nContent-Disposition: attachment; filename=\"data.zip\"";
+                    } else if (head.contains("/popup.html")) {
+                        // Opens a window by itself, without a click.
+                        body = "<html><head><title>Popup Page</title></head><body>"
+                               "<script>setTimeout(function(){window.open('/page.html')},200)</script></body></html>";
                     } else if (head.contains("/embed.html")) {
                         // Like IEEE's getPDF.jsp: an HTML page showing the PDF in a frame.
                         body = "<html><head><title>getPDF</title></head><body>"

@@ -6216,6 +6216,14 @@ You can open the same document twice.</source>
         <translation>백</translation>
     </message>
     <message>
+        <source>Blocked a pop-up from this page.</source>
+        <translation>블락트 어 팝-업 프롬 디스 페이지.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>캔슬</translation>
+    </message>
+    <message>
         <source>Cancel download</source>
         <translation>캔슬 다운로드</translation>
     </message>
@@ -6256,6 +6264,10 @@ You can open the same document twice.</source>
         <translation>리로드</translation>
     </message>
     <message>
+        <source>Save</source>
+        <translation>세이브</translation>
+    </message>
+    <message>
         <source>Saved </source>
         <translation>세이브드 </translation>
     </message>
@@ -6272,8 +6284,16 @@ You can open the same document twice.</source>
         <translation>디스 페이지 쇼즈 어 피디에프.</translation>
     </message>
     <message>
+        <source>This page wants to save %1.</source>
+        <translation>디스 페이지 원츠 투 세이브 %1.</translation>
+    </message>
+    <message>
         <source>Web · </source>
         <translation>웹 · </translation>
+    </message>
+    <message>
+        <source>a file</source>
+        <translation>어 파일</translation>
     </message>
 </context>
 <context>
