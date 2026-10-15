@@ -98,7 +98,14 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &
     query.addBindValue(wantedId.isEmpty() ? QUuid::createUuid().toString(QUuid::WithoutBraces) : wantedId);
     query.addBindValue(source.toString());
     if (!query.exec()) return {query.lastError().text()};
-    if (!wantedId.isEmpty()) {
+    // Almost always the entry already has the library's ID. Moving pages rewrites their full-text index (a
+    // search over every page), so it happens only when the IDs differ, not on every start.
+    QSqlQuery held(db);
+    held.prepare("SELECT id FROM documents WHERE url=?");
+    held.addBindValue(source.toString());
+    const bool aligned = held.exec() && held.next() && held.value(0).toString() == wantedId;
+    held.finish();
+    if (!wantedId.isEmpty() && !aligned) {
         // Adopt the library's document ID for an entry created before IDs were shared. The cache row
         // and its pages move together; a stale row already holding that ID is only cache and is dropped.
         const auto run = [&](const QString &sql, const QVariantList &args) {
