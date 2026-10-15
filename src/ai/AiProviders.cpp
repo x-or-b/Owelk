@@ -39,7 +39,9 @@ void HttpStreamProvider::post(const QHash<QByteArray, QByteArray> &headers, cons
     request.setTransferTimeout(120000);
     m_reply = m_network->post(request, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(m_reply, &QNetworkReply::readyRead, this, &HttpStreamProvider::read);
-    connect(m_reply, &QNetworkReply::finished, this, [this] {
+    connect(m_reply, &QNetworkReply::finished, this, [this, reply = m_reply.data()] {
+        // The reply holds the whole request (paper text, images) until it is deleted.
+        reply->deleteLater();
         if (m_done) return;
         const int status = m_reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (m_reply->error() == QNetworkReply::OperationCanceledError) return;
