@@ -6,7 +6,9 @@
 #   tools/install-local.sh --clean    start the build from scratch
 #   tools/install-local.sh --yes      do not ask before installing system packages (Linux)
 #
-# macOS: uses Homebrew's Qt (brew install qt qpdf cmake ninja) and installs ~/Applications/Owelk.app.
+# macOS: uses the official Qt in ~/Qt/<version>/macos when it is there (or OWELK_QT=/path/to/Qt/<version>/macos),
+# which `brew upgrade` never changes; otherwise Homebrew's Qt. qpdf, cmake and ninja come from Homebrew.
+# Installs ~/Applications/Owelk.app.
 # Linux (Ubuntu 24.04 and similar): installs the build tools with apt (after asking), puts the
 # official Qt 6.11 in ~/Qt (the system Qt is too old), and installs to ~/.local with a menu entry.
 # Nothing is bundled: the app uses that Qt, so it stays small.
@@ -43,16 +45,25 @@ configure_and_build() {
 
 install_macos() {
     command -v brew >/dev/null || fail "Homebrew is needed: https://brew.sh"
+    # A Qt of one version throughout: Homebrew can upgrade its Qt modules at different times (Qt 6.12's base with
+    # 6.11's PDF module crashed on every PDF), so the official Qt in ~/Qt comes first.
+    local qt="${OWELK_QT:-$HOME/Qt/$QT_VERSION/macos}"
+    local formulas=(qpdf cmake ninja)
+    if [ ! -x "$qt/bin/qmake" ] && [ ! -x "$qt/bin/qmake6" ]; then
+        [ -n "${OWELK_QT:-}" ] && fail "No Qt in $OWELK_QT"
+        qt=""
+        formulas=(qt "${formulas[@]}")
+    fi
     local missing=()
-    for formula in qt qpdf cmake ninja; do brew list --versions "$formula" >/dev/null 2>&1 || missing+=("$formula"); done
+    for formula in "${formulas[@]}"; do brew list --versions "$formula" >/dev/null 2>&1 || missing+=("$formula"); done
     if [ ${#missing[@]} -gt 0 ]; then
         say "Homebrew packages needed: ${missing[*]}"
         ask "Run: brew install ${missing[*]} ?" || fail "Install them and run this again."
         brew install "${missing[@]}"
     fi
-    local qt
-    qt="$(brew --prefix qt)"
-    configure_and_build -DCMAKE_PREFIX_PATH="$qt"
+    [ -n "$qt" ] || qt="$(brew --prefix qt)"
+    say "Using Qt in $qt"
+    configure_and_build -DCMAKE_PREFIX_PATH="$qt;$(brew --prefix)"
 
     # A running Owelk would keep the old build and receive files meant for the new one.
     # Quitting it from here could catch a development build too, so ask for Cmd+Q.
