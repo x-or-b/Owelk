@@ -138,6 +138,10 @@ private slots:
         const auto id = markRegion(store, old);
         QVERIFY(!id.isEmpty());
         QVERIFY(store.removeHighlight(id));
+        // A chat about the copy sits in the copy's own Thread.
+        const auto paper = store.documentLinkId(old);
+        const auto chat = store.createAiThread(
+            {{"provider", "claude"}, {"model", "m"}, {"title", "On the copy"}, {"source", next}});
         QTRY_VERIFY_WITH_TIMEOUT(!index->busy(), 10000);
         QSignalSpy done(&store, &ResearchStore::relinkFinished);
         store.relinkSource(old, next);
@@ -147,6 +151,10 @@ private slots:
         QCOMPARE(store.recentDocuments().size(), 1);
         QCOMPARE(index->documents().size(), 1);
         const auto database = dir.filePath("data/owelk.sqlite3");
+        // That Thread joins the paper's.
+        QCOMPARE(sql(database, "SELECT folder_id FROM ai_threads WHERE id='" + chat + "'").value(0).toString(),
+            "document:" + paper);
+        QCOMPARE(sql(database, "SELECT count(*) FROM ai_folders WHERE id LIKE 'document:%'").first().toInt(), 1);
         QCOMPARE(sql(database,
                      "SELECT d.url FROM highlights h JOIN documents d ON d.id=h.document_id WHERE "
                      "h.deleted_at IS NOT NULL")

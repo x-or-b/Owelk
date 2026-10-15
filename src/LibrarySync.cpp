@@ -1,4 +1,5 @@
 #include "LibrarySync.h"
+#include "DocumentMerge.h"
 #include "UiText.h"
 #include "WorkerConnection.h"
 
@@ -430,18 +431,10 @@ bool Pass::rekey(const QString &table, const QString &from, const QString &to)
                 {from})))
         return false;
     if (table == "documents") {
-        for (const auto *child :
-            {"recent_documents", "reading_positions", "collection_documents", "document_tags", "highlights"})
+        for (const auto *child : {"recent_documents", "reading_positions"})
             statements.append(
                 {QStringLiteral("UPDATE OR REPLACE %1 SET document_id=? WHERE document_id=?").arg(child), {to, from}});
-        statements.append(
-            {"UPDATE OR REPLACE links SET from_id=? WHERE from_kind='document' AND from_id=?", {to, from}});
-        statements.append({"UPDATE OR REPLACE links SET to_id=? WHERE to_kind='document' AND to_id=?", {to, from}});
-        // The paper's own folder of AI chats takes the paper's new ID with it.
-        statements.append({"UPDATE OR IGNORE ai_folders SET id='document:'||? WHERE id='document:'||?", {to, from}});
-        statements.append(
-            {"UPDATE ai_threads SET folder_id='document:'||? WHERE folder_id='document:'||?", {to, from}});
-        statements.append({"DELETE FROM ai_folders WHERE id='document:'||?", {from}});
+        statements += movePaperReferences(from, to);
     } else {
         statements.append({"UPDATE OR REPLACE document_tags SET tag_id=? WHERE tag_id=?", {to, from}});
     }

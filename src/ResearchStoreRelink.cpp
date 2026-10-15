@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "DocumentMerge.h"
 #include "UiText.h"
 #include "PaperIndex.h"
 #include "FileFingerprint.h"
@@ -189,15 +190,10 @@ bool ResearchStore::applyRelink(const QUrl &source, const QUrl &candidate, const
                 "UPDATE documents SET (title,authors,year,doi,arxiv,metadata_origin,metadata_sha256)="
                 "(SELECT title,authors,year,doi,arxiv,metadata_origin,metadata_sha256 FROM documents WHERE id=?) "
                 "WHERE id=? AND metadata_origin<>'user' AND (SELECT metadata_origin FROM documents WHERE id=?)='user'",
-                {duplicate, original, duplicate})
-            || !run(
-                "UPDATE OR REPLACE links SET from_id=? WHERE from_kind='document' AND from_id=?", {original, duplicate})
-            || !run("UPDATE OR REPLACE links SET to_id=? WHERE to_kind='document' AND to_id=?", {original, duplicate}))
+                {duplicate, original, duplicate}))
             return abort();
-        for (const auto *table : {"highlights", "collection_documents", "document_tags"})
-            if (!run(QStringLiteral("UPDATE OR REPLACE %1 SET document_id=? WHERE document_id=?").arg(table),
-                    {original, duplicate}))
-                return abort();
+        for (const auto &[sql, args] : movePaperReferences(duplicate, original))
+            if (!run(sql, args)) return abort();
         for (const auto *table : {"recent_documents", "reading_positions"})
             if (!run(QStringLiteral("DELETE FROM %1 WHERE document_id=?").arg(table), {duplicate})) return abort();
         if (!run("DELETE FROM documents WHERE id=?", {duplicate})) return abort();
