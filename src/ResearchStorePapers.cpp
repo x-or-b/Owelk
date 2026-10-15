@@ -1,4 +1,5 @@
 #include "FileFingerprint.h"
+#include "FileNames.h"
 #include "UiText.h"
 #include "PaperMetadata.h"
 #include "PaperIndex.h"
@@ -21,8 +22,9 @@
 QString ResearchStore::unusedFile(
     const QSqlDatabase &db, const QHash<QString, QString> &relinks, const QString &folder, const QString &suggested)
 {
-    // Keep only a plain file name; never let a server or another computer choose the folder.
-    auto name = QFileInfo(suggested).fileName().remove(QRegularExpression("[\\x00-\\x1f/\\\\:]")).trimmed();
+    // Keep only a plain file name (never let a server or another computer choose the folder) that every system
+    // accepts.
+    auto name = portableFileName(QFileInfo(suggested).fileName());
     if (name.isEmpty() || name.startsWith('.')) name = "download.pdf";
     const QFileInfo base(name);
     const auto stem = base.completeBaseName(), suffix = base.suffix().isEmpty() ? QString() : "." + base.suffix();

@@ -1,6 +1,7 @@
 #include "LibrarySync.h"
 #include "DocumentMerge.h"
 #include "FileFingerprint.h"
+#include "FileNames.h"
 #include "UiText.h"
 #include "WorkerConnection.h"
 
@@ -596,7 +597,8 @@ bool Pass::upsert(const QString &table, QVariantMap row, const QStringList &keys
 QString Pass::localPaperPath(const QVariantMap &row)
 {
     const auto sha = row.value("sha256").toString();
-    auto name = QUrl(row.value("url").toString()).fileName();
+    // Named on another system: a name this one accepts (a "?" from a Mac would stop it on Windows).
+    auto name = portableFileName(QUrl(row.value("url").toString()).fileName());
     if (name.isEmpty() || name.startsWith('.'))
         name = (sha.isEmpty() ? row.value("id").toString() : sha.left(16)) + ".pdf";
     const auto folder = m_papers + "/";

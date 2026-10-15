@@ -5,6 +5,7 @@
 #include "PaperIndex.h"
 #include "ReferenceFinder.h"
 #include "FileFingerprint.h"
+#include "FileNames.h"
 #include "AppInstance.h"
 #include <QFileOpenEvent>
 #include "SelectionGeometry.h"
@@ -2427,6 +2428,23 @@ private slots:
         QVERIFY2(reopened.initialize(&error), qPrintable(error));
         QCOMPARE(reopened.libraryDocuments().size(), 6);
         for (const auto &paper : papers) QVERIFY(QFileInfo::exists(paper.toUrl().toLocalFile()));
+    }
+    void fileNamesWorkOnEverySystem()
+    {
+        // A name from a Mac (or a server) becomes one Windows accepts too.
+        QCOMPARE(portableFileName("Is attention all you need?.pdf"), QString("Is attention all you need.pdf"));
+        QCOMPARE(portableFileName("A <b> \"quoted\" | piped*.pdf"), QString("A b quoted piped.pdf"));
+        QCOMPARE(portableFileName("CON.pdf"), QString("CON_.pdf"));
+        QCOMPARE(portableFileName("nul.tar.pdf"), QString("nul_.tar.pdf"));
+        QCOMPARE(portableFileName("Draft. .pdf"), QString("Draft.pdf"));
+        QCOMPARE(portableFileName("Console notes.pdf"), QString("Console notes.pdf"));
+        QVERIFY(portableFileName("???.pdf").isEmpty());
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QCOMPARE(QFileInfo(store.downloadTarget("Why?.pdf", true)["url"].toUrl().toLocalFile()).fileName(),
+            QString("Why.pdf"));
     }
     void redirectsNeverCaptureAnotherFile()
     {

@@ -1,4 +1,5 @@
 #include "PdfAccess.h"
+#include "FileNames.h"
 #include "UiText.h"
 #include "ResearchStore.h"
 
@@ -18,8 +19,7 @@ QString safeName(const QString &text)
 {
     auto name = text.simplified();
     name.replace(QRegularExpression("[\\\\/:*?\"<>|\\x00-\\x1f]"), "-");
-    name = name.left(80).trimmed();
-    while (name.endsWith('.')) name.chop(1);
+    name = portableFileName(name.left(80));
     return name.isEmpty() ? ui("Untitled") : name;
 }
 
