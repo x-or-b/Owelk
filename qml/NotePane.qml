@@ -241,8 +241,13 @@ Rectangle {
                 objectName: "noteLinkQuery"
                 Layout.fillWidth: true
                 placeholderText: qsTr("Link to… (paper title, annotation text, note)")
-                onTextChanged: linkPicker.candidates = researchStore.linkCandidates(text)
-                Keys.onReturnPressed: if (linkPicker.candidates.length) { root.insertLink(linkPicker.candidates[0].kind, linkPicker.candidates[0].id); linkPicker.close() }
+                // Looked up once typing pauses (it searches the library on this thread).
+                onTextChanged: linkLookup.restart()
+                Timer { id: linkLookup; interval: 150; onTriggered: linkPicker.candidates = researchStore.linkCandidates(linkQuery.text) }
+                Keys.onReturnPressed: {
+                    if (linkLookup.running) { linkLookup.stop(); linkLookup.triggered() }
+                    if (linkPicker.candidates.length) { root.insertLink(linkPicker.candidates[0].kind, linkPicker.candidates[0].id); linkPicker.close() }
+                }
                 Keys.onEscapePressed: linkPicker.close()
             }
             ListView {

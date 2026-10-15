@@ -521,7 +521,7 @@ QVariantList ResearchStore::linkCandidates(const QString &queryText) const
         if (rows.size() >= 8) break;
     }
     if (needle.isEmpty()) return rows;
-    for (const auto &value : searchKnowledge(needle)) {
+    for (const auto &value : searchKnowledge(needle, {}, "links")) {
         const auto row = value.toMap();
         const auto kind = row["kind"].toString();
         if (kind == "paper") {

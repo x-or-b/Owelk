@@ -96,7 +96,8 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QList<QUrl> &indexed, c
     const Query query(queryText);
     if (query.terms.isEmpty()) return {};
     const auto needle = query.phrase;
-    const bool names = target == "all" || target == "filename";
+    // "links": papers and annotations only (the [[ picker of a note), without notes, AI chats or collections.
+    const bool names = target == "all" || target == "filename" || target == "links";
     const bool saved = target == "all" || target == "notes";
     const auto inScope = [&](const QUrl &url) {
         return (scope.isEmpty() || url == scope) && (!allowed || allowed->contains(url.toString()));
@@ -156,7 +157,7 @@ QVariantList findKnowledge(const QSqlDatabase &db, const QList<QUrl> &indexed, c
         for (const auto &url : indexed) addPaper(url, {}, 0);
     }
 
-    if (saved) {
+    if (saved || target == "links") {
         QSqlQuery highlights(db);
         highlights.prepare(
             "SELECT h.id,d.url,h.page,h.text,h.body FROM highlights h JOIN documents d ON d.id=h.document_id "
