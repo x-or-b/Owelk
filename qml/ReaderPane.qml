@@ -501,8 +501,8 @@ Rectangle {
             ConfirmDialog {
                 id: adoptConfirm
                 objectName: "adoptAnnotationsConfirm"
-                title: "Delete annotations that do not fit?"
-                actionText: "Delete"
+                title: qsTr("Delete annotations that do not fit?")
+                actionText: qsTr("Delete")
                 onConfirmed: researchStore.adoptAnnotations(canvas.source, true)
             }
             IconButton { objectName: "dismissAnnotationNotice"; icon.name: "close"; description: qsTr("Close"); onClicked: canvas.highlightError = "" }
@@ -717,16 +717,17 @@ Rectangle {
         enabled: root.isActive && canvas.ready
         onActivated: canvas.nextPage()
     }
+    // Typing in the find field: Esc closes the search and Backspace edits it; tools and marks are left alone.
     Shortcut {
         sequence: "Escape"
-        enabled: root.isActive && (canvas.captureMode || canvas.tool.length > 0 || canvas.selectedMarkId.length > 0)
+        enabled: root.isActive && !searchField.activeFocus && (canvas.captureMode || canvas.tool.length > 0 || canvas.selectedMarkId.length > 0)
         onActivated: {canvas.captureMode = false;canvas.tool="";canvas.selectedMarkId=""}
     }
     // A selected text box, picture, stroke or spot comment is removed with Delete (undo brings it back).
     Shortcut {
         objectName: "deleteSelectedMark"
         sequences: [StandardKey.Delete, "Backspace"]
-        enabled: root.isActive && canvas.selectedMarkId.length > 0
+        enabled: root.isActive && !searchField.activeFocus && canvas.selectedMarkId.length > 0
         onActivated: canvas.removeSelectedMark()
     }
 }

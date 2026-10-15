@@ -74,7 +74,7 @@ ColumnLayout {
                 spacing: 12
                 Repeater {
                     model: Theme.themes.concat([{id: "custom", name: "Custom"}])
-                    delegate: ThemeTile { required property var modelData; themeId: modelData.id; name: modelData.name }
+                    delegate: ThemeTile { required property var modelData; themeId: modelData.id; name: modelData.id === "custom" ? qsTr("Custom") : qsTranslate("Owelk", modelData.name) }
                 }
             }
         }
@@ -84,7 +84,7 @@ ColumnLayout {
         title: qsTr("Accent color")
         note: qsTr("Used for selection, the main button of each area, focus and links. Annotation inks keep their own colors.")
         SettingsRow {
-            label: Theme.accents.find(function(a) { return a.id === Theme.accentName }).name
+            label: qsTranslate("Owelk", Theme.accents.find(function(a) { return a.id === Theme.accentName }).name)
             Repeater {
                 model: Theme.accents
                 delegate: Rectangle {
@@ -98,7 +98,7 @@ ColumnLayout {
                     Rectangle { anchors.fill: parent; anchors.margins: 4; radius: width / 2; color: Theme.dark ? dot.modelData.dark : dot.modelData.light }
                     HoverHandler { id: dotHover; cursorShape: Qt.PointingHandCursor }
                     TapHandler { onTapped: Theme.accentName = dot.modelData.id }
-                    ToolTip.visible: dotHover.hovered; ToolTip.delay: 500; ToolTip.text: modelData.name
+                    ToolTip.visible: dotHover.hovered; ToolTip.delay: 500; ToolTip.text: qsTranslate("Owelk", modelData.name)
                 }
             }
         }
@@ -109,7 +109,7 @@ ColumnLayout {
         note: Qt.platform.os === "osx" ? qsTr("Changes the icon in the Dock and on the app in Finder. If the Dock keeps the old one, it updates after Owelk restarts.")
                                        : qsTr("Changes the icon in the taskbar and title bars.")
         SettingsRow {
-            label: (Theme.appIcons.find(function(i) { return i.id === Theme.appIcon }) || {name: ""}).name
+            label: qsTranslate("Owelk", (Theme.appIcons.find(function(i) { return i.id === Theme.appIcon }) || {name: ""}).name)
             Repeater {
                 model: Theme.appIcons
                 delegate: Rectangle {
@@ -123,9 +123,9 @@ ColumnLayout {
                     Image { anchors.fill: parent; anchors.margins: 3; source: choice.modelData.source; sourceSize: Qt.size(96, 96); smooth: true; mipmap: true }
                     HoverHandler { id: choiceHover; cursorShape: Qt.PointingHandCursor }
                     TapHandler { onTapped: Theme.appIcon = choice.modelData.id }
-                    ToolTip.visible: choiceHover.hovered; ToolTip.delay: 500; ToolTip.text: modelData.name
+                    ToolTip.visible: choiceHover.hovered; ToolTip.delay: 500; ToolTip.text: qsTranslate("Owelk", modelData.name)
                     Accessible.role: Accessible.RadioButton
-                    Accessible.name: modelData.name + qsTr(" icon")
+                    Accessible.name: qsTranslate("Owelk", modelData.name) + qsTr(" icon")
                 }
             }
         }

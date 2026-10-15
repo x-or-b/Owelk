@@ -26,7 +26,7 @@ T.Switch {
             width: parent.height - 4; height: width; radius: width / 2
             y: 2
             x: control.checked ? parent.width - width - 2 : 2
-            color: "#ffffff"
+            color: Theme.onAccent
             Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         }
     }

@@ -54,7 +54,7 @@ ColumnLayout {
                         primary: root.recording === shortcutRow.modelData.id
                         palette.buttonText: shortcutRow.clash ? Theme.danger : Theme.text
                         ToolTip.visible: hovered && shortcutRow.clash; ToolTip.delay: 300
-                        ToolTip.text: shortcutRow.clash ? qsTr("Also used by ") + root.clashes[shortcutRow.current].filter(function(n) { return n !== shortcutRow.modelData.name }).join(", ") : ""
+                        ToolTip.text: shortcutRow.clash ? qsTr("Also used by ") + root.clashes[shortcutRow.current].filter(function(n) { return n !== shortcutRow.modelData.name }).map(function(n) { return qsTranslate("Shortcuts", n) }).join(", ") : ""
                         onClicked: { root.recording = shortcutRow.modelData.id; keyButton.forceActiveFocus() }
                         Keys.onPressed: function(event) {
                             if (root.recording !== shortcutRow.modelData.id) return

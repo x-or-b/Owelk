@@ -245,7 +245,7 @@ Item {
                     MenuItem { visible: card.kind !== "draw" && card.kind !== "image"; height: visible ? implicitHeight : 0; text: qsTr("Edit"); onTriggered: card.editRequested() }
                     MenuItem { visible: card.body.length > 0; height: visible ? implicitHeight : 0; text: qsTr("Copy Text"); onTriggered: researchStore.copyText(card.body) }
                     MenuSeparator {}
-                    MenuItem { objectName: "removeAnnotation"; text: "Delete"; palette.windowText: Theme.danger; onTriggered: card.removeRequested() }
+                    MenuItem { objectName: "removeAnnotation"; text: qsTr("Delete"); palette.windowText: Theme.danger; onTriggered: card.removeRequested() }
                 }
                 ColumnLayout {
                     id: inner

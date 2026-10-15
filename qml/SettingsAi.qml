@@ -113,7 +113,7 @@ ColumnLayout {
     SettingsGroup {
         objectName: "settingsGroup-provider"
         title: qsTr("Provider")
-        note: qsTr("Keys are stored in ") + root.ai.keyStorage() + ". Before the first request to a provider, Owelk shows what will be sent. "
+        note: qsTr("Keys are stored in %1.").arg(root.ai.keyStorage()) + " " + qsTr("Before the first request to a provider, Owelk shows what will be sent.") + " "
             + qsTr("Claude is available with an API key; signing in with a Claude.ai account is not offered because Anthropic does not allow it for third-party apps.")
         SettingsRow {
             objectName: "settingsRow-provider"

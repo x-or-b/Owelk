@@ -15,7 +15,7 @@ T.Slider {
         implicitWidth: Theme.fontBody + 5
         implicitHeight: implicitWidth
         radius: width / 2
-        color: "#ffffff"
+        color: Theme.onAccent
         border.width: control.visualFocus ? 2 : 1
         border.color: control.visualFocus ? Theme.focus : Theme.border
     }

@@ -535,8 +535,14 @@ Item {
             compare(canvas().currentPage, 5)
             // A single-tab group cannot be moved out of itself.
             verify(!d.moveActiveTabToSplit("right"))
-            // Next-tab shortcut as a key event too (mac: Cmd+Opt+Right, others: Ctrl+PgDown).
+            // Joining keeps named tab groups.
+            const grouped = d.tree.kind === "split" ? Tree.leaves(d.tree)[0].tabs[0].id : d.tree.tabs[0].id
+            const named = d.groupTabs([grouped], "Kept")
             d.joinAll()
+            compare(d.tree.labels.length, 1)
+            compare(d.tree.labels[0].name, "Kept")
+            compare(d.tree.tabs.find(function(t) { return t.id === grouped }).label, named)
+            // Next-tab shortcut as a key event too (mac: Cmd+Opt+Right, others: Ctrl+PgDown).
             const before = d.tree.activeTab
             testInput.keyClick(workspace.contentItem, mac ? Qt.Key_Right : Qt.Key_PageDown,
                 mac ? (Qt.ControlModifier | Qt.AltModifier) : Qt.ControlModifier)

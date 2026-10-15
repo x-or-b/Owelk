@@ -571,6 +571,10 @@
         <translation>디스카드 애노테이션 에디츠?</translation>
     </message>
     <message>
+        <source>Enter text…</source>
+        <translation>엔터 텍스트…</translation>
+    </message>
+    <message>
         <source>Fit to box</source>
         <translation>핏 투 박스</translation>
     </message>
@@ -652,6 +656,10 @@
     <message>
         <source>Copy Text</source>
         <translation>카피 텍스트</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>딜리트</translation>
     </message>
     <message>
         <source>Drawing</source>
@@ -1137,6 +1145,18 @@
     <message>
         <source>Create collections in the Library to file papers by topic.</source>
         <translation>크리에이트 컬렉션스 인 더 라이브러리 투 파일 페이퍼스 바이 토픽.</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>딜리트</translation>
+    </message>
+    <message>
+        <source>Delete Collection…</source>
+        <translation>딜리트 컬렉션…</translation>
+    </message>
+    <message>
+        <source>Delete “%1”?</source>
+        <translation>딜리트 “%1”?</translation>
     </message>
     <message>
         <source>Expand or Collapse</source>
@@ -1730,6 +1750,10 @@ Same file as another library entry</source>
         <translation>딜리트 컬렉션…</translation>
     </message>
     <message>
+        <source>Delete Papers</source>
+        <translation>딜리트 페이퍼스</translation>
+    </message>
+    <message>
         <source>Delete for good</source>
         <translation>딜리트 포 굿</translation>
     </message>
@@ -2054,6 +2078,10 @@ Same file as another library entry</source>
         <translation>딜리티드 인 </translation>
     </message>
     <message>
+        <source>duplicate</source>
+        <translation>듀플리케이트</translation>
+    </message>
+    <message>
         <source>” to the Library</source>
         <translation>” 투 더 라이브러리</translation>
     </message>
@@ -2198,6 +2226,10 @@ Same file as another library entry</source>
     <message>
         <source>Highlight Selection</source>
         <translation>하이라이트 셀렉션</translation>
+    </message>
+    <message>
+        <source>Home</source>
+        <translation>홈</translation>
     </message>
     <message>
         <source>Join All Groups</source>
@@ -2624,6 +2656,10 @@ Same file as another library entry</source>
         <translation>백트 업 투 %1</translation>
     </message>
     <message>
+        <source>Blue</source>
+        <translation>블루</translation>
+    </message>
+    <message>
         <source>Cancel</source>
         <translation>캔슬</translation>
     </message>
@@ -2980,6 +3016,10 @@ Same file as another library entry</source>
         <translation>쿠드 낫 세이브 더 피디에프.</translation>
     </message>
     <message>
+        <source>Dark</source>
+        <translation>다크</translation>
+    </message>
+    <message>
         <source>Deleted %1 annotation%2 that did not fit this copy.</source>
         <translation>딜리티드 %1 애노테이션%2 댓 디드 낫 핏 디스 카피.</translation>
     </message>
@@ -2990,6 +3030,10 @@ Same file as another library entry</source>
     <message>
         <source>Downloading </source>
         <translation>다운로딩 </translation>
+    </message>
+    <message>
+        <source>Dracula</source>
+        <translation>드라큘라</translation>
     </message>
     <message>
         <source>Draw a stroke of up to 5,000 points.</source>
@@ -3040,6 +3084,14 @@ Same file as another library entry</source>
         <translation>게팅 “%1” 스루 더 브라우저 (%2).</translation>
     </message>
     <message>
+        <source>Graphite</source>
+        <translation>그래파이트</translation>
+    </message>
+    <message>
+        <source>Green</source>
+        <translation>그린</translation>
+    </message>
+    <message>
         <source>HEIC/HEIF decoding is unavailable on this system. Convert to PNG or JPEG first.</source>
         <translation>헤이크/헤이프 디코딩 이즈 언어베일러블 온 디스 시스템. 컨버트 투 피엔지 오어 제이펙 퍼스트.</translation>
     </message>
@@ -3050,6 +3102,10 @@ Same file as another library entry</source>
     <message>
         <source>Indexing meaning · %1 / %2</source>
         <translation>인덱싱 미닝 · %1 / %2</translation>
+    </message>
+    <message>
+        <source>Ink on paper</source>
+        <translation>잉크 온 페이퍼</translation>
     </message>
     <message>
         <source>Invalid annotation content or color.</source>
@@ -3100,6 +3156,18 @@ Same file as another library entry</source>
         <translation>무브드 더 페이퍼 투 더 트래시.</translation>
     </message>
     <message>
+        <source>Navy</source>
+        <translation>네이비</translation>
+    </message>
+    <message>
+        <source>Navy on white</source>
+        <translation>네이비 온 화이트</translation>
+    </message>
+    <message>
+        <source>Neutral</source>
+        <translation>뉴트럴</translation>
+    </message>
+    <message>
         <source>Next matching pages →</source>
         <translation>넥스트 매칭 페이지스 →</translation>
     </message>
@@ -3140,6 +3208,10 @@ Same file as another library entry</source>
         <translation>노 심벌 리스트 케임 백. 트라이 어게인.</translation>
     </message>
     <message>
+        <source>Nord</source>
+        <translation>노드</translation>
+    </message>
+    <message>
         <source>Note moved to trash.</source>
         <translation>노트 무브드 투 트래시.</translation>
     </message>
@@ -3170,6 +3242,10 @@ Same file as another library entry</source>
     <message>
         <source>Ollama: </source>
         <translation>올라마: </translation>
+    </message>
+    <message>
+        <source>One Dark</source>
+        <translation>원 다크</translation>
     </message>
     <message>
         <source>Open a local PDF and choose where to save the copy.</source>
@@ -3208,6 +3284,10 @@ Same file as another library entry</source>
         <translation>오픈에이아이: </translation>
     </message>
     <message>
+        <source>Orange</source>
+        <translation>오렌지</translation>
+    </message>
+    <message>
         <source>Original PDF not found. The saved annotation is preserved.</source>
         <translation>오리지널 피디에프 낫 파운드. 더 세이브드 애노테이션 이즈 프리저브드.</translation>
     </message>
@@ -3226,6 +3306,18 @@ Same file as another library entry</source>
     <message>
         <source>PDF verification is not ready. Reopen the PDF and try again.</source>
         <translation>피디에프 베리피케이션 이즈 낫 레디. 리오픈 더 피디에프 앤드 트라이 어게인.</translation>
+    </message>
+    <message>
+        <source>Paper</source>
+        <translation>페이퍼</translation>
+    </message>
+    <message>
+        <source>Paper on navy</source>
+        <translation>페이퍼 온 네이비</translation>
+    </message>
+    <message>
+        <source>Pink</source>
+        <translation>핑크</translation>
     </message>
     <message>
         <source>Please wait until source verification finishes.</source>
@@ -3258,6 +3350,10 @@ Same file as another library entry</source>
     <message>
         <source>Printing stopped: the source changed or a page could not be rendered.</source>
         <translation>프린팅 스톱트: 더 소스 체인지드 오어 어 페이지 쿠드 낫 비 렌더드.</translation>
+    </message>
+    <message>
+        <source>Purple</source>
+        <translation>퍼플</translation>
     </message>
     <message>
         <source>Redo </source>
@@ -3340,6 +3436,10 @@ Same file as another library entry</source>
         <translation>쇼 올 %1 매칭 페이지스 인 '%2'</translation>
     </message>
     <message>
+        <source>Solarized Light</source>
+        <translation>솔라라이즈드 라이트</translation>
+    </message>
+    <message>
         <source>Source references were saved, but the search cache needs repair. Restart to retry: </source>
         <translation>소스 레퍼런시즈 워 세이브드, 벗 더 서치 캐시 니즈 리페어. 리스타트 투 리트라이: </translation>
     </message>
@@ -3350,6 +3450,10 @@ Same file as another library entry</source>
     <message>
         <source>Tag · </source>
         <translation>태그 · </translation>
+    </message>
+    <message>
+        <source>Teal</source>
+        <translation>틸</translation>
     </message>
     <message>
         <source>The AI did not rank the papers.</source>
@@ -3524,6 +3628,10 @@ Same file as another library entry</source>
         <translation>웨이트 포 더 커런트 소스 베리피케이션 투 피니시.</translation>
     </message>
     <message>
+        <source>Yellow</source>
+        <translation>옐로</translation>
+    </message>
+    <message>
         <source>arXiv did not answer for “%1”.</source>
         <translation>아카이브 디드 낫 앤서 포 “%1”.</translation>
     </message>
@@ -3666,6 +3774,10 @@ Same file as another library entry</source>
         <translation>카피 파일 패스</translation>
     </message>
     <message>
+        <source>Delete Paper</source>
+        <translation>딜리트 페이퍼</translation>
+    </message>
+    <message>
         <source>Exclude from Text Search</source>
         <translation>익스클루드 프롬 텍스트 서치</translation>
     </message>
@@ -3791,6 +3903,10 @@ Same file as another library entry</source>
     <message>
         <source>Edit / Comment…</source>
         <translation>에디트 / 코멘트…</translation>
+    </message>
+    <message>
+        <source>Enter password</source>
+        <translation>엔터 패스워드</translation>
     </message>
     <message>
         <source>Find Paper</source>
@@ -4103,6 +4219,14 @@ Use Pages to navigate.</source>
     <message>
         <source>Copy</source>
         <translation>카피</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>딜리트</translation>
+    </message>
+    <message>
+        <source>Delete annotations that do not fit?</source>
+        <translation>딜리트 애노테이션스 댓 두 낫 핏?</translation>
     </message>
     <message>
         <source>Drag a region to show the AI · Esc to cancel</source>
@@ -4433,6 +4557,10 @@ You can open the same document twice.</source>
         <translation>앤서스</translation>
     </message>
     <message>
+        <source>Before the first request to a provider, Owelk shows what will be sent.</source>
+        <translation>비포 더 퍼스트 리퀘스트 투 어 프로바이더, 오웰크 쇼즈 왓 윌 비 센트.</translation>
+    </message>
+    <message>
         <source>Brief</source>
         <translation>브리프</translation>
     </message>
@@ -4513,8 +4641,8 @@ You can open the same document twice.</source>
         <translation>재패니즈</translation>
     </message>
     <message>
-        <source>Keys are stored in </source>
-        <translation>키스 아 스토어드 인 </translation>
+        <source>Keys are stored in %1.</source>
+        <translation>키스 아 스토어드 인 %1.</translation>
     </message>
     <message>
         <source>Korean</source>
@@ -4662,6 +4790,10 @@ You can open the same document twice.</source>
     <message>
         <source>Changes the icon in the taskbar and title bars.</source>
         <translation>체인지스 더 아이콘 인 더 태스크바 앤드 타이틀 바스.</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>커스텀</translation>
     </message>
     <message>
         <source>Custom theme</source>
@@ -4928,6 +5060,10 @@ You can open the same document twice.</source>
 </context>
 <context>
     <name>SettingsGeneral</name>
+    <message>
+        <source>Home</source>
+        <translation>홈</translation>
+    </message>
     <message>
         <source>Horizontal</source>
         <translation>호리존털</translation>
@@ -5662,6 +5798,14 @@ You can open the same document twice.</source>
         <translation>코멘트</translation>
     </message>
     <message>
+        <source>Copy</source>
+        <translation>카피</translation>
+    </message>
+    <message>
+        <source>Cut</source>
+        <translation>컷</translation>
+    </message>
+    <message>
         <source>Dark Pages</source>
         <translation>다크 페이지스</translation>
     </message>
@@ -5676,6 +5820,10 @@ You can open the same document twice.</source>
     <message>
         <source>Duplicate to Right Split</source>
         <translation>듀플리케이트 투 라이트 스플릿</translation>
+    </message>
+    <message>
+        <source>Find</source>
+        <translation>파인드</translation>
     </message>
     <message>
         <source>Fit Page</source>
@@ -5750,12 +5898,20 @@ You can open the same document twice.</source>
         <translation>노츠 앤드 에이아이</translation>
     </message>
     <message>
+        <source>Open PDF</source>
+        <translation>오픈 피디에프</translation>
+    </message>
+    <message>
         <source>Open Web Page</source>
         <translation>오픈 웹 페이지</translation>
     </message>
     <message>
         <source>Panels</source>
         <translation>패널스</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>페이스트</translation>
     </message>
     <message>
         <source>Previous Page</source>
@@ -5766,8 +5922,16 @@ You can open the same document twice.</source>
         <translation>프리비어스 탭</translation>
     </message>
     <message>
+        <source>Quit</source>
+        <translation>큇</translation>
+    </message>
+    <message>
         <source>Reading</source>
         <translation>리딩</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>리두</translation>
     </message>
     <message>
         <source>Reopen Closed Tab</source>
@@ -5782,6 +5946,14 @@ You can open the same document twice.</source>
         <translation>서치 앤드 플레이시즈</translation>
     </message>
     <message>
+        <source>Select All</source>
+        <translation>셀렉트 올</translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>세팅스</translation>
+    </message>
+    <message>
         <source>Splits</source>
         <translation>스플릿츠</translation>
     </message>
@@ -5794,8 +5966,20 @@ You can open the same document twice.</source>
         <translation>스레즈</translation>
     </message>
     <message>
+        <source>Undo</source>
+        <translation>언두</translation>
+    </message>
+    <message>
         <source>Vertical Tabs</source>
         <translation>버티컬 탭스</translation>
+    </message>
+    <message>
+        <source>Zoom In</source>
+        <translation>줌 인</translation>
+    </message>
+    <message>
+        <source>Zoom Out</source>
+        <translation>줌 아웃</translation>
     </message>
 </context>
 <context>
@@ -5873,6 +6057,10 @@ You can open the same document twice.</source>
     <message>
         <source>Cut</source>
         <translation>컷</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>딜리트</translation>
     </message>
     <message>
         <source>Paste</source>

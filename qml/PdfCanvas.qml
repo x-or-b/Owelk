@@ -54,7 +54,7 @@ Item {
     readonly property bool invertPages: Theme.invertPages && Theme.canInvertPages
     // The pointer is on a reference preview: drags, pinches and Ctrl+wheel belong to the card, not the page.
     readonly property bool overPreview: previewCard.visible && previewHover.hovered
-    readonly property string defaultTextColor: "#1d3a5c"
+    readonly property string defaultTextColor: Theme.defaultTextInk
     property string markColor: savedInk("highlightColor")
     property string drawColor: savedInk("drawColor")
     property string textColor: savedInk("textColor", defaultTextColor)
@@ -1375,7 +1375,7 @@ Item {
                 id: passwordField
                 objectName: "pdfPasswordField"
                 width: 260
-                placeholderText: "Enter password"
+                placeholderText: qsTr("Enter password")
                 echoMode: TextInput.Password
                 onAccepted: passwordDialog.accept()
             }
@@ -1475,7 +1475,8 @@ Item {
                         y: Math.max(0, Math.min(1, r.y + (p.y - o.y) / Math.max(1e-6, o.height) * r.height))}
             })
         // Still saving the previous change: this one follows as soon as that is done.
-        if (researchStore.busy) pendingMarkSave = {page: mark.page, spec: spec}
+        // The paper is kept with it: the tab may show another paper by then.
+        if (researchStore.busy) pendingMarkSave = {source: source, page: mark.page, spec: spec}
         else researchStore.saveAnnotation(source, mark.page, spec)
     }
     property var pendingMarkSave: null
@@ -1485,7 +1486,7 @@ Item {
             if (researchStore.busy || !root.pendingMarkSave) return
             const next = root.pendingMarkSave
             root.pendingMarkSave = null
-            researchStore.saveAnnotation(root.source, next.page, next.spec)
+            researchStore.saveAnnotation(next.source, next.page, next.spec)
         }
     }
     Connections {

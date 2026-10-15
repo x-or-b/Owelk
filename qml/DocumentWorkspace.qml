@@ -664,7 +664,14 @@ Flickable {
         prepare()
         const list = Tree.leaves(tree), active = Tree.find(tree, activeGroup)
         const combined = Tree.group([])
-        for (let i = 0; i < list.length; ++i) combined.tabs = combined.tabs.concat(list[i].tabs)
+        // Named tab groups come along (each strip's tabs stay together, so its groups do too).
+        let labels = []
+        for (let i = 0; i < list.length; ++i) {
+            combined.tabs = combined.tabs.concat(list[i].tabs)
+            labels = labels.concat(list[i].labels || [])
+        }
+        if (labels.length) combined.labels = labels.slice(0, 64)
+        Tree.tidyLabels(combined)
         combined.activeTab = active.activeTab || (combined.tabs.length ? combined.tabs[0].id : "")
         tree = combined; activeGroup = tree.id; sync(); changed()
     }

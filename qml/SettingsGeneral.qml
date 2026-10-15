@@ -21,7 +21,7 @@ ColumnLayout {
                 objectName: "startupView"
                 property string chosen: researchStore.setting("startup.view", "home")
                 currentIndex: chosen === "tabs" ? 1 : 0
-                TabButton { text: "Home"; width: 96; onClicked: { startupBar.chosen = "home"; researchStore.setSetting("startup.view", "home") } }
+                TabButton { text: qsTr("Home"); width: 96; onClicked: { startupBar.chosen = "home"; researchStore.setSetting("startup.view", "home") } }
                 TabButton { objectName: "startupTabsOption"; text: qsTr("Last Tabs"); width: 96; onClicked: { startupBar.chosen = "tabs"; researchStore.setSetting("startup.view", "tabs") } }
             }
         }

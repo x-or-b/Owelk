@@ -27,7 +27,7 @@ Menu {
     MenuItem { objectName: "textMenuCopy"; text: qsTr("Copy"); enabled: menu.selected && !menu.hidden; onTriggered: menu.target.copy() }
     MenuItem { objectName: "textMenuPaste"; text: qsTr("Paste"); enabled: menu.editable && menu.target.canPaste; onTriggered: menu.target.paste() }
     MenuItem {
-        objectName: "textMenuDelete"; text: "Delete"
+        objectName: "textMenuDelete"; text: qsTr("Delete")
         enabled: menu.editable && menu.selected
         onTriggered: menu.target.remove(menu.target.selectionStart, menu.target.selectionEnd)
     }

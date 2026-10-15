@@ -408,7 +408,7 @@ Rectangle {
         MenuItem { text: qsTr("Copy BibTeX"); onTriggered: { researchStore.copyText(researchStore.bibtex(batchMenu.urls)); researchStore.notify(qsTr("BibTeX copied.")) } }
         MenuSeparator {}
         MenuItem {
-            objectName: "batchDeletePapers"; text: "Delete Papers"; palette.windowText: Theme.danger
+            objectName: "batchDeletePapers"; text: qsTr("Delete Papers"); palette.windowText: Theme.danger
             onTriggered: { const list = batchMenu.urls; root.setSelecting(false); Qt.callLater(function() { researchStore.deletePapers(list) }) }
         }
     }
@@ -1269,7 +1269,7 @@ Rectangle {
                                     text: [paper.modelData.authors, paper.modelData.year, paper.modelData.tags ? "# " + paper.modelData.tags : ""].filter(function(s) { return s && s.length }).join("  ·  ")
                                 }
                             }
-                            Label { visible: paper.modelData.duplicate; text: "duplicate"; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                            Label { visible: paper.modelData.duplicate; text: qsTr("duplicate"); font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
                             Repeater {
                                 model: paper.suggestions
                                 delegate: Chip {

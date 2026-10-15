@@ -84,7 +84,7 @@ Item {
         // To Owelk's Trash (Library › Trash): restorable until it is emptied.
         MenuItem {
             objectName: "deletePaperOption"
-            text: "Delete Paper"
+            text: qsTr("Delete Paper")
             palette.windowText: Theme.danger
             onTriggered: { const source = root.paper.url; Qt.callLater(function() { researchStore.deletePapers([source]) }) }
         }

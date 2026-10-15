@@ -71,11 +71,12 @@ Rectangle {
     color: Theme.window
     clip: true
     function refresh() {
+        // A web tab closed behind the one in front lets its page go too.
+        pruneWebPages()
         if (!pane) return
         const t = groupData.tabs.find(function(t) { return t.id === groupData.activeTab })
         if (loadedTab === groupData.activeTab && loadedSource === (t ? t.source : "")) return
         if (!loadedTab.length && controller.suspended) return
-        pruneWebPages()
         const switched = loadedTab !== groupData.activeTab
         loadedTab = groupData.activeTab
         loadedSource = t ? t.source : ""
@@ -520,7 +521,7 @@ Rectangle {
                 model: Theme.accents
                 delegate: MenuItem {
                     required property var modelData
-                    text: modelData.name
+                    text: qsTranslate("Owelk", modelData.name)
                     checkable: true
                     checked: { const l = root.controller.tabLabel(root.groupId, root.menuLabel); return !!l && (l.color || "blue") === modelData.id }
                     onTriggered: root.controller.setTabGroupColor(root.groupId, root.menuLabel, modelData.id)

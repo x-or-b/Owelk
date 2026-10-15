@@ -97,6 +97,8 @@ class Theme : public QObject {
     // Annotation inks are document data, not theme: they never follow the accent.
     Q_PROPERTY(QVariantList annotationInks READ annotationInks CONSTANT)
     Q_PROPERTY(QString defaultInk READ defaultInk CONSTANT)
+    // Text boxes start in navy, readable on the page whatever the highlight ink.
+    Q_PROPERTY(QString defaultTextInk READ defaultTextInk CONSTANT)
     // The icon font family (qml/Icons.js maps names to glyphs).
     Q_PROPERTY(QString iconFont MEMBER m_iconFont CONSTANT)
 
@@ -151,6 +153,7 @@ public:
     int fontTitle() const { return m_textSize + 7; }
     QVariantList annotationInks() const;
     QString defaultInk() const;
+    QString defaultTextInk() const;
 
 signals:
     void changed();

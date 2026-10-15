@@ -10,22 +10,31 @@
 #include <QJsonObject>
 
 namespace {
+// Names are English here and translated where they are shown (qsTranslate("Owelk", …)), so a change of
+// interface language reaches them too.
 struct Named {
     const char *id, *name;
 };
 // Built-in themes, in the order Settings shows them.
-constexpr Named themeNames[] = {{"neutral", "Neutral"}, {"paper", "Paper"}, {"solarized", "Solarized Light"},
-    {"dark", "Dark"}, {"nord", "Nord"}, {"onedark", "One Dark"}, {"dracula", "Dracula"}};
+constexpr Named themeNames[] = {{"neutral", QT_TRANSLATE_NOOP("Owelk", "Neutral")},
+    {"paper", QT_TRANSLATE_NOOP("Owelk", "Paper")}, {"solarized", QT_TRANSLATE_NOOP("Owelk", "Solarized Light")},
+    {"dark", QT_TRANSLATE_NOOP("Owelk", "Dark")}, {"nord", QT_TRANSLATE_NOOP("Owelk", "Nord")},
+    {"onedark", QT_TRANSLATE_NOOP("Owelk", "One Dark")}, {"dracula", QT_TRANSLATE_NOOP("Owelk", "Dracula")}};
 // Accents: light-theme value, dark-theme value. Red is reserved for errors.
 struct Accent {
     const char *id, *name, *light, *dark;
 };
-constexpr Accent accentList[] = {{"blue", "Blue", "#426b9a", "#4d84c4"}, {"teal", "Teal", "#2f7f86", "#35939a"},
-    {"green", "Green", "#3f7d4f", "#4b9461"}, {"orange", "Orange", "#b5651d", "#c77a33"},
-    {"pink", "Pink", "#b44a7a", "#c45b8c"}, {"purple", "Purple", "#6b55a8", "#8167c4"},
-    {"graphite", "Graphite", "#5f6670", "#7a818b"}};
-constexpr Named inks[] = {{"#426b9a", "Blue"}, {"#e0b83f", "Yellow"}, {"#54a878", "Green"}, {"#d87797", "Pink"},
-    {"#9274c3", "Purple"}, {"#1d3a5c", "Navy"}};
+constexpr Accent accentList[] = {{"blue", QT_TRANSLATE_NOOP("Owelk", "Blue"), "#426b9a", "#4d84c4"},
+    {"teal", QT_TRANSLATE_NOOP("Owelk", "Teal"), "#2f7f86", "#35939a"},
+    {"green", QT_TRANSLATE_NOOP("Owelk", "Green"), "#3f7d4f", "#4b9461"},
+    {"orange", QT_TRANSLATE_NOOP("Owelk", "Orange"), "#b5651d", "#c77a33"},
+    {"pink", QT_TRANSLATE_NOOP("Owelk", "Pink"), "#b44a7a", "#c45b8c"},
+    {"purple", QT_TRANSLATE_NOOP("Owelk", "Purple"), "#6b55a8", "#8167c4"},
+    {"graphite", QT_TRANSLATE_NOOP("Owelk", "Graphite"), "#5f6670", "#7a818b"}};
+constexpr Named inks[]
+    = {{"#426b9a", QT_TRANSLATE_NOOP("Owelk", "Blue")}, {"#e0b83f", QT_TRANSLATE_NOOP("Owelk", "Yellow")},
+        {"#54a878", QT_TRANSLATE_NOOP("Owelk", "Green")}, {"#d87797", QT_TRANSLATE_NOOP("Owelk", "Pink")},
+        {"#9274c3", QT_TRANSLATE_NOOP("Owelk", "Purple")}, {"#1d3a5c", QT_TRANSLATE_NOOP("Owelk", "Navy")}};
 
 QColor alpha(QColor color, qreal a)
 {
@@ -74,9 +83,12 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
 
 QVariantList Theme::appIcons() const
 {
-    return {QVariantMap{{"id", "paper"}, {"name", "Ink on paper"}, {"source", "qrc" + appIconPath("paper")}},
-        QVariantMap{{"id", "white"}, {"name", "Navy on white"}, {"source", "qrc" + appIconPath("white")}},
-        QVariantMap{{"id", "navy"}, {"name", "Paper on navy"}, {"source", "qrc" + appIconPath("navy")}}};
+    return {QVariantMap{{"id", "paper"}, {"name", QT_TRANSLATE_NOOP("Owelk", "Ink on paper")},
+                {"source", "qrc" + appIconPath("paper")}},
+        QVariantMap{{"id", "white"}, {"name", QT_TRANSLATE_NOOP("Owelk", "Navy on white")},
+            {"source", "qrc" + appIconPath("white")}},
+        QVariantMap{{"id", "navy"}, {"name", QT_TRANSLATE_NOOP("Owelk", "Paper on navy")},
+            {"source", "qrc" + appIconPath("navy")}}};
 }
 
 QString Theme::appIconPath(const QString &id)
@@ -281,4 +293,9 @@ QVariantList Theme::annotationInks() const
 QString Theme::defaultInk() const
 {
     return inks[0].id;
+}
+
+QString Theme::defaultTextInk() const
+{
+    return inks[std::size(inks) - 1].id;
 }

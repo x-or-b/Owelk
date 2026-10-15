@@ -168,7 +168,7 @@ Dialog {
             TextArea {
                 id: body
                 objectName: "annotationBody"
-                placeholderText: root.record.kind === "text" ? "Enter text…" : qsTr("Write a comment…")
+                placeholderText: root.record.kind === "text" ? qsTr("Enter text…") : qsTr("Write a comment…")
                 textFormat: TextEdit.PlainText
                 wrapMode: TextEdit.Wrap
                 selectByMouse: true

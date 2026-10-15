@@ -24,10 +24,10 @@ Popup {
                 height: Theme.iconButton
                 padding: 3
                 hoverEnabled: true
-                Accessible.name: modelData.name + qsTr(" ink")
+                Accessible.name: qsTranslate("Owelk", modelData.name) + qsTr(" ink")
                 ToolTip.visible: hovered
                 ToolTip.delay: 500
-                ToolTip.text: modelData.name
+                ToolTip.text: qsTranslate("Owelk", modelData.name)
                 background: Rectangle {
                     radius: width / 2
                     color: "transparent"

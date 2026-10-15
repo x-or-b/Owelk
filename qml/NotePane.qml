@@ -44,7 +44,8 @@ Rectangle {
         return true
     }
     // Done (or Esc): saved, the tab closes and the one before comes back (an empty note is not kept).
-    function done() { if (save()) controller.finishNote(loadedId) }
+    // A syllable still being composed (Korean, Japanese, …) is committed first, so it is saved too.
+    function done() { Qt.inputMethod.commit(); if (save()) controller.finishNote(loadedId) }
     Timer { id: savedMark; interval: 1500 }
     Shortcut {
         objectName: "noteDoneShortcut"
@@ -82,7 +83,7 @@ Rectangle {
         function onLinksChanged() { root.backlinks = researchStore.backlinks("note", root.noteId) }
     }
     // The AI panel with this note attached: questions about it, or changes it can apply.
-    function askAi() { save(); controller.aiRequested({attach: true, note: noteId}) }
+    function askAi() { Qt.inputMethod.commit(); save(); controller.aiRequested({attach: true, note: noteId}) }
     function openLink(link) {
         if (/^owelk:/.test(link) || /^https?:/.test(link)) controller.openLink(link)
     }

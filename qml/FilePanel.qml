@@ -179,7 +179,7 @@ Item {
             onTriggered: researchStore.forYou.follow(shelfMenu.collection.id, !researchStore.forYou.following(shelfMenu.collection.id))
         }
         MenuSeparator {}
-        MenuItem { text: "Delete Collection…"; palette.windowText: Theme.danger; onTriggered: deleteConfirm.open() }
+        MenuItem { text: qsTr("Delete Collection…"); palette.windowText: Theme.danger; onTriggered: deleteConfirm.open() }
     }
     // A collection's name, new or changed.
     Dialog {
@@ -204,9 +204,9 @@ Item {
     }
     ConfirmDialog {
         id: deleteConfirm
-        title: "Delete \u201c" + (shelfMenu.collection.name || "") + "\u201d?"
+        title: qsTr("Delete \u201c%1\u201d?").arg(shelfMenu.collection.name || "")
         message: qsTr("Only the collection goes (and its sub-collections). The papers stay in the Library.")
-        actionText: "Delete"
+        actionText: qsTr("Delete")
         onConfirmed: { researchStore.deleteCollection(shelfMenu.collection.id); root.refreshShelf() }
     }
     FileDialog {

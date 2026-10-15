@@ -54,11 +54,23 @@ function parse(json) {
     try { const value = JSON.parse(json || "{}"); return value && typeof value === "object" ? value : {} }
     catch (e) { return {} }
 }
+// Shortcuts that cannot be changed (the system's own, and browser conventions), so nothing else may take them.
+// Ctrl+1…8 select a tab and Ctrl+9 the last one, as in browsers.
+const fixed = [
+    {keys: "Ctrl+O", name: QT_TR_NOOP("Open PDF")}, {keys: "Ctrl+,", name: QT_TR_NOOP("Settings")},
+    {keys: "Ctrl+Q", name: QT_TR_NOOP("Quit")}, {keys: "Ctrl+F", name: QT_TR_NOOP("Find")},
+    {keys: "Ctrl+=", name: QT_TR_NOOP("Zoom In")}, {keys: "Ctrl+-", name: QT_TR_NOOP("Zoom Out")},
+    {keys: "Ctrl+C", name: QT_TR_NOOP("Copy")}, {keys: "Ctrl+X", name: QT_TR_NOOP("Cut")},
+    {keys: "Ctrl+V", name: QT_TR_NOOP("Paste")}, {keys: "Ctrl+A", name: QT_TR_NOOP("Select All")},
+    {keys: "Ctrl+Z", name: QT_TR_NOOP("Undo")}, {keys: "Ctrl+Shift+Z", name: QT_TR_NOOP("Redo")},
+    {keys: "Ctrl+Shift+]", name: QT_TR_NOOP("Next Tab")}, {keys: "Ctrl+Shift+[", name: QT_TR_NOOP("Previous Tab")}
+]
 // Actions that share a shortcut, as {keys: [names]} (only for keys used more than once).
-// Ctrl+1…8 select a tab and Ctrl+9 the last one (as in browsers); they are fixed, so nothing else may take them.
 function conflicts(overrides, os) {
     const used = {}
-    for (let n = 1; n <= 9; ++n) used["Ctrl+" + n] = [n === 9 ? qsTr("Last Tab") : "Tab " + n]
+    for (let n = 1; n <= 9; ++n) used["Ctrl+" + n] = [n === 9 ? QT_TR_NOOP("Last Tab") : "Tab " + n]
+    fixed.forEach(function(f) { used[f.keys] = [f.name] })
+    if (os !== "osx") used["Ctrl+Y"] = [QT_TR_NOOP("Redo")]
     actions.forEach(function(a) {
         const k = keys(a.id, overrides, os)
         if (k.length) used[k] = (used[k] || []).concat([a.name])

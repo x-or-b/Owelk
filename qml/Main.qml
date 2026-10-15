@@ -512,7 +512,7 @@ ApplicationWindow {
         }
         Menu {
             title: qsTr("View")
-            Action { text: "Home"; shortcut: window.keys("home"); onTriggered: window.showHome() }
+            Action { text: qsTr("Home"); shortcut: window.keys("home"); onTriggered: window.showHome() }
             Action { objectName: "libraryAction"; text: qsTr("Library"); shortcut: window.keys("library"); enabled: !window.restoreFailed; onTriggered: documents.openLibrary({}) }
             Action { objectName: "tabsPanelAction"; text: window.tabsPanelOpen ? qsTr("Hide Vertical Tabs") : qsTr("Show Vertical Tabs"); shortcut: window.keys("tabsPanel"); enabled: Theme.verticalTabs; onTriggered: window.setTabsPanel(!window.tabsPanelOpen) }
             Action { text: qsTr("Search Research"); shortcut: window.keys("search"); onTriggered: window.focusSearch(true) }
