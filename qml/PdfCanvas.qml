@@ -139,8 +139,11 @@ Item {
     property int hiddenAnnotations: 0
     property string removingHighlight: ""
     property var pendingHighlightSelection: null
+    // The marks shown stay until the new list arrives (no flicker, and the Annotations list keeps its cards); a
+    // paper not ready shows none. A list that comes back the same changes nothing.
     function refreshHighlights() {
-        savedHighlights = []; highlightError = ""
+        if (!ready) savedHighlights = []
+        highlightError = ""
         highlightRequest = ready ? researchStore.loadHighlights(source) : -1
     }
     onReadyChanged: { refreshHighlights(); loadSymbols() }
@@ -157,7 +160,8 @@ Item {
         function onHighlightsChanged() { root.refreshHighlights() }
         function onHighlightsLoaded(request, source, highlights, error, fingerprint, hidden) {
             if (request !== root.highlightRequest || !researchStore.sameSource(root.source, source)) return
-            root.savedHighlights = highlights; root.highlightError = error; root.documentFingerprint = fingerprint
+            if (JSON.stringify(highlights) !== JSON.stringify(root.savedHighlights)) root.savedHighlights = highlights
+            root.highlightError = error; root.documentFingerprint = fingerprint
             root.hiddenAnnotations = hidden || 0
         }
         function onHighlightSaved(id, source) {
