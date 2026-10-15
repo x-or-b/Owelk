@@ -333,6 +333,7 @@ bool Pass::importChanges()
             lines.removeLast(); // An unfinished last line waits for the rest of the file.
             const int from = known.second <= lines.size() ? known.second : 0;
             if (!applyFile(id, file.fileName(), data.size(), lines, from)) return false;
+            if (m_cancel->load()) return true; // Owelk is quitting; the rest is read next time.
         }
     }
     return true;
@@ -341,17 +342,42 @@ bool Pass::importChanges()
 bool Pass::applyFile(const QString &device, const QString &file, qint64 size, const QList<QByteArray> &lines, int from)
 {
     m_removedPapers.clear();
-    if (!m_db.transaction()) {
-        outcome.error = m_db.lastError().text();
-        return false;
-    }
     const auto abort = [&] {
         m_db.rollback();
         return false;
     };
-    // Rows written here came from elsewhere: the triggers stay quiet.
-    if (!run("INSERT INTO sync_pause(paused) VALUES(1)")) return abort();
+    // Rows written here came from elsewhere: the triggers stay quiet. The pause lives only inside a transaction,
+    // so a crash can never leave this computer's own changes untracked.
+    const auto begin = [&] {
+        if (m_db.transaction()) return run("INSERT INTO sync_pause(paused) VALUES(1)") || abort();
+        outcome.error = m_db.lastError().text();
+        return false;
+    };
+    // A long file (a first sync) is saved every few hundred changes: the library stays free for edits here in
+    // between, and a pass stopped part-way (Owelk quitting) goes on from there next time. Until the file is done
+    // it is recorded with no size, so the next pass reads it again from the line it reached.
+    const auto save = [&](int reached) {
+        if (!run("DELETE FROM sync_pause")
+            || !run("INSERT OR REPLACE INTO sync_seen(device,file,size,lines) VALUES(?,?,?,?)",
+                {device, file, reached == lines.size() ? size : -1, reached}))
+            return abort();
+        if (!m_db.commit()) {
+            outcome.error = m_db.lastError().text();
+            return abort();
+        }
+        for (const auto &path : std::as_const(m_removedPapers)) QFile::moveToTrash(path);
+        m_removedPapers.clear();
+        return true;
+    };
+    static const int chunk
+        = qEnvironmentVariableIntValue("OWELK_SYNC_CHUNK") > 0 ? qEnvironmentVariableIntValue("OWELK_SYNC_CHUNK") : 200;
+    if (!begin()) return false;
     for (int i = from; i < lines.size(); ++i) {
+        if (i > from && (i - from) % chunk == 0) {
+            if (!save(i)) return false;
+            if (m_cancel->load()) return true;
+            if (!begin()) return false;
+        }
         const auto change = QJsonDocument::fromJson(lines[i]).object();
         if (change.isEmpty()) continue; // A damaged line is skipped, not retried forever.
         // So is a change this computer cannot apply (a clash it cannot resolve): it is counted and the rest of the
@@ -376,16 +402,7 @@ bool Pass::applyFile(const QString &device, const QString &file, qint64 size, co
         outcome.received = received;
         ++outcome.skipped;
     }
-    if (!run("DELETE FROM sync_pause")
-        || !run("INSERT OR REPLACE INTO sync_seen(device,file,size,lines) VALUES(?,?,?,?)",
-            {device, file, size, lines.size()}))
-        return abort();
-    if (!m_db.commit()) {
-        outcome.error = m_db.lastError().text();
-        return abort();
-    }
-    for (const auto &path : std::as_const(m_removedPapers)) QFile::moveToTrash(path);
-    return true;
+    return save(int(lines.size()));
 }
 
 bool Pass::applyChange(const QJsonObject &change)

@@ -409,6 +409,72 @@ private slots:
         QCOMPARE(mac.note("elsewhere")["title"].toString(), QString("From elsewhere"));
         QCOMPARE(sync->syncBlocking().skipped, 0);
     }
+    void syncGoesOnFromWhereAStoppedPassLeftOff()
+    {
+        QTemporaryDir directory;
+        const auto drive = directory.filePath("Drive");
+        QVERIFY(QDir().mkpath(drive));
+        QString error;
+        ResearchStore mac(directory.filePath("mac"));
+        QVERIFY2(mac.initialize(&error), qPrintable(error));
+        auto *sync = mac.librarySync();
+        QCOMPARE(sync->setFolder(QUrl::fromLocalFile(drive)), QString());
+        QVERIFY(sync->syncBlocking().error.isEmpty());
+        QVERIFY(QDir().mkpath(drive + "/Owelk/devices/other"));
+        const auto now = QDateTime::currentMSecsSinceEpoch();
+        const auto stamp = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+        const auto notes = [&](int first, int count) {
+            QByteArray lines;
+            for (int n = first; n < first + count; ++n) {
+                const auto id = "n" + QString::number(n);
+                lines += QJsonDocument(
+                             QJsonObject{{"t", "notes"}, {"k", QJsonArray{id}}, {"v", now}, {"d", "other"},
+                                 {"r",
+                                     QJsonObject{{"id", id}, {"title", id}, {"body", "b"}, {"created_at", stamp},
+                                         {"updated_at", stamp}, {"deleted_at", QJsonValue::Null}}}})
+                             .toJson(QJsonDocument::Compact)
+                    + '\n';
+            }
+            return lines;
+        };
+        const auto write = [&](const QString &name, const QByteArray &lines) {
+            QFile log(drive + "/Owelk/devices/other/" + name);
+            return log.open(QIODevice::WriteOnly) && log.write(lines) == lines.size();
+        };
+        const auto seen = [&](const QString &name) {
+            WorkerConnection db(mac.dataDirectory() + "/owelk.sqlite3", true);
+            QSqlQuery query(db.db);
+            query.prepare("SELECT size,lines,(SELECT count(*) FROM sync_pause) FROM sync_seen WHERE file=?");
+            query.addBindValue(name);
+            return query.exec() && query.next()
+                ? QList<qint64>{query.value(0).toLongLong(), query.value(1).toLongLong(), query.value(2).toLongLong()}
+                : QList<qint64>{};
+        };
+        // A pass stopped after two of four lines (Owelk quit): the file is marked as read that far, with no size.
+        const auto four = notes(0, 4);
+        QVERIFY(write("00000001.jsonl", four));
+        {
+            WorkerConnection db(mac.dataDirectory() + "/owelk.sqlite3");
+            QSqlQuery query(db.db);
+            QVERIFY(query.exec("INSERT INTO sync_seen(device,file,size,lines) VALUES('other','00000001.jsonl',-1,2)"));
+        }
+        // The next pass reads on from the third line, and records the whole file as read.
+        QVERIFY(sync->syncBlocking().error.isEmpty());
+        QVERIFY(mac.note("n1").isEmpty());
+        QCOMPARE(mac.note("n2")["title"].toString(), QString("n2"));
+        QCOMPARE(mac.note("n3")["title"].toString(), QString("n3"));
+        QCOMPARE(seen("00000001.jsonl"), (QList<qint64>{four.size(), 4, 0}));
+        // A long file is saved in parts (200 changes each) and all of it arrives.
+        const auto many = notes(100, 450);
+        QVERIFY(write("00000002.jsonl", many));
+        QVERIFY(sync->syncBlocking().error.isEmpty());
+        QCOMPARE(mac.note("n100")["title"].toString(), QString("n100"));
+        QCOMPARE(mac.note("n549")["title"].toString(), QString("n549"));
+        QCOMPARE(seen("00000002.jsonl"), (QList<qint64>{many.size(), 450, 0}));
+        // This computer's own edits still go out afterwards (nothing was left paused).
+        QVERIFY(!mac.createNote("Mine", "x").isEmpty());
+        QVERIFY(sync->syncBlocking().sent > 0);
+    }
     void syncReadsEverythingAgainAfterAnUpdate()
     {
         QTemporaryDir directory;
