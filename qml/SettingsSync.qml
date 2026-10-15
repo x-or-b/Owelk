@@ -116,6 +116,7 @@ ColumnLayout {
         Label {
             width: parent.width; wrapMode: Text.Wrap
             text: qsTr("Owelk replaces its library with the backup the next time it starts. The current library is moved to the data folder's backups, not deleted. Your PDFs are not touched.")
+                  + (root.syncing ? " " + qsTr("Sync is on, so your other computers then bring this library up to date again: changes made since the backup come back. To get back something deleted, look in Library › Trash first.") : "")
         }
         onAccepted: if (researchStore.scheduleRestore(folder)) root.result = qsTr("Quit and reopen Owelk to finish restoring.")
     }

@@ -2516,6 +2516,10 @@ Same file as another library entry</source>
         <translation> 잇 이즈 딜리티드 포 굿 애프터 %1 데이즈.</translation>
     </message>
     <message>
+        <source> Sync now brings it up to date with your other computers.</source>
+        <translation> 싱크 나우 브링스 잇 업 투 데이트 위드 유어 아더 컴퓨터스.</translation>
+    </message>
+    <message>
         <source> that change.</source>
         <translation> 댓 체인지.</translation>
     </message>
@@ -5418,6 +5422,10 @@ You can open the same document twice.</source>
     <message>
         <source>Sync folder</source>
         <translation>싱크 폴더</translation>
+    </message>
+    <message>
+        <source>Sync is on, so your other computers then bring this library up to date again: changes made since the backup come back. To get back something deleted, look in Library › Trash first.</source>
+        <translation>싱크 이즈 온, 소 유어 아더 컴퓨터스 덴 브링 디스 라이브러리 업 투 데이트 어게인: 체인지스 메이드 신스 더 백업 컴 백. 투 겟 백 섬싱 딜리티드, 룩 인 라이브러리 › 트래시 퍼스트.</translation>
     </message>
     <message>
         <source>Syncing…</source>

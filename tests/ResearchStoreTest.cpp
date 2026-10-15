@@ -424,6 +424,46 @@ private slots:
         // Read again once, not on every pass.
         QCOMPARE(ubuntu.librarySync()->syncBlocking().received, 0);
     }
+    void restoredLibraryCatchesUpThroughSync()
+    {
+        QTemporaryDir directory;
+        const auto drive = directory.filePath("Drive");
+        QVERIFY(QDir().mkpath(drive));
+        const auto data = directory.filePath("mac");
+        const auto device = [&] {
+            WorkerConnection db(data + "/owelk.sqlite3", true);
+            QSqlQuery query(db.db);
+            return query.exec("SELECT value FROM settings WHERE key='sync.device'") && query.next()
+                ? query.value(0).toString()
+                : QString();
+        };
+        QString error, note, before;
+        {
+            ResearchStore mac(data);
+            QVERIFY2(mac.initialize(&error), qPrintable(error));
+            note = mac.createNote("Before", "x");
+            QCOMPARE(mac.librarySync()->setFolder(QUrl::fromLocalFile(drive)), QString());
+            QVERIFY(mac.librarySync()->syncBlocking().error.isEmpty());
+            QSignalSpy done(&mac, &ResearchStore::backupFinished);
+            mac.backUp(directory.filePath("backups"));
+            QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+            QVERIFY(done[0][0].toBool());
+            // This computer changes the note after the backup and sends it; then the backup is restored.
+            QVERIFY(mac.saveNote(note, "After", "x"));
+            QVERIFY(mac.librarySync()->syncBlocking().error.isEmpty());
+            before = device();
+            QVERIFY(mac.scheduleRestore(done[0][1].toString()));
+        }
+        ResearchStore restored(data);
+        QVERIFY2(restored.initialize(&error), qPrintable(error));
+        QVERIFY2(restored.startupMessage().contains("Sync now brings"), qPrintable(restored.startupMessage()));
+        QVERIFY(!QFileInfo::exists(data + "/restore-pending"));
+        QCOMPARE(restored.note(note)["title"].toString(), QString("Before"));
+        // It joins as a new computer and catches up with everyone, its own change since the backup included.
+        QVERIFY(restored.librarySync()->syncBlocking().error.isEmpty());
+        QCOMPARE(restored.note(note)["title"].toString(), QString("After"));
+        QVERIFY(!device().isEmpty() && device() != before);
+    }
     void syncKeepsFileNamesFromTheFolderInPlace()
     {
         QTemporaryDir directory;

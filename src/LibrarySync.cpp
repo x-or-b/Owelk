@@ -122,6 +122,21 @@ bool setSetting(QSqlDatabase &db, const QString &key, const QString &value)
     return query.exec();
 }
 
+// This computer's ID in the folder. A data folder copied from another computer, or one restored from a backup
+// (which forgets the ID), gets a new one: it must neither write as another computer nor pass over changes as if
+// they were its own, and so reads every computer's changes (its own from before included) and catches up.
+QString deviceId(QSqlDatabase &db)
+{
+    auto device = setting(db, "sync.device");
+    const auto machine = QString::fromLatin1(QSysInfo::machineUniqueId());
+    if (device.isEmpty() || (!machine.isEmpty() && setting(db, "sync.machine") != machine)) {
+        device = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        setSetting(db, "sync.device", device);
+        setSetting(db, "sync.machine", machine);
+    }
+    return device;
+}
+
 // Bookkeeping tables and the triggers that note changed rows. Installed when sync is first turned
 // on and kept afterwards, so changes made while it is off still travel when it is turned on again.
 bool installTracking(QSqlDatabase &db, QString *error)
@@ -823,9 +838,9 @@ void LibrarySync::start()
 {
     WorkerConnection db(m_directory + "/owelk.sqlite3");
     m_folder = setting(db.db, "sync.folder");
-    m_device = setting(db.db, "sync.device");
     m_library = setting(db.db, "sync.library");
     if (m_folder.isEmpty()) return;
+    m_device = deviceId(db.db);
     QString error;
     if (!installTracking(db.db, &error)) m_status = error;
     m_timer.start();
@@ -859,13 +874,7 @@ QString LibrarySync::setFolder(const QUrl &chosen)
     WorkerConnection db(m_directory + "/owelk.sqlite3");
     QString error;
     if (!installTracking(db.db, &error)) return error;
-    // A copied data folder (a backup restored on another computer) must not write as this one.
-    const auto machine = QString::fromLatin1(QSysInfo::machineUniqueId());
-    if (m_device.isEmpty() || (!machine.isEmpty() && setting(db.db, "sync.machine") != machine)) {
-        m_device = QUuid::createUuid().toString(QUuid::WithoutBraces);
-        setSetting(db.db, "sync.device", m_device);
-        setSetting(db.db, "sync.machine", machine);
-    }
+    m_device = deviceId(db.db);
     if (library != m_library && !markEverything(db.db, &error)) return error;
     if (!setSetting(db.db, "sync.folder", path) || !setSetting(db.db, "sync.library", library))
         return ui("Cannot save the sync folder.");

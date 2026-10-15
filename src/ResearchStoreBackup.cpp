@@ -150,45 +150,79 @@ bool ResearchStore::scheduleRestore(const QString &folder)
 
 bool ResearchStore::applyPendingRestore(const QString &directory, QString *error)
 {
-    QFile pending(directory + "/restore-pending");
+    const auto marker = directory + "/restore-pending";
+    QFile pending(marker);
     if (!pending.exists()) return true;
     if (!pending.open(QIODevice::ReadOnly)) return true;
     const auto backup = QString::fromUtf8(pending.readAll()).trimmed();
     pending.close();
-    pending.remove();
-    if (!QFileInfo::exists(backup + "/owelk.sqlite3")) {
-        *error = ui("The backup to restore is gone; your current data was kept.");
+    // The marker goes last, once the restore is done or given up: a restore stopped part-way runs again on the
+    // next start. The backup is copied in under other names first, and only renames swap it in.
+    const auto done = [&](const QString &message) {
+        QFile::remove(marker);
+        *error = message;
         return true;
+    };
+    if (!QFileInfo::exists(backup + "/owelk.sqlite3"))
+        return done(ui("The backup to restore is gone; your current data was kept."));
+    const QString staged = ".restoring";
+    const auto dropStaged = [&] {
+        QFile::remove(directory + "/owelk.sqlite3" + staged);
+        for (const auto &folder : restoredFolders) QDir(directory + "/" + folder + staged).removeRecursively();
+    };
+    dropStaged(); // Left by a restore that stopped part-way.
+    bool ok = QFile::copy(backup + "/owelk.sqlite3", directory + "/owelk.sqlite3" + staged);
+    for (const auto &folder : restoredFolders)
+        ok = ok && copyFolder(backup + "/" + folder, directory + "/" + folder + staged);
+    if (!ok) {
+        dropStaged();
+        return done(ui("The backup could not be copied; your current data was kept."));
     }
-    // Current data moves aside first (never deleted), then the backup is copied in.
+    // With sync on, the restored library catches up with the other computers: it joins as a new computer and
+    // reads everyone's changes, this computer's own since the backup included (docs/SYNC.md).
+    bool syncing = false;
+    {
+        WorkerConnection db(directory + "/owelk.sqlite3" + staged);
+        QSqlQuery query(db.db);
+        syncing = query.exec("SELECT value FROM settings WHERE key='sync.folder'") && query.next()
+            && !query.value(0).toString().isEmpty();
+        query.finish();
+        query.exec("DELETE FROM settings WHERE key='sync.device'");
+    }
+    // Current data moves aside (never deleted), then the backup takes its place.
     const auto aside
         = directory + "/backups/before-restore-" + QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss");
     if (!QDir().mkpath(aside)) {
-        *error = ui("Cannot make room to restore the backup; your current data was kept.");
-        return true;
+        dropStaged();
+        return done(ui("Cannot make room to restore the backup; your current data was kept."));
     }
     QStringList moved;
+    const auto putBack = [&] {
+        for (const auto &back : std::as_const(moved)) QDir().rename(aside + "/" + back, directory + "/" + back);
+    };
     for (const auto &name : QStringList{"owelk.sqlite3", "owelk.sqlite3-wal", "owelk.sqlite3-shm"} + restoredFolders)
         if (QFileInfo::exists(directory + "/" + name)) {
             if (!QDir().rename(directory + "/" + name, aside + "/" + name)) {
-                for (const auto &back : moved) QDir().rename(aside + "/" + back, directory + "/" + back);
-                *error = ui("Cannot move the current data aside; nothing was restored.");
-                return true;
+                putBack();
+                dropStaged();
+                return done(ui("Cannot move the current data aside; nothing was restored."));
             }
             moved << name;
         }
-    bool ok = QFile::copy(backup + "/owelk.sqlite3", directory + "/owelk.sqlite3");
-    for (const auto &folder : restoredFolders) ok = ok && copyFolder(backup + "/" + folder, directory + "/" + folder);
-    if (!ok) {
+    bool swapped = QDir().rename(directory + "/owelk.sqlite3" + staged, directory + "/owelk.sqlite3");
+    for (const auto &folder : restoredFolders)
+        if (swapped && QFileInfo::exists(directory + "/" + folder + staged))
+            swapped = QDir().rename(directory + "/" + folder + staged, directory + "/" + folder);
+    if (!swapped) {
         // Put the previous data back exactly as it was.
         QFile::remove(directory + "/owelk.sqlite3");
         for (const auto &folder : restoredFolders) QDir(directory + "/" + folder).removeRecursively();
-        for (const auto &back : moved) QDir().rename(aside + "/" + back, directory + "/" + back);
-        *error = ui("The backup could not be copied; your current data was kept.");
-        return true;
+        putBack();
+        dropStaged();
+        return done(ui("The backup could not be copied; your current data was kept."));
     }
-    *error = ui("Restored the backup. The previous data is in ") + QDir::toNativeSeparators(aside) + ".";
-    return true;
+    return done(ui("Restored the backup. The previous data is in ") + QDir::toNativeSeparators(aside) + "."
+        + (syncing ? ui(" Sync now brings it up to date with your other computers.") : QString()));
 }
 
 // --- Crash recovery ---------------------------------------------------------------------------
