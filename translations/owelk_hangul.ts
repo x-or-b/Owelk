@@ -1722,6 +1722,14 @@ Same file as another library entry</source>
         <translation>딜리트</translation>
     </message>
     <message>
+        <source>Delete for good</source>
+        <translation>딜리트 포 굿</translation>
+    </message>
+    <message>
+        <source>Delete for good?</source>
+        <translation>딜리트 포 굿?</translation>
+    </message>
+    <message>
         <source>Deselect All</source>
         <translation>디셀렉트 올</translation>
     </message>
@@ -1788,6 +1796,10 @@ Same file as another library entry</source>
     <message>
         <source>Inside the collection shown. </source>
         <translation>인사이드 더 컬렉션 숀. </translation>
+    </message>
+    <message>
+        <source>It cannot be restored.</source>
+        <translation>잇 캔낫 비 리스토어드.</translation>
     </message>
     <message>
         <source>Last added</source>
@@ -1972,6 +1984,10 @@ Same file as another library entry</source>
     <message>
         <source>The PDFs stay where they are; titles and text are read in the background. Hidden folders are skipped.</source>
         <translation>더 피디에프스 스테이 웨어 데이 아; 타이틀스 앤드 텍스트 아 리드 인 더 백그라운드. 히든 폴더스 아 스킵트.</translation>
+    </message>
+    <message>
+        <source>The paper loses its annotations, and a PDF Owelk keeps goes to the system Trash.</source>
+        <translation>더 페이퍼 루지즈 잇츠 애노테이션스, 앤드 어 피디에프 오웰크 킵스 고즈 투 더 시스템 트래시.</translation>
     </message>
     <message>
         <source>This month</source>

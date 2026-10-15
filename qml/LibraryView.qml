@@ -198,12 +198,11 @@ Rectangle {
     readonly property var kindNames: ({paper: qsTr("Paper"), note: qsTr("Note"), ai: qsTr("AI conversation")})
     // Later, so a row is not removed while its own button handles the click.
     function restore(items) { Qt.callLater(function() { researchStore.restoreFromTrash(items); root.refresh() }) }
-    // Deleting for good, after a word when notes link to what goes (their links stop opening).
+    // Deleting for good always asks first (Restore is right beside it), and says so when notes link to what
+    // goes (their links stop opening).
     function deleteForGood(items) {
-        const linked = researchStore.notesLinkingTo(items)
-        if (!linked) { Qt.callLater(function() { researchStore.deleteForGood(items); root.refresh() }); return }
         purgeConfirm.items = items
-        purgeConfirm.linked = linked
+        purgeConfirm.linked = researchStore.notesLinkingTo(items)
         purgeConfirm.open()
     }
     signal noteChosen(string id)
@@ -880,7 +879,7 @@ Rectangle {
                             }
                             IconButton {
                                 objectName: "purge-" + trashItem.modelData.kind + "-" + trashItem.modelData.id
-                                icon.name: "trash"; tint: Theme.danger; description: "Delete for good"
+                                icon.name: "trash"; tint: Theme.danger; description: qsTr("Delete for good")
                                 onClicked: root.deleteForGood([trashItem.modelData])
                             }
                         }
@@ -902,10 +901,12 @@ Rectangle {
                     objectName: "purgeConfirm"
                     property var items: []
                     property int linked: 0
-                    title: "Delete for good?"
-                    message: linked + (linked === 1 ? qsTr(" note links") : qsTr(" notes link")) + qsTr(" to this; the link will no longer open")
-                             + (items.length && items[0].kind === "ai" ? qsTr(" (it reads \u201cDeleted conversation\u201d).") : ".")
-                    actionText: "Delete"
+                    title: qsTr("Delete for good?")
+                    message: (items.length && items[0].kind === "paper" ? qsTr("The paper loses its annotations, and a PDF Owelk keeps goes to the system Trash.")
+                                                                        : qsTr("It cannot be restored."))
+                             + (linked ? " " + linked + (linked === 1 ? qsTr(" note links") : qsTr(" notes link")) + qsTr(" to this; the link will no longer open")
+                                         + (items[0].kind === "ai" ? qsTr(" (it reads \u201cDeleted conversation\u201d).") : ".") : "")
+                    actionText: qsTr("Delete")
                     onConfirmed: { const chosen = items; Qt.callLater(function() { researchStore.deleteForGood(chosen); root.refresh() }) }
                 }
                 RowLayout {
