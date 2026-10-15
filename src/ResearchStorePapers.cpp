@@ -18,19 +18,33 @@
 // "Keep PDFs in Owelk": opened, added and downloaded PDFs get a copy in the data folder's papers/
 // (which sync fills too), so the Library does not depend on files scattered over the disk, as in
 // note apps. The originals are never moved or deleted.
-namespace {
-QString uniqueFile(const QString &folder, const QString &suggested)
+QString ResearchStore::unusedFile(
+    const QSqlDatabase &db, const QHash<QString, QString> &relinks, const QString &folder, const QString &suggested)
 {
     // Keep only a plain file name; never let a server or another computer choose the folder.
     auto name = QFileInfo(suggested).fileName().remove(QRegularExpression("[\\x00-\\x1f/\\\\:]")).trimmed();
     if (name.isEmpty() || name.startsWith('.')) name = "download.pdf";
     const QFileInfo base(name);
     const auto stem = base.completeBaseName(), suffix = base.suffix().isEmpty() ? QString() : "." + base.suffix();
-    for (int n = 1; QFileInfo::exists(folder + "/" + name) && n < 1000; ++n)
+    // A name a paper still answers to would make a new file that paper (its annotations, its title).
+    const auto used = [&](const QString &path) {
+        if (QFileInfo::exists(path)) return true;
+        const auto url = QUrl::fromLocalFile(path).toString();
+        if (relinks.contains(url)) return true;
+        QSqlQuery query(db);
+        query.prepare("SELECT 1 FROM documents WHERE url=?");
+        query.addBindValue(url);
+        if (query.exec() && query.next()) return true;
+        query.prepare("SELECT 1 FROM sync_files WHERE local=? AND outgoing=0"); // Only once sync has been on.
+        query.addBindValue(path);
+        return query.exec() && query.next();
+    };
+    for (int n = 1; used(folder + "/" + name) && n < 1000; ++n)
         name = QStringLiteral("%1 (%2)%3").arg(stem).arg(n).arg(suffix);
     return folder + "/" + name;
 }
 
+namespace {
 bool copyInto(const QString &from, const QString &to)
 {
     const auto part = to + ".part";
@@ -43,7 +57,8 @@ bool copyInto(const QString &from, const QString &to)
 // The Library's file for a PDF: a path the Library already uses stays; identical bytes map to the
 // paper that has them; anything else is copied into papers/. The input comes back when nothing
 // applies or copying fails, so opening never breaks because of this.
-QUrl adoptFile(QSqlDatabase &db, const QString &folder, const QUrl &source, QHash<QString, QUrl> *batch)
+QUrl adoptFile(QSqlDatabase &db, const QHash<QString, QString> &relinks, const QString &folder, const QUrl &source,
+    QHash<QString, QUrl> *batch)
 {
     const auto path = source.toLocalFile();
     const QFileInfo info(path);
@@ -63,13 +78,14 @@ QUrl adoptFile(QSqlDatabase &db, const QString &folder, const QUrl &source, QHas
         const QUrl existing(same.value(0).toString());
         const auto existingPath = existing.toLocalFile();
         if (QFileInfo::exists(existingPath) && QFileInfo(existingPath) != info) {
-            // A fresh download of a paper Owelk already keeps is not kept twice.
-            if (inside) QFile::remove(path);
+            // A fresh download of a paper Owelk already keeps is not kept twice. Only when that copy is in the
+            // same folder: a paper whose file is elsewhere keeps this one too (the other may be cleaned up).
+            if (inside && existingPath.startsWith(folder + "/")) QFile::remove(path);
             return existing;
         }
     }
     if (inside) return source;
-    const auto target = uniqueFile(folder, info.fileName());
+    const auto target = ResearchStore::unusedFile(db, relinks, folder, info.fileName());
     if (!copyInto(path, target)) return source;
     FileFingerprint::remember(target, FileFingerprint::stamp(target), hash);
     const auto url = QUrl::fromLocalFile(target);
@@ -116,7 +132,7 @@ void ResearchStore::relocatePapers()
     query.finish();
     int moved = 0;
     for (const auto &[path, hash] : std::as_const(papers)) {
-        const auto target = uniqueFile(m_papers, QFileInfo(path).fileName());
+        const auto target = unusedFile(m_database, m_relinks, m_papers, QFileInfo(path).fileName());
         const bool present = QFileInfo::exists(path);
         if (present && (!QDir().mkpath(m_papers) || !QFile::rename(path, target))) continue;
         const auto from = QUrl::fromLocalFile(path), to = QUrl::fromLocalFile(target);
@@ -125,7 +141,6 @@ void ResearchStore::relocatePapers()
             if (present) QFile::rename(target, path);
             continue;
         }
-        m_relinks.insert(from.toString(), to.toString());
         m_index->relocateSource(from, to);
         // A paper still arriving through sync lands in the new place.
         QSqlQuery pending(m_database);
@@ -174,7 +189,7 @@ void ResearchStore::nameDownloadedPdf(const QUrl &file)
         known.addBindValue(file.toString());
         const bool used = known.exec() && known.next();
         if (!used && !stem.isEmpty() && stem != QFileInfo(path).completeBaseName() && QFileInfo(path).isFile()) {
-            const auto target = uniqueFile(papersFolder(), stem + ".pdf");
+            const auto target = unusedFile(m_database, m_relinks, papersFolder(), stem + ".pdf");
             if (QFile::rename(path, target)) {
                 if (!hash.isEmpty()) FileFingerprint::remember(target, FileFingerprint::stamp(target), hash);
                 named = QUrl::fromLocalFile(target);
@@ -221,7 +236,7 @@ int ResearchStore::renamePapersToTitles(const QVariantList &sources)
             ++named;
             continue;
         }
-        const auto target = uniqueFile(papersFolder(), stem + ".pdf");
+        const auto target = unusedFile(m_database, m_relinks, papersFolder(), stem + ".pdf");
         if (!QFile::rename(path, target)) continue;
         const auto to = QUrl::fromLocalFile(target);
         QString error;
@@ -230,7 +245,6 @@ int ResearchStore::renamePapersToTitles(const QVariantList &sources)
             continue;
         }
         if (!hash.isEmpty()) FileFingerprint::remember(target, FileFingerprint::stamp(target), hash);
-        m_relinks.insert(from.toString(), to.toString());
         rememberTitle(from, {});
         rememberPaperName(to);
         m_index->relocateSource(from, to);
@@ -261,8 +275,15 @@ QUrl ResearchStore::adoptPdf(const QUrl &source)
 
 QUrl ResearchStore::adoptPdf(const QUrl &source, QHash<QString, QUrl> *batch)
 {
-    const auto url = resolvedSource(source);
-    return keepsPdfs() ? adoptFile(m_database, papersFolder(), url, batch) : url;
+    auto url = resolvedSource(source);
+    // A redirect to a paper deleted for good (left from before deleting cleaned them up) is not followed when the
+    // file asked for is here: it opens as itself.
+    if (url != source && source.isLocalFile() && QFileInfo::exists(source.toLocalFile())
+        && !QFileInfo::exists(url.toLocalFile()) && findDocument(url).isEmpty()) {
+        forgetRelinksTo(url);
+        url = source;
+    }
+    return keepsPdfs() ? adoptFile(m_database, m_relinks, papersFolder(), url, batch) : url;
 }
 
 QStringList ResearchStore::adoptPdfFiles(const QString &directory, const QString &papers,
@@ -275,7 +296,7 @@ QStringList ResearchStore::adoptPdfFiles(const QString &directory, const QString
     for (const auto &path : paths) {
         auto url = QUrl::fromLocalFile(path).toString();
         for (int hop = 0; hop < 16 && relinks.contains(url); ++hop) url = relinks.value(url);
-        adopted << adoptFile(db.db, papers, QUrl(url), &batch).toLocalFile();
+        adopted << adoptFile(db.db, relinks, papers, QUrl(url), &batch).toLocalFile();
         if (progress) progress(adopted.size());
     }
     return adopted;
@@ -327,7 +348,6 @@ void ResearchStore::copyPdfsIntoLibrary()
                 QFile::remove(move.to.toLocalFile());
                 continue;
             }
-            m_relinks.insert(move.from.toString(), move.to.toString());
             m_index->relocateSource(move.from, move.to);
             emit sourceRelinked(move.from, move.to);
             ++copied;
@@ -346,14 +366,16 @@ void ResearchStore::copyPdfsIntoLibrary()
     });
     const auto folder = papersFolder();
     // Its own worker, so it starts at once (the details reader's queue may be long); n of all in the status bar.
-    watcher->setFuture(QtConcurrent::run([this, moves, folder, label]() mutable {
+    watcher->setFuture(QtConcurrent::run([this, moves, folder, label, directory = m_directory,
+                                             relinks = m_relinks]() mutable {
+        WorkerConnection db(directory + "/owelk.sqlite3", true);
         int done = 0;
         for (auto &move : moves) {
             const double total = moves.size(), now = done++;
             QMetaObject::invokeMethod(
                 this, [this, now, total, label] { progressTask("copyPdfs", now, total, label); }, Qt::QueuedConnection);
             const auto path = move.from.toLocalFile();
-            const auto target = uniqueFile(folder, QFileInfo(path).fileName());
+            const auto target = unusedFile(db.db, relinks, folder, QFileInfo(path).fileName());
             const auto hash = FileFingerprint::sha256(path);
             if (hash.isEmpty() || !copyInto(path, target)) continue;
             // Only a byte-for-byte copy replaces the original in the Library.
@@ -460,6 +482,7 @@ int ResearchStore::purgePapers(const QVariantList &sources)
             continue;
         }
         m_index->remove(url);
+        forgetRelinksTo(url);
         files << url;
         ++purged;
     }

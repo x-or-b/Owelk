@@ -74,7 +74,9 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
         reject(ui("Choose a different local PDF path."));
         return;
     }
-    if (m_relinks.contains(candidate.toString())) {
+    // A path that redirects elsewhere is taken only when it leads back here (the file returned to a place it had
+    // before); applyRelink then drops that redirect, so no loop is made.
+    if (m_relinks.contains(candidate.toString()) && resolvedSource(candidate) != source) {
         reject(ui("This path was previously redirected. Choose a new path to avoid a redirect cycle."));
         return;
     }
@@ -114,7 +116,6 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
         QString error = result.second;
         bool success = error.isEmpty() && applyRelink(source, candidate, result.first, &error);
         if (success) {
-            m_relinks.insert(source.toString(), candidate.toString());
             m_index->relocateSource(source, candidate);
             // Update live tabs before a pending UI save can reintroduce an old path.
             emit sourceRelinked(source, candidate);
@@ -230,12 +231,29 @@ bool ResearchStore::applyRelink(const QUrl &source, const QUrl &candidate, const
             if (!run(update, {change.second, change.first})) return false;
         return true;
     };
+    // Where the paper is now never redirects anywhere (a file moved back to a place it had before).
     if (!updateStates("SELECT key,value FROM settings WHERE key='session'", "UPDATE settings SET value=? WHERE key=?")
-        || !run("INSERT INTO source_relinks(old_url,new_url,sha256) VALUES(?,?,?)", {oldUrl, newUrl, hash}))
+        || !run("DELETE FROM source_relinks WHERE old_url=?", {newUrl})
+        || !run("INSERT OR REPLACE INTO source_relinks(old_url,new_url,sha256) VALUES(?,?,?)", {oldUrl, newUrl, hash}))
         return abort();
     if (!m_database.commit()) {
         *error = m_database.lastError().text();
         return abort();
     }
+    m_relinks.remove(newUrl);
+    m_relinks.insert(oldUrl, newUrl);
     return true;
+}
+
+void ResearchStore::forgetRelinksTo(const QUrl &target)
+{
+    QStringList keys;
+    for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)
+        if (resolvedSource(QUrl(it.key())) == target) keys << it.key();
+    for (const auto &key : std::as_const(keys)) {
+        QSqlQuery query(m_database);
+        query.prepare("DELETE FROM source_relinks WHERE old_url=?");
+        query.addBindValue(key);
+        if (query.exec()) m_relinks.remove(key);
+    }
 }

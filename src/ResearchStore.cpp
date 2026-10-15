@@ -911,14 +911,8 @@ QVariantMap ResearchStore::downloadTarget(const QString &suggestedName, bool pdf
     if (directory.isEmpty() || !QFileInfo(directory).isDir())
         directory = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
     if (pdf && keepsPdfs() && QDir().mkpath(papersFolder())) directory = papersFolder();
-    // Keep only a plain file name; never let a server choose the folder.
-    auto name = QFileInfo(suggestedName).fileName().remove(QRegularExpression("[\\x00-\\x1f/\\\\:]")).trimmed();
-    if (name.isEmpty() || name.startsWith('.')) name = "download.pdf";
-    const QFileInfo base(name);
-    const auto stem = base.completeBaseName(), suffix = base.suffix().isEmpty() ? QString() : "." + base.suffix();
-    for (int n = 1; QFileInfo::exists(directory + "/" + name) && n < 1000; ++n)
-        name = QStringLiteral("%1 (%2)%3").arg(stem).arg(n).arg(suffix);
-    return {{"directory", directory}, {"fileName", name}, {"url", QUrl::fromLocalFile(directory + "/" + name)}};
+    const auto file = unusedFile(m_database, m_relinks, directory, suggestedName);
+    return {{"directory", directory}, {"fileName", QFileInfo(file).fileName()}, {"url", QUrl::fromLocalFile(file)}};
 }
 
 int ResearchStore::listFolder(const QUrl &folder)

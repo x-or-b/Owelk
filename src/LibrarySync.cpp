@@ -1,5 +1,6 @@
 #include "LibrarySync.h"
 #include "DocumentMerge.h"
+#include "FileFingerprint.h"
 #include "UiText.h"
 #include "WorkerConnection.h"
 
@@ -599,10 +600,13 @@ QString Pass::localPaperPath(const QVariantMap &row)
     if (name.isEmpty() || name.startsWith('.'))
         name = (sha.isEmpty() ? row.value("id").toString() : sha.left(16)) + ".pdf";
     const auto folder = m_papers + "/";
+    // Not a name a paper here uses or used before (a redirect): a file there would become that paper.
     const auto taken = [&](const QString &path) {
         QSqlQuery query(m_db);
+        const auto url = QUrl::fromLocalFile(path).toString();
         return QFileInfo::exists(path)
-            || (run(query, "SELECT 1 FROM documents WHERE url=?", {QUrl::fromLocalFile(path).toString()})
+            || (run(query, "SELECT 1 FROM documents WHERE url=? UNION ALL SELECT 1 FROM source_relinks WHERE old_url=?",
+                    {url, url})
                 && query.next());
     };
     auto path = folder + name;
@@ -772,11 +776,25 @@ void Pass::moveFiles()
             continue;
         }
         const auto remote = m_folder + "/" + item.remote;
+        auto local = item.local;
         bool done = true;
         if (item.outgoing) {
             if (!QFileInfo::exists(remote) && QFileInfo::exists(item.local)) done = copyFile(item.local, remote);
         } else {
-            const auto &local = item.local;
+            // Another file took this paper's name before the paper arrived: the paper gets a name of its own and
+            // that file stays as it is.
+            const auto sha = QFileInfo(item.remote).completeBaseName();
+            if (QFileInfo::exists(local) && item.remote.startsWith("Papers/")
+                && FileFingerprint::sha256(local) != sha) {
+                const auto own
+                    = localPaperPath({{"sha256", sha}, {"id", sha}, {"url", QUrl::fromLocalFile(local).toString()}});
+                if (!run("UPDATE documents SET url=? WHERE url=?",
+                        {QUrl::fromLocalFile(own).toString(), QUrl::fromLocalFile(local).toString()})
+                    || !run("UPDATE sync_files SET local=? WHERE local=? AND remote=? AND outgoing=0",
+                        {own, local, item.remote}))
+                    continue;
+                local = own;
+            }
             if (!QFileInfo::exists(local)) {
                 if (!QFileInfo::exists(remote)) {
                     ++outcome.waiting; // Not here yet: the sync program is still bringing it.
@@ -789,7 +807,7 @@ void Pass::moveFiles()
         }
         if (done)
             run("DELETE FROM sync_files WHERE local=? AND remote=? AND outgoing=?",
-                {item.local, item.remote, item.outgoing});
+                {local, item.remote, item.outgoing});
     }
 }
 

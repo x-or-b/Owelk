@@ -91,6 +91,11 @@ public:
     // downloaded are copied into the data folder's papers/; originals stay untouched.
     bool keepsPdfs() const;
     QString papersFolder() const;
+    // A file in folder named from a suggested name (a plain name only: never a folder a server or another
+    // computer chose) that nothing uses: no file there, no paper's file or earlier place (redirect), no paper
+    // file sync is still bringing. Workers pass their own connection and a copy of the redirects.
+    static QString unusedFile(const QSqlDatabase &db, const QHash<QString, QString> &relinks, const QString &folder,
+        const QString &suggested);
     Q_INVOKABLE QUrl papersFolderUrl() const;
     // The URL to open for a PDF: the Library's own copy (made now if needed) while PDFs are kept.
     Q_INVOKABLE QUrl adoptPdf(const QUrl &source);
@@ -456,6 +461,8 @@ private:
         const std::function<void(int)> &progress = {});
     // Same-bytes files met earlier in one batch reuse that copy.
     QUrl adoptPdf(const QUrl &source, QHash<QString, QUrl> *batch);
+    // Redirects that end at this file (its paper deleted for good): the files they came from open as themselves.
+    void forgetRelinksTo(const QUrl &target);
     static QString defaultPapersFolder(const QString &directory);
     void relocatePapers();
     QString m_papers;

@@ -2358,6 +2358,46 @@ private slots:
         store.addDocuments({twin, twinCopy});
         QTRY_COMPARE_WITH_TIMEOUT(store.libraryDocuments().size(), 3, 5000);
     }
+    void redirectsNeverCaptureAnotherFile()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        // A paper renamed after its title still answers to its old name; a different PDF with that name becomes
+        // a paper of its own, under another name.
+        QVERIFY(QDir().mkpath(directory.filePath("a")) && QDir().mkpath(directory.filePath("b")));
+        writeFixture(directory.filePath("a/fulltext.pdf"), "First Paper");
+        writeFixture(directory.filePath("b/fulltext.pdf"), "Second Paper");
+        const auto first = store.adoptPdf(QUrl::fromLocalFile(directory.filePath("a/fulltext.pdf")));
+        QCOMPARE(QFileInfo(first.toLocalFile()).fileName(), QString("fulltext.pdf"));
+        QVERIFY(store.rememberDocument(first));
+        QTRY_COMPARE_WITH_TIMEOUT(store.displayName(first), QString("First Paper"), 10000);
+        QCOMPARE(store.renamePapersToTitles({first}), 1);
+        QVERIFY(store.resolvedSource(first) != first);
+        const auto second = store.adoptPdf(QUrl::fromLocalFile(directory.filePath("b/fulltext.pdf")));
+        QVERIFY(second != first);
+        QVERIFY(store.rememberDocument(second));
+        QVERIFY(store.documentLinkId(second) != store.documentLinkId(first));
+        // A paper copied into the Library and then deleted for good: its original opens again, as itself.
+        QVERIFY(store.setSetting("library.keepPdfs", "0"));
+        const auto original = QUrl::fromLocalFile(directory.filePath("original.pdf"));
+        writeFixture(original.toLocalFile(), "Original Paper");
+        QCOMPARE(store.addDocuments({original}), 1);
+        QVERIFY(store.setSetting("library.keepPdfs", "1"));
+        QTRY_VERIFY_WITH_TIMEOUT(!store.busy(), 10000);
+        store.copyPdfsIntoLibrary();
+        QTRY_VERIFY_WITH_TIMEOUT(!store.copyingPdfs(), 10000);
+        const auto copy = store.resolvedSource(original);
+        QVERIFY(copy != original);
+        QVERIFY(QFile::remove(copy.toLocalFile())); // Gone already, so the test sends nothing to the system Trash.
+        QCOMPARE(store.deletePapers({original}), 1);
+        QCOMPARE(store.purgePapers({original}), 1);
+        QCOMPARE(store.resolvedSource(original), original);
+        const auto reopened = store.adoptPdf(original);
+        QVERIFY(QFileInfo::exists(reopened.toLocalFile()));
+        QVERIFY(store.rememberDocument(reopened));
+    }
     void keptPdfsFollowTheirFolder()
     {
         // PDFs kept in the data folder move when the PDF folder changes (the move to Documents/Owelk Library/Papers);
