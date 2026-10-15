@@ -132,7 +132,8 @@ private:
     QStringList m_problems;
     bool m_checking = false;
     QList<Job> m_jobs;
-    int m_jobCount = 0;
+    // Sources that answered in this check: one that reached none (offline) does not count as today's check.
+    int m_jobCount = 0, m_answered = 0;
     QVariantList m_found;
     QStringList m_adding;
     QStringList m_addQueue;

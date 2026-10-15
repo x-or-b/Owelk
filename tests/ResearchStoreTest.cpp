@@ -917,6 +917,26 @@ private slots:
         QCOMPARE(store.recentDocuments()[0].toMap()["url"].toUrl(), first);
         QVERIFY(QFileInfo::exists(copy)); // Files are never touched.
     }
+    void forYouOfflineIsNotTodaysCheck()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *forYou = qobject_cast<ForYou *>(store.forYou());
+        // Nothing answers there: the check reaches no source.
+        QTcpServer closed;
+        QVERIFY(closed.listen(QHostAddress::LocalHost));
+        const auto port = closed.serverPort();
+        closed.close();
+        QVERIFY(store.setSetting("forYou.arxivBaseUrl", QStringLiteral("http://127.0.0.1:%1/api").arg(port)));
+        QVERIFY(forYou->saveTopics({QVariantMap{{"words", "lidar"}, {"categories", "cs.RO"}}}));
+        forYou->refresh();
+        QTRY_VERIFY_WITH_TIMEOUT(!forYou->checking(), 10000);
+        QVERIFY(!forYou->problem().isEmpty());
+        // So it is not today's check (here, nor through sync on the other computers): the next one tries again.
+        QVERIFY(!forYou->lastChecked().isValid());
+    }
     void forYouFindsNewPapersAndAddsThem()
     {
         // The arXiv query for a topic: any of the words, in any of the categories, in the period.

@@ -454,6 +454,7 @@ void ForYou::refresh()
     m_jobs.clear();
     m_found.clear();
     m_problems.clear();
+    m_answered = 0;
     const int limit = qBound(1, m_store->setting("forYou.perSource", "10").toInt(), 50);
     const auto from = since(), to = QDateTime::currentDateTimeUtc();
     const auto request = [](const QUrl &url) {
@@ -482,8 +483,10 @@ void ForYou::refresh()
                                reply->deleteLater();
                                if (reply->error() != QNetworkReply::NoError)
                                    m_problems << QString(ui("arXiv did not answer for “%1”.")).arg(job.sourceName);
-                               else
+                               else {
+                                   ++m_answered;
                                    found(ForYouParse::arxivEntries(reply->readAll()), job.source, job.sourceName);
+                               }
                                runNext();
                            });
                        }});
@@ -517,8 +520,10 @@ void ForYou::refresh()
                          m_problems << (status == 429
                                  ? ui("Semantic Scholar is busy. Try again in a minute.")
                                  : QString(ui("Semantic Scholar did not answer for “%1”.")).arg(job.sourceName));
-                     else
+                     else {
+                         ++m_answered;
                          found(ForYouParse::recommendations(reply->readAll()), job.source, job.sourceName);
+                     }
                      runNext();
                  });
              }});
@@ -594,8 +599,12 @@ void ForYou::finishCheck()
         if (m_store->hasPaper(item.value("arxiv").toString(), item.value("doi").toString()))
             exec("UPDATE foryou_items SET state='added',paper='{}',score=NULL,why=NULL WHERE id=?", {item.value("id")});
     }
-    exec("INSERT INTO foryou_meta(key,value) VALUES('checkedAt',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-        {now});
+    // A check that reached no source (offline, every service busy) is not today's check, here or on the other
+    // computers: the next one tries again.
+    if (m_answered)
+        exec("INSERT INTO foryou_meta(key,value) VALUES('checkedAt',?) ON CONFLICT(key) DO UPDATE SET "
+             "value=excluded.value",
+            {now});
     m_found.clear();
     m_problem = m_problems.join(' ');
     m_checking = false;
