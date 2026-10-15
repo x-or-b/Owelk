@@ -686,6 +686,23 @@ Item {
             compare(canvas().zoomFactor, 1.3)
             compare(workspace.documents.closedTabs.length, 0)
         }
+        function test_reopenClosedNoteAndLibraryTabs() {
+            const d = workspace.documents
+            const active = function() { const g = Tree.find(d.tree, d.activeGroup); return g.tabs.find(function(t) { return t.id === g.activeTab }) }
+            const note = researchStore.createNote("Reopened note", "Kept text")
+            verify(d.openNote(note, true)); d.closeActiveTab()
+            verify(d.openLibrary({})); d.closeActiveTab()
+            // One that cannot come back is dropped instead of standing in front of the others.
+            d.closedTabs = d.closedTabs.concat([{groupId: "", tab: {kind: "web", source: "not an address", title: ""}}])
+            d.reopenClosedTab()
+            d.reopenClosedTab()
+            compare(active().kind, "library")
+            d.reopenClosedTab()
+            compare(active().kind, "note"); compare(active().noteId, note)
+            d.closeActiveTab()
+            researchStore.deleteNote(note); researchStore.purgeNote(note)
+            d.closedTabs = []
+        }
         function test_separatePaletteShortcuts() {
             workspace.openDocument(fixtureSource); canvas()
             testInput.keyClick(workspace.currentReader, Qt.Key_K, Qt.ControlModifier)

@@ -618,11 +618,19 @@ Flickable {
     function reopenClosedTab() {
         if (!closedTabs.length) return
         const entry = closedTabs[closedTabs.length - 1]
+        // Off the list even when it cannot come back (its note deleted, its file gone), so it never stands in
+        // front of the tabs closed before it.
+        closedTabs = closedTabs.slice(0, -1)
         const previousGroup = activeGroup
         if (Tree.find(tree, entry.groupId)) activeGroup = entry.groupId
-        if (entry.tab.kind === "home") { newHomeTab(); closedTabs = closedTabs.slice(0, -1) }
-        else if (openDocument(entry.tab.source, entry.tab.position, true)) closedTabs = closedTabs.slice(0, -1)
-        else activeGroup = previousGroup
+        const t = entry.tab
+        let reopened = true
+        if (t.kind === "home") newHomeTab()
+        else if (t.kind === "web") reopened = openWeb(t.source, true, t.title)
+        else if (t.kind === "note") reopened = openNote(t.noteId, true)
+        else if (t.kind === "library") reopened = openLibrary(t.filter)
+        else reopened = openDocument(t.source, t.position, true)
+        if (!reopened) activeGroup = previousGroup
     }
     function duplicateSplit(edge) {
         const g = Tree.find(tree, activeGroup)
