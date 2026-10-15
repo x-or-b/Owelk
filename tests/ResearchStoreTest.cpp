@@ -397,6 +397,33 @@ private slots:
         QCOMPARE(mac.note("elsewhere")["title"].toString(), QString("From elsewhere"));
         QCOMPARE(sync->syncBlocking().skipped, 0);
     }
+    void syncReadsEverythingAgainAfterAnUpdate()
+    {
+        QTemporaryDir directory;
+        const auto drive = directory.filePath("Drive");
+        QVERIFY(QDir().mkpath(drive));
+        QString error;
+        ResearchStore mac(directory.filePath("mac")), ubuntu(directory.filePath("ubuntu"));
+        QVERIFY2(mac.initialize(&error) && ubuntu.initialize(&error), qPrintable(error));
+        const auto note = mac.createNote("Kept title", "body");
+        for (auto *store : {&mac, &ubuntu}) {
+            QCOMPARE(store->librarySync()->setFolder(QUrl::fromLocalFile(drive)), QString());
+            QVERIFY(store->librarySync()->syncBlocking().error.isEmpty());
+        }
+        QCOMPARE(ubuntu.note(note)["title"].toString(), QString("Kept title"));
+        // An older Owelk passed over a column it did not know; then it was updated.
+        {
+            WorkerConnection db(ubuntu.dataDirectory() + "/owelk.sqlite3");
+            QSqlQuery query(db.db);
+            for (const auto *sql : {"INSERT INTO sync_pause(paused) VALUES(1)", "UPDATE notes SET title=''",
+                     "DELETE FROM sync_pause", "UPDATE settings SET value='17' WHERE key='sync.schema'"})
+                QVERIFY2(query.exec(sql), qPrintable(query.lastError().text()));
+        }
+        QVERIFY(ubuntu.librarySync()->syncBlocking().error.isEmpty());
+        QCOMPARE(ubuntu.note(note)["title"].toString(), QString("Kept title"));
+        // Read again once, not on every pass.
+        QCOMPARE(ubuntu.librarySync()->syncBlocking().received, 0);
+    }
     void markdownShowsMathAsImages()
     {
         QTemporaryDir directory;

@@ -189,6 +189,7 @@ public:
     {
     }
     LibrarySync::Outcome outcome;
+    bool readAgainAfterUpdate();
     bool importChanges();
     bool exportChanges();
     void moveFiles();
@@ -252,6 +253,19 @@ private:
     QHash<QString, QHash<QString, QString>> m_aliases;
     QStringList m_removedPapers;
 };
+
+// Once Owelk here is updated (its schema changed), every computer's changes are read again: tables and columns
+// this computer did not know when it first read them were passed over, and are filled in now.
+bool Pass::readAgainAfterUpdate()
+{
+    QSqlQuery version(m_db);
+    if (!run(version, "PRAGMA user_version") || !version.next()) return false;
+    const auto schema = version.value(0).toString();
+    version.finish();
+    if (setting(m_db, "sync.schema") == schema) return true;
+    return run("DELETE FROM sync_seen")
+        && run("INSERT OR REPLACE INTO settings(key,value) VALUES('sync.schema',?)", {schema});
+}
 
 bool Pass::importChanges()
 {
@@ -394,7 +408,8 @@ bool Pass::applyChange(const QJsonObject &change)
         return false;
     while (version.next()) {
         const auto localTime = version.value(0).toLongLong();
-        if (localTime > time || (localTime == time && version.value(1).toString() >= device)) return true;
+        // The same version again (logs read again) is applied again: it may carry columns passed over before.
+        if (localTime > time || (localTime == time && version.value(1).toString() > device)) return true;
     }
     version.finish();
     if (removal) {
@@ -757,7 +772,7 @@ LibrarySync::Outcome runPass(const QString &data, const QString &papers, const Q
         return pass.outcome;
     }
     // Changes made here still go out when those from elsewhere cannot all be read in (the error is shown).
-    if (!exportOnly) pass.importChanges();
+    if (!exportOnly && pass.readAgainAfterUpdate()) pass.importChanges();
     if (!pass.exportChanges()) return pass.outcome;
     if (!exportOnly) pass.moveFiles();
     return pass.outcome;
