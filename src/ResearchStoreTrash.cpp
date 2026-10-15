@@ -100,7 +100,16 @@ int ResearchStore::restoreFromTrash(const QVariantList &items)
 int ResearchStore::deleteForGood(const QVariantList &items)
 {
     const auto chosen = sortOut(items, m_database);
-    int deleted = purgePapers(chosen.papers) + purgeAiThreads(chosen.threads);
+    // Only what is still in the Trash: a row shown a moment ago may have been restored since (papers and notes
+    // check this themselves).
+    QStringList threads;
+    for (const auto &id : chosen.threads) {
+        QSqlQuery query(m_database);
+        query.prepare("SELECT 1 FROM ai_threads WHERE id=? AND trashed_at IS NOT NULL");
+        query.addBindValue(id);
+        if (query.exec() && query.next()) threads << id;
+    }
+    int deleted = purgePapers(chosen.papers) + purgeAiThreads(threads);
     for (const auto &id : chosen.notes) deleted += purgeNote(id);
     return deleted;
 }

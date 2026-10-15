@@ -465,6 +465,12 @@ int ResearchStore::purgePapers(const QVariantList &sources)
         const auto url = resolvedSource(value.toUrl());
         const auto document = findDocument(url);
         if (document.isEmpty()) continue;
+        // Only a paper in the Trash: one restored since the Trash was shown (opened, or through sync) stays.
+        QSqlQuery trashed(m_database);
+        trashed.prepare("SELECT 1 FROM documents WHERE id=? AND trashed_at IS NOT NULL");
+        trashed.addBindValue(document);
+        if (!trashed.exec() || !trashed.next()) continue;
+        trashed.finish();
         const auto rows = [&](const QString &sql) {
             QStringList values;
             QSqlQuery query(m_database);
