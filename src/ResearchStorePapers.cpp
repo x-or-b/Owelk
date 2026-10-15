@@ -287,13 +287,18 @@ QUrl ResearchStore::adoptPdf(const QUrl &source, QHash<QString, QUrl> *batch)
 }
 
 QStringList ResearchStore::adoptPdfFiles(const QString &directory, const QString &papers,
-    const QHash<QString, QString> &relinks, const QStringList &paths, const std::function<void(int)> &progress)
+    const QHash<QString, QString> &relinks, const QStringList &paths, const std::function<void(int)> &progress,
+    const std::atomic_bool *stop)
 {
     // Runs on a worker: its own read-only connection; relinked paths resolve like resolvedSource.
     WorkerConnection db(directory + "/owelk.sqlite3", true);
     QHash<QString, QUrl> batch;
     QStringList adopted;
     for (const auto &path : paths) {
+        if (stop && stop->load()) {
+            adopted << path;
+            continue;
+        }
         auto url = QUrl::fromLocalFile(path).toString();
         for (int hop = 0; hop < 16 && relinks.contains(url); ++hop) url = relinks.value(url);
         adopted << adoptFile(db.db, relinks, papers, QUrl(url), &batch).toLocalFile();
@@ -365,29 +370,40 @@ void ResearchStore::copyPdfsIntoLibrary()
                       .arg(done.size()));
     });
     const auto folder = papersFolder();
-    // Its own worker, so it starts at once (the details reader's queue may be long); n of all in the status bar.
-    watcher->setFuture(QtConcurrent::run([this, moves, folder, label, directory = m_directory,
-                                             relinks = m_relinks]() mutable {
-        WorkerConnection db(directory + "/owelk.sqlite3", true);
-        int done = 0;
-        for (auto &move : moves) {
-            const double total = moves.size(), now = done++;
-            QMetaObject::invokeMethod(
-                this, [this, now, total, label] { progressTask("copyPdfs", now, total, label); }, Qt::QueuedConnection);
-            const auto path = move.from.toLocalFile();
-            const auto target = unusedFile(db.db, relinks, folder, QFileInfo(path).fileName());
-            const auto hash = FileFingerprint::sha256(path);
-            if (hash.isEmpty() || !copyInto(path, target)) continue;
-            // Only a byte-for-byte copy replaces the original in the Library.
-            if (FileFingerprint::sha256(target) != hash) {
-                QFile::remove(target);
-                continue;
+    // Its own pool, so it starts at once (the details reader's queue may be long); n of all in the status bar. The
+    // store waits for it at quit, so the progress reports never reach a store that is gone.
+    watcher->setFuture(QtConcurrent::run(&m_fileWorkers,
+        [this, moves, folder, label, directory = m_directory, relinks = m_relinks, stopping = m_stopping]() mutable {
+            WorkerConnection db(directory + "/owelk.sqlite3", true);
+            int done = 0;
+            for (auto &move : moves) {
+                if (stopping->load()) break; // Quitting: the rest stay where they are.
+                const double total = moves.size(), now = done++;
+                QMetaObject::invokeMethod(
+                    this, [this, now, total, label] { progressTask("copyPdfs", now, total, label); },
+                    Qt::QueuedConnection);
+                const auto path = move.from.toLocalFile();
+                const auto target = unusedFile(db.db, relinks, folder, QFileInfo(path).fileName());
+                const auto hash = FileFingerprint::sha256(path);
+                if (hash.isEmpty() || !copyInto(path, target)) continue;
+                // Only a byte-for-byte copy replaces the original in the Library.
+                if (FileFingerprint::sha256(target) != hash) {
+                    QFile::remove(target);
+                    continue;
+                }
+                move.to = QUrl::fromLocalFile(target);
+                move.hash = hash;
             }
-            move.to = QUrl::fromLocalFile(target);
-            move.hash = hash;
-        }
-        return moves;
-    }));
+            // Stopped for quitting: these copies will not join the Library, so they do not stay behind (the
+            // originals are where they were).
+            if (stopping->load())
+                for (auto &move : moves)
+                    if (!move.to.isEmpty()) {
+                        QFile::remove(move.to.toLocalFile());
+                        move.to.clear();
+                    }
+            return moves;
+        }));
 }
 
 // Owelk's paper Trash. Delete Paper hides a paper (with its notes, collections and tags kept) and

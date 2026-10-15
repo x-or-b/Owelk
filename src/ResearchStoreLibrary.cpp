@@ -558,14 +558,16 @@ int ResearchStore::importFolder(const QUrl &folder, const QString &parentCollect
                     .arg(made ? QString(" into %1 new collections").arg(made) : QString()));
     });
     const bool keep = keepsPdfs();
-    // Its own worker: the details reader's one-at-a-time queue may hold every paper still to be read.
-    watcher->setFuture(
-        QtConcurrent::run([root, keep, report, name, directory = m_directory, papers = m_papers, relinks = m_relinks] {
+    // Its own pool: the details reader's one-at-a-time queue may hold every paper still to be read. The store
+    // waits for it at quit (report reaches this object), and it stops after the file it is on.
+    watcher->setFuture(QtConcurrent::run(&m_fileWorkers,
+        [root, keep, report, name, directory = m_directory, papers = m_papers, relinks = m_relinks,
+            stopping = m_stopping] {
             QList<Found> found;
             QDirIterator it(root, {"*.pdf", "*.PDF"}, QDir::Files | QDir::Readable | QDir::NoSymLinks,
                 QDirIterator::Subdirectories);
             const QDir base(root);
-            while (it.hasNext() && found.size() < 10000) {
+            while (it.hasNext() && found.size() < 10000 && !stopping->load()) {
                 const auto path = it.next();
                 const QFileInfo info(path);
                 if (info.isHidden() || path.contains("/.")) continue;
@@ -582,8 +584,8 @@ int ResearchStore::importFolder(const QUrl &folder, const QString &parentCollect
                 const auto total = double(paths.size());
                 const auto label = QString(ui("Adding PDFs from %1")).arg(name);
                 report(0, total, label);
-                const auto adopted
-                    = adoptPdfFiles(directory, papers, relinks, paths, [&](int done) { report(done, total, label); });
+                const auto adopted = adoptPdfFiles(
+                    directory, papers, relinks, paths, [&](int done) { report(done, total, label); }, stopping.get());
                 for (int i = 0; i < found.size(); ++i) found[i].path = adopted[i];
             }
             return found;

@@ -2358,6 +2358,31 @@ private slots:
         store.addDocuments({twin, twinCopy});
         QTRY_COMPARE_WITH_TIMEOUT(store.libraryDocuments().size(), 3, 5000);
     }
+    void quittingWhileCopyingPdfsInIsSafe()
+    {
+        QTemporaryDir directory;
+        QVariantList papers;
+        for (int i = 0; i < 6; ++i) {
+            const auto path = directory.filePath(QStringLiteral("paper %1.pdf").arg(i));
+            writeFixture(path, QStringLiteral("Paper %1").arg(i), 40);
+            papers << QUrl::fromLocalFile(path);
+        }
+        {
+            ResearchStore store(directory.filePath("data"));
+            QString error;
+            QVERIFY2(store.initialize(&error), qPrintable(error));
+            QVERIFY(store.setSetting("library.keepPdfs", "0"));
+            QCOMPARE(store.addDocuments(papers), 6);
+            QVERIFY(store.setSetting("library.keepPdfs", "1"));
+            store.copyPdfsIntoLibrary();
+            QVERIFY(store.copyingPdfs());
+        } // Gone while copying: the copy stops after its file and the store waits for it.
+        ResearchStore reopened(directory.filePath("data"));
+        QString error;
+        QVERIFY2(reopened.initialize(&error), qPrintable(error));
+        QCOMPARE(reopened.libraryDocuments().size(), 6);
+        for (const auto &paper : papers) QVERIFY(QFileInfo::exists(paper.toUrl().toLocalFile()));
+    }
     void redirectsNeverCaptureAnotherFile()
     {
         QTemporaryDir directory;

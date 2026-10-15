@@ -1,7 +1,9 @@
 #pragma once
 
 #include <QFileInfo>
+#include <atomic>
 #include <functional>
+#include <memory>
 #include <QObject>
 #include <QHash>
 #include <QImage>
@@ -455,10 +457,10 @@ private:
     bool m_relinking = false;
     bool m_copyingPdfs = false;
     QList<QVariantMap> m_tasks;
-    // progress(done) is called after each file (on the worker).
+    // progress(done) is called after each file (on the worker); once stop is set the rest stay as they are.
     static QStringList adoptPdfFiles(const QString &directory, const QString &papers,
-        const QHash<QString, QString> &relinks, const QStringList &paths,
-        const std::function<void(int)> &progress = {});
+        const QHash<QString, QString> &relinks, const QStringList &paths, const std::function<void(int)> &progress = {},
+        const std::atomic_bool *stop = nullptr);
     // Same-bytes files met earlier in one batch reuse that copy.
     QUrl adoptPdf(const QUrl &source, QHash<QString, QUrl> *batch);
     // Redirects that end at this file (its paper deleted for good): the files they came from open as themselves.
@@ -474,6 +476,10 @@ private:
     QThreadPool m_workers;
     QThreadPool m_verifiers;
     QThreadPool m_metadataWorkers;
+    // Copying PDFs in and importing folders (long, file by file, reporting progress to this object): at quit
+    // they stop after the file they are on, and the store waits for them before it goes.
+    QThreadPool m_fileWorkers;
+    std::shared_ptr<std::atomic_bool> m_stopping = std::make_shared<std::atomic_bool>(false);
     QHash<QString, QString> m_titles;
     QStringList m_nameParts{QStringLiteral("title")};
     QSet<QString> m_metadataPending;

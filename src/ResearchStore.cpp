@@ -96,6 +96,7 @@ ResearchStore::ResearchStore(const QString &directory, QObject *parent)
     m_verifiers.setMaxThreadCount(2);
     m_metadataWorkers.setMaxThreadCount(1);
     m_metadataWorkers.setThreadPriority(QThread::LowPriority);
+    m_fileWorkers.setMaxThreadCount(2);
     connect(m_index, &PaperIndex::message, this, &ResearchStore::message);
 }
 
@@ -131,6 +132,9 @@ QStringList ResearchStore::annotationColors()
 
 ResearchStore::~ResearchStore()
 {
+    // First, while this object is whole: copying and importing report their progress to it.
+    m_stopping->store(true);
+    m_fileWorkers.waitForDone();
     m_sync->finish();
     if (m_database.isOpen()) markStopped();
     m_workers.waitForDone();
