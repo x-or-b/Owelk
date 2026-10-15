@@ -235,12 +235,17 @@ Rectangle {
         organizer.active = true
         organizer.item.begin(urls, root.filter.collection || "")
     }
-    function setFilter(next) { filter = next; selection = []; selectionAnchor = -1; filterEdited(next); refresh() }
+    property bool choosing: false
+    function setFilter(next) { choosing = true; filter = next; choosing = false; filterEdited(next); refresh() }
     function selected(key, value) { return key === "all" ? Object.keys(filter).length === 0 : filter[key] === value }
     onQueryChanged: refreshTimer.restart()
+    // Chosen here or from outside (the tab's filter), the lists follow: one from outside once the properties that
+    // depend on the filter (view, showingTrash, …) have it too.
     onFilterChanged: {
+        selection = []; selectionAnchor = -1
         if (filter.collection) researchStore.markOpened("collection", filter.collection)
         if (filter.open) openForYou(filter.open)
+        if (!choosing) Qt.callLater(root.refresh)
     }
     onSortChanged: refresh()
     Component.onCompleted: refresh()

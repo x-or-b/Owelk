@@ -400,7 +400,9 @@ Rectangle {
             Layout.fillWidth: true; Layout.fillHeight: true
             visible: root.isLibrary; active: root.isLibrary && !root.controller.suspended
             sourceComponent: LibraryView {
-                filter: root.activeTabData && root.activeTabData.filter ? root.activeTabData.filter : ({})
+                // The tab's filter, applied again whenever the tab's changes (openLibrary from a search result or
+                // the Threads panel), also after the view chose one itself with a click.
+                Binding on filter { value: root.activeTabData && root.activeTabData.filter ? root.activeTabData.filter : ({}) }
                 onFilterEdited: function(filter) { if (root.activeTabData) root.controller.setLibraryFilter(root.activeTabData.id, filter) }
                 onDocumentChosen: function(source, position) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source, position, true) }
                 onNoteChosen: function(id) { root.controller.activateGroup(root.groupId); root.controller.openNote(id, true) }

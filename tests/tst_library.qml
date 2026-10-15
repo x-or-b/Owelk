@@ -202,6 +202,25 @@ Item {
             tryVerify(function() { return researchStore.note(note).id === undefined })
             mouseClick(visualChild(view, "libraryPapersTab"))
         }
+        function test_libraryTabFollowsItsFilter() {
+            // After a click in the sidebar, opening the Library with a filter (the Threads panel's Trash, a search
+            // result) still switches the open tab, and its list is there at once.
+            const note = researchStore.createNote("Waiting note", "x")
+            verify(researchStore.deleteNote(note))
+            workspace.documents.openLibrary({})
+            const view = library()
+            tryVerify(function() { return visualChild(view, "librarySidebar-favorite-true") !== null })
+            waitForPolish(view); wait(50)
+            mouseClick(visualChild(view, "librarySidebar-favorite-true"))
+            compare(view.filter.favorite, true)
+            workspace.documents.openLibrary({view: "trash"})
+            compare(view.view, "trash")
+            tryVerify(function() { return view.trashRows.some(function(r) { return r.kind === "note" && r.id === note }) }, 1000)
+            workspace.documents.openLibrary({})
+            compare(view.view, "papers")
+            compare(view.filter.favorite, undefined)
+            researchStore.purgeNote(note)
+        }
         function test_newCollectionButton() {
             workspace.documents.openLibrary({})
             const view = library()
