@@ -674,7 +674,8 @@ Item {
             button.clicked()
             tryVerify(function() { return (ai.spec.noteIds || []).indexOf(made) >= 0 })
             verify(workspace.aiVisible)
-            researchStore.deleteNote(note); researchStore.deleteNote(made)
+            // Gone for good: the Trash is counted by later test files.
+            for (const id of [note, made]) { researchStore.deleteNote(id); researchStore.purgeNote(id) }
         }
         function test_9z_organizeTabsAppliesOnlyOnApply() {
             verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
