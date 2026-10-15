@@ -112,6 +112,16 @@ QString sha256(const QString &path, const std::atomic_bool *cancel)
     return result;
 }
 
+QString knownSha256(const QString &path)
+{
+    const auto id = key(path);
+    const auto now = stamp(id);
+    if (!now.isValid()) return {};
+    QMutexLocker lock(&mutex);
+    const auto it = entries.constFind(id);
+    return it != entries.cend() && it->stamp == now ? it->hash : QString();
+}
+
 void remember(const QString &path, const Stamp &stamp, const QString &hash)
 {
     if (!stamp.isValid() || hash.isEmpty()) return;

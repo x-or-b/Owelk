@@ -24,6 +24,8 @@ Stamp stamp(const QString &path);
 bool sameFile(const QString &first, const QString &second);
 // Empty when the file cannot be read or the hash was cancelled.
 QString sha256(const QString &path, const std::atomic_bool *cancel = nullptr);
+// The hash already known for this file (unchanged since), without reading it; empty when not known.
+QString knownSha256(const QString &path);
 // Seed a hash verified earlier; it is used only while the file still has this stamp.
 void remember(const QString &path, const Stamp &stamp, const QString &hash);
 // Number of full-file reads since process start. Tests use it to prove that cache hits do no I/O.

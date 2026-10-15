@@ -74,8 +74,19 @@ QUrl adoptFile(QSqlDatabase &db, const QHash<QString, QString> &relinks, const Q
     QSqlQuery same(db);
     same.prepare("SELECT url FROM documents WHERE sha256=? AND kind='pdf' ORDER BY removed_at IS NOT NULL LIMIT 1");
     same.addBindValue(hash);
-    if (same.exec() && same.next()) {
-        const QUrl existing(same.value(0).toString());
+    QUrl existing;
+    if (same.exec() && same.next()) existing = QUrl(same.value(0).toString());
+    // A paper added a moment ago has no fingerprint saved yet (its details are still being read), but the hash of
+    // its file is already known here, so adding the same PDF again (a folder imported twice) finds it.
+    if (existing.isEmpty()) {
+        QSqlQuery pending(db);
+        if (pending.exec("SELECT url FROM documents WHERE sha256='' AND kind='pdf'"))
+            while (existing.isEmpty() && pending.next()) {
+                const QUrl other(pending.value(0).toString());
+                if (FileFingerprint::knownSha256(other.toLocalFile()) == hash) existing = other;
+            }
+    }
+    if (!existing.isEmpty()) {
         const auto existingPath = existing.toLocalFile();
         if (QFileInfo::exists(existingPath) && QFileInfo(existingPath) != info) {
             // A fresh download of a paper Owelk already keeps is not kept twice. Only when that copy is in the
