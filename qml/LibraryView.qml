@@ -236,12 +236,21 @@ Rectangle {
         organizer.item.begin(urls, root.filter.collection || "")
     }
     property bool choosing: false
-    function setFilter(next) { choosing = true; filter = next; choosing = false; filterEdited(next); refresh() }
+    function setFilter(next) {
+        choosing = true; filter = next; choosing = false
+        selection = []; selectionAnchor = -1
+        filterEdited(next); refresh()
+    }
     function selected(key, value) { return key === "all" ? Object.keys(filter).length === 0 : filter[key] === value }
     onQueryChanged: refreshTimer.restart()
     // Chosen here or from outside (the tab's filter), the lists follow: one from outside once the properties that
     // depend on the filter (view, showingTrash, …) have it too.
+    // The same filter again (the tab's group changed elsewhere, say a web tab's title) keeps the selection and lists.
+    property string appliedFilter: "{}"
     onFilterChanged: {
+        const applied = JSON.stringify(filter)
+        if (applied === appliedFilter) return
+        appliedFilter = applied
         selection = []; selectionAnchor = -1
         if (filter.collection) researchStore.markOpened("collection", filter.collection)
         if (filter.open) openForYou(filter.open)

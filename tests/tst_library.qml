@@ -219,6 +219,14 @@ Item {
             workspace.documents.openLibrary({})
             compare(view.view, "papers")
             compare(view.filter.favorite, undefined)
+            // A change elsewhere in the tab's group (a background web tab's title) keeps what is chosen.
+            view.setSelecting(true)
+            view.selection = ["kept"]
+            const g = Tree.find(workspace.documents.tree, workspace.documents.activeGroup)
+            g.probe = true; workspace.documents.sync()
+            compare(view.selection, ["kept"])
+            delete g.probe; workspace.documents.sync()
+            view.setSelecting(false)
             researchStore.purgeNote(note)
         }
         function test_newCollectionButton() {
