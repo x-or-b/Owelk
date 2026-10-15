@@ -59,11 +59,16 @@ Popup {
         }
         return false
     }
+    // Return before the results are in (typing just stopped) is answered once they are: the first result,
+    // or the web when nothing matches; never the web in the meantime.
+    property bool acceptPending: false
     function accept() {
+        if (webRow.isAddress) { chooseWeb(); return }
+        if (search.delay.running) refresh()
+        acceptPending = search.waiting
+        if (acceptPending) return
         if (webSelected) { chooseWeb(); return }
-        let at = list.currentIndex
-        if (search.delay.running) { refresh(); at = list.currentIndex }
-        choose(Math.max(0, at))
+        choose(Math.max(0, list.currentIndex))
     }
     // Opened from Cmd+K or Home: the field takes the keys, its text chosen so typing replaces it.
     function begin() {
@@ -72,7 +77,7 @@ Popup {
     }
     // The field lets go of the keys (Esc, a result chosen): the cursor leaves the top bar.
     function release() { if (attached && inputField.activeFocus) inputField.Window.contentItem.forceActiveFocus() }
-    onClosed: if (attached) { inputField.clear(); release() }
+    onClosed: { acceptPending = false; if (attached) { inputField.clear(); release() } }
     property alias results: search.results
     property alias searchController: search
     property url currentSource: ""
@@ -97,13 +102,20 @@ Popup {
         Qt.callLater(function() { root.webRequested(url) })
     }
     function updateWebChoice() { webSelected = webRow.isAddress || (root.query.trim().length > 0 && !hasResults && !search.waiting) }
-    onQueryChanged: updateWebChoice()
+    onQueryChanged: { acceptPending = false; updateWebChoice() }
     onHasResultsChanged: updateWebChoice()
     function refresh() {
         search.refresh()
         list.currentIndex = search.selectionIndex()
     }
-    Connections { target: search; function onWaitingChanged() { root.updateWebChoice() } }
+    Connections {
+        target: search
+        function onWaitingChanged() {
+            root.updateWebChoice()
+            // Later, once the results that ended the wait are published.
+            if (!search.waiting && root.acceptPending) Qt.callLater(function() { if (root.acceptPending && !search.waiting) root.accept() })
+        }
+    }
     onResultsChanged: {
         root.updateWebChoice()
         list.currentIndex = search.selectionIndex()

@@ -16,7 +16,8 @@ QtObject {
     readonly property var semantic: researchStore.semantic
     property bool namesPending: false
     property bool textPending: false
-    readonly property bool waiting: namesPending || textPending
+    // Also while typing settles (the search starts 150 ms after the last key).
+    readonly property bool waiting: namesPending || textPending || delay.running
     property string error: ""
     property url sourceFilter: ""
     property string targetFilter: "all"
