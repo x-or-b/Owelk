@@ -371,6 +371,7 @@ CodexBridge::CodexBridge(QObject *parent) : QObject(parent)
     connect(&m_process, &QProcess::readyReadStandardOutput, this, &CodexBridge::readLines);
     connect(&m_process, &QProcess::finished, this, [this] {
         m_ready = false;
+        m_waiting.clear(); // Their callbacks are answered below; a new process must not replay them.
         const auto callbacks = std::exchange(m_callbacks, {});
         for (const auto &callback : callbacks) callback({}, "The Codex app server stopped.");
         emit stopped("The Codex app server stopped.");
@@ -429,6 +430,8 @@ void CodexBridge::ensureStarted()
             Qt::QueuedConnection);
         return;
     }
+    // Its log on stderr is not read; kept, it would only grow in memory for as long as the process runs.
+    m_process.setStandardErrorFile(QProcess::nullDevice());
     // npm installs a .cmd launcher on Windows; scripts (tests) run through their interpreter.
     if (program.endsWith(".cmd", Qt::CaseInsensitive) || program.endsWith(".bat", Qt::CaseInsensitive))
         m_process.start("cmd.exe", {"/c", program, "app-server"});
@@ -439,7 +442,11 @@ void CodexBridge::ensureStarted()
         m_process.start(program, {"app-server"});
     const int id = m_nextId++;
     m_callbacks.insert(id, [this](const QJsonValue &, const QString &error) {
-        if (!error.isEmpty()) return;
+        // Refused to start: stopping it answers everything waiting (finished), instead of leaving it waiting forever.
+        if (!error.isEmpty()) {
+            m_process.kill();
+            return;
+        }
         m_ready = true;
         send({{"method", "initialized"}});
         const auto waiting = std::exchange(m_waiting, {});
@@ -565,15 +572,24 @@ void CodexProvider::start(const AiRequest &request)
         // Codex names its fast tier "priority".
         if (self->m_fast) turn.insert("serviceTier", "priority");
         if (self->m_summary) turn.insert("summary", "auto");
-        self->m_bridge->call("turn/start", turn, [self](const QJsonValue &turn, const QString &error) {
-            if (!self || self->m_done) return;
-            if (!error.isEmpty()) {
-                self->m_done = true;
-                emit self->failed(error);
-                return;
-            }
-            self->m_turnId = turn.toObject().value("turn").toObject().value("id").toString();
-        });
+        const QPointer<CodexBridge> bridge = self->m_bridge;
+        self->m_bridge->call("turn/start", turn,
+            [self, bridge, threadId = self->m_threadId](const QJsonValue &turn, const QString &error) {
+                // Stopped while the turn was starting: it is stopped now too, not left answering on the account.
+                if (!self || self->m_done) {
+                    const auto turnId = turn.toObject().value("turn").toObject().value("id").toString();
+                    if (bridge && error.isEmpty() && !turnId.isEmpty())
+                        bridge->call("turn/interrupt", {{"threadId", threadId}, {"turnId", turnId}},
+                            [](const QJsonValue &, const QString &) { });
+                    return;
+                }
+                if (!error.isEmpty()) {
+                    self->m_done = true;
+                    emit self->failed(error);
+                    return;
+                }
+                self->m_turnId = turn.toObject().value("turn").toObject().value("id").toString();
+            });
     });
 }
 

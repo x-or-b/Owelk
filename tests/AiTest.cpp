@@ -376,6 +376,20 @@ private slots:
         request.history.clear();
         request.text = "no material";
         QVERIFY(!run(new CodexProvider(&bridge, this), request).error.isEmpty());
+        // A Codex that refuses to start answers what waits with an error instead of leaving it waiting forever.
+        qputenv("FAKE_CODEX_REFUSE", "1");
+        {
+            CodexBridge refusing;
+            QString refused;
+            bool answered = false;
+            refusing.call("account/read", {}, [&](const QJsonValue &, const QString &error) {
+                refused = error;
+                answered = true;
+            });
+            QTRY_VERIFY_WITH_TIMEOUT(answered, 10000);
+            QVERIFY(!refused.isEmpty());
+        }
+        qunsetenv("FAKE_CODEX_REFUSE");
     }
     void organizeTabsSuggestsGroupsWithoutApplying()
     {

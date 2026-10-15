@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """A stand-in for `codex app-server` speaking the JSON-RPC subset Owelk uses (stdio, one JSON per line)."""
 import json
+import os
 import sys
 
 signed_in = False
@@ -15,6 +16,9 @@ for line in sys.stdin:
     message = json.loads(line)
     method, request_id, params = message.get("method"), message.get("id"), message.get("params") or {}
     if method == "initialize":
+        if os.environ.get("FAKE_CODEX_REFUSE"):  # A Codex that will not start (an old version, a broken install).
+            send({"id": request_id, "error": {"code": -32600, "message": "refused"}})
+            continue
         send({"id": request_id, "result": {"userAgent": "fake"}})
     elif method == "initialized":
         pass
