@@ -97,6 +97,11 @@ def main():
         return
     OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("%d strings, %d words without a spelling" % (sum(len(t) for t in sources().values()), len(missing)))
+    # C++ interface text goes through ui(); tr() looks in a context this file never writes.
+    for path in sorted(list((ROOT / "src").rglob("*.cpp")) + list((ROOT / "src").rglob("*.h"))):
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if re.search(r'\btr\("', line):
+                print("not translated (use ui): %s:%d" % (path.relative_to(ROOT), number), file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -144,7 +144,7 @@ ResearchStore::~ResearchStore()
 bool ResearchStore::initialize(QString *error)
 {
     if (!QDir().mkpath(m_directory)) {
-        *error = tr("Cannot create data folder: %1").arg(m_directory);
+        *error = ui("Cannot create data folder: %1").arg(m_directory);
         return false;
     }
     // A restore chosen in Settings is applied now, before the database is opened.
@@ -525,7 +525,7 @@ bool ResearchStore::saveSession(const QVariantMap &input)
 {
     const auto state = canonicalState(input);
     if (!m_database.transaction()) {
-        emit message(tr("Cannot begin saving reading state."));
+        emit message(ui("Cannot begin saving reading state."));
         return false;
     }
     const QByteArray json = QJsonDocument(QJsonObject::fromVariantMap(state)).toJson(QJsonDocument::Compact);
@@ -534,7 +534,7 @@ bool ResearchStore::saveSession(const QVariantMap &input)
     query.addBindValue(QString::fromUtf8(json));
     if (!query.exec()) {
         m_database.rollback();
-        emit message(tr("Cannot save reading position: %1").arg(query.lastError().text()));
+        emit message(ui("Cannot save reading position: %1").arg(query.lastError().text()));
         return false;
     }
     for (const auto &value : readers(state)) {
@@ -550,13 +550,13 @@ bool ResearchStore::saveSession(const QVariantMap &input)
             QString::fromUtf8(QJsonDocument::fromVariant(reader.value("position")).toJson(QJsonDocument::Compact)));
         if (!position.exec()) {
             m_database.rollback();
-            emit message(tr("Cannot save document position: %1").arg(position.lastError().text()));
+            emit message(ui("Cannot save document position: %1").arg(position.lastError().text()));
             return false;
         }
     }
     if (!m_database.commit()) {
         m_database.rollback();
-        emit message(tr("Cannot save reading state."));
+        emit message(ui("Cannot save reading state."));
         return false;
     }
     emit homeChanged();
@@ -573,7 +573,7 @@ bool ResearchStore::rememberDocument(const QUrl &url)
 {
     const QFileInfo info(url.toLocalFile());
     if (!url.isLocalFile() || !info.isFile() || !info.isReadable()) {
-        emit message(tr("Cannot open this file. Check its location and permissions."));
+        emit message(ui("Cannot open this file. Check its location and permissions."));
         if (url.isLocalFile()) emit relinkRequested(resolvedSource(url));
         return false;
     }
@@ -583,7 +583,7 @@ bool ResearchStore::rememberDocument(const QUrl &url)
     query.addBindValue(document);
     query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
     if (document.isEmpty() || !query.exec()) {
-        emit message(tr("Cannot record this document: %1").arg(query.lastError().text()));
+        emit message(ui("Cannot record this document: %1").arg(query.lastError().text()));
         return false;
     }
     QSqlQuery restore(m_database);
@@ -874,7 +874,7 @@ bool ResearchStore::removeRecentDocument(const QUrl &url)
     }
     emit recentDocumentsChanged();
     emit homeChanged();
-    emit message(tr("Removed from Recent Papers. The original PDF and open tabs were kept."));
+    emit message(ui("Removed from Recent Papers. The original PDF and open tabs were kept."));
     return true;
 }
 
@@ -938,7 +938,7 @@ int ResearchStore::listFolder(const QUrl &folder)
         Result result;
         const QFileInfo info(folder.toLocalFile());
         if (!folder.isLocalFile() || !info.isDir() || !info.isReadable()) {
-            result.error = tr("Cannot read this folder. Check its location and permissions.");
+            result.error = ui("Cannot read this folder. Check its location and permissions.");
             return result;
         }
         const auto entries

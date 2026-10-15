@@ -90,12 +90,12 @@ QString ResearchStore::checkBackup(const QString &folder) const
     const QDir backup(folder);
     if (!QFileInfo::exists(backup.filePath("owelk-backup.json"))
         || !QFileInfo::exists(backup.filePath("owelk.sqlite3")))
-        return "This folder is not an Owelk backup.";
+        return ui("This folder is not an Owelk backup.");
     const int version = schemaVersion(backup.filePath("owelk.sqlite3"));
-    if (version < 0) return "The backup's database cannot be read.";
+    if (version < 0) return ui("The backup's database cannot be read.");
     QSqlQuery query(m_database);
     const int current = query.exec("PRAGMA user_version") && query.next() ? query.value(0).toInt() : 0;
-    if (version > current) return "This backup was made by a newer Owelk.";
+    if (version > current) return ui("This backup was made by a newer Owelk.");
     return {};
 }
 

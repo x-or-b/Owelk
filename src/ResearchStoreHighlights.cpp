@@ -60,12 +60,12 @@ int ResearchStore::loadHighlights(const QUrl &source)
                 ++hidden;
         }
         emit highlightsLoaded(request, source, verified,
-            !queried ? QStringLiteral("Cannot load highlights.")
+            !queried ? ui("Cannot load highlights.")
                 : hidden
-                ? (hash.isEmpty() ? QStringLiteral("Annotations are hidden: the PDF file cannot be read.")
-                                  : QStringLiteral("%1 annotation%2 made on another copy of this PDF %3 hidden.")
-                                        .arg(hidden)
-                                        .arg(hidden == 1 ? "" : "s", hidden == 1 ? "is" : "are"))
+                ? (hash.isEmpty() ? ui("Annotations are hidden: the PDF file cannot be read.")
+                          : hidden == 1
+                          ? ui("1 annotation made on another copy of this PDF is hidden.")
+                          : QString(ui("%1 annotations made on another copy of this PDF are hidden.")).arg(hidden))
                 : QString(),
             hash, hash.isEmpty() ? 0 : hidden);
     });

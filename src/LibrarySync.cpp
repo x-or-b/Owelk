@@ -780,12 +780,12 @@ void LibrarySync::start()
 QString LibrarySync::setFolder(const QUrl &chosen)
 {
     auto path = chosen.isLocalFile() ? chosen.toLocalFile() : chosen.toString();
-    if (path.isEmpty() || !QFileInfo(path).isDir()) return "Choose a folder.";
+    if (path.isEmpty() || !QFileInfo(path).isDir()) return ui("Choose a folder.");
     path = QDir(path).absolutePath();
     // Owelk always keeps its files in an "Owelk" folder inside the chosen one (choosing that folder
     // itself, or an existing sync folder, works too), so any drive folder gives the same place.
     if (!QFileInfo::exists(path + "/" + markerName) && QFileInfo(path).fileName() != "Owelk") path += "/Owelk";
-    if (!QDir().mkpath(path)) return "Owelk cannot write to this folder.";
+    if (!QDir().mkpath(path)) return ui("Owelk cannot write to this folder.");
     auto library = readJson(path + "/" + markerName).value("library").toString();
     if (library.isEmpty()) {
         library = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -795,7 +795,7 @@ QString LibrarySync::setFolder(const QUrl &chosen)
                                               {"created", QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}})
                        .toJson())
                 <= 0)
-            return "Owelk cannot write to this folder.";
+            return ui("Owelk cannot write to this folder.");
     }
     m_cancel->store(true);
     m_pool.waitForDone();
@@ -812,7 +812,7 @@ QString LibrarySync::setFolder(const QUrl &chosen)
     }
     if (library != m_library && !markEverything(db.db, &error)) return error;
     if (!setSetting(db.db, "sync.folder", path) || !setSetting(db.db, "sync.library", library))
-        return "Cannot save the sync folder.";
+        return ui("Cannot save the sync folder.");
     m_folder = path;
     m_library = library;
     m_status.clear();

@@ -2524,8 +2524,16 @@ Same file as another library entry</source>
         <translation> · 웨이팅 포 %1 파일스 프롬 더 폴더</translation>
     </message>
     <message>
+        <source>%1 annotations made on another copy of this PDF are hidden.</source>
+        <translation>%1 애노테이션스 메이드 온 어나더 카피 오브 디스 피디에프 아 히든.</translation>
+    </message>
+    <message>
         <source>%1 papers have no free PDF; open their pages from the list.</source>
         <translation>%1 페이퍼스 해브 노 프리 피디에프; 오픈 데어 페이지스 프롬 더 리스트.</translation>
+    </message>
+    <message>
+        <source>1 annotation made on another copy of this PDF is hidden.</source>
+        <translation>1 애노테이션 메이드 온 어나더 카피 오브 디스 피디에프 이즈 히든.</translation>
     </message>
     <message>
         <source>1 paper has no free PDF; open its page from the list.</source>
@@ -2584,6 +2592,10 @@ Same file as another library entry</source>
         <translation>애노테이션 세이브드. 더 오리지널 피디에프 워즈 낫 모디파이드.</translation>
     </message>
     <message>
+        <source>Annotations are hidden: the PDF file cannot be read.</source>
+        <translation>애노테이션스 아 히든: 더 피디에프 파일 캔낫 비 리드.</translation>
+    </message>
+    <message>
         <source>Cancel</source>
         <translation>캔슬</translation>
     </message>
@@ -2604,12 +2616,20 @@ Same file as another library entry</source>
         <translation>캔낫 백 업 데이터 비포 업그레이딩: %1</translation>
     </message>
     <message>
+        <source>Cannot begin saving reading state.</source>
+        <translation>캔낫 비긴 세이빙 리딩 스테이트.</translation>
+    </message>
+    <message>
         <source>Cannot check existing highlights.</source>
         <translation>캔낫 체크 이그지스팅 하이라이츠.</translation>
     </message>
     <message>
         <source>Cannot create </source>
         <translation>캔낫 크리에이트 </translation>
+    </message>
+    <message>
+        <source>Cannot create data folder: %1</source>
+        <translation>캔낫 크리에이트 데이터 폴더: %1</translation>
     </message>
     <message>
         <source>Cannot create note.</source>
@@ -2632,12 +2652,20 @@ Same file as another library entry</source>
         <translation>캔낫 킵 더 심벌 리스트 인 더 데이터 폴더.</translation>
     </message>
     <message>
+        <source>Cannot load highlights.</source>
+        <translation>캔낫 로드 하이라이츠.</translation>
+    </message>
+    <message>
         <source>Cannot make room to restore the backup; your current data was kept.</source>
         <translation>캔낫 메이크 룸 투 리스토어 더 백업; 유어 커런트 데이터 워즈 켑트.</translation>
     </message>
     <message>
         <source>Cannot move the current data aside; nothing was restored.</source>
         <translation>캔낫 무브 더 커런트 데이터 어사이드; 낫싱 워즈 리스토어드.</translation>
+    </message>
+    <message>
+        <source>Cannot open this file. Check its location and permissions.</source>
+        <translation>캔낫 오픈 디스 파일. 체크 잇츠 로케이션 앤드 퍼미션스.</translation>
     </message>
     <message>
         <source>Cannot reach Semantic Scholar: </source>
@@ -2680,12 +2708,20 @@ Same file as another library entry</source>
         <translation>캔낫 리드 디스 피디에프 페이지.</translation>
     </message>
     <message>
+        <source>Cannot read this folder. Check its location and permissions.</source>
+        <translation>캔낫 리드 디스 폴더. 체크 잇츠 로케이션 앤드 퍼미션스.</translation>
+    </message>
+    <message>
         <source>Cannot read this image.</source>
         <translation>캔낫 리드 디스 이미지.</translation>
     </message>
     <message>
         <source>Cannot record the source document. Check storage and permissions.</source>
         <translation>캔낫 레코드 더 소스 다큐먼트. 체크 스토리지 앤드 퍼미션스.</translation>
+    </message>
+    <message>
+        <source>Cannot record this document: %1</source>
+        <translation>캔낫 레코드 디스 다큐먼트: %1</translation>
     </message>
     <message>
         <source>Cannot remove this highlight.</source>
@@ -2704,6 +2740,10 @@ Same file as another library entry</source>
         <translation>캔낫 세이브 애노테이션. 더 프리비어스 버전 워즈 켑트.</translation>
     </message>
     <message>
+        <source>Cannot save document position: %1</source>
+        <translation>캔낫 세이브 다큐먼트 포지션: %1</translation>
+    </message>
+    <message>
         <source>Cannot save note. It may have been deleted.</source>
         <translation>캔낫 세이브 노트. 잇 메이 해브 빈 딜리티드.</translation>
     </message>
@@ -2712,8 +2752,20 @@ Same file as another library entry</source>
         <translation>캔낫 세이브 페이퍼 디테일스.</translation>
     </message>
     <message>
+        <source>Cannot save reading position: %1</source>
+        <translation>캔낫 세이브 리딩 포지션: %1</translation>
+    </message>
+    <message>
+        <source>Cannot save reading state.</source>
+        <translation>캔낫 세이브 리딩 스테이트.</translation>
+    </message>
+    <message>
         <source>Cannot save tags.</source>
         <translation>캔낫 세이브 태그스.</translation>
+    </message>
+    <message>
+        <source>Cannot save the sync folder.</source>
+        <translation>캔낫 세이브 더 싱크 폴더.</translation>
     </message>
     <message>
         <source>Cannot start Codex (%1). Install the Codex CLI to sign in with ChatGPT.</source>
@@ -2730,6 +2782,10 @@ Same file as another library entry</source>
     <message>
         <source>Cannot store meaning vectors.</source>
         <translation>캔낫 스토어 미닝 벡터스.</translation>
+    </message>
+    <message>
+        <source>Cannot store the API key in %1.</source>
+        <translation>캔낫 스토어 더 에이피아이 키 인 %1.</translation>
     </message>
     <message>
         <source>Cannot update annotation.</source>
@@ -2782,6 +2838,10 @@ Same file as another library entry</source>
     <message>
         <source>Choose a folder to export to.</source>
         <translation>추즈 어 폴더 투 익스포트 투.</translation>
+    </message>
+    <message>
+        <source>Choose a folder.</source>
+        <translation>추즈 어 폴더.</translation>
     </message>
     <message>
         <source>Choose a font size up to 96 pt.</source>
@@ -3100,6 +3160,10 @@ Same file as another library entry</source>
         <translation>오리지널 피디에프 낫 파운드. 더 세이브드 애노테이션 이즈 프리저브드.</translation>
     </message>
     <message>
+        <source>Owelk cannot write to this folder.</source>
+        <translation>오웰크 캔낫 라이트 투 디스 폴더.</translation>
+    </message>
+    <message>
         <source>Owelk's PDFs now live in %1.</source>
         <translation>오웰크스 피디에프스 나우 리브 인 %1.</translation>
     </message>
@@ -3150,6 +3214,10 @@ Same file as another library entry</source>
     <message>
         <source>Removed %1 papers from the Library. The PDF files were kept.</source>
         <translation>리무브드 %1 페이퍼스 프롬 더 라이브러리. 더 피디에프 파일스 워 켑트.</translation>
+    </message>
+    <message>
+        <source>Removed from Recent Papers. The original PDF and open tabs were kept.</source>
+        <translation>리무브드 프롬 리센트 페이퍼스. 더 오리지널 피디에프 앤드 오픈 탭스 워 켑트.</translation>
     </message>
     <message>
         <source>Removed from the Library. The PDF file was kept.</source>
@@ -3276,6 +3344,10 @@ Same file as another library entry</source>
         <translation>더 백업 투 리스토어 이즈 곤; 유어 커런트 데이터 워즈 켑트.</translation>
     </message>
     <message>
+        <source>The backup's database cannot be read.</source>
+        <translation>더 백업스 데이터베이스 캔낫 비 리드.</translation>
+    </message>
+    <message>
         <source>The embedding service returned no vectors.</source>
         <translation>더 임베딩 서비스 리턴드 노 벡터스.</translation>
     </message>
@@ -3324,8 +3396,16 @@ Same file as another library entry</source>
         <translation>디스 애노테이션 캔낫 비 에디티드 히어.</translation>
     </message>
     <message>
+        <source>This backup was made by a newer Owelk.</source>
+        <translation>디스 백업 워즈 메이드 바이 어 뉴어 오웰크.</translation>
+    </message>
+    <message>
         <source>This data was created by a newer Owelk version (schema %1). Update Owelk to open it.</source>
         <translation>디스 데이터 워즈 크리에이티드 바이 어 뉴어 오웰크 버전 (스키마 %1). 업데이트 오웰크 투 오픈 잇.</translation>
+    </message>
+    <message>
+        <source>This folder is not an Owelk backup.</source>
+        <translation>디스 폴더 이즈 낫 언 오웰크 백업.</translation>
     </message>
     <message>
         <source>This paper has no DOI, arXiv ID or title to look up. Add one in Paper Details.</source>

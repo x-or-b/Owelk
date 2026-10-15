@@ -127,7 +127,7 @@ bool AiService::setApiKey(const QString &provider, const QString &key)
     const auto trimmed = key.trimmed();
     if (!entry || QString(entry->kind) != "api" || trimmed.size() < 8 || trimmed.size() > 400) return false;
     const bool ok = Keychain::write(keyAccount(provider), trimmed, m_store->dataDirectory());
-    if (!ok) m_store->notify("Cannot store the API key in the Keychain.");
+    if (!ok) m_store->notify(QString(ui("Cannot store the API key in %1.")).arg(Keychain::storageName()));
     emit providersChanged();
     return ok;
 }
