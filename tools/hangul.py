@@ -58,8 +58,9 @@ def words():
 TOKEN = re.compile(r"%\d+|[A-Za-z]+(?:['’][A-Za-z]+)*|[^A-Za-z%]+|%")
 
 
-# Left as written: `commands`, <markup> and &entities;.
-VERBATIM = re.compile(r"(`[^`]*`|<[^>]*>|&[a-z]+;)")
+# Left as written: `commands`, <markup>, &entities;, the %s a search address takes, and addresses
+# (google.com, https://…, Claude.ai) that are typed exactly as they are.
+VERBATIM = re.compile(r"(`[^`]*`|<[^>]*>|&[a-z]+;|%s|(?:https?://)?\b[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b(?:/[^\s)]*)?)")
 
 
 def spell(text, table, missing):

@@ -537,6 +537,10 @@ private slots:
         for (int y = 0; y < drawn.height() && !inked; ++y)
             for (int x = 0; x < drawn.width() && !inked; ++x) inked = qAlpha(drawn.pixel(x, y)) > 128;
         QVERIFY(inked);
+        // A formula that would be drawn enormous is not drawn at all.
+        QSize huge;
+        QVERIFY(MathRenderer::render("\\rule{2000cm}{1cm}", false, 14, Qt::black, &huge).isEmpty());
+        QVERIFY(!MathRenderer::render("\\rule{2cm}{1cm}", false, 14, Qt::black, &huge).isEmpty());
         // Copied or quoted, the formulas come back as LaTeX.
         const auto plain = store.plainTextWithMath(html);
         QVERIFY(plain.contains("$E=mc^2$"));

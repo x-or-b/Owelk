@@ -6,6 +6,7 @@
 // Process-wide SHA-256 cache for source verification.
 // A file is rehashed only when its size, modification time, status-change time or file identity changes.
 // The status-change time cannot be set by ordinary tools, so content rewrites that restore mtime are still detected.
+// On Windows the same comes from NTFS (its change time and file index); other file systems may lack them.
 namespace FileFingerprint {
 struct Stamp {
     qint64 size = -1;

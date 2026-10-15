@@ -14,6 +14,9 @@ namespace {
 constexpr int scale = 2;
 // About this many bytes of images are kept; the oldest go first.
 constexpr qsizetype budget = 48 * 1024 * 1024;
+// The largest image one formula may take (at the drawn scale): 8192 px a side, 16 megapixels in all.
+constexpr int maxSide = 8192;
+constexpr qint64 maxPixels = 16 * 1024 * 1024;
 
 QMutex mutex;
 QHash<QString, QImage> images;
@@ -69,6 +72,11 @@ QString render(const QString &latex, bool display, int pixelSize, const QColor &
         std::unique_ptr<tex::TeXRender> laid(tex::LaTeX::parse(
             (display ? L"\\displaystyle " : L"") + formula.toStdWString(), 100000, points, points / 3.f, argb));
         if (!laid || laid->getWidth() <= 0 || laid->getHeight() <= 0) return {};
+        // A formula that would lay out enormous (\rule{9999cm}…, a runaway matrix) stays as its LaTeX text
+        // rather than taking hundreds of megabytes.
+        if (laid->getWidth() > maxSide || laid->getHeight() > maxSide
+            || qint64(laid->getWidth()) * laid->getHeight() > maxPixels)
+            return {};
         const int pad = scale; // Room for antialiased edges.
         QImage image(laid->getWidth() + 2 * pad, laid->getHeight() + 2 * pad, QImage::Format_ARGB32_Premultiplied);
         image.fill(Qt::transparent);

@@ -10,6 +10,12 @@
 
 #ifdef Q_OS_UNIX
 #include <sys/stat.h>
+#elif defined(Q_OS_WIN)
+#include <QDir>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #endif
 
 namespace FileFingerprint {
@@ -65,6 +71,25 @@ Stamp stamp(const QString &path)
 #endif
     result.device = quint64(info.st_dev);
     result.inode = quint64(info.st_ino);
+#elif defined(Q_OS_WIN)
+    // NTFS keeps a change time of its own (FILE_BASIC_INFO.ChangeTime, which ordinary tools cannot set back) and
+    // a file identity (volume serial and file index), as Unix does with ctime, device and inode. Times are in
+    // 100 ns units.
+    const auto native = QDir::toNativeSeparators(QFileInfo(path).absoluteFilePath());
+    const HANDLE file = CreateFileW(reinterpret_cast<const wchar_t *>(native.utf16()), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return result;
+    BY_HANDLE_FILE_INFORMATION info{};
+    FILE_BASIC_INFO basic{};
+    const bool ok = GetFileInformationByHandle(file, &info) && !(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        && GetFileInformationByHandleEx(file, FileBasicInfo, &basic, sizeof basic);
+    CloseHandle(file);
+    if (!ok) return result;
+    result.size = qint64((quint64(info.nFileSizeHigh) << 32) | info.nFileSizeLow);
+    result.modified = basic.LastWriteTime.QuadPart;
+    result.changed = basic.ChangeTime.QuadPart;
+    result.device = info.dwVolumeSerialNumber;
+    result.inode = (quint64(info.nFileIndexHigh) << 32) | info.nFileIndexLow;
 #else
     const QFileInfo info(path);
     if (!info.isFile()) return result;

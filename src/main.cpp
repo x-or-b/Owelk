@@ -77,6 +77,8 @@ int main(int argc, char *argv[])
     Theme theme(&store);
     qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "Theme", &theme);
     UiLanguage language(&store);
+    // Declared before the engine, so it outlives the QML that uses it.
+    WindowChrome chrome;
     QQmlApplicationEngine engine;
     QObject::connect(&language, &UiLanguage::changed, &engine, &QQmlEngine::retranslate);
     engine.addImageProvider("annotation", new AnnotationImageProvider);
@@ -86,7 +88,6 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("initialFiles", initialFiles);
     engine.rootContext()->setContextProperty("appInstance", &instance);
     engine.rootContext()->setContextProperty("uiLanguage", &language);
-    WindowChrome chrome;
     engine.rootContext()->setContextProperty("windowChrome", &chrome);
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },

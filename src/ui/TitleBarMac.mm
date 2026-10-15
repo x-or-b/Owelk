@@ -17,7 +17,8 @@ void TitleBar::follow(QWindow *window, const QColor &color, bool dark)
         native.titlebarAppearsTransparent = YES;
         // An empty compact toolbar makes the title bar a little taller and keeps the traffic lights centred in it.
         if (!native.toolbar) {
-            NSToolbar *toolbar = [[NSToolbar alloc] initWithIdentifier:@"OwelkTitleBar"];
+            // Built without ARC: the window keeps the toolbar, the pool lets go of this reference.
+            NSToolbar *toolbar = [[[NSToolbar alloc] initWithIdentifier:@"OwelkTitleBar"] autorelease];
             toolbar.showsBaselineSeparator = NO;
             native.toolbar = toolbar;
             native.toolbarStyle = NSWindowToolbarStyleUnifiedCompact;

@@ -11,8 +11,9 @@ void AppIcon::setBundleIcon(const QString &bundle, const QString &image)
             QFile file(image);
             if (!file.open(QIODevice::ReadOnly)) return;
             const auto bytes = file.readAll();
-            icon = [[NSImage alloc] initWithData:[NSData dataWithBytes:bytes.constData()
-                                                                length:NSUInteger(bytes.size())]];
+            // Built without ARC: released with the pool once Finder has its copy.
+            icon = [[[NSImage alloc] initWithData:[NSData dataWithBytes:bytes.constData()
+                                                                 length:NSUInteger(bytes.size())]] autorelease];
             if (!icon) return;
         }
         [[NSWorkspace sharedWorkspace] setIcon:icon forFile:bundle.toNSString() options:0];

@@ -4570,7 +4570,7 @@ You can open the same document twice.</source>
     </message>
     <message>
         <source>Claude is available with an API key; signing in with a Claude.ai account is not offered because Anthropic does not allow it for third-party apps.</source>
-        <translation>클로드 이즈 어베일러블 위드 언 에이피아이 키; 사이닝 인 위드 어 클로드.에이아이 어카운트 이즈 낫 오퍼드 비코즈 앤트로픽 더즈 낫 얼라우 잇 포 서드-파티 앱스.</translation>
+        <translation>클로드 이즈 어베일러블 위드 언 에이피아이 키; 사이닝 인 위드 어 Claude.ai 어카운트 이즈 낫 오퍼드 비코즈 앤트로픽 더즈 낫 얼라우 잇 포 서드-파티 앱스.</translation>
     </message>
     <message>
         <source>Codex CLI not found — install it to sign in</source>
@@ -5011,7 +5011,7 @@ You can open the same document twice.</source>
     </message>
     <message>
         <source>New arXiv papers with any of the words (separate them with commas), in any of the categories, such as cs.RO or cs.CV. Either may be left empty.</source>
-        <translation>뉴 아카이브 페이퍼스 위드 애니 오브 더 워즈 (세퍼레이트 뎀 위드 콤마스), 인 애니 오브 더 카테고리즈, 서치 애즈 씨에스.알오 오어 씨에스.씨브이. 이더 메이 비 레프트 엠티.</translation>
+        <translation>뉴 아카이브 페이퍼스 위드 애니 오브 더 워즈 (세퍼레이트 뎀 위드 콤마스), 인 애니 오브 더 카테고리즈, 서치 애즈 cs.RO 오어 cs.CV. 이더 메이 비 레프트 엠티.</translation>
     </message>
     <message>
         <source>Not checked yet</source>
@@ -5055,7 +5055,7 @@ You can open the same document twice.</source>
     </message>
     <message>
         <source>cs.RO, cs.CV</source>
-        <translation>씨에스.알오, 씨에스.씨브이</translation>
+        <translation>cs.RO, cs.CV</translation>
     </message>
 </context>
 <context>
@@ -5676,7 +5676,7 @@ You can open the same document twice.</source>
     </message>
     <message>
         <source>Add a site (google.com) or an address with %s</source>
-        <translation>애드 어 사이트 (구글.컴) 오어 언 어드레스 위드 %에스</translation>
+        <translation>애드 어 사이트 (google.com) 오어 언 어드레스 위드 %s</translation>
     </message>
     <message>
         <source>Choose a folder…</source>
@@ -5764,7 +5764,7 @@ You can open the same document twice.</source>
     </message>
     <message>
         <source>Type a site such as google.com, or an address with %s for the words.</source>
-        <translation>타입 어 사이트 서치 애즈 구글.컴, 오어 언 어드레스 위드 %에스 포 더 워즈.</translation>
+        <translation>타입 어 사이트 서치 애즈 google.com, 오어 언 어드레스 위드 %s 포 더 워즈.</translation>
     </message>
 </context>
 <context>
