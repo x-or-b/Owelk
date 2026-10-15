@@ -340,7 +340,12 @@ void OllamaProvider::start(const AiRequest &request)
     QJsonArray messages{QJsonObject{{"role", "system"}, {"content", request.system}}};
     for (const auto &turn : request.history) messages.append(QJsonObject{{"role", turn.role}, {"content", turn.text}});
     messages.append(user);
-    post({}, QJsonObject{{"model", request.model}, {"stream", true}, {"messages", messages}}, false);
+    // Ollama's own window (a few thousand tokens) silently drops the start of a paper. One fixed size for every
+    // request, so the model is not reloaded between questions.
+    post({},
+        QJsonObject{{"model", request.model}, {"stream", true}, {"messages", messages},
+            {"options", QJsonObject{{"num_ctx", 16384}}}},
+        false);
 }
 
 bool OllamaProvider::handle(const QString &, const QJsonObject &data)

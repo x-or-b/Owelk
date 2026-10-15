@@ -333,6 +333,7 @@ private slots:
         QCOMPARE(outcome.text, QString("Local"));
         QCOMPARE(outcome.thinking, QString("Hmm, local."));
         QVERIFY(server.seen.last().requestLine.startsWith("POST /api/chat"));
+        QCOMPARE(server.seen.last().body["options"].toObject()["num_ctx"].toInt(), 16384);
         QCOMPARE(server.seen.last().body["messages"].toArray()[1].toObject()["images"].toArray()[0].toString(),
             QString(QByteArray("img").toBase64()));
     }
