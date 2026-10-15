@@ -69,7 +69,7 @@ ColumnLayout {
             detail: root.semantic.progress.length ? root.semantic.progress : root.stored + qsTr(" passages indexed")
             Label { objectName: "semanticStatus"; visible: root.semantic.error.length > 0; text: root.semantic.error; color: Theme.danger; elide: Text.ElideRight; Layout.maximumWidth: 260 }
             IconButton { visible: root.semantic.enabled; enabled: !root.semantic.busy; icon.name: "reload"; description: qsTr("Update the index"); onClicked: root.semantic.configure(root.semantic.engine, root.semantic.model) }
-            Button { text: "Delete Vectors"; palette.buttonText: Theme.danger; enabled: !root.semantic.busy && root.stored > 0; onClicked: { root.semantic.clear(); root.refreshCount() } }
+            Button { objectName: "deleteVectors"; text: qsTr("Delete Vectors"); palette.buttonText: Theme.danger; enabled: !root.semantic.busy && root.stored > 0; onClicked: vectorsConfirm.open() }
         }
     }
     // OCR for scanned pages, with the Tesseract the reader installed.
@@ -119,5 +119,14 @@ ColumnLayout {
             text: qsTr("To search by meaning with OpenAI, Owelk sends the text of your indexed papers, notes, annotations and AI answers to OpenAI's embedding service, a little at a time, and again for new or changed items. PDF files themselves are not uploaded. Usage is billed to your OpenAI key.")
         }
         onAccepted: { researchStore.setSetting("semantic.consent.openai", "1"); researchStore.semantic.configure("openai", "") }
+    }
+    // Building the index again reads every paper again (with OpenAI it also costs money): asked first.
+    ConfirmDialog {
+        id: vectorsConfirm
+        objectName: "vectorsConfirm"
+        title: qsTr("Delete the meaning index?")
+        message: qsTr("Meaning search finds nothing until the index is built again, which reads every paper again (with OpenAI, that costs money).")
+        actionText: qsTr("Delete")
+        onConfirmed: { root.semantic.clear(); root.refreshCount() }
     }
 }

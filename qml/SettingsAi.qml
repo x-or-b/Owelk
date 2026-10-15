@@ -145,7 +145,7 @@ ColumnLayout {
                 enabled: keyField.text.trim().length > 0
                 onClicked: { if (root.ai.setApiKey(root.current.id, keyField.text)) keyField.clear() }
             }
-            IconButton { visible: root.keyStored; icon.name: "trash"; tint: Theme.danger; description: qsTr("Remove the stored key"); onClicked: root.ai.clearApiKey(root.current.id) }
+            IconButton { objectName: "aiRemoveKey"; visible: root.keyStored; icon.name: "trash"; tint: Theme.danger; description: qsTr("Remove the stored key"); onClicked: { keyConfirm.provider = root.current.id; keyConfirm.open() } }
             IconButton {
                 objectName: "aiGetKey"
                 visible: !root.keyStored && (root.current.id === "claude" || root.current.id === "openai")
@@ -264,5 +264,14 @@ ColumnLayout {
             Label { objectName: "aiTestResult"; visible: false; text: root.testResult }
             Button { objectName: "aiTestConnection"; text: qsTr("Test"); onClicked: { root.testOk = false; root.testResult = qsTr("Testing…"); root.ai.testConnection(root.current.id) } }
         }
+    }
+    ConfirmDialog {
+        id: keyConfirm
+        objectName: "aiKeyConfirm"
+        property string provider: ""
+        title: qsTr("Remove the stored key?")
+        message: qsTr("Owelk forgets the key on this computer. The key itself still works; paste it again to use it.")
+        actionText: qsTr("Remove")
+        onConfirmed: root.ai.clearApiKey(provider)
     }
 }

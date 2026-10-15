@@ -23,5 +23,7 @@ Dialog {
             DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
         }
     }
+    // Return confirms and Escape cancels, so what was started from the keyboard (Delete) also ends there.
+    Shortcut { sequences: ["Return", "Enter"]; enabled: root.opened; onActivated: root.accept() }
     onAccepted: confirmed()
 }

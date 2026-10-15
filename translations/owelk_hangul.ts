@@ -1722,12 +1722,20 @@ Same file as another library entry</source>
         <translation>딜리트</translation>
     </message>
     <message>
+        <source>Delete Collection…</source>
+        <translation>딜리트 컬렉션…</translation>
+    </message>
+    <message>
         <source>Delete for good</source>
         <translation>딜리트 포 굿</translation>
     </message>
     <message>
         <source>Delete for good?</source>
         <translation>딜리트 포 굿?</translation>
+    </message>
+    <message>
+        <source>Delete “%1”?</source>
+        <translation>딜리트 “%1”?</translation>
     </message>
     <message>
         <source>Deselect All</source>
@@ -1884,6 +1892,10 @@ Same file as another library entry</source>
     <message>
         <source>Nothing new. Checked </source>
         <translation>낫싱 뉴. 체크트 </translation>
+    </message>
+    <message>
+        <source>Only the collection goes (and its sub-collections). The papers stay in the Library.</source>
+        <translation>온리 더 컬렉션 고즈 (앤드 잇츠 서브-컬렉션스). 더 페이퍼스 스테이 인 더 라이브러리.</translation>
     </message>
     <message>
         <source>Open</source>
@@ -4501,6 +4513,10 @@ You can open the same document twice.</source>
         <translation>아더…</translation>
     </message>
     <message>
+        <source>Owelk forgets the key on this computer. The key itself still works; paste it again to use it.</source>
+        <translation>오웰크 포겟츠 더 키 온 디스 컴퓨터. 더 키 잇셀프 스틸 워크스; 페이스트 잇 어게인 투 유즈 잇.</translation>
+    </message>
+    <message>
         <source>Paste your API key</source>
         <translation>페이스트 유어 에이피아이 키</translation>
     </message>
@@ -4517,8 +4533,16 @@ You can open the same document twice.</source>
         <translation>리즈닝</translation>
     </message>
     <message>
+        <source>Remove</source>
+        <translation>리무브</translation>
+    </message>
+    <message>
         <source>Remove the stored key</source>
         <translation>리무브 더 스토어드 키</translation>
+    </message>
+    <message>
+        <source>Remove the stored key?</source>
+        <translation>리무브 더 스토어드 키?</translation>
     </message>
     <message>
         <source>Same as the paper</source>
@@ -5194,6 +5218,18 @@ You can open the same document twice.</source>
         <translation>) 인 더 백그라운드 앤드 비컴 서처블. 오시알 텍스트 이즈 포 서치 온리; 잇 캔낫 비 셀렉티드 온 더 페이지.</translation>
     </message>
     <message>
+        <source>Delete</source>
+        <translation>딜리트</translation>
+    </message>
+    <message>
+        <source>Delete Vectors</source>
+        <translation>딜리트 벡터스</translation>
+    </message>
+    <message>
+        <source>Delete the meaning index?</source>
+        <translation>딜리트 더 미닝 인덱스?</translation>
+    </message>
+    <message>
         <source>Engine</source>
         <translation>엔진</translation>
     </message>
@@ -5216,6 +5252,10 @@ You can open the same document twice.</source>
     <message>
         <source>Meaning search</source>
         <translation>미닝 서치</translation>
+    </message>
+    <message>
+        <source>Meaning search finds nothing until the index is built again, which reads every paper again (with OpenAI, that costs money).</source>
+        <translation>미닝 서치 파인즈 낫싱 언틸 더 인덱스 이즈 빌트 어게인, 위치 리즈 에브리 페이퍼 어게인 (위드 오픈에이아이, 댓 코스츠 머니).</translation>
     </message>
     <message>
         <source>Model</source>

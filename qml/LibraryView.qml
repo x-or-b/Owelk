@@ -297,9 +297,30 @@ Rectangle {
             onTriggered: root.forYou.follow(collectionMenu.row.id, !root.forYou.following(collectionMenu.row.id))
         }
         MenuItem {
-            text: "Delete Collection"
+            text: qsTr("Delete Collection…")
             palette.windowText: Theme.danger
-            onTriggered: { researchStore.deleteCollection(collectionMenu.row.id); if (root.filter.collection === collectionMenu.row.id) root.setFilter({}) }
+            onTriggered: root.askDeleteCollection(collectionMenu.row.id)
+        }
+    }
+    // A collection is deleted only after a word (its papers stay); the chosen one also with Delete or Backspace.
+    function askDeleteCollection(id) {
+        const row = collectionRows.find(function(c) { return c.id === id })
+        if (!row) return
+        collectionConfirm.row = row
+        collectionConfirm.open()
+    }
+    ConfirmDialog {
+        id: collectionConfirm
+        objectName: "collectionConfirm"
+        property var row: ({})
+        title: qsTr("Delete \u201c%1\u201d?").arg(row.name || "")
+        message: qsTr("Only the collection goes (and its sub-collections). The papers stay in the Library.")
+        actionText: qsTr("Delete")
+        onConfirmed: {
+            const id = row.id
+            researchStore.deleteCollection(id)
+            if (root.filter.collection === id) root.setFilter({})
+            else root.refresh()
         }
     }
     Menu {
@@ -448,9 +469,18 @@ Rectangle {
                 color: Theme.sidebar
                 ListView {
                     id: sidebar
+                    objectName: "librarySidebar"
                     anchors.fill: parent; anchors.margins: 8
                     clip: true
                     spacing: 1
+                    // Once a row is clicked the sidebar has the keys: Delete or Backspace asks to delete the
+                    // collection shown.
+                    Keys.onDeletePressed: if (root.filter.collection) root.askDeleteCollection(root.filter.collection)
+                    Keys.onPressed: function(event) {
+                        if (event.key !== Qt.Key_Backspace || !root.filter.collection) return
+                        root.askDeleteCollection(root.filter.collection)
+                        event.accepted = true
+                    }
                     model: [{key: "all", label: qsTr("All Papers")}, {key: "unsorted", value: true, label: qsTr("Unsorted"), count: root.unsortedCount}, {key: "favorite", value: true, label: qsTr("Favorites")},
                             {key: "state", value: "unread", label: qsTr("Unread")}, {key: "state", value: "reading", label: qsTr("Reading")},
                             {key: "state", value: "read", label: qsTr("Read")}, {header: qsTr("Collections"), add: true}]
@@ -491,6 +521,7 @@ Rectangle {
                                 const next = {}
                                 if (entry.modelData.key !== "all") next[entry.modelData.key] = entry.modelData.value
                                 root.setFilter(next)
+                                sidebar.forceActiveFocus()
                             }
                             Label {
                                 anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
@@ -852,6 +883,15 @@ Rectangle {
                     clip: true
                     model: root.trashRows
                     ScrollBar.vertical: ScrollBar {}
+                    // A row clicked is the chosen one ("kind:id", kept while the list reloads); Delete or Backspace
+                    // then asks to delete it for good.
+                    property string chosen: ""
+                    function deleteChosen() {
+                        const row = root.trashRows.find(function(r) { return r.kind + ":" + r.id === chosen })
+                        if (row) root.deleteForGood([row])
+                    }
+                    Keys.onDeletePressed: deleteChosen()
+                    Keys.onPressed: function(event) { if (event.key === Qt.Key_Backspace) { deleteChosen(); event.accepted = true } }
                     delegate: ItemDelegate {
                         id: trashItem
                         required property var modelData
@@ -859,12 +899,14 @@ Rectangle {
                         objectName: "trashed-" + modelData.kind + "-" + modelData.id
                         width: trashList.width; height: Theme.rowHeightTall
                         separator: index < trashList.count - 1
+                        highlighted: trashList.chosen === modelData.kind + ":" + modelData.id
+                        onClicked: { trashList.chosen = modelData.kind + ":" + modelData.id; trashList.forceActiveFocus() }
                         contentItem: RowLayout {
                             spacing: 10
                             Icon { name: ({paper: "document", note: "note", ai: "ai"})[trashItem.modelData.kind]; size: Theme.fontBody; color: Theme.textTertiary }
                             ColumnLayout {
                                 Layout.fillWidth: true; spacing: 2
-                                Label { Layout.fillWidth: true; text: trashItem.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
+                                Label { Layout.fillWidth: true; text: trashItem.modelData.title; elide: Text.ElideRight; textFormat: Text.PlainText; color: trashItem.highlighted ? Theme.selectedText : Theme.text }
                                 Label {
                                     Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                                     text: [root.kindNames[trashItem.modelData.kind], trashItem.modelData.kind === "ai" ? "" : trashItem.modelData.detail,
