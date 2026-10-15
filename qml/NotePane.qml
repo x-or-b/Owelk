@@ -232,6 +232,18 @@ Rectangle {
         width: Math.min(480, root.width - 32)
         padding: 8
         property var candidates: []
+        // The candidate Return links: the first of new results, moved with the arrow keys or the pointer.
+        onCandidatesChanged: linkList.currentIndex = candidates.length ? 0 : -1
+        function choose(index) {
+            if (index < 0 || index >= candidates.length) return
+            root.insertLink(candidates[index].kind, candidates[index].id)
+            close()
+        }
+        function move(step) {
+            if (!candidates.length) return
+            linkList.currentIndex = Math.max(0, Math.min(candidates.length - 1, linkList.currentIndex + step))
+            linkList.positionViewAtIndex(linkList.currentIndex, ListView.Contain)
+        }
         onOpened: { linkQuery.text = ""; candidates = researchStore.linkCandidates(""); linkQuery.forceActiveFocus() }
         onClosed: body.forceActiveFocus()
         contentItem: ColumnLayout {
@@ -246,22 +258,31 @@ Rectangle {
                 Timer { id: linkLookup; interval: 150; onTriggered: linkPicker.candidates = researchStore.linkCandidates(linkQuery.text) }
                 Keys.onReturnPressed: {
                     if (linkLookup.running) { linkLookup.stop(); linkLookup.triggered() }
-                    if (linkPicker.candidates.length) { root.insertLink(linkPicker.candidates[0].kind, linkPicker.candidates[0].id); linkPicker.close() }
+                    linkPicker.choose(linkList.currentIndex)
                 }
+                Keys.onEnterPressed: Keys.returnPressed(event)
+                Keys.onUpPressed: linkPicker.move(-1)
+                Keys.onDownPressed: linkPicker.move(1)
                 Keys.onEscapePressed: linkPicker.close()
             }
             ListView {
+                id: linkList
+                objectName: "noteLinkCandidates"
                 Layout.fillWidth: true
                 Layout.preferredHeight: Math.min(240, contentHeight)
                 clip: true
                 model: linkPicker.candidates
+                highlightMoveDuration: 0
                 delegate: ItemDelegate {
                     required property var modelData
+                    required property int index
                     width: ListView.view.width
+                    highlighted: ListView.isCurrentItem
+                    onHoveredChanged: if (hovered) linkList.currentIndex = index
                     objectName: "noteLinkCandidate-" + modelData.kind + "-" + modelData.id
                     text: ({note: qsTr("Note"), document: qsTr("Paper"), highlight: qsTr("Annotation")})[modelData.kind] + " · " + modelData.title
                     font.pixelSize: Theme.fontSmall
-                    onClicked: { root.insertLink(modelData.kind, modelData.id); linkPicker.close() }
+                    onClicked: linkPicker.choose(index)
                 }
             }
         }

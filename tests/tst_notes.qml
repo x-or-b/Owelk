@@ -117,12 +117,30 @@ Item {
             body.forceActiveFocus()
             body.insert(0, "Related: [[")
             body.cursorPosition = body.text.length
-            const picker = visualChild(note, "noteLinkPicker")
             note.insertLink("document", researchStore.documentLinkId(fixtureSource))
             verify(body.text.indexOf("[[") < 0)
             verify(body.text.indexOf("](owelk://document/") > 0)
             tryVerify(function() { return researchStore.note(id).body === body.text }, 3000)
-            researchStore.deleteNote(id); researchStore.purgeNote(id)
+            // The list is walked with the arrow keys; Return links the one chosen.
+            const first = researchStore.createNote("Arrow target one", "x"), second = researchStore.createNote("Arrow target two", "x")
+            body.cursorPosition = body.text.length
+            const picker = findChild(note, "noteLinkPicker")
+            picker.open()
+            const query = findChild(picker.contentItem, "noteLinkQuery"), list = findChild(picker.contentItem, "noteLinkCandidates")
+            tryCompare(picker, "opened", true)
+            query.text = "Arrow target"
+            tryVerify(function() { return picker.candidates.length === 2 && list.currentIndex === 0 }, 3000)
+            const wanted = picker.candidates[1].id
+            testInput.keyClick(query, Qt.Key_Down)
+            compare(list.currentIndex, 1)
+            testInput.keyClick(query, Qt.Key_Down)
+            compare(list.currentIndex, 1)
+            testInput.keyClick(query, Qt.Key_Up)
+            testInput.keyClick(query, Qt.Key_Down)
+            testInput.keyClick(query, Qt.Key_Return)
+            tryCompare(picker, "visible", false)
+            verify(body.text.indexOf("owelk://note/" + wanted) > 0)
+            for (const n of [id, first, second]) { researchStore.deleteNote(n); researchStore.purgeNote(n) }
         }
     }
 }
