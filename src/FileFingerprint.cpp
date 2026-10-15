@@ -75,6 +75,17 @@ Stamp stamp(const QString &path)
     return result;
 }
 
+bool sameFile(const QString &first, const QString &second)
+{
+    const QFileInfo a(first), b(second);
+    if (a.absoluteFilePath() == b.absoluteFilePath()) return true;
+    const auto canonical = a.canonicalFilePath();
+    if (!canonical.isEmpty() && canonical == b.canonicalFilePath()) return true;
+    // Another spelling of the same file (letter case on macOS and Windows disks, a hard link).
+    const auto x = stamp(first), y = stamp(second);
+    return x.isValid() && y.isValid() && x.inode != 0 && x.device == y.device && x.inode == y.inode;
+}
+
 QString sha256(const QString &path, const std::atomic_bool *cancel)
 {
     const auto id = key(path);

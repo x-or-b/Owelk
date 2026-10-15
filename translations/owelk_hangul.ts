@@ -2756,6 +2756,10 @@ Same file as another library entry</source>
         <translation>추즈 어 디퍼런트 파일 네임 투 킵 더 오리지널 피디에프 언체인지드.</translation>
     </message>
     <message>
+        <source>Choose a different file name.</source>
+        <translation>추즈 어 디퍼런트 파일 네임.</translation>
+    </message>
+    <message>
         <source>Choose a different local PDF path.</source>
         <translation>추즈 어 디퍼런트 로컬 피디에프 패스.</translation>
     </message>
@@ -2990,6 +2994,10 @@ Same file as another library entry</source>
     <message>
         <source>No PDFs were added. Choose PDF files.</source>
         <translation>노 피디에프스 워 애디드. 추즈 피디에프 파일스.</translation>
+    </message>
+    <message>
+        <source>No annotations could be written.</source>
+        <translation>노 애노테이션스 쿠드 비 리튼.</translation>
     </message>
     <message>
         <source>No comparison came back.</source>
@@ -3230,6 +3238,10 @@ Same file as another library entry</source>
     <message>
         <source>The PDF changed, so the annotation's place cannot be verified. It is preserved.</source>
         <translation>더 피디에프 체인지드, 소 더 애노테이션스 플레이스 캔낫 비 베리파이드. 잇 이즈 프리저브드.</translation>
+    </message>
+    <message>
+        <source>The PDF changed. Reopen it and try again.</source>
+        <translation>더 피디에프 체인지드. 리오픈 잇 앤드 트라이 어게인.</translation>
     </message>
     <message>
         <source>The PDF changed. Reopen it before adding annotations.</source>

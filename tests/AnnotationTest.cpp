@@ -17,6 +17,7 @@
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include "FileFingerprint.h"
+#include "AnnotatedPdf.h"
 #ifdef OWELK_HAVE_QPDF
 #include <qpdf/QPDF.hh>
 #include <qpdf/QPDFPageDocumentHelper.hh>
@@ -341,6 +342,17 @@ private slots:
         // Exporting onto the original is refused.
         store.exportAnnotatedPdf(source, hash, path);
         QCOMPARE(exported.size(), 1);
+#ifdef Q_OS_UNIX
+        // Also when the original is named another way (through a link to its folder): the writer never
+        // empties it.
+        const auto alias = dir.filePath("alias");
+        QVERIFY(QFile::link(dir.path(), alias));
+        const auto other = alias + "/" + QFileInfo(path).fileName();
+        store.exportAnnotatedPdf(source, hash, other);
+        QVERIFY(!AnnotatedPdf::write(path, other, {}, {}).isEmpty());
+        QCOMPARE(exported.size(), 1);
+        QCOMPARE(FileFingerprint::sha256(path), hash);
+#endif
 #endif
         // A source that changed since it was verified is not printed.
         store.printDocumentTo(source, "0000", pages, dir.filePath("stale.pdf"));

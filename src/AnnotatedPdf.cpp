@@ -2,10 +2,12 @@
 #include "UiText.h"
 
 #ifdef OWELK_HAVE_QPDF
+#include "FileFingerprint.h"
 #include <QColor>
 #include <QDateTime>
 #include <QFileInfo>
 #include <QImage>
+#include <QSaveFile>
 #include <QUrl>
 #include <qpdf/QPDF.hh>
 #include <qpdf/QPDFObjectHandle.hh>
@@ -128,12 +130,12 @@ bool available()
 
 QString write(const QString &source, const QString &target, const QVariantList &marks, const QString &password)
 {
-    if (QFileInfo(source).canonicalFilePath() == QFileInfo(target).absoluteFilePath())
-        return "Choose a different file name.";
+    if (FileFingerprint::sameFile(source, target)) return ui("Choose a different file name.");
     try {
         QPDF pdf;
         pdf.setSuppressWarnings(true);
-        pdf.processFile(source.toLocal8Bit().constData(), password.isEmpty() ? nullptr : password.toUtf8().constData());
+        // qpdf takes UTF-8 file names on every system (Windows too).
+        pdf.processFile(source.toUtf8().constData(), password.isEmpty() ? nullptr : password.toUtf8().constData());
         auto pages = QPDFPageDocumentHelper(pdf).getAllPages();
         int written = 0;
         for (const auto &value : marks) {
@@ -291,9 +293,17 @@ QString write(const QString &source, const QString &target, const QVariantList &
             pageObject.getKey("/Annots").appendItem(pdf.makeIndirectObject(annot));
             ++written;
         }
-        QPDFWriter writer(pdf, target.toLocal8Bit().constData());
+        // Made in memory and saved whole: a file named for writing is never emptied before the PDF is read.
+        QPDFWriter writer(pdf);
+        writer.setOutputMemory();
         writer.write();
-        return written || marks.isEmpty() ? QString() : QStringLiteral("No annotations could be written.");
+        const auto buffer = writer.getBufferSharedPointer();
+        const auto size = qint64(buffer->getSize());
+        QSaveFile file(target);
+        if (!file.open(QIODevice::WriteOnly)
+            || file.write(reinterpret_cast<const char *>(buffer->getBuffer()), size) != size || !file.commit())
+            return ui("Cannot write the annotated PDF: %1").arg(file.errorString());
+        return written || marks.isEmpty() ? QString() : ui("No annotations could be written.");
     } catch (const std::exception &error) {
         return ui("Cannot write the annotated PDF: %1").arg(QString::fromLocal8Bit(error.what()));
     }

@@ -20,6 +20,8 @@ struct Stamp {
 };
 
 Stamp stamp(const QString &path);
+// Whether two paths name the same file, also when spelled differently (letter case, links).
+bool sameFile(const QString &first, const QString &second);
 // Empty when the file cannot be read or the hash was cancelled.
 QString sha256(const QString &path, const std::atomic_bool *cancel = nullptr);
 // Seed a hash verified earlier; it is used only while the file still has this stamp.

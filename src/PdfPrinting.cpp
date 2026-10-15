@@ -219,10 +219,7 @@ void start(const std::shared_ptr<PrintJob> &job)
 }
 bool overwritesOriginal(const QString &file, const QUrl &source)
 {
-    const QFileInfo output(file), original(source.toLocalFile());
-    return !file.isEmpty()
-        && (output.absoluteFilePath() == original.absoluteFilePath()
-            || (!output.canonicalFilePath().isEmpty() && output.canonicalFilePath() == original.canonicalFilePath()));
+    return !file.isEmpty() && FileFingerprint::sameFile(file, source.toLocalFile());
 }
 }
 
@@ -358,7 +355,7 @@ void ResearchStore::exportAnnotatedPdf(const QUrl &source, const QString &hash, 
         emit message(ui("Open a local PDF and choose where to save the copy."));
         return;
     }
-    if (QFileInfo(target).absoluteFilePath() == QFileInfo(source.toLocalFile()).absoluteFilePath()) {
+    if (overwritesOriginal(target, source)) {
         emit message(ui("Choose a different file name to keep the original PDF unchanged."));
         return;
     }
@@ -377,7 +374,7 @@ void ResearchStore::exportAnnotatedPdf(const QUrl &source, const QString &hash, 
     watcher->setFuture(QtConcurrent::run(&m_workers, [source, hash, target, marks] {
         // The original must still be the verified file; only a new file is written.
         if (FileFingerprint::sha256(source.toLocalFile()) != hash)
-            return QStringLiteral("The PDF changed. Reopen it and try again.");
+            return ui("The PDF changed. Reopen it and try again.");
         return AnnotatedPdf::write(source.toLocalFile(), target, marks, PdfAccess::password(source.toLocalFile()));
     }));
 }
