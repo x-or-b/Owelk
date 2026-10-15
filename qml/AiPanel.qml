@@ -491,10 +491,10 @@ Item {
                 AnswerText {
                     id: liveAnswer
                     objectName: "aiAnswer"
-                    // The answer as drawn: while it streams, at most every 80 ms (each drawing converts the whole
+                    // The answer as drawn: while it streams, at most every 50 ms (each drawing converts the whole
                     // answer so far to rich text and lays it out again); emptied at once for a new question.
                     property string drawn: root.c ? root.c.answer : ""
-                    Timer { id: liveRedraw; interval: 80; onTriggered: liveAnswer.drawn = root.c ? root.c.answer : "" }
+                    Timer { id: liveRedraw; interval: 50; onTriggered: liveAnswer.drawn = root.c ? root.c.answer : "" }
                     Connections {
                         target: root.c
                         function onAnswerChanged() {
