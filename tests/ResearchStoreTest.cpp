@@ -14,6 +14,9 @@
 #include "MetadataLookup.h"
 #include "ForYou.h"
 #include <QTimeZone>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QDir>
@@ -356,6 +359,43 @@ private slots:
             QCOMPARE(folderOf(*store, laptopChat), paperThread);
             QCOMPARE(scalar(*store, "SELECT count(*) FROM ai_folders WHERE id LIKE 'document:%'").toInt(), 1);
         }
+    }
+    void syncPassesOverAChangeItCannotApply()
+    {
+        QTemporaryDir directory;
+        const auto drive = directory.filePath("Drive");
+        QVERIFY(QDir().mkpath(drive));
+        QString error;
+        ResearchStore mac(directory.filePath("mac"));
+        QVERIFY2(mac.initialize(&error), qPrintable(error));
+        auto *sync = mac.librarySync();
+        QCOMPARE(sync->setFolder(QUrl::fromLocalFile(drive)), QString());
+        QVERIFY(sync->syncBlocking().error.isEmpty());
+        // Another computer's changes: one this computer cannot apply (a tag without a name), then a note.
+        QVERIFY(QDir().mkpath(drive + "/Owelk/devices/other"));
+        const auto now = QDateTime::currentMSecsSinceEpoch();
+        const auto stamp = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+        const auto line = [&](const QString &table, const QString &id, const QJsonObject &row) {
+            return QJsonDocument(
+                       QJsonObject{{"t", table}, {"k", QJsonArray{id}}, {"v", now}, {"d", "other"}, {"r", row}})
+                       .toJson(QJsonDocument::Compact)
+                + '\n';
+        };
+        QFile log(drive + "/Owelk/devices/other/00000001.jsonl");
+        QVERIFY(log.open(QIODevice::WriteOnly));
+        log.write(line("tags", "broken", {{"id", "broken"}, {"name", QJsonValue::Null}})
+            + line("notes", "elsewhere",
+                {{"id", "elsewhere"}, {"title", "From elsewhere"}, {"body", "b"}, {"created_at", stamp},
+                    {"updated_at", stamp}, {"deleted_at", QJsonValue::Null}}));
+        log.close();
+        QVERIFY(!mac.createNote("Mine", "x").isEmpty());
+        // The note arrives and this computer's own change goes out; the other is passed over, counted once.
+        const auto outcome = sync->syncBlocking();
+        QVERIFY2(outcome.error.isEmpty(), qPrintable(outcome.error));
+        QCOMPARE(outcome.skipped, 1);
+        QVERIFY(outcome.sent > 0);
+        QCOMPARE(mac.note("elsewhere")["title"].toString(), QString("From elsewhere"));
+        QCOMPARE(sync->syncBlocking().skipped, 0);
     }
     void markdownShowsMathAsImages()
     {

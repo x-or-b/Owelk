@@ -301,7 +301,27 @@ bool Pass::applyFile(const QString &device, const QString &file, qint64 size, co
     for (int i = from; i < lines.size(); ++i) {
         const auto change = QJsonDocument::fromJson(lines[i]).object();
         if (change.isEmpty()) continue; // A damaged line is skipped, not retried forever.
-        if (!applyChange(change)) return abort();
+        // So is a change this computer cannot apply (a clash it cannot resolve): it is counted and the rest of the
+        // file still arrives. That one row may differ here until it changes again; nothing else waits behind it.
+        const auto aliases = m_aliases;
+        const auto removed = m_removedPapers.size(), sources = outcome.newSources.size();
+        const auto touched = outcome.tables;
+        const auto received = outcome.received;
+        if (!run("SAVEPOINT change")) return abort();
+        if (applyChange(change)) {
+            if (!run("RELEASE change")) return abort();
+            continue;
+        }
+        qWarning("Owelk sync: skipped a change to %s: %s", qPrintable(change.value("t").toString()),
+            qPrintable(outcome.error));
+        outcome.error.clear();
+        if (!run("ROLLBACK TO change") || !run("RELEASE change")) return abort();
+        m_aliases = aliases;
+        m_removedPapers.resize(removed);
+        outcome.newSources.resize(sources);
+        outcome.tables = touched;
+        outcome.received = received;
+        ++outcome.skipped;
     }
     if (!run("DELETE FROM sync_pause")
         || !run("INSERT OR REPLACE INTO sync_seen(device,file,size,lines) VALUES(?,?,?,?)",
@@ -736,7 +756,8 @@ LibrarySync::Outcome runPass(const QString &data, const QString &papers, const Q
         pass.outcome.error = connection.db.lastError().text();
         return pass.outcome;
     }
-    if (!exportOnly && !pass.importChanges()) return pass.outcome;
+    // Changes made here still go out when those from elsewhere cannot all be read in (the error is shown).
+    if (!exportOnly) pass.importChanges();
     if (!pass.exportChanges()) return pass.outcome;
     if (!exportOnly) pass.moveFiles();
     return pass.outcome;
@@ -878,7 +899,9 @@ void LibrarySync::finished(const Outcome &outcome)
         m_status = outcome.error;
     else
         m_status = ui("Synced at ") + QLocale().toString(QTime::currentTime(), QLocale::ShortFormat)
-            + (outcome.waiting ? ui(" · waiting for %1 files from the folder").arg(outcome.waiting) : QString());
+            + (outcome.waiting ? ui(" · waiting for %1 files from the folder").arg(outcome.waiting) : QString())
+            + (outcome.skipped ? ui(" · %1 changes from other computers could not be applied").arg(outcome.skipped)
+                               : QString());
     emit changed();
     if (outcome.received || !outcome.newSources.isEmpty()) emit received(outcome.tables, outcome.newSources);
     if (m_again) {

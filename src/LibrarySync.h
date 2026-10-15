@@ -27,7 +27,8 @@ class LibrarySync final : public QObject {
 public:
     struct Outcome {
         QString error;
-        int received = 0, sent = 0, waiting = 0;
+        // skipped: changes from elsewhere that could not be applied here (passed over, not read again).
+        int received = 0, sent = 0, waiting = 0, skipped = 0;
         QSet<QString> tables;
         QStringList newSources;
         QStringList computers;

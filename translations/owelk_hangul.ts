@@ -2520,6 +2520,10 @@ Same file as another library entry</source>
         <translation> 댓 체인지.</translation>
     </message>
     <message>
+        <source> · %1 changes from other computers could not be applied</source>
+        <translation> · %1 체인지스 프롬 아더 컴퓨터스 쿠드 낫 비 어플라이드</translation>
+    </message>
+    <message>
         <source> · waiting for %1 files from the folder</source>
         <translation> · 웨이팅 포 %1 파일스 프롬 더 폴더</translation>
     </message>
