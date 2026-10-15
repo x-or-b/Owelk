@@ -744,16 +744,16 @@ int AiService::gloss(const QVariantMap &spec)
         // A word or a short phrase: what it means here; anything longer: its translation.
         const bool term = text.split(' ', Qt::SkipEmptyParts).size() <= 3 && text.size() <= 48;
         AiRequest call;
-        call.system = ui("You are Gloss, a quick reading aid in a paper reader. Answer at once, briefly, "
-                         "in %1, with no headings or preamble. Keep math as LaTeX in $...$.")
+        call.system = QStringLiteral("You are Gloss, a quick reading aid in a paper reader. Answer at once, briefly, "
+                                     "in %1, with no headings or preamble. Keep math as LaTeX in $...$.")
                           .arg(into);
         call.text = (context.isEmpty() ? QString() : "<passage>\n" + context + "\n</passage>\n\n") + "<selection>\n"
             + text + "\n</selection>\n\n"
-            + (term ? ui("Give the selected term in %1 first, as \"**term** — translation\"; then, in one "
-                         "or two short sentences, what it means in this passage.")
+            + (term ? QStringLiteral("Give the selected term in %1 first, as \"**term** — translation\"; then, in one "
+                                     "or two short sentences, what it means in this passage.")
                           .arg(into)
-                    : ui("Translate the selection into %1. Give only the translation, faithful and "
-                         "natural; keep equations, symbols and citation markers unchanged.")
+                    : QStringLiteral("Translate the selection into %1. Give only the translation, faithful and "
+                                     "natural; keep equations, symbols and citation markers unchanged.")
                           .arg(into));
         call.model = glossModel(id);
         // Providers ignore an effort the model does not have.
@@ -982,9 +982,10 @@ int AiService::suggestGroups(const QVariantList &items, const QString &prefix, c
 int AiService::organizeTabs(const QVariantList &tabs)
 {
     return suggestGroups(tabs, "t", "tabs", "tabIds",
-        ui("You organize a researcher's open tabs into a few named groups by topic. Use short, specific group "
-           "names (2-5 words) in the language of the tab titles. Leave a tab out when it fits no group. Reply "
-           "with JSON only: {\"groups\": [{\"name\": \"…\", \"tabs\": [\"t1\", \"t2\"]}]}."),
+        QStringLiteral(
+            "You organize a researcher's open tabs into a few named groups by topic. Use short, specific group "
+            "names (2-5 words) in the language of the tab titles. Leave a tab out when it fits no group. Reply "
+            "with JSON only: {\"groups\": [{\"name\": \"…\", \"tabs\": [\"t1\", \"t2\"]}]}."),
         "Group these tabs:", &AiService::tabsOrganized);
 }
 
@@ -997,11 +998,12 @@ int AiService::organizePapers(const QVariantList &papers, const QStringList &col
         text = "Collections that already exist:\n" + names.join('\n') + "\n\n" + text;
     }
     return suggestGroups(papers, "p", "papers", "paperIds",
-        ui("You sort a researcher's papers into a few topic collections. Use short, specific names (2-5 words) "
-           "in the language of the paper titles. When papers fit a collection that already exists, use its exact "
-           "name. Leave a paper out when it fits no group, and do not make a group for a single paper unless it "
-           "fits an existing collection. Reply with JSON only: "
-           "{\"groups\": [{\"name\": \"…\", \"papers\": [\"p1\", \"p2\"]}]}."),
+        QStringLiteral(
+            "You sort a researcher's papers into a few topic collections. Use short, specific names (2-5 words) "
+            "in the language of the paper titles. When papers fit a collection that already exists, use its exact "
+            "name. Leave a paper out when it fits no group, and do not make a group for a single paper unless it "
+            "fits an existing collection. Reply with JSON only: "
+            "{\"groups\": [{\"name\": \"…\", \"papers\": [\"p1\", \"p2\"]}]}."),
         text, &AiService::papersOrganized);
 }
 
@@ -1124,14 +1126,15 @@ int AiService::comparePapers(const QVariantList &papers, const QStringList &aspe
     const auto language = aiLanguageName(m_store->setting("aiLanguage", "ko"));
     AiRequest call;
     call.system
-        = ui("You compare research papers for a researcher, using only the text given for each paper. Write a "
-             "Markdown "
-             "table with one row per paper, in the order given: the first column names the paper (a short title and "
-             "the year), then one column per requested aspect. Keep each cell short (at most about 25 words) and "
-             "exact about numbers, datasets and terms; write \"not stated\" when the given text does not say. After "
-             "the "
-             "table, add 3-5 bullet points on the main differences and when each paper is the better choice. Output "
-             "only the table and the bullets.")
+        = QStringLiteral(
+              "You compare research papers for a researcher, using only the text given for each paper. Write a "
+              "Markdown "
+              "table with one row per paper, in the order given: the first column names the paper (a short title and "
+              "the year), then one column per requested aspect. Keep each cell short (at most about 25 words) and "
+              "exact about numbers, datasets and terms; write \"not stated\" when the given text does not say. After "
+              "the "
+              "table, add 3-5 bullet points on the main differences and when each paper is the better choice. Output "
+              "only the table and the bullets.")
         + (language.isEmpty()
                 ? QStringLiteral(" Write in the language of the papers.")
                 : QStringLiteral(" Write in %1; keep technical terms in their original form.").arg(language));

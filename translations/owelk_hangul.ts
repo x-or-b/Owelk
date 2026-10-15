@@ -2920,10 +2920,6 @@ Same file as another library entry</source>
         <translation>게팅 “%1” 스루 더 브라우저 (%2).</translation>
     </message>
     <message>
-        <source>Give the selected term in %1 first, as "**term** — translation"; then, in one or two short sentences, what it means in this passage.</source>
-        <translation>기브 더 셀렉티드 텀 인 %1 퍼스트, 애즈 "**텀** — 트랜슬레이션"; 덴, 인 원 오어 투 쇼트 센텐시즈, 왓 잇 민즈 인 디스 패시지.</translation>
-    </message>
-    <message>
         <source>HEIC/HEIF decoding is unavailable on this system. Convert to PNG or JPEG first.</source>
         <translation>헤이크/헤이프 디코딩 이즈 언어베일러블 온 디스 시스템. 컨버트 투 피엔지 오어 제이펙 퍼스트.</translation>
     </message>
@@ -3340,10 +3336,6 @@ Same file as another library entry</source>
         <translation>디스 셀렉션 해즈 노 하이라이트 지오메트리.</translation>
     </message>
     <message>
-        <source>Translate the selection into %1. Give only the translation, faithful and natural; keep equations, symbols and citation markers unchanged.</source>
-        <translation>트랜슬레이트 더 셀렉션 인투 %1. 기브 온리 더 트랜슬레이션, 페이스풀 앤드 내추럴; 킵 이퀘이션스, 심벌스 앤드 사이테이션 마커스 언체인지드.</translation>
-    </message>
-    <message>
         <source>Turn on Explain with AI in Settings › For You to send these papers to the AI.</source>
         <translation>턴 온 익스플레인 위드 에이아이 인 세팅스 › 포 유 투 센드 디즈 페이퍼스 투 더 에이아이.</translation>
     </message>
@@ -3382,22 +3374,6 @@ Same file as another library entry</source>
     <message>
         <source>Wait for the current source verification to finish.</source>
         <translation>웨이트 포 더 커런트 소스 베리피케이션 투 피니시.</translation>
-    </message>
-    <message>
-        <source>You are Gloss, a quick reading aid in a paper reader. Answer at once, briefly, in %1, with no headings or preamble. Keep math as LaTeX in $...$.</source>
-        <translation>유 아 글로스, 어 퀵 리딩 에이드 인 어 페이퍼 리더. 앤서 앳 원스, 브리플리, 인 %1, 위드 노 헤딩스 오어 프리앰블. 킵 매스 애즈 레이텍 인 $...$.</translation>
-    </message>
-    <message>
-        <source>You compare research papers for a researcher, using only the text given for each paper. Write a Markdown table with one row per paper, in the order given: the first column names the paper (a short title and the year), then one column per requested aspect. Keep each cell short (at most about 25 words) and exact about numbers, datasets and terms; write "not stated" when the given text does not say. After the table, add 3-5 bullet points on the main differences and when each paper is the better choice. Output only the table and the bullets.</source>
-        <translation>유 컴페어 리서치 페이퍼스 포 어 리서처, 유징 온리 더 텍스트 기븐 포 이치 페이퍼. 라이트 어 마크다운 테이블 위드 원 로우 퍼 페이퍼, 인 더 오더 기븐: 더 퍼스트 칼럼 네임스 더 페이퍼 (어 쇼트 타이틀 앤드 더 이어), 덴 원 칼럼 퍼 리퀘스티드 애스펙트. 킵 이치 셀 쇼트 (앳 모스트 어바웃 25 워즈) 앤드 이그잭트 어바웃 넘버스, 데이터셋츠 앤드 텀스; 라이트 "낫 스테이티드" 웬 더 기븐 텍스트 더즈 낫 세이. 애프터 더 테이블, 애드 3-5 불릿 포인츠 온 더 메인 디퍼런시즈 앤드 웬 이치 페이퍼 이즈 더 베터 초이스. 아웃풋 온리 더 테이블 앤드 더 불릿츠.</translation>
-    </message>
-    <message>
-        <source>You organize a researcher's open tabs into a few named groups by topic. Use short, specific group names (2-5 words) in the language of the tab titles. Leave a tab out when it fits no group. Reply with JSON only: {"groups": [{"name": "…", "tabs": ["t1", "t2"]}]}.</source>
-        <translation>유 오거나이즈 어 리서처스 오픈 탭스 인투 어 퓨 네임드 그룹스 바이 토픽. 유즈 쇼트, 스페시픽 그룹 네임스 (2-5 워즈) 인 더 랭귀지 오브 더 탭 타이틀스. 리브 어 탭 아웃 웬 잇 핏츠 노 그룹. 리플라이 위드 제이슨 온리: {"그룹스": [{"네임": "…", "탭스": ["티1", "티2"]}]}.</translation>
-    </message>
-    <message>
-        <source>You sort a researcher's papers into a few topic collections. Use short, specific names (2-5 words) in the language of the paper titles. When papers fit a collection that already exists, use its exact name. Leave a paper out when it fits no group, and do not make a group for a single paper unless it fits an existing collection. Reply with JSON only: {"groups": [{"name": "…", "papers": ["p1", "p2"]}]}.</source>
-        <translation>유 소트 어 리서처스 페이퍼스 인투 어 퓨 토픽 컬렉션스. 유즈 쇼트, 스페시픽 네임스 (2-5 워즈) 인 더 랭귀지 오브 더 페이퍼 타이틀스. 웬 페이퍼스 핏 어 컬렉션 댓 올레디 이그지스츠, 유즈 잇츠 이그잭트 네임. 리브 어 페이퍼 아웃 웬 잇 핏츠 노 그룹, 앤드 두 낫 메이크 어 그룹 포 어 싱글 페이퍼 언레스 잇 핏츠 언 이그지스팅 컬렉션. 리플라이 위드 제이슨 온리: {"그룹스": [{"네임": "…", "페이퍼스": ["피1", "피2"]}]}.</translation>
     </message>
     <message>
         <source>arXiv did not answer for “%1”.</source>
