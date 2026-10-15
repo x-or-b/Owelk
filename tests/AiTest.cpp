@@ -831,6 +831,36 @@ private slots:
         QVERIFY(store.aiThreads().isEmpty());
         ai->clearApiKey("claude");
     }
+    void attachedPicturesNobodyNeedsAreCleanedUp()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        const auto folder = store.dataDirectory() + "/ai-attachments";
+        QVERIFY(QDir().mkpath(folder));
+        const auto make = [&](const QString &name, int daysOld) {
+            QFile file(folder + "/" + name);
+            if (!file.open(QIODevice::WriteOnly)) return;
+            file.write("png");
+            file.flush();
+            file.setFileTime(QDateTime::currentDateTime().addDays(-daysOld), QFileDevice::FileModificationTime);
+        };
+        make("kept.png", 3);
+        make("orphan.png", 3);
+        make("fresh.png", 0);
+        const auto thread = store.createAiThread({{"provider", "claude"}, {"model", "m"}, {"title", "Pictures"}});
+        QVERIFY(store.appendAiMessage(thread,
+            {{"role", "user"}, {"content", "q"}, {"display", "q"},
+                {"context",
+                    QVariantMap{{"imageFiles", QStringList{QUrl::fromLocalFile(folder + "/kept.png").toString()}}}}}));
+        // One a chat shows stays; one nobody refers to goes once a day old; a new one (about to be sent) stays.
+        QMetaObject::invokeMethod(ai, "sweepAttachments");
+        QTRY_VERIFY_WITH_TIMEOUT(!QFileInfo::exists(folder + "/orphan.png"), 5000);
+        QVERIFY(QFileInfo::exists(folder + "/kept.png"));
+        QVERIFY(QFileInfo::exists(folder + "/fresh.png"));
+    }
     void ollamaOnAnotherComputerAsksFirst()
     {
         QTemporaryDir directory;

@@ -36,6 +36,8 @@ public:
     // Where keys are kept on this system, for Settings.
     Q_INVOKABLE QString keyStorage() const;
     Q_INVOKABLE bool consented(const QString &provider) const;
+    // Attached pictures no chat refers to, a day old or more, are deleted (runs a little after start).
+    Q_INVOKABLE void sweepAttachments();
     // Ollama's host is this computer (localhost, 127.0.0.1, ::1).
     bool ollamaIsLocal() const;
     Q_INVOKABLE void giveConsent(const QString &provider);

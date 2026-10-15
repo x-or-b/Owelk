@@ -18,6 +18,10 @@
 #include <QImage>
 #include <QUuid>
 #include <QDir>
+#include <QTimer>
+#include <QDateTime>
+#include <QSqlQuery>
+#include "WorkerConnection.h"
 #include <QFile>
 #include <QFileInfo>
 #include <QFutureWatcher>
@@ -67,6 +71,8 @@ AiService::AiService(ResearchStore *store, QObject *parent)
         } else if (method == "account/updated")
             refreshCodexAccount();
     });
+    // A little after start, not while the window opens.
+    QTimer::singleShot(30000, this, &AiService::sweepAttachments);
 }
 
 AiService::~AiService()
@@ -376,15 +382,19 @@ int AiService::ask(const QVariantMap &input)
                 material.error = ui("Cannot read the image ") + QFileInfo(path).fileName() + ".";
                 return material;
             }
-            if (std::max(image.width(), image.height()) > 1568)
-                image = image.scaled(1568, 1568, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            const bool scaled = std::max(image.width(), image.height()) > 1568;
+            if (scaled) image = image.scaled(1568, 1568, Qt::KeepAspectRatio, Qt::SmoothTransformation);
             QByteArray png;
             QBuffer buffer(&png);
             buffer.open(QIODevice::WriteOnly);
             image.save(&buffer, "PNG");
-            const auto copy = attachments + "/" + QUuid::createUuid().toString(QUuid::WithoutBraces) + ".png";
-            QFile out(copy);
-            if (out.open(QIODevice::WriteOnly)) out.write(png);
+            // A picture already in the attachments folder (pasted, a region of a page) at its size is kept as it is.
+            auto copy = path;
+            if (scaled || !path.startsWith(attachments + "/") || !path.endsWith(".png", Qt::CaseInsensitive)) {
+                copy = attachments + "/" + QUuid::createUuid().toString(QUuid::WithoutBraces) + ".png";
+                QFile out(copy);
+                if (out.open(QIODevice::WriteOnly)) out.write(png);
+            }
             material.images << png;
             material.paths << copy;
         }
@@ -1319,6 +1329,28 @@ void AiService::listModels(const QString &provider)
 }
 
 // --- Attached images ----------------------------------------------------------------------------
+
+// Pictures attached to chats stay while a chat refers to them. The rest (removed before sending, the copies of
+// large ones, those of chats deleted for good) go once they are a day old, so one about to be sent stays.
+void AiService::sweepAttachments()
+{
+    const auto directory = m_store->dataDirectory() + "/ai-attachments";
+    if (!QFileInfo(directory).isDir()) return;
+    // Plain values only: it may still run while Owelk quits.
+    (void)QtConcurrent::run([directory, database = m_store->dataDirectory() + "/owelk.sqlite3"] {
+        WorkerConnection db(database, true);
+        if (!db.db.isOpen()) return;
+        const auto cutoff = QDateTime::currentDateTime().addDays(-1);
+        for (const auto &file : QDir(directory).entryInfoList(QDir::Files)) {
+            if (file.lastModified() > cutoff) continue;
+            QSqlQuery used(db.db);
+            used.prepare("SELECT 1 FROM ai_messages WHERE instr(context_json,?)>0 LIMIT 1");
+            used.addBindValue(file.fileName());
+            if (!used.exec()) return; // Cannot tell: everything stays.
+            if (!used.next()) QFile::remove(file.absoluteFilePath());
+        }
+    });
+}
 
 QString AiService::attachmentDirectory() const
 {
