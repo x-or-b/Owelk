@@ -762,6 +762,19 @@ private slots:
         QVERIFY(!ideas.isEmpty());
         QVERIFY(store.markdownLink("document", paper).contains("Linked Paper"));
         QCOMPARE(store.backlinks("document", paper).size(), 1);
+        // A save that keeps a link leaves it as it was (when it was made, and nothing to send to other computers).
+        const auto madeAt = [&] {
+            WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3", true);
+            QSqlQuery query(db.db);
+            return query.exec("SELECT created_at FROM links WHERE from_id='" + ideas + "'") && query.next()
+                ? query.value(0).toString()
+                : QString();
+        };
+        const auto made = madeAt();
+        QVERIFY(!made.isEmpty());
+        QTest::qWait(5);
+        QVERIFY(store.saveNote(ideas, "Ideas", "See " + store.markdownLink("document", paper) + " and more"));
+        QCOMPARE(madeAt(), made);
         const auto other = store.createNote("Other", "");
         QVERIFY(store.appendNoteLink(other, "highlight", region));
         QVERIFY(store.appendNoteLink(other, "highlight", region)); // Idempotent.

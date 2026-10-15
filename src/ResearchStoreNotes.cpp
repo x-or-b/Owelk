@@ -175,20 +175,33 @@ void ResearchStore::syncNoteLinks(const QString &noteId, const QString &body)
         if (!(match.captured(1) == "note" && match.captured(2) == noteId))
             targets.insert({match.captured(1), match.captured(2)});
     }
-    if (!m_database.transaction()) return;
-    QSqlQuery clear(m_database);
-    clear.prepare("DELETE FROM links WHERE from_kind='note' AND from_id=?");
-    clear.addBindValue(noteId);
-    bool ok = clear.exec();
-    for (const auto &target : targets) {
-        QSqlQuery add(m_database);
-        add.prepare("INSERT OR IGNORE INTO links VALUES('note',?,?,?,?)");
-        add.addBindValue(noteId);
-        add.addBindValue(target.first);
-        add.addBindValue(target.second);
-        add.addBindValue(now());
-        ok = ok && add.exec();
-    }
+    // Only links that came or went change: the others keep when they were made (the order of backlinks), and an
+    // ordinary save does not send every link to the other computers again.
+    QSet<QPair<QString, QString>> present;
+    QSqlQuery existing(m_database);
+    existing.prepare("SELECT to_kind,to_id FROM links WHERE from_kind='note' AND from_id=?");
+    existing.addBindValue(noteId);
+    if (!existing.exec()) return;
+    while (existing.next()) present.insert({existing.value(0).toString(), existing.value(1).toString()});
+    existing.finish();
+    if (present == targets || !m_database.transaction()) return;
+    const auto run = [&](const QString &sql, const QVariantList &values) {
+        QSqlQuery query(m_database);
+        query.prepare(sql);
+        for (const auto &value : values) query.addBindValue(value);
+        return query.exec();
+    };
+    bool ok = true;
+    for (const auto &gone : std::as_const(present))
+        if (!targets.contains(gone))
+            ok = ok
+                && run("DELETE FROM links WHERE from_kind='note' AND from_id=? AND to_kind=? AND to_id=?",
+                    {noteId, gone.first, gone.second});
+    for (const auto &target : std::as_const(targets))
+        if (!present.contains(target))
+            ok = ok
+                && run("INSERT OR IGNORE INTO links(from_kind,from_id,to_kind,to_id,created_at) VALUES('note',?,?,?,?)",
+                    {noteId, target.first, target.second, now()});
     if (!ok || !m_database.commit())
         m_database.rollback();
     else
