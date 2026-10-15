@@ -261,9 +261,15 @@ Rectangle {
     Timer { id: refreshTimer; interval: 120; onTriggered: root.refresh() }
     Connections {
         target: researchStore
-        function onDocumentsChanged() { root.refresh() }
-        function onRecentDocumentsChanged() { root.refresh() }
-        function onNotesChanged() { root.refresh() }
+        // Papers: once a burst is over (details read in the background, a session saved on every tab change).
+        function onDocumentsChanged() { refreshTimer.restart() }
+        function onRecentDocumentsChanged() { refreshTimer.restart() }
+        // A note saved (every pause in typing): only what shows notes.
+        function onNotesChanged() {
+            if (root.showingNotes) root.noteRows = researchStore.notes(false)
+            root.trashCount = researchStore.trashCount()
+            if (root.showingTrash) root.trashRows = researchStore.trash()
+        }
         function onAiThreadsChanged() { if (root.showingTrash) root.refresh(); else root.trashCount = researchStore.trashCount() }
     }
     Dialog {
