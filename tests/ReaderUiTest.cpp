@@ -135,6 +135,10 @@ public:
 public slots:
     void applicationAvailable()
     {
+        // API keys the tests write, and the ChatGPT account they read, are never the real ones.
+        qputenv("OWELK_KEYCHAIN_SERVICE",
+            ("org.owelk.tests." + QUuid::createUuid().toString(QUuid::WithoutBraces)).toUtf8());
+        qputenv("OWELK_CODEX", QByteArray(QUICK_TEST_SOURCE_DIR) + "/fake_codex.py");
         QQuickStyle::setStyle("OwelkStyle");
         writeFixture(m_directory.filePath("fixture.pdf"));
         QImage preview(80, 60, QImage::Format_RGB32);
