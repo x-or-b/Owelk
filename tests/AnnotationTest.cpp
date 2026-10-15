@@ -343,11 +343,9 @@ private slots:
         store.exportAnnotatedPdf(source, hash, path);
         QCOMPARE(exported.size(), 1);
 #ifdef Q_OS_UNIX
-        // Also when the original is named another way (through a link to its folder): the writer never
-        // empties it.
-        const auto alias = dir.filePath("alias");
-        QVERIFY(QFile::link(dir.path(), alias));
-        const auto other = alias + "/" + QFileInfo(path).fileName();
+        // Also when the original is named another way (through a link): the writer never empties it.
+        const auto other = dir.filePath("link to original.pdf");
+        QVERIFY(QFile::link(path, other));
         store.exportAnnotatedPdf(source, hash, other);
         QVERIFY(!AnnotatedPdf::write(path, other, {}, {}).isEmpty());
         QCOMPARE(exported.size(), 1);
