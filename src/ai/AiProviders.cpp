@@ -51,11 +51,14 @@ void HttpStreamProvider::post(const QHash<QByteArray, QByteArray> &headers, cons
         }
         read();
         if (!m_done) {
-            // A stream that ended without its closing event still produced usable text.
+            // A stream that ended without its closing event (the connection dropped) still produced usable text:
+            // kept, and marked as ending early.
             if (m_text.isEmpty())
                 fail(ui("The response ended without an answer."));
-            else
+            else {
+                m_interrupted = true;
                 finish(QString());
+            }
         }
     });
 }

@@ -855,6 +855,16 @@ private slots:
         int stored = 0;
         for (const auto &thread : store.aiThreads()) stored += thread.toMap()["messages"].toInt();
         QCOMPARE(stored, 2);
+        // The connection ends before the answer does (no closing event): what arrived is kept, marked as such.
+        server.keepOpen = false;
+        server.chunks = {MockServer::sse("content_block_delta",
+            {{"type", "content_block_delta"}, {"delta", QJsonObject{{"type", "text_delta"}, {"text", "Cut short"}}}})};
+        ai->ask({{"provider", "claude"}, {"model", "claude-opus-5-5"}, {"action", "ask"}, {"question", "More"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 5000);
+        QVERIFY(finished[1][2].toMap()["interrupted"].toBool());
+        QVERIFY(!finished[1][2].toMap()["cutOff"].toBool());
+        const auto cut = store.aiThread(finished[1][2].toMap()["threadId"].toString())["messages"].toList();
+        QVERIFY(cut.last().toMap()["context"].toMap()["interrupted"].toBool());
         ai->clearApiKey("claude");
     }
     void serviceRequiresConsentKeyAndSavesAnswers()

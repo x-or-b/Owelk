@@ -646,8 +646,9 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
             const auto ms = thought->untilAnswer >= 0 ? thought->untilAnswer : thought->clock.elapsed();
             answerContext.insert("thinkingSeconds", qMax<qint64>(1, (ms + 500) / 1000));
         }
-        const bool cutOff = !stopped && provider->cutOff();
+        const bool cutOff = !stopped && provider->cutOff(), interrupted = !stopped && provider->interrupted();
         if (cutOff) answerContext.insert("cutOff", true);
+        if (interrupted) answerContext.insert("interrupted", true);
         if (stopped) answerContext.insert("stopped", true);
         m_store->appendAiMessage(threadId,
             {{"role", "assistant"}, {"content", text}, {"model", usedModel}, {"provider", id},
@@ -656,7 +657,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
             {{"provider", id}, {"model", usedModel}, {"prompt", sent}, {"threadId", threadId},
                 {"action", spec.value("action")}, {"question", spec.value("question")},
                 {"source", spec.value("source")}, {"page", spec.value("page")}, {"cutOff", cutOff},
-                {"stopped", stopped}});
+                {"interrupted", interrupted}, {"stopped", stopped}});
     };
     connect(provider, &AiProvider::finished, this,
         [store](const QString &answer, const QString &used) { store(answer, used, false); });

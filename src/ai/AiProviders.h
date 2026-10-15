@@ -50,8 +50,9 @@ public:
     using QObject::QObject;
     virtual void start(const AiRequest &request) = 0;
     virtual void cancel() = 0;
-    // The answer stopped at the output limit (read after finished).
+    // The answer stopped at the output limit, or its connection ended before the answer did (read after finished).
     bool cutOff() const { return m_cutOff; }
+    bool interrupted() const { return m_interrupted; }
     // The answer so far (kept when the reader stops it).
     virtual QString partialText() const = 0;
 signals:
@@ -62,7 +63,7 @@ signals:
     void failed(const QString &error);
 
 protected:
-    bool m_cutOff = false;
+    bool m_cutOff = false, m_interrupted = false;
 };
 
 // Server-sent events (Claude, OpenAI) or newline-delimited JSON (Ollama) over one HTTP POST.

@@ -485,6 +485,10 @@
         <translation>스톱트.</translation>
     </message>
     <message>
+        <source>The connection ended before the answer did.</source>
+        <translation>더 커넥션 엔디드 비포 더 앤서 디드.</translation>
+    </message>
+    <message>
         <source>Thinking · </source>
         <translation>싱킹 · </translation>
     </message>

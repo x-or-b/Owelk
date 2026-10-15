@@ -426,8 +426,8 @@ Item {
                 Label {
                     objectName: "aiCutOff-" + message.index
                     readonly property var context: message.modelData.context || ({})
-                    visible: message.modelData.role === "assistant" && !!(context.cutOff || context.stopped)
-                    text: context.stopped ? qsTr("Stopped.") : qsTr("Stopped at the length limit.")
+                    visible: message.modelData.role === "assistant" && !!(context.cutOff || context.stopped || context.interrupted)
+                    text: context.stopped ? qsTr("Stopped.") : context.interrupted ? qsTr("The connection ended before the answer did.") : qsTr("Stopped at the length limit.")
                     textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
                 }
                 RowLayout {
