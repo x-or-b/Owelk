@@ -23,6 +23,7 @@
 #include <QFutureWatcher>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QHostAddress>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QPdfDocument>
@@ -40,7 +41,8 @@ const ProviderInfo providerTable[] = {
     {"claude", "Claude API", "api", "Anthropic", "claude-opus-5-5", "https://api.anthropic.com/"},
     {"openai", "OpenAI API", "api", "OpenAI", "gpt-5", "https://api.openai.com/"},
     {"codex", "ChatGPT account (Codex)", "account", "OpenAI via your ChatGPT account", "", ""},
-    {"ollama", "Ollama (local)", "local", "this Mac only", "", "http://127.0.0.1:11434/"},
+    // Where Ollama sends depends on its host (providers() fills it in).
+    {"ollama", "Ollama (local)", "local", "", "", "http://127.0.0.1:11434/"},
 };
 const ProviderInfo *info(const QString &id)
 {
@@ -83,7 +85,12 @@ QVariantList AiService::providers() const
             configured = hasApiKey(id);
         else if (id == "codex")
             configured = m_codexAccount.value("signedIn").toBool();
-        rows.append(QVariantMap{{"id", id}, {"name", entry.name}, {"kind", entry.kind}, {"sends", entry.sends},
+        // Where it sends, for the consent and notice texts.
+        const auto sends = id == "ollama"
+            ? (ollamaIsLocal() ? ui("this computer only") : QString(ui("Ollama on %1")).arg(baseUrl(id).host()))
+            : id == "codex" ? ui("OpenAI via your ChatGPT account")
+                            : QString(entry.sends);
+        rows.append(QVariantMap{{"id", id}, {"name", entry.name}, {"kind", entry.kind}, {"sends", sends},
             {"configured", configured}, {"model", model(id)}, {"defaultModel", entry.defaultModel},
             {"consented", consented(id)}});
     }
@@ -151,8 +158,15 @@ QString AiService::keyStorage() const
 
 bool AiService::consented(const QString &provider) const
 {
-    // Local Ollama keeps everything on this Mac.
-    return provider == "ollama" || m_store->setting("ai.consent." + provider) == "1";
+    // Ollama on this computer keeps everything here; one on another computer (its host can be changed) asks first.
+    if (provider == "ollama" && ollamaIsLocal()) return true;
+    return m_store->setting("ai.consent." + provider) == "1";
+}
+
+bool AiService::ollamaIsLocal() const
+{
+    const auto host = baseUrl("ollama").host();
+    return host.compare("localhost", Qt::CaseInsensitive) == 0 || QHostAddress(host).isLoopback();
 }
 
 void AiService::giveConsent(const QString &provider)

@@ -817,6 +817,30 @@ private slots:
         QVERIFY(store.aiThreads().isEmpty());
         ai->clearApiKey("claude");
     }
+    void ollamaOnAnotherComputerAsksFirst()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        const auto sends = [&] {
+            for (const auto &row : ai->providers())
+                if (row.toMap()["id"] == "ollama") return row.toMap()["sends"].toString();
+            return QString();
+        };
+        // On this computer nothing leaves it: no question.
+        QVERIFY(ai->consented("ollama"));
+        QCOMPARE(sends(), QString("this computer only"));
+        // A host elsewhere (a lab server) receives the text: asked first, and said where.
+        QVERIFY(store.setSetting("ai.baseUrl.ollama", "http://192.168.0.20:11434/"));
+        QVERIFY(!ai->consented("ollama"));
+        QCOMPARE(sends(), QString("Ollama on 192.168.0.20"));
+        ai->giveConsent("ollama");
+        QVERIFY(ai->consented("ollama"));
+        QVERIFY(store.setSetting("ai.baseUrl.ollama", "http://localhost:11434/"));
+        QCOMPARE(sends(), QString("this computer only"));
+    }
     void stoppedAnswersKeepWhatArrived()
     {
         QTemporaryDir directory;

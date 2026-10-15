@@ -3144,6 +3144,10 @@ Same file as another library entry</source>
         <translation>올라마 이즈 낫 러닝.</translation>
     </message>
     <message>
+        <source>Ollama on %1</source>
+        <translation>올라마 온 %1</translation>
+    </message>
+    <message>
         <source>Ollama: </source>
         <translation>올라마: </translation>
     </message>
@@ -3174,6 +3178,10 @@ Same file as another library entry</source>
     <message>
         <source>OpenAI rejected the API key. Check it in Settings → AI.</source>
         <translation>오픈에이아이 리젝티드 더 에이피아이 키. 체크 잇 인 세팅스 → 에이아이.</translation>
+    </message>
+    <message>
+        <source>OpenAI via your ChatGPT account</source>
+        <translation>오픈에이아이 비아 유어 챗지피티 어카운트</translation>
     </message>
     <message>
         <source>OpenAI: </source>
@@ -3510,6 +3518,10 @@ Same file as another library entry</source>
     <message>
         <source>this collection</source>
         <translation>디스 컬렉션</translation>
+    </message>
+    <message>
+        <source>this computer only</source>
+        <translation>디스 컴퓨터 온리</translation>
     </message>
     <message>
         <source>your library</source>

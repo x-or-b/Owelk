@@ -36,6 +36,8 @@ public:
     // Where keys are kept on this system, for Settings.
     Q_INVOKABLE QString keyStorage() const;
     Q_INVOKABLE bool consented(const QString &provider) const;
+    // Ollama's host is this computer (localhost, 127.0.0.1, ::1).
+    bool ollamaIsLocal() const;
     Q_INVOKABLE void giveConsent(const QString &provider);
     // spec: provider, action (ask|translate), question, source, page (0-based), scope (selection|page|
     // paper|library|none), selection, quote, noteIds, imageFiles and imageLabels (what each image is, for
