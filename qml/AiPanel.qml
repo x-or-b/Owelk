@@ -491,7 +491,18 @@ Item {
                 AnswerText {
                     id: liveAnswer
                     objectName: "aiAnswer"
-                    readonly property var parts: root.c && root.c.answer.length ? root.c.noteBlocks(root.c.answer) : ({text: "", notes: [], preparing: false})
+                    // The answer as drawn: while it streams, at most every 80 ms (each drawing converts the whole
+                    // answer so far to rich text and lays it out again); emptied at once for a new question.
+                    property string drawn: root.c ? root.c.answer : ""
+                    Timer { id: liveRedraw; interval: 80; onTriggered: liveAnswer.drawn = root.c ? root.c.answer : "" }
+                    Connections {
+                        target: root.c
+                        function onAnswerChanged() {
+                            if (!root.c.answer.length) { liveRedraw.stop(); liveAnswer.drawn = "" }
+                            else if (!liveRedraw.running) liveRedraw.start()
+                        }
+                    }
+                    readonly property var parts: root.c && drawn.length ? root.c.noteBlocks(drawn) : ({text: "", notes: [], preparing: false})
                     visible: parts.text.length > 0
                     Layout.fillWidth: true
                     text: visible ? researchStore.markdownHtml(parts.text, Theme.accent, Theme.text, Theme.fontBody) : ""
