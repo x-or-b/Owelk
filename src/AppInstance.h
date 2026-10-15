@@ -15,7 +15,10 @@ public:
     explicit AppInstance(const QString &dataDirectory, QObject *parent = nullptr);
     // True when a running Owelk took the files (or was asked to come forward when there are none).
     bool forward(const QStringList &paths, int timeoutMs = 1500);
-    // Starts answering later launches.
+    // The last forward() reached a running Owelk that did not answer in time (still starting, or stuck): this launch
+    // must not start a second Owelk on the same data.
+    bool busy() const { return m_busy; }
+    // Starts answering later launches; false when another Owelk holds the name (it is never taken from it).
     bool listen();
     // Files that arrived before the window asked; afterwards they come through filesRequested.
     Q_INVOKABLE QVariantList takePending();
@@ -33,4 +36,5 @@ private:
     QLocalServer *m_server = nullptr;
     QVariantList m_pending;
     bool m_delivering = false;
+    bool m_busy = false;
 };

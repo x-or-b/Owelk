@@ -48,8 +48,18 @@ int main(int argc, char *argv[])
         : QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     // A second launch hands its files to the Owelk already running (Linux, Windows, command line).
     AppInstance instance(dataDir);
-    if (!parser.isSet("smoke-test") && instance.forward(parser.positionalArguments())) return 0;
-    instance.listen();
+    if (!parser.isSet("smoke-test")) {
+        if (instance.forward(parser.positionalArguments())) return 0;
+        // One that is still starting up gets longer; one that never answers keeps its data to itself.
+        if (instance.busy() && instance.forward(parser.positionalArguments(), 15000)) return 0;
+        if (instance.busy()) {
+            fprintf(stderr, "Owelk: an Owelk using this data folder is running but does not answer. Quit it first.\n");
+            return 1;
+        }
+    }
+    if (!instance.listen())
+        fprintf(stderr, "Owelk: files opened from later launches cannot reach this window (%s).\n",
+            qPrintable(instance.serverName()));
     // Finder: Open With and double-click arrive as file-open events.
     app.installEventFilter(&instance);
     ResearchStore store(dataDir);

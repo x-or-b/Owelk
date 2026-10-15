@@ -19,6 +19,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTcpServer>
+#include <QLocalServer>
 #include <QTcpSocket>
 #include <QDir>
 #include <QFile>
@@ -79,7 +80,17 @@ private slots:
         QCOMPARE(urls.size(), 2);
         QCOMPARE(urls[1].toUrl(), QUrl::fromLocalFile(directory.filePath("b c.pdf")));
         // Another data folder is another Owelk; with nobody running, nothing is forwarded.
-        QVERIFY(!AppInstance(directory.filePath("other")).forward({}, 300));
+        AppInstance nobody(directory.filePath("other"));
+        QVERIFY(!nobody.forward({}, 300));
+        QVERIFY(!nobody.busy());
+        // A running one that does not answer (still starting): the launch knows, and its name is not taken.
+        AppInstance stuck(directory.filePath("stuck")), late(directory.filePath("stuck"));
+        QLocalServer silent;
+        QVERIFY(silent.listen(stuck.serverName()));
+        QVERIFY(!late.forward({}, 300));
+        QVERIFY(late.busy());
+        QVERIFY(!late.listen());
+        QVERIFY(silent.isListening());
         // Finder's file-open event, before the window asked: kept until then.
         AppInstance finder(directory.filePath("finder"));
         QFileOpenEvent pdf(QUrl::fromLocalFile(directory.filePath("paper.pdf")));
