@@ -65,7 +65,8 @@ bool ResearchStore::appendAiMessage(const QString &threadId, const QVariantMap &
     const auto role = message.value("role").toString();
     if (role != "user" && role != "assistant") return false;
     QSqlQuery query(m_database);
-    query.prepare("INSERT INTO ai_messages SELECT ?,id,?,?,?,?,?,? FROM ai_threads WHERE id=?");
+    query.prepare("INSERT INTO ai_messages(id,thread_id,role,content,display,context_json,model,created_at) "
+                  "SELECT ?,id,?,?,?,?,?,? FROM ai_threads WHERE id=?");
     query.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
     query.addBindValue(role);
     query.addBindValue(text(message.value("content").toString()));

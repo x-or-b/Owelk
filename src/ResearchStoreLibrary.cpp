@@ -237,7 +237,8 @@ bool ResearchStore::setDocumentCollection(const QUrl &source, const QString &col
     if (document.isEmpty()) return false;
     QSqlQuery query(m_database);
     query.prepare(member
-            ? "INSERT OR IGNORE INTO collection_documents SELECT ?,? WHERE EXISTS(SELECT 1 FROM collections WHERE id=?)"
+            ? "INSERT OR IGNORE INTO collection_documents(collection_id,document_id) SELECT ?,? WHERE EXISTS(SELECT 1 "
+              "FROM collections WHERE id=?)"
             : "DELETE FROM collection_documents WHERE collection_id=? AND document_id=?");
     query.addBindValue(collectionId);
     query.addBindValue(document);
@@ -282,7 +283,7 @@ bool ResearchStore::setDocumentTags(const QUrl &source, const QStringList &names
         tag.addBindValue(newId());
         tag.addBindValue(name);
         QSqlQuery link(m_database);
-        link.prepare("INSERT OR IGNORE INTO document_tags SELECT ?,id FROM tags WHERE name=?");
+        link.prepare("INSERT OR IGNORE INTO document_tags(document_id,tag_id) SELECT ?,id FROM tags WHERE name=?");
         link.addBindValue(document);
         link.addBindValue(name);
         if (!tag.exec() || !link.exec()) return fail();
@@ -353,7 +354,8 @@ bool ResearchStore::setDocumentsCollection(const QVariantList &sources, const QS
         const auto document = ensureDocument(value.toUrl());
         if (document.isEmpty()) continue;
         QSqlQuery query(m_database);
-        query.prepare(member ? "INSERT OR IGNORE INTO collection_documents SELECT ?,? WHERE EXISTS(SELECT 1 FROM "
+        query.prepare(member ? "INSERT OR IGNORE INTO collection_documents(collection_id,document_id) SELECT ?,? WHERE "
+                               "EXISTS(SELECT 1 FROM "
                                "collections WHERE id=?)"
                              : "DELETE FROM collection_documents WHERE collection_id=? AND document_id=?");
         query.addBindValue(collectionId);

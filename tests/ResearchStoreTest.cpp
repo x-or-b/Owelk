@@ -924,7 +924,13 @@ private slots:
         QVERIFY(store.rememberDocument(second));
         QTest::qWait(500);
         QCOMPARE(duplicates.size(), 1); // "Keep both" stops asking for this file version.
+        // What the extra entry was filed under moves to the copy kept.
+        const auto shelf = store.createCollection("Shelf");
+        QVERIFY(store.setDocumentCollection(second, shelf, true));
+        QVERIFY(store.setDocumentTags(second, {"twin"}));
         QVERIFY(store.useExistingCopy(second, first));
+        QCOMPARE(store.documentOrganization(first)["collections"].toStringList(), QStringList{shelf});
+        QCOMPARE(store.documentOrganization(first)["tags"].toStringList(), QStringList{"twin"});
         QCOMPARE(store.recentDocuments().size(), 1);
         QCOMPARE(store.recentDocuments()[0].toMap()["url"].toUrl(), first);
         QVERIFY(QFileInfo::exists(copy)); // Files are never touched.

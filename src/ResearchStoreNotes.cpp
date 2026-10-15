@@ -214,7 +214,7 @@ bool ResearchStore::addLink(const QString &fromKind, const QString &fromId, cons
         || (fromKind == toKind && fromId == toId))
         return false;
     QSqlQuery query(m_database);
-    query.prepare("INSERT OR IGNORE INTO links VALUES(?,?,?,?,?)");
+    query.prepare("INSERT OR IGNORE INTO links(from_kind,from_id,to_kind,to_id,created_at) VALUES(?,?,?,?,?)");
     for (const auto &value : {fromKind, fromId, toKind, toId, now()}) query.addBindValue(value);
     if (!query.exec()) return false;
     emit linksChanged();
@@ -423,21 +423,27 @@ bool ResearchStore::unlinkNote(const QString &noteId, const QUrl &source)
     marks.addBindValue(document);
     if (marks.exec())
         while (marks.next()) targets << "highlight/" + marks.value(0).toString();
-    // [words](owelk://…) keeps its words; a bare owelk://… goes, with a list dash left empty by it.
-    auto body = row["body"].toString();
+    // [words](owelk://…) keeps its words; a bare owelk://… goes, with a list dash left empty by it (only on the
+    // lines that changed, so the writer's own empty dashes stay).
     static const QRegularExpression link(
         R"(\[([^\]\n]*)\]\(owelk://((?:document|highlight)/[A-Za-z0-9\-]+)(?:#[^)]*)?\))");
-    QString kept;
-    qsizetype last = 0;
-    for (auto it = link.globalMatch(body); it.hasNext();) {
-        const auto m = it.next();
-        if (!targets.contains(m.captured(2))) continue;
-        kept += body.mid(last, m.capturedStart() - last) + m.captured(1);
-        last = m.capturedEnd();
+    static const QRegularExpression emptyItem(R"(^[ \t]*[-*][ \t]*$)");
+    QStringList lines;
+    for (const auto &line : row["body"].toString().split('\n')) {
+        QString kept;
+        qsizetype last = 0;
+        for (auto it = link.globalMatch(line); it.hasNext();) {
+            const auto m = it.next();
+            if (!targets.contains(m.captured(2))) continue;
+            kept += line.mid(last, m.capturedStart() - last) + m.captured(1);
+            last = m.capturedEnd();
+        }
+        kept += line.mid(last);
+        for (const auto &target : std::as_const(targets)) kept.remove("owelk://" + target);
+        if (kept != line && emptyItem.match(kept).hasMatch()) continue;
+        lines << kept;
     }
-    body = kept + body.mid(last);
-    for (const auto &target : std::as_const(targets)) body.remove("owelk://" + target);
-    body.replace(QRegularExpression(R"((?m)^[ \t]*[-*][ \t]*$\n?)"), QString());
+    const auto body = lines.join('\n');
     if (body == row["body"].toString()) return true;
     return saveNote(noteId, row["title"].toString(), body);
 }

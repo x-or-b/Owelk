@@ -99,7 +99,8 @@ void ResearchStore::relinkSource(const QUrl &input, const QUrl &candidate)
         reject(previous.lastError().text());
         return;
     }
-    while (previous.next()) hashes.insert(previous.value(0).toString());
+    while (previous.next())
+        if (!previous.value(0).toString().isEmpty()) hashes.insert(previous.value(0).toString());
     if (hashes.size() > 1) {
         reject(
             ui("This path has records from different PDF versions. Nothing was changed; version-specific relinking is "

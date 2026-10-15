@@ -467,13 +467,14 @@ bool ResearchStore::initialize(QString *error)
                     if (const auto checked = saved.value("checkedAt").toString(); !checked.isEmpty())
                         if (!run("INSERT OR REPLACE INTO foryou_meta(key,value) VALUES('checkedAt',?)", {checked}))
                             return false;
-                    file.close();
-                    file.rename(m_directory + "/foryou.json.imported");
                 }
                 return run("DELETE FROM settings WHERE key IN ('pref.forYou.topics','pref.forYou.collections')", {});
             }},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
+    // Set aside only once step 18 is committed, so a failed upgrade still finds it next time.
+    if (QFileInfo::exists(m_directory + "/foryou.json"))
+        QFile::rename(m_directory + "/foryou.json", m_directory + "/foryou.json.imported");
     loadDocumentNames();
     QSqlQuery links(m_database);
     links.exec("SELECT old_url,new_url FROM source_relinks");

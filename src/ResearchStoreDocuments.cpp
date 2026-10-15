@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "DocumentMerge.h"
 #include "UiText.h"
 
 #include <QDir>
@@ -388,9 +389,26 @@ bool ResearchStore::useExistingCopy(const QUrl &duplicate, const QUrl &existing)
     query.exec();
     // An extra entry with nothing of its own also leaves the Library (hidden, like Remove from
     // Library: its file stays and opening it again brings it back).
+    // Its Collections, tags, links and AI chats go to the copy kept, so nothing filed under it is lost.
     query.prepare("SELECT EXISTS(SELECT 1 FROM highlights WHERE document_id=? AND deleted_at IS NULL)");
     query.addBindValue(id);
-    if (!id.isEmpty() && query.exec() && query.next() && !query.value(0).toBool()) removeFromLibrary({duplicate});
+    const auto kept = findDocument(existing);
+    if (!id.isEmpty() && id != kept && query.exec() && query.next() && !query.value(0).toBool()) {
+        query.finish();
+        bool moved = m_database.transaction();
+        for (const auto &[sql, args] : movePaperReferences(id, kept)) {
+            if (!moved) break;
+            QSqlQuery move(m_database);
+            move.prepare(sql);
+            for (const auto &arg : args) move.addBindValue(arg);
+            moved = move.exec();
+        }
+        if (!moved || !m_database.commit()) {
+            m_database.rollback();
+            return false;
+        }
+        removeFromLibrary({duplicate});
+    }
     emit recentDocumentsChanged();
     emit homeChanged();
     return true;

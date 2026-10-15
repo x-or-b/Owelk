@@ -260,9 +260,9 @@ public:
     Q_INVOKABLE QString draft(const QString &key) const;
     Q_INVOKABLE void clearDraft(const QString &key);
     bool recoveredFromCrash() const { return m_recovered; }
-    QString startupMessage() const { return m_startupMessage; }
+    QString startupMessage() const { return m_startupMessage ? m_startupMessage() : QString(); }
     // Applies a restore staged by scheduleRestore; call before the database is opened.
-    static bool applyPendingRestore(const QString &directory, QString *message);
+    static bool applyPendingRestore(const QString &directory, std::function<QString()> *message);
     // Notes sharing the words of this note (local, immediate).
     Q_INVOKABLE QVariantList relatedNotes(const QString &noteId) const;
     Q_INVOKABLE QVariantList linkCandidates(const QString &query) const;
@@ -516,7 +516,8 @@ private:
     void markRunning();
     void markStopped();
     bool m_backingUp = false, m_recovered = false;
-    QString m_startupMessage;
+    // Worded when read, so it follows the interface language set up after the library opens.
+    std::function<QString()> m_startupMessage;
     QString m_ocrProgram;
     QStringList m_ocrInstalled;
     QVariantList notesSharing(const QStringList &terms, const QString &exceptNote) const;

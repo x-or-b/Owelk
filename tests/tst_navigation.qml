@@ -104,6 +104,11 @@ Item {
             compare(researchStore.note(note).body, "See " + researchStore.displayName(outlineSource) + " again")
             tryVerify(function() { return findChild(panel, "linkedNote-0") === null })
             researchStore.deleteNote(note); researchStore.purgeNote(note)
+            // A bare link's list dash goes with it; a dash the writer left empty stays.
+            const list = researchStore.createNote("List", "- owelk://document/" + paper + "\n-\nend")
+            verify(researchStore.unlinkNote(list, outlineSource))
+            compare(researchStore.note(list).body, "-\nend")
+            researchStore.deleteNote(list); researchStore.purgeNote(list)
             // Another view: the reader writes in dialogs again.
             mouseClick(findChild(panel, "contentsTab"))
             tryCompare(reader, "annotationList", null)

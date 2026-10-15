@@ -51,9 +51,11 @@ struct BackupResult {
 
 BackupResult makeBackup(const QString &directory, const QString &parent, int keep)
 {
+    // A second backup within the same second gets its own folder rather than replacing the first.
     const auto name = "Owelk backup " + QDateTime::currentDateTime().toString("yyyy-MM-dd HHmmss");
-    const auto target = parent + "/" + name;
-    if (!QDir().mkpath(target)) return {false, {}, "Cannot create the backup folder."};
+    auto target = parent + "/" + name;
+    for (int n = 2; QFileInfo::exists(target); ++n) target = parent + "/" + name + " " + QString::number(n);
+    if (!QDir().mkpath(target)) return {false, {}, ui("Cannot create the backup folder.")};
     {
         WorkerConnection db(directory + "/owelk.sqlite3", true);
         QSqlQuery query(db.db);
@@ -61,16 +63,19 @@ BackupResult makeBackup(const QString &directory, const QString &parent, int kee
         query.addBindValue(target + "/owelk.sqlite3");
         if (!db.db.isOpen() || !query.exec()) {
             QDir(target).removeRecursively();
-            return {false, {}, "Cannot copy the library database."};
+            return {false, {}, ui("Cannot copy the library database.")};
         }
     }
     for (const auto &folder : copiedFolders)
         if (!copyFolder(directory + "/" + folder, target + "/" + folder)) {
             QDir(target).removeRecursively();
-            return {false, {}, "Cannot copy the " + folder + " folder."};
+            return {false, {}, ui("Cannot copy the %1 folder.").arg(folder)};
         }
     QFile manifest(target + "/owelk-backup.json");
-    if (!manifest.open(QIODevice::WriteOnly)) return {false, {}, "Cannot write the backup manifest."};
+    if (!manifest.open(QIODevice::WriteOnly)) {
+        QDir(target).removeRecursively();
+        return {false, {}, ui("Cannot write the backup manifest.")};
+    }
     manifest.write(QJsonDocument(QJsonObject{{"app", "Owelk"}, {"schema", schemaVersion(target + "/owelk.sqlite3")},
                                      {"created", QDateTime::currentDateTimeUtc().toString(Qt::ISODate)},
                                      {"source", QDir::toNativeSeparators(directory)}})
@@ -81,7 +86,7 @@ BackupResult makeBackup(const QString &directory, const QString &parent, int kee
         auto old = QDir(parent).entryList({"Owelk backup *"}, QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
         while (old.size() > keep) QDir(parent + "/" + old.takeFirst()).removeRecursively();
     }
-    return {true, target, "Backed up to " + QDir::toNativeSeparators(target)};
+    return {true, target, ui("Backed up to %1").arg(QDir::toNativeSeparators(target))};
 }
 }
 
@@ -148,7 +153,7 @@ bool ResearchStore::scheduleRestore(const QString &folder)
     return true;
 }
 
-bool ResearchStore::applyPendingRestore(const QString &directory, QString *error)
+bool ResearchStore::applyPendingRestore(const QString &directory, std::function<QString()> *message)
 {
     const auto marker = directory + "/restore-pending";
     QFile pending(marker);
@@ -158,13 +163,14 @@ bool ResearchStore::applyPendingRestore(const QString &directory, QString *error
     pending.close();
     // The marker goes last, once the restore is done or given up: a restore stopped part-way runs again on the
     // next start. The backup is copied in under other names first, and only renames swap it in.
-    const auto done = [&](const QString &message) {
+    // The message is worded once it is shown, in the interface language chosen by then.
+    const auto done = [&](std::function<QString()> text) {
         QFile::remove(marker);
-        *error = message;
+        *message = std::move(text);
         return true;
     };
     if (!QFileInfo::exists(backup + "/owelk.sqlite3"))
-        return done(ui("The backup to restore is gone; your current data was kept."));
+        return done([] { return ui("The backup to restore is gone; your current data was kept."); });
     const QString staged = ".restoring";
     const auto dropStaged = [&] {
         QFile::remove(directory + "/owelk.sqlite3" + staged);
@@ -176,7 +182,7 @@ bool ResearchStore::applyPendingRestore(const QString &directory, QString *error
         ok = ok && copyFolder(backup + "/" + folder, directory + "/" + folder + staged);
     if (!ok) {
         dropStaged();
-        return done(ui("The backup could not be copied; your current data was kept."));
+        return done([] { return ui("The backup could not be copied; your current data was kept."); });
     }
     // With sync on, the restored library catches up with the other computers: it joins as a new computer and
     // reads everyone's changes, this computer's own since the backup included (docs/SYNC.md).
@@ -194,7 +200,7 @@ bool ResearchStore::applyPendingRestore(const QString &directory, QString *error
         = directory + "/backups/before-restore-" + QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss");
     if (!QDir().mkpath(aside)) {
         dropStaged();
-        return done(ui("Cannot make room to restore the backup; your current data was kept."));
+        return done([] { return ui("Cannot make room to restore the backup; your current data was kept."); });
     }
     QStringList moved;
     const auto putBack = [&] {
@@ -205,7 +211,7 @@ bool ResearchStore::applyPendingRestore(const QString &directory, QString *error
             if (!QDir().rename(directory + "/" + name, aside + "/" + name)) {
                 putBack();
                 dropStaged();
-                return done(ui("Cannot move the current data aside; nothing was restored."));
+                return done([] { return ui("Cannot move the current data aside; nothing was restored."); });
             }
             moved << name;
         }
@@ -219,10 +225,12 @@ bool ResearchStore::applyPendingRestore(const QString &directory, QString *error
         for (const auto &folder : restoredFolders) QDir(directory + "/" + folder).removeRecursively();
         putBack();
         dropStaged();
-        return done(ui("The backup could not be copied; your current data was kept."));
+        return done([] { return ui("The backup could not be copied; your current data was kept."); });
     }
-    return done(ui("Restored the backup. The previous data is in ") + QDir::toNativeSeparators(aside) + "."
-        + (syncing ? ui(" Sync now brings it up to date with your other computers.") : QString()));
+    return done([aside, syncing] {
+        return ui("Restored the backup. The previous data is in ") + QDir::toNativeSeparators(aside) + "."
+            + (syncing ? ui(" Sync now brings it up to date with your other computers.") : QString());
+    });
 }
 
 // --- Crash recovery ---------------------------------------------------------------------------
@@ -235,7 +243,8 @@ void ResearchStore::markRunning()
         // After an unexpected exit, a quick integrity check; the session itself restores as usual.
         QSqlQuery check(m_database);
         if (check.exec("PRAGMA quick_check") && check.next() && check.value(0).toString() != "ok")
-            m_startupMessage = ui("The library database reports damage. Restore a backup from Settings → Data.");
+            m_startupMessage
+                = [] { return ui("The library database reports damage. Restore a backup from Settings → Data."); };
     }
     QFile file(marker);
     if (file.open(QIODevice::WriteOnly)) file.write(QByteArray::number(QCoreApplication::applicationPid()));

@@ -2620,6 +2620,10 @@ Same file as another library entry</source>
         <translation>애노테이션스 아 히든: 더 피디에프 파일 캔낫 비 리드.</translation>
     </message>
     <message>
+        <source>Backed up to %1</source>
+        <translation>백트 업 투 %1</translation>
+    </message>
+    <message>
         <source>Cancel</source>
         <translation>캔슬</translation>
     </message>
@@ -2648,6 +2652,14 @@ Same file as another library entry</source>
         <translation>캔낫 체크 이그지스팅 하이라이츠.</translation>
     </message>
     <message>
+        <source>Cannot copy the %1 folder.</source>
+        <translation>캔낫 카피 더 %1 폴더.</translation>
+    </message>
+    <message>
+        <source>Cannot copy the library database.</source>
+        <translation>캔낫 카피 더 라이브러리 데이터베이스.</translation>
+    </message>
+    <message>
         <source>Cannot create </source>
         <translation>캔낫 크리에이트 </translation>
     </message>
@@ -2658,6 +2670,10 @@ Same file as another library entry</source>
     <message>
         <source>Cannot create note.</source>
         <translation>캔낫 크리에이트 노트.</translation>
+    </message>
+    <message>
+        <source>Cannot create the backup folder.</source>
+        <translation>캔낫 크리에이트 더 백업 폴더.</translation>
     </message>
     <message>
         <source>Cannot decode this HEIC/HEIF image.</source>
@@ -2830,6 +2846,10 @@ Same file as another library entry</source>
     <message>
         <source>Cannot write the annotated PDF: %1</source>
         <translation>캔낫 라이트 더 애노테이티드 피디에프: %1</translation>
+    </message>
+    <message>
+        <source>Cannot write the backup manifest.</source>
+        <translation>캔낫 라이트 더 백업 매니페스트.</translation>
     </message>
     <message>
         <source>Cannot write to the sync folder.</source>

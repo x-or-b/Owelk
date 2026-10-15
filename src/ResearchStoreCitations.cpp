@@ -4,6 +4,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QSaveFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -77,7 +78,9 @@ int ResearchStore::loadCitations(const QUrl &source, bool refresh, bool cachedOn
     QFile cached(cachePath);
     if (!refresh && cached.open(QIODevice::ReadOnly)) {
         const auto saved = QJsonDocument::fromJson(cached.readAll()).object().toVariantMap();
-        if (saved.value("fetchedAt").toDateTime().daysTo(QDateTime::currentDateTimeUtc()) < 30) {
+        // A damaged or unreadable file has no valid date and is fetched again.
+        const auto fetchedAt = saved.value("fetchedAt").toDateTime();
+        if (fetchedAt.isValid() && fetchedAt.daysTo(QDateTime::currentDateTimeUtc()) < 30) {
             auto result = withLibraryMatches(saved);
             result.insert("cached", true);
             QMetaObject::invokeMethod(
@@ -129,9 +132,11 @@ int ResearchStore::loadCitations(const QUrl &source, bool refresh, bool cachedOn
                 const QVariantMap saved{{"fetchedAt", QDateTime::currentDateTimeUtc()}, {"paperId", paperId},
                     {"references", CitationParse::papers(references, "citedPaper")}, {"citedBy", citedBy}};
                 QDir().mkpath(m_directory + "/citations");
-                QFile file(cachePath);
-                if (file.open(QIODevice::WriteOnly))
+                QSaveFile file(cachePath);
+                if (file.open(QIODevice::WriteOnly)) {
                     file.write(QJsonDocument(QJsonObject::fromVariantMap(saved)).toJson(QJsonDocument::Compact));
+                    file.commit();
+                }
                 emit citationsLoaded(request, source, withLibraryMatches(saved));
             });
         });

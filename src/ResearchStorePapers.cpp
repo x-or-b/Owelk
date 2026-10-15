@@ -164,7 +164,9 @@ void ResearchStore::relocatePapers()
         ++moved;
     }
     QDir().rmdir(m_directory + "/papers"); // Only when nothing else is left in it.
-    if (moved) m_startupMessage = QString(ui("Owelk's PDFs now live in %1.")).arg(QDir::toNativeSeparators(m_papers));
+    if (moved)
+        m_startupMessage
+            = [folder = m_papers] { return ui("Owelk's PDFs now live in %1.").arg(QDir::toNativeSeparators(folder)); };
 }
 
 QStringList ResearchStore::fileNameParts() const

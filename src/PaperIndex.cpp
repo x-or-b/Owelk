@@ -119,8 +119,12 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &
         if (!db.transaction()) return {db.lastError().text()};
         const bool ok = run("DELETE FROM pages WHERE document_id=? AND ?<>(SELECT id FROM documents WHERE url=?)",
                             {wantedId, wantedId, source.toString()})
+            && run("DELETE FROM ocr_pages WHERE document_id=? AND ?<>(SELECT id FROM documents WHERE url=?)",
+                {wantedId, wantedId, source.toString()})
             && run("DELETE FROM documents WHERE id=? AND url<>?", {wantedId, source.toString()})
             && run("UPDATE pages SET document_id=? WHERE document_id=(SELECT id FROM documents WHERE url=?)",
+                {wantedId, source.toString()})
+            && run("UPDATE ocr_pages SET document_id=? WHERE document_id=(SELECT id FROM documents WHERE url=?)",
                 {wantedId, source.toString()})
             && run("UPDATE documents SET id=? WHERE url=?", {wantedId, source.toString()});
         if (!ok || !db.commit()) {
@@ -502,6 +506,8 @@ bool PaperIndex::initialize(QString *error)
             {"ALTER TABLE documents ADD COLUMN ocr INTEGER NOT NULL DEFAULT 0",
                 "CREATE TABLE IF NOT EXISTS ocr_pages(document_id TEXT NOT NULL,page INTEGER NOT NULL,"
                 "PRIMARY KEY(document_id,page))"}},
+        // Marks left behind by papers taken out of the cache before they were removed with it.
+        {5, {"DELETE FROM ocr_pages WHERE document_id NOT IN (SELECT id FROM documents)"}},
     };
     if (!migrateSchema(m_database, steps, error)) return false;
     // Revalidate persisted sources after every restart, including interrupted documents.
@@ -591,6 +597,9 @@ void PaperIndex::relocateSource(const QUrl &source, const QUrl &candidate)
         // Both copies may have been indexed. Keep the original ID; the target is only a rebuildable cache.
         QString error = run(
             "DELETE FROM pages WHERE document_id IN (SELECT id FROM documents WHERE url=?)", {candidate.toString()});
+        if (error.isEmpty())
+            error = run("DELETE FROM ocr_pages WHERE document_id IN (SELECT id FROM documents WHERE url=?)",
+                {candidate.toString()});
         if (error.isEmpty()) error = run("DELETE FROM documents WHERE url=?", {candidate.toString()});
         if (error.isEmpty()) error = run("UPDATE documents SET url=? WHERE id=?", {candidate.toString(), id});
         if (!error.isEmpty()) {
@@ -634,9 +643,12 @@ void PaperIndex::remove(const QUrl &input)
     watcher->setFuture(QtConcurrent::run(&m_indexWorkers, [path = m_path, source] {
         Connection connection(path);
         QSqlQuery query(connection.db);
-        query.prepare("DELETE FROM pages WHERE document_id IN (SELECT id FROM documents WHERE url=?)");
-        query.addBindValue(source.toString());
-        query.exec();
+        for (const auto *table : {"pages", "ocr_pages"}) {
+            query.prepare(QStringLiteral("DELETE FROM %1 WHERE document_id IN (SELECT id FROM documents WHERE url=?)")
+                    .arg(table));
+            query.addBindValue(source.toString());
+            query.exec();
+        }
         query.prepare("DELETE FROM documents WHERE url=?");
         query.addBindValue(source.toString());
         query.exec();
