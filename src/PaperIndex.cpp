@@ -85,6 +85,8 @@ QString recognize(
 struct IndexResult {
     QString error;
     bool cancelled = false;
+    // The paper's entry and pages are as they were (most papers at every start): nothing to tell.
+    bool unchanged = false;
 };
 IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &wantedId,
     const std::shared_ptr<std::atomic_bool> &cancel, const std::shared_ptr<std::atomic_bool> &readerBusy,
@@ -146,7 +148,7 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &
     const auto startStamp = FileFingerprint::stamp(source.toLocalFile());
     if (current && oldStamp.isValid() && oldStamp == startStamp) {
         FileFingerprint::remember(source.toLocalFile(), startStamp, oldHash);
-        return {};
+        return {{}, false, true};
     }
     auto fail = [&](const QString &state, const QString &error) -> IndexResult {
         db.rollback();
@@ -168,7 +170,7 @@ IndexResult indexFile(const QString &dbPath, const QUrl &source, const QString &
         query.addBindValue(startStamp.toString());
         query.addBindValue(id);
         if (!query.exec()) return {query.lastError().text()};
-        return {};
+        return {{}, false, true};
     }
     query.prepare("UPDATE documents SET state='indexing',error='' WHERE id=?");
     query.addBindValue(id);
@@ -557,6 +559,7 @@ void PaperIndex::relocateSource(const QUrl &source, const QUrl &candidate)
             emit message(
                 ui("Source references were saved, but the search cache needs repair. Restart to retry: ") + error);
         emit changed();
+        emit documentsChanged();
         emit contentsChanged();
         enqueue(candidate);
         startNext();
@@ -624,6 +627,7 @@ void PaperIndex::remove(const QUrl &input)
         watcher->deleteLater();
         --m_relocating;
         emit changed();
+        emit documentsChanged();
         emit contentsChanged();
         startNext();
     });
@@ -704,7 +708,9 @@ void PaperIndex::startNext()
         m_progress.clear();
         if (!result.error.isEmpty()) emit message(ui("Search index: ") + result.error);
         emit changed();
-        emit contentsChanged();
+        // Only a paper whose entry or pages changed is news for the list and for searches.
+        if (!result.unchanged) emit documentsChanged();
+        if (!result.unchanged && !result.cancelled) emit contentsChanged();
         startNext();
     });
     watcher->setFuture(QtConcurrent::run(
