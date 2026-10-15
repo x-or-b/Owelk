@@ -595,6 +595,32 @@ Item {
             reader.annotationList = null
             for (const m of canvas.savedHighlights) researchStore.removeHighlight(m.id)
         }
+        function test_annotationListKeepsTextBeingWritten() {
+            const unique = testInput.relinkFixture(true).candidate
+            canvas.openFile(unique, {page:0,zoom:1})
+            tryCompare(canvas,"ready",true); tryCompare(canvas,"restoring",false)
+            tryVerify(function(){return canvas.documentFingerprint.length>0})
+            const margin = createTemporaryObject(annotationListComponent, scene, {canvas: canvas, source: canvas.source})
+            reader.annotationList = margin
+            researchStore.saveAnnotation(canvas.source, 0, {kind: "comment", page: 0, color: canvas.markColor, body: "First thought",
+                sha256: canvas.documentFingerprint, rectangles: [{x: .1, y: .1, width: .05, height: .05}]})
+            tryVerify(function() { return margin.notes.length === 1 }, 10000)
+            const id = margin.notes[0].id
+            // Editing a note in place when the paper's annotations change elsewhere (sync, a pen in another split,
+            // undo): the words being written stay, and so does the editing.
+            margin.edit(id)
+            tryVerify(function() { const e = findChild(margin, "annotationNoteEditor"); return e && e.visible })
+            findChild(margin, "annotationNoteEditor").text = "Half-written second thought"
+            researchStore.highlightsChanged()
+            tryVerify(function() { return canvas.savedHighlights.length === 1 }, 10000)
+            wait(50)
+            compare(margin.editingId, id)
+            tryVerify(function() { const e = findChild(findChild(margin, "annotation-" + id), "annotationNoteEditor"); return e && e.visible })
+            compare(findChild(findChild(margin, "annotation-" + id), "annotationNoteEditor").text, "Half-written second thought")
+            margin.editingId = ""
+            reader.annotationList = null
+            for (const m of canvas.savedHighlights) researchStore.removeHighlight(m.id)
+        }
         function test_droppedPicturesLandOnThePage() {
             const unique = testInput.relinkFixture(true).candidate
             canvas.openFile(unique, {page:0,zoom:1})

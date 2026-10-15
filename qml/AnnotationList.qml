@@ -18,8 +18,11 @@ Item {
     // The note being written for a new place: {page, selection} or {page, rectangle}.
     property var draft: null
     property string editingId: ""
+    // What is typed into the note being edited, kept here: the cards are made again whenever the paper's
+    // annotations change (sync, a pen in another split, undo), and the words must survive that.
+    property string editingText: ""
     // Another paper in front: a half-written note there is not carried over.
-    onCanvasChanged: { draft = null; editingId = "" }
+    onCanvasChanged: { draft = null; editingId = ""; editingText = "" }
     // "page": top to bottom through the paper; "type": pen, highlights, comments, text, pictures.
     property string sortMode: researchStore.setting("annotations.sort", "page") === "type" ? "type" : "page"
     function setSortMode(mode) { sortMode = mode; researchStore.setSetting("annotations.sort", mode) }
@@ -46,8 +49,9 @@ Item {
     }
     function edit(id) {
         draft = null
-        editingId = id
         const at = notes.findIndex(function(n) { return n.id === id })
+        editingText = at >= 0 ? notes[at].body || "" : ""
+        editingId = id
         if (at >= 0) list.positionViewAtIndex(at, ListView.Contain)
     }
     function saveDraft(body) {
@@ -148,6 +152,8 @@ Item {
                     : (index === 0 || root.notes[index - 1].page !== modelData.page ? qsTr("Page ") + (modelData.page + 1) : "")
                 current: root.canvas.currentPage === modelData.page
                 editing: root.editingId === modelData.id
+                startText: editing ? root.editingText : body
+                onEdited: function(text) { root.editingText = text }
                 onHoveredChanged: root.canvas.focusedMark = hovered ? modelData.id : (root.canvas.focusedMark === modelData.id ? "" : root.canvas.focusedMark)
                 onOpened: root.canvas.showSource(modelData.page, modelData.rectangles[0])
                 // Text boxes are edited in their editor (it fits the font to the box); pen and pictures have no text.
@@ -156,10 +162,10 @@ Item {
                     else if (["highlight", "comment", "area"].indexOf(modelData.kind) >= 0) root.edit(modelData.id)
                 }
                 onCommitted: function(text) {
-                    root.editingId = ""
+                    root.editingId = ""; root.editingText = ""
                     if (text.trim().length && text !== (modelData.body || "")) researchStore.updateHighlight(modelData.id, modelData.color, text)
                 }
-                onCancelled: root.editingId = ""
+                onCancelled: { root.editingId = ""; root.editingText = "" }
                 onRemoveRequested: { const id = modelData.id; Qt.callLater(function() { researchStore.removeHighlight(id) }) }
             }
             // Follow the page being read (unless the pointer is in the list).
@@ -200,11 +206,14 @@ Item {
         property color ink: Theme.accent
         property bool current: true
         property bool editing: false
+        // What the editor starts with (the note's text, or what was being typed before the card was made again).
+        property string startText: body
         property alias field: editor
         readonly property bool hovered: hover.hovered
         signal opened()
         signal editRequested()
         signal committed(string text)
+        signal edited(string text)
         signal cancelled()
         signal removeRequested()
         implicitHeight: column.implicitHeight
@@ -314,10 +323,12 @@ Item {
                         objectName: "annotationNoteEditor"
                         visible: card.editing
                         Layout.fillWidth: true
-                        text: card.body
                         placeholderText: qsTr("Write a note…")
                         wrapMode: TextEdit.Wrap
-                        onVisibleChanged: if (visible) { text = card.body; forceActiveFocus(); cursorPosition = length }
+                        // A card made while its note is being edited goes on from the words typed so far.
+                        Component.onCompleted: if (card.editing) { text = card.startText; cursorPosition = length }
+                        onVisibleChanged: if (visible) { text = card.startText; forceActiveFocus(); cursorPosition = length }
+                        onTextChanged: if (card.editing) card.edited(text)
                         // Cmd+Return saves, Esc cancels, leaving the field saves.
                         Keys.onPressed: function(event) {
                             // Commit a character still being composed (Korean and the like) before saving.
