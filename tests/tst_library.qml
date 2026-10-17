@@ -49,17 +49,17 @@ Item {
             tryVerify(findDot)
             compare(dot.state, "unread")
             verify(Qt.colorEqual(dot.color, Theme.accent))
-            // Opened in the reader: gray while reading, also when the Library comes back.
+            // Opened in the reader: an accent ring while reading, also when the Library comes back.
             workspace.openDocument(paper)
             tryCompare(activeTab(), "kind", undefined)
             workspace.documents.activateTab(libraryTab)
             tryVerify(function() { return findDot() && dot.state === "reading" })
-            verify(Qt.colorEqual(dot.color, Theme.textTertiary))
-            // Marked read: an empty ring.
+            verify(Qt.colorEqual(dot.color, "transparent"))
+            verify(dot.border.width > 0 && Qt.colorEqual(dot.border.color, Theme.accent))
+            // Marked read: no mark.
             verify(researchStore.setReadingState(paper, "read"))
             tryVerify(function() { return findDot() && dot.state === "read" })
-            compare(dot.border.width, 1)
-            verify(Qt.colorEqual(dot.color, "transparent"))
+            compare(dot.opacity, 0)
             view.query = ""
         }
         function test_libraryTabFiltersAndOpensPapers() {

@@ -1263,15 +1263,16 @@ Rectangle {
                                 Icon { anchors.centerIn: parent; visible: parent.chosen; name: "check"; size: 11; color: Theme.onAccent }
                             }
                             Rectangle {
-                                // Reading state: an accent dot not opened yet, gray while reading (opened), an empty
-                                // ring once marked read.
+                                // Reading state: a full accent dot not opened yet, an accent ring while reading
+                                // (opened), nothing once marked read (the space stays, so titles line up).
                                 objectName: "libraryReadingDot-" + paper.modelData.id
                                 visible: !root.selecting
                                 readonly property string state: paper.modelData.readingState || "unread"
                                 Layout.preferredWidth: 8; Layout.preferredHeight: 8; radius: 4
-                                color: state === "read" ? "transparent" : state === "reading" ? Theme.textTertiary : Theme.accent
-                                border.width: state === "read" ? 1 : 0
-                                border.color: Theme.textTertiary
+                                opacity: state === "read" ? 0 : 1
+                                color: state === "unread" ? Theme.accent : "transparent"
+                                border.width: state === "reading" ? 1.5 : 0
+                                border.color: Theme.accent
                             }
                             ColumnLayout {
                                 Layout.fillWidth: true
