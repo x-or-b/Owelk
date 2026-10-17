@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import Owelk.Ui
 import QtQuick.Pdf
 import "../qml" as App
 import "../qml/WorkspaceTree.js" as Tree
@@ -31,6 +32,35 @@ Item {
             let view = null
             tryVerify(function() { view = findChild(workspace.documents.groupView(workspace.documents.activeGroup), "libraryView"); return view !== null && view.width > 0 && view.height > 0 }, 5000)
             return view
+        }
+        function test_readingDotFollowsTheState() {
+            // Added, not opened: an accent dot.
+            const paper = testInput.copyFixture("reading dot.pdf")
+            compare(researchStore.addDocuments([paper], ""), 1)
+            workspace.homeVisible = true
+            findChild(workspace, "homeView").libraryFilterRequested({})
+            let view = library()
+            const libraryTab = activeTab().id
+            view.query = "reading dot"
+            let id = ""
+            tryVerify(function() { return view.rows.length === 1 && (id = view.rows[0].id).length > 0 })
+            let dot = null
+            const findDot = function() { view = library(); dot = findChild(view, "libraryReadingDot-" + id); return dot !== null }
+            tryVerify(findDot)
+            compare(dot.state, "unread")
+            verify(Qt.colorEqual(dot.color, Theme.accent))
+            // Opened in the reader: gray while reading, also when the Library comes back.
+            workspace.openDocument(paper)
+            tryCompare(activeTab(), "kind", undefined)
+            workspace.documents.activateTab(libraryTab)
+            tryVerify(function() { return findDot() && dot.state === "reading" })
+            verify(Qt.colorEqual(dot.color, Theme.textTertiary))
+            // Marked read: an empty ring.
+            verify(researchStore.setReadingState(paper, "read"))
+            tryVerify(function() { return findDot() && dot.state === "read" })
+            compare(dot.border.width, 1)
+            verify(Qt.colorEqual(dot.color, "transparent"))
+            view.query = ""
         }
         function test_libraryTabFiltersAndOpensPapers() {
             verify(researchStore.rememberDocument(fixtureSource))
