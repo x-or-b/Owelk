@@ -15,15 +15,18 @@ ColumnLayout {
         {key: "text", name: qsTr("Text")}, {key: "separator", name: qsTr("Lines")}, {key: "backdrop", name: qsTr("Around PDF pages")}]
     property string editing: ""
     function startCustom() {
-        // A custom theme starts as a copy of the theme in use.
-        if (Theme.theme !== "custom") { custom = Theme.seeds(Theme.theme); Theme.setCustomSeeds(custom) }
+        if (Theme.theme === "custom") return
+        // With a picture, Custom is the picture's theme; otherwise it starts as a copy of the theme in use.
+        if (Theme.picture.toString().length) { Theme.theme = "custom"; custom = Theme.seeds("custom"); return }
+        custom = Theme.seeds(Theme.theme); Theme.setCustomSeeds(custom)
     }
     // A small picture of a theme: toolbar, sidebar, page with lines of text and an accent mark.
     component ThemeTile: Item {
         id: tile
         required property string themeId
         required property string name
-        readonly property var seeds: Theme.seeds(themeId)
+        // Read again whenever the theme changes (the Custom colors can change under it).
+        readonly property var seeds: (Theme.window, Theme.seeds(themeId))
         readonly property bool current: Theme.theme === themeId
         width: 104; height: 92
         objectName: "themeTile-" + themeId
@@ -45,6 +48,17 @@ ColumnLayout {
                 Rectangle { anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 6; width: 14; height: 6; radius: 3; color: tile.seeds.dark ? Theme.accents.find(function(a) { return a.id === Theme.accentName }).dark : Theme.accents.find(function(a) { return a.id === Theme.accentName }).light }
             }
             Row { x: 6; y: 4; spacing: 3; Repeater { model: 3; Rectangle { width: 4; height: 4; radius: 2; color: tile.seeds.text; opacity: .25 } } }
+            // Custom made from a picture shows it.
+            Image {
+                visible: tile.themeId === "custom" && Theme.picture.toString().length > 0
+                source: visible ? Theme.picture : ""
+                anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 2
+                width: parent.height - 8; height: width
+                fillMode: Image.PreserveAspectFit
+                horizontalAlignment: Image.AlignRight; verticalAlignment: Image.AlignBottom
+                sourceSize: Qt.size(128, 128)
+                asynchronous: true
+            }
         }
         Label {
             anchors.top: preview.bottom; anchors.topMargin: 5
@@ -62,8 +76,22 @@ ColumnLayout {
         Accessible.name: tile.name + qsTr(" theme")
     }
     SettingsGroup {
+        id: themeGroup
         objectName: "settingsGroup-theme"
         title: qsTr("Theme")
+        noteColor: Theme.danger
+        // Five quick taps on the heading choose a picture to make a theme from. Nothing hints at it.
+        property int taps: 0
+        onTitleTapped: {
+            taps = taps + 1
+            tapPause.restart()
+            if (taps < 5) return
+            taps = 0
+            note = ""
+            // Turned off with pictures kept: on again with them; otherwise a picture to start from.
+            if (!Theme.pictureOn && Theme.pictures.length) { Theme.pictureOn = true; root.custom = Theme.seeds("custom") }
+            else pictureDialog.open()
+        }
         Item {
             width: parent.width
             implicitHeight: themes.implicitHeight + 24
@@ -76,6 +104,147 @@ ColumnLayout {
                     model: Theme.themes.concat([{id: "custom", name: "Custom"}])
                     delegate: ThemeTile { required property var modelData; themeId: modelData.id; name: modelData.id === "custom" ? qsTr("Custom") : qsTranslate("Owelk", modelData.name) }
                 }
+            }
+        }
+    }
+    SettingsGroup {
+        visible: Theme.picture.toString().length > 0
+        objectName: "settingsGroup-picture"
+        title: qsTr("Picture")
+        note: qsTr("Shown behind Home and PDF pages while the Custom theme is in use. Exports and printing keep the original pages.")
+        SettingsRow {
+            label: qsTr("Picture theme")
+            detail: qsTr("Off, Custom has your own colors again and the pet goes away. The pictures are kept.")
+            Switch {
+                objectName: "pictureOnSwitch"
+                checked: Theme.pictureOn
+                onToggled: { Theme.pictureOn = checked; root.custom = Theme.seeds("custom") }
+            }
+        }
+        SettingsRow {
+            label: qsTr("Pictures")
+            detail: qsTr("Click one to use it. Right-click to remove it.")
+            Button { objectName: "addPicture"; text: qsTr("Add…"); onClicked: pictureDialog.open() }
+        }
+        // Every kept picture; the one in use has the accent border.
+        Item {
+            width: parent.width
+            implicitHeight: pictureFlow.implicitHeight + 12
+            Flow {
+                id: pictureFlow
+                x: 12; width: parent.width - 24
+                spacing: 8
+                Repeater {
+                    model: Theme.pictures
+                    delegate: Rectangle {
+                        id: thumb
+                        required property var modelData
+                        required property int index
+                        objectName: "pictureThumb-" + index
+                        width: 56; height: 56; radius: Theme.radius
+                        color: "transparent"
+                        border.width: 2
+                        border.color: modelData.current ? Theme.accent : thumbHover.hovered ? Theme.border : Theme.separator
+                        Image {
+                            anchors.fill: parent; anchors.margins: 5
+                            source: thumb.modelData.url
+                            fillMode: Image.PreserveAspectFit
+                            sourceSize: Qt.size(112, 112)
+                            asynchronous: true
+                        }
+                        HoverHandler { id: thumbHover; cursorShape: Qt.PointingHandCursor }
+                        TapHandler { onTapped: { Theme.choosePicture(thumb.modelData.id); root.custom = Theme.seeds("custom") } }
+                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: { pictureMenu.pictureId = thumb.modelData.id; pictureMenu.popup() } }
+                        Accessible.role: Accessible.RadioButton
+                        Accessible.name: qsTr("Picture") + " " + (index + 1)
+                    }
+                }
+            }
+        }
+        SettingsRow {
+            visible: Theme.pictureColors.length > 0
+            label: qsTr("Accent from the picture")
+            Repeater {
+                model: Theme.pictureColors
+                delegate: Rectangle {
+                    id: swatch
+                    required property string modelData
+                    readonly property bool chosen: Theme.accentName === "custom" && Qt.colorEqual(Theme.customAccent, modelData)
+                    objectName: "pictureColor-" + modelData
+                    width: Theme.iconButton; height: width; radius: width / 2
+                    color: "transparent"
+                    border.width: 2
+                    border.color: chosen ? Theme.text : swatchHover.hovered ? Theme.border : "transparent"
+                    Rectangle { anchors.fill: parent; anchors.margins: 4; radius: width / 2; color: swatch.modelData }
+                    HoverHandler { id: swatchHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: Theme.setCustomAccent(swatch.modelData) }
+                    Accessible.role: Accessible.RadioButton
+                    Accessible.name: qsTr("Accent color") + " " + modelData
+                }
+            }
+        }
+        SettingsRow {
+            label: qsTr("Position")
+            ComboBox {
+                objectName: "pictureAlignBox"
+                Layout.preferredWidth: 140
+                readonly property var values: ["left", "center", "right"]
+                model: [qsTr("Left"), qsTr("Center"), qsTr("Right")]
+                currentIndex: Math.max(0, values.indexOf(Theme.pictureAlign))
+                onActivated: function(index) { Theme.pictureAlign = values[index] }
+            }
+        }
+        SettingsRow {
+            label: qsTr("Behind Home and pages")
+            Slider {
+                objectName: "pictureStrengthSlider"
+                Layout.preferredWidth: 180
+                from: 0; to: 60; stepSize: 5; snapMode: Slider.SnapAlways
+                value: Theme.pictureStrength
+                onMoved: Theme.pictureStrength = value
+            }
+            Label { text: Theme.pictureStrength + "%"; color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
+        }
+        SettingsRow {
+            label: qsTr("Through the paper")
+            Slider {
+                objectName: "paperStrengthSlider"
+                Layout.preferredWidth: 180
+                from: 0; to: 50; stepSize: 5; snapMode: Slider.SnapAlways
+                value: Theme.paperStrength
+                onMoved: Theme.paperStrength = value
+            }
+            Label { text: Theme.paperStrength + "%"; color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
+        }
+        SettingsRow {
+            visible: DesktopPet.supported
+            label: qsTr("Desktop pet")
+            detail: qsTr("The picture floats above other apps while Owelk is open. Click it to come back here.")
+            Switch { objectName: "petSwitch"; checked: DesktopPet.enabled; onToggled: DesktopPet.enabled = checked }
+        }
+        SettingsRow {
+            visible: DesktopPet.supported && DesktopPet.enabled
+            label: qsTr("Pet size")
+            ComboBox {
+                objectName: "petSizeBox"
+                Layout.preferredWidth: 140
+                readonly property var values: ["small", "medium", "large"]
+                model: [qsTr("Small"), qsTr("Medium"), qsTr("Large")]
+                currentIndex: Math.max(0, values.indexOf(DesktopPet.size))
+                onActivated: function(index) { DesktopPet.size = values[index] }
+            }
+        }
+        SettingsRow {
+            visible: DesktopPet.supported && DesktopPet.enabled
+            label: qsTr("Break reminder")
+            detail: qsTr("The pet suggests a short break after this much reading in Owelk")
+            ComboBox {
+                objectName: "petBreakBox"
+                Layout.preferredWidth: 140
+                readonly property var values: [0, 25, 50, 90]
+                model: [qsTr("Off"), qsTr("25 minutes"), qsTr("50 minutes"), qsTr("90 minutes")]
+                currentIndex: Math.max(0, values.indexOf(DesktopPet.breakMinutes))
+                onActivated: function(index) { DesktopPet.breakMinutes = values[index] }
             }
         }
     }
@@ -187,8 +356,36 @@ ColumnLayout {
             Switch {
                 objectName: "customDarkSwitch"
                 checked: !!root.custom.dark
-                onToggled: { const next = Object.assign({}, root.custom); next.dark = checked; root.custom = next; Theme.setCustomSeeds(next) }
+                onToggled: {
+                    // A picture's theme is tinted again for the other brightness; other custom colors are kept.
+                    const next = Theme.picture.toString().length ? Theme.tintedSeeds(Theme.pictureColors.length ? Theme.pictureColors[0] : "", checked)
+                                                                 : Object.assign({}, root.custom, {dark: checked})
+                    root.custom = next
+                    Theme.setCustomSeeds(next)
+                }
             }
+        }
+    }
+    Timer { id: tapPause; interval: 1000; onTriggered: themeGroup.taps = 0 }
+    Menu {
+        id: pictureMenu
+        objectName: "pictureMenu"
+        property string pictureId: ""
+        MenuItem {
+            objectName: "removePicture"
+            text: qsTr("Remove Picture")
+            palette.windowText: Theme.danger
+            onTriggered: { Theme.removePicture(pictureMenu.pictureId); root.custom = Theme.seeds("custom") }
+        }
+    }
+    Native.FileDialog {
+        id: pictureDialog
+        objectName: "pictureDialog"
+        title: qsTr("Choose a Picture")
+        nameFilters: [qsTr("Pictures") + " (" + Theme.pictureFilter + ")"]
+        onAccepted: {
+            if (Theme.usePicture(selectedFile)) root.custom = Theme.seeds("custom")
+            else themeGroup.note = qsTr("This picture could not be opened.")
         }
     }
     Native.ColorDialog {

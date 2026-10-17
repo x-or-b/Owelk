@@ -2422,6 +2422,10 @@ Same file as another library entry</source>
         <translation>뉴 탭</translation>
     </message>
     <message>
+        <source>No open tabs</source>
+        <translation>노 오픈 탭스</translation>
+    </message>
+    <message>
         <source>Open PDF</source>
         <translation>오픈 피디에프</translation>
     </message>
@@ -3156,6 +3160,10 @@ Same file as another library entry</source>
     <message>
         <source>Could not save the PDF.</source>
         <translation>쿠드 낫 세이브 더 피디에프.</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>커스텀</translation>
     </message>
     <message>
         <source>Dark</source>
@@ -4317,6 +4325,37 @@ Use Pages to navigate.</source>
     </message>
 </context>
 <context>
+    <name>PetWindow</name>
+    <message>
+        <source>%1 minutes of reading. Time for a short break?</source>
+        <translation>%1 미닛츠 오브 리딩. 타임 포 어 쇼트 브레이크?</translation>
+    </message>
+    <message>
+        <source>Hide Pet</source>
+        <translation>하이드 펫</translation>
+    </message>
+    <message>
+        <source>New papers in For You: </source>
+        <translation>뉴 페이퍼스 인 포 유: </translation>
+    </message>
+    <message>
+        <source>Open Owelk</source>
+        <translation>오픈 오웰크</translation>
+    </message>
+    <message>
+        <source>The AI could not answer: </source>
+        <translation>더 에이아이 쿠드 낫 앤서: </translation>
+    </message>
+    <message>
+        <source>Writing your answer…</source>
+        <translation>라이팅 유어 앤서…</translation>
+    </message>
+    <message>
+        <source>Your answer is ready.</source>
+        <translation>유어 앤서 이즈 레디.</translation>
+    </message>
+</context>
+<context>
     <name>ReaderPane</name>
     <message>
         <source> (annotated).pdf</source>
@@ -4953,8 +4992,28 @@ You can open the same document twice.</source>
         <translation> 테마</translation>
     </message>
     <message>
+        <source>25 minutes</source>
+        <translation>25 미닛츠</translation>
+    </message>
+    <message>
+        <source>50 minutes</source>
+        <translation>50 미닛츠</translation>
+    </message>
+    <message>
+        <source>90 minutes</source>
+        <translation>90 미닛츠</translation>
+    </message>
+    <message>
         <source>Accent color</source>
         <translation>액센트 컬러</translation>
+    </message>
+    <message>
+        <source>Accent from the picture</source>
+        <translation>액센트 프롬 더 픽처</translation>
+    </message>
+    <message>
+        <source>Add…</source>
+        <translation>애드…</translation>
     </message>
     <message>
         <source>App icon</source>
@@ -4965,12 +5024,32 @@ You can open the same document twice.</source>
         <translation>어라운드 피디에프 페이지스</translation>
     </message>
     <message>
+        <source>Behind Home and pages</source>
+        <translation>비하인드 홈 앤드 페이지스</translation>
+    </message>
+    <message>
+        <source>Break reminder</source>
+        <translation>브레이크 리마인더</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>센터</translation>
+    </message>
+    <message>
         <source>Changes the icon in the Dock and on the app in Finder. If the Dock keeps the old one, it updates after Owelk restarts.</source>
         <translation>체인지스 더 아이콘 인 더 독 앤드 온 더 앱 인 파인더. 이프 더 독 킵스 더 올드 원, 잇 업데이츠 애프터 오웰크 리스타츠.</translation>
     </message>
     <message>
         <source>Changes the icon in the taskbar and title bars.</source>
         <translation>체인지스 더 아이콘 인 더 태스크바 앤드 타이틀 바스.</translation>
+    </message>
+    <message>
+        <source>Choose a Picture</source>
+        <translation>추즈 어 픽처</translation>
+    </message>
+    <message>
+        <source>Click one to use it. Right-click to remove it.</source>
+        <translation>클릭 원 투 유즈 잇. 라이트-클릭 투 리무브 잇.</translation>
     </message>
     <message>
         <source>Custom</source>
@@ -4993,6 +5072,10 @@ You can open the same document twice.</source>
         <translation>다크 페이지스 인버트 라이트니스 앤드 킵 휴즈, 소 피겨스 스테이 레커그나이저블. 익스포츠 앤드 프린팅 유즈 더 오리지널 컬러스.</translation>
     </message>
     <message>
+        <source>Desktop pet</source>
+        <translation>데스크톱 펫</translation>
+    </message>
+    <message>
         <source>Documents and lists</source>
         <translation>다큐먼츠 앤드 리스츠</translation>
     </message>
@@ -5001,24 +5084,80 @@ You can open the same document twice.</source>
         <translation>호버, 셀렉션 앤드 세컨더리 텍스트 아 워크트 아웃 프롬 디즈 컬러스, 소 더 테마 스테이즈 컨시스턴트.</translation>
     </message>
     <message>
+        <source>Large</source>
+        <translation>라지</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>레프트</translation>
+    </message>
+    <message>
         <source>Lines</source>
         <translation>라인스</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>미디엄</translation>
     </message>
     <message>
         <source>Menus and popovers</source>
         <translation>메뉴스 앤드 팝오버스</translation>
     </message>
     <message>
+        <source>Off</source>
+        <translation>오프</translation>
+    </message>
+    <message>
+        <source>Off, Custom has your own colors again and the pet goes away. The pictures are kept.</source>
+        <translation>오프, 커스텀 해즈 유어 오운 컬러스 어게인 앤드 더 펫 고즈 어웨이. 더 픽처스 아 켑트.</translation>
+    </message>
+    <message>
         <source>PDF pages</source>
         <translation>피디에프 페이지스</translation>
+    </message>
+    <message>
+        <source>Pet size</source>
+        <translation>펫 사이즈</translation>
+    </message>
+    <message>
+        <source>Picture</source>
+        <translation>픽처</translation>
+    </message>
+    <message>
+        <source>Picture theme</source>
+        <translation>픽처 테마</translation>
+    </message>
+    <message>
+        <source>Pictures</source>
+        <translation>픽처스</translation>
+    </message>
+    <message>
+        <source>Position</source>
+        <translation>포지션</translation>
+    </message>
+    <message>
+        <source>Remove Picture</source>
+        <translation>리무브 픽처</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>라이트</translation>
     </message>
     <message>
         <source>Scales all text and the controls around it. PDF pages keep their own zoom.</source>
         <translation>스케일스 올 텍스트 앤드 더 컨트롤스 어라운드 잇. 피디에프 페이지스 킵 데어 오운 줌.</translation>
     </message>
     <message>
+        <source>Shown behind Home and PDF pages while the Custom theme is in use. Exports and printing keep the original pages.</source>
+        <translation>숀 비하인드 홈 앤드 피디에프 페이지스 와일 더 커스텀 테마 이즈 인 유즈. 익스포츠 앤드 프린팅 킵 더 오리지널 페이지스.</translation>
+    </message>
+    <message>
         <source>Sidebars</source>
         <translation>사이드바스</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>스몰</translation>
     </message>
     <message>
         <source>Text</source>
@@ -5029,12 +5168,28 @@ You can open the same document twice.</source>
         <translation>텍스트 사이즈</translation>
     </message>
     <message>
+        <source>The pet suggests a short break after this much reading in Owelk</source>
+        <translation>더 펫 서제스츠 어 쇼트 브레이크 애프터 디스 머치 리딩 인 오웰크</translation>
+    </message>
+    <message>
+        <source>The picture floats above other apps while Owelk is open. Click it to come back here.</source>
+        <translation>더 픽처 플로츠 어보브 아더 앱스 와일 오웰크 이즈 오픈. 클릭 잇 투 컴 백 히어.</translation>
+    </message>
+    <message>
         <source>Theme</source>
         <translation>테마</translation>
     </message>
     <message>
         <source>Theme color</source>
         <translation>테마 컬러</translation>
+    </message>
+    <message>
+        <source>This picture could not be opened.</source>
+        <translation>디스 픽처 쿠드 낫 비 오픈드.</translation>
+    </message>
+    <message>
+        <source>Through the paper</source>
+        <translation>스루 더 페이퍼</translation>
     </message>
     <message>
         <source>Use light text and dark controls</source>

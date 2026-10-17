@@ -26,4 +26,7 @@ public:
     // window is in front; a double-click zooms or minimises it as System Settings says. Handled where macOS
     // delivers the press, since a move asked for later is often ignored. Elsewhere nothing happens.
     Q_INVOKABLE void setDragArea(QWindow *window, qreal height, const QVariantList &controls);
+    // macOS: the empty toolbar that sizes the title bar shows (false in full screen, where macOS would otherwise keep a
+    // blank strip above the window's content). Elsewhere nothing happens.
+    Q_INVOKABLE void setToolbarShown(QWindow *window, bool shown);
 };

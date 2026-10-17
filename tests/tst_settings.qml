@@ -24,6 +24,8 @@ Item {
         function page() { return findChild(settings, "settingsPageLoader").item }
         function cleanup() {
             settings.close(); tryCompare(settings, "visible", false)
+            while (Theme.pictures.length) Theme.removePicture()
+            Theme.pictureOn = true
             Theme.theme = "neutral"; Theme.accentName = "blue"; Theme.textSize = 13; Theme.invertPages = false; Theme.appIcon = "paper"
             researchStore.setSetting("appearance.custom", "")
         }
@@ -175,6 +177,24 @@ Item {
             mouseClick(visualChild(settings.contentItem, "customDarkSwitch"))
             compare(Theme.dark, true)
         }
+        function test_fiveTapsOnTheThemeHeadingChooseAPicture() {
+            settings.openPage("appearance"); tryCompare(settings, "opened", true)
+            tryVerify(function() { return visualChild(settings.contentItem, "settingsGroup-theme") !== null })
+            waitForPolish(settings.contentItem); wait(50)
+            const group = visualChild(settings.contentItem, "settingsGroup-theme")
+            const dialog = findChild(page(), "pictureDialog")
+            verify(dialog !== null)
+            for (let i = 0; i < 4; ++i) mouseClick(group, 20, 6)
+            compare(dialog.visible, false)
+            // A pause starts the count again.
+            wait(1100)
+            for (let i = 0; i < 4; ++i) mouseClick(group, 20, 6)
+            compare(dialog.visible, false)
+            mouseClick(group, 20, 6)
+            tryCompare(dialog, "visible", true)
+            dialog.reject()
+            tryCompare(dialog, "visible", false)
+        }
         function test_aiPageAsksForTheAccountOnce() {
             // Reading the ChatGPT account refreshes the provider list; that must not ask again (a loop
             // that kept the CPU busy while Settings existed).
@@ -228,6 +248,107 @@ Item {
             researchStore.ai.provider = before
             researchStore.setSetting("ai.instructions", "")
             settings.close()
+        }
+        function test_pictureGroupOnlyWithAPicture() {
+            settings.openPage("appearance"); tryCompare(settings, "opened", true)
+            tryVerify(function() { return visualChild(settings.contentItem, "settingsGroup-picture") !== null })
+            const group = visualChild(settings.contentItem, "settingsGroup-picture")
+            compare(group.visible, false)
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            compare(group.visible, true)
+            verify(visualChild(settings.contentItem, "pictureColor-" + Theme.pictureColors[0]).chosen, "the main color is the accent")
+            // A color of the picture becomes the accent.
+            const color = Theme.pictureColors[0]
+            Theme.accentName = "green"
+            waitForPolish(settings.contentItem); wait(50)
+            mouseClick(visualChild(settings.contentItem, "pictureColor-" + color))
+            compare(Theme.accentName, "custom")
+            verify(Qt.colorEqual(Theme.customAccent, color))
+            // Dark tints the picture's colors again, for dark surfaces.
+            tryVerify(function() { return visualChild(settings.contentItem, "customDarkSwitch") !== null })
+            const darkSwitch = visualChild(settings.contentItem, "customDarkSwitch")
+            darkSwitch.toggle(); darkSwitch.toggled()
+            compare(Theme.dark, true)
+            compare(Theme.seeds("custom").window, Theme.tintedSeeds(Theme.pictureColors[0], true).window)
+            verify(Theme.seeds("custom").window !== Theme.tintedSeeds(Theme.pictureColors[0], false).window)
+            darkSwitch.toggle(); darkSwitch.toggled()
+            compare(Theme.dark, false)
+            const petSwitch = visualChild(settings.contentItem, "petSwitch")
+            petSwitch.toggle(); petSwitch.toggled()
+            compare(DesktopPet.enabled, true)
+            verify(visualChild(settings.contentItem, "petSizeBox").visible)
+            visualChild(settings.contentItem, "petBreakBox").activated(0)
+            compare(DesktopPet.breakMinutes, 0)
+            DesktopPet.breakMinutes = 50
+            DesktopPet.enabled = false
+            visualChild(settings.contentItem, "pictureAlignBox").activated(0)
+            compare(Theme.pictureAlign, "left")
+            Theme.pictureAlign = "right"
+            // Another theme keeps the picture; Custom goes back to it instead of copying that theme.
+            const tinted = Theme.seeds("custom").window
+            Theme.theme = "nord"
+            compare(Theme.pictureShown, false)
+            mouseClick(visualChild(settings.contentItem, "themeTile-custom"), 40, 30)
+            compare(Theme.theme, "custom")
+            compare(Theme.seeds("custom").window, tinted)
+            verify(Theme.pictureShown)
+            // A second picture is kept beside the first; a thumbnail goes back to the first.
+            const first = String(Theme.picture)
+            verify(Theme.usePicture(testInput.pictureFile(1000, 1000, true)))
+            verify(String(Theme.picture) !== first)
+            waitForPolish(settings.contentItem); wait(50)
+            tryVerify(function() { return visualChild(settings.contentItem, "pictureThumb-1") !== null })
+            verify(visualChild(settings.contentItem, "pictureThumb-1").modelData.current)
+            mouseClick(visualChild(settings.contentItem, "pictureThumb-0"))
+            compare(String(Theme.picture), first)
+            // Right-click removes one (once the thumbnails, made again for the new one in use, are laid out).
+            waitForPolish(settings.contentItem); wait(50)
+            mouseClick(visualChild(settings.contentItem, "pictureThumb-1"), 20, 20, Qt.RightButton)
+            const menu = findChild(page(), "pictureMenu")
+            tryCompare(menu, "opened", true)
+            findChild(menu, "removePicture").triggered()
+            compare(Theme.pictures.length, 1)
+            compare(String(Theme.picture), first)
+            // Off: hidden again, Custom is the reader's own; five taps bring it back with the kept picture.
+            const pictureOn = visualChild(settings.contentItem, "pictureOnSwitch")
+            pictureOn.toggle(); pictureOn.toggled()
+            compare(Theme.pictureOn, false)
+            compare(String(Theme.picture), "")
+            compare(group.visible, false)
+            const dialog = findChild(page(), "pictureDialog")
+            const heading = visualChild(settings.contentItem, "settingsGroup-theme")
+            for (let i = 0; i < 5; ++i) mouseClick(heading, 20, 6)
+            compare(Theme.pictureOn, true)
+            compare(dialog.visible, false)
+            compare(String(Theme.picture), first)
+            Theme.removePicture()
+            compare(String(Theme.picture), "")
+            compare(group.visible, false)
+            compare(Theme.theme, "neutral")
+        }
+        function test_pictureShowsThroughThePaper() {
+            reader.visible = true
+            const canvas = findChild(reader, "pdfCanvas0")
+            canvas.openFile(fixtureSource, {page: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+            tryVerify(function() { return findChild(canvas, "pagePicture0") !== null })
+            const page = findChild(canvas, "pagePicture0"), around = findChild(canvas, "pdfPicture")
+            compare(page.visible, false, "nothing while there is no picture")
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            verify(page.visible && around.visible)
+            fuzzyCompare(findChild(page, "pictureImage").opacity, .15, .001)
+            // The page shows the same part of the picture as around it, wherever it is scrolled to.
+            const check = function() {
+                const outer = findChild(around, "pictureImage"), inner = findChild(page, "pictureImage")
+                const a = outer.mapToItem(canvas, 0, 0), b = inner.mapToItem(canvas, 0, 0)
+                return Math.abs(a.x - b.x) < .5 && Math.abs(a.y - b.y) < .5 && Math.abs(outer.width - inner.width) < .5
+            }
+            verify(check())
+            findChild(canvas, "pageList").contentY += 120
+            verify(check())
+            Theme.removePicture()
+            compare(page.visible, false)
+            reader.visible = false
         }
         function test_darkPagesOnlyWhileOn() {
             if (!Theme.canInvertPages) skip("built without Qt ShaderTools")

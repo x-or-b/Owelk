@@ -1073,6 +1073,7 @@ Item {
         }
         function test_focusModeLeavesOnlyThePages() {
             const d = workspace.documents
+            const activeTabId = function() { return Tree.find(d.tree, d.activeGroup).activeTab }
             researchStore.setSetting("focus.fullScreen", "0")
             workspace.openDocument(fixtureSource); const c = canvas()
             workspace.homeVisible = false
@@ -1087,26 +1088,34 @@ Item {
             tryCompare(visualChild(d.groupView(d.activeGroup), "tabBar"), "visible", false)
             tryCompare(toolbar, "visible", false)
             compare(findChild(workspace, "statusBar").visible, false)
-            // The side panels still open, by key or from a window edge.
-            ;["files", "document", "ai", "threads"].forEach(function(panel) {
-                if (workspace.panelSide(panel) === "left" && workspace.panelShown(panel)) workspace.togglePanel(panel)
-            })
-            const left = workspace.edgePanel("left")
-            verify(left.length > 0)
-            const edge = visualChild(workspace.contentItem, "focusEdge-left")
-            tryCompare(edge, "visible", true)
-            workspace.togglePanel(left)
-            tryCompare(edge, "visible", false)
-            workspace.togglePanel(left)
-            tryCompare(edge, "visible", true)
             // The top edge brings a bar back for a moment, and moving away lets it go.
             const top = findChild(workspace, "focusTop"), bar = findChild(workspace, "focusBar")
             mouseMove(top, 200, 1)
             tryCompare(bar, "visible", true)
             mouseMove(workspace.contentItem, 400, 500)
             tryCompare(bar, "visible", false, 3000)
-            // Exit Focus on that bar ends focus mode.
+            // On it: the side panels (as in the status bar) and the open tabs.
             mouseMove(top, 200, 1)
+            tryCompare(bar, "visible", true)
+            const panel = workspace.panelIcons("right")[0]
+            const shown = workspace.panelShown(panel)
+            mouseClick(visualChild(bar, "focusPanel-" + panel))
+            compare(workspace.panelShown(panel), !shown)
+            mouseClick(visualChild(bar, "focusPanel-" + panel))
+            compare(workspace.panelShown(panel), shown)
+            const first = activeTabId()
+            d.newHomeTab()
+            tryVerify(function() { return activeTabId() !== first })
+            mouseClick(visualChild(bar, "focusTabs"))
+            const list = findChild(workspace, "focusTabsPopup")
+            tryCompare(list, "opened", true)
+            verify(list.rows.some(function(r) { return r.newTab }))
+            let row = null
+            tryVerify(function() { row = findChild(list.contentItem, "focusTab-" + first); return row !== null })
+            mouseClick(row)
+            tryCompare(list, "opened", false)
+            compare(activeTabId(), first)
+            // Exit Focus on that bar ends focus mode.
             tryCompare(bar, "visible", true)
             mouseClick(findChild(workspace, "exitFocusButton"))
             tryCompare(workspace, "focusMode", false)

@@ -83,6 +83,15 @@ NSEvent *titleBarPress(NSEvent *event)
 }
 }
 
+void WindowChrome::setToolbarShown(QWindow *window, bool shown)
+{
+    if (!window || QGuiApplication::platformName() != QLatin1String("cocoa")) return;
+    @autoreleasepool {
+        NSWindow *native = reinterpret_cast<NSView *>(window->winId()).window;
+        if (native && native.toolbar && native.toolbar.visible != shown) native.toolbar.visible = shown;
+    }
+}
+
 void WindowChrome::setDragArea(QWindow *window, qreal height, const QVariantList &controls)
 {
     if (!window || QGuiApplication::platformName() != QLatin1String("cocoa")) return;

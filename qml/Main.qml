@@ -34,6 +34,8 @@ ApplicationWindow {
     // starts as usual.
     property bool focusMode: false
     property bool focusPeek: false
+    // macOS keeps a blank strip for the title bar's (empty) toolbar in full screen; it goes while full screen lasts.
+    onVisibilityChanged: if (typeof windowChrome !== "undefined") windowChrome.setToolbarShown(window, visibility !== Window.FullScreen)
     property int visibilityBeforeFocus: Window.Windowed
     function setFocusMode(on) {
         if (on === focusMode || (on && restoreFailed)) return
@@ -50,9 +52,28 @@ ApplicationWindow {
             }
         }
     }
-    // The panel a side edge opens in focus mode: the Document panel or the Library on its side, else the AI chat.
-    function edgePanel(side) {
-        return ["document", "files", "ai"].find(function(panel) { return panelSide(panel) === side }) || ""
+    // Focus mode's tab list: every strip's tabs (a line between strips), the one in front marked, ⌘1–9 beside the
+    // tabs of the strip in front, then New Tab.
+    function focusTabRows() {
+        const rows = []
+        Tree.leaves(documents.tree).forEach(function(g, at) {
+            if (at > 0) rows.push({separator: true})
+            const front = g.id === documents.activeGroup
+            g.tabs.forEach(function(t, i) {
+                rows.push({id: t.id, title: Tree.tabTitle(t, function(source) { return researchStore.displayName(source) }),
+                           current: front && g.activeTab === t.id && !window.homeVisible,
+                           keys: front ? (i < 8 ? Platform.keys("Ctrl+" + (i + 1)) : i === g.tabs.length - 1 ? Platform.keys("Ctrl+9") : "") : ""})
+            })
+        })
+        if (rows.length) rows.push({separator: true})
+        rows.push({newTab: true, title: qsTr("New Tab"), keys: Platform.keys(window.keys("newTab"))})
+        return rows
+    }
+    function focusTabTitle() {
+        const revision = documents.revision
+        const g = Tree.find(documents.tree, documents.activeGroup)
+        const t = g ? g.tabs.find(function(tab) { return tab.id === g.activeTab }) : null
+        return t ? Tree.tabTitle(t, function(source) { return researchStore.displayName(source) }) : qsTr("No open tabs")
     }
     // The field the search results hang from: the top bar's, or without it Home's while Home is in front.
     readonly property var searchHost: {
@@ -242,6 +263,12 @@ ApplicationWindow {
         else if (homeVisible) homeVisible = false
         else documents.closeActiveTab()
     }
+    // Owelk's window in front (from Finder, another launch, the desktop pet).
+    function comeForward() {
+        if (!window.visible) window.show()
+        else if (window.visibility === Window.Minimized) window.showNormal()
+        window.raise(); window.requestActivate()
+    }
     function showHome() { persist(); homeVisible = true; Qt.callLater(function() { window.focusSearch(false) }) }
     // The top bar's search field: the cursor in it (Home, a new tab), or its results open too (Cmd+K).
     function focusSearch(withResults) {
@@ -395,12 +422,32 @@ ApplicationWindow {
         if (!restoreFailed && researchStore.startupMessage.length) notify(researchStore.startupMessage)
         else if (!restoreFailed && researchStore.recoveredFromCrash) notify(qsTr("Owelk closed unexpectedly last time. Your tabs are back; unsaved notes are offered when you reopen them."))
     }
+    // The desktop pet (Settings › Appearance › Picture), only while it is on.
+    Loader {
+        objectName: "petLoader"
+        active: DesktopPet.enabled && DesktopPet.supported && Theme.picture.toString().length > 0
+        sourceComponent: PetWindow {
+            ai: researchStore.ai
+            forYou: researchStore.forYou
+            reading: Qt.application.state === Qt.ApplicationActive && !window.homeVisible
+            onOpenRequested: window.comeForward()
+            onThreadRequested: function(threadId) { window.comeForward(); window.openAiThread(threadId) }
+            onForYouRequested: { window.comeForward(); window.showHome() }
+            onPdfsDropped: function(urls) {
+                window.comeForward()
+                if (window.restoreFailed) return
+                urls.forEach(function(url) { window.openDocument(url) })
+                window.homeVisible = false
+            }
+            // Data for the AI, not interface text: the label is kept with the conversation like "Ask".
+            onExplainRequested: function(text) { window.comeForward(); window.askAi({action: "explain", selection: text, label: "Explain"}) }
+        }
+    }
     // PDFs opened from Finder or handed over by another launch while this window is open.
     Connections {
         target: typeof appInstance !== "undefined" ? appInstance : null
         function onFilesRequested(urls) {
-            if (!window.visible) window.show()
-            window.raise(); window.requestActivate()
+            window.comeForward()
             if (window.restoreFailed || !urls.length) return
             urls.forEach(function(url) { window.openDocument(url) })
             window.homeVisible = false
@@ -626,9 +673,10 @@ ApplicationWindow {
         width: parent ? parent.width : 0
         height: window.focusPeek ? offset + focusBar.height : offset + 4
         HoverHandler {
+            id: focusTopHover
             onHoveredChanged: {
                 if (hovered) { focusLeave.stop(); window.focusPeek = true }
-                else focusLeave.restart()
+                else if (!focusTabsPopup.opened) focusLeave.restart()
             }
         }
         Rectangle {
@@ -639,54 +687,111 @@ ApplicationWindow {
             width: parent.width; height: Theme.barHeight
             color: Theme.window
             Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.separator }
-            Row {
-                anchors.left: parent.left; anchors.leftMargin: 8; anchors.verticalCenter: parent.verticalCenter
+            // Everything focus mode hides, in one place: the side panels (as in the status bar, each on its side),
+            // Back, Forward and search, the open tabs, and the way out.
+            RowLayout {
+                anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 8
                 spacing: 2
+                Repeater {
+                    model: window.panelIcons("left")
+                    delegate: StatusIcon {
+                        required property string modelData
+                        objectName: "focusPanel-" + modelData
+                        kind: modelData; dockSide: "left"
+                        description: window.panelName(kind)
+                        selected: window.panelShown(kind)
+                        onTriggered: window.togglePanel(kind)
+                        onDockSideChosen: function(side) { const panel = kind; Qt.callLater(function() { window.movePanel(panel, side) }) }
+                    }
+                }
+                Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 16; Layout.leftMargin: 6; Layout.rightMargin: 6; color: Theme.separator }
                 IconButton { icon.name: "back"; enabled: window.canGoBack; description: qsTr("Back") + " · " + Platform.keys(window.keys("jumpBack")); onClicked: window.goBack() }
                 IconButton { icon.name: "forward"; enabled: window.canGoForward; description: qsTr("Forward") + " · " + Platform.keys(window.keys("jumpForward")); onClicked: window.goForward() }
                 IconButton { icon.name: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K"); onClicked: window.focusSearch(true) }
+                Item { Layout.fillWidth: true }
+                // The tab in front; a click lists the open tabs to go to.
+                Chip {
+                    id: focusTabButton
+                    objectName: "focusTabs"
+                    Layout.maximumWidth: Math.max(160, focusBar.width - 640)
+                    text: window.homeVisible ? qsTr("Home") : window.focusTabTitle()
+                    trailingIcon: "down"
+                    checked: focusTabsPopup.opened
+                    onClicked: focusTabsPopup.opened ? focusTabsPopup.close() : focusTabsPopup.open()
+                }
+                Item { Layout.fillWidth: true }
+                Repeater {
+                    model: window.panelIcons("right")
+                    delegate: StatusIcon {
+                        required property string modelData
+                        objectName: "focusPanel-" + modelData
+                        kind: modelData; dockSide: "right"
+                        description: window.panelName(kind)
+                        selected: window.panelShown(kind)
+                        onTriggered: window.togglePanel(kind)
+                        onDockSideChosen: function(side) { const panel = kind; Qt.callLater(function() { window.movePanel(panel, side) }) }
+                    }
+                }
+                Button {
+                    objectName: "exitFocusButton"
+                    Layout.leftMargin: 8
+                    text: qsTr("Exit Focus") + " · " + Platform.keys(window.keys("focusMode"))
+                    onClicked: window.setFocusMode(false)
+                }
             }
-            Label {
-                anchors.centerIn: parent
-                width: Math.min(implicitWidth, parent.width - 420)
-                text: window.homeVisible ? qsTr("Home") : window.currentReader ? researchStore.displayName(window.currentReader.source) : ""
-                elide: Text.ElideMiddle; textFormat: Text.PlainText
-                font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
-            }
-            Button {
-                objectName: "exitFocusButton"
-                anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                text: qsTr("Exit Focus") + " · " + Platform.keys(window.keys("focusMode"))
-                onClicked: window.setFocusMode(false)
+            // The open tabs, each strip after a line; ⌘1–9 beside the ones of the strip in front.
+            Popup {
+                id: focusTabsPopup
+                objectName: "focusTabsPopup"
+                z: 1001
+                x: focusTabButton.x + focusTabButton.width / 2 - width / 2
+                y: parent.height + 4
+                width: 360
+                padding: 6
+                property var rows: []
+                onAboutToShow: rows = window.focusTabRows()
+                // The bar stays while the list is open.
+                onOpened: focusLeave.stop()
+                onClosed: if (!focusTopHover.hovered) focusLeave.restart()
+                contentItem: ListView {
+                    implicitHeight: Math.min(contentHeight, 420)
+                    clip: true
+                    model: focusTabsPopup.rows
+                    delegate: ItemDelegate {
+                        id: tabRow
+                        required property var modelData
+                        objectName: modelData.separator ? "" : "focusTab-" + modelData.id
+                        width: ListView.view.width
+                        height: modelData.separator ? 9 : Theme.rowHeight
+                        enabled: !modelData.separator
+                        highlighted: !!modelData.current
+                        background: Rectangle {
+                            radius: Theme.radiusSmall
+                            color: tabRow.modelData.separator ? "transparent" : tabRow.highlighted ? Theme.selection : tabRow.hovered ? Theme.hover : "transparent"
+                            Rectangle { visible: !!tabRow.modelData.separator; anchors.centerIn: parent; width: parent.width - 8; height: 1; color: Theme.separator }
+                        }
+                        contentItem: RowLayout {
+                            visible: !tabRow.modelData.separator
+                            spacing: 8
+                            Label {
+                                Layout.fillWidth: true
+                                text: tabRow.modelData.title || ""
+                                elide: Text.ElideRight; textFormat: Text.PlainText
+                                color: tabRow.highlighted ? Theme.selectedText : Theme.text
+                            }
+                            Label { text: tabRow.modelData.keys || ""; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                        }
+                        onClicked: {
+                            focusTabsPopup.close()
+                            if (modelData.newTab) documents.newHomeTab()
+                            else documents.activateTab(modelData.id)
+                        }
+                    }
+                }
             }
         }
     }
     Timer { id: focusLeave; interval: 600; onTriggered: window.focusPeek = false }
-    // Focus mode's side edges: a side without an open panel opens one from a handle that shows on touching it.
-    Repeater {
-        model: ["left", "right"]
-        delegate: Item {
-            id: edge
-            required property string modelData
-            readonly property string panel: window.edgePanel(modelData)
-            readonly property bool open: modelData === "left" ? leftDock.visible || leftThreads.active : rightDock.visible || rightThreads.active
-            objectName: "focusEdge-" + modelData
-            parent: window.contentItem
-            z: 20
-            visible: window.focusMode && !open && panel.length > 0
-            x: modelData === "left" ? 0 : parent.width - width
-            y: 8; width: edgeHover.hovered ? 40 : 6; height: parent.height - 16
-            HoverHandler { id: edgeHover }
-            IconButton {
-                objectName: "focusEdgeButton-" + edge.modelData
-                visible: edgeHover.hovered
-                anchors.centerIn: parent
-                icon.name: "sidebar"
-                description: window.panelName(edge.panel)
-                onClicked: window.togglePanel(edge.panel)
-            }
-        }
-    }
     // An answer arrived while its thread is not in view: a card at the bottom right (Open / Dismiss),
     // and while another app is in front, the Dock icon bounces once (the taskbar flashes on Linux).
     AiNotice {
