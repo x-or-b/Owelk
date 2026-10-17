@@ -583,14 +583,14 @@ ApplicationWindow {
         }
     }
     SettingsDialog { id: settingsDialog }
-    // For You › Following, asked for from Settings, Home or a paper's Follow Author.
+    // For You › Manage Following, asked for from Settings, Home or a paper's Follow Author.
     Connections {
         target: researchStore.forYou
-        function onFollowingRequested() {
+        function onManageRequested() {
             if (window.restoreFailed) return
             settingsDialog.close()
             window.homeVisible = false
-            documents.openLibrary({view: "foryou", following: true})
+            documents.openLibrary({view: "foryou", manage: true})
         }
     }
     // Created on first use: the AI tab organizer.

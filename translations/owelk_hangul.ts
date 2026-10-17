@@ -1325,6 +1325,10 @@
         <translation>어 토픽 (워즈, cs.RO), 어 리서처 오어 언 인스티튜션</translation>
     </message>
     <message>
+        <source>Checking and AI</source>
+        <translation>체킹 앤드 에이아이</translation>
+    </message>
+    <message>
         <source>Collections</source>
         <translation>컬렉션스</translation>
     </message>
@@ -1379,6 +1383,10 @@
     <message>
         <source>Searching…</source>
         <translation>서칭…</translation>
+    </message>
+    <message>
+        <source>Settings…</source>
+        <translation>세팅스…</translation>
     </message>
     <message>
         <source>Stop following</source>
@@ -1732,6 +1740,14 @@ Same file as another library entry</source>
         <translation> 투 디스; 더 링크 윌 노 롱거 오픈</translation>
     </message>
     <message>
+        <source>%1 papers</source>
+        <translation>%1 페이퍼스</translation>
+    </message>
+    <message>
+        <source>1 paper</source>
+        <translation>1 페이퍼</translation>
+    </message>
+    <message>
         <source>AI conversation</source>
         <translation>에이아이 컨버세이션</translation>
     </message>
@@ -1912,6 +1928,10 @@ Same file as another library entry</source>
         <translation>엠티 트래시</translation>
     </message>
     <message>
+        <source>Everyone</source>
+        <translation>에브리원</translation>
+    </message>
+    <message>
         <source>Everything</source>
         <translation>에브리싱</translation>
     </message>
@@ -1944,6 +1964,10 @@ Same file as another library entry</source>
         <translation>팔로 인 포 유</translation>
     </message>
     <message>
+        <source>Follow researchers and institutions to see their new papers here</source>
+        <translation>팔로 리서처스 앤드 인스티튜션스 투 시 데어 뉴 페이퍼스 히어</translation>
+    </message>
+    <message>
         <source>Following</source>
         <translation>팔로잉</translation>
     </message>
@@ -1954,10 +1978,6 @@ Same file as another library entry</source>
     <message>
         <source>For You </source>
         <translation>포 유 </translation>
-    </message>
-    <message>
-        <source>For You settings</source>
-        <translation>포 유 세팅스</translation>
     </message>
     <message>
         <source>Get PDF on Its Page</source>
@@ -1992,6 +2012,14 @@ Same file as another library entry</source>
         <translation>메이크 어 컬렉션 오브 더 폴더, 위드 잇츠 서브폴더스 애즈 서브-컬렉션스</translation>
     </message>
     <message>
+        <source>Manage Following</source>
+        <translation>매니지 팔로잉</translation>
+    </message>
+    <message>
+        <source>Manage what you follow</source>
+        <translation>매니지 왓 유 팔로</translation>
+    </message>
+    <message>
         <source>Mark as Read</source>
         <translation>마크 애즈 리드</translation>
     </message>
@@ -2020,6 +2048,10 @@ Same file as another library entry</source>
         <translation>뉴 노트</translation>
     </message>
     <message>
+        <source>New papers of the researchers and institutions you follow</source>
+        <translation>뉴 페이퍼스 오브 더 리서처스 앤드 인스티튜션스 유 팔로</translation>
+    </message>
+    <message>
         <source>No free PDF</source>
         <translation>노 프리 피디에프</translation>
     </message>
@@ -2030,6 +2062,10 @@ Same file as another library entry</source>
     <message>
         <source>No free PDF: open its page</source>
         <translation>노 프리 피디에프: 오픈 잇츠 페이지</translation>
+    </message>
+    <message>
+        <source>No new papers from the researchers and institutions you follow.</source>
+        <translation>노 뉴 페이퍼스 프롬 더 리서처스 앤드 인스티튜션스 유 팔로.</translation>
     </message>
     <message>
         <source>No notes yet.</source>
@@ -2138,10 +2174,6 @@ Same file as another library entry</source>
     <message>
         <source>Rename…</source>
         <translation>리네임…</translation>
-    </message>
-    <message>
-        <source>Researchers and institutions you follow</source>
-        <translation>리서처스 앤드 인스티튜션스 유 팔로</translation>
     </message>
     <message>
         <source>Restore</source>

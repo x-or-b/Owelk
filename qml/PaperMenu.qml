@@ -100,7 +100,7 @@ Item {
         }
     }
     Loader { id: details; active: false; sourceComponent: PaperDetailsDialog {} }
-    Loader { id: followAuthor; active: false; sourceComponent: FollowAuthorDialog { onSearchRequested: researchStore.forYou.showFollowing() } }
+    Loader { id: followAuthor; active: false; sourceComponent: FollowAuthorDialog { onSearchRequested: researchStore.forYou.manageFollowing() } }
     Loader {
         id: tags
         active: false

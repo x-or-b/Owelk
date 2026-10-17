@@ -271,7 +271,7 @@ Rectangle {
         MenuItem { text: qsTr("Select All on Page"); onTriggered: canvas.selectPage(root.contextPage) }
         MenuItem { text: qsTr("Mark Region"); onTriggered: root.setTool("area") }
     }
-    Loader { id: followAuthor; active: false; sourceComponent: FollowAuthorDialog { onSearchRequested: researchStore.forYou.showFollowing() } }
+    Loader { id: followAuthor; active: false; sourceComponent: FollowAuthorDialog { onSearchRequested: researchStore.forYou.manageFollowing() } }
     Loader { id: paperDetails; active: false; sourceComponent: PaperDetailsDialog {} }
     FileDialog {
         id: annotatedFile

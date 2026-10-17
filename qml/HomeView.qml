@@ -192,7 +192,7 @@ Rectangle {
                     visible: !forYouBox.forYou.configured
                     Layout.fillWidth: true
                     padding: 14
-                    onClicked: researchStore.forYou.showFollowing()
+                    onClicked: researchStore.forYou.manageFollowing()
                     background: Rectangle {
                         radius: Theme.radiusLarge
                         color: parent.hovered ? Theme.hover : Theme.content

@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Owelk.Ui
 
-// For You › Following: everything For You follows, in one place. One field adds a topic (words, arXiv
+// For You › Manage Following: everything For You follows, in one place. One field adds a topic (words, arXiv
 // categories such as cs.RO), a researcher or an institution; each row says how many new papers it brought (a click
 // shows them), how many it may bring per check, and can be turned off or removed.
 Flickable {
@@ -11,6 +11,8 @@ Flickable {
     objectName: "forYouFollowing"
     readonly property var forYou: researchStore.forYou
     signal sourceChosen(string key)
+    // How For You checks (Settings › For You).
+    signal settingsRequested()
     contentWidth: width
     contentHeight: column.implicitHeight + 24
     clip: true
@@ -263,6 +265,13 @@ Flickable {
                     text: qsTr("Follow")
                     onClicked: root.forYou.follow(collectionPick.choices[collectionChoice.currentIndex].id, true)
                 }
+            }
+        }
+        SettingsGroup {
+            SettingsRow {
+                objectName: "forYouCheckingSettings"
+                label: qsTr("Checking and AI")
+                Button { objectName: "forYouCheckingSettingsButton"; text: qsTr("Settings…"); onClicked: root.settingsRequested() }
             }
         }
     }

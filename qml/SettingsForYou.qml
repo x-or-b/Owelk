@@ -30,7 +30,7 @@ ColumnLayout {
             Button {
                 objectName: "forYouEditFollowing"
                 text: qsTr("Edit in For You…")
-                onClicked: root.forYou.showFollowing()
+                onClicked: root.forYou.manageFollowing()
             }
         }
     }

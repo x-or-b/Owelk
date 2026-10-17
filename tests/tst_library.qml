@@ -419,8 +419,8 @@ Item {
             const forYou = researchStore.forYou
             researchStore.setSetting("forYou.openAlexBaseUrl", testInput.webFixture("").toString())
             forYou.saveTopics([])
-            forYou.showFollowing()
-            tryVerify(function() { return activeTab().kind === "library" && activeTab().filter.following === true })
+            forYou.manageFollowing()
+            tryVerify(function() { return activeTab().kind === "library" && activeTab().filter.manage === true })
             const view = library()
             let following = null
             tryVerify(function() { following = visualChild(view, "forYouFollowing"); return following !== null })
@@ -456,9 +456,10 @@ Item {
             visualChild(following, "forYouFollowFound-A777").clicked()
             compare(forYou.people().length, 1)
             tryVerify(function() { return visualChild(following, "forYouPerson-A777") !== null })
-            // A row shows its papers: back to Papers, narrowed to it.
+            // A row shows its papers: a researcher's in Following, narrowed to them.
             following.sourceChosen("person:A777")
-            tryCompare(view, "showingFollowing", false)
+            tryCompare(view, "showingManage", false)
+            compare(view.showingFollowing, true)
             compare(view.forYouSource, "person:A777")
             view.forYouSource = ""
             forYou.unfollowPerson("A777")
@@ -503,18 +504,33 @@ Item {
             compare(forYou.items.length, 1)
             compare(forYou.items[0].id, "arxiv:2610.05555")
             compare(forYou.items[0].sourceName, "Grace Hopper")
-            // Library › For You: only the researchers and institutions followed.
+            // Library › For You › Following: only the researchers and institutions followed, under their names.
             workspace.homeVisible = true
             const home = findChild(workspace, "homeView")
             home.libraryFilterRequested({view: "foryou"})
             const view = library()
             tryCompare(view, "view", "foryou")
-            const menu = visibleChild(view, "libraryForYouSource")
-            tryVerify(function() { return menu.choices.some(function(c) { return c.key === "following" }) })
-            view.forYouSource = "following"
+            const tab = visibleChild(view, "libraryForYouFollowingTab")
+            compare(tab.text, "Following · 1")
+            mouseClick(tab)
+            tryCompare(view, "showingFollowing", true)
+            compare(activeTab().filter.following, true)
             compare(view.forYouRows.length, 1)
             compare(view.forYouRows[0].id, "arxiv:2610.05555")
-            view.forYouSource = ""
+            let heading = null
+            tryVerify(function() { heading = visualChild(view, "libraryForYouGroup-0"); return heading !== null && heading.visible })
+            // Its heading keeps only theirs; Papers shows everything again.
+            mouseClick(heading)
+            compare(view.forYouSource, "person:A777")
+            mouseClick(visibleChild(view, "libraryForYouPapersTab"))
+            tryCompare(view, "showingFollowing", false)
+            compare(view.forYouSource, "")
+            // ⚙ opens Manage Following; Done comes back.
+            mouseClick(visibleChild(view, "libraryForYouManage"))
+            tryCompare(view, "showingManage", true)
+            tryVerify(function() { return visualChild(view, "forYouFollowing") !== null })
+            mouseClick(visibleChild(view, "libraryForYouManageDone"))
+            tryCompare(view, "showingManage", false)
             // Leave For You as the next test expects it: nothing followed, nothing waiting.
             forYou.dismiss(["arxiv:2610.05555"])
             forYou.unfollowPerson("A777")
@@ -533,7 +549,7 @@ Item {
             verify(!forYou.configured)
             verify(visualChild(home, "homeForYouHint").visible)
             mouseClick(visualChild(home, "homeForYouHint"))
-            tryVerify(function() { return activeTab().kind === "library" && activeTab().filter.following === true })
+            tryVerify(function() { return activeTab().kind === "library" && activeTab().filter.manage === true })
             workspace.homeVisible = true
             // A topic: Check finds a paper. The AI, set up after the check, then says why it fits.
             researchStore.setSetting("ai.baseUrl.claude", testInput.webFixture("/").toString())

@@ -70,11 +70,20 @@ Rectangle {
     readonly property bool showingNotes: view === "notes"
     readonly property bool showingTrash: view === "trash"
     readonly property bool showingForYou: view === "foryou"
-    // For You shows the papers found, or what is followed (Following).
-    readonly property bool showingFollowing: showingForYou && filter.following === true
+    // For You: Papers (all found), Following (those of the researchers and institutions followed, by who) and Manage
+    // Following (what is followed), which Done leaves for the tab it came from.
+    readonly property bool showingManage: showingForYou && filter.manage === true
+    readonly property bool showingFollowing: showingForYou && filter.following === true && !showingManage
     function showFollowing(on) {
         const next = Object.assign({}, filter)
+        delete next.manage
         if (on) next.following = true; else delete next.following
+        forYouSource = ""
+        setFilter(next)
+    }
+    function showManage(on) {
+        const next = Object.assign({}, filter)
+        if (on) next.manage = true; else delete next.manage
         setFilter(next)
     }
     // For You: new papers found for what is followed, narrowed to one source when chosen.
@@ -91,11 +100,26 @@ Rectangle {
         const age = Math.round((today - forYouDay(p)) / 86400000)
         return range === "today" ? age <= 0 : range === "week" ? age < 7 : age < 30
     }
-    // "following": only papers of the researchers and institutions followed.
     function fromFollowed(p) { return /^(person|institution):/.test(p.source || "") }
-    readonly property var forYouFromSource: forYou.items.filter(function(p) {
-        return !forYouSource.length || (forYouSource === "following" ? root.fromFollowed(p) : p.source === forYouSource)
+    // Following: each researcher's or institution's papers together, newest first; whoever has the newest comes first.
+    function byWho(items) {
+        const list = items.filter(root.fromFollowed), newest = {}
+        list.forEach(function(p) { const d = root.forYouDay(p).getTime(); if (!(newest[p.source] >= d)) newest[p.source] = d })
+        return list.slice().sort(function(a, b) {
+            if (a.source !== b.source) return newest[b.source] - newest[a.source] || (a.source < b.source ? -1 : 1)
+            return root.forYouDay(b) - root.forYouDay(a)
+        })
+    }
+    readonly property var forYouFromSource: (showingFollowing ? byWho(forYou.items) : forYou.items).filter(function(p) {
+        return !forYouSource.length || p.source === forYouSource
     })
+    // Where each followed researcher works (or an institution's country), for the Following headings.
+    readonly property var followedDetails: {
+        const details = {}
+        forYou.items.length // Read again when papers arrive.
+        forYou.people().forEach(function(p) { details[p.kind + ":" + p.id] = p.detail })
+        return details
+    }
     readonly property var forYouRows: forYouFromSource.filter(function(p) { return root.inForYouRange(p, root.forYouRange) })
     // "Lovelace et al." and "Today", "3 days ago": the details at a glance.
     function shortAuthors(authors) {
@@ -465,7 +489,7 @@ Rectangle {
         nameFilters: ["PDF documents (*.pdf)"]
         onAccepted: researchStore.addDocuments(selectedFiles, root.filter.collection || "")
     }
-    Loader { id: followAuthor; active: false; sourceComponent: FollowAuthorDialog { onSearchRequested: root.showFollowing(true) } }
+    Loader { id: followAuthor; active: false; sourceComponent: FollowAuthorDialog { onSearchRequested: root.showManage(true) } }
     PaperMenu {
         id: paperMenu
         collectionId: root.filter.collection || ""
@@ -589,21 +613,29 @@ Rectangle {
                     Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
                     visible: root.showingForYou
                     spacing: 8
-                    Label { text: qsTr("For You"); font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
+                    Label {
+                        text: root.showingManage ? qsTr("Manage Following") : qsTr("For You")
+                        font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text
+                    }
                     Chip {
                         objectName: "libraryForYouPapersTab"
+                        visible: !root.showingManage
                         text: qsTr("Papers"); checkable: true; checked: !root.showingFollowing
                         onClicked: root.showFollowing(false)
                     }
                     Chip {
                         objectName: "libraryForYouFollowingTab"
-                        text: qsTr("Following"); checkable: true; checked: root.showingFollowing
+                        readonly property int count: root.forYou.items.filter(root.fromFollowed).length
+                        visible: !root.showingManage
+                        text: qsTr("Following") + (count ? " · " + count : "")
+                        checkable: true; checked: root.showingFollowing
+                        ToolTip.text: qsTr("New papers of the researchers and institutions you follow")
                         onClicked: root.showFollowing(true)
                     }
                     Label {
                         objectName: "libraryForYouCount"
                         Layout.alignment: Qt.AlignBaseline
-                        visible: root.forYou.items.length > 0 && !root.showingFollowing
+                        visible: root.forYou.items.length > 0 && !root.showingFollowing && !root.showingManage
                         text: root.forYouRows.length + (root.forYouRows.length === 1 ? qsTr(" paper") : qsTr(" papers"))
                         font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                     }
@@ -615,7 +647,7 @@ Rectangle {
                     }
                     // The AI's view of each paper: most relevant first, one sentence on why.
                     IconButton {
-                        visible: !root.showingFollowing
+                        visible: !root.showingManage
                         objectName: "libraryForYouExplain"
                         icon.name: "ai"; description: qsTr("Explain with AI")
                         enabled: !root.forYou.explaining && root.forYou.items.some(function(p) { return !p.why })
@@ -627,18 +659,29 @@ Rectangle {
                         enabled: root.forYou.configured && !root.forYou.checking
                         onClicked: root.forYou.refresh()
                     }
-                    IconButton { objectName: "libraryForYouSettings"; icon.name: "settings"; description: qsTr("For You settings"); onClicked: root.settingsRequested("foryou") }
+                    IconButton {
+                        objectName: "libraryForYouManage"
+                        visible: !root.showingManage
+                        icon.name: "settings"; description: qsTr("Manage what you follow")
+                        onClicked: root.showManage(true)
+                    }
+                    Button {
+                        objectName: "libraryForYouManageDone"
+                        visible: root.showingManage
+                        text: qsTr("Done"); highlighted: true
+                        onClicked: root.showManage(false)
+                    }
                 }
                 Label {
                     objectName: "libraryForYouAiProblem"
-                    visible: root.showingForYou && !root.showingFollowing && root.forYou.aiProblem.length > 0 && !root.forYou.explaining
+                    visible: root.showingForYou && !root.showingManage && root.forYou.aiProblem.length > 0 && !root.forYou.explaining
                     Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
                     text: root.forYou.aiProblem
                     wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                 }
                 RowLayout {
                     Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
-                    visible: root.showingForYou && !root.showingFollowing && root.forYou.items.length > 0
+                    visible: root.showingForYou && !root.showingManage && (root.showingFollowing ? root.byWho(root.forYou.items).length > 0 : root.forYou.items.length > 0)
                     spacing: 4
                     Repeater {
                         model: root.selecting ? [] : [{key: "all", name: qsTr("All")}, {key: "today", name: qsTr("Today")},
@@ -674,11 +717,10 @@ Rectangle {
                         visible: !root.selecting && choices.length > 2
                         Layout.preferredWidth: 220
                         readonly property var sources: (root.forYou.items, root.forYou.sources())
-                        readonly property int followed: root.forYou.items.filter(root.fromFollowed).length
-                        // Everything, then the researchers and institutions followed together, then each source.
-                        readonly property var choices: [{key: "", name: qsTr("Everything")}]
-                            .concat(followed ? [{key: "following", name: qsTr("Researchers and institutions you follow") + " · " + followed}] : [])
-                            .concat(sources.map(function(s) { return {key: s.key, name: s.name + " · " + s.count} }))
+                        // Everything (or everyone), then each source; Following lists only the people followed.
+                        readonly property var choices: [{key: "", name: root.showingFollowing ? qsTr("Everyone") : qsTr("Everything")}]
+                            .concat(sources.filter(function(s) { return !root.showingFollowing || root.fromFollowed({source: s.key}) })
+                                    .map(function(s) { return {key: s.key, name: s.name + " · " + s.count} }))
                         model: choices.map(function(c) { return c.name })
                         currentIndex: Math.max(0, choices.findIndex(function(c) { return c.key === root.forYouSource }))
                         onActivated: function(index) { root.forYouSource = choices[index].key }
@@ -723,7 +765,7 @@ Rectangle {
                     // A column of reading width, in the middle.
                     Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
                     objectName: "libraryForYou"
-                    visible: root.showingForYou && !root.showingFollowing
+                    visible: root.showingForYou && !root.showingManage
                     Layout.fillHeight: true
                     clip: true
                     model: root.showingForYou ? root.forYouRows : []
@@ -736,9 +778,42 @@ Rectangle {
                         readonly property bool adding: root.forYou.adding.indexOf(modelData.id) >= 0
                         readonly property bool open: root.forYouOpen === modelData.id && !root.selecting
                         objectName: "libraryForYou-" + index
+                        // Following: the first paper of each researcher or institution carries its name; a click on
+                        // it keeps only theirs.
+                        readonly property bool startsGroup: root.showingFollowing && !root.forYouSource.length
+                            && (index === 0 || root.forYouRows[index - 1].source !== modelData.source)
+                        readonly property real groupHeight: startsGroup ? 36 : 0
                         width: forYouList.width
-                        height: forYouColumn.implicitHeight + 26
-                        topPadding: 13; bottomPadding: 13
+                        height: forYouColumn.implicitHeight + 26 + groupHeight
+                        topInset: groupHeight
+                        topPadding: 13 + groupHeight; bottomPadding: 13
+                        Item {
+                            id: groupHeading
+                            objectName: "libraryForYouGroup-" + found.index
+                            visible: found.startsGroup
+                            width: parent.width; height: found.groupHeight
+                            readonly property int papers: found.startsGroup ? root.forYouRows.filter(function(p) { return p.source === found.modelData.source }).length : 0
+                            RowLayout {
+                                anchors.fill: parent; anchors.leftMargin: 4; anchors.topMargin: 10
+                                spacing: 8
+                                Label {
+                                    text: found.modelData.sourceName || ""
+                                    font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold; color: Theme.textSecondary
+                                    elide: Text.ElideRight; Layout.maximumWidth: parent.width * .6
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: [root.followedDetails[found.modelData.source] || "", groupHeading.papers === 1 ? qsTr("1 paper") : qsTr("%1 papers").arg(groupHeading.papers)]
+                                          .filter(function(t) { return t.length }).join(" · ")
+                                    elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.forYouSource = found.modelData.source
+                            }
+                        }
                         // Its own line, under the Add and Dismiss icons too (the list's ends at the text).
                         Rectangle {
                             visible: found.index < forYouList.count - 1 && !found.highlighted
@@ -859,6 +934,7 @@ Rectangle {
                             visible: !root.selecting && !found.open
                             opacity: found.hovered || previewIcon.hovered || addIcon.hovered || dismissIcon.hovered || found.adding ? 1 : 0
                             anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                            anchors.verticalCenterOffset: found.groupHeight / 2
                             spacing: 2
                             Label { visible: found.adding; anchors.verticalCenter: parent.verticalCenter; text: qsTr("Adding…"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
                             IconButton {
@@ -885,18 +961,23 @@ Rectangle {
                             }
                         }
                     }
-                    // Nothing followed: the way to the settings; nothing new: when it last looked.
+                    // Nothing followed: the way to Manage Following; nothing new: when it last looked.
                     ColumnLayout {
+                        id: forYouEmpty
                         anchors.centerIn: parent
                         width: Math.min(parent.width - 40, 420)
                         visible: forYouList.count === 0
                         spacing: 10
+                        readonly property bool nobodyFollowed: root.showingFollowing && (root.forYou.items, !root.forYou.people().some(function(p) { return p.on }))
                         Label {
+                            objectName: "libraryForYouEmpty"
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
-                            text: !root.forYou.configured ? qsTr("Follow a topic, a collection, a researcher or an institution to see new papers here")
+                            text: forYouEmpty.nobodyFollowed ? qsTr("Follow researchers and institutions to see their new papers here")
+                                : !root.forYou.configured ? qsTr("Follow a topic, a collection, a researcher or an institution to see new papers here")
                                 : root.forYou.checking ? qsTr("Looking for new papers…")
                                 : root.forYou.problem.length ? root.forYou.problem
+                                : root.showingFollowing ? qsTr("No new papers from the researchers and institutions you follow.")
                                 : root.forYou.lastChecked.getTime && !isNaN(root.forYou.lastChecked.getTime())
                                     ? qsTr("Nothing new. Checked ") + root.forYou.lastChecked.toLocaleString(Qt.locale(), Locale.ShortFormat)
                                     : qsTr("Not checked yet.")
@@ -904,22 +985,24 @@ Rectangle {
                         }
                         Button {
                             objectName: "libraryForYouSetup"
-                            visible: !root.forYou.configured
+                            visible: !root.forYou.configured || forYouEmpty.nobodyFollowed
                             Layout.alignment: Qt.AlignHCenter
                             text: qsTr("Choose What to Follow…")
-                            onClicked: root.showFollowing(true)
+                            onClicked: root.showManage(true)
                         }
                     }
                 }
-                // What For You follows; a row shows the papers it brought.
+                // Manage Following: what For You follows; a row shows the papers it brought (a researcher's or
+                // an institution's in Following).
                 Loader {
-                    objectName: "libraryForYouFollowingLoader"
-                    active: root.showingFollowing
+                    objectName: "libraryForYouManageLoader"
+                    active: root.showingManage
                     visible: active
                     Layout.fillWidth: true; Layout.fillHeight: true
                     Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
                     sourceComponent: ForYouFollowing {
-                        onSourceChosen: function(key) { root.showFollowing(false); root.forYouSource = key }
+                        onSourceChosen: function(key) { root.showFollowing(root.fromFollowed({source: key})); root.forYouSource = key }
+                        onSettingsRequested: root.settingsRequested("foryou")
                     }
                 }
                 // The Trash: papers, notes and AI conversations; restore, delete for good, or empty it.

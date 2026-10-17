@@ -79,8 +79,8 @@ public:
     Q_INVOKABLE void setPersonOn(const QString &id, bool on);
     // An OpenAlex key (optional, free) kept in the system keyring: its own daily allowance instead of the one
     // everyone on this network shares.
-    // Opens Library › For You › Following, where what is followed is chosen (followingRequested).
-    Q_INVOKABLE void showFollowing() { emit followingRequested(); }
+    // Opens Library › For You › Manage Following, where what is followed is chosen (manageRequested).
+    Q_INVOKABLE void manageFollowing() { emit manageRequested(); }
     Q_INVOKABLE bool hasOpenAlexKey() const;
     Q_INVOKABLE bool setOpenAlexKey(const QString &key);
     // How many papers one source brings at most in a check ("topic:<id>", "collection:<id>", "person:<id>" or
@@ -122,7 +122,7 @@ signals:
     void findingPeopleChanged();
     void peopleFound(const QString &text, const QVariantList &found, const QString &problem);
     void authorsFound(int request, const QVariantList &authors, const QString &problem);
-    void followingRequested();
+    void manageRequested();
     void previewReady(const QString &id, const QUrl &file);
     void previewFailed(const QString &id, const QString &why);
     void webRequested(const QUrl &url);

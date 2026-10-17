@@ -108,7 +108,7 @@ Item {
             let row = null
             tryVerify(function() { row = visualChild(settings.contentItem, "settingsRow-following"); return row !== null })
             verify(row.label.indexOf("1 ") === 0, row.label)
-            const asked = createTemporaryObject(spyComponent, scene, {target: forYou, signalName: "followingRequested"})
+            const asked = createTemporaryObject(spyComponent, scene, {target: forYou, signalName: "manageRequested"})
             visualChild(settings.contentItem, "forYouEditFollowing").clicked()
             compare(asked.count, 1)
             forYou.saveTopics([])
