@@ -85,13 +85,13 @@ Item {
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
             const back = findChild(reader, "previousPage"), next = findChild(reader, "nextPage")
             verify(!back.enabled, "no page before the first")
-            // The arrow, Cmd+] and Cmd+[ turn one page at a time.
+            // The toolbar arrow and the → and ← keys turn one page at a time.
             mouseClick(next)
             tryCompare(canvas, "currentPage", 1)
-            testInput.keyClick(canvas, Qt.Key_BracketRight, Qt.ControlModifier)
+            testInput.keyClick(canvas, Qt.Key_Right)
             tryCompare(canvas, "currentPage", 2)
             verify(canvas.position().y < .05, "a new page starts at its top")
-            testInput.keyClick(canvas, Qt.Key_BracketLeft, Qt.ControlModifier)
+            testInput.keyClick(canvas, Qt.Key_Left)
             tryCompare(canvas, "currentPage", 1)
             mouseClick(back)
             tryCompare(canvas, "currentPage", 0)
@@ -116,7 +116,7 @@ Item {
             verify(page.height <= canvas.height, "the whole page fits: " + page.height + " vs " + canvas.height)
             compare(canvas.position().fit, "page")
             // Turning the page keeps a whole page in view; a manual zoom leaves the fit.
-            testInput.keyClick(canvas, Qt.Key_BracketRight, Qt.ControlModifier)
+            testInput.keyClick(canvas, Qt.Key_Right)
             tryCompare(canvas, "currentPage", 2)
             compare(canvas.fitMode, "page")
             canvas.zoom(1.2); tryCompare(canvas, "restoring", false)
@@ -289,6 +289,15 @@ Item {
             const list = findChild(canvas, "pageList"), start = list.contentX
             verify(canvas.scrollAcross(80))
             verify(list.contentX > start)
+            // → scrolls a wide page sideways to its edge first, then turns the page.
+            const page = canvas.currentPage
+            testInput.keyClick(canvas, Qt.Key_Right)
+            tryVerify(function() { return list.contentX > start + 80 })
+            compare(canvas.currentPage, page)
+            list.contentX = list.contentWidth - list.width
+            verify(!canvas.scrollAcross(80), "already at the right edge")
+            testInput.keyClick(canvas, Qt.Key_Right)
+            tryCompare(canvas, "currentPage", page + 1)
             // Shift + mouse wheel scrolls sideways.
             const before = list.contentX
             mouseWheel(list, list.width / 2, list.height / 2, 0, -120, Qt.NoButton, Qt.ShiftModifier)

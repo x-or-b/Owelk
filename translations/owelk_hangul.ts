@@ -3881,12 +3881,12 @@ Same file as another library entry</source>
         <translation>애스크 에이아이 어바웃 디스 리전</translation>
     </message>
     <message>
-        <source>Back to p. </source>
-        <translation>백 투 피. </translation>
+        <source>Back</source>
+        <translation>백</translation>
     </message>
     <message>
-        <source>Back · </source>
-        <translation>백 · </translation>
+        <source>Back to p. </source>
+        <translation>백 투 피. </translation>
     </message>
     <message>
         <source>Cannot display this page. Please reopen the PDF.</source>

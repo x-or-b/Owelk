@@ -7,6 +7,7 @@ import "StrokePath.js" as Stroke
 import "WorkspaceTree.js" as Tree
 import "WebSearch.js" as WebSearch
 import "Platform.js" as Platform
+import "Shortcuts.js" as Shortcuts
 
 Item {
     id: root
@@ -228,10 +229,13 @@ Item {
     }
     // Sideways by a number of pixels (Shift+wheel, ←/→), kept within the pages.
     readonly property bool wide: pages.contentWidth > pages.width + 1
+    // Scrolls a page wider than the view sideways; false when it is already at that edge.
     function scrollAcross(pixels) {
         if (pages.contentWidth <= pages.width) return false
+        const to = Math.max(0, Math.min(pages.contentWidth - pages.width, pages.contentX + pixels))
+        if (Math.abs(to - pages.contentX) < 0.5) return false
         stopSourceMotion()
-        pages.contentX = Math.max(0, Math.min(pages.contentWidth - pages.width, pages.contentX + pixels))
+        pages.contentX = to
         return true
     }
     // Going to a place: annotations and search results move quickly and flash; a place cited by an AI answer
@@ -258,7 +262,7 @@ Item {
     // Ask AI on a figure, table or equation preview: its region with the caption (page-relative).
     signal figureAiRequested(int page, rect normalizedRegion, string label)
 
-    // Previous and next page (Cmd+[ / Cmd+], the toolbar arrows and the mouse's side buttons).
+    // Previous and next page (← / →, the toolbar arrows and the mouse's side buttons).
     function previousPage() { if (ready && currentPage > 0) jump(currentPage - 1, 0, 0) }
     function nextPage() { if (ready && currentPage < pageCount - 1) jump(currentPage + 1, 0, 0) }
     // A password given before (this session, or remembered) is tried first, once per opening.
@@ -360,7 +364,7 @@ Item {
         const size = pdfDocument.pagePointSize(page === undefined ? currentPage : page), widthScale = Math.max(0.1, (layoutWidth - 56) / Math.max(1, firstPageWidth))
         return size.height > 0 ? Math.max(0.5, Math.min(1, (pages.height - 24) / (size.height * widthScale))) : 1
     }
-    // Shows a whole page at a time; turning pages (Cmd+] / Cmd+[) then reads like a book.
+    // Shows a whole page at a time; turning pages (← / →) then reads like a book.
     function fitPage() {
         if (!ready) return
         if (pinching) endPinch()
@@ -1501,7 +1505,7 @@ Item {
         return true
     }
     // --- Back to where you were ----------------------------------------------------------------
-    // Following a link, a preview or the outline remembers the spot left; Back (the pill, or Alt+Left)
+    // Following a link, a preview or the outline remembers the spot left; Back (the pill, or Cmd+[ on macOS)
     // returns there and Forward goes again. Scrolling and page turns are not remembered.
     property var backStack: []
     property var forwardStack: []
@@ -1550,7 +1554,8 @@ Item {
                 height: Theme.controlHeight
                 icon.name: "back"
                 text: qsTr("Back to p. ") + (root.backTarget ? root.backTarget.page + 1 : "")
-                ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: qsTr("Back · ") + Platform.keys("Alt+Left")
+                ToolTip.visible: hovered; ToolTip.delay: 500; ToolTip.text: qsTr("Back") + (backKeys.length ? " · " + Platform.keys(backKeys) : "")
+                readonly property string backKeys: Shortcuts.keys("jumpBack", Shortcuts.parse(researchStore.setting("shortcuts")), Qt.platform.os)
                 onClicked: root.goBack()
             }
             IconButton {
@@ -1944,7 +1949,7 @@ Item {
         }
         HoverHandler { id: previewHover; onHoveredChanged: if (!hovered) previewHide.restart() }
     }
-    // Mouse side buttons turn pages, like Cmd+[ / Cmd+].
+    // Mouse side buttons turn pages, like ← / →.
     // A handler, not a MouseArea, so text and link cursors underneath are unaffected.
     TapHandler {
         acceptedButtons: Qt.BackButton | Qt.ForwardButton

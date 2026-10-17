@@ -104,10 +104,12 @@ Item {
             c.jump(1, 0, 0); tryCompare(c, "restoring", false); wait(250)
             c.jumpRemembering(5, 0, 0); tryCompare(c, "restoring", false)
             compare(c.currentPage, 5)
-            testInput.keyClick(workspace.contentItem, Qt.Key_Left, Qt.AltModifier)
+            // Back and Forward: Cmd+[ and Cmd+] on macOS, Alt+← and Alt+→ elsewhere.
+            const mac = Qt.platform.os === "osx"
+            testInput.keyClick(workspace.contentItem, mac ? Qt.Key_BracketLeft : Qt.Key_Left, mac ? Qt.ControlModifier : Qt.AltModifier)
             tryCompare(c, "currentPage", 1)
             tryCompare(c, "restoring", false)
-            testInput.keyClick(workspace.contentItem, Qt.Key_Right, Qt.AltModifier)
+            testInput.keyClick(workspace.contentItem, mac ? Qt.Key_BracketRight : Qt.Key_Right, mac ? Qt.ControlModifier : Qt.AltModifier)
             tryCompare(c, "currentPage", 5)
         }
         function test_closeShortcutEndsWithTheWindow() {

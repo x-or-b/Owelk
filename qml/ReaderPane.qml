@@ -672,16 +672,31 @@ Rectangle {
         }
     }
     Timer { id: searchDelay; interval: 220; onTriggered: canvas.searchString = searchField.text }
-    // ←/→ scroll sideways when the page is wider than the view (a focused text field keeps its arrows).
+    // ←/→ scroll sideways when the page is wider than the view, unless they turn pages (the default; see
+    // turnPage). A focused text field keeps its arrows.
     Shortcut {
         sequence: "Left"
-        enabled: root.isActive && canvas.ready && canvas.wide
+        enabled: root.isActive && canvas.ready && canvas.wide && root.keysFor("previousPage") !== "Left"
         onActivated: canvas.scrollAcross(-80)
     }
     Shortcut {
         sequence: "Right"
-        enabled: root.isActive && canvas.ready && canvas.wide
+        enabled: root.isActive && canvas.ready && canvas.wide && root.keysFor("nextPage") !== "Right"
         onActivated: canvas.scrollAcross(80)
+    }
+    // The outline tree, when it has the focus, folds and unfolds its sections with ←/→ instead.
+    readonly property bool arrowsTaken: {
+        for (let item = root.Window.activeFocusItem; item; item = item.parent)
+            if (item.objectName === "pdfOutline") return true
+        return false
+    }
+    function pageKeyEnabled(id) { return !(root.arrowsTaken && /^(Left|Right|Up|Down)$/.test(root.keysFor(id))) }
+    // A page key that is a plain arrow first scrolls a page wider than the view to its edge, then turns the page.
+    function turnPage(step) {
+        const arrow = root.keysFor(step < 0 ? "previousPage" : "nextPage") === (step < 0 ? "Left" : "Right")
+        if (arrow && canvas.wide && canvas.scrollAcross(step * 80)) return
+        if (step < 0) canvas.previousPage()
+        else canvas.nextPage()
     }
     Shortcut {
         sequences: [StandardKey.Copy]
@@ -708,14 +723,14 @@ Rectangle {
     Shortcut {
         objectName: "previousPageShortcut"
         sequence: root.keysFor("previousPage")
-        enabled: root.isActive && canvas.ready
-        onActivated: canvas.previousPage()
+        enabled: root.isActive && canvas.ready && root.pageKeyEnabled("previousPage")
+        onActivated: root.turnPage(-1)
     }
     Shortcut {
         objectName: "nextPageShortcut"
         sequence: root.keysFor("nextPage")
-        enabled: root.isActive && canvas.ready
-        onActivated: canvas.nextPage()
+        enabled: root.isActive && canvas.ready && root.pageKeyEnabled("nextPage")
+        onActivated: root.turnPage(1)
     }
     // Typing in the find field: Esc closes the search and Backspace edits it; tools and marks are left alone.
     Shortcut {
