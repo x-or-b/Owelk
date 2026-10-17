@@ -34,6 +34,22 @@ Item {
             tryVerify(function() { view = findChild(workspace.documents.groupView(workspace.documents.activeGroup), "libraryView"); return view !== null && view.width > 0 && view.height > 0 }, 5000)
             return view
         }
+        function test_homeTabForYouGearOpensItsSettings() {
+            researchStore.forYou.saveTopics([])
+            workspace.homeVisible = false
+            workspace.documents.newHomeTab()
+            tryCompare(activeTab(), "kind", "home")
+            let gear = null
+            tryVerify(function() {
+                gear = visualChild(workspace.documents.groupView(workspace.documents.activeGroup), "homeForYouHeadingSettings")
+                return gear !== null && gear.visible
+            })
+            gear.clicked()
+            const settings = findChild(workspace, "settingsDialog")
+            tryCompare(settings, "opened", true)
+            compare(settings.page, "foryou")
+            settings.close(); tryCompare(settings, "visible", false)
+        }
         function test_readingDotFollowsTheState() {
             // Added, not opened: an accent dot.
             const paper = testInput.copyFixture("reading dot.pdf")

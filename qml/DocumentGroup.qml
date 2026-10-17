@@ -465,6 +465,8 @@ Rectangle {
                 onLibraryRequested: { root.controller.activateGroup(root.groupId); root.controller.openLibrary({}) }
                 onLibraryFilterRequested: function(filter) { root.controller.activateGroup(root.groupId); root.controller.openLibrary(filter) }
                 onNewNoteRequested: { root.controller.activateGroup(root.groupId); root.controller.newNote() }
+                // A box's gear (For You) opens its settings, as on the Home that fills the window.
+                onSettingsRequested: function(page) { root.controller.settingsRequested(page) }
                 TapHandler { onPressedChanged: if (pressed) root.controller.activateGroup(root.groupId) }
             }
         }
