@@ -1086,6 +1086,7 @@ Item {
             compare(findChild(workspace, "topBar").visible, false)
             tryCompare(visualChild(d.groupView(d.activeGroup), "tabBar"), "visible", false)
             tryCompare(toolbar, "visible", false)
+            compare(findChild(workspace, "statusBar").visible, false)
             // The side panels still open, by key or from a window edge.
             ;["files", "document", "ai", "threads"].forEach(function(panel) {
                 if (workspace.panelSide(panel) === "left" && workspace.panelShown(panel)) workspace.togglePanel(panel)
@@ -1098,14 +1099,20 @@ Item {
             tryCompare(edge, "visible", false)
             workspace.togglePanel(left)
             tryCompare(edge, "visible", true)
-            // The top edge brings a bar back for a moment; Exit Focus ends it.
-            workspace.focusPeek = true
-            const bar = findChild(workspace, "focusBar")
+            // The top edge brings a bar back for a moment, and moving away lets it go.
+            const top = findChild(workspace, "focusTop"), bar = findChild(workspace, "focusBar")
+            mouseMove(top, 200, 1)
+            tryCompare(bar, "visible", true)
+            mouseMove(workspace.contentItem, 400, 500)
+            tryCompare(bar, "visible", false, 3000)
+            // Exit Focus on that bar ends focus mode.
+            mouseMove(top, 200, 1)
             tryCompare(bar, "visible", true)
             mouseClick(findChild(workspace, "exitFocusButton"))
             tryCompare(workspace, "focusMode", false)
             tryCompare(findChild(workspace, "topBar"), "visible", true)
             tryCompare(toolbar, "visible", true)
+            compare(findChild(workspace, "statusBar").visible, true)
             compare(bar.visible, false)
             // (Full screen, on by default, is left to a real desktop: the offscreen window cannot go full screen.)
             researchStore.setSetting("focus.fullScreen", "")

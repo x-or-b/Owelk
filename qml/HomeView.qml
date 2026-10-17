@@ -118,6 +118,8 @@ Rectangle {
         IconButton { id: add; visible: false; icon.name: "add"; onClicked: boxHeading.added() }
         IconButton { id: gear; objectName: boxHeading.objectName + "Settings"; visible: false; icon.name: "settings"; onClicked: boxHeading.configureRequested() }
     }
+    // The picture theme's picture behind the page (cards stay opaque).
+    PictureLayer { objectName: "homePicture"; anchors.fill: parent }
     Item {
         id: homeBar
         objectName: "homeSearchBar"
@@ -185,10 +187,12 @@ Rectangle {
                     if (root.continuation.source) root.documentChosen(root.continuation.source, root.continuation.position)
                     else root.openRequested()
                 }
+                // Hovered: the hover tint over the page colour, opaque so a picture behind stays behind.
                 background: Rectangle {
                     radius: Theme.radiusLarge
-                    color: continueCard.hovered ? Theme.hover : Theme.content
+                    color: continueCard.hovered ? Theme.sidebar : Theme.content
                     border.color: Theme.separator
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: continueCard.hovered ? Theme.hover : "transparent" }
                 }
                 contentItem: RowLayout {
                     spacing: 16
@@ -245,8 +249,9 @@ Rectangle {
                     onClicked: researchStore.forYou.manageFollowing()
                     background: Rectangle {
                         radius: Theme.radiusLarge
-                        color: parent.hovered ? Theme.hover : Theme.content
+                        color: parent.hovered ? Theme.sidebar : Theme.content
                         border.color: Theme.separator
+                        Rectangle { anchors.fill: parent; radius: parent.radius; color: parent.parent.hovered ? Theme.hover : "transparent" }
                     }
                     contentItem: RowLayout {
                         spacing: 10

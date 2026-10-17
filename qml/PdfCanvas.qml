@@ -693,6 +693,8 @@ Item {
         function onModelReset() { updateCount() }
     }
 
+    // The picture theme's picture around the pages; each page shows the same part of it (pagePicture).
+    PictureLayer { id: pictureBackdrop; objectName: "pdfPicture"; anchors.fill: parent }
     ListView {
         id: pages
         objectName: "pageList"
@@ -897,6 +899,16 @@ Item {
                 height: pageHolder.height
                 anchors.horizontalCenter: parent.horizontalCenter
                 color: root.invertPages ? Theme.paperInverted : Theme.paper
+
+                // The picture theme's picture through the paper, under the ink: the part of it that is
+                // behind this page, fainter than around the pages.
+                PictureLayer {
+                    objectName: "pagePicture" + pageHolder.index
+                    anchors.fill: parent
+                    areaWidth: pictureBackdrop.width; areaHeight: pictureBackdrop.height
+                    origin: Qt.point(pageHolder.x + paper.x - pages.contentX, pageHolder.y + paper.y - pages.contentY)
+                    strength: Theme.paperStrength / 100
+                }
 
                 PdfPageImage {
                     id: pageImage

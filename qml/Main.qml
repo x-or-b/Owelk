@@ -15,7 +15,8 @@ ApplicationWindow {
     width: 1440; height: 930
     minimumWidth: 880; minimumHeight: 580
     title: ""
-    color: Theme.window
+    // In focus mode the strip a camera notch keeps free (full screen) takes the pages' backdrop, so it blends in.
+    color: focusMode ? Theme.pdfBackdrop : Theme.window
     // macOS: the window draws under the title bar, where the top bar takes its place beside the traffic lights.
     // (Only on a real macOS desktop: the offscreen platform keeps the menu bar inside the window.)
     readonly property bool unifiedTitleBar: Qt.platform.os === "osx" && Qt.platform.pluginName === "cocoa"
@@ -612,47 +613,55 @@ ApplicationWindow {
     Shortcut { sequence: window.keys("nextSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onActivated: documents.focusGroup(1) }
     Shortcut { sequence: window.keys("previousSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onActivated: documents.focusGroup(-1) }
     // Focus mode's top edge: touching it brings a bar for a moment (Back, Forward, search, Exit Focus), drawn over
-    // the page so nothing moves. Below macOS's menu bar in full screen, which also comes down there.
+    // the page so nothing moves; leaving it lets the bar go. Over the whole window, the strip beside a camera notch
+    // too, with the bar just below that strip, or below macOS's menu bar, which also comes down there in full screen.
     Item {
-        parent: window.contentItem
-        z: 20
-        visible: window.focusMode && !window.focusPeek
-        width: parent.width; height: 4
-        HoverHandler { onHoveredChanged: if (hovered) { focusLeave.stop(); window.focusPeek = true } }
+        id: focusTop
+        objectName: "focusTop"
+        parent: Overlay.overlay
+        z: 1000
+        visible: window.focusMode
+        readonly property real notch: Overlay.overlay ? Overlay.overlay.SafeArea.margins.top : 0
+        readonly property real offset: Qt.platform.os === "osx" && window.visibility === Window.FullScreen ? Math.max(notch, 24) : notch
+        width: parent ? parent.width : 0
+        height: window.focusPeek ? offset + focusBar.height : offset + 4
+        HoverHandler {
+            onHoveredChanged: {
+                if (hovered) { focusLeave.stop(); window.focusPeek = true }
+                else focusLeave.restart()
+            }
+        }
+        Rectangle {
+            id: focusBar
+            objectName: "focusBar"
+            visible: window.focusPeek
+            y: focusTop.offset
+            width: parent.width; height: Theme.barHeight
+            color: Theme.window
+            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.separator }
+            Row {
+                anchors.left: parent.left; anchors.leftMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                spacing: 2
+                IconButton { icon.name: "back"; enabled: window.canGoBack; description: qsTr("Back") + " · " + Platform.keys(window.keys("jumpBack")); onClicked: window.goBack() }
+                IconButton { icon.name: "forward"; enabled: window.canGoForward; description: qsTr("Forward") + " · " + Platform.keys(window.keys("jumpForward")); onClicked: window.goForward() }
+                IconButton { icon.name: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K"); onClicked: window.focusSearch(true) }
+            }
+            Label {
+                anchors.centerIn: parent
+                width: Math.min(implicitWidth, parent.width - 420)
+                text: window.homeVisible ? qsTr("Home") : window.currentReader ? researchStore.displayName(window.currentReader.source) : ""
+                elide: Text.ElideMiddle; textFormat: Text.PlainText
+                font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
+            }
+            Button {
+                objectName: "exitFocusButton"
+                anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                text: qsTr("Exit Focus") + " · " + Platform.keys(window.keys("focusMode"))
+                onClicked: window.setFocusMode(false)
+            }
+        }
     }
     Timer { id: focusLeave; interval: 600; onTriggered: window.focusPeek = false }
-    Rectangle {
-        id: focusBar
-        objectName: "focusBar"
-        parent: window.contentItem
-        z: 21
-        visible: window.focusMode && window.focusPeek
-        y: Qt.platform.os === "osx" && window.visibility === Window.FullScreen ? 28 : 0
-        width: parent.width; height: Theme.barHeight
-        color: Theme.window
-        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.separator }
-        HoverHandler { onHoveredChanged: if (hovered) focusLeave.stop(); else focusLeave.restart() }
-        Row {
-            anchors.left: parent.left; anchors.leftMargin: 8; anchors.verticalCenter: parent.verticalCenter
-            spacing: 2
-            IconButton { icon.name: "back"; enabled: window.canGoBack; description: qsTr("Back") + " · " + Platform.keys(window.keys("jumpBack")); onClicked: window.goBack() }
-            IconButton { icon.name: "forward"; enabled: window.canGoForward; description: qsTr("Forward") + " · " + Platform.keys(window.keys("jumpForward")); onClicked: window.goForward() }
-            IconButton { icon.name: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K"); onClicked: window.focusSearch(true) }
-        }
-        Label {
-            anchors.centerIn: parent
-            width: Math.min(implicitWidth, parent.width - 420)
-            text: window.homeVisible ? qsTr("Home") : window.currentReader ? researchStore.displayName(window.currentReader.source) : ""
-            elide: Text.ElideMiddle; textFormat: Text.PlainText
-            font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
-        }
-        Button {
-            objectName: "exitFocusButton"
-            anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-            text: qsTr("Exit Focus") + " · " + Platform.keys(window.keys("focusMode"))
-            onClicked: window.setFocusMode(false)
-        }
-    }
     // Focus mode's side edges: a side without an open panel opens one from a handle that shows on touching it.
     Repeater {
         model: ["left", "right"]
@@ -1006,7 +1015,9 @@ ApplicationWindow {
     footer: Rectangle {
         id: statusBar
         objectName: "statusBar"
-        height: 29
+        // Focus mode: only the pages (the side panels still open from their keys and the window's edges).
+        visible: !window.focusMode
+        height: visible ? 29 : 0
         color: Theme.sidebar
         Rectangle { width: parent.width; height: 1; color: Theme.separator } // The edge above it.
         RowLayout {

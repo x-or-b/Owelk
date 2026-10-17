@@ -10,6 +10,8 @@ ColumnLayout {
     property string note: ""
     property color noteColor: Theme.textTertiary
     default property alias rows: card.content
+    // A tap on the heading. Headings look like plain text and stay that way: no pointer, no hover.
+    signal titleTapped()
     Layout.fillWidth: true
     spacing: 6
     Label {
@@ -19,6 +21,7 @@ ColumnLayout {
         font.pixelSize: Theme.fontSmall
         font.weight: Font.DemiBold
         color: Theme.textSecondary
+        TapHandler { onTapped: root.titleTapped() }
     }
     ListGroup { id: card; Layout.fillWidth: true; spacing: 0 }
     Label {
