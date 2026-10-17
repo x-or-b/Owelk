@@ -598,6 +598,15 @@ void ForYou::findPeople(const QString &text)
         });
     }
 }
+int ForYou::perCheck(const QString &source) const
+{
+    return qBound(0, m_store->setting("forYou.perSource." + source).toInt(), 50);
+}
+void ForYou::setPerCheck(const QString &source, int count)
+{
+    if (source.isEmpty()) return;
+    m_store->setSetting("forYou.perSource." + source, count > 0 ? QString::number(qMin(count, 50)) : QString(""));
+}
 int ForYou::usablePapers(const QString &collectionId) const
 {
     return int(m_store->collectionPaperKeys(collectionId, 1000).size());
@@ -653,7 +662,12 @@ void ForYou::refresh()
     m_found.clear();
     m_problems.clear();
     m_answered = 0;
-    const int limit = qBound(1, m_store->setting("forYou.perSource", "10").toInt(), 50);
+    // Each source brings at most its own number, or the usual one.
+    const int usual = qBound(1, m_store->setting("forYou.perSource", "10").toInt(), 50);
+    const auto most = [this, usual](const QString &source) {
+        const int own = perCheck(source);
+        return QString::number(own > 0 ? own : usual);
+    };
     const auto from = since(), to = QDateTime::currentDateTimeUtc();
     const auto request = [](const QUrl &url) {
         QNetworkRequest call(url);
@@ -671,9 +685,9 @@ void ForYou::refresh()
         if (query.isEmpty()) continue;
         const auto name = topic.value("words").toString().isEmpty() ? topic.value("categories").toString()
                                                                     : topic.value("words").toString();
-        const auto url = QUrl::fromEncoded(
-            (arxiv + "/query?search_query=" + QString::fromLatin1(QUrl::toPercentEncoding(query)).replace("%20", "+")
-                + "&sortBy=submittedDate&sortOrder=descending&max_results=" + QString::number(limit))
+        const auto url = QUrl::fromEncoded((arxiv
+            + "/query?search_query=" + QString::fromLatin1(QUrl::toPercentEncoding(query)).replace("%20", "+")
+            + "&sortBy=submittedDate&sortOrder=descending&max_results=" + most("topic:" + topic.value("id").toString()))
                 .toUtf8());
         m_jobs.append({"topic:" + topic.value("id").toString(), name, [this, url, request](Job job) {
                            auto *reply = m_network->get(request(url));
@@ -703,7 +717,7 @@ void ForYou::refresh()
             continue;
         }
         QUrl url(recommend + "/papers/");
-        url.setQuery(QStringLiteral("fields=%1&limit=%2").arg(paperFields).arg(limit));
+        url.setQuery(QStringLiteral("fields=%1&limit=%2").arg(paperFields, most("collection:" + id)));
         const auto body = QJsonDocument(QJsonObject{{"positivePaperIds", QJsonArray::fromStringList(keys)}})
                               .toJson(QJsonDocument::Compact);
         m_jobs.append(
@@ -740,7 +754,7 @@ void ForYou::refresh()
                             (researcher ? "authorships.author.id:" : "authorships.institutions.lineage:") + id
                                 + ",from_publication_date:" + from.date().toString(Qt::ISODate)
                                 + ",to_publication_date:" + to.date().toString(Qt::ISODate) + ",type:article|preprint"},
-            {"sort", "publication_date:desc"}, {"per-page", QString::number(limit)},
+            {"sort", "publication_date:desc"}, {"per-page", most((researcher ? "person:" : "institution:") + id)},
             {"select",
                 "id,doi,title,publication_date,publication_year,authorships,abstract_inverted_index,"
                 "best_oa_location,locations"}};

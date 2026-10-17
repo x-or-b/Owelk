@@ -1273,6 +1273,10 @@ private slots:
         QVERIFY(forYou->configured());
         QCOMPARE(forYou->people().size(), 2);
         QVERIFY(forYou->saveTopics({QVariantMap{{"words", "topic"}}}));
+        // One of them brings at most its own number of papers; the others the usual one.
+        forYou->setPerCheck("person:A111", 3);
+        QCOMPARE(forYou->perCheck("person:A111"), 3);
+        QCOMPARE(forYou->perCheck("institution:I222"), 0);
         // Their new articles and preprints, up to today, newest first.
         forYou->refresh();
         QTRY_VERIFY_WITH_TIMEOUT(!forYou->checking(), 10000);
@@ -1281,6 +1285,11 @@ private slots:
         QVERIFY(asked.contains("filter=authorships.author.id:A111,from_publication_date:"));
         QVERIFY(asked.contains(",to_publication_date:" + today + ",type:article|preprint"));
         QVERIFY(asked.contains("sort=publication_date:desc"));
+        QVERIFY(QRegularExpression("author\\.id:A111[^ ]*per-page=3[& ]").match(asked).hasMatch());
+        QVERIFY(QRegularExpression("lineage:I222[^ ]*per-page=10[& ]").match(asked).hasMatch());
+        QVERIFY(asked.contains("max_results=10"));
+        forYou->setPerCheck("person:A111", 0);
+        QCOMPARE(forYou->perCheck("person:A111"), 0);
         QCOMPARE(forYou->items().size(), 3);
         // Theirs come first whatever the AI made of the rest (a topic paper scored high stays below them).
         {

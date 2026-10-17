@@ -4990,10 +4990,6 @@ You can open the same document twice.</source>
         <translation>올웨이즈</translation>
     </message>
     <message>
-        <source>At most, per topic or collection</source>
-        <translation>앳 모스트, 퍼 토픽 오어 컬렉션</translation>
-    </message>
-    <message>
         <source>Check Now</source>
         <translation>체크 나우</translation>
     </message>
@@ -5078,6 +5074,10 @@ You can open the same document twice.</source>
         <translation>오더스 뉴 페이퍼스 바이 하우 웰 데이 핏 왓 유 팔로, 위드 원 센텐스 이치. 센즈 데어 타이틀스 앤드 앱스트랙츠 앤드 왓 유 팔로 투 </translation>
     </message>
     <message>
+        <source>Papers at most in each check</source>
+        <translation>페이퍼스 앳 모스트 인 이치 체크</translation>
+    </message>
+    <message>
         <source>Papers found wait in Home and in Library › For You until you add or dismiss them. Only the words, categories, arXiv IDs or DOIs and the OpenAlex IDs of the researchers and institutions above are sent.</source>
         <translation>페이퍼스 파운드 웨이트 인 홈 앤드 인 라이브러리 › 포 유 언틸 유 애드 오어 디스미스 뎀. 온리 더 워즈, 카테고리즈, 아카이브 아이디즈 오어 디오아이즈 앤드 더 오픈알렉스 아이디즈 오브 더 리서처스 앤드 인스티튜션스 어보브 아 센트.</translation>
     </message>
@@ -5130,12 +5130,24 @@ You can open the same document twice.</source>
         <translation>데어 뉴 아티클스 앤드 프리프린츠, 프롬 오픈알렉스. 데이 아 올웨이즈 숀, 퍼스트, 왓에버 더 에이아이 메익스 오브 뎀.</translation>
     </message>
     <message>
+        <source>Topic, researcher, institution or collection, unless it has its own number above. The AI then orders them all.</source>
+        <translation>토픽, 리서처, 인스티튜션 오어 컬렉션, 언레스 잇 해즈 잇츠 오운 넘버 어보브. 더 에이아이 덴 오더스 뎀 올.</translation>
+    </message>
+    <message>
         <source>Topics</source>
         <translation>토픽스</translation>
     </message>
     <message>
         <source>Until you add or dismiss them, for at most</source>
         <translation>언틸 유 애드 오어 디스미스 뎀, 포 앳 모스트</translation>
+    </message>
+    <message>
+        <source>Usual</source>
+        <translation>유주얼</translation>
+    </message>
+    <message>
+        <source>Usually at most, from each</source>
+        <translation>유주얼리 앳 모스트, 프롬 이치</translation>
     </message>
     <message>
         <source>Words: lidar odometry, SLAM</source>

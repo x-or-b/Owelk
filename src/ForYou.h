@@ -75,6 +75,10 @@ public:
     // everyone on this network shares.
     Q_INVOKABLE bool hasOpenAlexKey() const;
     Q_INVOKABLE bool setOpenAlexKey(const QString &key);
+    // How many papers one source brings at most in a check ("topic:<id>", "collection:<id>", "person:<id>" or
+    // "institution:<id>"): its own number, or 0 for the usual one (forYou.perSource). A setting of this computer.
+    Q_INVOKABLE int perCheck(const QString &source) const;
+    Q_INVOKABLE void setPerCheck(const QString &source, int count);
     // Whether a paper's source is a followed researcher or institution (those are always shown, first).
     static bool fromPerson(const QString &source);
     // How many of a collection's papers can be looked up (they have an arXiv ID or a DOI).

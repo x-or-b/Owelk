@@ -17,6 +17,19 @@ ColumnLayout {
     readonly property var topics: (revision, forYou.topics())
     readonly property var collections: (revision, researchStore.documentsRevision, researchStore.collections())
     function saveTopics(list) { forYou.saveTopics(list) }
+    // How many papers one topic, researcher, institution or collection brings at most: its own number, or the
+    // usual one (Checking, below).
+    readonly property var counts: [5, 10, 20, 50]
+    component CountBox: ComboBox {
+        required property string source
+        objectName: "forYouCount-" + source
+        Layout.preferredWidth: 96
+        model: [qsTr("Usual")].concat(root.counts.map(function(n) { return String(n) }))
+        currentIndex: Math.max(0, root.counts.indexOf((root.revision, root.forYou.perCheck(source))) + 1)
+        ToolTip.visible: hovered; ToolTip.delay: 500
+        ToolTip.text: qsTr("Papers at most in each check")
+        onActivated: function(index) { root.forYou.setPerCheck(source, index > 0 ? root.counts[index - 1] : 0) }
+    }
     function setTopic(index, change) {
         const list = topics.map(function(t) { return Object.assign({}, t) })
         Object.assign(list[index], change)
@@ -42,6 +55,7 @@ ColumnLayout {
                 label: modelData.words || modelData.categories
                 detail: modelData.words ? modelData.categories : ""
                 opacity: modelData.on === false ? .55 : 1
+                CountBox { source: "topic:" + topicRow.modelData.id }
                 IconButton {
                     objectName: "forYouRemoveTopic-" + topicRow.index
                     icon.name: "trash"; description: qsTr("Remove")
@@ -107,6 +121,7 @@ ColumnLayout {
                 label: modelData.name
                 detail: root.kindName(modelData.kind) + (modelData.detail ? " · " + modelData.detail : "")
                 opacity: modelData.on === false ? .55 : 1
+                CountBox { source: personRow.modelData.kind + ":" + personRow.modelData.id }
                 IconButton {
                     objectName: "forYouUnfollow-" + personRow.modelData.id
                     icon.name: "trash"; description: qsTr("Stop following")
@@ -203,6 +218,7 @@ ColumnLayout {
                 label: "    ".repeat(modelData.depth || 0) + modelData.name
                 detail: usable ? usable + (usable === 1 ? qsTr(" paper to compare with") : qsTr(" papers to compare with"))
                                : qsTr("Needs a paper with an arXiv ID or DOI")
+                CountBox { visible: collectionRow.followed; source: "collection:" + collectionRow.modelData.id }
                 Switch {
                     objectName: "forYouFollow-" + collectionRow.modelData.name
                     checked: collectionRow.followed
@@ -276,14 +292,14 @@ ColumnLayout {
         }
         SettingsRow {
             objectName: "settingsRow-forYouCount"
-            label: qsTr("At most, per topic or collection")
+            label: qsTr("Usually at most, from each")
+            detail: qsTr("Topic, researcher, institution or collection, unless it has its own number above. The AI then orders them all.")
             ComboBox {
                 objectName: "forYouCount"
                 Layout.preferredWidth: 140
-                readonly property var counts: [5, 10, 20]
-                model: counts.map(function(n) { return n + qsTr(" papers") })
-                currentIndex: Math.max(0, counts.indexOf(Number((root.revision, researchStore.setting("forYou.perSource", "10")))))
-                onActivated: function(index) { researchStore.setSetting("forYou.perSource", String(counts[index])) }
+                model: root.counts.map(function(n) { return n + qsTr(" papers") })
+                currentIndex: Math.max(0, root.counts.indexOf(Number((root.revision, researchStore.setting("forYou.perSource", "10")))))
+                onActivated: function(index) { researchStore.setSetting("forYou.perSource", String(root.counts[index])) }
             }
         }
         SettingsRow {

@@ -117,6 +117,15 @@ Item {
             verify(forYou.configured)
             tryCompare(follow, "text", "Following")
             verify(!follow.enabled)
+            // Its own number of papers per check, or the usual one.
+            let count = null
+            tryVerify(function() { count = visualChild(settings.contentItem, "forYouCount-person:A777"); return count !== null })
+            compare(count.currentIndex, 0)
+            count.activated(2)
+            compare(forYou.perCheck("person:A777"), 10)
+            tryCompare(count, "currentIndex", 2)
+            count.activated(0)
+            compare(forYou.perCheck("person:A777"), 0)
             // Turned off, then no longer followed.
             let toggle = null
             tryVerify(function() { toggle = visualChild(settings.contentItem, "forYouPersonSwitch-A777"); return toggle !== null })
