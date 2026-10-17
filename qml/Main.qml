@@ -477,13 +477,15 @@ ApplicationWindow {
     // no separate menu bar under its title bar. macOS keeps them in the system menu bar.
     Menu { id: appMenu; objectName: "appMenu" }
     Component { id: menuLine; MenuSeparator {} }
-    // ≡ is one list: File's items, a line, View's. The emptied menus are kept (they still own their items).
+    // ≡ is one list: File's items, a line, View's. The emptied menus are kept, in the window: they still own the
+    // actions, whose keys only work while their menu belongs to a window.
     property var movedMenus: []
     function moveMenusIntoButton() {
         if (Qt.platform.os === "osx" || !window.menuBar) return
         const moved = []
         while (window.menuBar.count > 0) {
             const menu = window.menuBar.takeMenu(0)
+            menu.parent = window.contentItem
             moved.push(menu)
             if (appMenu.count > 0) appMenu.addItem(menuLine.createObject(appMenu))
             while (menu.count > 0) appMenu.addItem(menu.takeItem(0))

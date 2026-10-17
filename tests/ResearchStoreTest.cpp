@@ -1044,7 +1044,8 @@ private slots:
         QVERIFY(ReferenceFinder::findSpan(pdf, 0, QPointF(5, 5), "word").isEmpty()); // Off the text.
         const auto plot = pdf.getAllText(1).text();
         const auto x = pdf.getSelectionAtIndex(1, int(plot.indexOf(" x ")) + 1, 1).boundingRectangle().center();
-        QCOMPARE(ReferenceFinder::findSpan(pdf, 1, x, "word")["text"].toString(), QString("x"));
+        // Mid-line it is the letter alone, or with the space after it on some fonts (Linux).
+        QCOMPARE(ReferenceFinder::findSpan(pdf, 1, x, "word")["text"].toString().trimmed(), QString("x"));
         // A heading or a short last line ends a sentence without a full stop; lines that run on do not.
         const auto layout = directory.filePath("layout.pdf");
         writeFixture(layout, "A Small Research Reader", 1);
