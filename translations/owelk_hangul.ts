@@ -5030,10 +5030,6 @@ You can open the same document twice.</source>
         <translation>킵 페이퍼스 인 더 리스트</translation>
     </message>
     <message>
-        <source>Kept in %1.</source>
-        <translation>켑트 인 %1.</translation>
-    </message>
-    <message>
         <source>Last checked </source>
         <translation>라스트 체크트 </translation>
     </message>
@@ -5064,10 +5060,6 @@ You can open the same document twice.</source>
     <message>
         <source>OpenAlex key</source>
         <translation>오픈알렉스 키</translation>
-    </message>
-    <message>
-        <source>Optional and free (openalex.org/settings/api). Without one, everyone on this network shares a small daily allowance.</source>
-        <translation>옵셔널 앤드 프리 (openalex.org/settings/api). 위다웃 원, 에브리원 온 디스 네트워크 셰어스 어 스몰 데일리 얼라우언스.</translation>
     </message>
     <message>
         <source>Orders new papers by how well they fit what you follow, with one sentence each. Sends their titles and abstracts and what you follow to </source>
@@ -5124,10 +5116,6 @@ You can open the same document twice.</source>
     <message>
         <source>Stop following</source>
         <translation>스톱 팔로잉</translation>
-    </message>
-    <message>
-        <source>Their new articles and preprints, from OpenAlex. They are always shown, first, whatever the AI makes of them.</source>
-        <translation>데어 뉴 아티클스 앤드 프리프린츠, 프롬 오픈알렉스. 데이 아 올웨이즈 숀, 퍼스트, 왓에버 더 에이아이 메익스 오브 뎀.</translation>
     </message>
     <message>
         <source>Topic, researcher, institution or collection, unless it has its own number above. The AI then orders them all.</source>

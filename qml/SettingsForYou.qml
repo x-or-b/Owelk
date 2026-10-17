@@ -109,9 +109,9 @@ ColumnLayout {
     SettingsGroup {
         objectName: "settingsGroup-people"
         title: qsTr("Researchers and institutions")
-        note: root.peopleProblem.length ? root.peopleProblem
-            : qsTr("Their new articles and preprints, from OpenAlex. They are always shown, first, whatever the AI makes of them.")
-        noteColor: root.peopleProblem.length ? Theme.danger : Theme.textTertiary
+        // Only a problem is said here (red); the rows speak for themselves.
+        note: root.peopleProblem
+        noteColor: Theme.danger
         Repeater {
             model: root.people
             delegate: SettingsRow {
@@ -180,8 +180,6 @@ ColumnLayout {
             objectName: "settingsRow-openAlexKey"
             wide: !root.openAlexKey
             label: qsTr("OpenAlex key")
-            detail: root.openAlexKey ? qsTr("Kept in %1.").arg(researchStore.ai.keyStorage())
-                : qsTr("Optional and free (openalex.org/settings/api). Without one, everyone on this network shares a small daily allowance.")
             TextField {
                 id: openAlexKeyField
                 objectName: "forYouOpenAlexKey"
