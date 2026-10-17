@@ -15,17 +15,18 @@ class ResearchStore;
 
 // For You: new papers in the fields the reader follows. Topics (words and arXiv categories) are looked up
 // on arXiv; followed collections ask Semantic Scholar for papers like theirs (by their arXiv IDs and
-// DOIs). Papers found wait until added to the Library (the PDF is downloaded, named and filed) or
-// dismissed; papers already in the Library or dismissed are not shown again. Checked when asked and, when
-// on, once a day while Owelk runs. Topics, followed collections, the papers found with the AI's reasons and
-// what became of them live in the library (foryou_* tables), so they sync; how often and how far back to
-// look are settings (forYou.*) of this computer.
+// DOIs); followed researchers and institutions ask OpenAlex for their new papers, which are always shown,
+// first, whatever the AI makes of them. Papers found wait until added to the Library (the PDF is downloaded, named and
+// filed) or dismissed; papers already in the Library or dismissed are not shown again. Checked when asked and, when on,
+// once a day while Owelk runs. Topics, followed collections, the papers found with the AI's reasons and what became of
+// them live in the library (foryou_* tables), so they sync; how often and how far back to look are settings (forYou.*)
+// of this computer.
 class ForYou final : public QObject {
     Q_OBJECT
     // The papers waiting, most relevant first: {id, title, authors, date, year, abstract, arxiv, doi, pdf,
     // hasPdf (a free PDF to fetch), url, source, sourceName, score, why}.
     Q_PROPERTY(QVariantList items READ items NOTIFY changed)
-    // Whether anything is followed (a topic turned on or a collection).
+    // Whether anything is followed (a topic, a collection, a researcher or an institution).
     Q_PROPERTY(bool configured READ configured NOTIFY settingsChanged)
     Q_PROPERTY(bool checking READ checking NOTIFY checkingChanged)
     // When the last check finished (empty before the first), and what went wrong in it.
@@ -38,6 +39,8 @@ class ForYou final : public QObject {
     Q_PROPERTY(QString aiProblem READ aiProblem NOTIFY changed)
     // The paper whose PDF is coming for a preview (its id), or empty.
     Q_PROPERTY(QString previewing READ previewing NOTIFY previewingChanged)
+    // Looking up researchers and institutions by name (findPeople).
+    Q_PROPERTY(bool findingPeople READ findingPeople NOTIFY findingPeopleChanged)
 public:
     explicit ForYou(ResearchStore *store, QObject *parent = nullptr);
     QVariantList items() const;
@@ -49,6 +52,7 @@ public:
     bool explaining() const { return m_explaining; }
     QString aiProblem() const { return m_aiProblem; }
     QString previewing() const { return m_previewing; }
+    bool findingPeople() const { return m_peopleRequests > 0; }
     // Reads what was found and starts the daily check (a little after launch, then every hour).
     void start();
     // Read again (rows arrived from another computer).
@@ -59,6 +63,20 @@ public:
     Q_INVOKABLE bool saveTopics(const QVariantList &topics);
     Q_INVOKABLE bool following(const QString &collectionId) const;
     Q_INVOKABLE void follow(const QString &collectionId, bool on);
+    // Researchers and institutions followed: [{id, kind ("person" or "institution"), name, detail, on}].
+    Q_INVOKABLE QVariantList people() const;
+    // Looks them up on OpenAlex by name; answered by peopleFound(text, [{id, kind, name, detail, papers}],
+    // problem). Asked on Return, not while typing: without a key every search spends the shared allowance.
+    Q_INVOKABLE void findPeople(const QString &text);
+    Q_INVOKABLE bool followPerson(const QVariantMap &person);
+    Q_INVOKABLE void unfollowPerson(const QString &id);
+    Q_INVOKABLE void setPersonOn(const QString &id, bool on);
+    // An OpenAlex key (optional, free) kept in the system keyring: its own daily allowance instead of the one
+    // everyone on this network shares.
+    Q_INVOKABLE bool hasOpenAlexKey() const;
+    Q_INVOKABLE bool setOpenAlexKey(const QString &key);
+    // Whether a paper's source is a followed researcher or institution (those are always shown, first).
+    static bool fromPerson(const QString &source);
     // How many of a collection's papers can be looked up (they have an arXiv ID or a DOI).
     Q_INVOKABLE int usablePapers(const QString &collectionId) const;
     // Where the papers shown came from: [{key, name, count}].
@@ -89,6 +107,8 @@ signals:
     void addingChanged();
     void explainingChanged();
     void previewingChanged();
+    void findingPeopleChanged();
+    void peopleFound(const QString &text, const QVariantList &found, const QString &problem);
     void previewReady(const QString &id, const QUrl &file);
     void previewFailed(const QString &id, const QString &why);
     void webRequested(const QUrl &url);
@@ -144,6 +164,7 @@ private:
     bool m_explaining = false;
     int m_rankRequest = -1;
     QString m_aiProblem;
+    int m_peopleRequests = 0;
 };
 
 namespace ForYouParse {
@@ -153,6 +174,10 @@ QString arxivQuery(const QString &words, const QString &categories, const QDateT
 // Papers in an arXiv API answer (Atom) or a Semantic Scholar recommendations answer (JSON).
 QVariantList arxivEntries(const QByteArray &atom);
 QVariantList recommendations(const QByteArray &json);
+// New works in an OpenAlex answer (the abstract put back together from its word index; an arXiv ID from an
+// arxiv.org location or an arXiv DOI), and researchers ("person") or institutions in a search answer.
+QVariantList openAlexWorks(const QByteArray &json);
+QVariantList openAlexPeople(const QByteArray &json, const QString &kind);
 // An address a PDF can be fetched from (not a DOI link, which leads to a publisher's page).
 bool isPdfAddress(const QString &address);
 }

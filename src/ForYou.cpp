@@ -6,6 +6,7 @@
 #include "ResearchStore.h"
 #include "UiText.h"
 #include "ai/AiService.h"
+#include "ai/Keychain.h"
 
 #include <QDir>
 #include <QFile>
@@ -19,12 +20,16 @@
 #include <QTimer>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QUrlQuery>
 #include <QUuid>
 #include <QXmlStreamReader>
 
 namespace {
 constexpr int keptItems = 300;
 constexpr auto paperFields = "title,authors,year,publicationDate,externalIds,url,abstract,openAccessPdf";
+constexpr auto openAlexKeyAccount = "openalex-api-key";
+// An OpenAlex ID as followed: A… a researcher, I… an institution (also what goes into its query).
+const QRegularExpression openAlexPerson("^[AI]\\d+$");
 
 QStringList listOf(const QString &text, const QString &separators)
 {
@@ -110,6 +115,84 @@ QVariantList arxivEntries(const QByteArray &atom)
                     {"url", "https://arxiv.org/abs/" + id}});
             }
         }
+    }
+    return list;
+}
+
+QVariantList openAlexWorks(const QByteArray &json)
+{
+    static const QRegularExpression arxivPage(
+        R"(arxiv\.org/(?:abs|pdf)/([^?#]+?)(?:v\d+)?(?:\.pdf)?$)", QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression arxivDoi(R"(^10\.48550/arxiv\.(.+)$)", QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression doiLink(R"(^https?://(dx\.)?doi\.org/)", QRegularExpression::CaseInsensitiveOption);
+    const auto tail = [](const QString &id) { return id.mid(id.lastIndexOf('/') + 1); };
+    QVariantList list;
+    for (const auto &value : QJsonDocument::fromJson(json).object().value("results").toArray()) {
+        const auto work = value.toObject();
+        const auto title = work.value("title").toString().simplified();
+        if (title.isEmpty()) continue;
+        QStringList authors;
+        for (const auto &authorship : work.value("authorships").toArray())
+            if (const auto name
+                = authorship.toObject().value("author").toObject().value("display_name").toString().simplified();
+                !name.isEmpty())
+                authors << name;
+        auto doi = work.value("doi").toString().trimmed().remove(doiLink);
+        QString arxiv;
+        // arXiv's own DOI names the preprint, not a journal version: kept as the arXiv ID.
+        if (const auto m = arxivDoi.match(doi); m.hasMatch()) {
+            arxiv = m.captured(1);
+            doi.clear();
+        }
+        const auto best = work.value("best_oa_location").toObject();
+        QJsonArray locations{best};
+        for (const auto &location : work.value("locations").toArray()) locations.append(location);
+        for (const auto &location : std::as_const(locations)) {
+            if (!arxiv.isEmpty()) break;
+            if (const auto m = arxivPage.match(location.toObject().value("landing_page_url").toString()); m.hasMatch())
+                arxiv = m.captured(1);
+        }
+        auto pdf = best.value("pdf_url").toString();
+        if (!ForYouParse::isPdfAddress(pdf)) pdf.clear();
+        if (pdf.isEmpty() && !arxiv.isEmpty()) pdf = "https://arxiv.org/pdf/" + arxiv;
+        // The abstract comes as each word with its places in the text.
+        QMap<int, QString> words;
+        const auto index = work.value("abstract_inverted_index").toObject();
+        for (auto it = index.begin(); it != index.end(); ++it)
+            for (const auto &place : it.value().toArray()) words.insert(place.toInt(), it.key());
+        const auto date = work.value("publication_date").toString();
+        const auto year = work.value("publication_year").isDouble()
+            ? QString::number(work.value("publication_year").toInt())
+            : date.left(4);
+        const auto landing = best.value("landing_page_url").toString();
+        list.append(QVariantMap{{"title", title}, {"authors", authors.join(", ")}, {"date", date}, {"year", year},
+            {"abstract", QStringList(words.values()).join(' ').simplified()}, {"arxiv", arxiv}, {"doi", doi},
+            {"pdf", pdf}, {"openalex", tail(work.value("id").toString())},
+            {"url",
+                !arxiv.isEmpty()         ? "https://arxiv.org/abs/" + arxiv
+                    : !doi.isEmpty()     ? "https://doi.org/" + doi
+                    : !landing.isEmpty() ? landing
+                                         : work.value("id").toString()}});
+    }
+    return list;
+}
+
+QVariantList openAlexPeople(const QByteArray &json, const QString &kind)
+{
+    QVariantList list;
+    for (const auto &value : QJsonDocument::fromJson(json).object().value("results").toArray()) {
+        const auto found = value.toObject();
+        const auto id = found.value("id").toString().section('/', -1);
+        const auto name = found.value("display_name").toString().simplified();
+        if (!openAlexPerson.match(id).hasMatch() || name.isEmpty() || (kind == "person") != id.startsWith('A'))
+            continue;
+        // A researcher by where they work now; an institution by its country.
+        QStringList places;
+        for (const auto &place : found.value("last_known_institutions").toArray())
+            if (places.size() < 2) places << place.toObject().value("display_name").toString().simplified();
+        list.append(QVariantMap{{"id", id}, {"kind", kind}, {"name", name},
+            {"detail", kind == "person" ? places.join(", ") : found.value("country_code").toString()},
+            {"papers", found.value("works_count").toInt()}});
     }
     return list;
 }
@@ -207,9 +290,21 @@ QString ForYou::interests() const
             titles << paper.toMap().value("name").toString().left(160);
         lines << "- Collection \"" + collection.value("name").toString() + "\": " + titles.join("; ");
     }
+    for (const auto &value : people()) {
+        const auto person = value.toMap();
+        if (!person.value("on").toBool()) continue;
+        lines << (person.value("kind") == "person" ? "- Researcher: " : "- Institution: ")
+                + person.value("name").toString()
+                + (person.value("detail").toString().isEmpty() ? QString()
+                                                               : " (" + person.value("detail").toString() + ")");
+    }
     return lines.join('\n');
 }
 
+bool ForYou::fromPerson(const QString &source)
+{
+    return source.startsWith("person:") || source.startsWith("institution:");
+}
 void ForYou::sortItems()
 {
     // Newest first, then (stable) the AI's most relevant first.
@@ -226,6 +321,12 @@ void ForYou::sortItems()
             return item.contains("score") ? item.value("score").toInt() : -1;
         };
         return score(a) > score(b);
+    });
+    // Papers of the researchers and institutions followed come first, newest first, whatever their score.
+    std::stable_sort(m_items.begin(), m_items.end(), [&](const QVariant &a, const QVariant &b) {
+        const bool pa = fromPerson(a.toMap().value("source").toString()),
+                   pb = fromPerson(b.toMap().value("source").toString());
+        return pa != pb ? pa : pa && date(a) > date(b);
     });
 }
 void ForYou::explain()
@@ -401,6 +502,102 @@ void ForYou::follow(const QString &collectionId, bool on)
         {collectionId});
     emit settingsChanged();
 }
+QVariantList ForYou::people() const
+{
+    QVariantList list;
+    QSqlQuery query(m_store->m_database);
+    query.exec("SELECT id,kind,name,detail,enabled FROM foryou_people ORDER BY position,name");
+    while (query.next())
+        list.append(QVariantMap{{"id", query.value(0)}, {"kind", query.value(1)}, {"name", query.value(2)},
+            {"detail", query.value(3)}, {"on", query.value(4).toBool()}});
+    return list;
+}
+bool ForYou::followPerson(const QVariantMap &person)
+{
+    const auto id = person.value("id").toString(), kind = person.value("kind").toString();
+    if (!openAlexPerson.match(id).hasMatch() || (kind == "person") != id.startsWith('A')
+        || (kind != "person" && kind != "institution"))
+        return false;
+    const auto name = person.value("name").toString().simplified().left(200);
+    const auto detail = person.value("detail").toString().simplified().left(200);
+    if (!exec("INSERT INTO foryou_people(id,kind,name,detail,enabled,position) VALUES(?,?,?,?,1,"
+              "(SELECT coalesce(max(position),-1)+1 FROM foryou_people)) ON CONFLICT(id) DO UPDATE SET enabled=1",
+            {id, kind, name.isNull() ? QString("") : name, detail.isNull() ? QString("") : detail}))
+        return false;
+    emit settingsChanged();
+    return true;
+}
+void ForYou::unfollowPerson(const QString &id)
+{
+    exec("DELETE FROM foryou_people WHERE id=?", {id});
+    emit settingsChanged();
+}
+void ForYou::setPersonOn(const QString &id, bool on)
+{
+    exec("UPDATE foryou_people SET enabled=? WHERE id=? AND enabled<>?", {on ? 1 : 0, id, on ? 1 : 0});
+    emit settingsChanged();
+}
+bool ForYou::hasOpenAlexKey() const
+{
+    return !Keychain::read(openAlexKeyAccount, m_store->dataDirectory()).isEmpty();
+}
+bool ForYou::setOpenAlexKey(const QString &key)
+{
+    const auto trimmed = key.trimmed();
+    const bool ok = trimmed.isEmpty() ? Keychain::remove(openAlexKeyAccount, m_store->dataDirectory())
+                                      : Keychain::write(openAlexKeyAccount, trimmed, m_store->dataDirectory());
+    if (!ok) m_store->notify(QString(ui("Cannot store the key in %1.")).arg(Keychain::storageName()));
+    emit settingsChanged();
+    return ok;
+}
+void ForYou::findPeople(const QString &text)
+{
+    const auto words = text.simplified();
+    if (words.size() < 2) return;
+    if (!m_network) m_network = new QNetworkAccessManager(this);
+    const auto base = m_store->setting("forYou.openAlexBaseUrl", "https://api.openalex.org");
+    const auto key = Keychain::read(openAlexKeyAccount, m_store->dataDirectory());
+    // Researchers and institutions are two lookups; the answer goes out once both are in.
+    struct Search {
+        QVariantList people, places;
+        QStringList problems;
+        int waiting = 2;
+    };
+    auto search = std::make_shared<Search>();
+    m_peopleRequests += 2;
+    emit findingPeopleChanged();
+    for (const auto *kind : {"person", "institution"}) {
+        const bool person = QString(kind) == "person";
+        QUrl url(base + (person ? "/authors" : "/institutions"));
+        QUrlQuery query{{"search", words}, {"per-page", person ? "8" : "4"},
+            {"select",
+                person ? "id,display_name,last_known_institutions,works_count"
+                       : "id,display_name,country_code,works_count"}};
+        if (!key.isEmpty()) query.addQueryItem("api_key", key);
+        url.setQuery(query);
+        QNetworkRequest call(url);
+        call.setHeader(QNetworkRequest::UserAgentHeader, "Owelk/0.1 (local research reader)");
+        call.setTransferTimeout(20000);
+        auto *reply = m_network->get(call);
+        connect(reply, &QNetworkReply::finished, this, [this, reply, search, person, words] {
+            reply->deleteLater();
+            const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            if (reply->error() != QNetworkReply::NoError || status >= 400)
+                search->problems << (status == 429 ? ui("OpenAlex's free daily allowance for this network is used "
+                                                        "up. Add a free OpenAlex key below, or try tomorrow.")
+                                                   : ui("OpenAlex did not answer."));
+            else
+                (person ? search->people : search->places)
+                    = ForYouParse::openAlexPeople(reply->readAll(), person ? "person" : "institution");
+            --m_peopleRequests;
+            emit findingPeopleChanged();
+            if (--search->waiting == 0) {
+                search->problems.removeDuplicates();
+                emit peopleFound(words, search->people + search->places, search->problems.join(' '));
+            }
+        });
+    }
+}
 int ForYou::usablePapers(const QString &collectionId) const
 {
     return int(m_store->collectionPaperKeys(collectionId, 1000).size());
@@ -410,7 +607,8 @@ bool ForYou::configured() const
 {
     QSqlQuery query(m_store->m_database);
     return query.exec("SELECT 1 FROM foryou_topics WHERE enabled=1 UNION ALL SELECT 1 FROM foryou_follows f JOIN "
-                      "collections c ON c.id=f.collection_id LIMIT 1")
+                      "collections c ON c.id=f.collection_id UNION ALL SELECT 1 FROM foryou_people WHERE enabled=1 "
+                      "LIMIT 1")
         && query.next();
 }
 QDateTime ForYou::since() const
@@ -528,6 +726,45 @@ void ForYou::refresh()
                  });
              }});
     }
+    // Followed researchers and institutions: their new articles and preprints, from OpenAlex (not after today:
+    // some come dated ahead).
+    const auto openAlex = m_store->setting("forYou.openAlexBaseUrl", "https://api.openalex.org");
+    const auto key = Keychain::read(openAlexKeyAccount, m_store->dataDirectory());
+    for (const auto &value : people()) {
+        const auto person = value.toMap();
+        const auto id = person.value("id").toString();
+        if (!person.value("on").toBool() || !openAlexPerson.match(id).hasMatch()) continue;
+        const bool researcher = person.value("kind") == "person";
+        QUrl url(openAlex + "/works");
+        QUrlQuery query{{"filter",
+                            (researcher ? "authorships.author.id:" : "authorships.institutions.lineage:") + id
+                                + ",from_publication_date:" + from.date().toString(Qt::ISODate)
+                                + ",to_publication_date:" + to.date().toString(Qt::ISODate) + ",type:article|preprint"},
+            {"sort", "publication_date:desc"}, {"per-page", QString::number(limit)},
+            {"select",
+                "id,doi,title,publication_date,publication_year,authorships,abstract_inverted_index,"
+                "best_oa_location,locations"}};
+        if (!key.isEmpty()) query.addQueryItem("api_key", key);
+        url.setQuery(query);
+        m_jobs.append({(researcher ? "person:" : "institution:") + id, person.value("name").toString(),
+            [this, url, request](Job job) {
+                auto *reply = m_network->get(request(url));
+                connect(reply, &QNetworkReply::finished, this, [this, reply, job] {
+                    reply->deleteLater();
+                    const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                    if (reply->error() != QNetworkReply::NoError || status >= 400)
+                        m_problems << (status == 429
+                                ? ui("OpenAlex's free daily allowance for this network is used up. Add a free "
+                                     "OpenAlex key in Settings › For You, or try tomorrow.")
+                                : QString(ui("OpenAlex did not answer for “%1”.")).arg(job.sourceName));
+                    else {
+                        ++m_answered;
+                        found(ForYouParse::openAlexWorks(reply->readAll()), job.source, job.sourceName);
+                    }
+                    runNext();
+                });
+            }});
+    }
     if (m_jobs.isEmpty()) {
         m_problem = m_problems.join(' ');
         emit changed();
@@ -565,8 +802,10 @@ void ForYou::found(const QVariantList &papers, const QString &source, const QStr
     for (const auto &value : papers) {
         auto paper = value.toMap();
         const auto arxiv = arxivId(paper.value("arxiv").toString()), doi = paper.value("doi").toString();
+        const auto openAlex = paper.value("openalex").toString();
         const auto id = !arxiv.isEmpty() ? "arxiv:" + arxiv
             : !doi.isEmpty()             ? "doi:" + doi.toLower()
+            : !openAlex.isEmpty()        ? "openalex:" + openAlex
                                          : "s2:" + paper.value("paperId").toString();
         if (id == "s2:" || known.contains(id) || m_store->hasPaper(arxiv, doi)) continue;
         // Recommendations come from any year; only recent ones are new (undated ones are kept).
@@ -606,6 +845,7 @@ void ForYou::finishCheck()
              "value=excluded.value",
             {now});
     m_found.clear();
+    m_problems.removeDuplicates(); // One busy service is said once, not for each thing followed there.
     m_problem = m_problems.join(' ');
     m_checking = false;
     load();

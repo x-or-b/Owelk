@@ -99,6 +99,34 @@ Item {
             settings.close(); tryCompare(settings, "visible", false)
             compare(settings.query, "")
         }
+        function test_forYouResearchersAndInstitutions() {
+            const forYou = researchStore.forYou
+            researchStore.setSetting("forYou.openAlexBaseUrl", testInput.webFixture("").toString())
+            settings.openPage("foryou"); tryCompare(settings, "opened", true)
+            // Found by name on Return; a result says who and where, and Follow adds it.
+            let search = null
+            tryVerify(function() { search = visualChild(settings.contentItem, "forYouPeopleSearch"); return search !== null })
+            search.text = "Grace Hopper"
+            visualChild(settings.contentItem, "forYouFindPeople").clicked()
+            let found = null
+            tryVerify(function() { found = visualChild(settings.contentItem, "forYouFound-A777"); return found !== null }, 10000)
+            compare(found.detail, "Researcher · Harvard · 40 papers")
+            const follow = visualChild(settings.contentItem, "forYouFollowFound-A777")
+            follow.clicked()
+            compare(forYou.people().length, 1)
+            verify(forYou.configured)
+            tryCompare(follow, "text", "Following")
+            verify(!follow.enabled)
+            // Turned off, then no longer followed.
+            let toggle = null
+            tryVerify(function() { toggle = visualChild(settings.contentItem, "forYouPersonSwitch-A777"); return toggle !== null })
+            toggle.toggle(); toggle.toggled()
+            compare(forYou.people()[0].on, false)
+            verify(!forYou.configured)
+            visualChild(settings.contentItem, "forYouUnfollow-A777").clicked()
+            compare(forYou.people().length, 0)
+            settings.close(); tryCompare(settings, "visible", false)
+        }
         function test_forYouTopicsAndCollections() {
             const forYou = researchStore.forYou
             forYou.saveTopics([])

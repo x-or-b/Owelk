@@ -24,6 +24,7 @@ align	얼라인
 all	올
 allocate	얼로케이트
 allow	얼라우
+allowance	얼라우언스
 already	올레디
 also	올소
 always	올웨이즈
@@ -49,6 +50,7 @@ apps	앱스
 are	아
 area	에어리어
 around	어라운드
+articles	아티클스
 arxiv	아카이브
 as	애즈
 aside	어사이드
@@ -199,6 +201,7 @@ custom	커스텀
 cut	컷
 cv	씨브이
 cycle	사이클
+daily	데일리
 damage	대미지
 dark	다크
 data	데이터
@@ -277,6 +280,7 @@ error	에러
 esc	이에스씨
 et	엣
 every	에브리
+everyone	에브리원
 everything	에브리싱
 exact	이그잭트
 example	이그잼플
@@ -324,6 +328,7 @@ folder's	폴더스
 folders	폴더스
 follow	팔로
 followed	팔로드
+following	팔로잉
 font	폰트
 for	포
 forget	포겟
@@ -398,6 +403,9 @@ install	인스톨
 installed	인스톨드
 installer	인스톨러
 instead	인스테드
+institution	인스티튜션
+institution's	인스티튜션스
+institutions	인스티튜션스
 instructions	인스트럭션스
 insync	인싱크
 into	인투
@@ -478,6 +486,7 @@ macos	맥오에스
 made	메이드
 main	메인
 make	메이크
+makes	메익스
 mannheim	만하임
 manifest	매니페스트
 mark	마크
@@ -521,12 +530,14 @@ navigate	내비게이트
 navy	네이비
 needed	니디드
 needs	니즈
+network	네트워크
 neutral	뉴트럴
 never	네버
 new	뉴
 newer	뉴어
 next	넥스트
 no	노
+nobody	노바디
 none	넌
 nord	노드
 not	낫
@@ -554,6 +565,8 @@ onto	온투
 open	오픈
 openai	오픈에이아이
 openai's	오픈에이아이스
+openalex	오픈알렉스
+openalex's	오픈알렉스
 opened	오픈드
 opening	오프닝
 opens	오픈스
@@ -619,6 +632,7 @@ position	포지션
 positions	포지션스
 preamble	프리앰블
 preferred	프리퍼드
+preprints	프리프린츠
 preserved	프리저브드
 press	프레스
 preview	프리뷰
@@ -692,6 +706,7 @@ requested	리퀘스티드
 research	리서치
 researcher	리서처
 researcher's	리서처스
+researchers	리서처스
 reset	리셋
 response	리스폰스
 rest	레스트
@@ -751,6 +766,7 @@ settings	세팅스
 several	세버럴
 share	셰어
 shared	셰어드
+shares	셰어스
 short	쇼트
 shortcut	쇼트컷
 shortcuts	쇼트컷츠
@@ -771,6 +787,7 @@ size	사이즈
 skip	스킵
 skipped	스킵트
 slam	슬램
+small	스몰
 smaller	스몰러
 so	소
 solarized	솔라라이즈드
@@ -857,6 +874,7 @@ titles	타이틀스
 to	투
 today	투데이
 toggle	토글
+tomorrow	투모로
 toolbars	툴바스
 top	톱
 topic	토픽
@@ -924,6 +942,7 @@ week	위크
 well	웰
 were	워
 what	왓
+whatever	왓에버
 when	웬
 where	웨어
 which	위치

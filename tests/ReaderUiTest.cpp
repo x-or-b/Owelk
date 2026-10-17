@@ -364,6 +364,23 @@ public slots:
                         });
                         timer->start(120);
                         return;
+                    } else if (head.contains("GET /authors?")) {
+                        // OpenAlex for For You: one researcher by that name, no institution, and her new preprint.
+                        type = "application/json";
+                        body = "{\"results\":[{\"id\":\"https://openalex.org/A777\",\"display_name\":\"Grace "
+                               "Hopper\",\"last_known_institutions\":[{\"display_name\":\"Harvard\"}],"
+                               "\"works_count\":40}]}";
+                    } else if (head.contains("GET /institutions?")) {
+                        type = "application/json";
+                        body = "{\"results\":[]}";
+                    } else if (head.contains("GET /works?")) {
+                        type = "application/json";
+                        body = QStringLiteral("{\"results\":[{\"id\":\"https://openalex.org/W777\",\"doi\":"
+                                              "\"https://doi.org/10.48550/arXiv.2610.05555\",\"title\":\"Compilers "
+                                              "For Everyone\",\"publication_date\":\"%1\",\"authorships\":[{"
+                                              "\"author\":{\"display_name\":\"Grace Hopper\"}}]}]}")
+                                   .arg(QDate::currentDate().toString(Qt::ISODate))
+                                   .toUtf8();
                     } else if (head.contains("/data.zip")) {
                         // Not a PDF: saved only when the reader agrees.
                         body = "PK fixture";

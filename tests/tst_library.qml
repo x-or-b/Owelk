@@ -368,6 +368,34 @@ Item {
             verify(!researchStore.note(one).deleted)
             researchStore.deleteNote(one)
         }
+        function test_forYouFollowedResearchersOnly() {
+            const forYou = researchStore.forYou
+            researchStore.setSetting("forYou.openAlexBaseUrl", testInput.webFixture("").toString())
+            researchStore.setSetting("forYou.delayMs", "10")
+            researchStore.setSetting("forYou.ai", "0")
+            verify(forYou.followPerson({id: "A777", kind: "person", name: "Grace Hopper", detail: "Harvard"}))
+            forYou.refresh()
+            tryVerify(function() { return !forYou.checking }, 10000)
+            compare(forYou.items.length, 1)
+            compare(forYou.items[0].id, "arxiv:2610.05555")
+            compare(forYou.items[0].sourceName, "Grace Hopper")
+            // Library › For You: only the researchers and institutions followed.
+            workspace.homeVisible = true
+            const home = findChild(workspace, "homeView")
+            home.libraryFilterRequested({view: "foryou"})
+            const view = library()
+            tryCompare(view, "view", "foryou")
+            const menu = visibleChild(view, "libraryForYouSource")
+            tryVerify(function() { return menu.choices.some(function(c) { return c.key === "following" }) })
+            view.forYouSource = "following"
+            compare(view.forYouRows.length, 1)
+            compare(view.forYouRows[0].id, "arxiv:2610.05555")
+            view.forYouSource = ""
+            // Leave For You as the next test expects it: nothing followed, nothing waiting.
+            forYou.dismiss(["arxiv:2610.05555"])
+            forYou.unfollowPerson("A777")
+            researchStore.setSetting("forYou.ai", "1")
+        }
         function test_forYouOnHomeAndInTheLibrary() {
             const forYou = researchStore.forYou
             researchStore.setSetting("forYou.arxivBaseUrl", testInput.webFixture("/api").toString())

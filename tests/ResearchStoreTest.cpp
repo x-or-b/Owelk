@@ -1177,6 +1177,134 @@ private slots:
             QCOMPARE(later->items().size(), 0);
         }
     }
+    void forYouFollowsResearchersAndInstitutions()
+    {
+        // OpenAlex's answers: the abstract as words with their places, arXiv through its DOI or an arxiv.org page.
+        const auto today = QDate::currentDate().toString(Qt::ISODate);
+        const auto parsed = ForYouParse::openAlexWorks(QStringLiteral(
+            "{\"results\":[{\"id\":\"https://openalex.org/W1\",\"doi\":\"https://doi.org/10.48550/arXiv.2601.00042\","
+            "\"title\":\"Preprint\",\"publication_date\":\"%1\",\"publication_year\":2026,"
+            "\"abstract_inverted_index\":{\"order.\":[2],\"Words\":[0],\"in\":[1]},"
+            "\"authorships\":[{\"author\":{\"display_name\":\"Ada "
+            "Lovelace\"}}],\"best_oa_location\":null,\"locations\":[]},"
+            "{\"id\":\"https://openalex.org/W2\",\"doi\":\"https://doi.org/10.7/Journal\",\"title\":\"Journal Paper\","
+            "\"publication_date\":\"%1\",\"authorships\":[],\"best_oa_location\":{\"landing_page_url\":"
+            "\"https://arxiv.org/abs/2601.00043v2\",\"pdf_url\":\"https://arxiv.org/pdf/"
+            "2601.00043v2\"},\"locations\":[]},"
+            "{\"id\":\"https://openalex.org/W3\",\"title\":null}]}")
+                .arg(today)
+                .toUtf8());
+        QCOMPARE(parsed.size(), 2);
+        QCOMPARE(parsed[0].toMap()["arxiv"].toString(), QString("2601.00042"));
+        QVERIFY(parsed[0].toMap()["doi"].toString().isEmpty());
+        QCOMPARE(parsed[0].toMap()["abstract"].toString(), QString("Words in order."));
+        QCOMPARE(parsed[0].toMap()["pdf"].toString(), QString("https://arxiv.org/pdf/2601.00042"));
+        QCOMPARE(parsed[1].toMap()["arxiv"].toString(), QString("2601.00043"));
+        QCOMPARE(parsed[1].toMap()["doi"].toString(), QString("10.7/Journal"));
+        // Stand-ins for OpenAlex and arXiv.
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        const auto base = QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort());
+        QStringList requests;
+        connect(&server, &QTcpServer::newConnection, &server, [&] {
+            auto *socket = server.nextPendingConnection();
+            connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
+                const auto head = QUrl::fromPercentEncoding(socket->readAll().split('\r').value(0));
+                requests << head;
+                QByteArray body = "{\"results\":[]}", type = "application/json";
+                const auto work = [&](const QString &id, const QString &title, const QString &doi) {
+                    return QStringLiteral("{\"results\":[{\"id\":\"https://openalex.org/%1\",\"doi\":\"https://doi.org/"
+                                          "%3\",\"title\":\"%2\",\"publication_date\":\"%4\",\"authorships\":[],"
+                                          "\"best_oa_location\":{\"pdf_url\":\"%5/pdf/%1\"},\"locations\":[]}]}")
+                        .arg(id, title, doi, today, base)
+                        .toUtf8();
+                };
+                if (head.contains("/authors?"))
+                    body = "{\"results\":[{\"id\":\"https://openalex.org/A111\",\"display_name\":\"Ada Lovelace\","
+                           "\"last_known_institutions\":[{\"display_name\":\"Analytical "
+                           "University\"}],\"works_count\":12},"
+                           "{\"id\":\"https://openalex.org/I5\",\"display_name\":\"Not a person\"}]}";
+                else if (head.contains("/institutions?"))
+                    body = "{\"results\":[{\"id\":\"https://openalex.org/I222\",\"display_name\":\"Analytical "
+                           "University\","
+                           "\"country_code\":\"GB\",\"works_count\":5000}]}";
+                else if (head.contains("authorships.author.id:A111"))
+                    body = work("W10", "By Ada", "10.7/ada");
+                else if (head.contains("authorships.institutions.lineage:I222"))
+                    body = work("W20", "From the University", "10.7/university");
+                else if (head.contains("/api/query")) {
+                    type = "application/atom+xml";
+                    body
+                        = QStringLiteral("<?xml version=\"1.0\"?><feed xmlns=\"http://www.w3.org/2005/Atom\"><entry>"
+                                         "<id>http://arxiv.org/abs/2601.00077v1</id><published>%1T10:00:00Z</published>"
+                                         "<title>On The Topic</title></entry></feed>")
+                              .arg(today)
+                              .toUtf8();
+                }
+                socket->write("HTTP/1.1 200 OK\r\nContent-Type: " + type + "\r\nConnection: close\r\nContent-Length: "
+                    + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+                socket->disconnectFromHost();
+            });
+        });
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *forYou = qobject_cast<ForYou *>(store.forYou());
+        store.setSetting("forYou.openAlexBaseUrl", base);
+        store.setSetting("forYou.arxivBaseUrl", base + "/api");
+        store.setSetting("forYou.delayMs", "10");
+        // Found by name: researchers with where they work, and institutions; asked for once, not while typing.
+        QSignalSpy found(forYou, &ForYou::peopleFound);
+        forYou->findPeople("Ada");
+        QTRY_COMPARE_WITH_TIMEOUT(found.size(), 1, 10000);
+        QVERIFY(!forYou->findingPeople());
+        const auto people = found[0][1].toList();
+        QCOMPARE(people.size(), 2);
+        QCOMPARE(people[0].toMap()["kind"].toString(), QString("person"));
+        QCOMPARE(people[0].toMap()["detail"].toString(), QString("Analytical University"));
+        QCOMPARE(people[1].toMap()["kind"].toString(), QString("institution"));
+        QCOMPARE(people[1].toMap()["detail"].toString(), QString("GB"));
+        QVERIFY(found[0][2].toString().isEmpty());
+        QVERIFY(!forYou->configured());
+        QVERIFY(!forYou->followPerson({{"id", "A1 OR 1=1"}, {"kind", "person"}})); // Only OpenAlex IDs.
+        QVERIFY(forYou->followPerson(people[0].toMap()));
+        QVERIFY(forYou->followPerson(people[1].toMap()));
+        QVERIFY(forYou->configured());
+        QCOMPARE(forYou->people().size(), 2);
+        QVERIFY(forYou->saveTopics({QVariantMap{{"words", "topic"}}}));
+        // Their new articles and preprints, up to today, newest first.
+        forYou->refresh();
+        QTRY_VERIFY_WITH_TIMEOUT(!forYou->checking(), 10000);
+        QVERIFY2(forYou->problem().isEmpty(), qPrintable(forYou->problem()));
+        const auto asked = requests.join('\n');
+        QVERIFY(asked.contains("filter=authorships.author.id:A111,from_publication_date:"));
+        QVERIFY(asked.contains(",to_publication_date:" + today + ",type:article|preprint"));
+        QVERIFY(asked.contains("sort=publication_date:desc"));
+        QCOMPARE(forYou->items().size(), 3);
+        // Theirs come first whatever the AI made of the rest (a topic paper scored high stays below them).
+        {
+            WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3");
+            QSqlQuery query(db.db);
+            QVERIFY(query.exec("UPDATE foryou_items SET score=99 WHERE id='arxiv:2601.00077'"));
+        }
+        forYou->reload();
+        const auto items = forYou->items();
+        QVERIFY(ForYou::fromPerson(items[0].toMap()["source"].toString()));
+        QVERIFY(ForYou::fromPerson(items[1].toMap()["source"].toString()));
+        QCOMPARE(items[2].toMap()["id"].toString(), QString("arxiv:2601.00077"));
+        QStringList sources{items[0].toMap()["source"].toString(), items[1].toMap()["source"].toString()};
+        sources.sort();
+        QCOMPARE(sources, (QStringList{"institution:I222", "person:A111"}));
+        // Turned off or no longer followed: not asked for.
+        forYou->setPersonOn("A111", false);
+        forYou->unfollowPerson("I222");
+        QCOMPARE(forYou->people().size(), 1);
+        requests.clear();
+        forYou->refresh();
+        QTRY_VERIFY_WITH_TIMEOUT(!forYou->checking(), 10000);
+        QVERIFY(!requests.join('\n').contains("/works"));
+    }
     void forYouPapersWithoutAFreePdf()
     {
         QVERIFY(ForYouParse::isPdfAddress("https://arxiv.org/pdf/2601.00001"));

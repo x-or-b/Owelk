@@ -470,6 +470,12 @@ bool ResearchStore::initialize(QString *error)
                 }
                 return run("DELETE FROM settings WHERE key IN ('pref.forYou.topics','pref.forYou.collections')", {});
             }},
+        // For You follows researchers and institutions too, by their OpenAlex IDs (A… a person, I… an
+        // institution), with what Settings shows about them.
+        {19,
+            {"CREATE TABLE IF NOT EXISTS foryou_people (id TEXT PRIMARY KEY, kind TEXT NOT NULL, name TEXT NOT NULL "
+             "DEFAULT '', detail TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 1, position INTEGER NOT "
+             "NULL DEFAULT 0)"}},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     // Set aside only once step 18 is committed, so a failed upgrade still finds it next time.

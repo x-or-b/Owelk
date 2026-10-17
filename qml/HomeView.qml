@@ -203,7 +203,7 @@ Rectangle {
                         Icon { name: "forYou"; size: Theme.fontBody + 2; color: Theme.textTertiary }
                         Label {
                             Layout.fillWidth: true
-                            text: qsTr("Follow a collection or a topic to see new papers here")
+                            text: qsTr("Follow a topic, a collection, a researcher or an institution to see new papers here")
                             elide: Text.ElideRight; color: Theme.textSecondary
                         }
                         Icon { name: "right"; size: Theme.fontBody; color: Theme.textTertiary }

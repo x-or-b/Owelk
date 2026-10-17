@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Owelk.Ui
 
-// For You: the topics and collections followed, and how often and how far back to look.
+// For You: the topics, researchers, institutions and collections followed, and how often and how far back to look.
 ColumnLayout {
     id: root
     objectName: "forYouSettings"
@@ -79,6 +79,114 @@ ColumnLayout {
             }
         }
     }
+    // Researchers and institutions, found by name on OpenAlex. Searching asks only when told to (Return or
+    // Search): without a key every search spends the allowance everyone on this network shares.
+    readonly property var people: (revision, forYou.people())
+    readonly property bool openAlexKey: (revision, forYou.hasOpenAlexKey())
+    property var peopleFound: []
+    property string peopleAsked: ""
+    property string peopleProblem: ""
+    Connections {
+        target: root.forYou
+        function onPeopleFound(text, found, problem) { root.peopleAsked = text; root.peopleFound = found; root.peopleProblem = problem }
+    }
+    function findPeople() { if (peopleSearch.text.trim().length >= 2) forYou.findPeople(peopleSearch.text) }
+    function kindName(kind) { return kind === "person" ? qsTr("Researcher") : qsTr("Institution") }
+    SettingsGroup {
+        objectName: "settingsGroup-people"
+        title: qsTr("Researchers and institutions")
+        note: root.peopleProblem.length ? root.peopleProblem
+            : qsTr("Their new articles and preprints, from OpenAlex. They are always shown, first, whatever the AI makes of them.")
+        noteColor: root.peopleProblem.length ? Theme.danger : Theme.textTertiary
+        Repeater {
+            model: root.people
+            delegate: SettingsRow {
+                id: personRow
+                required property var modelData
+                objectName: "forYouPerson-" + modelData.id
+                label: modelData.name
+                detail: root.kindName(modelData.kind) + (modelData.detail ? " · " + modelData.detail : "")
+                opacity: modelData.on === false ? .55 : 1
+                IconButton {
+                    objectName: "forYouUnfollow-" + personRow.modelData.id
+                    icon.name: "trash"; description: qsTr("Stop following")
+                    onClicked: root.forYou.unfollowPerson(personRow.modelData.id)
+                }
+                Switch {
+                    objectName: "forYouPersonSwitch-" + personRow.modelData.id
+                    checked: personRow.modelData.on !== false
+                    onToggled: root.forYou.setPersonOn(personRow.modelData.id, checked)
+                }
+            }
+        }
+        SettingsRow {
+            objectName: "settingsRow-findPeople"
+            wide: true
+            TextField {
+                id: peopleSearch
+                objectName: "forYouPeopleSearch"
+                Layout.fillWidth: true
+                placeholderText: qsTr("A researcher's or an institution's name")
+                onAccepted: root.findPeople()
+            }
+            Button {
+                objectName: "forYouFindPeople"
+                text: root.forYou.findingPeople ? qsTr("Searching…") : qsTr("Search")
+                enabled: !root.forYou.findingPeople && peopleSearch.text.trim().length >= 2
+                onClicked: root.findPeople()
+            }
+        }
+        // What the search found: each with where they are and how many papers OpenAlex knows, to tell
+        // people of the same name apart.
+        Repeater {
+            model: root.peopleFound
+            delegate: SettingsRow {
+                id: foundRow
+                required property var modelData
+                readonly property bool followed: root.people.some(function(p) { return p.id === modelData.id })
+                objectName: "forYouFound-" + modelData.id
+                label: modelData.name
+                detail: [root.kindName(modelData.kind), modelData.detail, modelData.papers + qsTr(" papers")]
+                        .filter(function(t) { return t && String(t).length }).join(" · ")
+                Button {
+                    objectName: "forYouFollowFound-" + foundRow.modelData.id
+                    text: foundRow.followed ? qsTr("Following") : qsTr("Follow")
+                    enabled: !foundRow.followed
+                    onClicked: root.forYou.followPerson(foundRow.modelData)
+                }
+            }
+        }
+        SettingsRow {
+            objectName: "forYouNobodyFound"
+            visible: root.peopleAsked.length > 0 && !root.peopleFound.length && !root.peopleProblem.length
+            label: qsTr("Nobody by that name on OpenAlex")
+        }
+        SettingsRow {
+            objectName: "settingsRow-openAlexKey"
+            wide: !root.openAlexKey
+            label: qsTr("OpenAlex key")
+            detail: root.openAlexKey ? qsTr("Kept in %1.").arg(researchStore.ai.keyStorage())
+                : qsTr("Optional and free (openalex.org/settings/api). Without one, everyone on this network shares a small daily allowance.")
+            TextField {
+                id: openAlexKeyField
+                objectName: "forYouOpenAlexKey"
+                visible: !root.openAlexKey
+                Layout.fillWidth: true
+                echoMode: TextInput.Password
+                placeholderText: qsTr("Paste a key")
+                onAccepted: if (text.trim().length) { root.forYou.setOpenAlexKey(text); clear() }
+            }
+            Button {
+                objectName: "forYouOpenAlexKeySave"
+                text: root.openAlexKey ? qsTr("Remove") : qsTr("Save")
+                enabled: root.openAlexKey || openAlexKeyField.text.trim().length > 0
+                onClicked: {
+                    root.forYou.setOpenAlexKey(root.openAlexKey ? "" : openAlexKeyField.text)
+                    openAlexKeyField.clear()
+                }
+            }
+        }
+    }
     SettingsGroup {
         objectName: "settingsGroup-followCollections"
         title: qsTr("Collections")
@@ -108,7 +216,7 @@ ColumnLayout {
         objectName: "settingsGroup-forYouChecking"
         title: qsTr("Checking")
         note: root.forYou.problem.length ? root.forYou.problem
-            : qsTr("Papers found wait in Home and in Library › For You until you add or dismiss them. Only the words, categories and arXiv IDs or DOIs above are sent.")
+            : qsTr("Papers found wait in Home and in Library › For You until you add or dismiss them. Only the words, categories, arXiv IDs or DOIs and the OpenAlex IDs of the researchers and institutions above are sent.")
         noteColor: root.forYou.problem.length ? Theme.danger : Theme.textTertiary
         SettingsRow {
             objectName: "settingsRow-forYouDaily"

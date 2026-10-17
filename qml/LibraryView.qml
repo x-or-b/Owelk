@@ -84,7 +84,11 @@ Rectangle {
         const age = Math.round((today - forYouDay(p)) / 86400000)
         return range === "today" ? age <= 0 : range === "week" ? age < 7 : age < 30
     }
-    readonly property var forYouFromSource: forYou.items.filter(function(p) { return !forYouSource.length || p.source === forYouSource })
+    // "following": only papers of the researchers and institutions followed.
+    function fromFollowed(p) { return /^(person|institution):/.test(p.source || "") }
+    readonly property var forYouFromSource: forYou.items.filter(function(p) {
+        return !forYouSource.length || (forYouSource === "following" ? root.fromFollowed(p) : p.source === forYouSource)
+    })
     readonly property var forYouRows: forYouFromSource.filter(function(p) { return root.inForYouRange(p, root.forYouRange) })
     // "Lovelace et al." and "Today", "3 days ago": the details at a glance.
     function shortAuthors(authors) {
@@ -648,12 +652,17 @@ Rectangle {
                     }
                     ComboBox {
                         objectName: "libraryForYouSource"
-                        visible: !root.selecting && sources.length > 1
-                        Layout.preferredWidth: 200
+                        visible: !root.selecting && choices.length > 2
+                        Layout.preferredWidth: 220
                         readonly property var sources: (root.forYou.items, root.forYou.sources())
-                        model: [qsTr("Everything")].concat(sources.map(function(s) { return s.name + " · " + s.count }))
-                        currentIndex: Math.max(0, sources.findIndex(function(s) { return s.key === root.forYouSource }) + 1)
-                        onActivated: function(index) { root.forYouSource = index > 0 ? sources[index - 1].key : "" }
+                        readonly property int followed: root.forYou.items.filter(root.fromFollowed).length
+                        // Everything, then the researchers and institutions followed together, then each source.
+                        readonly property var choices: [{key: "", name: qsTr("Everything")}]
+                            .concat(followed ? [{key: "following", name: qsTr("Researchers and institutions you follow") + " · " + followed}] : [])
+                            .concat(sources.map(function(s) { return {key: s.key, name: s.name + " · " + s.count} }))
+                        model: choices.map(function(c) { return c.name })
+                        currentIndex: Math.max(0, choices.findIndex(function(c) { return c.key === root.forYouSource }))
+                        onActivated: function(index) { root.forYouSource = choices[index].key }
                     }
                     Button {
                         objectName: "libraryForYouSelectAll"
@@ -856,7 +865,7 @@ Rectangle {
                         Label {
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
-                            text: !root.forYou.configured ? qsTr("Follow a collection or a topic to see new papers here")
+                            text: !root.forYou.configured ? qsTr("Follow a topic, a collection, a researcher or an institution to see new papers here")
                                 : root.forYou.checking ? qsTr("Looking for new papers…")
                                 : root.forYou.problem.length ? root.forYou.problem
                                 : root.forYou.lastChecked.getTime && !isNaN(root.forYou.lastChecked.getTime())

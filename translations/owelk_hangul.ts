@@ -1368,8 +1368,8 @@
         <translation>디스미스</translation>
     </message>
     <message>
-        <source>Follow a collection or a topic to see new papers here</source>
-        <translation>팔로 어 컬렉션 오어 어 토픽 투 시 뉴 페이퍼스 히어</translation>
+        <source>Follow a topic, a collection, a researcher or an institution to see new papers here</source>
+        <translation>팔로 어 토픽, 어 컬렉션, 어 리서처 오어 언 인스티튜션 투 시 뉴 페이퍼스 히어</translation>
     </message>
     <message>
         <source>For You</source>
@@ -1802,8 +1802,8 @@ Same file as another library entry</source>
         <translation>필터 바이 타이틀, 오서, 이어, 디오아이 오어 파일 네임</translation>
     </message>
     <message>
-        <source>Follow a collection or a topic to see new papers here</source>
-        <translation>팔로 어 컬렉션 오어 어 토픽 투 시 뉴 페이퍼스 히어</translation>
+        <source>Follow a topic, a collection, a researcher or an institution to see new papers here</source>
+        <translation>팔로 어 토픽, 어 컬렉션, 어 리서처 오어 언 인스티튜션 투 시 뉴 페이퍼스 히어</translation>
     </message>
     <message>
         <source>Follow in For You</source>
@@ -2000,6 +2000,10 @@ Same file as another library entry</source>
     <message>
         <source>Rename…</source>
         <translation>리네임…</translation>
+    </message>
+    <message>
+        <source>Researchers and institutions you follow</source>
+        <translation>리서처스 앤드 인스티튜션스 유 팔로</translation>
     </message>
     <message>
         <source>Restore</source>
@@ -2864,6 +2868,10 @@ Same file as another library entry</source>
         <translation>캔낫 스토어 더 에이피아이 키 인 %1.</translation>
     </message>
     <message>
+        <source>Cannot store the key in %1.</source>
+        <translation>캔낫 스토어 더 키 인 %1.</translation>
+    </message>
+    <message>
         <source>Cannot update annotation.</source>
         <translation>캔낫 업데이트 애노테이션.</translation>
     </message>
@@ -3282,6 +3290,22 @@ Same file as another library entry</source>
     <message>
         <source>OpenAI: </source>
         <translation>오픈에이아이: </translation>
+    </message>
+    <message>
+        <source>OpenAlex did not answer for “%1”.</source>
+        <translation>오픈알렉스 디드 낫 앤서 포 “%1”.</translation>
+    </message>
+    <message>
+        <source>OpenAlex did not answer.</source>
+        <translation>오픈알렉스 디드 낫 앤서.</translation>
+    </message>
+    <message>
+        <source>OpenAlex's free daily allowance for this network is used up. Add a free OpenAlex key below, or try tomorrow.</source>
+        <translation>오픈알렉스 프리 데일리 얼라우언스 포 디스 네트워크 이즈 유즈드 업. 애드 어 프리 오픈알렉스 키 빌로우, 오어 트라이 투모로.</translation>
+    </message>
+    <message>
+        <source>OpenAlex's free daily allowance for this network is used up. Add a free OpenAlex key in Settings › For You, or try tomorrow.</source>
+        <translation>오픈알렉스 프리 데일리 얼라우언스 포 디스 네트워크 이즈 유즈드 업. 애드 어 프리 오픈알렉스 키 인 세팅스 › 포 유, 오어 트라이 투모로.</translation>
     </message>
     <message>
         <source>Orange</source>
@@ -4954,6 +4978,10 @@ You can open the same document twice.</source>
         <translation>어 리틀 애프터 오웰크 오픈스</translation>
     </message>
     <message>
+        <source>A researcher's or an institution's name</source>
+        <translation>어 리서처스 오어 언 인스티튜션스 네임</translation>
+    </message>
+    <message>
         <source>Add</source>
         <translation>애드</translation>
     </message>
@@ -4990,8 +5018,24 @@ You can open the same document twice.</source>
         <translation>익스플레인 위드 에이아이</translation>
     </message>
     <message>
+        <source>Follow</source>
+        <translation>팔로</translation>
+    </message>
+    <message>
+        <source>Following</source>
+        <translation>팔로잉</translation>
+    </message>
+    <message>
+        <source>Institution</source>
+        <translation>인스티튜션</translation>
+    </message>
+    <message>
         <source>Keep papers in the list</source>
         <translation>킵 페이퍼스 인 더 리스트</translation>
+    </message>
+    <message>
+        <source>Kept in %1.</source>
+        <translation>켑트 인 %1.</translation>
     </message>
     <message>
         <source>Last checked </source>
@@ -5014,16 +5058,28 @@ You can open the same document twice.</source>
         <translation>뉴 아카이브 페이퍼스 위드 애니 오브 더 워즈 (세퍼레이트 뎀 위드 콤마스), 인 애니 오브 더 카테고리즈, 서치 애즈 cs.RO 오어 cs.CV. 이더 메이 비 레프트 엠티.</translation>
     </message>
     <message>
+        <source>Nobody by that name on OpenAlex</source>
+        <translation>노바디 바이 댓 네임 온 오픈알렉스</translation>
+    </message>
+    <message>
         <source>Not checked yet</source>
         <translation>낫 체크트 옛</translation>
+    </message>
+    <message>
+        <source>OpenAlex key</source>
+        <translation>오픈알렉스 키</translation>
+    </message>
+    <message>
+        <source>Optional and free (openalex.org/settings/api). Without one, everyone on this network shares a small daily allowance.</source>
+        <translation>옵셔널 앤드 프리 (openalex.org/settings/api). 위다웃 원, 에브리원 온 디스 네트워크 셰어스 어 스몰 데일리 얼라우언스.</translation>
     </message>
     <message>
         <source>Orders new papers by how well they fit what you follow, with one sentence each. Sends their titles and abstracts and what you follow to </source>
         <translation>오더스 뉴 페이퍼스 바이 하우 웰 데이 핏 왓 유 팔로, 위드 원 센텐스 이치. 센즈 데어 타이틀스 앤드 앱스트랙츠 앤드 왓 유 팔로 투 </translation>
     </message>
     <message>
-        <source>Papers found wait in Home and in Library › For You until you add or dismiss them. Only the words, categories and arXiv IDs or DOIs above are sent.</source>
-        <translation>페이퍼스 파운드 웨이트 인 홈 앤드 인 라이브러리 › 포 유 언틸 유 애드 오어 디스미스 뎀. 온리 더 워즈, 카테고리즈 앤드 아카이브 아이디즈 오어 디오아이즈 어보브 아 센트.</translation>
+        <source>Papers found wait in Home and in Library › For You until you add or dismiss them. Only the words, categories, arXiv IDs or DOIs and the OpenAlex IDs of the researchers and institutions above are sent.</source>
+        <translation>페이퍼스 파운드 웨이트 인 홈 앤드 인 라이브러리 › 포 유 언틸 유 애드 오어 디스미스 뎀. 온리 더 워즈, 카테고리즈, 아카이브 아이디즈 오어 디오아이즈 앤드 더 오픈알렉스 아이디즈 오브 더 리서처스 앤드 인스티튜션스 어보브 아 센트.</translation>
     </message>
     <message>
         <source>Papers from the last</source>
@@ -5034,12 +5090,44 @@ You can open the same document twice.</source>
         <translation>페이퍼스 라이크 더 원즈 인 어 팔로드 컬렉션, 프롬 시맨틱 스칼라. 잇 룩스 앳 더 페이퍼스 댓 해브 언 아카이브 아이디 오어 어 디오아이 (페이퍼 디테일스).</translation>
     </message>
     <message>
+        <source>Paste a key</source>
+        <translation>페이스트 어 키</translation>
+    </message>
+    <message>
         <source>Remove</source>
         <translation>리무브</translation>
     </message>
     <message>
+        <source>Researcher</source>
+        <translation>리서처</translation>
+    </message>
+    <message>
+        <source>Researchers and institutions</source>
+        <translation>리서처스 앤드 인스티튜션스</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>세이브</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>서치</translation>
+    </message>
+    <message>
+        <source>Searching…</source>
+        <translation>서칭…</translation>
+    </message>
+    <message>
         <source>Set up AI in Settings › AI first.</source>
         <translation>셋 업 에이아이 인 세팅스 › 에이아이 퍼스트.</translation>
+    </message>
+    <message>
+        <source>Stop following</source>
+        <translation>스톱 팔로잉</translation>
+    </message>
+    <message>
+        <source>Their new articles and preprints, from OpenAlex. They are always shown, first, whatever the AI makes of them.</source>
+        <translation>데어 뉴 아티클스 앤드 프리프린츠, 프롬 오픈알렉스. 데이 아 올웨이즈 숀, 퍼스트, 왓에버 더 에이아이 메익스 오브 뎀.</translation>
     </message>
     <message>
         <source>Topics</source>
