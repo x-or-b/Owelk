@@ -436,6 +436,28 @@ Item {
             canvas.openFile(fixtureSource, {page:0,zoom:1})
             tryVerify(function() { return canvas.documentFingerprint.length === 64 })
         }
+        function test_doubleClickTakesAWordTripleClickASentence() {
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            const paper = findChild(canvas, "paperPage0"), bounds = fixtureTextBounds
+            // Inside "Research", the first word of the line.
+            const at = paper.mapToItem(canvas, (bounds.x + 15) * canvas.pageScale, (bounds.y + bounds.height / 2) * canvas.pageScale)
+            canvas.clearSelection()
+            testInput.clicks(canvas, at, 2)
+            tryCompare(canvas, "selectedText", "Research")
+            verify(canvas.selectedAnchor !== null) // Copy, highlight and Ask AI work on it as on a dragged one.
+            testInput.clicks(canvas, at, 3)
+            tryCompare(canvas, "selectedText", "Research finding 1.1: occlusion links observation to context.")
+            // A click lets go; the same word chosen again is selected again.
+            testInput.clicks(canvas, at, 1)
+            tryCompare(canvas, "selectedText", "")
+            testInput.clicks(canvas, at, 2)
+            tryCompare(canvas, "selectedText", "Research")
+            // Dragging still selects from where it starts.
+            testInput.pointerDrag(canvas, at, Qt.point(at.x + bounds.width * canvas.pageScale * .5, at.y), false)
+            tryVerify(function() { return canvas.selectedText.indexOf("finding") > 0 })
+            canvas.clearSelection()
+        }
         function test_persistentHighlightSelectionAndRemoval() {
             // Starts from a paper without marks: once its marks are read, those left by earlier tests go.
             tryVerify(function() { return canvas.documentFingerprint.length === 64 }, 10000)

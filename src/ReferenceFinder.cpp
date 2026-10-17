@@ -203,6 +203,45 @@ int charAt(QPdfDocument &pdf, int page, const QPointF &point, qreal tolerance)
     return -1;
 }
 
+// A character of a word, as a double click takes it: letters, digits and their marks (math letters too), and an
+// apostrophe between letters (don't, l'image).
+bool wordChar(const QString &text, qsizetype i)
+{
+    const QChar c = text[i];
+    if (c.isLetterOrNumber() || c.isMark() || c == '_' || c.isSurrogate()) return true;
+    return (c == '\'' || c == QChar(0x2019)) && i > 0 && i + 1 < text.size() && text[i - 1].isLetter()
+        && text[i + 1].isLetter();
+}
+
+// Closing marks a sentence may end with after its full stop: quotes and brackets.
+bool closing(QChar c)
+{
+    return QStringLiteral("\"')]\u201d\u2019").contains(c);
+}
+
+// Whether text[i] ends a sentence: . ! ? followed by a space or the end, not an abbreviation (Fig., et al.), an
+// initial or a number, and not followed by a word in lower case; or 。！？.
+bool sentenceEnd(const QString &text, qsizetype i)
+{
+    const QChar c = text[i];
+    if (c == QChar(0x3002) || c == QChar(0xff01) || c == QChar(0xff1f)) return true;
+    if (c != '.' && c != '!' && c != '?') return false;
+    qsizetype next = i + 1;
+    while (next < text.size() && closing(text[next])) ++next;
+    if (next < text.size() && !text[next].isSpace()) return false; // 3.14, U.S.A
+    qsizetype after = next;
+    while (after < text.size() && text[after].isSpace()) ++after;
+    if (after < text.size() && text[after].isLower()) return false; // approx. ten
+    if (c != '.') return true;
+    qsizetype start = i;
+    while (start > 0 && text[start - 1].isLetter()) --start;
+    static const QStringList abbreviations{"al", "fig", "figs", "eq", "eqs", "sec", "secs", "ref", "refs", "vs", "cf",
+        "dr", "mr", "ms", "prof", "no", "nos", "approx", "resp", "tab", "ch", "pp", "vol", "ed", "eds", "thm", "lem",
+        "def", "prop", "cor", "alg", "app", "st", "jr"};
+    const auto word = text.mid(start, i - start);
+    return word.size() != 1 && !abbreviations.contains(word.toLower()); // An initial, e.g., i.e.: one letter.
+}
+
 QString lineText(QPdfDocument &pdf, int page, const QRectF &line)
 {
     const qreal y = line.center().y();
@@ -932,6 +971,137 @@ QVariantMap ReferenceFinder::findObject(QPdfDocument &pdf, int page, const QPoin
     if (best.isEmpty()) return equationAround(pdf, page, point, layout);
     if (!best.contains("caption")) best.insert("caption", captionText(pdf, page, best));
     return best;
+}
+
+QPair<qsizetype, qsizetype> ReferenceFinder::wordBounds(const QString &text, qsizetype at)
+{
+    if (at < 0 || at >= text.size() || !wordChar(text, at)) return {-1, -1};
+    qsizetype start = at, end = at + 1;
+    while (start > 0 && wordChar(text, start - 1)) --start;
+    while (end < text.size() && wordChar(text, end)) ++end;
+    return {start, end};
+}
+
+QPair<qsizetype, qsizetype> ReferenceFinder::sentenceBounds(const QString &text, qsizetype at)
+{
+    if (at < 0 || at >= text.size()) return {-1, -1};
+    qsizetype start = at;
+    while (start > 0 && !sentenceEnd(text, start - 1)) --start;
+    while (start < at && (text[start].isSpace() || closing(text[start]))) ++start;
+    qsizetype end = at;
+    while (end < text.size() && !sentenceEnd(text, end)) ++end;
+    if (end < text.size()) ++end;
+    while (end < text.size() && closing(text[end])) ++end;
+    while (end > start && text[end - 1].isSpace()) --end;
+    if (end <= start) return {-1, -1};
+    return {start, end};
+}
+
+QVariantMap ReferenceFinder::findSpan(QPdfDocument &pdf, int page, const QPointF &point, const QString &unit)
+{
+    if (page < 0 || page >= pdf.pageCount()) return {};
+    const int index = charAt(pdf, page, point, 1.5);
+    if (index < 0) return {};
+    // The text around the character: enough for a long sentence, a little for a word.
+    const bool sentence = unit == "sentence";
+    const int reach = sentence ? 800 : 64;
+    const int first = std::max(0, index - reach);
+    const auto text = pdf.getSelectionAtIndex(page, first, 2 * reach + 1).text();
+    // Character indices count code points, the text UTF-16 units (a math letter such as 𝑥 takes two).
+    const auto offsetOf = [&](int character) {
+        qsizetype offset = 0;
+        for (int i = first; i < character && offset < text.size(); ++i)
+            offset += text[offset].isHighSurrogate() ? 2 : 1;
+        return offset;
+    };
+    const auto characterOf = [&](qsizetype offset) {
+        int character = first;
+        for (qsizetype o = 0; o < offset && o < text.size(); ++o)
+            if (!text[o].isLowSurrogate()) ++character;
+        return character;
+    };
+    const auto at = offsetOf(index);
+    auto bounds = sentence ? sentenceBounds(text, at) : wordBounds(text, at);
+    if (bounds.first < 0) return {};
+    const auto box
+        = [&](qsizetype offset) { return pdf.getSelectionAtIndex(page, characterOf(offset), 1).boundingRectangle(); };
+    if (sentence) {
+        // A short line (a heading, a paragraph's last line) ends a sentence too, full stop or not: a line of the
+        // clicked line's column that stops well before the column's right edge. Lines that run to the edge are
+        // a sentence wrapping on.
+        struct Line {
+            qsizetype start, end; // Its visible text, without the line break.
+            QRectF first, last;
+        };
+        QList<Line> lines;
+        for (qsizetype start = 0; start < text.size();) {
+            auto end = text.indexOf('\n', start);
+            if (end < 0) end = text.size();
+            qsizetype a = start, b = end;
+            while (a < b && text[a].isSpace()) ++a;
+            while (b > a && text[b - 1].isSpace()) --b;
+            if (b > a) lines.append({a, b, box(a), box(b - (text[b - 1].isLowSurrogate() ? 2 : 1))});
+            start = end + 1;
+        }
+        const auto clicked
+            = std::find_if(lines.begin(), lines.end(), [&](const Line &l) { return at >= l.start && at < l.end; });
+        if (clicked != lines.end() && !clicked->first.isEmpty()) {
+            qreal right = 0;
+            for (const auto &line : std::as_const(lines))
+                if (!line.first.isEmpty() && std::abs(line.first.left() - clicked->first.left()) < 40)
+                    right = std::max(right, line.last.right());
+            const auto isShort = [&](const Line &line) {
+                return !line.last.isEmpty() && std::abs(line.first.left() - clicked->first.left()) < 40
+                    && line.last.right() < right - std::max<qreal>(24, (right - line.first.left()) * .12);
+            };
+            for (auto line = lines.begin(); line != clicked; ++line)
+                if (line->end > bounds.first && line->end <= at && isShort(*line)) bounds.first = (line + 1)->start;
+            for (auto line = clicked; line != lines.end(); ++line)
+                if (line->end < bounds.second && isShort(*line)) {
+                    bounds.second = line->end;
+                    break;
+                }
+        }
+    }
+    const int from = characterOf(bounds.first), to = characterOf(bounds.second) - 1;
+    const auto a = pdf.getSelectionAtIndex(page, from, 1).boundingRectangle();
+    const auto b = pdf.getSelectionAtIndex(page, to, 1).boundingRectangle();
+    if (a.isEmpty() || b.isEmpty()) return {};
+    // Points for a selection between them (Qt's PDF selections are made from two points): on the first character
+    // and past the middle of the last. One character alone (a, x) needs the end just past it, and at the end of a
+    // line only the space before it can start one (how far back depends on the font). The first pair whose text
+    // is the span wins.
+    const auto wanted = text.mid(bounds.first, bounds.second - bounds.first).remove(QRegularExpression("\\s"));
+    const qreal y0 = a.center().y(), y1 = b.center().y();
+    QList<QPair<QPointF, QPointF>> tries;
+    if (from != to) tries.append({{a.left() + a.width() * .25, y0}, {b.right() - b.width() * .25, y1}});
+    for (const qreal past : {.5, 1.0, 1.5, 2.0})
+        tries.append({{a.left() + a.width() * .25, y0}, {b.right() + past, y1}});
+    for (const qreal back : {1.0, 2.0, 3.0, 4.0})
+        tries.append({{a.left() - back, y0}, {b.right() - b.width() * .25, y1}});
+    // Exactly the span first; else with a space before or after it.
+    for (const bool exact : {true, false})
+        for (const auto &[start, end] : std::as_const(tries)) {
+            const auto found = pdf.getSelection(page, start, end).text();
+            if (exact ? QString(found).remove(QRegularExpression("\\s")) == wanted && found.trimmed() == found
+                      : QString(found).remove(QRegularExpression("\\s")) == wanted)
+                return {{"page", page}, {"from", start}, {"to", end}, {"text", found}};
+        }
+    return {};
+}
+
+int ReferenceFinder::spanAt(const QUrl &source, int page, const QPointF &point, const QString &unit)
+{
+    const int request = ++m_next;
+    const auto path = source.toLocalFile();
+    m_pool.start([this, request, path, page, point, unit] {
+        QVariantMap span;
+        QPdfDocument pdf;
+        if (!path.isEmpty() && PdfAccess::load(pdf, path) == QPdfDocument::Error::None)
+            span = findSpan(pdf, page, point, unit);
+        QMetaObject::invokeMethod(this, [this, request, span] { emit spanFound(request, span); }, Qt::QueuedConnection);
+    });
+    return request;
 }
 
 int ReferenceFinder::wordAt(const QUrl &source, int page, const QPointF &point, qreal tolerance)

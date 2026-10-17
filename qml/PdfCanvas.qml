@@ -521,8 +521,30 @@ Item {
 
     TapHandler {
         enabled: root.ready && !root.captureMode && !root.pinching && (!root.tool.length || root.tool === "highlight")
-        // A click on empty page also lets go of a selected text box, picture or stroke.
-        onTapped: { root.activated(); root.clearSelection(); if (!root.markPressed) root.selectedMarkId = "" }
+        // A click on empty page also lets go of a selected text box, picture or stroke. Two clicks take the word,
+        // three the sentence, as in browsers and text editors.
+        onTapped: function(eventPoint) {
+            root.activated()
+            if (tapCount >= 2 && root.selectUnitAt(eventPoint.position.x, eventPoint.position.y, tapCount === 2 ? "word" : "sentence")) return
+            root.clearSelection(); if (!root.markPressed) root.selectedMarkId = ""
+        }
+    }
+    // The word or the sentence at a point of the canvas, found off the interface thread (spanFound below).
+    property int spanRequest: -1
+    function selectUnitAt(px, py, unit) {
+        const spot = pagePointAt(px, py)
+        if (!spot || !ready) return false
+        const size = pagePoints(spot.page)
+        spanRequest = researchStore.references.spanAt(source, spot.page, Qt.point(spot.x * size.width, spot.y * size.height), unit)
+        return true
+    }
+    Connections {
+        target: researchStore.references
+        function onSpanFound(request, span) {
+            if (request !== root.spanRequest || span.page === undefined) return
+            const holder = pages.itemAtIndex(span.page)
+            if (holder) holder.selectSpan(span.from, span.to)
+        }
     }
 
     // Selections across pages: the page where the drag started (origin) keeps its press point; pages up to
@@ -779,6 +801,25 @@ Item {
             readonly property size pointSize: pdfDocument.pagePointSize(index)
             property var lineMetrics: []
             property bool metricsReady: false
+            // A word or sentence chosen by clicks: the selection between these points (pixels at selectionScale)
+            // until the next drag.
+            property var span: null
+            property bool spanning: false
+            function selectSpan(from, to) {
+                root.clearSelection()
+                selectionScale = root.pageScale
+                ensureMetrics()
+                root.activeSelection = selection
+                // Through null, so the same word chosen again after a clear is selected again.
+                spanning = true
+                span = null
+                span = {from: Qt.point(from.x * root.pageScale, from.y * root.pageScale), to: Qt.point(to.x * root.pageScale, to.y * root.pageScale)}
+                spanning = false
+                root.selectedText = selection.text
+                root.rememberSelection(selection)
+                selection.forceActiveFocus()
+                if (root.tool === "highlight") Qt.callLater(function() { root.highlightSelection() })
+            }
             function ensureMetrics() {
                 if (!metricsReady) {
                     pageText.selectAll()
@@ -1149,9 +1190,9 @@ Item {
                     document: pdfDocument
                     page: pageHolder.index
                     renderScale: pageHolder.selectionScale
-                    from: selectionDrag.centroid.pressPosition
-                    to: selectionDrag.centroid.position
-                    hold: !selectionDrag.active
+                    from: pageHolder.span ? pageHolder.span.from : selectionDrag.centroid.pressPosition
+                    to: pageHolder.span ? pageHolder.span.to : selectionDrag.centroid.position
+                    hold: !selectionDrag.active && !pageHolder.spanning
                     onTextChanged: {
                         if (root.crossPages.length) root.refreshCrossText()
                         else if (root.activeSelection === selection) {
@@ -1174,6 +1215,7 @@ Item {
                     onActiveChanged: {
                         root.selecting = active
                         if (active) {
+                            pageHolder.span = null
                             root.clearCrossSelection()
                             root.stopSourceMotion()
                             // Do not reinterpret held pixel endpoints at a new zoom/viewport scale.

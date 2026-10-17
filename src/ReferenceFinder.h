@@ -52,11 +52,20 @@ public:
     // for symbol hints: {word, glyph, plainWord, plainGlyph (math letters as plain ones, no spaces), page,
     // x, y, width, height (the word's box)}, or {}. Answered by wordFound(request, word).
     Q_INVOKABLE int wordAt(const QUrl &source, int page, const QPointF &point, qreal tolerance = 2);
+    // The word (unit "word", a double click) or the sentence ("sentence", a triple click) at a point (PDF points):
+    // {page, from, to (points on its first and last characters: a selection between them is exactly it), text},
+    // or {} off the text. Answered by spanFound(request, span).
+    Q_INVOKABLE int spanAt(const QUrl &source, int page, const QPointF &point, const QString &unit);
+    static QVariantMap findSpan(QPdfDocument &pdf, int page, const QPointF &point, const QString &unit);
+    // Where the word or the sentence around text[at] begins and ends (end exclusive); {-1, -1} for none.
+    static QPair<qsizetype, qsizetype> wordBounds(const QString &text, qsizetype at);
+    static QPair<qsizetype, qsizetype> sentenceBounds(const QString &text, qsizetype at);
 
 signals:
     void resolved(int request, const QVariantMap &target);
     void objectFound(int request, const QVariantMap &target);
     void wordFound(int request, const QVariantMap &word);
+    void spanFound(int request, const QVariantMap &span);
 
 private:
     QVariantMap find(const QString &path, int page, const QPointF &point, int request);

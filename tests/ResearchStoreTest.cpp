@@ -1005,6 +1005,60 @@ private slots:
         QCOMPARE(store.recentDocuments()[0].toMap()["url"].toUrl(), first);
         QVERIFY(QFileInfo::exists(copy)); // Files are never touched.
     }
+    void doubleAndTripleClicksTakeAWordAndASentence()
+    {
+        // Text-only steps: a word stops at spaces and punctuation; a sentence at . ! ? that end one.
+        const QString text = "See Fig. 3 for approx. ten runs, e.g. the best one. A third (one) ends here! Next";
+        const auto at = [&](const QString &needle) { return text.indexOf(needle); };
+        const auto word = ReferenceFinder::wordBounds(text, at("approx") + 2);
+        QCOMPARE(text.mid(word.first, word.second - word.first), QString("approx"));
+        QCOMPARE(ReferenceFinder::wordBounds(text, at(",")).first, qsizetype(-1));
+        const auto first = ReferenceFinder::sentenceBounds(text, at("ten"));
+        QCOMPARE(text.mid(first.first, first.second - first.first),
+            QString("See Fig. 3 for approx. ten runs, e.g. the best one."));
+        const auto second = ReferenceFinder::sentenceBounds(text, at("third"));
+        QCOMPARE(text.mid(second.first, second.second - second.first), QString("A third (one) ends here!"));
+        const QString apostrophe = "we don't stop";
+        const auto inner = ReferenceFinder::wordBounds(apostrophe, 5);
+        QCOMPARE(apostrophe.mid(inner.first, inner.second - inner.first), QString("don't"));
+        // On a PDF: the points returned select exactly that word or sentence, also a one-letter word.
+        QTemporaryDir directory;
+        const auto path = directory.filePath("sentences.pdf");
+        writeTextFixture(path, {text + " and a word", "axis x of the plot"});
+        QPdfDocument pdf;
+        QCOMPARE(pdf.load(path), QPdfDocument::Error::None);
+        const auto pageText = pdf.getAllText(0).text();
+        const auto point = [&](const QString &needle, int offset) {
+            return pdf.getSelectionAtIndex(0, int(pageText.indexOf(needle)) + offset, 1).boundingRectangle().center();
+        };
+        const auto span = [&](const QString &needle, int offset, const QString &unit) {
+            return ReferenceFinder::findSpan(pdf, 0, point(needle, offset), unit)["text"].toString();
+        };
+        QCOMPARE(span("approx", 3, "word"), QString("approx"));
+        QCOMPARE(span("runs", 0, "word"), QString("runs"));
+        // One letter: alone mid-line; at the end of a line Qt's selection can only start in the space before it.
+        QCOMPARE(span(" a word", 1, "word").trimmed(), QString("a"));
+        QCOMPARE(
+            span("ten", 1, "sentence").simplified(), QString("See Fig. 3 for approx. ten runs, e.g. the best one."));
+        QCOMPARE(span("third", 2, "sentence").simplified(), QString("A third (one) ends here!"));
+        QVERIFY(ReferenceFinder::findSpan(pdf, 0, QPointF(5, 5), "word").isEmpty()); // Off the text.
+        const auto plot = pdf.getAllText(1).text();
+        const auto x = pdf.getSelectionAtIndex(1, int(plot.indexOf(" x ")) + 1, 1).boundingRectangle().center();
+        QCOMPARE(ReferenceFinder::findSpan(pdf, 1, x, "word")["text"].toString(), QString("x"));
+        // A heading or a short last line ends a sentence without a full stop; lines that run on do not.
+        const auto layout = directory.filePath("layout.pdf");
+        writeFixture(layout, "A Small Research Reader", 1);
+        QPdfDocument page;
+        QCOMPARE(page.load(layout), QPdfDocument::Error::None);
+        const auto all = page.getAllText(0).text();
+        const auto on = [&](const QString &needle) {
+            return page.getSelectionAtIndex(0, int(all.indexOf(needle)) + 2, 1).boundingRectangle().center();
+        };
+        QCOMPARE(ReferenceFinder::findSpan(page, 0, on("occlusion"), "sentence")["text"].toString().simplified(),
+            QString("Research finding 1.1: occlusion links observation to context."));
+        QCOMPARE(ReferenceFinder::findSpan(page, 0, on("Remember"), "sentence")["text"].toString().simplified(),
+            QString::fromUtf8("Section 1 \u2014 Remember the evidence"));
+    }
     void forYouOfflineIsNotTodaysCheck()
     {
         QTemporaryDir directory;

@@ -114,6 +114,24 @@ public:
         item->forceActiveFocus();
         QTest::keyClick(item->window(), Qt::Key(key), Qt::KeyboardModifiers(modifiers));
     }
+    // Clicks in quick succession at one point (two: a double click, three: a triple click), as a mouse sends them.
+    Q_INVOKABLE void clicks(QQuickItem *item, QPointF point, int count)
+    {
+        if (!item || !item->window()) return;
+        auto *window = item->window();
+        const QPointF local = item->mapToScene(point);
+        for (int n = 0; n < count; ++n)
+            for (const auto type : {QEvent::MouseButtonPress, QEvent::MouseButtonRelease}) {
+                const bool press = type == QEvent::MouseButtonPress;
+                QMouseEvent event(type, local, window->mapToGlobal(local), Qt::LeftButton,
+                    press ? Qt::MouseButtons(Qt::LeftButton) : Qt::NoButton, Qt::NoModifier);
+                m_timestamp += 40;
+                event.setTimestamp(m_timestamp);
+                QCoreApplication::sendEvent(window, &event);
+                QCoreApplication::processEvents();
+            }
+        m_timestamp += 2000; // The next click starts afresh.
+    }
     // Exercise input-device filtering inside the offscreen test window only.
     Q_INVOKABLE void pointerDrag(QQuickItem *item, QPointF start, QPointF end, bool trackpad)
     {
