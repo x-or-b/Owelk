@@ -69,10 +69,18 @@ public:
     // problem). Asked on Return, not while typing: without a key every search spends the shared allowance.
     Q_INVOKABLE void findPeople(const QString &text);
     Q_INVOKABLE bool followPerson(const QVariantMap &person);
+    // A paper's authors from its OpenAlex record, found by its OpenAlex ID, DOI, arXiv ID or (failing those) its
+    // exact title, for Follow Author: answered by authorsFound(request, [{id, kind "person", name, detail (where
+    // they work), position (first, middle or last), corresponding, institutions [{id, kind "institution", name,
+    // detail}]}], problem). The last and the corresponding author come first: usually who leads the work.
+    // paper: {openalex, doi, arxiv, title}.
+    Q_INVOKABLE int findAuthors(const QVariantMap &paper);
     Q_INVOKABLE void unfollowPerson(const QString &id);
     Q_INVOKABLE void setPersonOn(const QString &id, bool on);
     // An OpenAlex key (optional, free) kept in the system keyring: its own daily allowance instead of the one
     // everyone on this network shares.
+    // Opens Library › For You › Following, where what is followed is chosen (followingRequested).
+    Q_INVOKABLE void showFollowing() { emit followingRequested(); }
     Q_INVOKABLE bool hasOpenAlexKey() const;
     Q_INVOKABLE bool setOpenAlexKey(const QString &key);
     // How many papers one source brings at most in a check ("topic:<id>", "collection:<id>", "person:<id>" or
@@ -113,6 +121,8 @@ signals:
     void previewingChanged();
     void findingPeopleChanged();
     void peopleFound(const QString &text, const QVariantList &found, const QString &problem);
+    void authorsFound(int request, const QVariantList &authors, const QString &problem);
+    void followingRequested();
     void previewReady(const QString &id, const QUrl &file);
     void previewFailed(const QString &id, const QString &why);
     void webRequested(const QUrl &url);
@@ -127,6 +137,8 @@ private:
     void finishCheck();
     void found(const QVariantList &papers, const QString &source, const QString &sourceName);
     void addNext();
+    // One way of finding a paper on OpenAlex after another, until one gives its authors.
+    void lookUpAuthors(int request, const QList<QUrl> &tries, const QString &title, int at);
     void finishAdd(const QVariantMap &item, const QUrl &file);
     // A PDF's bytes into the Library under the paper's name, then finishAdd.
     bool saveIntoLibrary(const QVariantMap &paper, const QByteArray &bytes);
@@ -169,6 +181,7 @@ private:
     int m_rankRequest = -1;
     QString m_aiProblem;
     int m_peopleRequests = 0;
+    int m_authorRequest = 0;
 };
 
 namespace ForYouParse {
@@ -182,6 +195,9 @@ QVariantList recommendations(const QByteArray &json);
 // arxiv.org location or an arXiv DOI), and researchers ("person") or institutions in a search answer.
 QVariantList openAlexWorks(const QByteArray &json);
 QVariantList openAlexPeople(const QByteArray &json, const QString &kind);
+// The authors of one OpenAlex work (its record, or the first result of a search), ordered as findAuthors gives them;
+// with a title, only a work of that title (letters and digits compared).
+QVariantList openAlexAuthors(const QByteArray &json, const QString &title = QString());
 // An address a PDF can be fetched from (not a DOI link, which leads to a publisher's page).
 bool isPdfAddress(const QString &address);
 }

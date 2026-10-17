@@ -391,6 +391,21 @@ public slots:
                     } else if (head.contains("GET /institutions?")) {
                         type = "application/json";
                         body = "{\"results\":[]}";
+                    } else if (head.contains("GET /works/doi:10.7/follow")) {
+                        // One paper's record, for Follow Author: the last author leads.
+                        type = "application/json";
+                        body = "{\"id\":\"https://openalex.org/W5\",\"title\":\"Followed Paper\",\"authorships\":["
+                               "{\"author_position\":\"first\",\"author\":{\"id\":\"https://openalex.org/A501\","
+                               "\"display_name\":\"Ada Student\"},\"institutions\":[{\"id\":\"https://openalex.org/"
+                               "I601\",\"display_name\":\"Owelk University\",\"country_code\":\"KR\"}]},"
+                               "{\"author_position\":\"last\",\"is_corresponding\":true,\"author\":{\"id\":"
+                               "\"https://openalex.org/A502\",\"display_name\":\"Grace Professor\"},\"institutions\":"
+                               "[{\"id\":\"https://openalex.org/I601\",\"display_name\":\"Owelk University\","
+                               "\"country_code\":\"KR\"}]}]}";
+                    } else if (head.contains("GET /works/")) {
+                        socket->write("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                        socket->disconnectFromHost();
+                        return;
                     } else if (head.contains("GET /works?")) {
                         type = "application/json";
                         body = QStringLiteral("{\"results\":[{\"id\":\"https://openalex.org/W777\",\"doi\":"

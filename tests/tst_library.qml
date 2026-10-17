@@ -8,6 +8,7 @@ import "../qml/WorkspaceTree.js" as Tree
 Item {
     width: 1440; height: 930
     App.Main { id: workspace }
+    Component { id: followAuthorComponent; App.FollowAuthorDialog {} }
     TestCase {
         name: "Library"
         when: windowShown
@@ -398,6 +399,83 @@ Item {
             verify(!researchStore.note(one).deleted)
             researchStore.deleteNote(one)
         }
+        function test_forYouFollowingChoosesWhatToFollow() {
+            const forYou = researchStore.forYou
+            researchStore.setSetting("forYou.openAlexBaseUrl", testInput.webFixture("").toString())
+            forYou.saveTopics([])
+            forYou.showFollowing()
+            tryVerify(function() { return activeTab().kind === "library" && activeTab().filter.following === true })
+            const view = library()
+            let following = null
+            tryVerify(function() { following = visualChild(view, "forYouFollowing"); return following !== null })
+            const field = visualChild(following, "forYouFollowField")
+            // A topic at once (no request): words and arXiv categories apart.
+            field.text = "lidar odometry, cs.RO"
+            const topic = visualChild(following, "forYouFollowTopic")
+            tryCompare(topic, "visible", true)
+            compare(topic.label, "lidar odometry")
+            visualChild(following, "forYouFollowTopicButton").clicked()
+            compare(forYou.topics().length, 1)
+            compare(forYou.topics()[0].words, "lidar odometry")
+            compare(forYou.topics()[0].categories, "cs.RO")
+            compare(field.text, "")
+            // Its own number per check, off, and removed.
+            const key = "topic:" + forYou.topics()[0].id
+            let count = null
+            tryVerify(function() { count = visualChild(following, "forYouCount-" + key); return count !== null })
+            count.activated(1)
+            compare(forYou.perCheck(key), 5)
+            count.activated(0)
+            const toggle = visualChild(following, "forYouTopicSwitch-0")
+            toggle.toggle(); toggle.toggled()
+            compare(forYou.topics()[0].on, false)
+            visualChild(following, "forYouRemoveTopic-0").clicked()
+            compare(forYou.topics().length, 0)
+            // Researchers and institutions on Return (OpenAlex), followed from the list.
+            field.text = "Grace Hopper"
+            visualChild(following, "forYouFollowSearch").clicked()
+            let found = null
+            tryVerify(function() { found = visualChild(following, "forYouFound-A777"); return found !== null }, 10000)
+            compare(found.detail, "Researcher · Harvard · 40 papers")
+            visualChild(following, "forYouFollowFound-A777").clicked()
+            compare(forYou.people().length, 1)
+            tryVerify(function() { return visualChild(following, "forYouPerson-A777") !== null })
+            // A row shows its papers: back to Papers, narrowed to it.
+            following.sourceChosen("person:A777")
+            tryCompare(view, "showingFollowing", false)
+            compare(view.forYouSource, "person:A777")
+            view.forYouSource = ""
+            forYou.unfollowPerson("A777")
+            compare(forYou.people().length, 0)
+        }
+        function test_followAuthorFromAPaper() {
+            const forYou = researchStore.forYou
+            researchStore.setSetting("forYou.openAlexBaseUrl", testInput.webFixture("").toString())
+            const dialog = createTemporaryObject(followAuthorComponent, workspace.contentItem)
+            // From the paper's record (its DOI): the last and corresponding author first, with where they work.
+            dialog.begin({title: "Followed Paper", doi: "10.7/follow"})
+            tryCompare(dialog, "looking", false, 10000)
+            compare(dialog.authors.length, 2)
+            compare(dialog.authors[0].name, "Grace Professor")
+            compare(dialog.roles(dialog.authors[0]), "Last author · Corresponding · Owelk University")
+            compare(dialog.institutions.length, 1)
+            visualChild(dialog.contentItem, "followAuthorButton-A502").clicked()
+            visualChild(dialog.contentItem, "followAuthorButton-I601").clicked()
+            compare(forYou.people().map(function(p) { return p.id }).sort(), ["A502", "I601"])
+            tryCompare(visualChild(dialog.contentItem, "followAuthorButton-A502"), "text", "Following")
+            // No record (nor a paper of that title): look the person up by name instead.
+            dialog.begin({title: "A Paper Nobody Has Indexed Yet", doi: "10.7/missing"})
+            tryCompare(dialog, "looking", false, 10000)
+            compare(dialog.authors.length, 0)
+            verify(dialog.problem.length > 0)
+            verify(visualChild(dialog.contentItem, "followAuthorSearch").visible)
+            dialog.close()
+            forYou.unfollowPerson("A502"); forYou.unfollowPerson("I601")
+            // Every paper menu offers it.
+            workspace.homeVisible = true
+            findChild(workspace, "homeView").libraryFilterRequested({})
+            verify(findChild(library(), "followAuthorOption") !== null)
+        }
         function test_forYouFollowedResearchersOnly() {
             const forYou = researchStore.forYou
             researchStore.setSetting("forYou.openAlexBaseUrl", testInput.webFixture("").toString())
@@ -432,17 +510,15 @@ Item {
             researchStore.setSetting("forYou.recommendBaseUrl", testInput.webFixture("/recommendations/v1").toString())
             researchStore.setSetting("forYou.delayMs", "10")
             forYou.saveTopics([]); researchStore.setSetting("forYou.collections", "")
-            // Nothing followed: Home shows one line that leads to the settings.
+            // Nothing followed: Home shows one line that leads to For You › Following.
             workspace.homeVisible = true
             const home = findChild(workspace, "homeView")
             waitForPolish(home); wait(50)
             verify(!forYou.configured)
             verify(visualChild(home, "homeForYouHint").visible)
             mouseClick(visualChild(home, "homeForYouHint"))
-            const settings = findChild(workspace, "settingsDialog")
-            tryCompare(settings, "opened", true)
-            compare(settings.page, "foryou")
-            settings.close(); tryCompare(settings, "visible", false)
+            tryVerify(function() { return activeTab().kind === "library" && activeTab().filter.following === true })
+            workspace.homeVisible = true
             // A topic: Check finds a paper. The AI, set up after the check, then says why it fits.
             researchStore.setSetting("ai.baseUrl.claude", testInput.webFixture("/").toString())
             researchStore.ai.provider = "claude"

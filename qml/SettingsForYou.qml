@@ -3,7 +3,8 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Owelk.Ui
 
-// For You: the topics, researchers, institutions and collections followed, and how often and how far back to look.
+// For You: how often and how far back to look, the AI, and the OpenAlex key. What is followed is chosen in
+// Library › For You › Following.
 ColumnLayout {
     id: root
     objectName: "forYouSettings"
@@ -12,217 +13,24 @@ ColumnLayout {
     // Read again after a change here.
     property int revision: 0
     Connections { target: researchStore; function onSettingsChanged() { root.revision++ } }
-    // Topics and followed collections live in the library (they sync).
+    // What is followed lives in the library (it syncs).
     Connections { target: root.forYou; function onSettingsChanged() { root.revision++ } }
-    readonly property var topics: (revision, forYou.topics())
-    readonly property var collections: (revision, researchStore.documentsRevision, researchStore.collections())
-    function saveTopics(list) { forYou.saveTopics(list) }
-    // How many papers one topic, researcher, institution or collection brings at most: its own number, or the
-    // usual one (Checking, below).
-    readonly property var counts: [5, 10, 20, 50]
-    component CountBox: ComboBox {
-        required property string source
-        objectName: "forYouCount-" + source
-        Layout.preferredWidth: 96
-        model: [qsTr("Usual")].concat(root.counts.map(function(n) { return String(n) }))
-        currentIndex: Math.max(0, root.counts.indexOf((root.revision, root.forYou.perCheck(source))) + 1)
-        ToolTip.visible: hovered; ToolTip.delay: 500
-        ToolTip.text: qsTr("Papers at most in each check")
-        onActivated: function(index) { root.forYou.setPerCheck(source, index > 0 ? root.counts[index - 1] : 0) }
-    }
-    function setTopic(index, change) {
-        const list = topics.map(function(t) { return Object.assign({}, t) })
-        Object.assign(list[index], change)
-        saveTopics(list)
-    }
-    function addTopic() {
-        if (!topicWords.text.trim().length && !topicCategories.text.trim().length) return
-        saveTopics(topics.concat([{words: topicWords.text, categories: topicCategories.text, on: true}]))
-        topicWords.clear(); topicCategories.clear()
-        topicWords.forceActiveFocus()
-    }
-    SettingsGroup {
-        objectName: "settingsGroup-topics"
-        title: qsTr("Topics")
-        note: qsTr("New arXiv papers with any of the words (separate them with commas), in any of the categories, such as cs.RO or cs.CV. Either may be left empty.")
-        Repeater {
-            model: root.topics
-            delegate: SettingsRow {
-                id: topicRow
-                required property var modelData
-                required property int index
-                objectName: "forYouTopic-" + index
-                label: modelData.words || modelData.categories
-                detail: modelData.words ? modelData.categories : ""
-                opacity: modelData.on === false ? .55 : 1
-                CountBox { source: "topic:" + topicRow.modelData.id }
-                IconButton {
-                    objectName: "forYouRemoveTopic-" + topicRow.index
-                    icon.name: "trash"; description: qsTr("Remove")
-                    onClicked: root.saveTopics(root.topics.filter(function(_, i) { return i !== topicRow.index }))
-                }
-                Switch {
-                    objectName: "forYouTopicSwitch-" + topicRow.index
-                    checked: topicRow.modelData.on !== false
-                    onToggled: root.setTopic(topicRow.index, {on: checked})
-                }
-            }
-        }
-        SettingsRow {
-            objectName: "settingsRow-addTopic"
-            wide: true
-            TextField {
-                id: topicWords
-                objectName: "forYouTopicWords"
-                Layout.fillWidth: true
-                placeholderText: qsTr("Words: lidar odometry, SLAM")
-                onAccepted: root.addTopic()
-            }
-            TextField {
-                id: topicCategories
-                objectName: "forYouTopicCategories"
-                Layout.preferredWidth: 130
-                placeholderText: qsTr("cs.RO, cs.CV")
-                onAccepted: root.addTopic()
-            }
-            Button {
-                objectName: "forYouAddTopic"
-                text: qsTr("Add")
-                enabled: topicWords.text.trim().length > 0 || topicCategories.text.trim().length > 0
-                onClicked: root.addTopic()
-            }
-        }
-    }
-    // Researchers and institutions, found by name on OpenAlex. Searching asks only when told to (Return or
-    // Search): without a key every search spends the allowance everyone on this network shares.
     readonly property var people: (revision, forYou.people())
+    readonly property var counts: [5, 10, 20, 50]
     readonly property bool openAlexKey: (revision, forYou.hasOpenAlexKey())
-    property var peopleFound: []
-    property string peopleAsked: ""
-    property string peopleProblem: ""
-    Connections {
-        target: root.forYou
-        function onPeopleFound(text, found, problem) { root.peopleAsked = text; root.peopleFound = found; root.peopleProblem = problem }
-    }
-    function findPeople() { if (peopleSearch.text.trim().length >= 2) forYou.findPeople(peopleSearch.text) }
-    function kindName(kind) { return kind === "person" ? qsTr("Researcher") : qsTr("Institution") }
+    readonly property int followed: (revision, researchStore.documentsRevision,
+        forYou.topics().length + people.length + researchStore.collections().filter(function(c) { return root.forYou.following(c.id) }).length)
+    // What is followed is chosen in For You itself (Library › For You › Following); here, how For You looks.
     SettingsGroup {
-        objectName: "settingsGroup-people"
-        title: qsTr("Researchers and institutions")
-        // Only a problem is said here (red); the rows speak for themselves.
-        note: root.peopleProblem
-        noteColor: Theme.danger
-        Repeater {
-            model: root.people
-            delegate: SettingsRow {
-                id: personRow
-                required property var modelData
-                objectName: "forYouPerson-" + modelData.id
-                label: modelData.name
-                detail: root.kindName(modelData.kind) + (modelData.detail ? " · " + modelData.detail : "")
-                opacity: modelData.on === false ? .55 : 1
-                CountBox { source: personRow.modelData.kind + ":" + personRow.modelData.id }
-                IconButton {
-                    objectName: "forYouUnfollow-" + personRow.modelData.id
-                    icon.name: "trash"; description: qsTr("Stop following")
-                    onClicked: root.forYou.unfollowPerson(personRow.modelData.id)
-                }
-                Switch {
-                    objectName: "forYouPersonSwitch-" + personRow.modelData.id
-                    checked: personRow.modelData.on !== false
-                    onToggled: root.forYou.setPersonOn(personRow.modelData.id, checked)
-                }
-            }
-        }
+        objectName: "settingsGroup-following"
+        title: qsTr("Following")
         SettingsRow {
-            objectName: "settingsRow-findPeople"
-            wide: true
-            TextField {
-                id: peopleSearch
-                objectName: "forYouPeopleSearch"
-                Layout.fillWidth: true
-                placeholderText: qsTr("A researcher's or an institution's name")
-                onAccepted: root.findPeople()
-            }
+            objectName: "settingsRow-following"
+            label: root.followed === 1 ? qsTr("1 topic, researcher, institution or collection") : qsTr("%1 topics, researchers, institutions and collections").arg(root.followed)
             Button {
-                objectName: "forYouFindPeople"
-                text: root.forYou.findingPeople ? qsTr("Searching…") : qsTr("Search")
-                enabled: !root.forYou.findingPeople && peopleSearch.text.trim().length >= 2
-                onClicked: root.findPeople()
-            }
-        }
-        // What the search found: each with where they are and how many papers OpenAlex knows, to tell
-        // people of the same name apart.
-        Repeater {
-            model: root.peopleFound
-            delegate: SettingsRow {
-                id: foundRow
-                required property var modelData
-                readonly property bool followed: root.people.some(function(p) { return p.id === modelData.id })
-                objectName: "forYouFound-" + modelData.id
-                label: modelData.name
-                detail: [root.kindName(modelData.kind), modelData.detail, modelData.papers + qsTr(" papers")]
-                        .filter(function(t) { return t && String(t).length }).join(" · ")
-                Button {
-                    objectName: "forYouFollowFound-" + foundRow.modelData.id
-                    text: foundRow.followed ? qsTr("Following") : qsTr("Follow")
-                    enabled: !foundRow.followed
-                    onClicked: root.forYou.followPerson(foundRow.modelData)
-                }
-            }
-        }
-        SettingsRow {
-            objectName: "forYouNobodyFound"
-            visible: root.peopleAsked.length > 0 && !root.peopleFound.length && !root.peopleProblem.length
-            label: qsTr("Nobody by that name on OpenAlex")
-        }
-        SettingsRow {
-            objectName: "settingsRow-openAlexKey"
-            wide: !root.openAlexKey
-            label: qsTr("OpenAlex key")
-            TextField {
-                id: openAlexKeyField
-                objectName: "forYouOpenAlexKey"
-                visible: !root.openAlexKey
-                Layout.fillWidth: true
-                echoMode: TextInput.Password
-                placeholderText: qsTr("Paste a key")
-                onAccepted: if (text.trim().length) { root.forYou.setOpenAlexKey(text); clear() }
-            }
-            Button {
-                objectName: "forYouOpenAlexKeySave"
-                text: root.openAlexKey ? qsTr("Remove") : qsTr("Save")
-                enabled: root.openAlexKey || openAlexKeyField.text.trim().length > 0
-                onClicked: {
-                    root.forYou.setOpenAlexKey(root.openAlexKey ? "" : openAlexKeyField.text)
-                    openAlexKeyField.clear()
-                }
-            }
-        }
-    }
-    SettingsGroup {
-        objectName: "settingsGroup-followCollections"
-        title: qsTr("Collections")
-        note: root.collections.length ? qsTr("Papers like the ones in a followed collection, from Semantic Scholar. It looks at the papers that have an arXiv ID or a DOI (Paper Details).")
-                                      : qsTr("Make collections in the Library to follow them here.")
-        Repeater {
-            model: root.collections
-            delegate: SettingsRow {
-                id: collectionRow
-                required property var modelData
-                readonly property int usable: (root.revision, root.forYou.usablePapers(modelData.id))
-                readonly property bool followed: (root.revision, root.forYou.following(modelData.id))
-                objectName: "forYouCollection-" + modelData.name
-                label: "    ".repeat(modelData.depth || 0) + modelData.name
-                detail: usable ? usable + (usable === 1 ? qsTr(" paper to compare with") : qsTr(" papers to compare with"))
-                               : qsTr("Needs a paper with an arXiv ID or DOI")
-                CountBox { visible: collectionRow.followed; source: "collection:" + collectionRow.modelData.id }
-                Switch {
-                    objectName: "forYouFollow-" + collectionRow.modelData.name
-                    checked: collectionRow.followed
-                    enabled: collectionRow.usable > 0 || collectionRow.followed
-                    onToggled: root.forYou.follow(collectionRow.modelData.id, checked)
-                }
+                objectName: "forYouEditFollowing"
+                text: qsTr("Edit in For You…")
+                onClicked: root.forYou.showFollowing()
             }
         }
     }
@@ -230,7 +38,7 @@ ColumnLayout {
         objectName: "settingsGroup-forYouChecking"
         title: qsTr("Checking")
         note: root.forYou.problem.length ? root.forYou.problem
-            : qsTr("Papers found wait in Home and in Library › For You until you add or dismiss them. Only the words, categories, arXiv IDs or DOIs and the OpenAlex IDs of the researchers and institutions above are sent.")
+            : qsTr("Papers found wait in Home and in Library › For You until you add or dismiss them. Only the words, categories, arXiv IDs or DOIs of what you follow, and the OpenAlex IDs of the researchers and institutions you follow, are sent.")
         noteColor: root.forYou.problem.length ? Theme.danger : Theme.textTertiary
         SettingsRow {
             objectName: "settingsRow-forYouDaily"
@@ -311,6 +119,29 @@ ColumnLayout {
                 enabled: root.forYou.configured && !root.forYou.checking
                 onClicked: root.forYou.refresh()
             }
+        SettingsRow {
+            objectName: "settingsRow-openAlexKey"
+            wide: !root.openAlexKey
+            label: qsTr("OpenAlex key")
+            TextField {
+                id: openAlexKeyField
+                objectName: "forYouOpenAlexKey"
+                visible: !root.openAlexKey
+                Layout.fillWidth: true
+                echoMode: TextInput.Password
+                placeholderText: qsTr("Paste a key")
+                onAccepted: if (text.trim().length) { root.forYou.setOpenAlexKey(text); clear() }
+            }
+            Button {
+                objectName: "forYouOpenAlexKeySave"
+                text: root.openAlexKey ? qsTr("Remove") : qsTr("Save")
+                enabled: root.openAlexKey || openAlexKeyField.text.trim().length > 0
+                onClicked: {
+                    root.forYou.setOpenAlexKey(root.openAlexKey ? "" : openAlexKeyField.text)
+                    openAlexKeyField.clear()
+                }
+            }
+        }
         }
     }
 }

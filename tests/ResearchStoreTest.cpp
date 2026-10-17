@@ -1265,7 +1265,12 @@ private slots:
             connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
                 const auto head = QUrl::fromPercentEncoding(socket->readAll().split('\r').value(0));
                 requests << head;
-                QByteArray body = "{\"results\":[]}", type = "application/json";
+                QByteArray body = "{\"results\":[]}", type = "application/json", status = "200 OK";
+                const auto authorship = [](const QString &id, const QString &name, const QString &position) {
+                    return QStringLiteral("{\"author_position\":\"%3\",\"author\":{\"id\":\"https://openalex.org/"
+                                          "%1\",\"display_name\":\"%2\"}}")
+                        .arg(id, name, position);
+                };
                 const auto work = [&](const QString &id, const QString &title, const QString &doi) {
                     return QStringLiteral("{\"results\":[{\"id\":\"https://openalex.org/%1\",\"doi\":\"https://doi.org/"
                                           "%3\",\"title\":\"%2\",\"publication_date\":\"%4\",\"authorships\":[],"
@@ -1273,7 +1278,19 @@ private slots:
                         .arg(id, title, doi, today, base)
                         .toUtf8();
                 };
-                if (head.contains("/authors?"))
+                if (head.contains("/works/doi:10.7/missing"))
+                    status = "404 Not Found";
+                else if (head.contains("/works/doi:10.48550/arXiv.2601.00099"))
+                    body = ("{\"id\":\"https://openalex.org/W9\",\"title\":\"By arXiv\",\"authorships\":["
+                        + authorship("A1", "First Student", "first") + "," + authorship("A2", "Middle One", "middle")
+                        + "," + authorship("A3", "Lab Head", "last") + "]}")
+                               .toUtf8();
+                else if (head.contains("/works?search="))
+                    body = ("{\"results\":[{\"title\":\"Another Paper\",\"authorships\":["
+                        + authorship("A8", "Wrong Person", "first") + "]},{\"title\":\"Exactly This Title!\","
+                        + "\"authorships\":[" + authorship("A9", "Right Person", "first") + "]}]}")
+                               .toUtf8();
+                else if (head.contains("/authors?"))
                     body = "{\"results\":[{\"id\":\"https://openalex.org/A111\",\"display_name\":\"Ada Lovelace\","
                            "\"last_known_institutions\":[{\"display_name\":\"Analytical "
                            "University\"}],\"works_count\":12},"
@@ -1295,8 +1312,9 @@ private slots:
                               .arg(today)
                               .toUtf8();
                 }
-                socket->write("HTTP/1.1 200 OK\r\nContent-Type: " + type + "\r\nConnection: close\r\nContent-Length: "
-                    + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+                socket->write("HTTP/1.1 " + status + "\r\nContent-Type: " + type
+                    + "\r\nConnection: close\r\nContent-Length: " + QByteArray::number(body.size()) + "\r\n\r\n"
+                    + body);
                 socket->disconnectFromHost();
             });
         });
@@ -1359,6 +1377,22 @@ private slots:
         QStringList sources{items[0].toMap()["source"].toString(), items[1].toMap()["source"].toString()};
         sources.sort();
         QCOMPARE(sources, (QStringList{"institution:I222", "person:A111"}));
+        // A paper's authors: by DOI (none here), then by its arXiv ID; the last author first.
+        QSignalSpy authors(forYou, &ForYou::authorsFound);
+        forYou->findAuthors({{"doi", "10.7/missing"}, {"arxiv", "2601.00099v2"}, {"title", "By arXiv"}});
+        QTRY_COMPARE_WITH_TIMEOUT(authors.size(), 1, 10000);
+        const auto byArxiv = authors[0][1].toList();
+        QCOMPARE(byArxiv.size(), 3);
+        QCOMPARE(byArxiv[0].toMap()["name"].toString(), QString("Lab Head"));
+        QCOMPARE(byArxiv[1].toMap()["name"].toString(), QString("First Student"));
+        // Without either: a search by title, taking only a paper of exactly that title.
+        forYou->findAuthors({{"title", "Exactly this title"}});
+        QTRY_COMPARE_WITH_TIMEOUT(authors.size(), 2, 10000);
+        QCOMPARE(authors[1][1].toList().value(0).toMap()["name"].toString(), QString("Right Person"));
+        forYou->findAuthors({{"title", "Nothing like it at all"}});
+        QTRY_COMPARE_WITH_TIMEOUT(authors.size(), 3, 10000);
+        QVERIFY(authors[2][1].toList().isEmpty());
+        QVERIFY(!authors[2][2].toString().isEmpty());
         // Turned off or no longer followed: not asked for.
         forYou->setPersonOn("A111", false);
         forYou->unfollowPerson("I222");

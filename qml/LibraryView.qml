@@ -70,6 +70,13 @@ Rectangle {
     readonly property bool showingNotes: view === "notes"
     readonly property bool showingTrash: view === "trash"
     readonly property bool showingForYou: view === "foryou"
+    // For You shows the papers found, or what is followed (Following).
+    readonly property bool showingFollowing: showingForYou && filter.following === true
+    function showFollowing(on) {
+        const next = Object.assign({}, filter)
+        if (on) next.following = true; else delete next.following
+        setFilter(next)
+    }
     // For You: new papers found for what is followed, narrowed to one source when chosen.
     readonly property var forYou: researchStore.forYou
     property string forYouSource: ""
@@ -458,6 +465,7 @@ Rectangle {
         nameFilters: ["PDF documents (*.pdf)"]
         onAccepted: researchStore.addDocuments(selectedFiles, root.filter.collection || "")
     }
+    Loader { id: followAuthor; active: false; sourceComponent: FollowAuthorDialog { onSearchRequested: root.showFollowing(true) } }
     PaperMenu {
         id: paperMenu
         collectionId: root.filter.collection || ""
@@ -582,10 +590,20 @@ Rectangle {
                     visible: root.showingForYou
                     spacing: 8
                     Label { text: qsTr("For You"); font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
+                    Chip {
+                        objectName: "libraryForYouPapersTab"
+                        text: qsTr("Papers"); checkable: true; checked: !root.showingFollowing
+                        onClicked: root.showFollowing(false)
+                    }
+                    Chip {
+                        objectName: "libraryForYouFollowingTab"
+                        text: qsTr("Following"); checkable: true; checked: root.showingFollowing
+                        onClicked: root.showFollowing(true)
+                    }
                     Label {
                         objectName: "libraryForYouCount"
                         Layout.alignment: Qt.AlignBaseline
-                        visible: root.forYou.items.length > 0
+                        visible: root.forYou.items.length > 0 && !root.showingFollowing
                         text: root.forYouRows.length + (root.forYouRows.length === 1 ? qsTr(" paper") : qsTr(" papers"))
                         font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                     }
@@ -597,6 +615,7 @@ Rectangle {
                     }
                     // The AI's view of each paper: most relevant first, one sentence on why.
                     IconButton {
+                        visible: !root.showingFollowing
                         objectName: "libraryForYouExplain"
                         icon.name: "ai"; description: qsTr("Explain with AI")
                         enabled: !root.forYou.explaining && root.forYou.items.some(function(p) { return !p.why })
@@ -612,14 +631,14 @@ Rectangle {
                 }
                 Label {
                     objectName: "libraryForYouAiProblem"
-                    visible: root.showingForYou && root.forYou.aiProblem.length > 0 && !root.forYou.explaining
+                    visible: root.showingForYou && !root.showingFollowing && root.forYou.aiProblem.length > 0 && !root.forYou.explaining
                     Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
                     text: root.forYou.aiProblem
                     wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                 }
                 RowLayout {
                     Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
-                    visible: root.showingForYou && root.forYou.items.length > 0
+                    visible: root.showingForYou && !root.showingFollowing && root.forYou.items.length > 0
                     spacing: 4
                     Repeater {
                         model: root.selecting ? [] : [{key: "all", name: qsTr("All")}, {key: "today", name: qsTr("Today")},
@@ -704,7 +723,7 @@ Rectangle {
                     // A column of reading width, in the middle.
                     Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
                     objectName: "libraryForYou"
-                    visible: root.showingForYou
+                    visible: root.showingForYou && !root.showingFollowing
                     Layout.fillHeight: true
                     clip: true
                     model: root.showingForYou ? root.forYouRows : []
@@ -815,6 +834,16 @@ Rectangle {
                                         ToolTip.text: qsTr("No free PDF was found. A PDF you download there joins the Library, and the paper leaves For You.")
                                     }
                                     Button {
+                                        objectName: "libraryForYouFollowAuthor"
+                                        flat: true; implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
+                                        text: qsTr("Follow Author…")
+                                        onClicked: {
+                                            followAuthor.active = true
+                                            const p = found.modelData
+                                            followAuthor.item.begin({title: p.title || "", doi: p.doi || "", arxiv: p.arxiv || "", openalex: p.openalex || ""})
+                                        }
+                                    }
+                                    Button {
                                         objectName: "libraryForYouOpenDismiss"
                                         visible: !found.adding
                                         flat: true; implicitHeight: Theme.controlHeightSmall; font.pixelSize: Theme.fontSmall
@@ -877,9 +906,20 @@ Rectangle {
                             objectName: "libraryForYouSetup"
                             visible: !root.forYou.configured
                             Layout.alignment: Qt.AlignHCenter
-                            text: qsTr("Choose Topics…")
-                            onClicked: root.settingsRequested("foryou")
+                            text: qsTr("Choose What to Follow…")
+                            onClicked: root.showFollowing(true)
                         }
+                    }
+                }
+                // What For You follows; a row shows the papers it brought.
+                Loader {
+                    objectName: "libraryForYouFollowingLoader"
+                    active: root.showingFollowing
+                    visible: active
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
+                    sourceComponent: ForYouFollowing {
+                        onSourceChosen: function(key) { root.showFollowing(false); root.forYouSource = key }
                     }
                 }
                 // The Trash: papers, notes and AI conversations; restore, delete for good, or empty it.

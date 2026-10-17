@@ -23,6 +23,10 @@
 ## 이번 단계 (2026-10-17): For You 팔로우, 키, 설치
 
 - For You 연구자·기관 팔로우: Settings › For You › Researchers and institutions에서 이름으로 찾아(OpenAlex, Return이나 Search를 눌렀을 때만 요청) Follow. 그들의 새 논문(논문·프리프린트, 오늘까지)은 AI 점수와 상관없이 맨 위에 최신순으로 고정되고, AI는 이유 한 줄만 붙입니다. Library › For You 출처 메뉴의 "Researchers and institutions you follow"로 그들 것만 봅니다. 선택 입력인 OpenAlex 무료 키는 키 저장소에 둡니다(없으면 같은 네트워크가 하루 무료 한도를 나눠 씀). 팔로우 목록은 동기화됩니다(스키마 19).
+- For You › Following: 팔로우하는 것(주제·연구자·기관·Collection)을 Library › For You 안의 `Papers | Following` 화면에서 고릅니다. 입력란 하나로 주제(단어, `cs.RO` 같은 분야)는 바로, 연구자·기관은 Return을 눌러 OpenAlex에서 찾고, 줄마다 새 논문 수·확인당 개수·끄기·삭제가 있으며 줄을 누르면 그 출처의 논문만 봅니다. Settings › For You는 확인 방식·AI·OpenAlex 키와 Following으로 가는 버튼만 남았습니다.
+- Follow Author: 논문 우클릭(Library·Home·Library 패널)과 For You 논문에서, OpenAlex에 있는 그 논문의 저자 목록(마지막·교신 저자를 먼저, 소속과 함께)과 소속 기관을 골라 팔로우합니다. DOI → arXiv ID → 정확히 같은 제목 순으로 찾고, 없으면 이름으로 찾기로 넘어갑니다.
+- 메뉴 정리: File(새 탭·열기·웹·노트·닫기·다시 열기·Settings·Quit)과 View(Home·Library·확대·맞춤·Dark Pages·패널)만 남기고, 나머지는 단축키와 명령 팔레트로. Windows·Linux의 ≡는 하위 메뉴 없는 한 목록.
+- PDF 선택 띠: 줄 상자가 줄 간격보다 큰 PDF에서 위아래 띠가 겹치던 것을 줄 사이 가운데에서 나눔(Library의 논문 24편, 3줄 드래그 262번 기준 겹침 127 → 2).
 - For You 개수: 주제·연구자·기관·Collection마다 확인 한 번에 가져올 최대 편수(5·10·20·50)를 따로 정하고, 정하지 않은 것은 공통 값(Usually at most, from each)을 따릅니다. 이 컴퓨터의 설정입니다.
 - PDF 선택: 더블클릭은 단어, 세 번 클릭은 문장(약어·소수점은 넘기고, 제목이나 문단 끝의 짧은 줄에서 끝남). 보통 선택과 같아서 복사·형광펜·AI 묻기가 그대로 됩니다.
 - 키: PDF는 ←/→로 쪽을 넘깁니다(확대해 쪽이 화면보다 넓으면 먼저 옆으로 끝까지 스크롤). Back·Forward는 macOS ⌘[ / ⌘], Linux·Windows Alt+← / Alt+→. 모두 Settings › Shortcuts에서 바꿉니다.

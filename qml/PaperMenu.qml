@@ -24,6 +24,16 @@ Item {
         MenuSeparator {}
         MenuItem { objectName: "paperDetailsOption"; text: qsTr("Paper Details…"); onTriggered: { details.active = true; details.item.begin(root.paper.url) } }
         MenuItem { objectName: "libraryTagsOption"; text: qsTr("Tags…"); onTriggered: { tags.active = true; tags.item.begin(root.paper.url) } }
+        // Its authors from OpenAlex, to follow in For You.
+        MenuItem {
+            objectName: "followAuthorOption"
+            text: qsTr("Follow Author…")
+            onTriggered: {
+                const details = researchStore.documentDetails(root.paper.url)
+                followAuthor.active = true
+                followAuthor.item.begin({title: details.title || root.paper.name || "", doi: details.doi || "", arxiv: details.arxiv || ""})
+            }
+        }
         Menu {
             id: collections
             title: qsTr("Collections")
@@ -90,6 +100,7 @@ Item {
         }
     }
     Loader { id: details; active: false; sourceComponent: PaperDetailsDialog {} }
+    Loader { id: followAuthor; active: false; sourceComponent: FollowAuthorDialog { onSearchRequested: researchStore.forYou.showFollowing() } }
     Loader {
         id: tags
         active: false

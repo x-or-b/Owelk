@@ -581,6 +581,16 @@ ApplicationWindow {
         }
     }
     SettingsDialog { id: settingsDialog }
+    // For You › Following, asked for from Settings, Home or a paper's Follow Author.
+    Connections {
+        target: researchStore.forYou
+        function onFollowingRequested() {
+            if (window.restoreFailed) return
+            settingsDialog.close()
+            window.homeVisible = false
+            documents.openLibrary({view: "foryou", following: true})
+        }
+    }
     // Created on first use: the AI tab organizer.
     Loader { id: organizeTabs; active: false; sourceComponent: OrganizeTabsDialog { controller: documents } }
     // Created on first use: the AI paper comparison, for the PDFs open in a tab strip.

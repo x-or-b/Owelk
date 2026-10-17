@@ -9,6 +9,7 @@ Item {
     id: scene
     width: 1100; height: 760
     App.SettingsDialog { id: settings }
+    Component { id: spyComponent; SignalSpy {} }
     App.ReaderPane { id: reader; x: 0; y: 0; width: 500; height: 600; paneIndex: 0; isActive: true; visible: false }
     TestCase {
         name: "Settings"
@@ -99,70 +100,22 @@ Item {
             settings.close(); tryCompare(settings, "visible", false)
             compare(settings.query, "")
         }
-        function test_forYouResearchersAndInstitutions() {
+        function test_forYouSettingsLeadToFollowing() {
             const forYou = researchStore.forYou
-            researchStore.setSetting("forYou.openAlexBaseUrl", testInput.webFixture("").toString())
+            forYou.saveTopics([{words: "visual SLAM", categories: "cs.RO"}])
             settings.openPage("foryou"); tryCompare(settings, "opened", true)
-            // Found by name on Return; a result says who and where, and Follow adds it.
-            let search = null
-            tryVerify(function() { search = visualChild(settings.contentItem, "forYouPeopleSearch"); return search !== null })
-            search.text = "Grace Hopper"
-            visualChild(settings.contentItem, "forYouFindPeople").clicked()
-            let found = null
-            tryVerify(function() { found = visualChild(settings.contentItem, "forYouFound-A777"); return found !== null }, 10000)
-            compare(found.detail, "Researcher · Harvard · 40 papers")
-            const follow = visualChild(settings.contentItem, "forYouFollowFound-A777")
-            follow.clicked()
-            compare(forYou.people().length, 1)
-            verify(forYou.configured)
-            tryCompare(follow, "text", "Following")
-            verify(!follow.enabled)
-            // Its own number of papers per check, or the usual one.
-            let count = null
-            tryVerify(function() { count = visualChild(settings.contentItem, "forYouCount-person:A777"); return count !== null })
-            compare(count.currentIndex, 0)
-            count.activated(2)
-            compare(forYou.perCheck("person:A777"), 10)
-            tryCompare(count, "currentIndex", 2)
-            count.activated(0)
-            compare(forYou.perCheck("person:A777"), 0)
-            // Turned off, then no longer followed.
-            let toggle = null
-            tryVerify(function() { toggle = visualChild(settings.contentItem, "forYouPersonSwitch-A777"); return toggle !== null })
-            toggle.toggle(); toggle.toggled()
-            compare(forYou.people()[0].on, false)
-            verify(!forYou.configured)
-            visualChild(settings.contentItem, "forYouUnfollow-A777").clicked()
-            compare(forYou.people().length, 0)
-            settings.close(); tryCompare(settings, "visible", false)
-        }
-        function test_forYouTopicsAndCollections() {
-            const forYou = researchStore.forYou
+            // What is followed is chosen in For You itself; Settings counts it and leads there.
+            let row = null
+            tryVerify(function() { row = visualChild(settings.contentItem, "settingsRow-following"); return row !== null })
+            verify(row.label.indexOf("1 ") === 0, row.label)
+            const asked = createTemporaryObject(spyComponent, scene, {target: forYou, signalName: "followingRequested"})
+            visualChild(settings.contentItem, "forYouEditFollowing").clicked()
+            compare(asked.count, 1)
             forYou.saveTopics([])
-            const collection = researchStore.createCollection("Follow Me")
+        }
+        function test_forYouExplainWithAiAsksFirst() {
+            const forYou = researchStore.forYou
             settings.openPage("foryou"); tryCompare(settings, "opened", true)
-            let words = null
-            tryVerify(function() { words = visualChild(settings.contentItem, "forYouTopicWords"); return words !== null })
-            // A topic: words and categories, then on and off, then removed.
-            words.text = "visual SLAM, loop closure"
-            visualChild(settings.contentItem, "forYouTopicCategories").text = "cs.RO"
-            visualChild(settings.contentItem, "forYouAddTopic").clicked()
-            compare(forYou.topics().length, 1)
-            compare(forYou.topics()[0].words, "visual SLAM, loop closure")
-            compare(words.text, "")
-            verify(forYou.configured)
-            let toggle = null
-            tryVerify(function() { toggle = visualChild(settings.contentItem, "forYouTopicSwitch-0"); return toggle !== null })
-            toggle.toggle(); toggle.toggled()
-            compare(forYou.topics()[0].on, false)
-            verify(!forYou.configured)
-            visualChild(settings.contentItem, "forYouRemoveTopic-0").clicked()
-            compare(forYou.topics().length, 0)
-            // A collection with no arXiv ID or DOI cannot be followed yet.
-            let follow = null
-            tryVerify(function() { follow = visualChild(settings.contentItem, "forYouFollow-Follow Me"); return follow !== null })
-            verify(!follow.enabled)
-            researchStore.deleteCollection(collection)
             // Explain with AI waits for an AI to be set up; turning it on is the OK to send papers to it.
             researchStore.ai.provider = "claude"
             researchStore.ai.clearApiKey("claude")

@@ -197,6 +197,48 @@ QVariantList openAlexPeople(const QByteArray &json, const QString &kind)
     return list;
 }
 
+QVariantList openAlexAuthors(const QByteArray &json, const QString &title)
+{
+    const auto plain = [](QString text) { return text.toLower().remove(QRegularExpression("[^\\p{L}\\p{N}]")); };
+    const auto answer = QJsonDocument::fromJson(json).object();
+    // A search answers with results; a record is the work itself.
+    QJsonObject work;
+    if (answer.contains("results")) {
+        for (const auto &value : answer.value("results").toArray())
+            if (title.isEmpty() || plain(value.toObject().value("title").toString()) == plain(title)) {
+                work = value.toObject();
+                break;
+            }
+    } else {
+        work = answer;
+    }
+    QVariantList first, rest;
+    for (const auto &value : work.value("authorships").toArray()) {
+        const auto authorship = value.toObject();
+        const auto author = authorship.value("author").toObject();
+        const auto id = author.value("id").toString().section('/', -1);
+        const auto name = author.value("display_name").toString().simplified();
+        if (!openAlexPerson.match(id).hasMatch() || !id.startsWith('A') || name.isEmpty()) continue;
+        QVariantList institutions;
+        QStringList places;
+        for (const auto &place : authorship.value("institutions").toArray()) {
+            const auto institution = place.toObject();
+            const auto key = institution.value("id").toString().section('/', -1);
+            const auto where = institution.value("display_name").toString().simplified();
+            if (!openAlexPerson.match(key).hasMatch() || !key.startsWith('I') || where.isEmpty()) continue;
+            institutions.append(QVariantMap{{"id", key}, {"kind", "institution"}, {"name", where},
+                {"detail", institution.value("country_code").toString()}});
+            places << where;
+        }
+        const auto position = authorship.value("author_position").toString();
+        const bool corresponding = authorship.value("is_corresponding").toBool();
+        const QVariantMap person{{"id", id}, {"kind", "person"}, {"name", name}, {"detail", places.join(", ")},
+            {"position", position}, {"corresponding", corresponding}, {"institutions", institutions}};
+        (position == "last" || corresponding ? first : rest).append(person);
+    }
+    return first + rest;
+}
+
 bool isPdfAddress(const QString &address)
 {
     const QUrl url(address);
@@ -597,6 +639,80 @@ void ForYou::findPeople(const QString &text)
             }
         });
     }
+}
+int ForYou::findAuthors(const QVariantMap &paper)
+{
+    const int request = ++m_authorRequest;
+    if (!m_network) m_network = new QNetworkAccessManager(this);
+    const auto base = m_store->setting("forYou.openAlexBaseUrl", "https://api.openalex.org");
+    const auto key = Keychain::read(openAlexKeyAccount, m_store->dataDirectory());
+    // The ways to find the paper, surest first; each is tried when the one before finds nothing.
+    static const QRegularExpression doiLink(R"(^https?://(dx\.)?doi\.org/)", QRegularExpression::CaseInsensitiveOption);
+    const auto select = QStringLiteral("id,title,authorships");
+    const auto title = paper.value("title").toString().simplified();
+    QList<QUrl> tries;
+    const auto record = [&](const QString &id) {
+        QUrl url(base + "/works/" + id);
+        QUrlQuery query{{"select", select}};
+        if (!key.isEmpty()) query.addQueryItem("api_key", key);
+        url.setQuery(query);
+        tries << url;
+    };
+    if (const auto id = paper.value("openalex").toString(); QRegularExpression("^W\\d+$").match(id).hasMatch())
+        record(id);
+    if (const auto doi = paper.value("doi").toString().trimmed().remove(doiLink); doi.startsWith("10."))
+        record("doi:" + doi);
+    if (const auto arxiv = arxivId(paper.value("arxiv").toString()); !arxiv.isEmpty())
+        record("doi:10.48550/arXiv." + arxiv);
+    if (title.size() >= 12) {
+        QUrl url(base + "/works");
+        QUrlQuery query{{"search", title}, {"per-page", "3"}, {"select", select}};
+        if (!key.isEmpty()) query.addQueryItem("api_key", key);
+        url.setQuery(query);
+        tries << url;
+    }
+    if (tries.isEmpty())
+        QMetaObject::invokeMethod(
+            this,
+            [this, request] {
+                emit authorsFound(request, {}, ui("This paper has no DOI, arXiv ID or title to look it up by."));
+            },
+            Qt::QueuedConnection);
+    else
+        lookUpAuthors(request, tries, title, 0);
+    return request;
+}
+void ForYou::lookUpAuthors(int request, const QList<QUrl> &tries, const QString &title, int at)
+{
+    if (at >= tries.size()) {
+        emit authorsFound(request, {}, ui("OpenAlex has no record of this paper."));
+        return;
+    }
+    QNetworkRequest call(tries[at]);
+    call.setHeader(QNetworkRequest::UserAgentHeader, "Owelk/0.1 (local research reader)");
+    call.setTransferTimeout(20000);
+    auto *reply = m_network->get(call);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, request, tries, title, at] {
+        reply->deleteLater();
+        if (request != m_authorRequest) return; // Another paper was asked about since.
+        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (status == 429) {
+            emit authorsFound(request, {},
+                ui("OpenAlex's free daily allowance for this network is used up. Add a free OpenAlex key in "
+                   "Settings › For You, or try tomorrow."));
+            return;
+        }
+        if (reply->error() != QNetworkReply::NoError && status != 404) {
+            emit authorsFound(request, {}, ui("OpenAlex did not answer."));
+            return;
+        }
+        const bool search = tries[at].path().endsWith("/works");
+        const auto authors = ForYouParse::openAlexAuthors(reply->readAll(), search ? title : QString());
+        if (!authors.isEmpty())
+            emit authorsFound(request, authors, {});
+        else
+            lookUpAuthors(request, tries, title, at + 1);
+    });
 }
 int ForYou::perCheck(const QString &source) const
 {

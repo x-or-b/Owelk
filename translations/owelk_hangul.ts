@@ -1268,6 +1268,136 @@
     </message>
 </context>
 <context>
+    <name>FollowAuthorDialog</name>
+    <message>
+        <source>Corresponding</source>
+        <translation>코레스폰딩</translation>
+    </message>
+    <message>
+        <source>Finding the authors…</source>
+        <translation>파인딩 더 오서스…</translation>
+    </message>
+    <message>
+        <source>First author</source>
+        <translation>퍼스트 오서</translation>
+    </message>
+    <message>
+        <source>Follow</source>
+        <translation>팔로</translation>
+    </message>
+    <message>
+        <source>Follow Author</source>
+        <translation>팔로 오서</translation>
+    </message>
+    <message>
+        <source>Following</source>
+        <translation>팔로잉</translation>
+    </message>
+    <message>
+        <source>Institutions</source>
+        <translation>인스티튜션스</translation>
+    </message>
+    <message>
+        <source>Last author</source>
+        <translation>라스트 오서</translation>
+    </message>
+    <message>
+        <source>Search by Name…</source>
+        <translation>서치 바이 네임…</translation>
+    </message>
+</context>
+<context>
+    <name>ForYouFollowing</name>
+    <message>
+        <source> papers</source>
+        <translation> 페이퍼스</translation>
+    </message>
+    <message>
+        <source>%1 new papers</source>
+        <translation>%1 뉴 페이퍼스</translation>
+    </message>
+    <message>
+        <source>1 new paper</source>
+        <translation>1 뉴 페이퍼</translation>
+    </message>
+    <message>
+        <source>A topic (words, cs.RO), a researcher or an institution</source>
+        <translation>어 토픽 (워즈, cs.RO), 어 리서처 오어 언 인스티튜션</translation>
+    </message>
+    <message>
+        <source>Collections</source>
+        <translation>컬렉션스</translation>
+    </message>
+    <message>
+        <source>Follow</source>
+        <translation>팔로</translation>
+    </message>
+    <message>
+        <source>Following</source>
+        <translation>팔로잉</translation>
+    </message>
+    <message>
+        <source>Institution</source>
+        <translation>인스티튜션</translation>
+    </message>
+    <message>
+        <source>Institutions</source>
+        <translation>인스티튜션스</translation>
+    </message>
+    <message>
+        <source>Make collections in the Library to follow them here</source>
+        <translation>메이크 컬렉션스 인 더 라이브러리 투 팔로 뎀 히어</translation>
+    </message>
+    <message>
+        <source>Nobody by that name on OpenAlex</source>
+        <translation>노바디 바이 댓 네임 온 오픈알렉스</translation>
+    </message>
+    <message>
+        <source>Papers at most in each check</source>
+        <translation>페이퍼스 앳 모스트 인 이치 체크</translation>
+    </message>
+    <message>
+        <source>Papers like a collection's</source>
+        <translation>페이퍼스 라이크 어 컬렉션스</translation>
+    </message>
+    <message>
+        <source>Researcher</source>
+        <translation>리서처</translation>
+    </message>
+    <message>
+        <source>Researchers</source>
+        <translation>리서처스</translation>
+    </message>
+    <message>
+        <source>Return looks for researchers and institutions</source>
+        <translation>리턴 룩스 포 리서처스 앤드 인스티튜션스</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>서치</translation>
+    </message>
+    <message>
+        <source>Searching…</source>
+        <translation>서칭…</translation>
+    </message>
+    <message>
+        <source>Stop following</source>
+        <translation>스톱 팔로잉</translation>
+    </message>
+    <message>
+        <source>Topic</source>
+        <translation>토픽</translation>
+    </message>
+    <message>
+        <source>Topics</source>
+        <translation>토픽스</translation>
+    </message>
+    <message>
+        <source>Usual</source>
+        <translation>유주얼</translation>
+    </message>
+</context>
+<context>
     <name>GlossPopup</name>
     <message>
         <source>Add an API key in Settings → AI.</source>
@@ -1698,8 +1828,8 @@ Same file as another library entry</source>
         <translation>체크 나우</translation>
     </message>
     <message>
-        <source>Choose Topics…</source>
-        <translation>추즈 토픽스…</translation>
+        <source>Choose What to Follow…</source>
+        <translation>추즈 왓 투 팔로…</translation>
     </message>
     <message>
         <source>Choose notes</source>
@@ -1802,12 +1932,20 @@ Same file as another library entry</source>
         <translation>필터 바이 타이틀, 오서, 이어, 디오아이 오어 파일 네임</translation>
     </message>
     <message>
+        <source>Follow Author…</source>
+        <translation>팔로 오서…</translation>
+    </message>
+    <message>
         <source>Follow a topic, a collection, a researcher or an institution to see new papers here</source>
         <translation>팔로 어 토픽, 어 컬렉션, 어 리서처 오어 언 인스티튜션 투 시 뉴 페이퍼스 히어</translation>
     </message>
     <message>
         <source>Follow in For You</source>
         <translation>팔로 인 포 유</translation>
+    </message>
+    <message>
+        <source>Following</source>
+        <translation>팔로잉</translation>
     </message>
     <message>
         <source>For You</source>
@@ -3224,6 +3362,10 @@ Same file as another library entry</source>
         <translation>오픈알렉스 디드 낫 앤서.</translation>
     </message>
     <message>
+        <source>OpenAlex has no record of this paper.</source>
+        <translation>오픈알렉스 해즈 노 레코드 오브 디스 페이퍼.</translation>
+    </message>
+    <message>
         <source>OpenAlex's free daily allowance for this network is used up. Add a free OpenAlex key below, or try tomorrow.</source>
         <translation>오픈알렉스 프리 데일리 얼라우언스 포 디스 네트워크 이즈 유즈드 업. 애드 어 프리 오픈알렉스 키 빌로우, 오어 트라이 투모로.</translation>
     </message>
@@ -3512,6 +3654,10 @@ Same file as another library entry</source>
         <translation>디스 폴더 이즈 낫 언 오웰크 백업.</translation>
     </message>
     <message>
+        <source>This paper has no DOI, arXiv ID or title to look it up by.</source>
+        <translation>디스 페이퍼 해즈 노 디오아이, 아카이브 아이디 오어 타이틀 투 룩 잇 업 바이.</translation>
+    </message>
+    <message>
         <source>This paper has no DOI, arXiv ID or title to look up. Add one in Paper Details.</source>
         <translation>디스 페이퍼 해즈 노 디오아이, 아카이브 아이디 오어 타이틀 투 룩 업. 애드 원 인 페이퍼 디테일스.</translation>
     </message>
@@ -3732,6 +3878,10 @@ Same file as another library entry</source>
     <message>
         <source>Existing: </source>
         <translation>이그지스팅: </translation>
+    </message>
+    <message>
+        <source>Follow Author…</source>
+        <translation>팔로 오서…</translation>
     </message>
     <message>
         <source>Include in Text Search</source>
@@ -4870,16 +5020,16 @@ You can open the same document twice.</source>
 <context>
     <name>SettingsForYou</name>
     <message>
-        <source> paper to compare with</source>
-        <translation> 페이퍼 투 컴페어 위드</translation>
-    </message>
-    <message>
         <source> papers</source>
         <translation> 페이퍼스</translation>
     </message>
     <message>
-        <source> papers to compare with</source>
-        <translation> 페이퍼스 투 컴페어 위드</translation>
+        <source>%1 topics, researchers, institutions and collections</source>
+        <translation>%1 토픽스, 리서처스, 인스티튜션스 앤드 컬렉션스</translation>
+    </message>
+    <message>
+        <source>1 topic, researcher, institution or collection</source>
+        <translation>1 토픽, 리서처, 인스티튜션 오어 컬렉션</translation>
     </message>
     <message>
         <source>15 days</source>
@@ -4902,14 +5052,6 @@ You can open the same document twice.</source>
         <translation>어 리틀 애프터 오웰크 오픈스</translation>
     </message>
     <message>
-        <source>A researcher's or an institution's name</source>
-        <translation>어 리서처스 오어 언 인스티튜션스 네임</translation>
-    </message>
-    <message>
-        <source>Add</source>
-        <translation>애드</translation>
-    </message>
-    <message>
         <source>Always</source>
         <translation>올웨이즈</translation>
     </message>
@@ -4926,28 +5068,20 @@ You can open the same document twice.</source>
         <translation>체킹</translation>
     </message>
     <message>
-        <source>Collections</source>
-        <translation>컬렉션스</translation>
-    </message>
-    <message>
         <source>Day</source>
         <translation>데이</translation>
+    </message>
+    <message>
+        <source>Edit in For You…</source>
+        <translation>에디트 인 포 유…</translation>
     </message>
     <message>
         <source>Explain with AI</source>
         <translation>익스플레인 위드 에이아이</translation>
     </message>
     <message>
-        <source>Follow</source>
-        <translation>팔로</translation>
-    </message>
-    <message>
         <source>Following</source>
         <translation>팔로잉</translation>
-    </message>
-    <message>
-        <source>Institution</source>
-        <translation>인스티튜션</translation>
     </message>
     <message>
         <source>Keep papers in the list</source>
@@ -4962,22 +5096,6 @@ You can open the same document twice.</source>
         <translation>루킹 포 뉴 페이퍼스…</translation>
     </message>
     <message>
-        <source>Make collections in the Library to follow them here.</source>
-        <translation>메이크 컬렉션스 인 더 라이브러리 투 팔로 뎀 히어.</translation>
-    </message>
-    <message>
-        <source>Needs a paper with an arXiv ID or DOI</source>
-        <translation>니즈 어 페이퍼 위드 언 아카이브 아이디 오어 디오아이</translation>
-    </message>
-    <message>
-        <source>New arXiv papers with any of the words (separate them with commas), in any of the categories, such as cs.RO or cs.CV. Either may be left empty.</source>
-        <translation>뉴 아카이브 페이퍼스 위드 애니 오브 더 워즈 (세퍼레이트 뎀 위드 콤마스), 인 애니 오브 더 카테고리즈, 서치 애즈 cs.RO 오어 cs.CV. 이더 메이 비 레프트 엠티.</translation>
-    </message>
-    <message>
-        <source>Nobody by that name on OpenAlex</source>
-        <translation>노바디 바이 댓 네임 온 오픈알렉스</translation>
-    </message>
-    <message>
         <source>Not checked yet</source>
         <translation>낫 체크트 옛</translation>
     </message>
@@ -4990,20 +5108,12 @@ You can open the same document twice.</source>
         <translation>오더스 뉴 페이퍼스 바이 하우 웰 데이 핏 왓 유 팔로, 위드 원 센텐스 이치. 센즈 데어 타이틀스 앤드 앱스트랙츠 앤드 왓 유 팔로 투 </translation>
     </message>
     <message>
-        <source>Papers at most in each check</source>
-        <translation>페이퍼스 앳 모스트 인 이치 체크</translation>
-    </message>
-    <message>
-        <source>Papers found wait in Home and in Library › For You until you add or dismiss them. Only the words, categories, arXiv IDs or DOIs and the OpenAlex IDs of the researchers and institutions above are sent.</source>
-        <translation>페이퍼스 파운드 웨이트 인 홈 앤드 인 라이브러리 › 포 유 언틸 유 애드 오어 디스미스 뎀. 온리 더 워즈, 카테고리즈, 아카이브 아이디즈 오어 디오아이즈 앤드 더 오픈알렉스 아이디즈 오브 더 리서처스 앤드 인스티튜션스 어보브 아 센트.</translation>
+        <source>Papers found wait in Home and in Library › For You until you add or dismiss them. Only the words, categories, arXiv IDs or DOIs of what you follow, and the OpenAlex IDs of the researchers and institutions you follow, are sent.</source>
+        <translation>페이퍼스 파운드 웨이트 인 홈 앤드 인 라이브러리 › 포 유 언틸 유 애드 오어 디스미스 뎀. 온리 더 워즈, 카테고리즈, 아카이브 아이디즈 오어 디오아이즈 오브 왓 유 팔로, 앤드 더 오픈알렉스 아이디즈 오브 더 리서처스 앤드 인스티튜션스 유 팔로, 아 센트.</translation>
     </message>
     <message>
         <source>Papers from the last</source>
         <translation>페이퍼스 프롬 더 라스트</translation>
-    </message>
-    <message>
-        <source>Papers like the ones in a followed collection, from Semantic Scholar. It looks at the papers that have an arXiv ID or a DOI (Paper Details).</source>
-        <translation>페이퍼스 라이크 더 원즈 인 어 팔로드 컬렉션, 프롬 시맨틱 스칼라. 잇 룩스 앳 더 페이퍼스 댓 해브 언 아카이브 아이디 오어 어 디오아이 (페이퍼 디테일스).</translation>
     </message>
     <message>
         <source>Paste a key</source>
@@ -5014,60 +5124,24 @@ You can open the same document twice.</source>
         <translation>리무브</translation>
     </message>
     <message>
-        <source>Researcher</source>
-        <translation>리서처</translation>
-    </message>
-    <message>
-        <source>Researchers and institutions</source>
-        <translation>리서처스 앤드 인스티튜션스</translation>
-    </message>
-    <message>
         <source>Save</source>
         <translation>세이브</translation>
-    </message>
-    <message>
-        <source>Search</source>
-        <translation>서치</translation>
-    </message>
-    <message>
-        <source>Searching…</source>
-        <translation>서칭…</translation>
     </message>
     <message>
         <source>Set up AI in Settings › AI first.</source>
         <translation>셋 업 에이아이 인 세팅스 › 에이아이 퍼스트.</translation>
     </message>
     <message>
-        <source>Stop following</source>
-        <translation>스톱 팔로잉</translation>
-    </message>
-    <message>
         <source>Topic, researcher, institution or collection, unless it has its own number above. The AI then orders them all.</source>
         <translation>토픽, 리서처, 인스티튜션 오어 컬렉션, 언레스 잇 해즈 잇츠 오운 넘버 어보브. 더 에이아이 덴 오더스 뎀 올.</translation>
-    </message>
-    <message>
-        <source>Topics</source>
-        <translation>토픽스</translation>
     </message>
     <message>
         <source>Until you add or dismiss them, for at most</source>
         <translation>언틸 유 애드 오어 디스미스 뎀, 포 앳 모스트</translation>
     </message>
     <message>
-        <source>Usual</source>
-        <translation>유주얼</translation>
-    </message>
-    <message>
         <source>Usually at most, from each</source>
         <translation>유주얼리 앳 모스트, 프롬 이치</translation>
-    </message>
-    <message>
-        <source>Words: lidar odometry, SLAM</source>
-        <translation>워즈: 라이다 오도메트리, 슬램</translation>
-    </message>
-    <message>
-        <source>cs.RO, cs.CV</source>
-        <translation>cs.RO, cs.CV</translation>
     </message>
 </context>
 <context>
@@ -5172,14 +5246,6 @@ You can open the same document twice.</source>
         <translation>익스포트 노츠 애즈 마크다운</translation>
     </message>
     <message>
-        <source>Follow collections</source>
-        <translation>팔로 컬렉션스</translation>
-    </message>
-    <message>
-        <source>For You topics</source>
-        <translation>포 유 토픽스</translation>
-    </message>
-    <message>
         <source>Gloss model</source>
         <translation>글로스 모델</translation>
     </message>
@@ -5216,6 +5282,10 @@ You can open the same document twice.</source>
         <translation>온 런치</translation>
     </message>
     <message>
+        <source>OpenAlex key</source>
+        <translation>오픈알렉스 키</translation>
+    </message>
+    <message>
         <source>PDF folder</source>
         <translation>피디에프 폴더</translation>
     </message>
@@ -5230,6 +5300,10 @@ You can open the same document twice.</source>
     <message>
         <source>Paper names</source>
         <translation>페이퍼 네임스</translation>
+    </message>
+    <message>
+        <source>Papers from each source</source>
+        <translation>페이퍼스 프롬 이치 소스</translation>
     </message>
     <message>
         <source>Preferred language</source>
@@ -5274,6 +5348,10 @@ You can open the same document twice.</source>
     <message>
         <source>Theme</source>
         <translation>테마</translation>
+    </message>
+    <message>
+        <source>What For You follows</source>
+        <translation>왓 포 유 팔로스</translation>
     </message>
 </context>
 <context>
