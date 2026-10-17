@@ -1,6 +1,6 @@
 # 기획서 대비 구현 현황
 
-2026-10-10 기준. 현재는 **PDF 리더 + 웹 탭 + 라이브러리 + 주석·노트와 연결 + 단어·의미 검색 + 탭 그룹 + AI 읽기 보조 + 백업·내보내기 + 폴더 동기화**를 갖춘 Research Workspace입니다. 기획서 v0.1–v0.5와 v1 마무리 항목을 구현했습니다. macOS에서 빌드·자동 검증했고, Linux·Windows는 GitHub Actions CI로 빌드·테스트합니다(실기기 확인은 남음).
+2026-10-17 기준. 현재는 **PDF 리더 + 웹 탭 + 라이브러리 + 주석·노트와 연결 + 단어·의미 검색 + 탭 그룹 + AI 읽기 보조 + 백업·내보내기 + 폴더 동기화**를 갖춘 Research Workspace입니다. 기획서 v0.1–v0.5와 v1 마무리 항목을 구현했습니다. macOS에서 빌드·자동 검증했고, Linux는 Docker(Ubuntu 24.04, ARM64)와 CI로, Windows는 CI로 빌드·테스트합니다(실기기 확인은 남음).
 
 핵심 원칙은 **가볍고 빠름**입니다. 시작할 때 라이브러리를 훑지 않고, 무거운 작업(본문 색인·OCR·의미 벡터·백업)은 낮은 우선순위 배경 스레드에서 읽는 동안 멈추며, 선택 기능(의미 검색·OCR·주석 PDF)은 켜거나 설치하기 전에는 아무 비용이 없습니다.
 
@@ -14,15 +14,25 @@
 | 12–16. 검색·커맨드 | FTS5 본문(+OCR), 단어 순서 무관·점수 순위, 범위 칩·검색어 조건, 선택적 의미 검색(Ollama·OpenAI), 명령 팔레트 | — |
 | 17–21. 주석·연결 | 5색 주석·코멘트, 영역 표시(캡션 함께), 노트 링크·역링크, 주석 포함 PDF 내보내기(표준 주석). 이전 Captures는 주석·노트로 통합(스키마 15) | Figure 자동 인식 |
 | 22–27. 노트·AI | Markdown 노트, AI 4종(Claude API, OpenAI API, ChatGPT 계정, Ollama), 모델·추론 강도·Fast, 이미지·PDF/웹 영역 첨부(저장 안 함), Threads 패널(채팅 폴더: 논문별 자동 생성·직접 만들기·끌어 옮기기, 최근·이름 정렬, 검색), 채팅에 여러 논문(3편까지 전문, 그 이상은 구절 검색)·Collection·라이브러리 전체 첨부, 노트 첨부와 AI 노트 제안(고친 노트·새 노트를 카드로 보여 주고 Apply/Create를 눌러야 저장, Undo), 선호 언어, 논문 비교표, 쪽별 번역·논문 요약, 탭·Collection AI 정리 | 라이브러리 전체에 묻기(v0.6) |
-| 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, 공유 폴더를 통한 컴퓨터 간 동기화(Google Drive·Dropbox·Syncthing, 항목별 나중 변경 우선), SQLite(라이브러리 스키마 18, 색인 4, 업그레이드 전 백업), 백업·복원, Markdown·BibTeX 내보내기, 단축키 변경, macOS·Linux·Windows 키 저장소, 로컬 설치 스크립트(macOS·Linux `install-local.sh`, Windows `install-local.ps1`), 자동 테스트 7묶음 | Linux/Windows 실기기, 배포 패키지 |
+| 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, 공유 폴더를 통한 컴퓨터 간 동기화(Google Drive·Dropbox·Syncthing, 항목별 나중 변경 우선), SQLite(라이브러리 스키마 19, 색인 5, 업그레이드 전 백업), 백업·복원, Markdown·BibTeX 내보내기, 단축키 변경, macOS·Linux·Windows 키 저장소, 로컬 설치 스크립트(macOS·Linux `install-local.sh`, Windows `install-local.ps1`, 모두 `tools/qt.txt`의 Qt 6.11.3 하나로 고정), Docker 빌드·테스트, 자동 테스트 7묶음 | Linux/Windows 실기기, 배포 패키지 |
 
 ## 우선순위
 
 가볍고 빠름을 먼저 지키고, 기획서 순서보다 실제 사용 중 불편한 부분을 먼저 고칩니다. 기능별 사용법은 [README](../README.md)와 각 문서에, 변경 이력은 git 로그에 있습니다.
 
-## 이번 단계 (2026-10-14): For You와 Settings 개편
+## 이번 단계 (2026-10-17): For You 팔로우, 키, 설치
 
-- For You: 따라가는 주제(단어 + arXiv 분야)는 arXiv에서, 따라가는 Collection은 Semantic Scholar 추천에서 새 논문을 찾습니다(기간 1일·7일·30일, 출처당 최대 편수). 이미 Library에 있거나 Dismiss한 논문, 기간보다 오래된 논문은 빼고 `<data>/foryou.json`에 둡니다. 요청할 때와(켜져 있으면) 하루 한 번 Owelk를 연 뒤 확인하며, arXiv 요청은 몇 초 간격을 둡니다.
+- For You 연구자·기관 팔로우: Settings › For You › Researchers and institutions에서 이름으로 찾아(OpenAlex, Return이나 Search를 눌렀을 때만 요청) Follow. 그들의 새 논문(논문·프리프린트, 오늘까지)은 AI 점수와 상관없이 맨 위에 최신순으로 고정되고, AI는 이유 한 줄만 붙입니다. Library › For You 출처 메뉴의 "Researchers and institutions you follow"로 그들 것만 봅니다. 선택 입력인 OpenAlex 무료 키는 키 저장소에 둡니다(없으면 같은 네트워크가 하루 무료 한도를 나눠 씀). 팔로우 목록은 동기화됩니다(스키마 19).
+- For You 개수: 주제·연구자·기관·Collection마다 확인 한 번에 가져올 최대 편수(5·10·20·50)를 따로 정하고, 정하지 않은 것은 공통 값(Usually at most, from each)을 따릅니다. 이 컴퓨터의 설정입니다.
+- 키: PDF는 ←/→로 쪽을 넘깁니다(확대해 쪽이 화면보다 넓으면 먼저 옆으로 끝까지 스크롤). Back·Forward는 macOS ⌘[ / ⌘], Linux·Windows Alt+← / Alt+→. 모두 Settings › Shortcuts에서 바꿉니다.
+- Library 읽기 표시: 읽지 않은 논문은 강조색 점, 읽음으로 표시한 논문은 빈 원(두 가지).
+- 웹 탭: PDF만 바로 받고 다른 파일은 Save·Cancel을 묻습니다. 페이지가 스스로 여는 팝업은 막고, 클릭으로 연 새 창만 탭으로 엽니다.
+- 설치: `tools/qt.txt`의 Qt 하나를 모든 시스템이 씁니다. macOS도 공식 Qt를 `~/Qt`에 받고 Homebrew의 Qt는 쓰지 않으며(Homebrew는 cmake·ninja·qpdf만), Command Line Tools·Homebrew 설치를 안내합니다. Linux는 컨테이너와 이름이 바뀐 패키지(t64)도 처리합니다. `Dockerfile`로 Linux 빌드·전체 테스트(`docker run --rm owelk`).
+- 코드 리뷰 수정 묶음: 데이터 경계 사례(같은 초 백업, 손상된 인용 캐시, 노트 링크 풀기, 중복본의 Collection, OCR 잔여 행), 동기화 가져오기를 200개씩 나눠 저장·이어 읽기, 번역 누락·Theme 색, 첨부 그림 정리, Ollama 16k 컨텍스트, macOS 누수, Windows 파일 이름·파일 지문.
+
+## 지난 단계 (2026-10-14): For You와 Settings 개편
+
+- For You: 따라가는 주제(단어 + arXiv 분야)는 arXiv에서, 따라가는 Collection은 Semantic Scholar 추천에서 새 논문을 찾습니다(기간 1일·7일·30일, 출처당 최대 편수). 이미 Library에 있거나 Dismiss한 논문, 기간보다 오래된 논문은 뺍니다. 요청할 때와(켜져 있으면) 하루 한 번 Owelk를 연 뒤 확인하며, arXiv 요청은 몇 초 간격을 둡니다.
 - Home: 이어 읽기 아래 For You(새 논문 5편, 제목 → Library › For You, 톱니 → 설정). 따라가는 것이 없으면 설정으로 가는 한 줄, 새 논문이 없으면 숨김.
 - Library › For You: 전체 목록, 출처별 보기, 다시 확인, 선택해 Add·Dismiss. Add는 PDF를 받아 Paper names 규칙으로 이름 붙이고, Collection에서 온 논문은 그 Collection에 넣고, arXiv·Semantic Scholar의 제목·저자·연도·DOI를 채웁니다. PDF가 없으면 논문 페이지를 웹 탭으로 엽니다. Collection 우클릭 › Follow in For You.
 - For You AI(2단계): 확인 뒤 새 논문을 AI가 따라가는 것과 얼마나 맞는지 점수(0–100)로 매겨 관련도 순으로 놓고 논문마다 한 문장 이유를 붙입니다(Home·Library에 표시, Library의 AI 버튼으로 다시). Settings › For You › Explain with AI(켜는 것이 보내기 동의, AI가 설정돼 있어야 함). 보내는 것: 새 논문의 제목·초록, 주제, 따라가는 Collection의 논문 제목 몇 개.
@@ -64,12 +74,12 @@
 - Library 패널(Collections·Workspaces·Tags·Folder)과 Collection 만들기·이름 바꾸기·삭제, 끌어 놓기, Unsorted·넣을 곳 제안·여러 논문 선택.
 - 논문 추가: Collection 안에 바로 추가, 폴더 한 번에(하위 폴더를 Collection 트리로). 삭제는 `Delete Paper` 하나(Library › Trash에서 되살리기, 7·30일 뒤 자동 비우기 또는 직접 비우기).
 - AI 주제별 정리(기존 Collection 재사용·새로 만들기, Apply 전에는 아무것도 안 바뀜).
-- 읽기: 인용·그림·표·수식 참조에 포인터를 올리면 대상 미리보기(링크가 없거나 깨진 출판사 PDF는 본문 글자에서 찾음), Fit Page 보기, `⌘[`/`⌘]` 쪽 넘김, 페이지 옆 노트, 주석 실행 취소.
+- 읽기: 인용·그림·표·수식 참조에 포인터를 올리면 대상 미리보기(링크가 없거나 깨진 출판사 PDF는 본문 글자에서 찾음), Fit Page 보기, ←/→ 쪽 넘김, 페이지 옆 노트, 주석 실행 취소.
 - AI 정리 제안(탭·Collection)은 Apply 전에 항목 단위로 고칠 수 있습니다(빼기·옮기기·새 그룹).
 - 그림·표 미리보기는 그림/표 자체를 단에 맞춰 보여 주고 카드 안에서 스크롤. 인용 카드의 Find Paper(DOI·arXiv·검색).
 - AI 논문 비교표(열 지정, 노트로 저장), Semantic Scholar 인용 관계(Cites·Cited by, Library 표시, 한 달 캐시).
 - 앱: 아이콘(macOS·Windows·Linux), Finder에서 PDF 열기·실행 중인 창으로 넘기기, 닫을 탭이 없으면 ⌘W로 창 닫기.
-- 참조: 여러 논문 인용(`[12–14]`)은 항목 목록, 링크 있는 PDF도 Find Paper, 링크·미리보기·목차로 이동한 뒤 `Back to p. N`·⌥←로 돌아가기.
+- 참조: 여러 논문 인용(`[12–14]`)은 항목 목록, 링크 있는 PDF도 Find Paper, 링크·미리보기·목차로 이동한 뒤 `Back to p. N`·Back(macOS ⌘[, Linux·Windows Alt+←)으로 돌아가기.
 - 두 줄짜리 글자 묶음을 주는 PDF에서 선택 영역 높이가 두 배가 되던 문제 수정. 선택 없이 우클릭: AI로 묻기·쪽별 번역·논문 요약.
 - 설치: `tools/install-local.sh`(macOS·Ubuntu).
 - 핀치 후 다시 그리는 동안 배경 PDF 작업(색인·논문 정보)이 기다리고, 이미 보이는 쪽에는 로딩 표시를 띄우지 않습니다(논문 추가 중 다시 그리기 250–305ms → 112–115ms).
