@@ -101,24 +101,24 @@ Rectangle {
         return range === "today" ? age <= 0 : range === "week" ? age < 7 : age < 30
     }
     function fromFollowed(p) { return /^(person|institution):/.test(p.source || "") }
-    // Following: each researcher's or institution's papers together, newest first; whoever has the newest comes first.
-    function byWho(items) {
-        const list = items.filter(root.fromFollowed), newest = {}
-        list.forEach(function(p) { const d = root.forYouDay(p).getTime(); if (!(newest[p.source] >= d)) newest[p.source] = d })
-        return list.slice().sort(function(a, b) {
-            if (a.source !== b.source) return newest[b.source] - newest[a.source] || (a.source < b.source ? -1 : 1)
-            return root.forYouDay(b) - root.forYouDay(a)
-        })
+    // Following: the papers of the researchers and institutions followed, newest first.
+    function followedOnly(items) {
+        return items.filter(root.fromFollowed).sort(function(a, b) { return root.forYouDay(b) - root.forYouDay(a) })
     }
-    readonly property var forYouFromSource: (showingFollowing ? byWho(forYou.items) : forYou.items).filter(function(p) {
+    readonly property var forYouFromSource: (showingFollowing ? followedOnly(forYou.items) : forYou.items).filter(function(p) {
         return !forYouSource.length || p.source === forYouSource
     })
-    // Where each followed researcher works (or an institution's country), for the Following headings.
-    readonly property var followedDetails: {
-        const details = {}
-        forYou.items.length // Read again when papers arrive.
-        forYou.people().forEach(function(p) { details[p.kind + ":" + p.id] = p.detail })
-        return details
+    // Following's left column: Everyone, then who has new papers (whoever has the newest first), with how many.
+    // Beside the papers when there is room; a narrow For You keeps the source menu instead.
+    readonly property bool followedRailShown: showingFollowing && listColumn.width - 2 * forYouInset >= 600
+    readonly property var followedRail: {
+        const rows = [], seen = {}
+        const papers = followedOnly(forYou.items)
+        papers.forEach(function(p) {
+            if (!seen[p.source]) { seen[p.source] = {key: p.source, name: p.sourceName || "", count: 0}; rows.push(seen[p.source]) }
+            seen[p.source].count++
+        })
+        return [{key: "", name: qsTr("Everyone"), count: papers.length}].concat(rows)
     }
     readonly property var forYouRows: forYouFromSource.filter(function(p) { return root.inForYouRange(p, root.forYouRange) })
     // "Lovelace et al." and "Today", "3 days ago": the details at a glance.
@@ -681,7 +681,7 @@ Rectangle {
                 }
                 RowLayout {
                     Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
-                    visible: root.showingForYou && !root.showingManage && (root.showingFollowing ? root.byWho(root.forYou.items).length > 0 : root.forYou.items.length > 0)
+                    visible: root.showingForYou && !root.showingManage && (root.showingFollowing ? root.followedOnly(root.forYou.items).length > 0 : root.forYou.items.length > 0)
                     spacing: 4
                     Repeater {
                         model: root.selecting ? [] : [{key: "all", name: qsTr("All")}, {key: "today", name: qsTr("Today")},
@@ -714,7 +714,7 @@ Rectangle {
                     }
                     ComboBox {
                         objectName: "libraryForYouSource"
-                        visible: !root.selecting && choices.length > 2
+                        visible: !root.selecting && choices.length > 2 && !root.followedRailShown
                         Layout.preferredWidth: 220
                         readonly property var sources: (root.forYou.items, root.forYou.sources())
                         // Everything (or everyone), then each source; Following lists only the people followed.
@@ -760,12 +760,46 @@ Rectangle {
                         onClicked: root.setSelecting(false)
                     }
                 }
+                // A column of reading width, in the middle; in Following, who has new papers on its left.
+                RowLayout {
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
+                    visible: root.showingForYou && !root.showingManage
+                    spacing: 16
+                ListView {
+                    id: followedRailList
+                    objectName: "libraryFollowedRail"
+                    visible: root.followedRailShown
+                    Layout.preferredWidth: 200; Layout.fillHeight: true
+                    clip: true
+                    model: visible ? root.followedRail : []
+                    ScrollBar.vertical: ScrollBar {}
+                    delegate: ItemDelegate {
+                        id: who
+                        required property var modelData
+                        required property int index
+                        objectName: "libraryFollowed-" + (modelData.key || "everyone")
+                        width: followedRailList.width
+                        height: Theme.rowHeight
+                        highlighted: root.forYouSource === modelData.key
+                        onClicked: root.forYouSource = modelData.key
+                        contentItem: RowLayout {
+                            spacing: 6
+                            Label {
+                                Layout.fillWidth: true
+                                text: who.modelData.name
+                                elide: Text.ElideRight; textFormat: Text.PlainText
+                                font.weight: who.index === 0 ? Font.DemiBold : Font.Normal
+                                color: who.highlighted ? Theme.selectedText : Theme.text
+                            }
+                            Label { text: who.modelData.count; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                        }
+                    }
+                }
                 ListView {
                     id: forYouList
-                    // A column of reading width, in the middle.
-                    Layout.fillWidth: true; Layout.leftMargin: root.forYouInset; Layout.rightMargin: root.forYouInset
                     objectName: "libraryForYou"
-                    visible: root.showingForYou && !root.showingManage
+                    Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
                     model: root.showingForYou ? root.forYouRows : []
@@ -778,42 +812,9 @@ Rectangle {
                         readonly property bool adding: root.forYou.adding.indexOf(modelData.id) >= 0
                         readonly property bool open: root.forYouOpen === modelData.id && !root.selecting
                         objectName: "libraryForYou-" + index
-                        // Following: the first paper of each researcher or institution carries its name; a click on
-                        // it keeps only theirs.
-                        readonly property bool startsGroup: root.showingFollowing && !root.forYouSource.length
-                            && (index === 0 || root.forYouRows[index - 1].source !== modelData.source)
-                        readonly property real groupHeight: startsGroup ? 36 : 0
                         width: forYouList.width
-                        height: forYouColumn.implicitHeight + 26 + groupHeight
-                        topInset: groupHeight
-                        topPadding: 13 + groupHeight; bottomPadding: 13
-                        Item {
-                            id: groupHeading
-                            objectName: "libraryForYouGroup-" + found.index
-                            visible: found.startsGroup
-                            width: parent.width; height: found.groupHeight
-                            readonly property int papers: found.startsGroup ? root.forYouRows.filter(function(p) { return p.source === found.modelData.source }).length : 0
-                            RowLayout {
-                                anchors.fill: parent; anchors.leftMargin: 4; anchors.topMargin: 10
-                                spacing: 8
-                                Label {
-                                    text: found.modelData.sourceName || ""
-                                    font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold; color: Theme.textSecondary
-                                    elide: Text.ElideRight; Layout.maximumWidth: parent.width * .6
-                                }
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: [root.followedDetails[found.modelData.source] || "", groupHeading.papers === 1 ? qsTr("1 paper") : qsTr("%1 papers").arg(groupHeading.papers)]
-                                          .filter(function(t) { return t.length }).join(" · ")
-                                    elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
-                                }
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.forYouSource = found.modelData.source
-                            }
-                        }
+                        height: forYouColumn.implicitHeight + 26
+                        topPadding: 13; bottomPadding: 13
                         // Its own line, under the Add and Dismiss icons too (the list's ends at the text).
                         Rectangle {
                             visible: found.index < forYouList.count - 1 && !found.highlighted
@@ -934,7 +935,6 @@ Rectangle {
                             visible: !root.selecting && !found.open
                             opacity: found.hovered || previewIcon.hovered || addIcon.hovered || dismissIcon.hovered || found.adding ? 1 : 0
                             anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                            anchors.verticalCenterOffset: found.groupHeight / 2
                             spacing: 2
                             Label { visible: found.adding; anchors.verticalCenter: parent.verticalCenter; text: qsTr("Adding…"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
                             IconButton {
@@ -991,6 +991,7 @@ Rectangle {
                             onClicked: root.showManage(true)
                         }
                     }
+                }
                 }
                 // Manage Following: what For You follows; a row shows the papers it brought (a researcher's or
                 // an institution's in Following).

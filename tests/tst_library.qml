@@ -517,11 +517,22 @@ Item {
             compare(activeTab().filter.following, true)
             compare(view.forYouRows.length, 1)
             compare(view.forYouRows[0].id, "arxiv:2610.05555")
-            let heading = null
-            tryVerify(function() { heading = visualChild(view, "libraryForYouGroup-0"); return heading !== null && heading.visible })
-            // Its heading keeps only theirs; Papers shows everything again.
-            mouseClick(heading)
+            // Who has new papers, on the left: a click keeps only theirs, Everyone all of them.
+            let person = null
+            tryVerify(function() { person = visualChild(view, "libraryFollowed-person:A777"); return person !== null && person.visible })
+            const everyone = visualChild(view, "libraryFollowed-everyone")
+            compare(everyone.modelData.count, 1)
+            compare(person.modelData.name, "Grace Hopper")
+            verify(everyone.highlighted)
+            mouseClick(person)
             compare(view.forYouSource, "person:A777")
+            verify(person.highlighted)
+            mouseClick(everyone)
+            compare(view.forYouSource, "")
+            // The source menu is the left column's stand-in, only when For You is narrow.
+            verify(!visibleChild(view, "libraryForYouSource"))
+            mouseClick(person)
+            // Papers shows everything again.
             mouseClick(visibleChild(view, "libraryForYouPapersTab"))
             tryCompare(view, "showingFollowing", false)
             compare(view.forYouSource, "")

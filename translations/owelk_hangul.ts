@@ -1740,14 +1740,6 @@ Same file as another library entry</source>
         <translation> 투 디스; 더 링크 윌 노 롱거 오픈</translation>
     </message>
     <message>
-        <source>%1 papers</source>
-        <translation>%1 페이퍼스</translation>
-    </message>
-    <message>
-        <source>1 paper</source>
-        <translation>1 페이퍼</translation>
-    </message>
-    <message>
         <source>AI conversation</source>
         <translation>에이아이 컨버세이션</translation>
     </message>
