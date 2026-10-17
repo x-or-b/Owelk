@@ -476,9 +476,19 @@ ApplicationWindow {
     // Windows and Linux: the menus move behind the top bar's ≡ (their shortcuts keep working), so the window has
     // no separate menu bar under its title bar. macOS keeps them in the system menu bar.
     Menu { id: appMenu; objectName: "appMenu" }
+    Component { id: menuLine; MenuSeparator {} }
+    // ≡ is one list: File's items, a line, View's. The emptied menus are kept (they still own their items).
+    property var movedMenus: []
     function moveMenusIntoButton() {
         if (Qt.platform.os === "osx" || !window.menuBar) return
-        while (window.menuBar.count > 0) appMenu.addMenu(window.menuBar.takeMenu(0))
+        const moved = []
+        while (window.menuBar.count > 0) {
+            const menu = window.menuBar.takeMenu(0)
+            moved.push(menu)
+            if (appMenu.count > 0) appMenu.addItem(menuLine.createObject(appMenu))
+            while (menu.count > 0) appMenu.addItem(menu.takeItem(0))
+        }
+        movedMenus = moved
         window.menuBar.visible = false
     }
     SearchPalette {
@@ -495,57 +505,65 @@ ApplicationWindow {
             if (documents.openWeb(url, window.homeVisible || !view || !view.isHome)) window.homeVisible = false
         }
     }
+    // The menus hold only what one looks for there: making and opening things, places, panels and how a page
+    // is shown. Everything else with a key (search, the Command Palette, Back and Forward, tab and split moves,
+    // reading tools) works by its key below and from the Command Palette, and is set in Settings › Shortcuts.
+    // macOS shows these menus in its menu bar (Settings and Quit move into the Owelk menu); Windows and Linux
+    // list them behind the top bar's ≡.
     menuBar: MenuBar {
         Menu {
             title: qsTr("File")
-            Action { text: qsTr("Open PDF…"); shortcut: StandardKey.Open; onTriggered: window.chooseFile() }
-            Action { objectName: "newNoteAction"; text: qsTr("New Note"); shortcut: window.keys("newNote"); enabled: !window.restoreFailed; onTriggered: documents.newNote() }
-            Action { objectName: "openWebAction"; text: qsTr("Open Web Page…"); shortcut: window.keys("openWeb"); enabled: !window.restoreFailed; onTriggered: window.openWebAddress() }
-            Action { objectName: "settingsAction"; text: qsTr("Settings…"); shortcut: Qt.platform.os === "osx" ? StandardKey.Preferences : "Ctrl+,"; onTriggered: settingsDialog.open() }
             Action { objectName: "newTabAction"; text: qsTr("New Tab"); shortcut: window.keys("newTab"); enabled: !window.restoreFailed && !(window.currentReader && window.currentReader.annotationDirty); onTriggered: documents.newHomeTab() }
+            Action { text: qsTr("Open PDF…"); shortcut: StandardKey.Open; onTriggered: window.chooseFile() }
+            Action { objectName: "openWebAction"; text: qsTr("Open Web Page…"); shortcut: window.keys("openWeb"); enabled: !window.restoreFailed; onTriggered: window.openWebAddress() }
+            Action { objectName: "newNoteAction"; text: qsTr("New Note"); shortcut: window.keys("newNote"); enabled: !window.restoreFailed; onTriggered: documents.newNote() }
+            MenuSeparator {}
             Action { objectName: "closeTabAction"; text: documents.hasTabs ? qsTr("Close Tab") : qsTr("Close Window"); shortcut: window.keys("closeTab"); enabled: !(!window.homeVisible && window.currentReader && window.currentReader.annotationDirty); onTriggered: window.closeTabOrWindow() }
             Action { text: qsTr("Reopen Closed Tab"); shortcut: window.keys("reopenTab"); enabled: documents.closedTabs.length > 0 && !window.restoreFailed; onTriggered: documents.reopenClosedTab() }
-            Action { objectName: "nextTabAction"; text: qsTr("Next Tab"); shortcut: window.keys("nextTab"); enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(1) }
-            Action { objectName: "previousTabAction"; text: qsTr("Previous Tab"); shortcut: window.keys("previousTab"); enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(-1) }
             MenuSeparator {}
+            Action { objectName: "settingsAction"; text: qsTr("Settings…"); shortcut: Qt.platform.os === "osx" ? StandardKey.Preferences : "Ctrl+,"; onTriggered: settingsDialog.open() }
             Action { text: qsTr("Quit"); shortcut: StandardKey.Quit; onTriggered: window.close() }
         }
         Menu {
             title: qsTr("View")
             Action { text: qsTr("Home"); shortcut: window.keys("home"); onTriggered: window.showHome() }
             Action { objectName: "libraryAction"; text: qsTr("Library"); shortcut: window.keys("library"); enabled: !window.restoreFailed; onTriggered: documents.openLibrary({}) }
-            Action { objectName: "tabsPanelAction"; text: window.tabsPanelOpen ? qsTr("Hide Vertical Tabs") : qsTr("Show Vertical Tabs"); shortcut: window.keys("tabsPanel"); enabled: Theme.verticalTabs; onTriggered: window.setTabsPanel(!window.tabsPanelOpen) }
-            Action { text: qsTr("Search Research"); shortcut: window.keys("search"); onTriggered: window.focusSearch(true) }
-            Action { text: qsTr("Command Palette"); shortcut: window.keys("commands"); onTriggered: { searchPalette.close(); commandPalette.open() } }
-            Action { text: qsTr("Find"); shortcut: StandardKey.Find; onTriggered: window.findInView() }
-            Action { text: qsTr("Zoom in"); shortcut: StandardKey.ZoomIn; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1.2) }
-            Action { text: qsTr("Zoom out"); shortcut: StandardKey.ZoomOut; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1 / 1.2) }
-            // The same as the top bar's arrows: within the tab first (pages, jumps), then between places.
-            Action { objectName: "jumpBackAction"; text: qsTr("Back"); shortcut: window.keys("jumpBack"); enabled: window.canGoBack; onTriggered: window.goBack() }
-            Action { objectName: "jumpForwardAction"; text: qsTr("Forward"); shortcut: window.keys("jumpForward"); enabled: window.canGoForward; onTriggered: window.goForward() }
+            MenuSeparator {}
+            Action { text: qsTr("Zoom In"); shortcut: StandardKey.ZoomIn; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1.2) }
+            Action { text: qsTr("Zoom Out"); shortcut: StandardKey.ZoomOut; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1 / 1.2) }
             Action { objectName: "fitWidthAction"; text: qsTr("Fit Width"); shortcut: window.keys("fitWidth"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitWidth() }
             Action { objectName: "fitPageAction"; text: qsTr("Fit Page"); shortcut: window.keys("fitPage"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitPage() }
-            Action { objectName: "markRegionAction"; text: qsTr("Mark Region"); shortcut: window.keys("markRegion"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.setTool("area") }
-            Action { objectName: "highlightAction"; text: qsTr("Highlight Selection"); shortcut: window.keys("highlight"); enabled: !window.homeVisible && !!window.currentReader; onTriggered: window.currentReader.useHighlight() }
-            Action { objectName: "commentAction"; text: qsTr("Comment"); shortcut: window.keys("comment"); enabled: !window.homeVisible && !!window.currentReader; onTriggered: window.currentReader.setTool("comment") }
             Action { objectName: "darkPagesAction"; text: qsTr("Dark Pages"); shortcut: window.keys("darkPages"); checkable: true; checked: Theme.invertPages; enabled: Theme.canInvertPages; onTriggered: Theme.invertPages = checked }
-            Action { objectName: "askAiAction"; text: qsTr("Ask AI"); shortcut: window.keys("askAi"); enabled: !window.restoreFailed; onTriggered: window.askAiNow() }
             MenuSeparator {}
             Action { objectName: "filesPanelAction"; text: qsTr("Library Panel"); shortcut: window.keys("filesPanel"); onTriggered: window.togglePanel("files") }
             Action { objectName: "documentPanelAction"; text: qsTr("Document Panel"); shortcut: window.keys("documentPanel"); onTriggered: window.togglePanel("document") }
-            Action { objectName: "annotationsAction"; text: qsTr("Annotations"); shortcut: window.keys("annotations"); enabled: !window.homeVisible; onTriggered: window.toggleAnnotations() }
             Action { objectName: "aiPanelAction"; text: qsTr("AI Chat"); shortcut: window.keys("aiPanel"); onTriggered: window.togglePanel("ai") }
             Action { objectName: "threadsPanelAction"; text: qsTr("Threads"); shortcut: window.keys("threadsPanel"); onTriggered: window.togglePanel("threads") }
-            MenuSeparator {}
-            Action { objectName: "splitRightAction"; text: qsTr("Duplicate to Right Split"); shortcut: window.keys("splitRight"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("right") }
-            Action { objectName: "splitDownAction"; text: qsTr("Duplicate to Bottom Split"); shortcut: window.keys("splitDown"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.duplicateSplit("bottom") }
-            Action { objectName: "moveRightAction"; text: qsTr("Move Tab to Right Split"); shortcut: window.keys("moveRight"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.moveActiveTabToSplit("right") }
-            Action { objectName: "moveDownAction"; text: qsTr("Move Tab to Bottom Split"); shortcut: window.keys("moveDown"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.moveActiveTabToSplit("bottom") }
-            Action { objectName: "nextSplitAction"; text: qsTr("Focus Next Split"); shortcut: window.keys("nextSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.focusGroup(1) }
-            Action { objectName: "previousSplitAction"; text: qsTr("Focus Previous Split"); shortcut: window.keys("previousSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onTriggered: documents.focusGroup(-1) }
-            Action { text: qsTr("Join All Groups"); enabled: !window.homeVisible; onTriggered: documents.joinAll() }
+            Action { objectName: "tabsPanelAction"; text: window.tabsPanelOpen ? qsTr("Hide Vertical Tabs") : qsTr("Show Vertical Tabs"); shortcut: window.keys("tabsPanel"); enabled: Theme.verticalTabs; onTriggered: window.setTabsPanel(!window.tabsPanelOpen) }
         }
     }
+    // Keys without a menu item. Tab switching stays an action too (the Command Palette and tests trigger it).
+    Action { id: nextTabAction; objectName: "nextTabAction"; enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(1) }
+    Action { id: previousTabAction; objectName: "previousTabAction"; enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(-1) }
+    Shortcut { sequence: window.keys("nextTab"); enabled: nextTabAction.enabled; onActivated: nextTabAction.trigger() }
+    Shortcut { sequence: window.keys("previousTab"); enabled: previousTabAction.enabled; onActivated: previousTabAction.trigger() }
+    Shortcut { sequence: window.keys("search"); onActivated: window.focusSearch(true) }
+    Shortcut { sequence: window.keys("commands"); onActivated: { searchPalette.close(); commandPalette.open() } }
+    Shortcut { sequences: [StandardKey.Find]; onActivated: window.findInView() }
+    // Back and Forward, as the top bar's arrows: within the tab first (pages, jumps), then between places.
+    Shortcut { objectName: "jumpBackShortcut"; sequence: window.keys("jumpBack"); enabled: window.canGoBack; onActivated: window.goBack() }
+    Shortcut { objectName: "jumpForwardShortcut"; sequence: window.keys("jumpForward"); enabled: window.canGoForward; onActivated: window.goForward() }
+    Shortcut { sequence: window.keys("markRegion"); enabled: !window.homeVisible; onActivated: if (window.currentReader) window.currentReader.setTool("area") }
+    Shortcut { sequence: window.keys("highlight"); enabled: !window.homeVisible && !!window.currentReader; onActivated: window.currentReader.useHighlight() }
+    Shortcut { sequence: window.keys("comment"); enabled: !window.homeVisible && !!window.currentReader; onActivated: window.currentReader.setTool("comment") }
+    Shortcut { sequence: window.keys("askAi"); enabled: !window.restoreFailed; onActivated: window.askAiNow() }
+    Shortcut { sequence: window.keys("annotations"); enabled: !window.homeVisible; onActivated: window.toggleAnnotations() }
+    Shortcut { sequence: window.keys("splitRight"); enabled: !window.homeVisible && window.canSwitchTabs; onActivated: documents.duplicateSplit("right") }
+    Shortcut { sequence: window.keys("splitDown"); enabled: !window.homeVisible && window.canSwitchTabs; onActivated: documents.duplicateSplit("bottom") }
+    Shortcut { sequence: window.keys("moveRight"); enabled: !window.homeVisible && window.canSwitchTabs; onActivated: documents.moveActiveTabToSplit("right") }
+    Shortcut { sequence: window.keys("moveDown"); enabled: !window.homeVisible && window.canSwitchTabs; onActivated: documents.moveActiveTabToSplit("bottom") }
+    Shortcut { sequence: window.keys("nextSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onActivated: documents.focusGroup(1) }
+    Shortcut { sequence: window.keys("previousSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onActivated: documents.focusGroup(-1) }
     // An answer arrived while its thread is not in view: a card at the bottom right (Open / Dismiss),
     // and while another app is in front, the Dock icon bounces once (the taskbar flashes on Linux).
     AiNotice {
