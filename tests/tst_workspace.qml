@@ -1034,6 +1034,43 @@ Item {
                 return tabs.length === 1 && tabs[0].id === pdfTab.id
             })
         }
+        function test_withoutTheTopBar() {
+            const d = workspace.documents
+            const activeTab = function() { const g = Tree.find(d.tree, d.activeGroup); return g.tabs.find(function(t) { return t.id === g.activeTab }) }
+            const palette = findChild(workspace, "searchPalette")
+            researchStore.setSetting("appearance.topBar", "hide")
+            tryCompare(findChild(workspace, "topBar"), "visible", false)
+            // Home filling the window searches in its own field, with Back and Forward beside it.
+            workspace.homeVisible = true
+            const home = findChild(workspace, "homeView")
+            tryVerify(function() { const bar = visualChild(home, "homeSearchBar"); return bar !== null && bar.visible })
+            verify(visualChild(home, "homeBack").visible)
+            workspace.focusSearch(true)
+            tryCompare(palette, "opened", true)
+            compare(palette.inputField.objectName, "homeSearchField")
+            palette.close(); tryCompare(palette, "visible", false)
+            // A paper in front: Back and Forward at the left of the tab strip, search at its right (Ctrl+K: the
+            // results in the middle of the window).
+            workspace.openDocument(fixtureSource)
+            tryCompare(workspace, "homeVisible", false)
+            let strip = null
+            tryVerify(function() { strip = d.groupView(d.activeGroup); return strip !== null && visualChild(strip, "stripBack") !== null && visualChild(strip, "stripBack").visible })
+            verify(visualChild(strip, "stripSearch").visible)
+            visualChild(strip, "stripSearch").clicked()
+            tryCompare(palette, "opened", true)
+            compare(palette.inputField, null)
+            palette.close(); tryCompare(palette, "visible", false)
+            // A Home tab searches in its own field.
+            d.newHomeTab()
+            tryCompare(activeTab(), "kind", "home")
+            tryVerify(function() { const v = d.groupView(d.activeGroup); return v && v.homeView && v.homeView.searchBox.visible })
+            workspace.focusSearch(true)
+            tryCompare(palette, "opened", true)
+            compare(palette.inputField.objectName, "homeSearchField")
+            palette.close(); tryCompare(palette, "visible", false)
+            researchStore.setSetting("appearance.topBar", "show")
+            tryCompare(findChild(workspace, "topBar"), "visible", true)
+        }
         function test_removeRecentRequiresConfirmation() {
             researchStore.rememberDocument(fixtureSource)
             workspace.showHome()

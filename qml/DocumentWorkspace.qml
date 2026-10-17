@@ -365,6 +365,18 @@ Flickable {
     signal aiRequested(var spec)
     // A Settings page to open (the Library's For You gear).
     signal settingsRequested(string page)
+    // Without the top bar (Settings › Appearance, Windows and Linux): its Back and Forward go to the left end of the
+    // top-left tab strip, a search button and ≡ to the right end of the top-right one; Home tabs search themselves.
+    property bool topControls: false
+    property var appMenu: null
+    property var searchPalette: null
+    property bool canGoBack: false
+    property bool canGoForward: false
+    property string backKeys: ""
+    property string forwardKeys: ""
+    signal backRequested()
+    signal forwardRequested()
+    signal searchRequested()
     signal annotationsToggled()
     // One library tab per group: reuse it (or the Home tab in front) and apply the filter.
     // One Library tab in the window: opening it again shows that tab (wherever it is) with the filter.

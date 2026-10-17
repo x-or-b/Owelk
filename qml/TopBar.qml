@@ -47,60 +47,19 @@ Rectangle {
             onClicked: root.forward()
         }
     }
-    // The search field (the library and the web). Typing, a click or Cmd+K opens its results right under it
-    // (SearchPalette attached to this field); while they show, its bottom corners square off to join them.
+    // The search field (the library and the web), with its results right under it.
     property var palette: null
-    readonly property bool expanded: !!palette && palette.opened
-    readonly property alias searchField: field
+    readonly property bool expanded: search.expanded
+    readonly property alias searchField: search.field
     readonly property alias searchBox: search
-    Item {
+    SearchBox {
         id: search
         objectName: "topSearch"
+        fieldName: "topSearchField"
+        palette: root.palette
         anchors.centerIn: parent
         // Room for long titles in the results without stretching across a wide window.
         width: Math.min(680, Math.max(320, root.width * .5))
-        height: Theme.controlHeightSmall + 4
-        // While the results show, the field's bottom (corners and edge) is cut off so its sides run straight
-        // into the card's.
-        Item {
-            anchors.fill: parent
-            clip: root.expanded
-            Rectangle {
-                anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
-                height: parent.height + (root.expanded ? radius : 0)
-                radius: Theme.radius
-                color: root.expanded || field.activeFocus ? Theme.field : hover.hovered ? Theme.hover : Theme.field
-                border.color: root.expanded ? Theme.border : field.activeFocus ? Theme.accent : Theme.separator
-            }
-        }
-        HoverHandler { id: hover; cursorShape: Qt.IBeamCursor }
-        Icon { x: 10; anchors.verticalCenter: parent.verticalCenter; name: "search"; size: Theme.fontBody; color: Theme.textTertiary }
-        TextField {
-            id: field
-            objectName: "topSearchField"
-            // A click elsewhere takes the cursor out (Main.qml); its box and its results keep it.
-            property bool releaseFocusOnOutsidePress: true
-            property var keepFocusWithin: [search, root.palette && root.palette.contentItem ? root.palette.contentItem.parent : null]
-            anchors.fill: parent
-            leftPadding: 30; rightPadding: hint.visible ? hint.width + 16 : 10
-            topPadding: 0; bottomPadding: 0
-            verticalAlignment: TextInput.AlignVCenter
-            font.pixelSize: Theme.fontSmall
-            placeholderText: qsTr("Search")
-            selectByMouse: true
-            background: null
-            // Results open on typing (with Korean being composed too) and on a click.
-            onDisplayTextChanged: if (activeFocus && displayText.length && root.palette && !root.palette.opened) root.palette.open()
-            TapHandler { onTapped: { field.forceActiveFocus(); if (root.palette && !root.palette.opened) root.palette.open() } }
-            Keys.onPressed: function(event) { if (root.palette && root.palette.handleKey(event)) event.accepted = true }
-        }
-        Label {
-            id: hint
-            visible: !root.expanded && !field.activeFocus
-            anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
-            text: Platform.keys("Ctrl+K")
-            font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
-        }
     }
     IconButton {
         objectName: "appMenuButton"

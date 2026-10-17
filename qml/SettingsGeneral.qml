@@ -40,6 +40,25 @@ ColumnLayout {
                 TabButton { objectName: "verticalTabsOption"; text: qsTr("Vertical"); width: 96; onClicked: Theme.verticalTabs = true }
             }
         }
+        // Windows and Linux: the bar above the tabs (Back, Forward, search, ≡). Off (the default), the window has one
+        // row fewer: the search field is Home's (Ctrl+K elsewhere) and the buttons sit at the ends of the tab strip.
+        // macOS has none to choose: there the bar is the title bar.
+        SettingsRow {
+            id: topBarRow
+            objectName: "settingsRow-topBar"
+            visible: Qt.platform.os !== "osx" || Qt.platform.pluginName !== "cocoa"
+            property string choice: researchStore.setting("appearance.topBar")
+            readonly property bool shown: choice.length ? choice === "show" : Qt.platform.os === "osx"
+            Connections { target: researchStore; function onSettingsChanged() { topBarRow.choice = researchStore.setting("appearance.topBar") } }
+            label: qsTr("Top bar")
+            detail: Theme.verticalTabs ? qsTr("Back, Forward, search and the menu above the window. It stays with vertical tabs.")
+                                       : qsTr("Back, Forward, search and the menu above the tabs. Off, search is on Home (%1 elsewhere).").arg(Platform.keys("Ctrl+K"))
+            Switch {
+                objectName: "topBarSwitch"
+                checked: topBarRow.shown
+                onToggled: researchStore.setSetting("appearance.topBar", checked ? "show" : "hide")
+            }
+        }
         // Control+Tab: through the tabs in order, or back and forth between the last two used.
         SettingsRow {
             objectName: "settingsRow-controlTab"

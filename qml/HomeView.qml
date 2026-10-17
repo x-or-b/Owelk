@@ -40,6 +40,19 @@ Rectangle {
     signal settingsRequested(string page)
     // A paper's page to read in a web tab.
     signal webRequested(url address)
+    // Without the top bar (Settings › Appearance, Windows and Linux): the search field is Home's, at its top, and
+    // Home filling the window also takes the bar's Back, Forward and ≡ (in tabs, the tab strip has them).
+    property bool searchShown: false
+    property bool controlsShown: false
+    property var palette: null
+    property var appMenu: null
+    property bool canGoBack: false
+    property bool canGoForward: false
+    property string backKeys: ""
+    property string forwardKeys: ""
+    signal backRequested()
+    signal forwardRequested()
+    readonly property alias searchBox: homeSearch
     // A note or an AI chat chosen in Home's lists.
     signal resultChosen(var result)
     // A list in a slot of fixed height (rows rows): the rounded box grows with its rows up to the slot and
@@ -105,8 +118,45 @@ Rectangle {
         IconButton { id: add; visible: false; icon.name: "add"; onClicked: boxHeading.added() }
         IconButton { id: gear; objectName: boxHeading.objectName + "Settings"; visible: false; icon.name: "settings"; onClicked: boxHeading.configureRequested() }
     }
+    Item {
+        id: homeBar
+        objectName: "homeSearchBar"
+        visible: root.searchShown
+        width: parent.width; height: visible ? Theme.barHeight + 16 : 0
+        Row {
+            visible: root.controlsShown
+            anchors.left: parent.left; anchors.leftMargin: 8; anchors.verticalCenter: parent.verticalCenter
+            spacing: 2
+            IconButton {
+                objectName: "homeBack"; icon.name: "back"; enabled: root.canGoBack
+                description: qsTr("Back") + (root.backKeys.length ? " · " + root.backKeys : "")
+                onClicked: root.backRequested()
+            }
+            IconButton {
+                objectName: "homeForward"; icon.name: "forward"; enabled: root.canGoForward
+                description: qsTr("Forward") + (root.forwardKeys.length ? " · " + root.forwardKeys : "")
+                onClicked: root.forwardRequested()
+            }
+        }
+        SearchBox {
+            id: homeSearch
+            objectName: "homeSearchBox"
+            fieldName: "homeSearchField"
+            palette: root.palette
+            anchors.centerIn: parent
+            width: Math.min(680, Math.max(320, root.width * .5))
+        }
+        IconButton {
+            objectName: "homeMenuButton"
+            visible: root.controlsShown && !!root.appMenu
+            anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+            icon.name: "menu"; description: qsTr("Menu")
+            onClicked: root.appMenu.popup(this, width - root.appMenu.width, height)
+        }
+    }
     Flickable {
         anchors.fill: parent
+        anchors.topMargin: homeBar.height
         clip: true
         contentWidth: width
         contentHeight: body.height + 64

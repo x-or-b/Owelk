@@ -97,6 +97,10 @@ Rectangle {
     readonly property var strip: Tree.stripItems(groupData)
     // With vertical tabs the strip is hidden; tabs are listed beside the window instead.
     readonly property real stripHeight: Theme.verticalTabs ? 0 : Theme.barHeight
+    // Without the top bar, the strips at the workspace's top corners hold its controls.
+    readonly property var homeView: homeLoader.item
+    readonly property bool atTopLeft: x < 1 && y < 1
+    readonly property bool atTopRight: y < 1 && x + width > controller.contentWidth - 1
     function showTabMenu(tabId) { menuTab = tabId; tabMenu.popup() }
     function showGroupMenu(labelId) { menuLabel = labelId; groupMenu.popup() }
     function groupColor(label) {
@@ -185,6 +189,21 @@ Rectangle {
             Layout.preferredHeight: root.stripHeight
             visible: !Theme.verticalTabs
             spacing: 0
+        Row {
+            visible: root.controller.topControls && root.atTopLeft
+            Layout.leftMargin: 6
+            spacing: 2
+            IconButton {
+                objectName: "stripBack"; icon.name: "back"; enabled: root.controller.canGoBack
+                description: qsTr("Back") + (root.controller.backKeys.length ? " · " + root.controller.backKeys : "")
+                onClicked: root.controller.backRequested()
+            }
+            IconButton {
+                objectName: "stripForward"; icon.name: "forward"; enabled: root.controller.canGoForward
+                description: qsTr("Forward") + (root.controller.forwardKeys.length ? " · " + root.controller.forwardKeys : "")
+                onClicked: root.controller.forwardRequested()
+            }
+        }
         ListView {
             id: tabs
             objectName: "tabBar"
@@ -384,6 +403,19 @@ Rectangle {
             description: qsTr("New tab · ") + Platform.keys("Ctrl+T")
             onClicked: { root.controller.activateGroup(root.groupId); root.controller.newHomeTab() }
         }
+        IconButton {
+            objectName: "stripSearch"
+            visible: root.controller.topControls && root.atTopRight
+            icon.name: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K")
+            onClicked: root.controller.searchRequested()
+        }
+        IconButton {
+            objectName: "stripMenu"
+            visible: root.controller.topControls && root.atTopRight && !!root.controller.appMenu
+            Layout.rightMargin: 4
+            icon.name: "menu"; description: qsTr("Menu")
+            onClicked: root.controller.appMenu.popup(this, width - root.controller.appMenu.width, height)
+        }
         }
         Loader {
             id: noteLoader
@@ -467,6 +499,8 @@ Rectangle {
                 onNewNoteRequested: { root.controller.activateGroup(root.groupId); root.controller.newNote() }
                 // A box's gear (For You) opens its settings, as on the Home that fills the window.
                 onSettingsRequested: function(page) { root.controller.settingsRequested(page) }
+                searchShown: root.controller.topControls
+                palette: root.controller.searchPalette
                 TapHandler { onPressedChanged: if (pressed) root.controller.activateGroup(root.groupId) }
             }
         }

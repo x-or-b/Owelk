@@ -177,6 +177,8 @@ public slots:
         if (!m_store->initialize(&error)) qFatal("%s", qPrintable(error));
         // Fixtures open from where they are (keeping copies is covered by the store tests).
         m_store->setSetting("library.keepPdfs", "0");
+        // The top bar shows on every system (Windows and Linux hide it by default); one test turns it off.
+        m_store->setSetting("appearance.topBar", "show");
         // Downloads (web tabs, For You's Add) land in the test folder, never in the real Downloads.
         QDir().mkpath(m_directory.filePath("downloads"));
         m_store->setSetting("downloadFolder", m_directory.filePath("downloads"));

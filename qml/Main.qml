@@ -20,6 +20,22 @@ ApplicationWindow {
     // (Only on a real macOS desktop: the offscreen platform keeps the menu bar inside the window.)
     readonly property bool unifiedTitleBar: Qt.platform.os === "osx" && Qt.platform.pluginName === "cocoa"
     flags: unifiedTitleBar ? Qt.Window | Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint : Qt.Window
+    // The top bar (Back, Forward, search, ≡): always on macOS, where it is the title bar; on Windows and Linux a
+    // choice in Settings › Appearance, off unless chosen, so the window has one row fewer. Off, its search is Home's
+    // (Cmd+K elsewhere) and its buttons go to the tab strip. With vertical tabs it stays: no strip on top takes them.
+    property string topBarChoice: researchStore.setting("appearance.topBar")
+    Connections { target: researchStore; function onSettingsChanged() { window.topBarChoice = researchStore.setting("appearance.topBar") } }
+    readonly property bool topBarHidden: !unifiedTitleBar && !Theme.verticalTabs
+        && (topBarChoice.length ? topBarChoice === "hide" : Qt.platform.os !== "osx")
+    // The field the search results hang from: the top bar's, or without it Home's while Home is in front.
+    readonly property var searchHost: {
+        if (topBar.visible) return topBar.searchBox
+        if (!topBarHidden) return null
+        if (homeVisible) return homeView.searchBox
+        const revision = documents.revision
+        const view = documents.groupView(documents.activeGroup)
+        return view && view.isHome && view.homeView ? view.homeView.searchBox : null
+    }
 
     // The platform UI font (San Francisco, Segoe UI, the desktop font on Linux).
     font.pixelSize: Theme.fontBody
@@ -203,9 +219,10 @@ ApplicationWindow {
     // The top bar's search field: the cursor in it (Home, a new tab), or its results open too (Cmd+K).
     function focusSearch(withResults) {
         commandPalette.close()
-        if (!topBar.visible) { if (withResults) searchPalette.open(); return }
+        const host = searchHost
+        if (!host) { if (withResults) searchPalette.open(); return }
         if (withResults) searchPalette.begin()
-        else { topBar.searchField.forceActiveFocus(); topBar.searchField.selectAll() }
+        else { host.field.forceActiveFocus(); host.field.selectAll() }
     }
     // Cmd+L: the address bar of the current web tab, or a new web tab when a paper or Home is in front.
     function openWebAddress() {
@@ -495,9 +512,9 @@ ApplicationWindow {
     }
     SearchPalette {
         currentSource: !window.homeVisible && window.currentReader ? window.currentReader.source : ""
-        // Hangs from the top bar's search field; on its own only when that bar is hidden.
-        parent: topBar.visible ? topBar.searchBox : Overlay.overlay
-        inputField: topBar.visible ? topBar.searchField : null
+        // Hangs from the search field in view (the top bar's, or Home's); otherwise on its own, in the middle.
+        parent: window.searchHost ? window.searchHost : Overlay.overlay
+        inputField: window.searchHost ? window.searchHost.field : null
         id: searchPalette
         onResultChosen: function(result) { window.openSearchResult(result) }
         // A Home tab in front becomes the page (as a browser's new tab does); otherwise a new tab opens.
@@ -693,7 +710,7 @@ ApplicationWindow {
         TopBar {
             id: topBar
             Layout.fillWidth: true
-            visible: !window.restoreFailed
+            visible: !window.restoreFailed && !window.topBarHidden
             titleBar: window.unifiedTitleBar
             // The traffic lights' room, and the title bar's height (not in full screen, where they hide).
             readonly property bool fullScreen: window.visibility === Window.FullScreen
@@ -790,6 +807,16 @@ ApplicationWindow {
             onNewNoteRequested: if (!window.restoreFailed) documents.newNote()
             onSettingsRequested: function(page) { settingsDialog.openPage(page) }
             onWebRequested: function(address) { window.openForYouPage(address) }
+            searchShown: window.topBarHidden
+            controlsShown: true
+            palette: searchPalette
+            appMenu: Qt.platform.os === "osx" ? null : appMenu
+            canGoBack: window.canGoBack
+            canGoForward: window.canGoForward
+            backKeys: Platform.keys(window.keys("jumpBack"))
+            forwardKeys: Platform.keys(window.keys("jumpForward"))
+            onBackRequested: window.goBack()
+            onForwardRequested: window.goForward()
         }
         DocumentWorkspace {
             id: documents
@@ -802,6 +829,16 @@ ApplicationWindow {
             onEmpty: window.showHome()
             onAiRequested: function(spec) { window.askAi(spec) }
             onSettingsRequested: function(page) { settingsDialog.openPage(page) }
+            topControls: window.topBarHidden
+            appMenu: Qt.platform.os === "osx" ? null : appMenu
+            searchPalette: searchPalette
+            canGoBack: window.canGoBack
+            canGoForward: window.canGoForward
+            backKeys: Platform.keys(window.keys("jumpBack"))
+            forwardKeys: Platform.keys(window.keys("jumpForward"))
+            onBackRequested: window.goBack()
+            onForwardRequested: window.goForward()
+            onSearchRequested: window.focusSearch(true)
             onAnnotationsToggled: window.toggleAnnotations()
             onAiResponseRequested: function(id) { window.openAiThread(id) }
             onOpened: window.homeVisible = false

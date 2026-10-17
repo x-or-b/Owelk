@@ -977,6 +977,10 @@
         <translation>애드 투 “</translation>
     </message>
     <message>
+        <source>Back</source>
+        <translation>백</translation>
+    </message>
+    <message>
         <source>Close Group's Tabs</source>
         <translation>클로즈 그룹스 탭스</translation>
     </message>
@@ -1017,8 +1021,16 @@
         <translation>듀플리케이트 투 라이트 스플릿</translation>
     </message>
     <message>
+        <source>Forward</source>
+        <translation>포워드</translation>
+    </message>
+    <message>
         <source>Hide </source>
         <translation>하이드 </translation>
+    </message>
+    <message>
+        <source>Menu</source>
+        <translation>메뉴</translation>
     </message>
     <message>
         <source>Move Note to Trash</source>
@@ -1055,6 +1067,10 @@
     <message>
         <source>Save Papers as Collection</source>
         <translation>세이브 페이퍼스 애즈 컬렉션</translation>
+    </message>
+    <message>
+        <source>Search · </source>
+        <translation>서치 · </translation>
     </message>
     <message>
         <source>Show </source>
@@ -1490,6 +1506,10 @@
         <translation>애딩…</translation>
     </message>
     <message>
+        <source>Back</source>
+        <translation>백</translation>
+    </message>
+    <message>
         <source>Collections</source>
         <translation>컬렉션스</translation>
     </message>
@@ -1516,6 +1536,14 @@
     <message>
         <source>For You settings</source>
         <translation>포 유 세팅스</translation>
+    </message>
+    <message>
+        <source>Forward</source>
+        <translation>포워드</translation>
+    </message>
+    <message>
+        <source>Menu</source>
+        <translation>메뉴</translation>
     </message>
     <message>
         <source>New note</source>
@@ -4576,6 +4604,13 @@ You can open the same document twice.</source>
     </message>
 </context>
 <context>
+    <name>SearchBox</name>
+    <message>
+        <source>Search</source>
+        <translation>서치</translation>
+    </message>
+</context>
+<context>
     <name>SearchFilters</name>
     <message>
         <source>AI</source>
@@ -5175,6 +5210,14 @@ You can open the same document twice.</source>
 <context>
     <name>SettingsGeneral</name>
     <message>
+        <source>Back, Forward, search and the menu above the tabs. Off, search is on Home (%1 elsewhere).</source>
+        <translation>백, 포워드, 서치 앤드 더 메뉴 어보브 더 탭스. 오프, 서치 이즈 온 홈 (%1 엘스웨어).</translation>
+    </message>
+    <message>
+        <source>Back, Forward, search and the menu above the window. It stays with vertical tabs.</source>
+        <translation>백, 포워드, 서치 앤드 더 메뉴 어보브 더 윈도. 잇 스테이즈 위드 버티컬 탭스.</translation>
+    </message>
+    <message>
         <source>Home</source>
         <translation>홈</translation>
     </message>
@@ -5213,6 +5256,10 @@ You can open the same document twice.</source>
     <message>
         <source>Tabs</source>
         <translation>탭스</translation>
+    </message>
+    <message>
+        <source>Top bar</source>
+        <translation>톱 바</translation>
     </message>
     <message>
         <source>Vertical</source>
@@ -6301,10 +6348,6 @@ You can open the same document twice.</source>
     <message>
         <source>Menu</source>
         <translation>메뉴</translation>
-    </message>
-    <message>
-        <source>Search</source>
-        <translation>서치</translation>
     </message>
 </context>
 <context>
