@@ -9,4 +9,8 @@ public:
     using QObject::QObject;
     Q_INVOKABLE QVariantList lineRectangles(const QList<QPolygonF> &polygons) const;
     Q_INVOKABLE QVariantList stableRectangles(const QList<QPolygonF> &selection, const QVariantList &pageLines) const;
+
+private:
+    // The glyph boxes joined into runs along each text line (no room added around them).
+    static QList<QRectF> glyphRuns(const QList<QPolygonF> &polygons);
 };

@@ -1,40 +1,99 @@
 #include "SelectionGeometry.h"
 #include <algorithm>
+#include <functional>
 #include <cmath>
 #include <limits>
 
+namespace {
+// Bands of different lines meet halfway between them: halfway across the gap, or halfway through the strip where
+// their boxes overlap (many PDFs give each line its font's full height, taller than the line spacing), so
+// neighbouring bands never cover each other. Only lines of comparable height count: a fraction bar or an accent
+// (thin), or a bracket spanning two lines (tall), cuts no line. limit: how far beyond its box a band may reach.
+QList<QRectF> meetHalfway(const QList<QRectF> &bands, const std::function<qreal(const QRectF &)> &limit)
+{
+    QList<QRectF> result;
+    for (const auto &rect : bands) {
+        const qreal reach = limit(rect);
+        qreal top = rect.top() - std::min(reach, std::max(0.0, rect.top()));
+        qreal bottom = rect.bottom() + reach;
+        for (const auto &other : bands) {
+            if (other.right() <= rect.left() || other.left() >= rect.right()) continue;
+            if (other.height() < rect.height() * .5 || other.height() > rect.height() * 2) continue;
+            const qreal apart = other.center().y() - rect.center().y();
+            if (std::abs(apart) <= std::min(other.height(), rect.height()) * .5) continue; // The same line.
+            if (apart > 0)
+                bottom = std::min(bottom, (rect.bottom() + other.top()) / 2);
+            else
+                top = std::max(top, (other.bottom() + rect.top()) / 2);
+        }
+        if (bottom > top) result.append(QRectF(rect.left(), top, rect.width(), bottom - top));
+    }
+    return result;
+}
+}
+
 QVariantList SelectionGeometry::stableRectangles(const QList<QPolygonF> &selection, const QVariantList &pageLines) const
 {
-    auto selected = lineRectangles(selection);
-    for (auto &value : selected) {
-        auto rect = value.toRectF();
+    QList<QRectF> lines;
+    for (const auto &value : pageLines) lines.append(value.toRectF());
+    QList<QRectF> bands;
+    for (const auto &glyphs : glyphRuns(selection)) {
+        const qreal padding = std::clamp(glyphs.height() * .18, 1.0, 3.0);
+        auto rect = glyphs.adjusted(0, -padding, 0, padding);
+        // A selected part of a line takes the whole line's height, so the band does not change with the letters
+        // chosen (x-height or capitals). Only from the same text line: about as tall (some PDFs report blocks of
+        // two lines, or both columns), and covering nearly all of the part's own band.
         QRectF best;
         qreal distance = std::numeric_limits<qreal>::max();
-        for (const auto &lineValue : pageLines) {
-            const auto line = lineValue.toRectF();
+        for (const auto &line : std::as_const(lines)) {
             if (line.right() <= rect.left() || line.left() >= rect.right()) continue;
-            if (line.bottom() <= rect.top() || line.top() >= rect.bottom()) continue;
-            // Only borrow a line's height when it is the same text line: some PDFs report page text
-            // in blocks that span two lines (or both columns), which would double the highlight.
-            // Such a block's centre sits half a line away from the selected line's.
             if (line.height() > rect.height() * 2.5) continue;
             const qreal delta = std::abs(line.center().y() - rect.center().y());
             if (delta > rect.height() * .35) continue;
+            const qreal covered = std::min(line.bottom(), rect.bottom()) - std::max(line.top(), rect.top());
+            if (covered < rect.height() * .8) continue;
+            // A block of two lines holds the middle of another line of the page.
+            const bool block = std::any_of(lines.begin(), lines.end(), [&](const QRectF &other) {
+                return other != line && other.right() > line.left() && other.left() < line.right()
+                    && other.height() < line.height() * .8 && other.center().y() > line.top()
+                    && other.center().y() < line.bottom()
+                    && std::abs(other.center().y() - line.center().y()) > other.height() * .5;
+            });
+            if (block) continue;
             if (delta < distance) {
                 best = line;
                 distance = delta;
             }
         }
+        // The line's band, and whatever of the selected glyphs reaches beyond it (a subscript, a tall bracket).
         if (!best.isEmpty()) {
-            rect.setTop(best.top());
-            rect.setBottom(best.bottom());
+            rect.setTop(std::min(best.top(), glyphs.top()));
+            rect.setBottom(std::max(best.bottom(), glyphs.bottom()));
         }
-        value = rect;
+        bands.append(rect);
     }
-    return selected;
+    // Pieces of one line (a bracket, a fraction bar, a subscript beside it) join that line's band instead of
+    // being drawn over it a second time: a band whose middle lies inside a taller-or-equal band it touches.
+    std::sort(bands.begin(), bands.end(), [](const QRectF &a, const QRectF &b) { return a.height() > b.height(); });
+    QList<QRectF> rows;
+    for (const auto &band : std::as_const(bands)) {
+        auto row = std::find_if(rows.begin(), rows.end(), [&](const QRectF &r) {
+            return band.center().y() > r.top() && band.center().y() < r.bottom() && band.left() <= r.right() + 1
+                && band.right() >= r.left() - 1 && band.height() <= r.height() * 1.6;
+        });
+        if (row != rows.end()) {
+            row->setLeft(std::min(row->left(), band.left()));
+            row->setRight(std::max(row->right(), band.right()));
+        } else {
+            rows.append(band);
+        }
+    }
+    QVariantList result;
+    for (const auto &band : meetHalfway(rows, [](const QRectF &) { return 0.0; })) result.append(band);
+    return result;
 }
 
-QVariantList SelectionGeometry::lineRectangles(const QList<QPolygonF> &polygons) const
+QList<QRectF> SelectionGeometry::glyphRuns(const QList<QPolygonF> &polygons)
 {
     // Keep QPolygonF conversion in C++: QML exposes these as opaque values.
     QList<QRectF> boxes;
@@ -92,20 +151,17 @@ QVariantList SelectionGeometry::lineRectangles(const QList<QPolygonF> &polygons)
         }
         if (!run.isEmpty()) result.append(run);
     }
+    QList<QRectF> runs;
+    for (const auto &value : result) runs.append(value.toRectF());
+    return runs;
+}
+
+QVariantList SelectionGeometry::lineRectangles(const QList<QPolygonF> &polygons) const
+{
+    // A little room above and below the glyphs, up to halfway to the next line.
     QVariantList padded;
-    for (const auto &value : result) {
-        const auto rect = value.toRectF();
-        const qreal padding = std::clamp(rect.height() * .18, 1.0, 3.0);
-        qreal above = std::min(padding, std::max(0.0, rect.top()));
-        qreal below = padding;
-        for (const auto &otherValue : result) {
-            const auto other = otherValue.toRectF();
-            if (other.right() <= rect.left() || other.left() >= rect.right()) continue;
-            // Neighboring selected lines share the available gap without overlap.
-            if (other.bottom() <= rect.top()) above = std::min(above, (rect.top() - other.bottom()) / 2);
-            if (other.top() >= rect.bottom()) below = std::min(below, (other.top() - rect.bottom()) / 2);
-        }
-        padded.append(rect.adjusted(0, -above, 0, below));
-    }
+    for (const auto &band :
+        meetHalfway(glyphRuns(polygons), [](const QRectF &rect) { return std::clamp(rect.height() * .18, 1.0, 3.0); }))
+        padded.append(band);
     return padded;
 }

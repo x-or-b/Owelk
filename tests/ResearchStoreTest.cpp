@@ -3277,6 +3277,31 @@ private slots:
             if (i) QVERIFY(rect.top() >= selected[i - 1].toRectF().bottom() - 1);
         }
     }
+    void linesTallerThanTheirSpacingDoNotOverlap()
+    {
+        // Many PDFs give each line its font's full height, more than the distance to the next line (here 14 pt
+        // boxes every 11 pt). Selected bands meet halfway instead of covering each other, and keep their glyphs.
+        SelectionGeometry geometry;
+        QList<QPolygonF> page, selected;
+        for (int row = 0; row < 6; ++row) {
+            const QRectF line(54, 100 + row * 11, 240, 14);
+            page.append(QPolygonF(line));
+            if (row >= 1 && row <= 3) selected.append(QPolygonF(QRectF(54, line.top() + 3, row == 2 ? 30 : 240, 8)));
+        }
+        const auto lines = geometry.lineRectangles(page);
+        for (qsizetype i = 1; i < lines.size(); ++i)
+            QVERIFY(lines[i].toRectF().top() >= lines[i - 1].toRectF().bottom() - .01);
+        const auto bands = geometry.stableRectangles(selected, lines);
+        QCOMPARE(bands.size(), 3);
+        for (qsizetype i = 0; i < bands.size(); ++i) {
+            const auto band = bands[i].toRectF();
+            const auto glyphs = selected[i].boundingRect();
+            QVERIFY(band.top() <= glyphs.top() && band.bottom() >= glyphs.bottom());
+            if (i) QVERIFY(band.top() >= bands[i - 1].toRectF().bottom() - .01);
+        }
+        // A part of a line (row 2, 30 pt) is as tall as the whole lines around it.
+        QCOMPARE(bands[1].toRectF().height(), bands[0].toRectF().height());
+    }
     void marginStampDoesNotMergeLines()
     {
         // arXiv prints its identifier rotated in the left margin: one glyph box spanning most of the page.
