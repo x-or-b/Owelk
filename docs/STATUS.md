@@ -24,6 +24,7 @@
 
 - For You 연구자·기관 팔로우: Settings › For You › Researchers and institutions에서 이름으로 찾아(OpenAlex, Return이나 Search를 눌렀을 때만 요청) Follow. 그들의 새 논문(논문·프리프린트, 오늘까지)은 AI 점수와 상관없이 맨 위에 최신순으로 고정되고, AI는 이유 한 줄만 붙입니다. Library › For You 출처 메뉴의 "Researchers and institutions you follow"로 그들 것만 봅니다. 선택 입력인 OpenAlex 무료 키는 키 저장소에 둡니다(없으면 같은 네트워크가 하루 무료 한도를 나눠 씀). 팔로우 목록은 동기화됩니다(스키마 19).
 - For You 개수: 주제·연구자·기관·Collection마다 확인 한 번에 가져올 최대 편수(5·10·20·50)를 따로 정하고, 정하지 않은 것은 공통 값(Usually at most, from each)을 따릅니다. 이 컴퓨터의 설정입니다.
+- PDF 선택: 더블클릭은 단어, 세 번 클릭은 문장(약어·소수점은 넘기고, 제목이나 문단 끝의 짧은 줄에서 끝남). 보통 선택과 같아서 복사·형광펜·AI 묻기가 그대로 됩니다.
 - 키: PDF는 ←/→로 쪽을 넘깁니다(확대해 쪽이 화면보다 넓으면 먼저 옆으로 끝까지 스크롤). Back·Forward는 macOS ⌘[ / ⌘], Linux·Windows Alt+← / Alt+→. 모두 Settings › Shortcuts에서 바꿉니다.
 - Library 읽기 표시: 열지 않은 논문은 강조색 점, 연 논문(Reading)은 강조색 테두리, 읽음으로 표시한 논문은 표시 없음.
 - 웹 탭: PDF만 바로 받고 다른 파일은 Save·Cancel을 묻습니다. 페이지가 스스로 여는 팝업은 막고, 클릭으로 연 새 창만 탭으로 엽니다.
