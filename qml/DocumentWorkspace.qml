@@ -368,6 +368,8 @@ Flickable {
     // Without the top bar (Settings › Appearance, Windows and Linux): its Back and Forward go to the left end of the
     // top-left tab strip, a search button and ≡ to the right end of the top-right one; Home tabs search themselves.
     property bool topControls: false
+    // Focus mode: no tab strips and no reader toolbars, only the pages (Main.qml).
+    property bool focusMode: false
     property var appMenu: null
     property var searchPalette: null
     property bool canGoBack: false

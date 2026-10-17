@@ -1,7 +1,12 @@
 #pragma once
 
 #include <QColor>
+#include <QList>
 #include <QObject>
+#include <QSize>
+#include <QStringList>
+#include <QUrl>
+#include <QVariant>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -27,7 +32,35 @@ class Theme : public QObject {
     // Whether this build can invert PDF pages (compiled with Qt ShaderTools).
     Q_PROPERTY(bool canInvertPages READ canInvertPages CONSTANT)
     Q_PROPERTY(QVariantList themes READ themes CONSTANT)
-    Q_PROPERTY(QVariantList accents READ accents CONSTANT)
+    // The custom accent as it was given (before its lightness is fitted); invalid when there is none.
+    Q_PROPERTY(QColor customAccent READ customAccent NOTIFY changed)
+    // The named accents, then "custom" once a custom accent color is stored.
+    Q_PROPERTY(QVariantList accents READ accents NOTIFY changed)
+
+    // The picture theme (hidden in Settings › Appearance): a picture behind the window and the PDF paper,
+    // its colors as the Custom theme and the accent. An empty URL when there is none.
+    Q_PROPERTY(QUrl picture READ picture NOTIFY changed)
+    // A cut-out (transparent around a character, trimmed to it) rather than a full picture.
+    Q_PROPERTY(bool pictureCutout READ pictureCutout NOTIFY changed)
+    // Its distinct vivid colors, most prominent first, to pick the accent from.
+    Q_PROPERTY(QStringList pictureColors READ pictureColors NOTIFY changed)
+    // Every picture kept, oldest first: {id, url, cutout, current}.
+    Q_PROPERTY(QVariantList pictures READ pictures NOTIFY picturesChanged)
+    // Its size in pixels (as kept), for laying it out without stretching.
+    Q_PROPERTY(QSize pictureSize READ pictureSize NOTIFY changed)
+    // Shown while the Custom theme is in use (another theme keeps the picture but does not show it).
+    Q_PROPERTY(bool pictureShown READ pictureShown NOTIFY changed)
+    // The picture theme can be turned off: Custom is the reader's own colors again, the kept pictures stay
+    // for when it is turned on (five taps on Theme). Off, picture is empty.
+    Q_PROPERTY(bool pictureOn READ pictureOn WRITE setPictureOn NOTIFY changed)
+    // How much of the picture shows (percent): over Home and around PDF pages (0–60), through the PDF
+    // paper (0–50).
+    Q_PROPERTY(int pictureStrength READ pictureStrength WRITE setPictureStrength NOTIFY changed)
+    Q_PROPERTY(int paperStrength READ paperStrength WRITE setPaperStrength NOTIFY changed)
+    // Where a cut-out stands, or which part of a full picture is kept: "left", "center" or "right".
+    Q_PROPERTY(QString pictureAlign READ pictureAlign WRITE setPictureAlign NOTIFY changed)
+    // The picture files this build opens, as a file dialog filter ("*.png *.jpg …").
+    Q_PROPERTY(QString pictureFilter READ pictureFilter CONSTANT)
 
     // Surfaces.
     Q_PROPERTY(QColor window MEMBER m_window NOTIFY changed) // window chrome, toolbars, tab bar
@@ -121,6 +154,22 @@ public:
     void setVerticalTabs(bool on);
     void setInvertPages(bool on);
     bool dark() const { return m_dark; }
+    QUrl picture() const;
+    bool pictureCutout() const { return m_pictureCutout; }
+    QStringList pictureColors() const { return m_pictureColors; }
+    QVariantList pictures() const;
+    QColor customAccent() const { return m_customAccent; }
+    QSize pictureSize() const { return m_pictureSize; }
+    bool pictureShown() const { return showing() && m_theme == "custom"; }
+    bool pictureOn() const { return m_pictureOn; }
+    void setPictureOn(bool on);
+    int pictureStrength() const { return m_pictureStrength; }
+    void setPictureStrength(int percent);
+    QString pictureAlign() const { return m_pictureAlign; }
+    void setPictureAlign(const QString &align);
+    int paperStrength() const { return m_paperStrength; }
+    void setPaperStrength(int percent);
+    static QString pictureFilter();
     bool canInvertPages() const
     {
 #ifdef OWELK_HAVE_SHADERS
@@ -136,6 +185,24 @@ public:
     Q_INVOKABLE QVariantMap seeds(const QString &id) const;
     // Saves a custom theme from seeds and switches to it. Invalid colors are rejected.
     Q_INVOKABLE bool setCustomSeeds(const QVariantMap &seeds);
+    // The seeds of Neutral (or Dark) tinted toward a color's hue at the same lightness: the picture
+    // theme's surfaces. An invalid color gives the untinted seeds.
+    Q_INVOKABLE QVariantMap tintedSeeds(const QVariant &color, bool dark) const;
+    // Saves a custom accent and switches to it. The color keeps its hue and saturation; only its
+    // lightness moves, as far as white labels on it need. Invalid colors are rejected.
+    Q_INVOKABLE bool setCustomAccent(const QVariant &color);
+    // Forgets the custom accent; Blue takes over if it was in use.
+    Q_INVOKABLE void clearCustomAccent();
+    // Takes a picture for the picture theme, kept beside the others: a copy no larger than a window shows
+    // it is kept with the data, and its main color becomes the accent and the tint of the Custom theme
+    // (light or dark as the theme in use). False if the file is not a picture this build reads.
+    Q_INVOKABLE bool usePicture(const QUrl &file);
+    // Uses a kept picture again (id from pictures; empty: the one in use), with the accent last chosen
+    // for it and the Custom theme's brightness.
+    Q_INVOKABLE bool choosePicture(const QString &id);
+    // Drops a kept picture (empty id: the one in use). Another one takes the place of the one in use;
+    // after the last, the theme, accent and Custom colors from before the first picture come back.
+    Q_INVOKABLE void removePicture(const QString &id = QString());
     // a → b by t (0..1), for the rare place that needs an in-between color.
     Q_INVOKABLE QColor mix(const QColor &a, const QColor &b, qreal t) const;
 
@@ -157,14 +224,21 @@ public:
 
 signals:
     void changed();
+    // The kept pictures or the one in use (not on every theme change, so lists of them stay put).
+    void picturesChanged();
 
 private:
     struct Seeds {
         bool dark = false;
         QColor window, sidebar, content, raised, text, separator, backdrop;
     };
+    struct AccentPair {
+        QColor light, dark;
+    };
     static Seeds preset(const QString &id);
     Seeds custom() const;
+    AccentPair accentPair() const;
+    static AccentPair derivedAccent(const QColor &base);
     void apply();
     void save(const QString &key, const QString &value);
 
@@ -178,6 +252,33 @@ private:
         m_paperInverted{"#121212"}, m_paperInk{"#1f1f1f"}, m_paperInkInverted{"#e6e6e6"};
     QColor m_text, m_textSecondary, m_textTertiary, m_textDisabled, m_icon, m_onAccent;
     QColor m_separator, m_border, m_hover, m_pressed, m_selected, m_selectedText, m_focus;
+    struct Picture {
+        QString file; // in pictureFolder()
+        bool cutout = false;
+        QStringList colors; // most prominent first
+        QString accent; // the accent last chosen for it
+    };
+    QString pictureFolder() const;
+    // The one in use (nullptr: none) into the fields QML reads.
+    void mirror(const Picture *picture);
+    void savePictures();
+    // Uses a kept picture: tints the Custom theme for it and, when shown, switches to it with its accent.
+    void showPicture(const Picture &picture, bool dark, bool show);
+    bool writeCustomSeeds(const QVariantMap &seeds);
+    // A picture is in use and the picture theme is on.
+    bool showing() const { return m_pictureOn && !m_picture.isEmpty(); }
+    // The theme, accent and Custom colors to come back to when the picture theme goes; and coming back.
+    void keepBeforePicture();
+    void restoreBeforePicture();
+    bool m_pictureOn = true;
+    QList<Picture> m_pictures;
+    QString m_picture; // the one in use
+    bool m_pictureCutout = false;
+    QSize m_pictureSize;
+    int m_pictureStrength = 35, m_paperStrength = 15;
+    QString m_pictureAlign = "right";
+    QStringList m_pictureColors;
+    QColor m_customAccent; // the color as given; accentPair() derives the shown ones
     QColor m_accent, m_accentHover, m_accentBorder, m_danger;
     QColor m_overlay, m_overlayBorder, m_shadow, m_pageSelection, m_searchMatch;
     QColor m_scrollHandle, m_scrollHandleHover, m_scrollHandlePressed;

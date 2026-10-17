@@ -3,6 +3,8 @@
 #include "MathImageProvider.h"
 #include "SelectionGeometry.h"
 #include "Theme.h"
+#include "DesktopPet.h"
+#include <QPainter>
 #include "AppInstance.h"
 #include <QFileOpenEvent>
 #include "PdfFixture.h"
@@ -184,6 +186,8 @@ public slots:
         m_store->setSetting("downloadFolder", m_directory.filePath("downloads"));
         m_theme = new Theme(m_store, this);
         qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "Theme", m_theme);
+        m_pet = new DesktopPet(m_store, this);
+        qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "DesktopPet", m_pet);
     }
     void qmlEngineAvailable(QQmlEngine *engine)
     {
@@ -446,6 +450,17 @@ public slots:
         return QUrl(QStringLiteral("http://127.0.0.1:%1%2").arg(m_web.serverPort()).arg(path));
     }
     Q_INVOKABLE QSize imageSize(const QUrl &file) { return QImage(file.toLocalFile()).size(); }
+    // A picture for the picture theme: a pink figure on a transparent ground (inset by a tenth on every
+    // side), or an opaque photo.
+    Q_INVOKABLE QUrl pictureFile(int width, int height, bool cutout)
+    {
+        QImage image(width, height, QImage::Format_ARGB32);
+        image.fill(cutout ? QColor(Qt::transparent) : QColor("#3a6ea5"));
+        QPainter(&image).fillRect(width / 10, height / 10, width * 8 / 10, height * 8 / 10, QColor("#f2a0c4"));
+        const auto path = m_directory.filePath(QString("picture-%1x%2-%3.png").arg(width).arg(height).arg(cutout));
+        image.save(path);
+        return QUrl::fromLocalFile(path);
+    }
     // A copy of a checked-in test file (tests/data), so tests never change the original.
     Q_INVOKABLE QUrl dataFile(const QString &name)
     {
@@ -470,6 +485,7 @@ private:
     ResearchStore *m_store = nullptr;
     AppInstance *m_instance = nullptr;
     Theme *m_theme = nullptr;
+    DesktopPet *m_pet = nullptr;
 };
 
 QUICK_TEST_MAIN_WITH_SETUP(reader_ui, ReaderSetup)

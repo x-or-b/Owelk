@@ -1071,6 +1071,45 @@ Item {
             researchStore.setSetting("appearance.topBar", "show")
             tryCompare(findChild(workspace, "topBar"), "visible", true)
         }
+        function test_focusModeLeavesOnlyThePages() {
+            const d = workspace.documents
+            researchStore.setSetting("focus.fullScreen", "0")
+            workspace.openDocument(fixtureSource); const c = canvas()
+            workspace.homeVisible = false
+            tryCompare(c, "ready", true)
+            const reader = workspace.currentReader
+            const toolbar = findChild(reader, "readerToolbar")
+            tryCompare(toolbar, "visible", true)
+            // ⌘⇧F (Ctrl+Shift+F): no top bar, tab strips or reader toolbar.
+            testInput.keyClick(workspace.contentItem, Qt.Key_F, Qt.ControlModifier | Qt.ShiftModifier)
+            tryCompare(workspace, "focusMode", true)
+            compare(findChild(workspace, "topBar").visible, false)
+            tryCompare(visualChild(d.groupView(d.activeGroup), "tabBar"), "visible", false)
+            tryCompare(toolbar, "visible", false)
+            // The side panels still open, by key or from a window edge.
+            ;["files", "document", "ai", "threads"].forEach(function(panel) {
+                if (workspace.panelSide(panel) === "left" && workspace.panelShown(panel)) workspace.togglePanel(panel)
+            })
+            const left = workspace.edgePanel("left")
+            verify(left.length > 0)
+            const edge = visualChild(workspace.contentItem, "focusEdge-left")
+            tryCompare(edge, "visible", true)
+            workspace.togglePanel(left)
+            tryCompare(edge, "visible", false)
+            workspace.togglePanel(left)
+            tryCompare(edge, "visible", true)
+            // The top edge brings a bar back for a moment; Exit Focus ends it.
+            workspace.focusPeek = true
+            const bar = findChild(workspace, "focusBar")
+            tryCompare(bar, "visible", true)
+            mouseClick(findChild(workspace, "exitFocusButton"))
+            tryCompare(workspace, "focusMode", false)
+            tryCompare(findChild(workspace, "topBar"), "visible", true)
+            tryCompare(toolbar, "visible", true)
+            compare(bar.visible, false)
+            // (Full screen, on by default, is left to a real desktop: the offscreen window cannot go full screen.)
+            researchStore.setSetting("focus.fullScreen", "")
+        }
         function test_removeRecentRequiresConfirmation() {
             researchStore.rememberDocument(fixtureSource)
             workspace.showHome()

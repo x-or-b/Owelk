@@ -17,13 +17,13 @@
 #include <algorithm>
 
 // Backups are plain folders: a consistent copy of the library database (VACUUM INTO), the annotation
-// images, and a small manifest. The search index and meaning vectors are rebuilt from
+// images, the picture theme's picture, and a small manifest. The search index and meaning vectors are rebuilt from
 // the PDFs, so they are not copied. Restoring is staged and applied on the next start, after the
 // current data is moved aside, so nothing is ever overwritten in place.
 namespace {
-const QStringList copiedFolders{"annotations"};
+const QStringList copiedFolders{"annotations", "picture"};
 // A backup from before schema step 15 also holds capture images; they come back too, for the step to convert.
-const QStringList restoredFolders{"annotations", "captures"};
+const QStringList restoredFolders{"annotations", "captures", "picture"};
 
 bool copyFolder(const QString &from, const QString &to)
 {

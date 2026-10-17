@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Owelk.Ui
 import "Platform.js" as Platform
+import "Shortcuts.js" as Shortcuts
 
 // What Owelk does on launch, how tabs behave, and the interface language.
 ColumnLayout {
@@ -70,6 +71,23 @@ ColumnLayout {
                 currentIndex: chosen === "recent" ? 1 : 0
                 TabButton { text: qsTr("Next Tab"); width: 96; onClicked: { controlTabBar.chosen = "next"; researchStore.setSetting("tabs.controlTab", "next") } }
                 TabButton { objectName: "controlTabRecent"; text: qsTr("Last Used"); width: 96; onClicked: { controlTabBar.chosen = "recent"; researchStore.setSetting("tabs.controlTab", "recent") } }
+            }
+        }
+    }
+    // Focus mode: only the pages and the side panels; the window full screen too unless turned off here.
+    SettingsGroup {
+        objectName: "settingsGroup-focus"
+        title: qsTr("Focus mode")
+        note: qsTr("Hides the bars above the pages; the side panels still open, from their keys or the window's edges, and the top edge brings a bar back for a moment. %1 turns it on and off.").arg(Platform.keys(Shortcuts.keys("focusMode", Shortcuts.parse(researchStore.setting("shortcuts")), Qt.platform.os)))
+        SettingsRow {
+            id: focusRow
+            objectName: "settingsRow-focusFullScreen"
+            property bool fullScreen: researchStore.setting("focus.fullScreen", "1") === "1"
+            label: qsTr("Full screen")
+            Switch {
+                objectName: "focusFullScreen"
+                checked: focusRow.fullScreen
+                onToggled: { researchStore.setSetting("focus.fullScreen", checked ? "1" : "0"); focusRow.fullScreen = checked }
             }
         }
     }

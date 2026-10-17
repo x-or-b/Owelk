@@ -1,13 +1,20 @@
 #include "Theme.h"
+#include "ImagePalette.h"
 #include "ResearchStore.h"
 #include "AppIcon.h"
 #include <QCoreApplication>
+#include <QDateTime>
+#include <QDir>
 #include <QFile>
 #include <QFontDatabase>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QImageReader>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <algorithm>
+#include <cmath>
 
 namespace {
 // Names are English here and translated where they are shown (qsTranslate("Owelk", …)), so a change of
@@ -46,6 +53,30 @@ QColor blend(const QColor &a, const QColor &b, qreal t)
     return QColor::fromRgbF(a.redF() + (b.redF() - a.redF()) * t, a.greenF() + (b.greenF() - a.greenF()) * t,
         a.blueF() + (b.blueF() - a.blueF()) * t, a.alphaF() + (b.alphaF() - a.alphaF()) * t);
 }
+// Relative luminance (WCAG): 0 is black, 1 white.
+qreal luminance(const QColor &c)
+{
+    const auto linear = [](qreal v) { return v <= .03928 ? v / 12.92 : std::pow((v + .055) / 1.055, 2.4); };
+    return .2126 * linear(c.redF()) + .7152 * linear(c.greenF()) + .0722 * linear(c.blueF());
+}
+// The color with only its lightness moved until its luminance is within [low, high]; hue and saturation
+// stay. A color already in range is returned as it is.
+QColor withLuminance(const QColor &color, qreal low, qreal high)
+{
+    const qreal now = luminance(color);
+    if (now >= low && now <= high) return color;
+    const bool darken = now > high;
+    const qreal target = darken ? high : low;
+    const auto hsl = color.toHsl();
+    const qreal hue = hsl.hslHueF(), saturation = hsl.hslSaturationF();
+    // Luminance grows with lightness, so halve the interval toward the target.
+    qreal below = darken ? 0 : hsl.lightnessF(), above = darken ? hsl.lightnessF() : 1;
+    for (int i = 0; i < 24; ++i) {
+        const qreal mid = (below + above) / 2;
+        (luminance(QColor::fromHslF(hue, saturation, mid)) < target ? below : above) = mid;
+    }
+    return QColor::fromHslF(hue, saturation, darken ? below : above).toRgb();
+}
 const Accent &accentFor(const QString &id)
 {
     for (const auto &a : accentList)
@@ -60,6 +91,35 @@ bool knownTheme(const QString &id)
     return false;
 }
 constexpr const char *seedKeys[] = {"window", "sidebar", "content", "raised", "text", "separator", "backdrop"};
+// Pictures are kept no larger than this on their long side: enough for a window on a large screen, where
+// a full illustration would decode to tens of megabytes.
+constexpr int pictureSide = 2560;
+// The share of a picture's border that is transparent: most of it for a cut-out character.
+qreal transparentBorder(const QImage &image)
+{
+    int clear = 0, all = 0;
+    const auto count = [&](int x, int y) {
+        ++all;
+        if (qAlpha(image.pixel(x, y)) < 16) ++clear;
+    };
+    for (int x = 0; x < image.width(); ++x) count(x, 0), count(x, image.height() - 1);
+    for (int y = 1; y < image.height() - 1; ++y) count(0, y), count(image.width() - 1, y);
+    return all ? qreal(clear) / all : 0;
+}
+// The smallest rectangle holding everything visible in a picture.
+QRect visibleBounds(const QImage &image)
+{
+    int left = image.width(), right = -1, top = image.height(), bottom = -1;
+    for (int y = 0; y < image.height(); ++y) {
+        const auto *line = reinterpret_cast<const QRgb *>(image.constScanLine(y));
+        for (int x = 0; x < image.width(); ++x)
+            if (qAlpha(line[x]) >= 16) {
+                left = std::min(left, x), right = std::max(right, x);
+                top = std::min(top, y), bottom = y;
+            }
+    }
+    return right < 0 ? image.rect() : QRect(QPoint(left, top), QPoint(right, bottom));
+}
 }
 
 Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(store)
@@ -70,12 +130,37 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
     if (m_store) {
         const auto theme = m_store->setting("appearance.theme");
         if (knownTheme(theme)) m_theme = theme;
-        m_accentName = accentFor(m_store->setting("appearance.accent")).id;
+        m_customAccent = QColor(m_store->setting("appearance.customAccent"));
+        const auto accent = m_store->setting("appearance.accent");
+        m_accentName = accent == "custom" && m_customAccent.isValid() ? accent : QString(accentFor(accent).id);
         m_textSize = qBound(11, m_store->setting("appearance.textSize", "13").toInt(), 17);
         m_invertPages = m_store->setting("appearance.invertPages") == "1";
         m_verticalTabs = m_store->setting("appearance.verticalTabs") == "1";
         const auto icon = m_store->setting("appearance.appIcon", "paper");
         if (icon == "white" || icon == "navy") m_appIcon = icon;
+        const QDir folder(pictureFolder());
+        for (const auto &value : QJsonDocument::fromJson(m_store->setting("appearance.pictures").toUtf8()).array()) {
+            const auto o = value.toObject();
+            const Picture kept{o.value("file").toString(), o.value("cutout").toBool(),
+                o.value("colors").toVariant().toStringList(), o.value("accent").toString()};
+            if (!kept.file.isEmpty() && QFile::exists(folder.filePath(kept.file))) m_pictures.append(kept);
+        }
+        const auto current = m_store->setting("appearance.picture");
+        // The one picture kept before there could be several.
+        if (m_store->setting("appearance.pictures").isEmpty() && !current.isEmpty()
+            && QFile::exists(folder.filePath(current)))
+            m_pictures.append({current, m_store->setting("appearance.pictureCutout") == "1",
+                m_store->setting("appearance.pictureColors").split(',', Qt::SkipEmptyParts),
+                m_store->setting("appearance.customAccent")});
+        const Picture *shown = m_pictures.isEmpty() ? nullptr : &m_pictures.last();
+        for (const auto &kept : std::as_const(m_pictures))
+            if (kept.file == current) shown = &kept;
+        mirror(shown);
+        m_pictureOn = m_store->setting("appearance.pictureOn") != "0";
+        m_pictureStrength = qBound(0, m_store->setting("appearance.pictureStrength", "35").toInt(), 60);
+        m_paperStrength = qBound(0, m_store->setting("appearance.paperStrength", "15").toInt(), 50);
+        if (const auto align = m_store->setting("appearance.pictureAlign"); align == "left" || align == "center")
+            m_pictureAlign = align;
     }
     apply();
     showAppIcon(false);
@@ -149,12 +234,26 @@ Theme::Seeds Theme::custom() const
     return seeds;
 }
 
+// The named accents span these luminances: white labels stay readable on them, and they stand out from
+// the surfaces of a light or a dark theme. A custom accent is brought into the same range.
+Theme::AccentPair Theme::derivedAccent(const QColor &base)
+{
+    return {withLuminance(base, .10, .19), withLuminance(base, .17, .26)};
+}
+
+Theme::AccentPair Theme::accentPair() const
+{
+    if (m_accentName == "custom" && m_customAccent.isValid()) return derivedAccent(m_customAccent);
+    const auto &a = accentFor(m_accentName);
+    return {QColor(a.light), QColor(a.dark)};
+}
+
 void Theme::apply()
 {
     const auto s = m_theme == "custom" ? custom() : preset(m_theme);
     m_dark = s.dark;
-    const auto &a = accentFor(m_accentName);
-    m_accent = QColor(m_dark ? a.dark : a.light);
+    const auto accent = accentPair();
+    m_accent = m_dark ? accent.dark : accent.light;
     m_window = s.window;
     m_sidebar = s.sidebar;
     m_content = s.content;
@@ -182,7 +281,7 @@ void Theme::apply()
     m_overlayBorder = m_textSecondary;
     m_shadow = alpha(Qt::black, m_dark ? .45 : .16);
     // On the white page, whatever the theme.
-    m_pageSelection = alpha(QColor(a.light), .30);
+    m_pageSelection = alpha(accent.light, .30);
     m_searchMatch = alpha(QColor("#f2c94c"), .45);
     m_scrollHandle = alpha(s.text, .26);
     m_scrollHandleHover = alpha(s.text, .40);
@@ -205,8 +304,8 @@ void Theme::setTheme(const QString &id)
 
 void Theme::setAccentName(const QString &id)
 {
-    const QString known = accentFor(id).id;
-    if (known != id || id == m_accentName) return;
+    const bool known = id == "custom" ? m_customAccent.isValid() : id == QLatin1String(accentFor(id).id);
+    if (!known || id == m_accentName) return;
     m_accentName = id;
     save("appearance.accent", id);
     apply();
@@ -218,6 +317,32 @@ void Theme::setTextSize(int size)
     if (size == m_textSize) return;
     m_textSize = size;
     save("appearance.textSize", QString::number(size));
+    emit changed();
+}
+
+void Theme::setPictureStrength(int percent)
+{
+    percent = qBound(0, percent, 60);
+    if (percent == m_pictureStrength) return;
+    m_pictureStrength = percent;
+    save("appearance.pictureStrength", QString::number(percent));
+    emit changed();
+}
+
+void Theme::setPictureAlign(const QString &align)
+{
+    if ((align != "left" && align != "center" && align != "right") || align == m_pictureAlign) return;
+    m_pictureAlign = align;
+    save("appearance.pictureAlign", align);
+    emit changed();
+}
+
+void Theme::setPaperStrength(int percent)
+{
+    percent = qBound(0, percent, 50);
+    if (percent == m_paperStrength) return;
+    m_paperStrength = percent;
+    save("appearance.paperStrength", QString::number(percent));
     emit changed();
 }
 
@@ -250,7 +375,44 @@ QVariantList Theme::accents() const
     QVariantList list;
     for (const auto &a : accentList)
         list.append(QVariantMap{{"id", a.id}, {"name", a.name}, {"light", a.light}, {"dark", a.dark}});
+    if (m_customAccent.isValid()) {
+        const auto pair = derivedAccent(m_customAccent);
+        list.append(QVariantMap{{"id", "custom"}, {"name", QT_TRANSLATE_NOOP("Owelk", "Custom")},
+            {"light", pair.light.name()}, {"dark", pair.dark.name()}});
+    }
     return list;
+}
+
+bool Theme::setCustomAccent(const QVariant &color)
+{
+    const auto given = color.value<QColor>();
+    if (!given.isValid()) return false;
+    // As stored (#rrggbb), so it compares equal to the same color named anywhere else.
+    const QColor c(given.name(QColor::HexRgb));
+    m_customAccent = c;
+    m_accentName = "custom";
+    save("appearance.customAccent", c.name());
+    // The picture in use remembers it, for when it is chosen again.
+    for (auto &picture : m_pictures)
+        if (showing() && picture.file == m_picture && picture.accent != c.name()) {
+            picture.accent = c.name();
+            savePictures();
+        }
+    save("appearance.accent", m_accentName);
+    apply();
+    return true;
+}
+
+void Theme::clearCustomAccent()
+{
+    if (!m_customAccent.isValid()) return;
+    m_customAccent = QColor();
+    save("appearance.customAccent", QString());
+    if (m_accentName == "custom") {
+        m_accentName = "blue";
+        save("appearance.accent", m_accentName);
+    }
+    apply();
 }
 
 QVariantMap Theme::seeds(const QString &id) const
@@ -262,7 +424,24 @@ QVariantMap Theme::seeds(const QString &id) const
     return map;
 }
 
-bool Theme::setCustomSeeds(const QVariantMap &seeds)
+QVariantMap Theme::tintedSeeds(const QVariant &color, bool dark) const
+{
+    const auto s = preset(dark ? "dark" : "neutral");
+    const auto hue = color.value<QColor>();
+    // OKLCH chroma per seed (window, sidebar, content, raised, text, separator, backdrop): the page
+    // surfaces barely tinted, the chrome, lines and the space around PDF pages a little more.
+    constexpr qreal lightChroma[] = {.022, .016, .007, .004, .03, .028, .032};
+    constexpr qreal darkChroma[] = {.02, .02, .018, .022, .012, .025, .018};
+    const QColor *fields[] = {&s.window, &s.sidebar, &s.content, &s.raised, &s.text, &s.separator, &s.backdrop};
+    QVariantMap map{{"dark", dark}};
+    for (int i = 0; i < 7; ++i)
+        map.insert(seedKeys[i],
+            (hue.isValid() ? ImagePalette::tint(*fields[i], hue, (dark ? darkChroma : lightChroma)[i]) : *fields[i])
+                .name());
+    return map;
+}
+
+bool Theme::writeCustomSeeds(const QVariantMap &seeds)
 {
     QJsonObject json{{"dark", seeds.value("dark").toBool()}};
     for (const auto *key : seedKeys) {
@@ -271,11 +450,225 @@ bool Theme::setCustomSeeds(const QVariantMap &seeds)
         json.insert(key, c.name());
     }
     save("appearance.custom", QString::fromUtf8(QJsonDocument(json).toJson(QJsonDocument::Compact)));
+    return true;
+}
+
+bool Theme::setCustomSeeds(const QVariantMap &seeds)
+{
+    if (!writeCustomSeeds(seeds)) return false;
     if (m_theme == "custom")
         apply();
     else
         setTheme("custom");
     return true;
+}
+
+QString Theme::pictureFolder() const
+{
+    return m_store ? QDir(m_store->dataDirectory()).filePath("picture") : QString();
+}
+
+QUrl Theme::picture() const
+{
+    return showing() ? QUrl::fromLocalFile(QDir(pictureFolder()).filePath(m_picture)) : QUrl();
+}
+
+QString Theme::pictureFilter()
+{
+    QStringList patterns;
+    const auto supported = QImageReader::supportedImageFormats();
+    for (const char *format : {"png", "jpg", "jpeg", "webp", "gif", "bmp", "tif", "tiff", "heic", "avif"})
+        if (supported.contains(format)) patterns.append(QStringLiteral("*.") + QLatin1String(format));
+    return patterns.join(' ');
+}
+
+bool Theme::usePicture(const QUrl &file)
+{
+    if (!m_store || !file.isLocalFile()) return false;
+    QImageReader reader(file.toLocalFile());
+    reader.setAutoTransform(true);
+    if (const auto size = reader.size(); size.isValid() && std::max(size.width(), size.height()) > pictureSide)
+        reader.setScaledSize(size.scaled(pictureSide, pictureSide, Qt::KeepAspectRatio));
+    auto image = reader.read();
+    if (image.isNull()) return false;
+    image = image.convertToFormat(image.hasAlphaChannel() ? QImage::Format_ARGB32 : QImage::Format_RGB32);
+    const bool cutout = image.hasAlphaChannel() && transparentBorder(image) > .5;
+    if (cutout) image = image.copy(visibleBounds(image));
+    // Some readers ignore the scaled size.
+    if (std::max(image.width(), image.height()) > pictureSide)
+        image = image.scaled(pictureSide, pictureSide, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    QDir folder(pictureFolder());
+    if (!folder.mkpath(".")) return false;
+    // A new name each time, so no image cache shows another picture. A cut-out keeps its transparency; a
+    // photo is smaller as JPEG.
+    const auto name = QString("picture-%1.%2").arg(QDateTime::currentMSecsSinceEpoch()).arg(cutout ? "png" : "jpg");
+    if (!image.save(folder.filePath(name), nullptr, cutout ? -1 : 90)) return false;
+    if (!showing()) keepBeforePicture();
+    if (!m_pictureOn) {
+        m_pictureOn = true;
+        save("appearance.pictureOn", "1");
+    }
+    const auto colors = ImagePalette::extract(image);
+    Picture picture{name, cutout, {}, colors.main.isValid() ? colors.main.name() : QString()};
+    for (const auto &color : colors.swatches) picture.colors.append(color.name());
+    m_pictures.append(picture);
+    // Light or dark like the theme in use; the Custom theme's Dark switch changes it afterwards.
+    showPicture(picture, m_dark, true);
+    return true;
+}
+
+bool Theme::choosePicture(const QString &id)
+{
+    const auto file = id.isEmpty() ? m_picture : id;
+    for (const auto &picture : std::as_const(m_pictures))
+        if (picture.file == file) {
+            // Another picture, the same brightness as the picture theme had; turned on, the theme in use's.
+            const bool dark = showing() ? custom().dark : m_dark;
+            if (!m_pictureOn) {
+                keepBeforePicture();
+                m_pictureOn = true;
+                save("appearance.pictureOn", "1");
+            }
+            showPicture(picture, dark, true);
+            return true;
+        }
+    return false;
+}
+
+void Theme::setPictureOn(bool on)
+{
+    if (on == m_pictureOn) return;
+    if (on) {
+        if (!m_pictures.isEmpty()) {
+            choosePicture(m_picture);
+            return;
+        }
+        m_pictureOn = true;
+        save("appearance.pictureOn", "1");
+        emit changed();
+        return;
+    }
+    const bool shown = showing();
+    m_pictureOn = false;
+    save("appearance.pictureOn", "0");
+    if (shown)
+        restoreBeforePicture();
+    else
+        emit changed();
+    emit picturesChanged();
+}
+
+void Theme::keepBeforePicture()
+{
+    if (!m_store) return;
+    save("appearance.beforePicture",
+        QString::fromUtf8(QJsonDocument(QJsonObject{{"theme", m_theme}, {"accent", m_accentName},
+                                            {"custom", m_store->setting("appearance.custom")}})
+                .toJson(QJsonDocument::Compact)));
+}
+
+void Theme::restoreBeforePicture()
+{
+    const auto before = m_store
+        ? QJsonDocument::fromJson(m_store->setting("appearance.beforePicture").toUtf8()).object()
+        : QJsonObject();
+    save("appearance.beforePicture", QString());
+    save("appearance.custom", before.value("custom").toString());
+    m_customAccent = QColor();
+    save("appearance.customAccent", QString());
+    const auto theme = before.value("theme").toString(), accent = before.value("accent").toString();
+    m_theme = knownTheme(theme) ? theme : QStringLiteral("neutral");
+    m_accentName = accentFor(accent).id;
+    save("appearance.theme", m_theme);
+    save("appearance.accent", m_accentName);
+    apply();
+}
+
+void Theme::removePicture(const QString &id)
+{
+    const auto file = id.isEmpty() ? m_picture : id;
+    qsizetype at = -1;
+    for (qsizetype i = 0; i < m_pictures.size(); ++i)
+        if (m_pictures[i].file == file) at = i;
+    if (at < 0) return;
+    QFile::remove(QDir(pictureFolder()).filePath(file));
+    m_pictures.removeAt(at);
+    const bool shown = showing();
+    if (file != m_picture) {
+        savePictures();
+        emit changed();
+        return;
+    }
+    if (!m_pictures.isEmpty()) {
+        const auto &next = m_pictures[std::min(at, m_pictures.size() - 1)];
+        // The next one (or the one before, after the last): shown if the picture theme was.
+        if (shown) {
+            showPicture(next, custom().dark, m_theme == "custom");
+        } else {
+            mirror(&next);
+            savePictures();
+            emit changed();
+        }
+        return;
+    }
+    mirror(nullptr);
+    savePictures();
+    if (shown)
+        restoreBeforePicture();
+    else
+        emit changed();
+}
+
+QVariantList Theme::pictures() const
+{
+    const QDir folder(pictureFolder());
+    QVariantList list;
+    for (const auto &picture : m_pictures)
+        list.append(QVariantMap{{"id", picture.file}, {"url", QUrl::fromLocalFile(folder.filePath(picture.file))},
+            {"cutout", picture.cutout}, {"current", picture.file == m_picture}});
+    return list;
+}
+
+void Theme::mirror(const Picture *picture)
+{
+    m_picture = picture ? picture->file : QString();
+    m_pictureCutout = picture && picture->cutout;
+    m_pictureColors = picture ? picture->colors : QStringList();
+    m_pictureSize = picture ? QImageReader(QDir(pictureFolder()).filePath(picture->file)).size() : QSize();
+}
+
+void Theme::savePictures()
+{
+    QJsonArray list;
+    for (const auto &picture : std::as_const(m_pictures))
+        list.append(QJsonObject{{"file", picture.file}, {"cutout", picture.cutout},
+            {"colors", QJsonArray::fromStringList(picture.colors)}, {"accent", picture.accent}});
+    save("appearance.pictures", QString::fromUtf8(QJsonDocument(list).toJson(QJsonDocument::Compact)));
+    save("appearance.picture", m_picture);
+    // Read only by the step that made one picture into a list.
+    save("appearance.pictureCutout", QString());
+    save("appearance.pictureColors", QString());
+    emit picturesChanged();
+}
+
+void Theme::showPicture(const Picture &picture, bool dark, bool show)
+{
+    mirror(&picture);
+    savePictures();
+    const auto seeds = tintedSeeds(picture.colors.isEmpty() ? QColor() : QColor(picture.colors.first()), dark);
+    if (!show) {
+        // Ready for when the Custom theme is chosen again; the theme in use stays.
+        writeCustomSeeds(seeds);
+        emit changed();
+        return;
+    }
+    setCustomSeeds(seeds);
+    if (!picture.accent.isEmpty()) {
+        setCustomAccent(picture.accent);
+    } else {
+        clearCustomAccent();
+        setAccentName("graphite");
+    }
 }
 
 QColor Theme::mix(const QColor &a, const QColor &b, qreal t) const

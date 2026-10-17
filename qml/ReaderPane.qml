@@ -11,6 +11,8 @@ Rectangle {
     property int paneIndex: 0
     property bool isActive: false
     property bool managed: false
+    // Focus mode: the toolbar goes; its keys still work.
+    property bool chromeHidden: false
     property alias source: canvas.source
     property alias pdfDocument: canvas.document
     property alias pdfCanvas: canvas
@@ -320,7 +322,7 @@ Rectangle {
         }
 
         Rectangle {
-            visible: canvas.ready
+            visible: canvas.ready && !root.chromeHidden
             Layout.fillWidth: true
             id: readerToolbar
             objectName: "readerToolbar"

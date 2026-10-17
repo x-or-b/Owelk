@@ -14,6 +14,10 @@
 #include "PaperMetadata.h"
 #include "MetadataLookup.h"
 #include "ForYou.h"
+#include "ImagePalette.h"
+#include "Theme.h"
+#include "DesktopPet.h"
+#include <QWindow>
 #include <QTimeZone>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -23,6 +27,7 @@
 #include <QTcpSocket>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QSqlRecord>
 #include <QPainter>
@@ -199,6 +204,242 @@ private slots:
         QVERIFY(shader.open(QIODevice::ReadOnly));
         QVERIFY(shader.size() > 100);
 #endif
+    }
+    void pictureColorsAndTintedSeeds()
+    {
+        // A cut-out character: transparent around it, black outlines, a large yellow body, small red cheeks.
+        QImage pikachu(200, 200, QImage::Format_ARGB32);
+        pikachu.fill(Qt::transparent);
+        {
+            QPainter p(&pikachu);
+            p.setPen(QPen(Qt::black, 4));
+            p.setBrush(QColor("#f5dc6e"));
+            p.drawEllipse(30, 20, 140, 170);
+            p.setPen(Qt::NoPen);
+            p.setBrush(QColor("#e0503a"));
+            p.drawEllipse(60, 90, 22, 22);
+        }
+        auto colors = ImagePalette::extract(pikachu);
+        QVERIFY(colors.main.isValid());
+        QVERIFY(qAbs(colors.main.hslHueF() - QColor("#f5dc6e").hslHueF()) < .02);
+        QCOMPARE(colors.swatches.size(), 2);
+        QVERIFY(qAbs(colors.swatches[1].hslHueF() - QColor("#e0503a").hslHueF()) < .03);
+        // Pale skin over a larger area loses to a smaller area of pink hair; white is never a color.
+        QImage girl(100, 100, QImage::Format_ARGB32);
+        girl.fill(Qt::white);
+        {
+            QPainter p(&girl);
+            p.fillRect(0, 0, 50, 100, QColor("#f6d5c3"));
+            p.fillRect(50, 0, 30, 100, QColor("#f2a0c4"));
+        }
+        colors = ImagePalette::extract(girl);
+        QVERIFY(qAbs(colors.main.hslHueF() - QColor("#f2a0c4").hslHueF()) < .02);
+        // Grays only: no main color.
+        QImage gray(50, 50, QImage::Format_ARGB32);
+        gray.fill(QColor("#808080"));
+        QVERIFY(!ImagePalette::extract(gray).main.isValid());
+        QVERIFY(!ImagePalette::extract(QImage()).main.isValid());
+
+        // Seeds keep the lightness of Neutral and Dark and lean toward the hue.
+        Theme theme;
+        const QColor yellow("#f5dc6e");
+        for (const bool dark : {false, true}) {
+            const auto tinted = theme.tintedSeeds(yellow, dark), plain = theme.seeds(dark ? "dark" : "neutral");
+            QCOMPARE(tinted.value("dark").toBool(), dark);
+            for (const auto *key : {"window", "sidebar", "content", "raised", "text", "separator", "backdrop"}) {
+                const QColor a(tinted.value(key).toString()), b(plain.value(key).toString());
+                QVERIFY2(qAbs(a.lightnessF() - b.lightnessF()) < .04, key);
+                if (a != b && a.hslSaturationF() > .05) QVERIFY2(qAbs(a.hslHueF() - yellow.hslHueF()) < .06, key);
+            }
+            QVERIFY(QColor(tinted.value("window").toString()) != QColor(plain.value("window").toString()));
+        }
+        QCOMPARE(theme.tintedSeeds(QColor(), false), theme.seeds("neutral"));
+    }
+    void pictureThemeKeepsACopyAndGoesBack()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        Theme theme(&store);
+        theme.setTheme("paper");
+        theme.setAccentName("green");
+        QVERIFY(!theme.usePicture(QUrl::fromLocalFile(directory.filePath("missing.png"))));
+        QVERIFY(theme.picture().isEmpty());
+
+        // A cut-out: kept trimmed to the character, its color becomes the theme's.
+        QImage cutout(300, 400, QImage::Format_ARGB32);
+        cutout.fill(Qt::transparent);
+        QPainter(&cutout).fillRect(50, 100, 100, 200, QColor("#f2a0c4"));
+        const auto cutoutPath = directory.filePath("character.png");
+        QVERIFY(cutout.save(cutoutPath));
+        QVERIFY(theme.usePicture(QUrl::fromLocalFile(cutoutPath)));
+        QVERIFY(theme.pictureCutout());
+        const auto first = theme.picture().toLocalFile();
+        QVERIFY(first.startsWith(QDir(store.dataDirectory()).filePath("picture")));
+        QCOMPARE(QImage(first).size(), QSize(100, 200));
+        QCOMPARE(theme.theme(), QString("custom"));
+        QCOMPARE(theme.accentName(), QString("custom"));
+        QCOMPARE(theme.pictureColors().size(), 1);
+        QVERIFY(qAbs(QColor(theme.pictureColors().first()).hslHueF() - QColor("#f2a0c4").hslHueF()) < .02);
+        QCOMPARE(store.setting("appearance.picture"), QFileInfo(first).fileName());
+        // Backups keep it, beside the settings that name it.
+        QSignalSpy backedUp(&store, &ResearchStore::backupFinished);
+        store.backUp(directory.filePath("backups"));
+        QTRY_COMPARE_WITH_TIMEOUT(backedUp.size(), 1, 10000);
+        QVERIFY(backedUp[0][0].toBool());
+        QVERIFY(QFileInfo::exists(backedUp[0][1].toString() + "/picture/" + QFileInfo(first).fileName()));
+
+        // A large photo is kept beside it, no larger than a window shows it, and is the one in use.
+        QImage photo(5000, 1000, QImage::Format_RGB32);
+        photo.fill(QColor("#3a6ea5"));
+        const auto photoPath = directory.filePath("photo.jpg");
+        QVERIFY(photo.save(photoPath));
+        QVERIFY(theme.usePicture(QUrl::fromLocalFile(photoPath)));
+        QVERIFY(!theme.pictureCutout());
+        QVERIFY(QFile::exists(first));
+        const auto second = theme.picture().toLocalFile();
+        QCOMPARE(QImage(second).size(), QSize(2560, 512));
+        QCOMPARE(theme.pictures().size(), 2);
+        QVERIFY(theme.pictures()[1].toMap()["current"].toBool());
+        // The first again, with the accent last chosen for it.
+        const auto firstId = QFileInfo(first).fileName(), secondId = QFileInfo(second).fileName();
+        QVERIFY(theme.choosePicture(firstId));
+        QCOMPARE(theme.picture().toLocalFile(), first);
+        QVERIFY(theme.pictureCutout());
+        QVERIFY(qAbs(theme.customAccent().hslHueF() - QColor("#f2a0c4").hslHueF()) < .02);
+        QVERIFY(theme.setCustomAccent(QColor("#3a6ea5")));
+        QVERIFY(theme.choosePicture(secondId));
+        QVERIFY(theme.choosePicture(firstId));
+        QCOMPARE(theme.customAccent(), QColor("#3a6ea5"));
+        QVERIFY(!theme.choosePicture("missing.png"));
+        // Read again on the next start.
+        {
+            Theme again(&store);
+            QCOMPARE(again.pictures().size(), 2);
+            QCOMPARE(again.picture().toLocalFile(), first);
+            QVERIFY(again.pictureCutout());
+        }
+        // Another kept picture goes alone; the one in use goes to the next.
+        theme.removePicture(secondId);
+        QVERIFY(!QFile::exists(second));
+        QCOMPARE(theme.pictures().size(), 1);
+        QCOMPARE(theme.picture().toLocalFile(), first);
+        QVERIFY(theme.usePicture(QUrl::fromLocalFile(photoPath)));
+        const auto third = theme.picture().toLocalFile();
+        QVERIFY(theme.choosePicture(firstId));
+        theme.removePicture();
+        QCOMPARE(theme.picture().toLocalFile(), third);
+        QCOMPARE(theme.theme(), QString("custom"));
+
+        // Removing the last goes back to the theme and accent from before the first picture.
+        theme.removePicture();
+        QVERIFY(theme.picture().isEmpty());
+        QVERIFY(theme.pictures().isEmpty());
+        QVERIFY(!QFile::exists(third));
+        QCOMPARE(theme.theme(), QString("paper"));
+        QCOMPARE(theme.accentName(), QString("green"));
+        QCOMPARE(store.setting("appearance.custom"), QString());
+        QCOMPARE(theme.accents().size(), 7);
+
+        // One picture kept before there could be several becomes the first of the list.
+        QVERIFY(QImage(cutout).save(QDir(store.dataDirectory()).filePath("picture/picture-1.png")));
+        store.setSetting("appearance.pictures", "");
+        store.setSetting("appearance.picture", "picture-1.png");
+        store.setSetting("appearance.pictureCutout", "1");
+        store.setSetting("appearance.pictureColors", "#f2a0c4");
+        Theme upgraded(&store);
+        QCOMPARE(upgraded.pictures().size(), 1);
+        QVERIFY(upgraded.picture().toLocalFile().endsWith("picture-1.png"));
+        QCOMPARE(upgraded.pictureColors(), QStringList{"#f2a0c4"});
+        QVERIFY(upgraded.pictureCutout());
+    }
+    void pictureThemeTurnsOffAndOn()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        Theme theme(&store);
+        // The reader's own Custom colors, then another theme.
+        auto own = theme.seeds("paper");
+        own["window"] = "#123456";
+        QVERIFY(theme.setCustomSeeds(own));
+        theme.setTheme("paper");
+        theme.setAccentName("green");
+        QImage cutout(300, 400, QImage::Format_ARGB32);
+        cutout.fill(Qt::transparent);
+        QPainter(&cutout).fillRect(50, 100, 100, 200, QColor("#f2a0c4"));
+        const auto path = directory.filePath("character.png");
+        QVERIFY(cutout.save(path));
+        QVERIFY(theme.usePicture(QUrl::fromLocalFile(path)));
+        QVERIFY(theme.pictureShown());
+        const auto file = QDir(store.dataDirectory()).filePath("picture/" + theme.pictures()[0].toMap()["id"].toString());
+
+        // Off: the theme, accent and Custom colors from before; the picture is kept, not shown.
+        theme.setPictureOn(false);
+        QVERIFY(!theme.pictureOn());
+        QVERIFY(theme.picture().isEmpty());
+        QVERIFY(!theme.pictureShown());
+        QCOMPARE(theme.theme(), QString("paper"));
+        QCOMPARE(theme.accentName(), QString("green"));
+        QCOMPARE(theme.seeds("custom")["window"].toString(), QString("#123456"));
+        QCOMPARE(theme.accents().size(), 7);
+        QCOMPARE(theme.pictures().size(), 1);
+        QVERIFY(QFile::exists(file));
+        {
+            Theme again(&store);
+            QVERIFY(!again.pictureOn());
+            QVERIFY(again.picture().isEmpty());
+        }
+        // On again, from whatever is in use then; off goes back to that.
+        theme.setTheme("nord");
+        theme.setPictureOn(true);
+        QVERIFY(theme.pictureShown());
+        QCOMPARE(theme.accentName(), QString("custom"));
+        QVERIFY(theme.dark()); // like the theme in use
+        theme.setPictureOn(false);
+        QCOMPARE(theme.theme(), QString("nord"));
+        QCOMPARE(theme.accentName(), QString("green"));
+        QCOMPARE(theme.seeds("custom")["window"].toString(), QString("#123456"));
+        // Choosing a picture turns it on too.
+        QVERIFY(theme.usePicture(QUrl::fromLocalFile(path)));
+        QVERIFY(theme.pictureOn());
+        QCOMPARE(theme.pictures().size(), 2);
+    }
+    void petTakesClicksOnlyOnThePicture()
+    {
+        QTemporaryDir directory;
+        // A figure in the middle of a transparent picture.
+        QImage cutout(100, 200, QImage::Format_ARGB32);
+        cutout.fill(Qt::transparent);
+        QPainter(&cutout).fillRect(30, 50, 40, 100, QColor("#f2a0c4"));
+        const auto path = directory.filePath("character.png");
+        QVERIFY(cutout.save(path));
+        // Drawn 12 points down; hops up to 16.
+        const auto region = DesktopPet::pictureRegion(path, QSize(100, 200), 12, 16);
+        QVERIFY(region.contains(QPoint(50, 12 + 100)));
+        QVERIFY2(region.contains(QPoint(28, 12 + 100)), "a little around the edge");
+        QVERIFY(!region.contains(QPoint(20, 12 + 100)));
+        QVERIFY(!region.contains(QPoint(5, 12 + 5)));
+        QVERIFY2(region.contains(QPoint(50, 12 + 50 - 15)), "where it hops to");
+        QVERIFY(!region.contains(QPoint(50, 12 + 50 - 25)));
+        // Fitted into a smaller area, centred.
+        const auto small = DesktopPet::pictureRegion(path, QSize(50, 100), 0, 0);
+        QVERIFY(small.contains(QPoint(25, 50)));
+        QVERIFY(!small.contains(QPoint(5, 50)));
+        // A photo has no transparent part: all of the window takes clicks.
+        QImage photo(80, 60, QImage::Format_RGB32);
+        photo.fill(Qt::darkCyan);
+        const auto photoPath = directory.filePath("photo.jpg");
+        QVERIFY(photo.save(photoPath));
+        QVERIFY(DesktopPet::pictureRegion(photoPath, QSize(80, 60), 0, 0).isEmpty());
+        // Applied to a window (as a shape where the platform passes clicks outside it on).
+        QWindow window;
+        window.resize(100, 212);
+        DesktopPet pet;
+        pet.letClicksThrough(&window, QUrl::fromLocalFile(path), QSize(100, 200), 12, 16);
+        if (QGuiApplication::platformName() != "cocoa") QCOMPARE(window.mask(), region);
     }
     void markedRegionKeepsFigureCaption()
     {

@@ -227,8 +227,9 @@ int AiService::ask(const QVariantMap &input)
         const auto question = spec.value("question").toString().simplified();
         auto title = spec.value("action").toString() == "translate" ? QStringLiteral("Translate") : QString();
         const auto source = spec.value("source").toUrl();
+        // Without a question (text dropped on the desktop pet), the passage names the conversation.
         if (title.isEmpty())
-            title = question.left(80);
+            title = (question.isEmpty() ? spec.value("selection").toString().simplified() : question).left(80);
         else if (source.isValid() && !source.isEmpty())
             title += " · " + m_store->displayName(source);
         const auto thread = m_store->createAiThread({{"title", title}, {"provider", id}, {"model", model(id)},

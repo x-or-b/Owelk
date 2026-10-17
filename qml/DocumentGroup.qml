@@ -96,7 +96,7 @@ Rectangle {
     readonly property int tabWidth: 160
     readonly property var strip: Tree.stripItems(groupData)
     // With vertical tabs the strip is hidden; tabs are listed beside the window instead.
-    readonly property real stripHeight: Theme.verticalTabs ? 0 : Theme.barHeight
+    readonly property real stripHeight: Theme.verticalTabs || controller.focusMode ? 0 : Theme.barHeight
     // Without the top bar, the strips at the workspace's top corners hold its controls.
     readonly property var homeView: homeLoader.item
     readonly property bool atTopLeft: x < 1 && y < 1
@@ -187,7 +187,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: root.stripHeight
-            visible: !Theme.verticalTabs
+            visible: !Theme.verticalTabs && !root.controller.focusMode
             spacing: 0
         Row {
             visible: root.controller.topControls && root.atTopLeft
@@ -478,6 +478,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             managed: true
+            chromeHidden: root.controller.focusMode
             isActive: !root.isHome && !root.isWeb && !root.isLibrary && !root.isNote && !root.controller.suspended && root.controller.activeGroup === root.groupId
             onActivated: root.controller.activateGroup(root.groupId)
             onFileChosen: function(source) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source) }

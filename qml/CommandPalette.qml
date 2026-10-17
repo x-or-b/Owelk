@@ -39,6 +39,7 @@ Popup {
         {command: "/split right", title: qsTr("Split: Duplicate Tab Right"), enabled: hasDocument},
         {command: "/split down", title: qsTr("Split: Duplicate Tab Below"), enabled: hasDocument},
         {command: "/split off", title: qsTr("Split: Join All Groups"), enabled: hasDocument},
+        {command: "/focus", title: qsTr("View: Focus Mode (on or off)"), enabled: true},
         {command: "/move right", title: qsTr("Split: Move Tab Right"), enabled: hasDocument},
         {command: "/move down", title: qsTr("Split: Move Tab Below"), enabled: hasDocument},
         {command: "/next split", title: qsTr("Split: Focus Next"), enabled: hasDocument},

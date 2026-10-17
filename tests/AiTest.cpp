@@ -705,6 +705,35 @@ private slots:
         QVERIFY(!followUp.contains("thinking"));
         ai->clearApiKey("claude");
     }
+    void droppedTextIsExplainedWithoutAPaper()
+    {
+        // Text dropped on the desktop pet: no paper, no question; the passage names the conversation and
+        // the AI explains it at the reader's level.
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        MockServer server;
+        server.chunks = {MockServer::sse("content_block_delta",
+                             {{"type", "content_block_delta"},
+                                 {"delta", QJsonObject{{"type", "text_delta"}, {"text", "They add up to one."}}}}),
+            MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        store.setSetting("ai.baseUrl.claude", server.base().toString());
+        ai->giveConsent("claude");
+        QVERIFY(ai->setApiKey("claude", "sk-ant-explain-test"));
+        QSignalSpy finished(ai, &AiService::finished);
+        ai->ask({{"provider", "claude"}, {"model", "claude-opus-5-5"}, {"action", "explain"},
+            {"selection", "The attention   weights sum to one."}, {"question", ""}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 10000);
+        const auto threadId = finished[0][2].toMap()["threadId"].toString();
+        QCOMPARE(store.aiThread(threadId)["title"].toString(), QString("The attention weights sum to one."));
+        const auto request = QJsonDocument(server.seen[0].body).toJson();
+        QVERIFY(request.contains("Help me understand this material."));
+        QVERIFY(request.contains("The attention   weights sum to one."));
+        QVERIFY(request.contains("a student new to this field"));
+        ai->clearApiKey("claude");
+    }
     void attachedFiguresAreNamedAndSymbolsAreKept()
     {
         QTemporaryDir directory;

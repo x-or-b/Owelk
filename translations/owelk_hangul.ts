@@ -853,6 +853,10 @@
         <translation>탭스: 오거나이즈 위드 에이아이…</translation>
     </message>
     <message>
+        <source>View: Focus Mode (on or off)</source>
+        <translation>뷰: 포커스 모드 (온 오어 오프)</translation>
+    </message>
+    <message>
         <source>View: Go to Home</source>
         <translation>뷰: 고 투 홈</translation>
     </message>
@@ -2310,6 +2314,10 @@ Same file as another library entry</source>
         <translation>에이아이 챗</translation>
     </message>
     <message>
+        <source>Back</source>
+        <translation>백</translation>
+    </message>
+    <message>
         <source>Backing up…</source>
         <translation>배킹 업…</translation>
     </message>
@@ -2350,6 +2358,10 @@ Same file as another library entry</source>
         <translation>듀플리케이트 투 라이트 스플릿 · </translation>
     </message>
     <message>
+        <source>Exit Focus</source>
+        <translation>엑시트 포커스</translation>
+    </message>
+    <message>
         <source>File</source>
         <translation>파일</translation>
     </message>
@@ -2368,6 +2380,14 @@ Same file as another library entry</source>
     <message>
         <source>Fit Width</source>
         <translation>핏 위드스</translation>
+    </message>
+    <message>
+        <source>Focus Mode</source>
+        <translation>포커스 모드</translation>
+    </message>
+    <message>
+        <source>Forward</source>
+        <translation>포워드</translation>
     </message>
     <message>
         <source>Hide Vertical Tabs</source>
@@ -5218,6 +5238,18 @@ You can open the same document twice.</source>
         <translation>백, 포워드, 서치 앤드 더 메뉴 어보브 더 윈도. 잇 스테이즈 위드 버티컬 탭스.</translation>
     </message>
     <message>
+        <source>Focus mode</source>
+        <translation>포커스 모드</translation>
+    </message>
+    <message>
+        <source>Full screen</source>
+        <translation>풀 스크린</translation>
+    </message>
+    <message>
+        <source>Hides the bars above the pages; the side panels still open, from their keys or the window's edges, and the top edge brings a bar back for a moment. %1 turns it on and off.</source>
+        <translation>하이즈 더 바스 어보브 더 페이지스; 더 사이드 패널스 스틸 오픈, 프롬 데어 키스 오어 더 윈도스 엣지스, 앤드 더 톱 엣지 브링스 어 바 백 포 어 모먼트. %1 턴스 잇 온 앤드 오프.</translation>
+    </message>
+    <message>
         <source>Home</source>
         <translation>홈</translation>
     </message>
@@ -5319,6 +5351,10 @@ You can open the same document twice.</source>
     <message>
         <source>Export notes as Markdown</source>
         <translation>익스포트 노츠 애즈 마크다운</translation>
+    </message>
+    <message>
+        <source>Focus mode</source>
+        <translation>포커스 모드</translation>
     </message>
     <message>
         <source>Gloss model</source>
@@ -5997,6 +6033,10 @@ You can open the same document twice.</source>
     <message>
         <source>Fit Width</source>
         <translation>핏 위드스</translation>
+    </message>
+    <message>
+        <source>Focus Mode</source>
+        <translation>포커스 모드</translation>
     </message>
     <message>
         <source>Focus Next Split</source>

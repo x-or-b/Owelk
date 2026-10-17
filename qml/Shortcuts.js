@@ -30,6 +30,7 @@ const actions = [
     {id: "annotations", group: "Panels", name: QT_TR_NOOP("Annotations"), mac: "Ctrl+Shift+M", other: "Ctrl+Shift+M"},
     {id: "aiPanel", group: "Panels", name: QT_TR_NOOP("AI Chat"), mac: "Ctrl+Shift+I", other: "Ctrl+Shift+I"},
     {id: "threadsPanel", group: "Panels", name: QT_TR_NOOP("Threads"), mac: "Ctrl+Shift+J", other: "Ctrl+Shift+J"},
+    {id: "focusMode", group: "Panels", name: QT_TR_NOOP("Focus Mode"), mac: "Ctrl+Shift+F", other: "Ctrl+Shift+F"},
     {id: "previousPage", group: "Reading", name: QT_TR_NOOP("Previous Page"), mac: "Left", other: "Left"},
     {id: "nextPage", group: "Reading", name: QT_TR_NOOP("Next Page"), mac: "Right", other: "Right"},
     {id: "fitWidth", group: "Reading", name: QT_TR_NOOP("Fit Width"), mac: "Ctrl+0", other: "Ctrl+0"},

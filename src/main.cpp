@@ -5,6 +5,7 @@
 #include "SelectionGeometry.h"
 #include "Theme.h"
 #include "TitleBar.h"
+#include "DesktopPet.h"
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
@@ -76,6 +77,8 @@ int main(int argc, char *argv[])
     // Read before the window exists, so the first frame already has the chosen theme.
     Theme theme(&store);
     qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "Theme", &theme);
+    DesktopPet pet(&store);
+    qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "DesktopPet", &pet);
     UiLanguage language(&store);
     // Declared before the engine, so it outlives the QML that uses it.
     WindowChrome chrome;

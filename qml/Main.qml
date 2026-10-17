@@ -27,10 +27,36 @@ ApplicationWindow {
     Connections { target: researchStore; function onSettingsChanged() { window.topBarChoice = researchStore.setting("appearance.topBar") } }
     readonly property bool topBarHidden: !unifiedTitleBar && !Theme.verticalTabs
         && (topBarChoice.length ? topBarChoice === "hide" : Qt.platform.os !== "osx")
+    // Focus mode (⌘⇧F, Ctrl+Shift+F): only the pages and the side panels; no top bar, tab strips or reader toolbars.
+    // The window goes full screen too unless Settings › General says otherwise, and back as it was when it ends. The
+    // top edge brings a bar back for a moment; the left and right edges open a side panel. Not remembered: Owelk
+    // starts as usual.
+    property bool focusMode: false
+    property bool focusPeek: false
+    property int visibilityBeforeFocus: Window.Windowed
+    function setFocusMode(on) {
+        if (on === focusMode || (on && restoreFailed)) return
+        if (on) {
+            visibilityBeforeFocus = window.visibility
+            focusMode = true
+            if (researchStore.setting("focus.fullScreen", "1") === "1" && window.visibility !== Window.FullScreen) window.showFullScreen()
+        } else {
+            focusMode = false
+            focusPeek = false
+            if (window.visibility === Window.FullScreen && visibilityBeforeFocus !== Window.FullScreen) {
+                if (visibilityBeforeFocus === Window.Maximized) window.showMaximized()
+                else window.showNormal()
+            }
+        }
+    }
+    // The panel a side edge opens in focus mode: the Document panel or the Library on its side, else the AI chat.
+    function edgePanel(side) {
+        return ["document", "files", "ai"].find(function(panel) { return panelSide(panel) === side }) || ""
+    }
     // The field the search results hang from: the top bar's, or without it Home's while Home is in front.
     readonly property var searchHost: {
         if (topBar.visible) return topBar.searchBox
-        if (!topBarHidden) return null
+        if (!topBarHidden && !focusMode) return null
         if (homeVisible) return homeView.searchBox
         const revision = documents.revision
         const view = documents.groupView(documents.activeGroup)
@@ -437,6 +463,7 @@ ApplicationWindow {
             case "/split right": documents.duplicateSplit("right"); break
             case "/split down": documents.duplicateSplit("bottom"); break
             case "/split off": documents.joinAll(); break
+            case "/focus": window.setFocusMode(!window.focusMode); break
             case "/web": window.openWebAddress(); break
             case "/library": documents.openLibrary({}); break
             case "/new note": documents.newNote(); break
@@ -552,6 +579,7 @@ ApplicationWindow {
             Action { text: qsTr("Zoom Out"); shortcut: StandardKey.ZoomOut; enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.zoom(1 / 1.2) }
             Action { objectName: "fitWidthAction"; text: qsTr("Fit Width"); shortcut: window.keys("fitWidth"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitWidth() }
             Action { objectName: "fitPageAction"; text: qsTr("Fit Page"); shortcut: window.keys("fitPage"); enabled: !window.homeVisible; onTriggered: if (window.currentReader) window.currentReader.fitPage() }
+            Action { objectName: "focusModeAction"; text: qsTr("Focus Mode"); shortcut: window.keys("focusMode"); checkable: true; checked: window.focusMode; enabled: !window.restoreFailed; onTriggered: window.setFocusMode(!window.focusMode) }
             Action { objectName: "darkPagesAction"; text: qsTr("Dark Pages"); shortcut: window.keys("darkPages"); checkable: true; checked: Theme.invertPages; enabled: Theme.canInvertPages; onTriggered: Theme.invertPages = checked }
             MenuSeparator {}
             Action { objectName: "filesPanelAction"; text: qsTr("Library Panel"); shortcut: window.keys("filesPanel"); onTriggered: window.togglePanel("files") }
@@ -583,6 +611,73 @@ ApplicationWindow {
     Shortcut { sequence: window.keys("moveDown"); enabled: !window.homeVisible && window.canSwitchTabs; onActivated: documents.moveActiveTabToSplit("bottom") }
     Shortcut { sequence: window.keys("nextSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onActivated: documents.focusGroup(1) }
     Shortcut { sequence: window.keys("previousSplit"); enabled: !window.homeVisible && window.canSwitchTabs; onActivated: documents.focusGroup(-1) }
+    // Focus mode's top edge: touching it brings a bar for a moment (Back, Forward, search, Exit Focus), drawn over
+    // the page so nothing moves. Below macOS's menu bar in full screen, which also comes down there.
+    Item {
+        parent: window.contentItem
+        z: 20
+        visible: window.focusMode && !window.focusPeek
+        width: parent.width; height: 4
+        HoverHandler { onHoveredChanged: if (hovered) { focusLeave.stop(); window.focusPeek = true } }
+    }
+    Timer { id: focusLeave; interval: 600; onTriggered: window.focusPeek = false }
+    Rectangle {
+        id: focusBar
+        objectName: "focusBar"
+        parent: window.contentItem
+        z: 21
+        visible: window.focusMode && window.focusPeek
+        y: Qt.platform.os === "osx" && window.visibility === Window.FullScreen ? 28 : 0
+        width: parent.width; height: Theme.barHeight
+        color: Theme.window
+        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.separator }
+        HoverHandler { onHoveredChanged: if (hovered) focusLeave.stop(); else focusLeave.restart() }
+        Row {
+            anchors.left: parent.left; anchors.leftMargin: 8; anchors.verticalCenter: parent.verticalCenter
+            spacing: 2
+            IconButton { icon.name: "back"; enabled: window.canGoBack; description: qsTr("Back") + " · " + Platform.keys(window.keys("jumpBack")); onClicked: window.goBack() }
+            IconButton { icon.name: "forward"; enabled: window.canGoForward; description: qsTr("Forward") + " · " + Platform.keys(window.keys("jumpForward")); onClicked: window.goForward() }
+            IconButton { icon.name: "search"; description: qsTr("Search · ") + Platform.keys("Ctrl+K"); onClicked: window.focusSearch(true) }
+        }
+        Label {
+            anchors.centerIn: parent
+            width: Math.min(implicitWidth, parent.width - 420)
+            text: window.homeVisible ? qsTr("Home") : window.currentReader ? researchStore.displayName(window.currentReader.source) : ""
+            elide: Text.ElideMiddle; textFormat: Text.PlainText
+            font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
+        }
+        Button {
+            objectName: "exitFocusButton"
+            anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+            text: qsTr("Exit Focus") + " · " + Platform.keys(window.keys("focusMode"))
+            onClicked: window.setFocusMode(false)
+        }
+    }
+    // Focus mode's side edges: a side without an open panel opens one from a handle that shows on touching it.
+    Repeater {
+        model: ["left", "right"]
+        delegate: Item {
+            id: edge
+            required property string modelData
+            readonly property string panel: window.edgePanel(modelData)
+            readonly property bool open: modelData === "left" ? leftDock.visible || leftThreads.active : rightDock.visible || rightThreads.active
+            objectName: "focusEdge-" + modelData
+            parent: window.contentItem
+            z: 20
+            visible: window.focusMode && !open && panel.length > 0
+            x: modelData === "left" ? 0 : parent.width - width
+            y: 8; width: edgeHover.hovered ? 40 : 6; height: parent.height - 16
+            HoverHandler { id: edgeHover }
+            IconButton {
+                objectName: "focusEdgeButton-" + edge.modelData
+                visible: edgeHover.hovered
+                anchors.centerIn: parent
+                icon.name: "sidebar"
+                description: window.panelName(edge.panel)
+                onClicked: window.togglePanel(edge.panel)
+            }
+        }
+    }
     // An answer arrived while its thread is not in view: a card at the bottom right (Open / Dismiss),
     // and while another app is in front, the Dock icon bounces once (the taskbar flashes on Linux).
     AiNotice {
@@ -710,7 +805,7 @@ ApplicationWindow {
         TopBar {
             id: topBar
             Layout.fillWidth: true
-            visible: !window.restoreFailed && !window.topBarHidden
+            visible: !window.restoreFailed && !window.topBarHidden && !window.focusMode
             titleBar: window.unifiedTitleBar
             // The traffic lights' room, and the title bar's height (not in full screen, where they hide).
             readonly property bool fullScreen: window.visibility === Window.FullScreen
@@ -807,7 +902,7 @@ ApplicationWindow {
             onNewNoteRequested: if (!window.restoreFailed) documents.newNote()
             onSettingsRequested: function(page) { settingsDialog.openPage(page) }
             onWebRequested: function(address) { window.openForYouPage(address) }
-            searchShown: window.topBarHidden
+            searchShown: window.topBarHidden || window.focusMode
             controlsShown: true
             palette: searchPalette
             appMenu: Qt.platform.os === "osx" ? null : appMenu
@@ -830,6 +925,7 @@ ApplicationWindow {
             onAiRequested: function(spec) { window.askAi(spec) }
             onSettingsRequested: function(page) { settingsDialog.openPage(page) }
             topControls: window.topBarHidden
+            focusMode: window.focusMode
             appMenu: Qt.platform.os === "osx" ? null : appMenu
             searchPalette: searchPalette
             canGoBack: window.canGoBack
