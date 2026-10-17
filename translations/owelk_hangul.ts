@@ -4379,6 +4379,10 @@ Use Pages to navigate.</source>
         <translation>핏 위드스</translation>
     </message>
     <message>
+        <source>Follow Author…</source>
+        <translation>팔로 오서…</translation>
+    </message>
+    <message>
         <source>Gloss</source>
         <translation>글로스</translation>
     </message>

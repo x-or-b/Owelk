@@ -549,7 +549,14 @@ Item {
                 const item = more.itemAt(i)
                 if (item.visible && item.text) verify(item.implicitWidth <= item.width + 1, item.text + " is cut off")
             }
-            more.close()
+            // Follow Author… asks OpenAlex about this paper's authors (a stand-in here, which knows no such paper).
+            researchStore.setSetting("forYou.openAlexBaseUrl", testInput.webFixture("").toString())
+            findChild(reader, "readerFollowAuthorOption").triggered()
+            let follow = null
+            tryVerify(function() { follow = findChild(reader, "followAuthorDialog"); return follow !== null && follow.opened })
+            tryCompare(follow, "looking", false, 10000)
+            follow.close()
+            tryCompare(follow, "visible", false)
             tryCompare(more, "visible", false)
             researchStore.setSetting("drawColor", ""); researchStore.setSetting("highlightColor", "")
         }

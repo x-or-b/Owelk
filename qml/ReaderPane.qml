@@ -271,6 +271,7 @@ Rectangle {
         MenuItem { text: qsTr("Select All on Page"); onTriggered: canvas.selectPage(root.contextPage) }
         MenuItem { text: qsTr("Mark Region"); onTriggered: root.setTool("area") }
     }
+    Loader { id: followAuthor; active: false; sourceComponent: FollowAuthorDialog { onSearchRequested: researchStore.forYou.showFollowing() } }
     Loader { id: paperDetails; active: false; sourceComponent: PaperDetailsDialog {} }
     FileDialog {
         id: annotatedFile
@@ -430,6 +431,16 @@ Rectangle {
                         MenuSeparator {}
                         MenuItem { text:qsTr("Mark Paper as Read");onTriggered:researchStore.setReadingState(root.source, "read") }
                         MenuItem { objectName:"paperDetailsOption";text:qsTr("Paper Details…");onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
+                        // This paper's authors from OpenAlex, to follow in For You.
+                        MenuItem {
+                            objectName: "readerFollowAuthorOption"
+                            text: qsTr("Follow Author…")
+                            onTriggered: {
+                                const details = researchStore.documentDetails(root.source)
+                                followAuthor.active = true
+                                followAuthor.item.begin({title: details.title || researchStore.displayName(root.source), doi: details.doi || "", arxiv: details.arxiv || ""})
+                            }
+                        }
                     }
                 }
             }
