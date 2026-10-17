@@ -33,6 +33,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The one Qt version and its modules (tools/qt.txt), as the install scripts and the Dockerfile use.
+      - name: Qt version
+        shell: bash
+        run: |
+          echo "QT_VERSION=$(sed -n 's/^version=//p' tools/qt.txt)" >> "$GITHUB_ENV"
+          echo "QT_MODULES=$(sed -n 's/^modules=//p' tools/qt.txt)" >> "$GITHUB_ENV"
+
       - name: Linux packages
         if: runner.os == 'Linux'
         run: |
@@ -54,11 +61,11 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           setup-python: false
-          version: ${{ matrix.qt || '6.11.*' }}
+          version: ${{ matrix.qt || env.QT_VERSION }}
           arch: ${{ matrix.arch }}
           aqtsource: ${{ matrix.aqtsource }}
           py7zrversion: ${{ matrix.py7zr || '==1.1.0' }}
-          modules: 'qtpdf qtwebengine qtwebchannel qtpositioning qtimageformats qtshadertools'
+          modules: ${{ env.QT_MODULES }}
           cache: true
 
       - name: MSVC

@@ -4,21 +4,30 @@
 #   powershell -ExecutionPolicy Bypass -File tools\install-local.ps1           build and install
 #   powershell -ExecutionPolicy Bypass -File tools\install-local.ps1 -Clean    start the build from scratch
 #   powershell -ExecutionPolicy Bypass -File tools\install-local.ps1 -Yes      do not ask before installing tools
+#   powershell -ExecutionPolicy Bypass -File tools\install-local.ps1 -Deps     only set up the tools and Qt
+#   powershell -ExecutionPolicy Bypass -File tools\install-local.ps1 -WithTests  also build the tests
 #
-# Windows 10/11 on x64. Needs Visual Studio 2022 Build Tools (C++) and Python 3.10+; missing ones are
-# installed with winget (after asking). The official Qt 6.11 goes to %USERPROFILE%\Qt (about 2 GB,
-# once); Owelk is built with MSVC and installed to %LOCALAPPDATA%\Programs\Owelk with a Start menu entry.
+# Windows 10 (1809 or newer) or 11 on x64. Needs Visual Studio 2022 Build Tools (C++) and Python 3.10+;
+# missing ones are installed with winget (after asking). Qt is the official build of the version in
+# tools\qt.txt, downloaded once into %USERPROFILE%\Qt (about 2 GB); Owelk is built with MSVC and installed
+# to %LOCALAPPDATA%\Programs\Owelk with a Start menu entry.
 # Unlike macOS and Linux the Qt libraries are copied next to the program: Windows has no other way to
 # find them.
-param([switch]$Clean, [switch]$Yes, [switch]$Help)
+param([switch]$Clean, [switch]$Yes, [switch]$Deps, [switch]$WithTests, [switch]$Help)
 $ErrorActionPreference = 'Stop'
 
-$QtVersion = if ($env:OWELK_QT_VERSION) { $env:OWELK_QT_VERSION } else { '6.11.3' }
-$QtModules = @('qtpdf', 'qtwebengine', 'qtwebchannel', 'qtpositioning', 'qtimageformats', 'qtshadertools')
+# The one Qt version and its modules, shared with tools/install-local.sh, the Dockerfile and CI.
+$Root = Split-Path -Parent $PSScriptRoot
+$QtSettings = @{}
+foreach ($line in Get-Content (Join-Path $Root 'tools\qt.txt')) { if ($line -match '^(\w+)=(.*)$') { $QtSettings[$Matches[1]] = $Matches[2].Trim() } }
+$QtVersion = if ($env:OWELK_QT_VERSION) { $env:OWELK_QT_VERSION } else { $QtSettings['version'] }
+$QtModules = $QtSettings['modules'] -split '\s+'
+# What Owelk needs from Qt (CMake packages); a Qt without one of them is completed.
+$QtPackages = @('Quick', 'QuickControls2', 'Pdf', 'PdfQuick', 'Sql', 'Concurrent', 'PrintSupport', 'Widgets', 'Network',
+    'WebEngineQuick', 'WebChannel', 'Positioning', 'ShaderTools', 'LinguistTools')
 # The Qt downloader. Qt 6.11 for Windows sits in a new folder layout that the 3.3.0 release cannot read
 # yet; this commit can. Back to plain `aqtinstall` once a newer release is out.
 $AqtSource = 'https://github.com/miurahr/aqtinstall/archive/076e1659807d0b362a3ed684d54c2e9c775eb9c7.zip'
-$Root = Split-Path -Parent $PSScriptRoot
 $Build = Join-Path $Root 'build-release'
 
 function Say([string]$text) { Write-Host "`n$text" -ForegroundColor Cyan }
@@ -56,8 +65,10 @@ function Find-Python {
     return $false
 }
 
-if ($Help) { Get-Content $PSCommandPath | Select-Object -First 12 | ForEach-Object { $_ -replace '^# ?', '' }; exit 0 }
+if ($Help) { Get-Content $PSCommandPath | Select-Object -First 15 | ForEach-Object { $_ -replace '^# ?', '' }; exit 0 }
 if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') { Fail "This script covers 64-bit Intel and AMD Windows (found $env:PROCESSOR_ARCHITECTURE)." }
+# Qt 6.11 runs on Windows 10 1809 (build 17763) and newer.
+if ([Environment]::OSVersion.Version.Build -lt 17763) { Fail "Qt $QtVersion needs Windows 10 version 1809 or newer." }
 
 # --- Visual Studio Build Tools: the C++ compiler, CMake and Ninja --------------------------------------
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
@@ -83,16 +94,20 @@ foreach ($tool in @('cmake', 'ninja')) {
     }
 }
 
-# --- Qt 6.11 in %USERPROFILE%\Qt (or OWELK_QT=C:\path\to\Qt\<version>\msvc2022_64) ---------------------
+# --- Qt in %USERPROFILE%\Qt (or OWELK_QT=C:\path\to\Qt\<version>\msvc2022_64) --------------------------
 $qt = if ($env:OWELK_QT) { $env:OWELK_QT } else { Join-Path $HOME "Qt\$QtVersion\msvc2022_64" }
-if (-not (Test-Path (Join-Path $qt 'bin\qmake.exe'))) {
+function Get-MissingQt { @($QtPackages | Where-Object { -not (Test-Path (Join-Path $qt "lib\cmake\Qt6$_")) }) }
+$missing = Get-MissingQt
+if ($missing.Count -gt 0) {
+    if ($env:OWELK_QT) { Fail "The Qt in $env:OWELK_QT lacks: $($missing -join ' ')" }
     if (-not (Find-Python)) {
         Say 'Python 3.10 or newer is needed once, to download Qt.'
         if (-not (Ask 'Install Python 3.12 with winget?')) { Fail 'Install Python 3.10 or newer and run this again.' }
         Winget 'Python.Python.3.12'
         if (-not (Find-Python)) { Fail 'Python is installed but not found yet. Open a new PowerShell window and run this again.' }
     }
-    Say "Downloading Qt $QtVersion into $HOME\Qt (about 2 GB, once)"
+    if (Test-Path (Join-Path $qt 'lib')) { Say "Qt $QtVersion in $qt lacks: $($missing -join ' '). Adding them." }
+    else { Say "Downloading Qt $QtVersion into $HOME\Qt (about 2 GB, once)" }
     $tools = Join-Path $env:LOCALAPPDATA 'Owelk\install-tools'
     $venvPython = Join-Path $tools 'venv\Scripts\python.exe'
     # A virtual environment left by an older Python is made again.
@@ -103,14 +118,24 @@ if (-not (Test-Path (Join-Path $qt 'bin\qmake.exe'))) {
     }
     & $venvPython -m pip install --quiet --upgrade $AqtSource
     if ($LASTEXITCODE -ne 0) { Fail 'Could not install aqtinstall (the Qt downloader).' }
-    & (Join-Path $tools 'venv\Scripts\aqt.exe') install-qt windows desktop $QtVersion win64_msvc2022_64 -m @QtModules -O (Join-Path $HOME 'Qt')
+    # Run from the tools folder: aqtinstall leaves its log in the current folder.
+    Push-Location $tools
+    try { & (Join-Path $tools 'venv\Scripts\aqt.exe') install-qt windows desktop $QtVersion win64_msvc2022_64 -m @QtModules -O (Join-Path $HOME 'Qt') }
+    finally { Pop-Location }
     if ($LASTEXITCODE -ne 0) { Fail "Could not download Qt $QtVersion." }
+    $missing = Get-MissingQt
+    if ($missing.Count -gt 0) { Fail "Qt $QtVersion in $qt still lacks: $($missing -join ' ')" }
 }
+$found = & (Join-Path $qt 'bin\qmake.exe') -query QT_VERSION 2>$null
+if ($found -ne $QtVersion) { Write-Host "(Note: $qt is Qt $found; tools\qt.txt says $QtVersion.)" }
+Say "Using Qt $QtVersion in $qt"
+if ($Deps) { Say 'Tools and Qt are ready.'; exit 0 }
 
 # --- Build ---------------------------------------------------------------------------------------------
 if ($Clean -and (Test-Path $Build)) { Remove-Item -Recurse -Force $Build }
 Say 'Building Owelk (Release) in build-release\'
-& cmake -S $Root -B $Build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF "-DCMAKE_PREFIX_PATH=$qt"
+$testing = if ($WithTests) { 'ON' } else { 'OFF' }
+& cmake -S $Root -B $Build -G Ninja -DCMAKE_BUILD_TYPE=Release "-DBUILD_TESTING=$testing" "-DCMAKE_PREFIX_PATH=$qt"
 if ($LASTEXITCODE -ne 0) { Fail 'CMake could not configure the build.' }
 & cmake --build $Build --parallel
 if ($LASTEXITCODE -ne 0) { Fail 'The build failed.' }

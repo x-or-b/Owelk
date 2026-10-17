@@ -1,0 +1,4 @@
+# The Qt Owelk is built with, on every system (tools/install-local.sh, tools/install-local.ps1, Dockerfile, CI).
+# One exact version: Qt modules of different versions crash (Homebrew once paired Qt 6.12 with 6.11's PDF module).
+version=6.11.3
+modules=qtpdf qtwebengine qtwebchannel qtpositioning qtimageformats qtshadertools

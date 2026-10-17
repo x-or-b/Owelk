@@ -1,0 +1,8 @@
+# Only the source goes into the image: build folders and local data stay out.
+/build*/
+/.local-run/
+/.git/
+/.claude/
+/.DS_Store
+/Owelk.md
+/aqtinstall.log
