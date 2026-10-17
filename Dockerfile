@@ -9,9 +9,11 @@
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-# What tools/install-local.sh itself needs; it installs the rest. Fonts for text in the tests.
+# What tools/install-local.sh itself needs; it installs the rest. Fonts as a desktop has them: the tests lay out
+# PDFs in Helvetica, which Linux draws with Liberation Sans (same widths); without it text lands elsewhere.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends sudo python3 python3-venv ca-certificates fonts-dejavu-core \
+        fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 # An ordinary user, as on a desktop, allowed to install packages.
 RUN useradd --create-home --shell /bin/bash owelk \
