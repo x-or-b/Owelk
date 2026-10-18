@@ -1772,6 +1772,14 @@ Same file as another library entry</source>
         <translation> 투 디스; 더 링크 윌 노 롱거 오픈</translation>
     </message>
     <message>
+        <source>%1 citations</source>
+        <translation>%1 사이테이션스</translation>
+    </message>
+    <message>
+        <source>1 citation</source>
+        <translation>1 사이테이션</translation>
+    </message>
+    <message>
         <source>AI conversation</source>
         <translation>에이아이 컨버세이션</translation>
     </message>
@@ -5624,6 +5632,10 @@ You can open the same document twice.</source>
         <translation>쇼 싱킹</translation>
     </message>
     <message>
+        <source>Summaries and citation counts</source>
+        <translation>서머리즈 앤드 사이테이션 카운츠</translation>
+    </message>
+    <message>
         <source>Symbol hints</source>
         <translation>심벌 힌츠</translation>
     </message>
@@ -5731,6 +5743,10 @@ You can open the same document twice.</source>
         <translation>피디에프 폴더</translation>
     </message>
     <message>
+        <source>Paper insights</source>
+        <translation>페이퍼 인사이츠</translation>
+    </message>
+    <message>
         <source>Paper names</source>
         <translation>페이퍼 네임스</translation>
     </message>
@@ -5747,12 +5763,20 @@ You can open the same document twice.</source>
         <translation>쇼 폴더</translation>
     </message>
     <message>
+        <source>Summaries and citation counts</source>
+        <translation>서머리즈 앤드 사이테이션 카운츠</translation>
+    </message>
+    <message>
         <source>Title</source>
         <translation>타이틀</translation>
     </message>
     <message>
         <source>Trash</source>
         <translation>트래시</translation>
+    </message>
+    <message>
+        <source>When enabled, Owelk sends only DOI or arXiv IDs to Semantic Scholar for summaries and citation counts. PDFs and notes are not sent. Checks once a day; refreshes results after 30 days.</source>
+        <translation>웬 이네이블드, 오웰크 센즈 온리 디오아이 오어 아카이브 아이디즈 투 시맨틱 스칼라 포 서머리즈 앤드 사이테이션 카운츠. 피디에프스 앤드 노츠 아 낫 센트. 첵스 원스 어 데이; 리프레시즈 리절츠 애프터 30 데이즈.</translation>
     </message>
     <message>
         <source>Year</source>

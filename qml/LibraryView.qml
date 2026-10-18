@@ -1335,7 +1335,7 @@ Rectangle {
                         objectName: "libraryPaper-" + modelData.id
                         required property int index
                         width: papers.width
-                        height: Theme.rowHeightTall
+                        height: Theme.rowHeightTall + (paperSummary.visible ? paperSummary.implicitHeight + paperText.spacing : 0)
                         separator: index < papers.count - 1
                         highlighted: root.isSelected(modelData.url)
                         onClicked: root.rowClicked(index)
@@ -1399,12 +1399,23 @@ Rectangle {
                                 border.color: Theme.accent
                             }
                             ColumnLayout {
+                                id: paperText
                                 Layout.fillWidth: true
                                 spacing: 2
                                 Label { Layout.fillWidth: true; text: paper.modelData.name; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
                                 Label {
                                     Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
-                                    text: [paper.modelData.authors, paper.modelData.year, paper.modelData.tags ? "# " + paper.modelData.tags : ""].filter(function(s) { return s && s.length }).join("  ·  ")
+                                    objectName: "libraryPaperMeta-" + paper.modelData.id
+                                    text: [paper.modelData.authors, paper.modelData.year, paper.modelData.citationCount === undefined ? "" : paper.modelData.citationCount === 1 ? qsTr("1 citation") : qsTr("%1 citations").arg(paper.modelData.citationCount), paper.modelData.tags ? "# " + paper.modelData.tags : ""].filter(function(s) { return s && s.length }).join("  ·  ")
+                                }
+                                Label {
+                                    id: paperSummary
+                                    objectName: "libraryPaperSummary-" + paper.modelData.id
+                                    visible: text.length > 0
+                                    Layout.fillWidth: true
+                                    text: paper.modelData.tldr || ""
+                                    textFormat: Text.PlainText; elide: Text.ElideRight
+                                    font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
                                 }
                             }
                             Label { visible: paper.modelData.duplicate; text: qsTr("duplicate"); font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }

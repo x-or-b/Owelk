@@ -347,6 +347,18 @@ public slots:
                                         "{\"type\":\"text_delta\",\"text\":\"")
                                 + piece + "\"}}\n\n";
                         body += "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+                    } else if (head.contains("POST /graph/v1/paper/batch")) {
+                        type = "application/json";
+                        const auto ids
+                            = QJsonDocument::fromJson(request.mid(headerEnd + 4)).object().value("ids").toArray();
+                        QJsonArray rows;
+                        for (const auto &id : ids) {
+                            Q_UNUSED(id)
+                            rows << QJsonObject{
+                                {"tldr", QJsonObject{{"text", "A compact summary for the library row."}}},
+                                {"citationCount", 42}};
+                        }
+                        body = QJsonDocument(rows).toJson(QJsonDocument::Compact);
                     } else if (head.contains("/graph/v1/paper/")) {
                         // Semantic Scholar: one reference and two citing papers.
                         type = "application/json";

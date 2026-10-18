@@ -1,4 +1,5 @@
 #include "ResearchStore.h"
+#include "LibraryInsights.h"
 #include "UiText.h"
 #include "PaperIndex.h"
 
@@ -71,13 +72,13 @@ QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
         : sort == "added"                 ? "d.added_at DESC"
                                           : "r.opened_at IS NULL, r.opened_at DESC, d.added_at DESC";
     QSqlQuery query(m_database);
-    query.prepare(
-        "SELECT d.id,d.url,d.authors,d.year,d.reading_state,d.favorite,d.excluded_from_index,d.sha256,"
-        "(SELECT group_concat(t.name, ', ') FROM document_tags dt JOIN tags t ON t.id=dt.tag_id "
-        "WHERE dt.document_id=d.id),"
-        "(d.sha256<>'' AND EXISTS(SELECT 1 FROM documents o WHERE o.sha256=d.sha256 AND o.id<>d.id)),p.position "
-        "FROM documents d LEFT JOIN recent_documents r ON r.document_id=d.id "
-        "LEFT JOIN reading_positions p ON p.document_id=d.id WHERE "
+    query.prepare("SELECT d.id,d.url,d.authors,d.year,d.reading_state,d.favorite,d.excluded_from_index,d.sha256,"
+                  "(SELECT group_concat(t.name, ', ') FROM document_tags dt JOIN tags t ON t.id=dt.tag_id "
+                  "WHERE dt.document_id=d.id),"
+                  "(d.sha256<>'' AND EXISTS(SELECT 1 FROM documents o WHERE o.sha256=d.sha256 AND "
+                  "o.id<>d.id)),p.position,d.doi,d.arxiv "
+                  "FROM documents d LEFT JOIN recent_documents r ON r.document_id=d.id "
+                  "LEFT JOIN reading_positions p ON p.document_id=d.id WHERE "
         + where.join(" AND ") + " ORDER BY " + order
         + (filter.contains("limit") ? QStringLiteral(" LIMIT %1").arg(qMax(1, filter.value("limit").toInt()))
                                     : QString()));
@@ -86,12 +87,15 @@ QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
     if (!query.exec()) return rows;
     while (query.next()) {
         const QUrl url(query.value(1).toString());
-        rows.append(
-            QVariantMap{{"id", query.value(0)}, {"url", url}, {"name", displayName(url)}, {"fileName", fileName(url)},
-                {"authors", query.value(2)}, {"year", query.value(3)}, {"readingState", query.value(4)},
-                {"favorite", query.value(5).toBool()}, {"excluded", query.value(6).toBool()},
-                {"tags", query.value(8).toString()}, {"duplicate", query.value(9).toBool()},
-                {"position", QJsonDocument::fromJson(query.value(10).toByteArray()).object().toVariantMap()}});
+        QVariantMap row{{"id", query.value(0)}, {"url", url}, {"name", displayName(url)}, {"fileName", fileName(url)},
+            {"authors", query.value(2)}, {"year", query.value(3)}, {"readingState", query.value(4)},
+            {"favorite", query.value(5).toBool()}, {"excluded", query.value(6).toBool()},
+            {"tags", query.value(8).toString()}, {"duplicate", query.value(9).toBool()},
+            {"position", QJsonDocument::fromJson(query.value(10).toByteArray()).object().toVariantMap()},
+            {"doi", query.value(11)}, {"arxiv", query.value(12)}};
+        if (m_libraryInsights)
+            row.insert(m_libraryInsights->details(query.value(11).toString(), query.value(12).toString()));
+        rows.append(row);
     }
     return rows;
 }

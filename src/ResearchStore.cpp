@@ -11,6 +11,7 @@
 #include "AiService.h"
 #include "SelectionGeometry.h"
 #include "LibrarySync.h"
+#include "LibraryInsights.h"
 
 #include <QClipboard>
 #include <QDateTime>
@@ -108,6 +109,11 @@ QObject *ResearchStore::semantic() const
 QObject *ResearchStore::sync() const
 {
     return m_sync;
+}
+
+QObject *ResearchStore::libraryInsights() const
+{
+    return m_libraryInsights;
 }
 
 QObject *ResearchStore::forYou() const
@@ -506,6 +512,8 @@ bool ResearchStore::initialize(QString *error)
     scheduleAutomaticBackup();
     m_sync->start();
     m_forYou->start();
+    m_libraryInsights = new LibraryInsights(this, this);
+    connect(m_libraryInsights, &LibraryInsights::changed, this, &ResearchStore::announceDocumentsChanged);
     // Papers past their days in the Trash go a little after start, not while the window opens.
     QTimer::singleShot(20000, this, &ResearchStore::purgeExpired);
     QTimer::singleShot(25000, this, &ResearchStore::pruneIndex);

@@ -17,6 +17,7 @@ const entries = [
     {page: "appearance", anchor: "settingsGroup-appIcon", text: QT_TR_NOOP("App icon"), words: "dock taskbar icon"},
     {page: "appearance", anchor: "settingsRow-textSize", text: QT_TR_NOOP("Text size"), words: "font bigger smaller scale zoom"},
     {page: "appearance", anchor: "settingsRow-darkPages", text: QT_TR_NOOP("Dark pages"), words: "invert pdf night black"},
+    {page: "library", anchor: "settingsRow-insights", text: QT_TR_NOOP("Summaries and citation counts"), words: "tldr semantic scholar paper insights summary citations privacy"},
     {page: "library", anchor: "settingsRow-keepPdfs", text: QT_TR_NOOP("Keep PDFs in Owelk"), words: "copy store files pdf storage"},
     {page: "library", anchor: "settingsRow-pdfFolder", text: QT_TR_NOOP("PDF folder"), words: "papers location finder show where"},
     {page: "library", anchor: "pdfNameGroup", text: QT_TR_NOOP("Paper names"), words: "file name rename title author year arxiv format order"},

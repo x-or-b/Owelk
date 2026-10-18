@@ -19,6 +19,7 @@
 
 class LibrarySync;
 class ForYou;
+class LibraryInsights;
 class PaperIndex;
 class ReferenceFinder;
 class QNetworkAccessManager;
@@ -43,6 +44,8 @@ class ResearchStore final : public QObject {
     Q_PROPERTY(QObject *semantic READ semantic CONSTANT)
     // Keeping this library the same on other computers through a shared folder (LibrarySync.h).
     Q_PROPERTY(QObject *sync READ sync CONSTANT)
+    // Summaries and citation counts for Library rows, when the reader turns them on (LibraryInsights.h).
+    Q_PROPERTY(QObject *libraryInsights READ libraryInsights CONSTANT)
     // New papers in the fields the reader follows (ForYou.h).
     Q_PROPERTY(QObject *forYou READ forYou CONSTANT)
     Q_PROPERTY(bool backingUp READ backingUp NOTIFY backingUpChanged)
@@ -78,6 +81,7 @@ public:
     QObject *semantic() const;
     QObject *sync() const;
     QObject *forYou() const;
+    QObject *libraryInsights() const;
     // Whether a paper with this arXiv ID (any version) or DOI is in the Library.
     bool hasPaper(const QString &arxiv, const QString &doi) const { return !paperUrlFor(arxiv, doi).isEmpty(); }
     // That paper's URL, or empty.
@@ -532,5 +536,6 @@ private:
     class SemanticIndex *m_semantic = nullptr;
     LibrarySync *m_sync;
     ForYou *m_forYou = nullptr;
+    LibraryInsights *m_libraryInsights = nullptr;
     void syncReceived(const QSet<QString> &tables, const QStringList &sources);
 };

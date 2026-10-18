@@ -50,6 +50,30 @@ Item {
             compare(settings.page, "foryou")
             settings.close(); tryCompare(settings, "visible", false)
         }
+        function test_summariesAreOptInAndRowsGrow() {
+            verify(!researchStore.libraryInsights.enabled)
+            const paper = testInput.uniqueFixture("insights row.pdf")
+            verify(researchStore.rememberDocument(paper))
+            verify(researchStore.updateDocumentDetails(paper, {title: "Insights row", doi: "10.1234/insights"}))
+            findChild(workspace, "homeView").libraryFilterRequested({})
+            const view = library()
+            view.query = "10.1234/insights"
+            tryVerify(function() { return view.rows.length === 1 })
+            const id = view.rows[0].id
+            let row = null
+            tryVerify(function() { row = findChild(view, "libraryPaper-" + id); return row !== null })
+            const plainHeight = row.height
+            verify(!findChild(row, "libraryPaperSummary-" + id).visible)
+            researchStore.setSetting("citations.baseUrl", testInput.webFixture("/graph/v1").toString())
+            researchStore.setSetting("library.insights", "1")
+            tryVerify(function() { return view.rows.length === 1 && view.rows[0].tldr !== undefined }, 5000)
+            tryVerify(function() { row = findChild(view, "libraryPaper-" + id); return row && row.height > plainHeight })
+            compare(findChild(row, "libraryPaperSummary-" + id).text, "A compact summary for the library row.")
+            verify(findChild(row, "libraryPaperMeta-" + id).text.indexOf("42 citations") >= 0)
+            researchStore.setSetting("library.insights", "0")
+            tryVerify(function() { return view.rows.length === 1 && view.rows[0].tldr === undefined })
+            tryVerify(function() { row = findChild(view, "libraryPaper-" + id); return row && row.height === plainHeight })
+        }
         function test_readingDotFollowsTheState() {
             // Added, not opened: an accent dot.
             const paper = testInput.copyFixture("reading dot.pdf")

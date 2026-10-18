@@ -73,6 +73,19 @@ ColumnLayout {
             Button { objectName: "showPapersFolder"; text: qsTr("Show Folder"); onClicked: Qt.openUrlExternally(researchStore.papersFolderUrl()) }
         }
     }
+    SettingsGroup {
+        title: qsTr("Paper insights")
+        note: qsTr("When enabled, Owelk sends only DOI or arXiv IDs to Semantic Scholar for summaries and citation counts. PDFs and notes are not sent. Checks once a day; refreshes results after 30 days.")
+        SettingsRow {
+            objectName: "settingsRow-insights"
+            label: qsTr("Summaries and citation counts")
+            Switch {
+                objectName: "libraryInsightsSwitch"
+                checked: researchStore.libraryInsights.enabled
+                onToggled: researchStore.setSetting("library.insights", checked ? "1" : "0")
+            }
+        }
+    }
     // Which paper details make a paper's name (shown in Owelk and given to its file), in which order.
     SettingsGroup {
         objectName: "pdfNameGroup"
