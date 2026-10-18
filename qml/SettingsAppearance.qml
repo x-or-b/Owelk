@@ -223,6 +223,19 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            // A cut-out's height, for each picture (a full picture covers the area).
+            visible: Theme.pictureCutout
+            label: qsTr("Size")
+            Slider {
+                objectName: "pictureScaleSlider"
+                Layout.preferredWidth: 180
+                from: 40; to: 100; stepSize: 5; snapMode: Slider.SnapAlways
+                value: Theme.pictureScale
+                onMoved: Theme.pictureScale = value
+            }
+            Label { text: Theme.pictureScale + "%"; color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
+        }
+        SettingsRow {
             label: qsTr("Behind Home and pages")
             Slider {
                 objectName: "pictureStrengthSlider"

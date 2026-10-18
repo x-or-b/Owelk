@@ -17,6 +17,9 @@
 #include "ImagePalette.h"
 #include "Theme.h"
 #include "DesktopPet.h"
+#include "SwipeNavigation.h"
+#include <QJSEngine>
+#include <QWheelEvent>
 #include <QWindow>
 #include <QTimeZone>
 #include <QJsonArray>
@@ -45,6 +48,73 @@
 class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void trackpadNavigation()
+    {
+        class Window : public QWindow {
+        public:
+            int passed = 0;
+            bool event(QEvent *event) override
+            {
+                if (event->type() == QEvent::Wheel) ++passed;
+                return QWindow::event(event);
+            }
+        } window;
+        SwipeNavigation swipe;
+        swipe.setWindow(&window);
+        swipe.setProperty("enabled", true);
+        QSignalSpy back(&swipe, &SwipeNavigation::back), forward(&swipe, &SwipeNavigation::forward);
+        auto send = [&](QPoint delta, Qt::ScrollPhase phase, bool inverted) {
+            QWheelEvent event({}, {}, delta, {}, Qt::NoButton, Qt::NoModifier, phase, inverted);
+            QCoreApplication::sendEvent(&window, &event);
+        };
+        for (bool inverted : {false, true}) {
+            const int right = inverted ? 1 : -1;
+            const int before = window.passed, count = back.count();
+            send({}, Qt::ScrollBegin, inverted);
+            send({right * 5, 0}, Qt::ScrollUpdate, inverted);
+            QCOMPARE(window.passed, before + 2);
+            send({right * 10, 0}, Qt::ScrollUpdate, inverted);
+            QVERIFY(swipe.progress() < 0);
+            send({right * 140, 0}, Qt::ScrollUpdate, inverted);
+            QCOMPARE(swipe.progress(), -1.0);
+            send({}, Qt::ScrollEnd, inverted);
+            QCOMPARE(back.count(), count + 1);
+            send({right * 200, 0}, Qt::ScrollMomentum, inverted);
+            send({}, Qt::ScrollEnd, inverted);
+            QCOMPARE(back.count(), count + 1);
+            QCOMPARE(window.passed, before + 2);
+            const int next = forward.count();
+            send({}, Qt::ScrollBegin, inverted);
+            send({-right * 160, 0}, Qt::ScrollUpdate, inverted);
+            send({}, Qt::ScrollEnd, inverted);
+            QCOMPARE(forward.count(), next + 1);
+            // Reversing before release cancels; vertical gestures stay scrolling all the way.
+            send({}, Qt::ScrollBegin, inverted);
+            send({right * 150, 0}, Qt::ScrollUpdate, inverted);
+            send({-right * 100, 0}, Qt::ScrollUpdate, inverted);
+            send({}, Qt::ScrollEnd, inverted);
+            QCOMPARE(back.count(), count + 1);
+            send({}, Qt::ScrollBegin, inverted);
+            send({15, 20}, Qt::ScrollUpdate, inverted);
+            send({200, 0}, Qt::ScrollUpdate, inverted);
+            QCOMPARE(swipe.progress(), 0.0);
+        }
+        QJSEngine js;
+        swipe.setProperty("allowed", QVariant::fromValue(js.evaluate("(function() { return false })")));
+        int before = window.passed;
+        send({}, Qt::ScrollBegin, true);
+        send({200, 0}, Qt::ScrollUpdate, true);
+        send({}, Qt::ScrollEnd, true);
+        QCOMPARE(window.passed, before + 3);
+        swipe.setProperty("enabled", false);
+        before = window.passed;
+        send({}, Qt::ScrollBegin, true);
+        send({200, 0}, Qt::ScrollUpdate, true);
+        send({}, Qt::ScrollEnd, true);
+        send({200, 0}, Qt::NoScrollPhase, true);
+        QCOMPARE(window.passed, before + 4);
+    }
+
     void aSecondLaunchHandsItsFilesToTheRunningOne()
     {
         QTemporaryDir directory;
@@ -312,6 +382,12 @@ private slots:
         QVERIFY(theme.choosePicture(secondId));
         QVERIFY(theme.choosePicture(firstId));
         QCOMPARE(theme.customAccent(), QColor("#3a6ea5"));
+        // Its size too, for it alone.
+        theme.setPictureScale(70);
+        QVERIFY(theme.choosePicture(secondId));
+        QCOMPARE(theme.pictureScale(), 100);
+        QVERIFY(theme.choosePicture(firstId));
+        QCOMPARE(theme.pictureScale(), 70);
         QVERIFY(!theme.choosePicture("missing.png"));
         // Read again on the next start.
         {
@@ -319,6 +395,7 @@ private slots:
             QCOMPARE(again.pictures().size(), 2);
             QCOMPARE(again.picture().toLocalFile(), first);
             QVERIFY(again.pictureCutout());
+            QCOMPARE(again.pictureScale(), 70);
         }
         // Another kept picture goes alone; the one in use goes to the next.
         theme.removePicture(secondId);
@@ -374,7 +451,8 @@ private slots:
         QVERIFY(cutout.save(path));
         QVERIFY(theme.usePicture(QUrl::fromLocalFile(path)));
         QVERIFY(theme.pictureShown());
-        const auto file = QDir(store.dataDirectory()).filePath("picture/" + theme.pictures()[0].toMap()["id"].toString());
+        const auto file
+            = QDir(store.dataDirectory()).filePath("picture/" + theme.pictures()[0].toMap()["id"].toString());
 
         // Off: the theme, accent and Custom colors from before; the picture is kept, not shown.
         theme.setPictureOn(false);
@@ -1651,7 +1729,8 @@ private slots:
         QVERIFY(!ForYouParse::isPdfAddress(""));
         // A Semantic Scholar "open PDF" that is only a DOI link is no PDF; an arXiv ID still gives one.
         const auto parsed = ForYouParse::recommendations(
-            "{\"recommendedPapers\":[{\"paperId\":\"a\",\"title\":\"Journal Only\",\"externalIds\":{\"DOI\":\"10.1/j\"},"
+            "{\"recommendedPapers\":[{\"paperId\":\"a\",\"title\":\"Journal "
+            "Only\",\"externalIds\":{\"DOI\":\"10.1/j\"},"
             "\"openAccessPdf\":{\"url\":\"https://doi.org/10.1/j\"}},{\"paperId\":\"b\",\"title\":\"Also On arXiv\","
             "\"externalIds\":{\"ArXiv\":\"2601.00009\"},\"openAccessPdf\":{\"url\":\"\"}}]}");
         QCOMPARE(parsed.size(), 2);
@@ -1669,7 +1748,8 @@ private slots:
                     "\"externalIds\":{\"DOI\":\"10.1/j\"},\"openAccessPdf\":{\"url\":\"https://doi.org/10.1/j\"}}]}")
                                             .arg(QDate::currentDate().toString(Qt::ISODate))
                                             .toUtf8();
-                socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: "
+                socket->write(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: "
                     + QByteArray::number(body.size()) + "\r\n\r\n" + body);
                 socket->disconnectFromHost();
             });
@@ -1724,10 +1804,11 @@ private slots:
             connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
                 const auto head = QString::fromUtf8(socket->readAll()).section("\r\n", 0, 0);
                 const QByteArray body = head.contains("/api/query")
-                    ? QStringLiteral("<?xml version=\"1.0\"?><feed xmlns=\"http://www.w3.org/2005/Atom\"><entry><id>"
-                                     "http://arxiv.org/abs/2609.07777v1</id><published>%1T08:00:00Z</published><title>"
-                                     "Behind A Wall</title><author><name>Ada Lovelace</name></author><link title=\"pdf\" "
-                                     "href=\"%2/pdf/wall\"/></entry></feed>")
+                    ? QStringLiteral(
+                          "<?xml version=\"1.0\"?><feed xmlns=\"http://www.w3.org/2005/Atom\"><entry><id>"
+                          "http://arxiv.org/abs/2609.07777v1</id><published>%1T08:00:00Z</published><title>"
+                          "Behind A Wall</title><author><name>Ada Lovelace</name></author><link title=\"pdf\" "
+                          "href=\"%2/pdf/wall\"/></entry></feed>")
                           .arg(today, base)
                           .toUtf8()
                     : QByteArray("<html><body>Please verify you are human.</body></html>");

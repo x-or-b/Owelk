@@ -228,6 +228,9 @@ Item {
         return Theme.mix(paper, ink, bar.pressed ? .75 : bar.hovered ? .62 : .45)
     }
     // Sideways by a number of pixels (Shift+wheel, ←/→), kept within the pages.
+    function canScrollAcross(towardLeft) {
+        return towardLeft ? pages.contentX > 1 : pages.contentX < pages.contentWidth - pages.width - 1
+    }
     readonly property bool wide: pages.contentWidth > pages.width + 1
     // Scrolls a page wider than the view sideways; false when it is already at that edge.
     function scrollAcross(pixels) {

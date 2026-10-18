@@ -6,6 +6,7 @@
 #include "Theme.h"
 #include "TitleBar.h"
 #include "DesktopPet.h"
+#include "SwipeNavigation.h"
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
@@ -82,6 +83,7 @@ int main(int argc, char *argv[])
     UiLanguage language(&store);
     // Declared before the engine, so it outlives the QML that uses it.
     WindowChrome chrome;
+    SwipeNavigation swipe;
     QQmlApplicationEngine engine;
     QObject::connect(&language, &UiLanguage::changed, &engine, &QQmlEngine::retranslate);
     engine.addImageProvider("annotation", new AnnotationImageProvider);
@@ -92,6 +94,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("appInstance", &instance);
     engine.rootContext()->setContextProperty("uiLanguage", &language);
     engine.rootContext()->setContextProperty("windowChrome", &chrome);
+    engine.rootContext()->setContextProperty("swipeNavigation", &swipe);
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
         Qt::QueuedConnection);

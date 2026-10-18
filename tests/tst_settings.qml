@@ -300,6 +300,11 @@ Item {
             visualChild(settings.contentItem, "pictureAlignBox").activated(0)
             compare(Theme.pictureAlign, "left")
             Theme.pictureAlign = "right"
+            // A cut-out's size, kept for each picture.
+            const scale = visualChild(settings.contentItem, "pictureScaleSlider")
+            verify(scale.visible)
+            scale.value = 60; scale.moved()
+            compare(Theme.pictureScale, 60)
             // Another theme keeps the picture; Custom goes back to it instead of copying that theme.
             const tinted = Theme.seeds("custom").window
             Theme.theme = "nord"
@@ -312,6 +317,7 @@ Item {
             const first = String(Theme.picture)
             verify(Theme.usePicture(testInput.pictureFile(1000, 1000, true, "#6ec8f5")))
             verify(String(Theme.picture) !== first)
+            compare(Theme.pictureScale, 100)
             // The Custom theme's colors below follow the picture in use.
             const secondWindow = Theme.seeds("custom").window
             verify(Qt.colorEqual(visualChild(settings.contentItem, "seed-window").color, secondWindow))
@@ -320,6 +326,7 @@ Item {
             verify(visualChild(settings.contentItem, "pictureThumb-1").modelData.current)
             mouseClick(visualChild(settings.contentItem, "pictureThumb-0"))
             compare(String(Theme.picture), first)
+            compare(Theme.pictureScale, 60)
             verify(Theme.seeds("custom").window !== secondWindow)
             tryVerify(function() { return Qt.colorEqual(visualChild(settings.contentItem, "seed-window").color, Theme.seeds("custom").window) })
             // Right-click removes one (once the thumbnails, made again for the new one in use, are laid out).

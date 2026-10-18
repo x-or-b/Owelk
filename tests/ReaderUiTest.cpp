@@ -4,6 +4,7 @@
 #include "SelectionGeometry.h"
 #include "Theme.h"
 #include "DesktopPet.h"
+#include "SwipeNavigation.h"
 #include <QPainter>
 #include "AppInstance.h"
 #include <QFileOpenEvent>
@@ -198,6 +199,7 @@ public slots:
             "fixtureFolder", QUrl::fromLocalFile(m_directory.filePath("library")));
         engine->rootContext()->setContextProperty("selectionGeometry", &m_geometry);
         engine->rootContext()->setContextProperty("testInput", this);
+        engine->rootContext()->setContextProperty("swipeNavigation", new SwipeNavigation(engine));
         engine->rootContext()->setContextProperty("researchStore", m_store);
         if (!m_instance) {
             // Finder's file-open events, as the app receives them (no local server needed here).

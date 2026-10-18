@@ -143,7 +143,8 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
         for (const auto &value : QJsonDocument::fromJson(m_store->setting("appearance.pictures").toUtf8()).array()) {
             const auto o = value.toObject();
             const Picture kept{o.value("file").toString(), o.value("cutout").toBool(),
-                o.value("colors").toVariant().toStringList(), o.value("accent").toString()};
+                o.value("colors").toVariant().toStringList(), o.value("accent").toString(),
+                qBound(40, o.value("scale").toInt(100), 100)};
             if (!kept.file.isEmpty() && QFile::exists(folder.filePath(kept.file))) m_pictures.append(kept);
         }
         const auto current = m_store->setting("appearance.picture");
@@ -404,6 +405,17 @@ void Theme::setPictureAlign(const QString &align)
     if ((align != "left" && align != "center" && align != "right") || align == m_pictureAlign) return;
     m_pictureAlign = align;
     save("appearance.pictureAlign", align);
+    emit changed();
+}
+
+void Theme::setPictureScale(int percent)
+{
+    percent = qBound(40, percent, 100);
+    if (percent == m_pictureScale || m_picture.isEmpty()) return;
+    for (auto &picture : m_pictures)
+        if (picture.file == m_picture) picture.scale = percent;
+    m_pictureScale = percent;
+    savePictures(false);
     emit changed();
 }
 
@@ -704,21 +716,23 @@ void Theme::mirror(const Picture *picture)
     m_picture = picture ? picture->file : QString();
     m_pictureCutout = picture && picture->cutout;
     m_pictureColors = picture ? picture->colors : QStringList();
+    m_pictureScale = picture ? picture->scale : 100;
     m_pictureSize = picture ? QImageReader(QDir(pictureFolder()).filePath(picture->file)).size() : QSize();
 }
 
-void Theme::savePictures()
+void Theme::savePictures(bool listChanged)
 {
     QJsonArray list;
     for (const auto &picture : std::as_const(m_pictures))
         list.append(QJsonObject{{"file", picture.file}, {"cutout", picture.cutout},
-            {"colors", QJsonArray::fromStringList(picture.colors)}, {"accent", picture.accent}});
+            {"colors", QJsonArray::fromStringList(picture.colors)}, {"accent", picture.accent},
+            {"scale", picture.scale}});
     save("appearance.pictures", QString::fromUtf8(QJsonDocument(list).toJson(QJsonDocument::Compact)));
     save("appearance.picture", m_picture);
     // Read only by the step that made one picture into a list.
     save("appearance.pictureCutout", QString());
     save("appearance.pictureColors", QString());
-    emit picturesChanged();
+    if (listChanged) emit picturesChanged();
 }
 
 void Theme::showPicture(const Picture &picture, bool dark, bool show)

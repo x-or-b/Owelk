@@ -65,6 +65,8 @@ class Theme : public QObject {
     Q_PROPERTY(int paperStrength READ paperStrength WRITE setPaperStrength NOTIFY changed)
     // Where a cut-out stands, or which part of a full picture is kept: "left", "center" or "right".
     Q_PROPERTY(QString pictureAlign READ pictureAlign WRITE setPictureAlign NOTIFY changed)
+    // How tall a cut-out stands, in percent of the area's height (40–100); kept for each picture.
+    Q_PROPERTY(int pictureScale READ pictureScale WRITE setPictureScale NOTIFY changed)
     // The picture files this build opens, as a file dialog filter ("*.png *.jpg …").
     Q_PROPERTY(QString pictureFilter READ pictureFilter CONSTANT)
 
@@ -179,6 +181,8 @@ public:
     void setPictureStrength(int percent);
     QString pictureAlign() const { return m_pictureAlign; }
     void setPictureAlign(const QString &align);
+    int pictureScale() const { return m_pictureScale; }
+    void setPictureScale(int percent);
     int paperStrength() const { return m_paperStrength; }
     void setPaperStrength(int percent);
     static QString pictureFilter();
@@ -278,11 +282,13 @@ private:
         bool cutout = false;
         QStringList colors; // most prominent first
         QString accent; // the accent last chosen for it
+        int scale = 100; // how tall it stands (a cut-out), percent of the area's height
     };
     QString pictureFolder() const;
     // The one in use (nullptr: none) into the fields QML reads.
     void mirror(const Picture *picture);
-    void savePictures();
+    // listChanged: the kept pictures or the one in use changed, not only something about one.
+    void savePictures(bool listChanged = true);
     // Uses a kept picture: tints the Custom theme for it and, when shown, switches to it with its accent.
     void showPicture(const Picture &picture, bool dark, bool show);
     bool writeCustomSeeds(const QVariantMap &seeds);
@@ -298,6 +304,7 @@ private:
     QSize m_pictureSize;
     int m_pictureStrength = 35, m_paperStrength = 15;
     QString m_pictureAlign = "right";
+    int m_pictureScale = 100;
     QStringList m_pictureColors;
     QColor m_customAccent; // the color as given; accentPair() derives the shown ones
     QColor m_accent, m_accentHover, m_accentBorder, m_danger;

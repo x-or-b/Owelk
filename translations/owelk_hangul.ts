@@ -5172,6 +5172,10 @@ You can open the same document twice.</source>
         <translation>사이드바스</translation>
     </message>
     <message>
+        <source>Size</source>
+        <translation>사이즈</translation>
+    </message>
+    <message>
         <source>Small</source>
         <translation>스몰</translation>
     </message>

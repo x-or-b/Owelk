@@ -144,7 +144,15 @@ Item {
             compare(image.fillMode, Image.PreserveAspectFit)
             compare(part.x, image.x - 700); compare(part.y, image.y - 600); compare(part.width, image.width)
             fuzzyCompare(part.opacity, .35, .001)
-            // A wide one is no wider than 45% of the area.
+            // Smaller, still standing at the bottom right; the part of the area shows the same part.
+            Theme.pictureScale = 60
+            fuzzyCompare(image.height, 480, .5)
+            fuzzyCompare(image.x, 1000 - image.width, .5)
+            fuzzyCompare(image.y, 320, .5)
+            compare(part.x, image.x - 700); compare(part.y, image.y - 600); compare(part.width, image.width)
+            Theme.pictureScale = 10
+            compare(Theme.pictureScale, 40)
+            // A wide one is no wider than 45% of the area (a new picture stands at full size).
             verify(Theme.usePicture(testInput.pictureFile(1000, 1000, true)))
             fuzzyCompare(image.width, 450, .5); fuzzyCompare(image.height, 450, .5); fuzzyCompare(image.y, 350, .5)
             // A full picture covers the area, cropped.

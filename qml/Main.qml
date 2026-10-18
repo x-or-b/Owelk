@@ -345,6 +345,39 @@ ApplicationWindow {
         else if (!frontWeb && !homeVisible && currentReader && currentReader.canGoForward) currentReader.goForward()
         else goToPlace(1)
     }
+    Binding { target: swipeNavigation; property: "window"; value: window }
+    Binding { target: swipeNavigation; property: "enabled"; value: window.active && swipeNavigation.systemSwipes() }
+    function swipeAllowed(x, y, back, towardLeft) {
+        if (window.frontWeb || (back ? !window.canGoBack : !window.canGoForward)) return false
+        const surface = window.homeVisible ? homeView : documents.groupView(documents.activeGroup)
+        if (!surface) return false
+        const p = surface.mapFromItem(null, x, y)
+        if (p.x < 0 || p.y < 0 || p.x > surface.width || p.y > surface.height) return false
+        if (!window.homeVisible && window.currentReader && window.currentReader.visible) {
+            const canvas = window.currentReader.pdfCanvas
+            const c = canvas.mapFromItem(null, x, y)
+            if (c.x < 0 || c.y < 0 || c.x > canvas.width || c.y > canvas.height || canvas.overPreview) return false
+            if (canvas.canScrollAcross(towardLeft)) return false
+        }
+        return true
+    }
+    Connections {
+        target: swipeNavigation
+        function onBack() { window.goBack() }
+        function onForward() { window.goForward() }
+    }
+    Rectangle {
+        parent: Overlay.overlay
+        readonly property real progress: swipeNavigation.progress
+        readonly property real amount: Math.abs(progress)
+        visible: amount > 0
+        width: Theme.controlHeight; height: width; radius: width / 2
+        x: progress < 0 ? -width + (width + 12) * amount : parent.width - (width + 12) * amount
+        y: (parent.height - height) / 2
+        color: amount >= 1 ? Theme.accent : Theme.raised
+        border.width: 1; border.color: Theme.border
+        Icon { anchors.centerIn: parent; name: parent.progress < 0 ? "back" : "forward"; color: parent.amount >= 1 ? Theme.onAccent : Theme.text }
+    }
     function openDocument(source, position) { if (!restoreFailed) documents.openDocument(researchStore.resolvedSource(source), position) }
     function openSearchResult(result) {
         if (result.kind === "paper") openDocument(result.source, result.position)
@@ -385,6 +418,7 @@ ApplicationWindow {
     function chooseFile() { if (!restoreFailed && !(currentReader && currentReader.annotationDirty)) fileDialog.open() }
 
     Component.onCompleted: {
+        swipeNavigation.setAllowed(window.swipeAllowed)
         const state = researchStore.session
         if (state.width) width = Math.max(minimumWidth, Math.min(Screen.width, state.width))
         if (state.height) height = Math.max(minimumHeight, Math.min(Screen.height, state.height))
