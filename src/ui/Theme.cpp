@@ -127,6 +127,24 @@ QRect visibleBounds(const QImage &image)
     }
     return right < 0 ? image.rect() : QRect(QPoint(left, top), QPoint(right, bottom));
 }
+// A picture file as kept: upright, no larger than pictureSide, a cut-out trimmed to what is drawn. Null if this
+// build cannot read it.
+QImage keptPicture(const QString &path, bool *cutout)
+{
+    QImageReader reader(path);
+    reader.setAutoTransform(true);
+    if (const auto size = reader.size(); size.isValid() && std::max(size.width(), size.height()) > pictureSide)
+        reader.setScaledSize(size.scaled(pictureSide, pictureSide, Qt::KeepAspectRatio));
+    auto image = reader.read();
+    if (image.isNull()) return {};
+    image = image.convertToFormat(image.hasAlphaChannel() ? QImage::Format_ARGB32 : QImage::Format_RGB32);
+    *cutout = image.hasAlphaChannel() && transparentBorder(image) > .5;
+    if (*cutout) image = image.copy(visibleBounds(image));
+    // Some readers ignore the scaled size.
+    if (std::max(image.width(), image.height()) > pictureSide)
+        image = image.scaled(pictureSide, pictureSide, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    return image;
+}
 }
 
 Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(store)
@@ -148,9 +166,13 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
         const QDir folder(pictureFolder());
         for (const auto &value : QJsonDocument::fromJson(m_store->setting("appearance.pictures").toUtf8()).array()) {
             const auto o = value.toObject();
-            const Picture kept{o.value("file").toString(), o.value("cutout").toBool(),
+            Picture kept{o.value("file").toString(), o.value("cutout").toBool(),
                 o.value("colors").toVariant().toStringList(), o.value("accent").toString(),
                 qBound(40, o.value("scale").toInt(100), 100)};
+            for (const auto &[key, mood] : {std::pair{"talk", &kept.talk}, std::pair{"think", &kept.think}}) {
+                *mood = o.value(key).toString();
+                if (!mood->isEmpty() && !QFile::exists(folder.filePath(*mood))) mood->clear();
+            }
             if (!kept.file.isEmpty() && QFile::exists(folder.filePath(kept.file))) m_pictures.append(kept);
         }
         const auto current = m_store->setting("appearance.picture");
@@ -561,6 +583,59 @@ bool Theme::setCustomSeeds(const QVariantMap &seeds)
     return true;
 }
 
+QString Theme::keepPictureFile(const QImage &image, bool cutout, const QString &mood) const
+{
+    QDir folder(pictureFolder());
+    if (!folder.mkpath(".")) return {};
+    // A new name each time, so no image cache shows another picture. A cut-out keeps its transparency; a
+    // photo is smaller as JPEG.
+    const auto name = QString("picture-%1%2.%3")
+                          .arg(QDateTime::currentMSecsSinceEpoch())
+                          .arg(mood.isEmpty() ? QString() : "-" + mood)
+                          .arg(cutout ? "png" : "jpg");
+    return image.save(folder.filePath(name), nullptr, cutout ? -1 : 90) ? name : QString();
+}
+
+bool Theme::setPictureMood(const QString &mood, const QUrl &file)
+{
+    if (mood != "talk" && mood != "think") return false;
+    for (auto &picture : m_pictures) {
+        if (picture.file != m_picture) continue;
+        auto &kept = mood == "talk" ? picture.talk : picture.think;
+        QString name;
+        if (!file.isEmpty()) {
+            bool cutout = false;
+            const auto image = file.isLocalFile() ? keptPicture(file.toLocalFile(), &cutout) : QImage();
+            name = image.isNull() ? QString() : keepPictureFile(image, cutout, mood);
+            if (name.isEmpty()) return false;
+        }
+        if (!kept.isEmpty()) QFile::remove(QDir(pictureFolder()).filePath(kept));
+        kept = name;
+        mirror(&picture);
+        savePictures(false);
+        emit changed();
+        return true;
+    }
+    return false;
+}
+
+QVariantMap Theme::pictureMoods() const
+{
+    const QDir folder(pictureFolder());
+    QVariantMap moods;
+    for (const auto &picture : m_pictures) {
+        if (picture.file != m_picture) continue;
+        for (const auto &[mood, file] : {std::pair{"talk", picture.talk}, std::pair{"think", picture.think}}) {
+            if (file.isEmpty()) continue;
+            const auto size = QImageReader(folder.filePath(file)).size();
+            moods.insert(mood,
+                QVariantMap{{"url", QUrl::fromLocalFile(folder.filePath(file))},
+                    {"aspect", size.height() > 0 ? qreal(size.width()) / size.height() : 1.}});
+        }
+    }
+    return moods;
+}
+
 QString Theme::pictureFolder() const
 {
     return m_store ? QDir(m_store->dataDirectory()).filePath("picture") : QString();
@@ -583,24 +658,10 @@ QString Theme::pictureFilter()
 bool Theme::usePicture(const QUrl &file)
 {
     if (!m_store || !file.isLocalFile()) return false;
-    QImageReader reader(file.toLocalFile());
-    reader.setAutoTransform(true);
-    if (const auto size = reader.size(); size.isValid() && std::max(size.width(), size.height()) > pictureSide)
-        reader.setScaledSize(size.scaled(pictureSide, pictureSide, Qt::KeepAspectRatio));
-    auto image = reader.read();
-    if (image.isNull()) return false;
-    image = image.convertToFormat(image.hasAlphaChannel() ? QImage::Format_ARGB32 : QImage::Format_RGB32);
-    const bool cutout = image.hasAlphaChannel() && transparentBorder(image) > .5;
-    if (cutout) image = image.copy(visibleBounds(image));
-    // Some readers ignore the scaled size.
-    if (std::max(image.width(), image.height()) > pictureSide)
-        image = image.scaled(pictureSide, pictureSide, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    QDir folder(pictureFolder());
-    if (!folder.mkpath(".")) return false;
-    // A new name each time, so no image cache shows another picture. A cut-out keeps its transparency; a
-    // photo is smaller as JPEG.
-    const auto name = QString("picture-%1.%2").arg(QDateTime::currentMSecsSinceEpoch()).arg(cutout ? "png" : "jpg");
-    if (!image.save(folder.filePath(name), nullptr, cutout ? -1 : 90)) return false;
+    bool cutout = false;
+    const auto image = keptPicture(file.toLocalFile(), &cutout);
+    const auto name = image.isNull() ? QString() : keepPictureFile(image, cutout, QString());
+    if (name.isEmpty()) return false;
     if (!showing()) keepBeforePicture();
     if (!m_pictureOn) {
         m_pictureOn = true;
@@ -689,7 +750,8 @@ void Theme::removePicture(const QString &id)
     for (qsizetype i = 0; i < m_pictures.size(); ++i)
         if (m_pictures[i].file == file) at = i;
     if (at < 0) return;
-    QFile::remove(QDir(pictureFolder()).filePath(file));
+    for (const auto &kept : {file, m_pictures[at].talk, m_pictures[at].think})
+        if (!kept.isEmpty()) QFile::remove(QDir(pictureFolder()).filePath(kept));
     m_pictures.removeAt(at);
     const bool shown = showing();
     if (file != m_picture) {
@@ -742,7 +804,7 @@ void Theme::savePictures(bool listChanged)
     for (const auto &picture : std::as_const(m_pictures))
         list.append(QJsonObject{{"file", picture.file}, {"cutout", picture.cutout},
             {"colors", QJsonArray::fromStringList(picture.colors)}, {"accent", picture.accent},
-            {"scale", picture.scale}});
+            {"scale", picture.scale}, {"talk", picture.talk}, {"think", picture.think}});
     save("appearance.pictures", QString::fromUtf8(QJsonDocument(list).toJson(QJsonDocument::Compact)));
     save("appearance.picture", m_picture);
     // Read only by the step that made one picture into a list.

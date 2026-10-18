@@ -98,6 +98,32 @@ Item {
             pet.stretch = 0; pet.stretch = 100 * 60
             compare(pet.message, null)
         }
+        function test_facesForTalkingAndThinking() {
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            const pet = createTemporaryObject(petComponent, null, {ai: fakeAi, ownerActive: false})
+            compare(String(pet.shown), String(Theme.picture))
+            const narrow = pet.width
+            // Without faces: the picture, also while talking.
+            pet.say({text: "Hello"}, true)
+            compare(String(pet.shown), String(Theme.picture))
+            pet.message = null
+            verify(Theme.setPictureMood("talk", testInput.pictureFile(1000, 1300, true)))
+            verify(Theme.setPictureMood("think", testInput.pictureFile(500, 1300, true)))
+            // As wide as the widest face, so each stands as tall.
+            tryVerify(function() { return pet.width > narrow })
+            pet.say({text: "Hello"}, true)
+            compare(String(pet.shown), String(Theme.pictureMoods.talk.url))
+            pet.message = null
+            compare(String(pet.shown), String(Theme.picture))
+            // Thinking while an answer is written, even with something to say.
+            fakeAi.started(7, "thread", "p", "m", false)
+            compare(String(pet.shown), String(Theme.pictureMoods.think.url))
+            fakeAi.finished(7, "done", {})
+            compare(String(pet.shown), String(Theme.pictureMoods.talk.url))
+            pet.message = null
+            verify(Theme.setPictureMood("talk", ""))
+            verify(Theme.setPictureMood("think", ""))
+        }
         function test_droppedPdfsOpenAndTextIsExplained() {
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
             const pet = createTemporaryObject(petComponent, null)

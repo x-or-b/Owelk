@@ -119,7 +119,20 @@ Window {
             pet.knownPapers = count
         }
     }
-    readonly property real aspect: Theme.pictureSize.height > 0 ? Math.max(.3, Math.min(1.6, Theme.pictureSize.width / Theme.pictureSize.height)) : 1
+    // Its face: the picture, or the one for talking (a bubble) or thinking (an answer being written) when the
+    // picture has them (Settings › Appearance › Picture).
+    readonly property string mood: writing ? "think" : message ? "talk" : ""
+    readonly property var face: Theme.pictureMoods[mood] || null
+    readonly property url shown: face ? face.url : Theme.picture
+    onShownChanged: Qt.callLater(fitClicks)
+    // As wide as the widest face of a cut-out, so each stands the same height at the bottom middle.
+    readonly property real aspect: {
+        const clamp = function(a) { return Math.max(.3, Math.min(1.6, a)) }
+        let widest = Theme.pictureSize.height > 0 ? clamp(Theme.pictureSize.width / Theme.pictureSize.height) : 1
+        if (Theme.pictureCutout)
+            for (const name in Theme.pictureMoods) widest = Math.max(widest, clamp(Theme.pictureMoods[name].aspect))
+        return widest
+    }
     flags: Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.NoDropShadowWindowHint | Qt.WindowDoesNotAcceptFocus
     // Its own window, not one that follows Owelk's (minimised, on another desktop).
     transientParent: null
@@ -151,7 +164,7 @@ Window {
         fitClicks()
     }
     // Clicks on the transparent parts go to whatever is behind the pet.
-    function fitClicks() { DesktopPet.letClicksThrough(pet, Theme.picture, Qt.size(width, DesktopPet.height), headroom, headroom + 4) }
+    function fitClicks() { DesktopPet.letClicksThrough(pet, shown, Qt.size(width, DesktopPet.height), headroom, headroom + 4) }
     onWidthChanged: Qt.callLater(fitClicks)
     onHeightChanged: Qt.callLater(fitClicks)
     Connections { target: Theme; function onPicturesChanged() { Qt.callLater(pet.fitClicks) } }
@@ -165,8 +178,11 @@ Window {
         width: parent.width; height: DesktopPet.height
         y: pet.headroom
         // Not before the screen is known (its pixel ratio sets the size it is decoded at).
-        source: Screen.width > 0 ? Theme.picture : ""
+        source: Screen.width > 0 ? pet.shown : ""
         fillMode: Theme.pictureCutout ? Image.PreserveAspectFit : Image.PreserveAspectCrop
+        verticalAlignment: Image.AlignBottom
+        // The face it had stays until the next one is ready.
+        retainWhileLoading: true
         sourceSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
         asynchronous: true
         transform: [Translate { id: lift }, Translate { id: bob }]

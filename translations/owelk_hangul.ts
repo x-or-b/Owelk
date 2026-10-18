@@ -4151,6 +4151,10 @@ Same file as another library entry</source>
         <translation>피디에프 패스워드</translation>
     </message>
     <message>
+        <source>Pin over the pages</source>
+        <translation>핀 오버 더 페이지스</translation>
+    </message>
+    <message>
         <source>Remember on this computer</source>
         <translation>리멤버 온 디스 컴퓨터</translation>
     </message>
@@ -4397,6 +4401,37 @@ Use Pages to navigate.</source>
     <message>
         <source>Your answer is ready.</source>
         <translation>유어 앤서 이즈 레디.</translation>
+    </message>
+</context>
+<context>
+    <name>PinnedCard</name>
+    <message>
+        <source> · p. </source>
+        <translation> · 피. </translation>
+    </message>
+    <message>
+        <source>Equation</source>
+        <translation>이퀘이션</translation>
+    </message>
+    <message>
+        <source>Figure</source>
+        <translation>피겨</translation>
+    </message>
+    <message>
+        <source>Table</source>
+        <translation>테이블</translation>
+    </message>
+    <message>
+        <source>Unpin</source>
+        <translation>언핀</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>줌 인</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>줌 아웃</translation>
     </message>
 </context>
 <context>
@@ -5115,6 +5150,14 @@ You can open the same document twice.</source>
         <translation>추즈 어 픽처</translation>
     </message>
     <message>
+        <source>Choose the Pet's Talking Face</source>
+        <translation>추즈 더 펫츠 토킹 페이스</translation>
+    </message>
+    <message>
+        <source>Choose the Pet's Thinking Face</source>
+        <translation>추즈 더 펫츠 싱킹 페이스</translation>
+    </message>
+    <message>
         <source>Click one to use it. Right-click to remove it.</source>
         <translation>클릭 원 투 유즈 잇. 라이트-클릭 투 리무브 잇.</translation>
     </message>
@@ -5227,6 +5270,10 @@ You can open the same document twice.</source>
         <translation>피디에프 페이지스</translation>
     </message>
     <message>
+        <source>Pet faces</source>
+        <translation>펫 페이시즈</translation>
+    </message>
+    <message>
         <source>Pet size</source>
         <translation>펫 사이즈</translation>
     </message>
@@ -5263,6 +5310,10 @@ You can open the same document twice.</source>
         <translation>숀 비하인드 홈 앤드 피디에프 페이지스 와일 더 커스텀 테마 이즈 인 유즈. 익스포츠 앤드 프린팅 킵 더 오리지널 페이지스.</translation>
     </message>
     <message>
+        <source>Shown while the pet talks and while it waits for an answer. Right-click to remove one.</source>
+        <translation>숀 와일 더 펫 톡스 앤드 와일 잇 웨이츠 포 언 앤서. 라이트-클릭 투 리무브 원.</translation>
+    </message>
+    <message>
         <source>Sidebars</source>
         <translation>사이드바스</translation>
     </message>
@@ -5273,6 +5324,10 @@ You can open the same document twice.</source>
     <message>
         <source>Small</source>
         <translation>스몰</translation>
+    </message>
+    <message>
+        <source>Talking</source>
+        <translation>토킹</translation>
     </message>
     <message>
         <source>Text</source>
@@ -5297,6 +5352,10 @@ You can open the same document twice.</source>
     <message>
         <source>Theme color</source>
         <translation>테마 컬러</translation>
+    </message>
+    <message>
+        <source>Thinking</source>
+        <translation>싱킹</translation>
     </message>
     <message>
         <source>This picture could not be opened.</source>

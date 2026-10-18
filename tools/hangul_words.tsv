@@ -308,6 +308,8 @@ exports	익스포츠
 extra	엑스트라
 extract	익스트랙트
 extractable	익스트랙터블
+face	페이스
+faces	페이시즈
 failed	페일드
 faithful	페이스풀
 fast	패스트
@@ -638,8 +640,10 @@ pen	펜
 per	퍼
 permissions	퍼미션스
 pet	펫
+pet's	펫츠
 picture	픽처
 pictures	픽처스
+pin	핀
 pink	핑크
 place	플레이스
 places	플레이시즈
@@ -864,6 +868,8 @@ table's	테이블스
 tabs	탭스
 tag	태그
 tags	태그스
+talking	토킹
+talks	톡스
 target	타깃
 taskbar	태스크바
 teal	틸
@@ -928,6 +934,7 @@ unfiled	언파일드
 ungroup	언그룹
 unless	언레스
 unlink	언링크
+unpin	언핀
 unread	언리드
 unsaved	언세이브드
 unsorted	언소티드
@@ -960,6 +967,7 @@ via	비아
 view	뷰
 wait	웨이트
 waiting	웨이팅
+waits	웨이츠
 wants	원츠
 was	워즈
 way	웨이

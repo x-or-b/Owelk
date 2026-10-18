@@ -45,6 +45,7 @@ collapse minimize-2
 stop square
 attach paperclip
 star star
+pin pin
 ai sparkles
 threads messages-square
 area scan

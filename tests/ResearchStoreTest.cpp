@@ -610,6 +610,54 @@ private slots:
         QCOMPARE(upgraded.pictureColors(), QStringList{"#f2a0c4"});
         QVERIFY(upgraded.pictureCutout());
     }
+    void petFacesAreKeptWithTheirPicture()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QVERIFY(store.initialize(nullptr));
+        // A cut-out character, and a wider one for talking (a different color: the picture's colors stay).
+        QImage picture(200, 400, QImage::Format_ARGB32), talking(500, 400, QImage::Format_ARGB32);
+        picture.fill(Qt::transparent);
+        talking.fill(Qt::transparent);
+        QPainter(&picture).fillRect(20, 20, 160, 380, QColor("#c03030"));
+        QPainter(&talking).fillRect(20, 20, 460, 380, QColor("#3050c0"));
+        const auto main = directory.filePath("main.png"), talk = directory.filePath("talk.png");
+        QVERIFY(picture.save(main));
+        QVERIFY(talking.save(talk));
+        const auto folder = QDir(store.dataDirectory()).filePath("picture");
+        QStringList colors;
+        {
+            Theme theme(&store);
+            QVERIFY(theme.usePicture(QUrl::fromLocalFile(main)));
+            colors = theme.pictureColors();
+            QVERIFY(theme.pictureMoods().isEmpty());
+            QVERIFY(!theme.setPictureMood("smile", QUrl::fromLocalFile(talk)));
+            QVERIFY(!theme.setPictureMood("talk", QUrl::fromLocalFile(directory.filePath("missing.png"))));
+            QVERIFY(theme.setPictureMood("talk", QUrl::fromLocalFile(talk)));
+            QCOMPARE(theme.pictureColors(), colors);
+            const auto face = theme.pictureMoods()["talk"].toMap();
+            // Kept like the picture: a copy beside it, trimmed to what is drawn.
+            QVERIFY(face["url"].toUrl().toLocalFile().startsWith(folder));
+            QVERIFY(QFileInfo::exists(face["url"].toUrl().toLocalFile()));
+            QCOMPARE(face["aspect"].toDouble(), 460.0 / 380.0);
+            QVERIFY(!theme.pictureMoods().contains("think"));
+        }
+        // Read again at the next launch.
+        Theme theme(&store);
+        auto face = theme.pictureMoods()["talk"].toMap()["url"].toUrl().toLocalFile();
+        QVERIFY(QFileInfo::exists(face));
+        // Replaced: the old copy goes. Removed: so does the new one.
+        QVERIFY(theme.setPictureMood("talk", QUrl::fromLocalFile(talk)));
+        QVERIFY(!QFileInfo::exists(face));
+        face = theme.pictureMoods()["talk"].toMap()["url"].toUrl().toLocalFile();
+        QVERIFY(theme.setPictureMood("talk", QUrl()));
+        QVERIFY(!QFileInfo::exists(face));
+        QVERIFY(theme.pictureMoods().isEmpty());
+        // Removing the picture removes its faces too.
+        QVERIFY(theme.setPictureMood("think", QUrl::fromLocalFile(talk)));
+        theme.removePicture();
+        QCOMPARE(QDir(folder).entryList(QDir::Files).size(), 0);
+    }
     void pictureThemeTurnsOffAndOn()
     {
         QTemporaryDir directory;

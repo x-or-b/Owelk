@@ -32,6 +32,7 @@ var glyphs = {
     "stop": "\ue167",
     "attach": "\ue12d",
     "star": "\ue176",
+    "pin": "\ue259",
     "ai": "\ue412",
     "threads": "\ue40d",
     "area": "\ue257",

@@ -53,8 +53,9 @@ Item {
     property string tool: ""
     // Highlight (also comments), drawing and text-box inks are separate and remembered; text starts navy.
     readonly property bool invertPages: Theme.invertPages && Theme.canInvertPages
-    // The pointer is on a reference preview: drags, pinches and Ctrl+wheel belong to the card, not the page.
-    readonly property bool overPreview: previewCard.visible && previewHover.hovered
+    // The pointer is on a reference preview or a pinned card: drags, pinches and Ctrl+wheel belong to the card,
+    // not the page.
+    readonly property bool overPreview: (previewCard.visible && previewHover.hovered) || pinsHovered > 0
     readonly property string defaultTextColor: Theme.defaultTextInk
     property string markColor: savedInk("highlightColor")
     property string drawColor: savedInk("drawColor")
@@ -1459,6 +1460,48 @@ Item {
     function requestLinkPreview(spec) { pendingPreview = spec; previewContentY = pages.contentY; previewHide.stop() }
     function leaveLinkPreview() { pendingPreview = null; if (!previewHover.hovered) previewHide.restart() }
     function closeLinkPreview() { previewHide.stop(); linkPreview = null; pendingPreview = null }
+    // --- Pinned cards ------------------------------------------------------------------------------
+    // Figures, tables and equations pinned from their previews float over the pages, up to three per tab (a
+    // fourth replaces the oldest). pinTab is the tab in front (set by its group); a tab's pins go when it closes.
+    property string pinTab: ""
+    property var pinsByTab: ({})
+    readonly property var pinnedCards: (pinsByTab[pinTab] || []).filter(function(p) { return p.source === root.source.toString() })
+    // Where each card was moved and sized (by id), kept across tab switches without redrawing the others.
+    property var pinPlaces: ({})
+    property int pinsHovered: 0
+    property int pinCount: 0
+    function pin(spec) {
+        const same = function(p) { return p.page === spec.page && p.kind === spec.kind && (p.label || "") === (spec.label || "") }
+        const kept = (pinsByTab[pinTab] || []).filter(function(p) { return p.source !== root.source.toString() || !same(p) })
+        const mine = kept.filter(function(p) { return p.source === root.source.toString() })
+        const dropped = mine.length >= 3 ? mine[0].id : ""
+        const next = Object.assign({}, pinsByTab)
+        next[pinTab] = kept.filter(function(p) { return p.id !== dropped }).concat([{
+            id: "pin" + (++pinCount), source: root.source.toString(), page: spec.page, y: spec.y || 0, kind: spec.kind,
+            label: spec.label || "", rect: spec.rect || Qt.rect(0, 0, 0, 0), float: spec.float || null}])
+        pinsByTab = next
+    }
+    function unpin(id) {
+        const next = Object.assign({}, pinsByTab)
+        next[pinTab] = (pinsByTab[pinTab] || []).filter(function(p) { return p.id !== id })
+        pinsByTab = next
+        delete pinPlaces[id]
+    }
+    // The group's tabs now; pins of tabs that are gone go too.
+    function keepPins(tabIds) {
+        const gone = Object.keys(pinsByTab).filter(function(tab) { return tab.length && tabIds.indexOf(tab) < 0 })
+        if (!gone.length) return
+        const next = Object.assign({}, pinsByTab)
+        gone.forEach(function(tab) { (next[tab] || []).forEach(function(p) { delete root.pinPlaces[p.id] }); delete next[tab] })
+        pinsByTab = next
+    }
+    // A pinned card's first size: the last one used for its kind (Settings keep it), else one that fits it.
+    function pinSize(spec) {
+        const saved = researchStore.setting("reader.pinSize." + spec.kind, "").split("x").map(Number)
+        if (saved.length === 2 && saved[0] > 0 && saved[1] > 0) return Qt.size(saved[0], saved[1])
+        const w = 360, a = spec.float
+        return Qt.size(w, spec.kind === "equation" ? 150 : a && a.width > 0 ? a.height * (w - 16) / a.width + 16 + Theme.iconButton + 7 : 280)
+    }
     // A citation shows its reference entries as a list (one or several); figures, tables and
     // equations keep the page view.
     function citedEntries(target) {
@@ -1780,19 +1823,9 @@ Item {
         // the card, with no outline; the reader can zoom inside the card and ask AI about it.
         readonly property var area: showsFloat && spec.float ? spec.float : null
         readonly property real fitScale: area ? (width - 16) / Math.max(1, area.width) : 1
-        property real zoom: 1
-        onSpecChanged: zoom = 1
-        function setZoom(next) {
-            const flick = previewLoader.item
-            const fx = flick ? (flick.contentX + flick.width / 2) / Math.max(1, flick.contentWidth) : .5
-            const fy = flick ? (flick.contentY + flick.height / 2) / Math.max(1, flick.contentHeight) : .5
-            zoom = Math.max(.4, Math.min(5, next))
-            // The middle of the card stays on the same spot of the figure.
-            if (flick) Qt.callLater(function() {
-                flick.contentX = Math.max(0, Math.min(flick.contentWidth - flick.width, fx * flick.contentWidth - flick.width / 2))
-                flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, fy * flick.contentHeight - flick.height / 2))
-            })
-        }
+        // The reader's zoom inside the card (PreviewContent).
+        readonly property real zoom: previewLoader.item ? previewLoader.item.zoom : 1
+        function setZoom(next) { if (previewLoader.item) previewLoader.item.setZoom(next) }
         width: Math.min(560, root.width - 32)
         height: showsList ? Math.min(entryList.contentHeight + 12, root.height * .45)
               : area ? Math.min(root.height * .75, Math.max(180, area.height * fitScale + 16 + 40))
@@ -1807,106 +1840,20 @@ Item {
         // The page view stays this far inside the edge, so its square corners stay within the rounded outline.
         readonly property int inset: 4
         clip: true
-        // Created only while shown, so references cost nothing until hovered. The page scrolls inside
-        // the card (wheel, trackpad or drag) to see more around the target.
+        // Created only while shown, so references cost nothing until hovered.
         Loader {
             id: previewLoader
             active: previewCard.visible && !previewCard.showsList
             anchors.fill: parent
             anchors.margins: previewCard.inset
             anchors.bottomMargin: previewCard.showsFloat ? 40 : previewCard.inset
-            sourceComponent: Flickable {
-                id: previewFlick
+            sourceComponent: PreviewContent {
                 objectName: "linkPreviewFlick"
-                readonly property size points: pdfDocument.pagePointSize(previewCard.spec.page)
-                readonly property rect area: previewCard.spec.rect || Qt.rect(0, 0, 0, 0)
-                // A found figure or table fills the card's width; otherwise a caption line is about as wide
-                // as its column, so that column fills the card. The reader's zoom comes on top.
-                readonly property real zoom: (previewCard.area ? points.width * previewCard.fitScale / Math.max(1, width)
-                    : previewCard.showsFloat && area.width > 0 && points.width > 0
-                    ? Math.max(1, Math.min(2.2, points.width / (Math.max(area.width, points.width * .42) + 28))) : 1) * previewCard.zoom
-                readonly property real scale: width * zoom / Math.max(1, points.width)
-                contentWidth: page.width; contentHeight: page.height
-                boundsBehavior: Flickable.StopAtBounds
-                clip: true
-                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-                // Figures: caption at the bottom, the figure above it. Tables: caption at the top, the
-                // table below. Anything else: the target a little below the top, with context above.
-                function place() {
-                    const s = scale, a = area
-                    // 8 from the card's edges.
-                    if (previewCard.area) {
-                        const room = 8 - previewCard.inset
-                        contentX = Math.max(0, Math.min(contentWidth - width, previewCard.area.x * s - room))
-                        contentY = Math.max(0, Math.min(contentHeight - height, previewCard.area.y * s - room))
-                        return
-                    }
-                    let x = previewCard.showsFloat && a.width > 0 ? a.x * s - 14 : 0
-                    let y = previewCard.spec.kind === "figure" && a.height > 0 ? (a.y + a.height) * s + 18 - height
-                          : previewCard.spec.kind === "table" && a.height > 0 ? a.y * s - 14
-                          : previewCard.spec.y * page.height - 28
-                    contentX = Math.max(0, Math.min(contentWidth - width, x))
-                    contentY = Math.max(0, Math.min(contentHeight - height, y))
-                }
-                Component.onCompleted: place()
-                Connections { target: previewCard; function onSpecChanged() { Qt.callLater(previewFlick.place) } }
-                // Pinch or Ctrl+wheel over the card zooms the card, not the page behind it.
-                PinchHandler {
-                    target: null
-                    acceptedDevices: PointerDevice.TouchPad | PointerDevice.TouchScreen
-                    rotationAxis.enabled: false
-                    property real startZoom: 1
-                    onActiveChanged: if (active) startZoom = previewCard.zoom
-                    onActiveScaleChanged: if (active) previewCard.setZoom(startZoom * activeScale)
-                }
-                WheelHandler {
-                    target: null
-                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                    acceptedModifiers: Qt.platform.os === "osx" ? Qt.MetaModifier : Qt.ControlModifier
-                    onWheel: function(event) { previewCard.setZoom(previewCard.zoom * Math.pow(1.0015, event.angleDelta.y)) }
-                }
-                WheelHandler {
-                    target: null
-                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                    acceptedModifiers: Qt.ControlModifier
-                    enabled: Qt.platform.os === "osx"
-                    onWheel: function(event) { previewCard.setZoom(previewCard.zoom * Math.pow(1.0015, event.angleDelta.y)) }
-                }
-                PdfPageImage {
-                    id: page
-                    objectName: "linkPreviewPage"
-                    document: pdfDocument
-                    currentFrame: previewCard.spec.page
-                    width: previewFlick.width * previewFlick.zoom
-                    height: previewFlick.points.width > 0 ? width * previewFlick.points.height / previewFlick.points.width : width
-                    // While zooming, the drawn image is scaled (no blank while it redraws); once the zoom rests
-                    // it is drawn again at the new size.
-                    property real drawnWidth: 0
-                    onWidthChanged: if (drawnWidth <= 0) drawnWidth = width; else zoomSettle.restart()
-                    Timer { id: zoomSettle; interval: 160; onTriggered: page.drawnWidth = page.width }
-                    sourceSize.width: Math.ceil(Math.max(1, drawnWidth) * Screen.devicePixelRatio)
-                    retainWhileLoading: true
-                    asynchronous: true
-                    fillMode: Image.PreserveAspectFit
-                    layer.enabled: root.invertPages
-                    layer.effect: ShaderEffect { fragmentShader: "qrc:/owelk/shaders/invert.frag.qsb" }
-                    // The found entry, caption or equation, outlined.
-                    Rectangle {
-                        objectName: "linkPreviewTarget"
-                        readonly property rect area: previewFlick.area
-                        visible: area.width > 0 && !previewCard.area
-                        x: area.x * previewFlick.scale - 3; y: area.y * previewFlick.scale - 2
-                        width: area.width * previewFlick.scale + 6; height: area.height * previewFlick.scale + 4
-                        radius: Theme.radiusSmall
-                        color: "transparent"
-                        border.color: Theme.accent
-                        border.width: 1.5
-                    }
-                    // Click: go to what the card shows.
-                    TapHandler {
-                        onTapped: root.goToEntry({page: previewCard.spec.page, top: previewFlick.contentY / Math.max(1, previewFlick.contentHeight) + .03})
-                    }
-                }
+                document: pdfDocument
+                spec: previewCard.spec
+                inverted: root.invertPages
+                inset: previewCard.inset
+                onGoRequested: function(page, top) { root.goToEntry({page: page, top: top}) }
             }
         }
         ListView {
@@ -1966,7 +1913,7 @@ Item {
         // Figures, tables and equations: Ask AI attaches them (with the caption, named) to the conversation.
         Row {
             objectName: "linkPreviewZoom"
-            visible: previewCard.showsFloat || (previewCard.spec.kind === "equation" && !!previewCard.spec.float)
+            visible: previewCard.showsFloat || previewCard.spec.kind === "equation"
             anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 6
             spacing: 2
             IconButton {
@@ -1985,6 +1932,11 @@ Item {
                 objectName: "linkPreviewZoomIn"; icon.name: "add"; description: qsTr("Zoom in")
                 visible: previewCard.showsFloat
                 tint: previewCard.ink; onClicked: previewCard.setZoom(previewCard.zoom * 1.1)
+            }
+            IconButton {
+                objectName: "linkPreviewPin"; icon.name: "pin"; description: qsTr("Pin over the pages")
+                tint: previewCard.ink
+                onClicked: { const s = previewCard.spec; root.closeLinkPreview(); root.pin(s) }
             }
             Button {
                 objectName: "linkPreviewAskAi"
@@ -2016,6 +1968,39 @@ Item {
             radius: previewCard.radius
             color: "transparent"
             border.color: Theme.border
+        }
+    }
+    Repeater {
+        model: root.pinnedCards
+        delegate: PinnedCard {
+            id: pinned
+            required property var modelData
+            required property int index
+            objectName: "pinnedCard-" + index
+            z: 55
+            spec: modelData
+            document: pdfDocument
+            inverted: root.invertPages
+            areaWidth: root.width; areaHeight: root.height
+            onHoveredChanged: root.pinsHovered += hovered ? 1 : -1
+            Component.onDestruction: if (hovered) root.pinsHovered -= 1
+            Component.onCompleted: {
+                const place = root.pinPlaces[modelData.id]
+                const size = place ? Qt.size(place.width, place.height) : root.pinSize(modelData)
+                resize(size.width, size.height)
+                // New cards line up from the upper right, each a little lower and to the left.
+                x = place ? place.x : root.width - width - 16 - index * 24
+                y = place ? place.y : 16 + index * 24
+                keepInside()
+                root.pinPlaces[modelData.id] = {x: x, y: y, width: width, height: height}
+            }
+            onMoved: root.pinPlaces[modelData.id] = {x: x, y: y, width: width, height: height}
+            onResized: {
+                root.pinPlaces[modelData.id] = {x: x, y: y, width: width, height: height}
+                researchStore.setSetting("reader.pinSize." + modelData.kind, Math.round(width) + "x" + Math.round(height))
+            }
+            onCloseRequested: root.unpin(modelData.id)
+            onGoRequested: function(page, top) { root.goToEntry({page: page, top: top}) }
         }
     }
     // Mouse side buttons turn pages, like ← / →.

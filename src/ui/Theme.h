@@ -76,6 +76,9 @@ class Theme : public QObject {
     Q_PROPERTY(QString pictureAlign READ pictureAlign WRITE setPictureAlign NOTIFY changed)
     // How tall a cut-out stands, in percent of the area's height (40–100); kept for each picture.
     Q_PROPERTY(int pictureScale READ pictureScale WRITE setPictureScale NOTIFY changed)
+    // The desktop pet's other faces for the picture in use, each kept like it: {talk: {url, aspect}, think: …}
+    // (width over height), for those it has.
+    Q_PROPERTY(QVariantMap pictureMoods READ pictureMoods NOTIFY changed)
     // The picture files this build opens, as a file dialog filter ("*.png *.jpg …").
     Q_PROPERTY(QString pictureFilter READ pictureFilter CONSTANT)
 
@@ -196,6 +199,7 @@ public:
     void setPictureAlign(const QString &align);
     int pictureScale() const { return m_pictureScale; }
     void setPictureScale(int percent);
+    QVariantMap pictureMoods() const;
     int paperStrength() const { return m_paperStrength; }
     void setPaperStrength(int percent);
     static QString pictureFilter();
@@ -234,6 +238,9 @@ public:
     // Drops a kept picture (empty id: the one in use). Another one takes the place of the one in use;
     // after the last, the theme, accent and Custom colors from before the first picture come back.
     Q_INVOKABLE void removePicture(const QString &id = QString());
+    // The pet's face for "talk" (saying something) or "think" (an answer being written) with the picture in use,
+    // kept like a picture (its colors are not taken); an empty file removes it. False if it cannot be read.
+    Q_INVOKABLE bool setPictureMood(const QString &mood, const QUrl &file);
     // a → b by t (0..1), for the rare place that needs an in-between color.
     Q_INVOKABLE QColor mix(const QColor &a, const QColor &b, qreal t) const;
 
@@ -298,8 +305,11 @@ private:
         QStringList colors; // most prominent first
         QString accent; // the accent last chosen for it
         int scale = 100; // how tall it stands (a cut-out), percent of the area's height
+        QString talk, think; // the pet's faces while it talks and thinks (files beside it), if any
     };
     QString pictureFolder() const;
+    // Saves a picture into pictureFolder() under a new name (with "-mood" for a pet face); empty on failure.
+    QString keepPictureFile(const QImage &image, bool cutout, const QString &mood) const;
     // The one in use (nullptr: none) into the fields QML reads.
     void mirror(const Picture *picture);
     // listChanged: the kept pictures or the one in use changed, not only something about one.

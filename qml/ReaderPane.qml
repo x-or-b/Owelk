@@ -109,6 +109,8 @@ Rectangle {
     function restore(state) {
         cancelReveal()
         hideSearch()
+        // Each tab keeps its own pinned cards.
+        canvas.pinTab = state && state.id ? state.id : ""
         if (state && state.source) canvas.openFile(state.source, state.position)
         else canvas.openFile("", {page: 0, y: 0, x: 0, zoom: 1})
     }

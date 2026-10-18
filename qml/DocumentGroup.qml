@@ -74,6 +74,7 @@ Rectangle {
         // A web tab closed behind the one in front lets its page go too.
         pruneWebPages()
         if (!pane) return
+        pane.pdfCanvas.keepPins(groupData.tabs.map(function(t) { return t.id }))
         const t = groupData.tabs.find(function(t) { return t.id === groupData.activeTab })
         if (loadedTab === groupData.activeTab && loadedSource === (t ? t.source : "")) return
         if (!loadedTab.length && controller.suspended) return

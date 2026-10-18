@@ -189,6 +189,48 @@ ColumnLayout {
                 }
             }
         }
+        // The pet's faces with the picture in use: while it talks (a bubble) and while it thinks (an answer
+        // being written). Without one, the picture itself.
+        SettingsRow {
+            visible: DesktopPet.supported && DesktopPet.enabled
+            label: qsTr("Pet faces")
+            detail: qsTr("Shown while the pet talks and while it waits for an answer. Right-click to remove one.")
+            Repeater {
+                model: [{mood: "talk", name: qsTr("Talking")}, {mood: "think", name: qsTr("Thinking")}]
+                delegate: Rectangle {
+                    id: faceSlot
+                    required property var modelData
+                    readonly property var face: Theme.pictureMoods[modelData.mood] || null
+                    objectName: "petFace-" + modelData.mood
+                    width: 56; height: 56; radius: Theme.radius
+                    color: "transparent"
+                    border.width: 1
+                    border.color: faceHover.hovered ? Theme.border : Theme.separator
+                    Image {
+                        visible: !!faceSlot.face
+                        anchors.fill: parent; anchors.margins: 5
+                        source: faceSlot.face ? faceSlot.face.url : ""
+                        fillMode: Image.PreserveAspectFit
+                        sourceSize: Qt.size(112, 112)
+                        asynchronous: true
+                    }
+                    Column {
+                        visible: !faceSlot.face
+                        anchors.centerIn: parent
+                        spacing: 2
+                        Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "add"; size: Theme.fontBody; color: Theme.textTertiary }
+                        Label { text: faceSlot.modelData.name; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                    }
+                    HoverHandler { id: faceHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: { faceDialog.mood = faceSlot.modelData.mood; faceDialog.open() } }
+                    TapHandler { acceptedButtons: Qt.RightButton; enabled: !!faceSlot.face; onTapped: Theme.setPictureMood(faceSlot.modelData.mood, "") }
+                    ToolTip.visible: faceHover.hovered && !!face
+                    ToolTip.text: modelData.name
+                    Accessible.role: Accessible.Button
+                    Accessible.name: modelData.name
+                }
+            }
+        }
         SettingsRow {
             visible: Theme.pictureColors.length > 0
             label: qsTr("Accent from the picture")
@@ -437,6 +479,16 @@ ColumnLayout {
         nameFilters: [qsTr("Pictures") + " (" + Theme.pictureFilter + ")"]
         onAccepted: {
             if (!Theme.usePicture(selectedFile)) themeGroup.note = qsTr("This picture could not be opened.")
+        }
+    }
+    Native.FileDialog {
+        id: faceDialog
+        objectName: "petFaceDialog"
+        property string mood: "talk"
+        title: mood === "talk" ? qsTr("Choose the Pet's Talking Face") : qsTr("Choose the Pet's Thinking Face")
+        nameFilters: [qsTr("Pictures") + " (" + Theme.pictureFilter + ")"]
+        onAccepted: {
+            if (!Theme.setPictureMood(mood, selectedFile)) themeGroup.note = qsTr("This picture could not be opened.")
         }
     }
     Native.ColorDialog {

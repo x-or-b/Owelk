@@ -363,6 +363,79 @@ Item {
             canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000)
         }
+        function test_pinnedFiguresStayOverThePages() {
+            canvas.openFile(referenceSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            researchStore.setSetting("reader.pinSize.figure", "")
+            const card = findChild(canvas, "linkPreview"), paper = findChild(canvas, "paperPage0")
+            const at = Qt.point((referenceFigure.x + referenceFigure.width / 2) * canvas.pageScale, (referenceFigure.y + referenceFigure.height / 2) * canvas.pageScale)
+            mouseMove(paper, at.x - 5, at.y); mouseMove(paper, at.x, at.y)
+            tryCompare(card, "visible", true, 5000)
+            tryVerify(function() { return !!canvas.linkPreview.float })
+            const spec = canvas.linkPreview
+            // The pin takes the figure out of the preview and over the pages.
+            mouseClick(findChild(card, "linkPreviewPin"))
+            tryCompare(card, "visible", false)
+            compare(canvas.pinnedCards.length, 1)
+            let pinned = null
+            tryVerify(function() { pinned = findChild(canvas, "pinnedCard-0"); return pinned !== null && pinned.visible })
+            compare(pinned.spec.label, spec.label)
+            // It stays where it is while the pages scroll.
+            const where = Qt.point(pinned.x, pinned.y), list = findChild(canvas, "pageList")
+            list.contentY += 300
+            tryVerify(function() { return list.contentY > 0 })
+            compare(Qt.point(pinned.x, pinned.y), where)
+            // Over it, drags and pinches are the card's, not the page's.
+            mouseMove(pinned, pinned.width / 2, pinned.height / 2)
+            tryCompare(canvas, "overPreview", true)
+            mouseMove(canvas, 4, canvas.height - 4)
+            tryCompare(canvas, "overPreview", false)
+            // Its bar moves it.
+            const bar = findChild(pinned, "pinnedCardBar")
+            mouseDrag(bar, 40, bar.height / 2, -60, 50)
+            tryVerify(function() { return pinned.x < where.x && pinned.y > where.y })
+            compare(canvas.pinPlaces[pinned.spec.id].x, pinned.x)
+            // Sizes stay between 180 × 120 and 80% of the reader.
+            pinned.resize(20, 20)
+            compare(pinned.width, 180); compare(pinned.height, 120)
+            pinned.resize(5000, 5000)
+            verify(pinned.width <= canvas.width * .8 + 1 && pinned.height <= canvas.height * .8 + 1)
+            // Resized by its corner: the size is kept for figures and the next pinned figure takes it.
+            pinned.resize(300, 200)
+            const grip = findChild(pinned, "pinnedResize")
+            mouseDrag(grip, grip.width / 2, grip.height / 2, 40, 30)
+            tryVerify(function() { return researchStore.setting("reader.pinSize.figure", "") !== "" })
+            const kept = researchStore.setting("reader.pinSize.figure", "").split("x").map(Number)
+            compare(kept[0], pinned.width); compare(kept[1], pinned.height)
+            verify(pinned.width > 300 && pinned.height > 200)
+            mouseClick(findChild(pinned, "pinnedClose"))
+            compare(canvas.pinnedCards.length, 0)
+            canvas.pin(spec)
+            tryVerify(function() { pinned = findChild(canvas, "pinnedCard-0"); return pinned !== null })
+            compare(pinned.width, kept[0]); compare(pinned.height, kept[1])
+            // A click on it goes to the figure.
+            list.contentY = list.contentHeight - list.height
+            const content = findChild(pinned, "pinnedCardContent")
+            mouseClick(content, content.width / 2, content.height / 2)
+            tryCompare(canvas, "currentPage", spec.page)
+            // Three at most: a fourth takes the oldest's place. The same figure is pinned once.
+            canvas.pin(spec)
+            compare(canvas.pinnedCards.length, 1)
+            for (const label of ["A", "B", "C"]) canvas.pin(Object.assign({}, spec, {label: label}))
+            compare(canvas.pinnedCards.map(function(p) { return p.label }), ["A", "B", "C"])
+            // Each tab has its own; a tab that closes takes its pins along.
+            const tab = canvas.pinTab
+            canvas.pinTab = "another tab"
+            compare(canvas.pinnedCards.length, 0)
+            canvas.pinTab = tab
+            compare(canvas.pinnedCards.length, 3)
+            canvas.keepPins(["another tab"])
+            compare(canvas.pinTab.length ? canvas.pinnedCards.length : 0, 0)
+            canvas.pinsByTab = ({})
+            researchStore.setSetting("reader.pinSize.figure", "")
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000)
+        }
         function test_referencesWithoutLinksPreviewFromTheText() {
             canvas.openFile(referenceSource, {page: 0, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
