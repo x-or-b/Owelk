@@ -25,6 +25,9 @@ DesktopPet::DesktopPet(ResearchStore *store, QObject *parent) : QObject(parent),
     if (const auto size = m_store->setting("pet.size"); size == "small" || size == "large") m_size = size;
     const auto minutes = m_store->setting("pet.breakMinutes", "50").toInt();
     if (minutes == 0 || minutes == 25 || minutes == 90) m_breakMinutes = minutes;
+    if (const auto goal = m_store->setting("pet.dailyGoal", "0").toInt();
+        goal == 15 || goal == 30 || goal == 60 || goal == 90)
+        m_dailyGoal = goal;
 }
 
 void DesktopPet::save(const QString &key, const QString &value)
@@ -53,6 +56,15 @@ void DesktopPet::setBreakMinutes(int minutes)
     if ((minutes != 0 && minutes != 25 && minutes != 50 && minutes != 90) || minutes == m_breakMinutes) return;
     m_breakMinutes = minutes;
     save("pet.breakMinutes", QString::number(minutes));
+    emit changed();
+}
+
+void DesktopPet::setDailyGoal(int minutes)
+{
+    if ((minutes != 0 && minutes != 15 && minutes != 30 && minutes != 60 && minutes != 90) || minutes == m_dailyGoal)
+        return;
+    m_dailyGoal = minutes;
+    save("pet.dailyGoal", QString::number(minutes));
     emit changed();
 }
 

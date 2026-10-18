@@ -305,6 +305,19 @@ ColumnLayout {
                 onActivated: function(index) { DesktopPet.breakMinutes = values[index] }
             }
         }
+        SettingsRow {
+            visible: DesktopPet.supported && DesktopPet.enabled
+            label: qsTr("Daily reading goal")
+            detail: qsTr("The pet cheers once you have read this much in a day, and at 7, 30 and 100 days in a row")
+            ComboBox {
+                objectName: "petGoalBox"
+                Layout.preferredWidth: 140
+                readonly property var values: [0, 15, 30, 60, 90]
+                model: [qsTr("Off"), qsTr("15 minutes"), qsTr("30 minutes"), qsTr("60 minutes"), qsTr("90 minutes")]
+                currentIndex: Math.max(0, values.indexOf(DesktopPet.dailyGoal))
+                onActivated: function(index) { DesktopPet.dailyGoal = values[index] }
+            }
+        }
     }
     // The pet's faces with the picture in use, for each moment: up to six, one picked each time or one after
     // another while it lasts. A moment without faces shows talking's for news, else the picture.

@@ -9,6 +9,8 @@
 #include <QJsonObject>
 #include <QPdfDocument>
 #include <QPdfSelection>
+#include <QRegularExpression>
+#include <QSaveFile>
 #include <QSqlQuery>
 #include <QUuid>
 #include <QtConcurrent>
@@ -152,4 +154,58 @@ int ResearchStore::markWords(const QVariantList &ids, bool removed)
     }
     if (changed) emit wordsChanged();
     return changed;
+}
+
+QByteArray ResearchStore::wordsCsv(const QVariantList &words)
+{
+    // RFC 4180: every field quoted, quotes doubled; a BOM so spreadsheets read it as UTF-8.
+    const auto field = [](const QString &text) { return '"' + QString(text).replace('"', "\"\"") + '"'; };
+    QString csv = "term,meaning,sentence,paper,page,saved\r\n";
+    for (const auto &value : words) {
+        const auto word = value.toMap();
+        csv += QStringList{field(word.value("term").toString()), field(word.value("meaning").toString()),
+                   field(word.value("sentence").toString()), field(word.value("paper").toString()),
+                   QString::number(word.value("page").toInt() + 1), field(word.value("createdAt").toString().left(10))}
+                   .join(',')
+            + "\r\n";
+    }
+    return "\xEF\xBB\xBF" + csv.toUtf8();
+}
+
+QByteArray ResearchStore::wordsAnki(const QVariantList &words)
+{
+    // One card a line, front and back apart by a tab; Anki reads the two header lines (2.1.55 and later).
+    const auto html = [](QString text) {
+        text = text.toHtmlEscaped();
+        static const QRegularExpression bold(R"(\*\*(.+?)\*\*)");
+        text.replace(bold, "<b>\\1</b>");
+        return text.replace('\t', ' ').replace(QRegularExpression("\r?\n"), "<br>");
+    };
+    QString tsv = "#separator:tab\n#html:true\n";
+    for (const auto &value : words) {
+        const auto word = value.toMap();
+        auto back = html(word.value("meaning").toString());
+        if (const auto sentence = word.value("sentence").toString(); !sentence.isEmpty())
+            back += "<br><br><i>" + html(sentence) + "</i>";
+        if (const auto paper = word.value("paper").toString(); !paper.isEmpty())
+            back
+                += "<br><small>" + html(paper) + ", p. " + QString::number(word.value("page").toInt() + 1) + "</small>";
+        tsv += html(word.value("term").toString()) + '\t' + back + '\n';
+    }
+    return tsv.toUtf8();
+}
+
+int ResearchStore::exportWords(const QUrl &file, const QString &format, const QString &query)
+{
+    if (!file.isLocalFile() || (format != "csv" && format != "anki")) return -1;
+    const auto list = words(query);
+    QSaveFile out(file.toLocalFile());
+    if (!out.open(QIODevice::WriteOnly) || out.write(format == "csv" ? wordsCsv(list) : wordsAnki(list)) < 0
+        || !out.commit()) {
+        emit message(ui("Cannot write the file."));
+        return -1;
+    }
+    emit message(
+        list.size() == 1 ? QString(ui("Exported 1 word.")) : QString(ui("Exported %1 words.")).arg(list.size()));
+    return int(list.size());
 }

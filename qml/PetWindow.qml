@@ -45,7 +45,8 @@ Window {
     // is in front).
     property var message: null
     function say(next, quiet) {
-        if (ownerActive && !next.reminder) return
+        // A break reminder and a cheer are also for while Owelk is in front: that is where the reading happens.
+        if (ownerActive && !next.reminder && !next.cheer) return
         message = next
         if (!quiet) hop.restart()
     }
@@ -64,6 +65,24 @@ Window {
         hop.restart()
         cardShown = !cardShown
         poked()
+    }
+    // The day's reading goal (DesktopPet.dailyGoal) and days in a row (7, 30, 100, 365): cheered once each, as the
+    // reading clock saves (once a minute while reading). Which day it cheered is kept, so a restart does not repeat it.
+    Connections {
+        target: typeof researchStore !== "undefined" ? researchStore : null
+        ignoreUnknownSignals: true
+        function onReadingSaved() { pet.cheer() }
+    }
+    function cheer() {
+        const read = researchStore.readingCalendar(1), day = read.days.length ? read.days[0].day : ""
+        const goal = DesktopPet.dailyGoal * 60
+        if (goal > 0 && read.today >= goal && researchStore.setting("pet.goalCheered") !== day) {
+            researchStore.setSetting("pet.goalCheered", day)
+            say({text: qsTr("Today's reading goal reached: %1.").arg(minutes(goal)), mood: "happy", cheer: true})
+        } else if (read.today >= 60 && [7, 30, 100, 365].indexOf(read.streak) >= 0 && researchStore.setting("pet.streakCheered") !== day) {
+            researchStore.setSetting("pet.streakCheered", day)
+            say({text: qsTr("%1 days of reading in a row!").arg(read.streak), mood: "happy", cheer: true})
+        }
     }
     // The card beside the pet: today's reading and the days in a row, the paper to continue, the work going on.
     // Read when it shows; it goes after a while without the pointer on it.
@@ -436,6 +455,7 @@ Window {
                     objectName: "petCardToday"
                     width: parent.width
                     text: qsTr("Today: %1").arg(pet.minutes(pet.calendar.today || 0))
+                        + (DesktopPet.dailyGoal > 0 ? qsTr(" / %1").arg(pet.minutes(DesktopPet.dailyGoal * 60)) : "")
                         + (pet.calendar.streak > 1 ? qsTr("  ·  %1 days in a row").arg(pet.calendar.streak) : "")
                     font.weight: Font.DemiBold; color: Theme.text
                 }

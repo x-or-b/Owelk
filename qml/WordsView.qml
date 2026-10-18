@@ -1,11 +1,12 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs as Native
 import Owelk.Ui
 
 // Library › Words: the words saved from Gloss (its ☆), newest first, with their own search. A click goes to the
 // word's page in its paper and lights it; the right button edits the meaning or removes the word, which Undo
-// brings back for a while.
+// brings back for a while. Export writes the words shown to a spreadsheet (CSV) or to cards for Anki.
 ColumnLayout {
     id: root
     objectName: "wordsView"
@@ -39,6 +40,14 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         Label { Layout.fillWidth: true; text: qsTr("Words"); font.pixelSize: Theme.fontHeadline; font.weight: Font.DemiBold; color: Theme.text }
+        Button {
+            id: exportButton
+            objectName: "wordsExport"
+            enabled: root.rows.length > 0
+            flat: true; font.pixelSize: Theme.fontSmall; implicitHeight: Theme.controlHeightSmall
+            text: qsTr("Export…")
+            onClicked: exportMenu.popup(exportButton, 0, exportButton.height)
+        }
     }
     TextField {
         objectName: "wordsQuery"
@@ -115,6 +124,26 @@ ColumnLayout {
             text: qsTr("Undo")
             onClicked: { researchStore.restoreWords(root.removed); root.removed = [] }
         }
+    }
+    Menu {
+        id: exportMenu
+        objectName: "wordsExportMenu"
+        MenuItem { objectName: "wordsExportCsv"; text: qsTr("CSV for a Spreadsheet…"); onTriggered: exportDialog.begin("csv") }
+        MenuItem { objectName: "wordsExportAnki"; text: qsTr("Cards for Anki…"); onTriggered: exportDialog.begin("anki") }
+    }
+    Native.FileDialog {
+        id: exportDialog
+        objectName: "wordsExportDialog"
+        property string format: "csv"
+        function begin(kind) {
+            format = kind
+            selectedFile = researchStore.downloadTarget(kind === "csv" ? "Owelk words.csv" : "Owelk words (Anki).txt").url
+            open()
+        }
+        fileMode: Native.FileDialog.SaveFile
+        title: format === "csv" ? qsTr("Export Words as CSV") : qsTr("Export Words for Anki")
+        nameFilters: format === "csv" ? [qsTr("CSV files") + " (*.csv)"] : [qsTr("Text files") + " (*.txt)"]
+        onAccepted: researchStore.exportWords(selectedFile, format, root.query)
     }
     Menu {
         id: wordMenu

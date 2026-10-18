@@ -19,6 +19,8 @@ class DesktopPet : public QObject {
     Q_PROPERTY(int height READ height NOTIFY changed)
     // After this many minutes of reading in Owelk the pet suggests a break: 0 (never), 25, 50 or 90.
     Q_PROPERTY(int breakMinutes READ breakMinutes WRITE setBreakMinutes NOTIFY changed)
+    // Minutes of reading a day the pet cheers once they are reached: 0 (none), 15, 30, 60 or 90.
+    Q_PROPERTY(int dailyGoal READ dailyGoal WRITE setDailyGoal NOTIFY changed)
     // Not on Wayland, where a window can neither stay above others nor say where it goes.
     Q_PROPERTY(bool supported READ supported CONSTANT)
 
@@ -31,6 +33,8 @@ public:
     void setSize(const QString &size);
     int height() const;
     int breakMinutes() const { return m_breakMinutes; }
+    int dailyGoal() const { return m_dailyGoal; }
+    void setDailyGoal(int minutes);
     void setBreakMinutes(int minutes);
     static bool supported();
 
@@ -64,4 +68,5 @@ private:
     bool m_enabled = false;
     QString m_size = "medium";
     int m_breakMinutes = 50;
+    int m_dailyGoal = 0;
 };

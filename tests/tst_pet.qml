@@ -27,7 +27,7 @@ Item {
         name: "DesktopPet"
         when: windowShown
         function cleanup() {
-            DesktopPet.enabled = false; DesktopPet.size = "medium"; DesktopPet.breakMinutes = 50
+            DesktopPet.enabled = false; DesktopPet.size = "medium"; DesktopPet.breakMinutes = 50; DesktopPet.dailyGoal = 0
             researchStore.setSetting("pet.position", "")
             while (Theme.pictures.length) Theme.removePicture()
         }
@@ -234,6 +234,28 @@ Item {
             pet.poke()
             verify(!pet.cardShown)
             researchStore.saveSession({})
+        }
+        function test_theDaysGoalIsCheeredOnce() {
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            const pet = createTemporaryObject(petComponent, null, {ownerActive: true})
+            const today = researchStore.readingCalendar(1).days[0].day
+            const before = researchStore.readingCalendar(1).today
+            researchStore.setSetting("pet.goalCheered", "")
+            DesktopPet.dailyGoal = 15
+            compare(researchStore.setting("pet.dailyGoal"), "15")
+            // Under the goal: nothing. Over it: cheered, also with Owelk in front; once a day.
+            if (before < 14 * 60) {
+                verify(researchStore.recordReading(fixtureSource, today, 14 * 60 - before))
+                compare(pet.message, null)
+            }
+            verify(researchStore.recordReading(fixtureSource, today, 120))
+            verify(pet.message !== null)
+            compare(pet.message.text, "Today's reading goal reached: 15 min.")
+            compare(pet.mood, "happy")
+            pet.message = null
+            verify(researchStore.recordReading(fixtureSource, today, 60))
+            compare(pet.message, null)
+            researchStore.setSetting("pet.goalCheered", "")
         }
         function test_aDragMovesItWithoutOpeningOwelk() {
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))

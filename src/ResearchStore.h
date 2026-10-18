@@ -111,6 +111,12 @@ public:
     // Removed words can be put back (Undo) by their IDs.
     Q_INVOKABLE int removeWords(const QVariantList &ids);
     Q_INVOKABLE int restoreWords(const QVariantList &ids);
+    // The words (as words() lists them) to a file: "csv" (term, meaning, sentence, paper, page, saved; UTF-8 with
+    // a BOM, for spreadsheets) or "anki" (tab-separated front and back, HTML, for Anki's import). The number written,
+    // or -1.
+    Q_INVOKABLE int exportWords(const QUrl &file, const QString &format, const QString &query = QString());
+    static QByteArray wordsCsv(const QVariantList &words);
+    static QByteArray wordsAnki(const QVariantList &words);
     // Whether a paper with this arXiv ID (any version) or DOI is in the Library.
     bool hasPaper(const QString &arxiv, const QString &doi) const { return !paperUrlFor(arxiv, doi).isEmpty(); }
     // That paper's URL, or empty.

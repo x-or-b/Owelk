@@ -3122,6 +3122,10 @@ Same file as another library entry</source>
         <translation>캔낫 라이트 더 백업 매니페스트.</translation>
     </message>
     <message>
+        <source>Cannot write the file.</source>
+        <translation>캔낫 라이트 더 파일.</translation>
+    </message>
+    <message>
         <source>Cannot write to the sync folder.</source>
         <translation>캔낫 라이트 투 더 싱크 폴더.</translation>
     </message>
@@ -3304,6 +3308,14 @@ Same file as another library entry</source>
     <message>
         <source>Exported %1 notes to %2</source>
         <translation>익스포티드 %1 노츠 투 %2</translation>
+    </message>
+    <message>
+        <source>Exported %1 words.</source>
+        <translation>익스포티드 %1 워즈.</translation>
+    </message>
+    <message>
+        <source>Exported 1 word.</source>
+        <translation>익스포티드 1 워드.</translation>
     </message>
     <message>
         <source>Exported to </source>
@@ -4491,8 +4503,16 @@ Use Pages to navigate.</source>
         <translation>  ·  %1 데이즈 인 어 로우</translation>
     </message>
     <message>
+        <source> / %1</source>
+        <translation> / %1</translation>
+    </message>
+    <message>
         <source>%1 and %2 more</source>
         <translation>%1 앤드 %2 모어</translation>
+    </message>
+    <message>
+        <source>%1 days of reading in a row!</source>
+        <translation>%1 데이즈 오브 리딩 인 어 로우!</translation>
     </message>
     <message>
         <source>%1 downloads finished.</source>
@@ -4565,6 +4585,10 @@ Use Pages to navigate.</source>
     <message>
         <source>The AI could not answer: </source>
         <translation>더 에이아이 쿠드 낫 앤서: </translation>
+    </message>
+    <message>
+        <source>Today's reading goal reached: %1.</source>
+        <translation>투데이즈 리딩 골 리치트: %1.</translation>
     </message>
     <message>
         <source>Today: %1</source>
@@ -5266,12 +5290,24 @@ You can open the same document twice.</source>
         <translation> 테마</translation>
     </message>
     <message>
+        <source>15 minutes</source>
+        <translation>15 미닛츠</translation>
+    </message>
+    <message>
         <source>25 minutes</source>
         <translation>25 미닛츠</translation>
     </message>
     <message>
+        <source>30 minutes</source>
+        <translation>30 미닛츠</translation>
+    </message>
+    <message>
         <source>50 minutes</source>
         <translation>50 미닛츠</translation>
+    </message>
+    <message>
+        <source>60 minutes</source>
+        <translation>60 미닛츠</translation>
     </message>
     <message>
         <source>90 minutes</source>
@@ -5364,6 +5400,10 @@ You can open the same document twice.</source>
     <message>
         <source>Custom theme</source>
         <translation>커스텀 테마</translation>
+    </message>
+    <message>
+        <source>Daily reading goal</source>
+        <translation>데일리 리딩 골</translation>
     </message>
     <message>
         <source>Dark</source>
@@ -5576,6 +5616,10 @@ You can open the same document twice.</source>
     <message>
         <source>Text size</source>
         <translation>텍스트 사이즈</translation>
+    </message>
+    <message>
+        <source>The pet cheers once you have read this much in a day, and at 7, 30 and 100 days in a row</source>
+        <translation>더 펫 치어즈 원스 유 해브 리드 디스 머치 인 어 데이, 앤드 앳 7, 30 앤드 100 데이즈 인 어 로우</translation>
     </message>
     <message>
         <source>The pet suggests a short break after this much reading in Owelk</source>
@@ -7140,8 +7184,32 @@ You can open the same document twice.</source>
         <translation> · 피. </translation>
     </message>
     <message>
+        <source>CSV files</source>
+        <translation>씨에스브이 파일스</translation>
+    </message>
+    <message>
+        <source>CSV for a Spreadsheet…</source>
+        <translation>씨에스브이 포 어 스프레드시트…</translation>
+    </message>
+    <message>
+        <source>Cards for Anki…</source>
+        <translation>카즈 포 앙키…</translation>
+    </message>
+    <message>
         <source>Edit Meaning…</source>
         <translation>에디트 미닝…</translation>
+    </message>
+    <message>
+        <source>Export Words as CSV</source>
+        <translation>익스포트 워즈 애즈 씨에스브이</translation>
+    </message>
+    <message>
+        <source>Export Words for Anki</source>
+        <translation>익스포트 워즈 포 앙키</translation>
+    </message>
+    <message>
+        <source>Export…</source>
+        <translation>익스포트…</translation>
     </message>
     <message>
         <source>Find a word, its meaning, its sentence or its paper</source>
@@ -7170,6 +7238,10 @@ You can open the same document twice.</source>
     <message>
         <source>Removed a word.</source>
         <translation>리무브드 어 워드.</translation>
+    </message>
+    <message>
+        <source>Text files</source>
+        <translation>텍스트 파일스</translation>
     </message>
     <message>
         <source>Undo</source>

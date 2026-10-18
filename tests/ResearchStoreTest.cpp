@@ -432,6 +432,49 @@ private slots:
         QVERIFY(mac.librarySync()->syncBlocking().error.isEmpty());
         QCOMPARE(mac.words().size(), 0);
     }
+    void wordsExportForSpreadsheetsAndAnki()
+    {
+        const QVariantList words{
+            QVariantMap{{"term", "drift"}, {"meaning", "**drift** — 표류.\nError that \"adds\" up."},
+                {"sentence", "The drift term grows, slowly."}, {"paper", "Odometry, 2024"}, {"page", 2},
+                {"createdAt", "2026-10-19T01:02:03.000Z"}},
+            QVariantMap{{"term", "loop\tclosure"}, {"meaning", "a <b>fix</b>"}, {"sentence", ""}, {"paper", ""},
+                {"page", 0}, {"createdAt", "2026-10-18T00:00:00.000Z"}}};
+        // CSV: a BOM, a header, every field quoted with its quotes doubled, pages from 1.
+        const auto csv = ResearchStore::wordsCsv(words);
+        QVERIFY(csv.startsWith("\xEF\xBB\xBF"
+                               "term,meaning,sentence,paper,page,saved\r\n"));
+        QVERIFY(
+            csv.contains(QString("\"drift\",\"**drift** — 표류.\nError that \"\"adds\"\" up.\",\"The drift term grows, "
+                                 "slowly.\",\"Odometry, 2024\",3,\"2026-10-19\"\r\n")
+                    .toUtf8()));
+        // Anki: header lines, then front and back apart by one tab, HTML with no tab or line break inside a card.
+        const auto anki = QString::fromUtf8(ResearchStore::wordsAnki(words));
+        const auto lines = anki.split('\n', Qt::SkipEmptyParts);
+        QCOMPARE(lines.size(), 4);
+        QCOMPARE(lines[0], QString("#separator:tab"));
+        QCOMPARE(lines[1], QString("#html:true"));
+        QCOMPARE(lines[2],
+            QString("drift\t<b>drift</b> — 표류.<br>Error that &quot;adds&quot; up.<br><br><i>The drift term "
+                    "grows, slowly.</i><br><small>Odometry, 2024, p. 3</small>"));
+        QCOMPARE(lines[3], QString("loop closure\ta &lt;b&gt;fix&lt;/b&gt;"));
+        // A store writes its words to a file.
+        QTemporaryDir directory;
+        const auto path = directory.filePath("words.pdf");
+        writeTextFixture(path, {"Odometry estimates motion. The drift term grows slowly over time."});
+        ResearchStore store(directory.filePath("data"));
+        QVERIFY(store.initialize(nullptr));
+        QSignalSpy saved(&store, &ResearchStore::wordSaved);
+        store.saveWord({{"source", QUrl::fromLocalFile(path)}, {"page", 0}, {"from", QPointF(100, 50)},
+            {"to", QPointF(130, 50)}, {"term", "drift"}, {"meaning", "Error that adds up."}});
+        QVERIFY(saved.wait(10000));
+        const auto out = QUrl::fromLocalFile(directory.filePath("out.csv"));
+        QCOMPARE(store.exportWords(out, "csv"), 1);
+        QFile written(out.toLocalFile());
+        QVERIFY(written.open(QIODevice::ReadOnly));
+        QVERIFY(written.readAll().contains("\"drift\",\"Error that adds up.\""));
+        QCOMPARE(store.exportWords(out, "pdf"), -1);
+    }
     void arxivVersionsAreReadFromTheFeedAndThePage()
     {
         QCOMPARE(ArxivVersions::plainId("2401.12345v3"), QString("2401.12345"));
