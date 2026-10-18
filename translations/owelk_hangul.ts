@@ -2112,6 +2112,10 @@ Same file as another library entry</source>
         <translation>뉴 페이퍼스 오브 더 리서처스 앤드 인스티튜션스 유 팔로</translation>
     </message>
     <message>
+        <source>Newer version in Library</source>
+        <translation>뉴어 버전 인 라이브러리</translation>
+    </message>
+    <message>
         <source>No free PDF</source>
         <translation>노 프리 피디에프</translation>
     </message>
@@ -2166,6 +2170,10 @@ Same file as another library entry</source>
     <message>
         <source>Open Page</source>
         <translation>오픈 페이지</translation>
+    </message>
+    <message>
+        <source>Open it</source>
+        <translation>오픈 잇</translation>
     </message>
     <message>
         <source>Organize into Collections with AI…</source>
@@ -2268,6 +2276,10 @@ Same file as another library entry</source>
         <translation>더 페이퍼 루지즈 잇츠 애노테이션스, 앤드 어 피디에프 오웰크 킵스 고즈 투 더 시스템 트래시.</translation>
     </message>
     <message>
+        <source>This copy is v%1. Get the newer one as a paper of its own.</source>
+        <translation>디스 카피 이즈 브이%1. 겟 더 뉴어 원 애즈 어 페이퍼 오브 잇츠 오운.</translation>
+    </message>
+    <message>
         <source>This month</source>
         <translation>디스 먼스</translation>
     </message>
@@ -2318,6 +2330,10 @@ Same file as another library entry</source>
     <message>
         <source>duplicate</source>
         <translation>듀플리케이트</translation>
+    </message>
+    <message>
+        <source>v%1 available</source>
+        <translation>브이%1 어베일러블</translation>
     </message>
     <message>
         <source>” to the Library</source>
@@ -2802,6 +2818,10 @@ Same file as another library entry</source>
         <translation>애디드 %1 피디에프스 투 더 라이브러리.</translation>
     </message>
     <message>
+        <source>Added %1 of “%2” to the Library, linked to your copy.</source>
+        <translation>애디드 %1 오브 “%2” 투 더 라이브러리, 링크트 투 유어 카피.</translation>
+    </message>
+    <message>
         <source>Added 1 PDF to the Library.</source>
         <translation>애디드 1 피디에프 투 더 라이브러리.</translation>
     </message>
@@ -3198,6 +3218,10 @@ Same file as another library entry</source>
         <translation>카피잉 피디에프스 인투 더 라이브러리</translation>
     </message>
     <message>
+        <source>Could not get %1 from arXiv.</source>
+        <translation>쿠드 낫 겟 %1 프롬 아카이브.</translation>
+    </message>
+    <message>
         <source>Could not save the PDF.</source>
         <translation>쿠드 낫 세이브 더 피디에프.</translation>
     </message>
@@ -3220,6 +3244,10 @@ Same file as another library entry</source>
     <message>
         <source>Downloading </source>
         <translation>다운로딩 </translation>
+    </message>
+    <message>
+        <source>Downloading %1</source>
+        <translation>다운로딩 %1</translation>
     </message>
     <message>
         <source>Dracula</source>
@@ -4008,6 +4036,14 @@ Same file as another library entry</source>
         <translation>팔로 오서…</translation>
     </message>
     <message>
+        <source>Get v%1</source>
+        <translation>겟 브이%1</translation>
+    </message>
+    <message>
+        <source>Get v%1…</source>
+        <translation>겟 브이%1…</translation>
+    </message>
+    <message>
         <source>Include in Text Search</source>
         <translation>인클루드 인 텍스트 서치</translation>
     </message>
@@ -4070,6 +4106,10 @@ Same file as another library entry</source>
     <message>
         <source>The original PDF, open tabs and annotations will be kept.</source>
         <translation>더 오리지널 피디에프, 오픈 탭스 앤드 애노테이션스 윌 비 켑트.</translation>
+    </message>
+    <message>
+        <source>Version %1 is added to the Library as a paper of its own, linked to this one. This copy (v%2) and its annotations stay as they are.</source>
+        <translation>버전 %1 이즈 애디드 투 더 라이브러리 애즈 어 페이퍼 오브 잇츠 오운, 링크트 투 디스 원. 디스 카피 (브이%2) 앤드 잇츠 애노테이션스 스테이 애즈 데이 아.</translation>
     </message>
 </context>
 <context>
@@ -5794,6 +5834,10 @@ You can open the same document twice.</source>
         <translation>뉴 페이퍼스 프롬 더 라스트</translation>
     </message>
     <message>
+        <source>Newer arXiv versions</source>
+        <translation>뉴어 아카이브 버전스</translation>
+    </message>
+    <message>
         <source>On launch</source>
         <translation>온 런치</translation>
     </message>
@@ -5947,6 +5991,14 @@ You can open the same document twice.</source>
     <message>
         <source>Never</source>
         <translation>네버</translation>
+    </message>
+    <message>
+        <source>Newer arXiv versions</source>
+        <translation>뉴어 아카이브 버전스</translation>
+    </message>
+    <message>
+        <source>Once a day, sends only the arXiv IDs of your papers to arxiv.org to find newer versions.</source>
+        <translation>원스 어 데이, 센즈 온리 더 아카이브 아이디즈 오브 유어 페이퍼스 투 arxiv.org 투 파인드 뉴어 버전스.</translation>
     </message>
     <message>
         <source>PDF files</source>

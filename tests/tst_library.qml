@@ -74,6 +74,42 @@ Item {
             tryVerify(function() { return view.rows.length === 1 && view.rows[0].tldr === undefined })
             tryVerify(function() { row = findChild(view, "libraryPaper-" + id); return row && row.height === plainHeight })
         }
+        function test_newerArxivVersionIsAPaperOfItsOwn() {
+            const paper = testInput.uniqueFixture("arxiv v1.pdf")
+            verify(researchStore.rememberDocument(paper))
+            verify(researchStore.updateDocumentDetails(paper, {title: "Versioned Paper", arxiv: "2401.12345v1"}))
+            findChild(workspace, "homeView").libraryFilterRequested({})
+            const view = library()
+            view.query = "Versioned Paper"
+            tryVerify(function() { return view.rows.length === 1 })
+            const id = view.rows[0].id
+            // Off until turned on: nothing asked, nothing shown.
+            verify(!researchStore.arxivVersions.enabled)
+            verify(view.rows[0].arxivLatest === undefined)
+            researchStore.setSetting("arxivVersions.baseUrl", testInput.webFixture("/api").toString())
+            researchStore.setSetting("arxivVersions.pdfBaseUrl", testInput.webFixture("/pdf").toString())
+            researchStore.setSetting("library.arxivVersions", "1")
+            tryVerify(function() { return view.rows.length === 1 && view.rows[0].arxivLatest === 3 }, 5000)
+            compare(view.rows[0].arxivVersion, 1)
+            let chip = null
+            tryVerify(function() { chip = findChild(view, "arxivLatest-" + id); return chip !== null && chip.visible })
+            compare(chip.text, "v3 available")
+            // Asked first; then v3 comes as a paper of its own, linked to this one, which keeps its file and marks.
+            chip.clicked()
+            let dialog = null
+            tryVerify(function() { dialog = findChild(view, "arxivLatestDialog"); return dialog !== null && dialog.opened })
+            dialog.accept()
+            view.query = ""
+            tryVerify(function() { return researchStore.libraryDocuments({}).some(function(p) { return /2401\.12345v3\.pdf$/.test(p.url.toString()) }) }, 10000)
+            const newer = researchStore.libraryDocuments({}).find(function(p) { return /2401\.12345v3\.pdf$/.test(p.url.toString()) })
+            const original = researchStore.libraryDocuments({}).find(function(p) { return p.id === id })
+            compare(original.url, paper)
+            verify(testInput.fileExists(paper))
+            verify(researchStore.backlinks("document", newer.id).some(function(b) { return b.id === id }))
+            compare(original.arxivNewer.toString(), newer.url.toString())
+            researchStore.setSetting("library.arxivVersions", "0")
+            tryVerify(function() { return !researchStore.arxivVersions.enabled })
+        }
         function test_readingTimeOnHomeAndInTheLibrary() {
             const paper = testInput.uniqueFixture("reading time.pdf")
             verify(researchStore.rememberDocument(paper))

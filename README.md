@@ -71,6 +71,7 @@ C++20, Qt 6.11 (Quick, PDF, WebEngine), SQLite. macOS, Linux, Windows.
 - Your PDFs are never touched. Annotations live beside them, and export as a copy when you want one.
 - Nothing leaves your computer except web tabs, lookups you ask for, and AI requests you agree to.
 - Library summaries and citation counts stay off until you turn them on; then only DOI or arXiv IDs go to Semantic Scholar.
+- Newer arXiv versions stay unchecked until you turn them on; then only arXiv IDs go to arxiv.org, once a day.
 - Heavy work (indexing, OCR, backups) waits while you read.
 
 ## More

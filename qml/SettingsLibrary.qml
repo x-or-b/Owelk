@@ -85,6 +85,16 @@ ColumnLayout {
                 onToggled: researchStore.setSetting("library.insights", checked ? "1" : "0")
             }
         }
+        SettingsRow {
+            objectName: "settingsRow-arxivVersions"
+            label: qsTr("Newer arXiv versions")
+            detail: qsTr("Once a day, sends only the arXiv IDs of your papers to arxiv.org to find newer versions.")
+            Switch {
+                objectName: "arxivVersionsSwitch"
+                checked: researchStore.arxivVersions.enabled
+                onToggled: researchStore.setSetting("library.arxivVersions", checked ? "1" : "0")
+            }
+        }
     }
     // Which paper details make a paper's name (shown in Owelk and given to its file), in which order.
     SettingsGroup {

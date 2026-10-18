@@ -88,6 +88,7 @@ before	비포
 begin	비긴
 beginnings	비기닝스
 behind	비하인드
+being	빙
 below	빌로우
 beside	비사이드
 better	베터
@@ -149,6 +150,7 @@ citing	사이팅
 claude	클로드
 cli	씨엘아이
 click	클릭
+clicked	클릭트
 close	클로즈
 closed	클로즈드
 closes	클로지즈
@@ -250,6 +252,7 @@ downloading	다운로딩
 downloads	다운로즈
 dracula	드라큘라
 drag	드래그
+dragged	드래그드
 draw	드로
 drawing	드로잉
 drive	드라이브
@@ -379,12 +382,14 @@ grouped	그룹트
 groups	그룹스
 h	에이치
 hand	핸드
+happy	해피
 has	해즈
 have	해브
 headings	헤딩스
 heic	헤이크
 heif	헤이프
 height	하이트
+held	헬드
 here	히어
 hidden	히든
 hide	하이드
@@ -558,6 +563,7 @@ neutral	뉴트럴
 never	네버
 new	뉴
 newer	뉴어
+news	뉴스
 next	넥스트
 no	노
 nobody	노바디
@@ -653,6 +659,7 @@ please	플리즈
 png	피엔지
 pointing	포인팅
 points	포인츠
+poked	포크트
 pop	팝
 popovers	팝오버스
 position	포지션
@@ -681,6 +688,7 @@ quick	퀵
 quit	큇
 quota	쿼터
 quote	쿼트
+random	랜덤
 rank	랭크
 rate	레이트
 rclone	알클론
@@ -764,6 +772,7 @@ save	세이브
 saved	세이브드
 saving	세이빙
 say	세이
+saying	세잉
 scales	스케일스
 scanned	스캔드
 schema	스키마
@@ -813,10 +822,12 @@ simplified	심플리파이드
 since	신스
 single	싱글
 site	사이트
+six	식스
 size	사이즈
 skip	스킵
 skipped	스킵트
 slam	슬램
+sleepy	슬리피
 small	스몰
 smaller	스몰러
 so	소
@@ -940,6 +951,7 @@ unless	언레스
 unlink	언링크
 unpin	언핀
 unread	언리드
+unreadable	언리더블
 unsaved	언세이브드
 unsorted	언소티드
 unsupported	언서포티드
@@ -959,6 +971,7 @@ uses	유지즈
 using	유징
 usual	유주얼
 usually	유주얼리
+v	브이
 vectors	벡터스
 verification	베리피케이션
 verified	베리파이드
@@ -1003,6 +1016,7 @@ words	워즈
 work	워크
 worked	워크트
 works	워크스
+worried	워리드
 would	우드
 write	라이트
 writing	라이팅

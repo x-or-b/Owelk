@@ -8,6 +8,7 @@ Item {
     width: 200; height: 100
     Component { id: petComponent; App.PetWindow {} }
     SignalSpy { id: openSpy; signalName: "openRequested" }
+    SignalSpy { id: pokeSpy; signalName: "poked" }
     SignalSpy { id: threadSpy; signalName: "threadRequested" }
     SignalSpy { id: forYouSpy; signalName: "forYouRequested" }
     SignalSpy { id: pdfSpy; signalName: "pdfsDropped" }
@@ -49,9 +50,14 @@ Item {
             DesktopPet.size = "small"
             compare(pet.height, 120 + pet.headroom)
             compare(researchStore.setting("pet.size"), "small")
-            openSpy.target = pet
+            // A click pokes it and leaves Owelk where it is; its menu opens Owelk.
+            openSpy.target = pet; openSpy.clear(); pokeSpy.target = pet; pokeSpy.clear()
             mouseClick(pet.contentItem)
+            compare(pokeSpy.count, 1)
+            compare(openSpy.count, 0)
+            findChild(pet, "openOwelk").triggered()
             compare(openSpy.count, 1)
+            openSpy.clear()
             // Its menu has the app's colors, not the system's (white text in dark mode): the menu opens in
             // a window of its own, which does not take the pet window's colors.
             const menu = findChild(pet, "petMenu")
@@ -166,6 +172,27 @@ Item {
             compare(pet.message, null)
             pet.activities = []
         }
+        function test_aDragMovesItWithoutOpeningOwelk() {
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            const pet = createTemporaryObject(petComponent, null)
+            waitForRendering(pet.contentItem)
+            openSpy.target = pet; openSpy.clear()
+            mouseDrag(pet.contentItem, pet.width / 2, pet.height - 20, 40, -30)
+            verify(pet.moving)
+            compare(openSpy.count, 0)
+            // The system moved it (here by hand): a release just after is no click either.
+            pet.x += 30
+            tryVerify(function() { return pet.movedAt > 0 })
+            mouseClick(pet.contentItem, pet.width / 2, pet.height - 20)
+            compare(openSpy.count, 0)
+            wait(650)
+            // A click after it is a poke, and Owelk stays where it is.
+            pokeSpy.target = pet; pokeSpy.clear()
+            mouseClick(pet.contentItem, pet.width / 2, pet.height - 20)
+            verify(!pet.moving)
+            compare(pokeSpy.count, 1)
+            compare(openSpy.count, 0)
+        }
         function test_droppedPdfsOpenAndTextIsExplained() {
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
             const pet = createTemporaryObject(petComponent, null)
@@ -227,8 +254,14 @@ Item {
             fakeForYou.items = [{id: "a"}, {id: "b"}]
             fakeForYou.changed()
             compare(words.text, "New papers in For You: 2")
-            forYouSpy.target = pet
+            // A click on the pet leaves it; a click on the bubble goes there.
+            forYouSpy.target = pet; forYouSpy.clear()
             mouseClick(pet.contentItem, pet.width / 2, pet.height - 10)
+            compare(forYouSpy.count, 0)
+            verify(pet.message !== null)
+            const card = findChild(pet, "petBubble")
+            tryCompare(card, "visible", true)
+            mouseClick(card.contentItem, card.width / 2, card.height / 2)
             compare(forYouSpy.count, 1)
             fakeForYou.items = [{id: "a"}]
             fakeForYou.changed()

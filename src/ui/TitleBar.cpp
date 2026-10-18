@@ -9,4 +9,5 @@ void WindowChrome::hideWindow(QWindow *window)
 {
     if (window) window->hide();
 }
+void WindowChrome::bringToThisDesktop(QWindow *) { }
 #endif

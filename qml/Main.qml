@@ -269,6 +269,12 @@ ApplicationWindow {
         else if (window.visibility === Window.Minimized) window.showNormal()
         window.raise(); window.requestActivate()
     }
+    // The desktop pet (or its bubble) asked: Owelk's window comes to the desktop (macOS Space) the pet was clicked
+    // on, as a pet brings things to you, instead of the screen going to the window's desktop.
+    function comeHere() {
+        if (typeof windowChrome !== "undefined") windowChrome.bringToThisDesktop(window)
+        comeForward()
+    }
     function showHome() { persist(); homeVisible = true; Qt.callLater(function() { window.focusSearch(false) }) }
     // The top bar's search field: the cursor in it (Home, a new tab), or its results open too (Cmd+K).
     function focusSearch(withResults) {
@@ -486,17 +492,17 @@ ApplicationWindow {
             onSettingsRequested: function(page) { settingsDialog.openPage(page) }
             // Owelk's window in front; closed (macOS), the pet keeps saying what happened.
             ownerActive: window.visible && Qt.application.state === Qt.ApplicationActive
-            onOpenRequested: window.comeForward()
-            onThreadRequested: function(threadId) { window.comeForward(); window.openAiThread(threadId) }
-            onForYouRequested: { window.comeForward(); window.showHome() }
+            onOpenRequested: window.comeHere()
+            onThreadRequested: function(threadId) { window.comeHere(); window.openAiThread(threadId) }
+            onForYouRequested: { window.comeHere(); window.showHome() }
             onPdfsDropped: function(urls) {
-                window.comeForward()
+                window.comeHere()
                 if (window.restoreFailed) return
                 urls.forEach(function(url) { window.openDocument(url) })
                 window.homeVisible = false
             }
             // Data for the AI, not interface text: the label is kept with the conversation like "Ask".
-            onExplainRequested: function(text) { window.comeForward(); window.askAi({action: "explain", selection: text, label: "Explain"}) }
+            onExplainRequested: function(text) { window.comeHere(); window.askAi({action: "explain", selection: text, label: "Explain"}) }
         }
     }
     // PDFs opened from Finder or handed over by another launch while this window is open.

@@ -1420,6 +1420,20 @@ Rectangle {
                                 }
                             }
                             Label { visible: paper.modelData.duplicate; text: qsTr("duplicate"); font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                            // A newer arXiv version (Settings › Library): asked about, then got as a paper of its own;
+                            // once it is in the Library, this opens it.
+                            Chip {
+                                objectName: "arxivLatest-" + paper.modelData.id
+                                visible: !!paper.modelData.arxivLatest || !!paper.modelData.arxivNewer
+                                text: paper.modelData.arxivNewer && !paper.modelData.arxivLatest ? qsTr("Newer version in Library")
+                                    : qsTr("v%1 available").arg(paper.modelData.arxivLatest || 0)
+                                ToolTip.text: paper.modelData.arxivNewer && !paper.modelData.arxivLatest ? qsTr("Open it")
+                                    : qsTr("This copy is v%1. Get the newer one as a paper of its own.").arg(paper.modelData.arxivVersion || 0)
+                                onClicked: {
+                                    if (paper.modelData.arxivNewer && !paper.modelData.arxivLatest) root.documentChosen(paper.modelData.arxivNewer, undefined)
+                                    else paperMenu.askLatest(paper.modelData)
+                                }
+                            }
                             Repeater {
                                 model: paper.suggestions
                                 delegate: Chip {

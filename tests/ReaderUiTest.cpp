@@ -365,6 +365,20 @@ public slots:
                         body = head.contains("/references")
                             ? R"({"data":[{"citedPaper":{"paperId":"r1","title":"Cited Work","year":2018,"externalIds":{"ArXiv":"1801.00001"},"citationCount":3}}]})"
                             : R"({"data":[{"citingPaper":{"paperId":"c1","title":"Later Work","year":2024,"citationCount":9}},{"citingPaper":{"paperId":"c2","title":"Another Work","year":2025}}]})";
+                    } else if (head.contains("/api/query?id_list=")) {
+                        // arXiv for newer versions: 2401.12345 is at v3 now, with where it was published.
+                        type = "application/atom+xml";
+                        body = "<?xml version=\"1.0\"?><feed xmlns=\"http://www.w3.org/2005/Atom\" "
+                               "xmlns:arxiv=\"http://arxiv.org/schemas/atom\"><entry>"
+                               "<id>http://arxiv.org/abs/2401.12345v3</id><title>Versioned Paper</title>"
+                               "<arxiv:journal_ref>Robotics: Science and Systems 2024</arxiv:journal_ref>"
+                               "<arxiv:doi>10.15607/RSS.2024.XX.001</arxiv:doi></entry></feed>";
+                    } else if (head.contains("GET /pdf/")) {
+                        // A version from arXiv: the fixture with bytes of its own, so it is a paper of its own.
+                        QFile pdf(m_directory.filePath("fixture.pdf"));
+                        pdf.open(QIODevice::ReadOnly);
+                        body = pdf.readAll() + "\n% " + head.section(' ', 1, 1).toUtf8() + "\n";
+                        type = "application/pdf";
                     } else if (head.contains("/api/query")) {
                         // arXiv for For You: one new paper today, its PDF the fixture.
                         type = "application/atom+xml";

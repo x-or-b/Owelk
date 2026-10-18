@@ -3,8 +3,8 @@ import QtQuick.Controls
 import Owelk.Ui
 
 // The desktop pet: the picture theme's picture in a small window that floats above other apps while
-// Owelk runs (Settings › Appearance › Picture). Drag it anywhere; a click brings Owelk forward; the
-// right button has its menu. While Owelk is behind other apps it says when an AI answer is ready or
+// Owelk runs (Settings › Appearance › Picture). Drag it anywhere; a click pokes it (poke(): the screen stays
+// where it is); its menu (right button) opens Owelk. While Owelk is behind other apps it says when an AI answer is ready or
 // failed and when For You has new papers, in a bubble above it; it bobs while an answer is written.
 // PDFs dropped on it open in Owelk; text dropped on it is explained by the AI. After a stretch of
 // reading it suggests a break. Nothing moves or redraws while nothing happens.
@@ -51,6 +51,15 @@ Window {
         const threads = Object.keys(answering).map(function(request) { return answering[request] })
         if (threads.length) say({text: qsTr("Writing your answer…"), thread: threads[threads.length - 1], writing: true}, true)
     }
+    // A click on the pet. The screen stays where it is: Owelk opens from the menu, a bubble's click goes to what it
+    // says. The one place for what a click does: for now a hop, and a break reminder goes.
+    signal poked()
+    function poke() {
+        if (message && message.reminder) message = null
+        hop.restart()
+        poked()
+    }
+    // A click on the bubble: what it says, in Owelk.
     function act() {
         const m = message
         message = null
@@ -261,8 +270,8 @@ Window {
     onHeightChanged: Qt.callLater(fitClicks)
     Connections { target: Theme; function onPicturesChanged() { Qt.callLater(pet.fitClicks) } }
     // Where it was left, once it stops moving.
-    onXChanged: rememberLater.restart()
-    onYChanged: rememberLater.restart()
+    onXChanged: { if (moving) movedAt = Date.now(); rememberLater.restart() }
+    onYChanged: { if (moving) movedAt = Date.now(); rememberLater.restart() }
     Timer { id: rememberLater; interval: 500; onTriggered: DesktopPet.remember(pet.x, pet.y) }
 
     Image {
@@ -303,8 +312,16 @@ Window {
         NumberAnimation { target: bob; property: "y"; to: -4; duration: 600; easing.type: Easing.InOutSine }
         NumberAnimation { target: bob; property: "y"; to: 0; duration: 600; easing.type: Easing.InOutSine }
     }
-    DragHandler { target: null; onActiveChanged: if (active) pet.startSystemMove() }
-    TapHandler { objectName: "petTap"; onTapped: pet.act() }
+    // Dragged: the system moves it, and the press that started the drag is no click; nor is a release right after
+    // the window moved (the system's move can end with one).
+    property bool moving: false
+    property real movedAt: 0
+    DragHandler { objectName: "petMove"; target: null; onActiveChanged: if (active) { pet.moving = true; pet.startSystemMove() } }
+    TapHandler {
+        objectName: "petTap"
+        onPressedChanged: if (pressed) pet.moving = false
+        onTapped: if (!pet.moving && Date.now() - pet.movedAt > 600) pet.poke()
+    }
     TapHandler { acceptedButtons: Qt.RightButton; onTapped: menu.popup() }
     Menu {
         id: menu
@@ -312,12 +329,14 @@ Window {
         // Its own window: the pet's is too small to hold it. That window takes the system's colors (white
         // text in dark mode), not the pet window's, so the menu has the app's here.
         popupType: Popup.Window
+        // Its window, like the pet's, does not bring Owelk forward when a choice is clicked (Open Owelk does).
+        onOpened: DesktopPet.floatEverywhere(contentItem.Window.window)
         palette.windowText: Theme.text
         palette.text: Theme.text
         palette.buttonText: Theme.text
         palette.highlight: Theme.accent
         palette.highlightedText: Theme.onAccent
-        MenuItem { text: qsTr("Open Owelk"); onTriggered: pet.openRequested() }
+        MenuItem { objectName: "openOwelk"; text: qsTr("Open Owelk"); onTriggered: pet.openRequested() }
         MenuItem { objectName: "hidePet"; text: qsTr("Hide Pet"); onTriggered: DesktopPet.enabled = false }
     }
 

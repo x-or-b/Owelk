@@ -17,6 +17,13 @@ Item {
     readonly property alias menu: menu
     readonly property var removeDialog: remove.item
     function show(row) { paper = row; menu.popup() }
+    // A newer arXiv version of a paper (Settings › Library): asked first, then downloaded as a paper of its own,
+    // linked to this copy, which stays as it is with its annotations.
+    function askLatest(row) {
+        paper = row
+        latest.active = true
+        latest.item.open()
+    }
     Menu {
         id: menu
         objectName: "paperMenu"
@@ -24,6 +31,12 @@ Item {
         MenuSeparator {}
         MenuItem { objectName: "paperDetailsOption"; text: qsTr("Paper Details…"); onTriggered: { details.active = true; details.item.begin(root.paper.url) } }
         MenuItem { objectName: "libraryTagsOption"; text: qsTr("Tags…"); onTriggered: { tags.active = true; tags.item.begin(root.paper.url) } }
+        MenuItem {
+            objectName: "arxivGetLatest"
+            visible: !!root.paper.arxivLatest; height: visible ? implicitHeight : 0
+            text: qsTr("Get v%1…").arg(root.paper.arxivLatest || 0)
+            onTriggered: root.askLatest(root.paper)
+        }
         // Its authors from OpenAlex, to follow in For You.
         MenuItem {
             objectName: "followAuthorOption"
@@ -100,6 +113,18 @@ Item {
         }
     }
     Loader { id: details; active: false; sourceComponent: PaperDetailsDialog {} }
+    Loader {
+        id: latest
+        active: false
+        sourceComponent: ConfirmDialog {
+            objectName: "arxivLatestDialog"
+            title: qsTr("Get v%1").arg(root.paper.arxivLatest || 0)
+            message: qsTr("Version %1 is added to the Library as a paper of its own, linked to this one. This copy (v%2) and its annotations stay as they are.").arg(root.paper.arxivLatest || 0).arg(root.paper.arxivVersion || 0)
+            actionText: qsTr("Get v%1").arg(root.paper.arxivLatest || 0)
+            destructive: false
+            onConfirmed: researchStore.arxivVersions.getLatest(root.paper.url)
+        }
+    }
     Loader { id: followAuthor; active: false; sourceComponent: FollowAuthorDialog { onSearchRequested: researchStore.forYou.manageFollowing() } }
     Loader {
         id: tags

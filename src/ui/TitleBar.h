@@ -32,4 +32,7 @@ public:
     // Hides the window. macOS: one in full screen leaves it first and hides once that is over (hidden at once, it
     // would leave an empty full-screen space behind).
     Q_INVOKABLE void hideWindow(QWindow *window);
+    // macOS: the window, shown and made active next, comes to the desktop (Space) in front instead of the screen
+    // going to the one it is on. Not a full-screen window, which is a desktop of its own. Elsewhere nothing happens.
+    Q_INVOKABLE void bringToThisDesktop(QWindow *window);
 };

@@ -1,5 +1,6 @@
 #include "ResearchStore.h"
 #include "LibraryInsights.h"
+#include "ArxivVersions.h"
 #include "UiText.h"
 #include "PaperIndex.h"
 
@@ -96,6 +97,8 @@ QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
             {"doi", query.value(11)}, {"arxiv", query.value(12)}, {"readSeconds", query.value(13).toInt()}};
         if (m_libraryInsights)
             row.insert(m_libraryInsights->details(query.value(11).toString(), query.value(12).toString()));
+        if (m_arxivVersions)
+            row.insert(m_arxivVersions->details(query.value(0).toString(), query.value(12).toString()));
         rows.append(row);
     }
     return rows;

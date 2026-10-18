@@ -12,6 +12,7 @@
 #include "SelectionGeometry.h"
 #include "LibrarySync.h"
 #include "LibraryInsights.h"
+#include "ArxivVersions.h"
 #include "ReadingClock.h"
 
 #include <QClipboard>
@@ -116,6 +117,11 @@ QObject *ResearchStore::sync() const
 QObject *ResearchStore::libraryInsights() const
 {
     return m_libraryInsights;
+}
+
+QObject *ResearchStore::arxivVersions() const
+{
+    return m_arxivVersions;
 }
 
 QObject *ResearchStore::readingClock() const
@@ -530,6 +536,8 @@ bool ResearchStore::initialize(QString *error)
     m_forYou->start();
     m_libraryInsights = new LibraryInsights(this, this);
     connect(m_libraryInsights, &LibraryInsights::changed, this, &ResearchStore::announceDocumentsChanged);
+    m_arxivVersions = new ArxivVersions(this, this);
+    connect(m_arxivVersions, &ArxivVersions::changed, this, &ResearchStore::announceDocumentsChanged);
     // Every key, scroll and click in Owelk's windows tells the reading clock that the reader is still there.
     qApp->installEventFilter(m_readingClock);
     connect(qApp, &QCoreApplication::aboutToQuit, m_readingClock, &ReadingClock::flush);

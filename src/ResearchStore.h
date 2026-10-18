@@ -20,6 +20,7 @@
 class LibrarySync;
 class ForYou;
 class LibraryInsights;
+class ArxivVersions;
 class ReadingClock;
 class PaperIndex;
 class ReferenceFinder;
@@ -47,6 +48,8 @@ class ResearchStore final : public QObject {
     Q_PROPERTY(QObject *sync READ sync CONSTANT)
     // Summaries and citation counts for Library rows, when the reader turns them on (LibraryInsights.h).
     Q_PROPERTY(QObject *libraryInsights READ libraryInsights CONSTANT)
+    // Newer arXiv versions of Library papers, when the reader turns them on (ArxivVersions.h).
+    Q_PROPERTY(QObject *arxivVersions READ arxivVersions CONSTANT)
     // New papers in the fields the reader follows (ForYou.h).
     Q_PROPERTY(QObject *forYou READ forYou CONSTANT)
     // Counts time spent reading each paper (ReadingClock.h); readingRevision bumps when stored totals change.
@@ -86,6 +89,7 @@ public:
     QObject *sync() const;
     QObject *forYou() const;
     QObject *libraryInsights() const;
+    QObject *arxivVersions() const;
     QObject *readingClock() const;
     int readingRevision() const { return m_readingRevision; }
     // Time read (ResearchStoreReading.cpp), kept per computer, paper and day in reading_days and added up over
@@ -552,6 +556,7 @@ private:
     LibrarySync *m_sync;
     ForYou *m_forYou = nullptr;
     LibraryInsights *m_libraryInsights = nullptr;
+    ArxivVersions *m_arxivVersions = nullptr;
     ReadingClock *m_readingClock = nullptr;
     int m_readingRevision = 0;
     QString readingDevice();

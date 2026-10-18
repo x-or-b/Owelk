@@ -15,6 +15,7 @@
 #include "MetadataLookup.h"
 #include "ForYou.h"
 #include "ReadingClock.h"
+#include "ArxivVersions.h"
 #include "ImagePalette.h"
 #include "Theme.h"
 #include "DesktopPet.h"
@@ -352,6 +353,27 @@ private slots:
         QFileOpenEvent other(QUrl::fromLocalFile(directory.filePath("notes.txt")));
         QVERIFY(!finder.eventFilter(nullptr, &other));
         QCOMPARE(finder.takePending(), QVariantList{QUrl::fromLocalFile(directory.filePath("paper.pdf"))});
+    }
+    void arxivVersionsAreReadFromTheFeedAndThePage()
+    {
+        QCOMPARE(ArxivVersions::plainId("2401.12345v3"), QString("2401.12345"));
+        QCOMPARE(ArxivVersions::plainId("hep-th/9901001"), QString("hep-th/9901001"));
+        QCOMPARE(ArxivVersions::plainId("10.1000/xyz"), QString());
+        QCOMPARE(ArxivVersions::versionOf("2401.12345v3"), 3);
+        QCOMPARE(ArxivVersions::versionOf("2401.12345"), 0);
+        // The stamp arXiv prints in the first page's margin, for this paper only.
+        QCOMPARE(ArxivVersions::printedVersion("arXiv:2401.12345v2  [cs.RO]  3 Jan 2024", "2401.12345"), 2);
+        QCOMPARE(ArxivVersions::printedVersion("cites arXiv:2310.00001v4", "2401.12345"), 0);
+        QCOMPARE(ArxivVersions::printedVersion("2401.12345v5", "2401.12345"), 0);
+        const auto entries = ArxivVersions::parseFeed(
+            "<?xml version=\"1.0\"?><feed xmlns=\"http://www.w3.org/2005/Atom\"><entry><id>http://arxiv.org/abs/"
+            "2401.12345v3</id></entry><entry><id>http://arxiv.org/abs/hep-th/9901001v2</id></entry><entry>"
+            "<id>http://arxiv.org/api/errors#incorrect_id_format_for_1234</id></entry></feed>");
+        QCOMPARE(entries.size(), 2);
+        QCOMPARE(entries[0].id, QString("2401.12345"));
+        QCOMPARE(entries[0].version, 3);
+        QCOMPARE(entries[1].id, QString("hep-th/9901001"));
+        QCOMPARE(entries[1].version, 2);
     }
     void figuresAreFoundByTheirCaptions()
     {

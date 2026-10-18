@@ -122,6 +122,31 @@ void WindowChrome::hideWindow(QWindow *window)
     window->hide();
 }
 
+void WindowChrome::bringToThisDesktop(QWindow *window)
+{
+    if (!window || QGuiApplication::platformName() != QLatin1String("cocoa")) return;
+    // How each window moved here was before, until it is put back.
+    static QHash<QWindow *, NSWindowCollectionBehavior> before;
+    @autoreleasepool {
+        NSWindow *native = reinterpret_cast<NSView *>(window->winId()).window;
+        if (!native || (native.styleMask & NSWindowStyleMaskFullScreen)) return;
+        if (!before.contains(window)) before.insert(window, native.collectionBehavior);
+        // Moving to the desktop in front when made active excludes being on every desktop.
+        native.collectionBehavior = (before.value(window) & ~NSWindowCollectionBehaviorCanJoinAllSpaces)
+            | NSWindowCollectionBehaviorMoveToActiveSpace;
+    }
+    // Once it has come, it stays there and behaves as before: Cmd+Tab and the Dock go to the desktop it is on.
+    const QPointer<QWindow> guard(window);
+    QTimer::singleShot(1000, window, [guard] {
+        if (!guard) return;
+        @autoreleasepool {
+            NSWindow *native = reinterpret_cast<NSView *>(guard->winId()).window;
+            const auto kept = before.take(guard.data());
+            if (native) native.collectionBehavior = kept;
+        }
+    });
+}
+
 void WindowChrome::setDragArea(QWindow *window, qreal height, const QVariantList &controls)
 {
     if (!window || QGuiApplication::platformName() != QLatin1String("cocoa")) return;
