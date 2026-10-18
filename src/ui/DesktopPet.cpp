@@ -141,8 +141,23 @@ QRegion DesktopPet::pictureRegion(const QString &file, const QSize &area, int to
 
 void DesktopPet::letClicksThrough(QWindow *window, const QUrl &picture, const QSize &area, int top, int rise)
 {
+    letClicksThroughAll(window, {picture}, area, top, rise);
+}
+
+void DesktopPet::letClicksThroughAll(
+    QWindow *window, const QVariantList &pictures, const QSize &area, int top, int rise)
+{
     if (!window) return;
-    const auto region = pictureRegion(picture.toLocalFile(), area, top, rise);
+    QRegion region;
+    for (const auto &picture : pictures) {
+        const auto shape = pictureRegion(picture.toUrl().toLocalFile(), area, top, rise);
+        // A face with no transparency takes clicks everywhere: so does the window.
+        if (shape.isEmpty()) {
+            region = {};
+            break;
+        }
+        region += shape;
+    }
 #ifdef Q_OS_MACOS
     // A shape (mask) on macOS clips the drawing but still takes every click in the window's frame.
     if (desktopPetPassThrough(window, region)) return;

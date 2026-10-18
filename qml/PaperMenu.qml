@@ -17,6 +17,7 @@ Item {
     readonly property alias menu: menu
     readonly property var removeDialog: remove.item
     function show(row) { paper = row; menu.popup() }
+    function showDetails(row) { paper = row; details.active = true; details.item.begin(row.url) }
     // A newer arXiv version of a paper (Settings › Library): asked first, then downloaded as a paper of its own,
     // linked to this copy, which stays as it is with its annotations.
     function askLatest(row) {

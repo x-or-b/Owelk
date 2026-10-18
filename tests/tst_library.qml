@@ -110,6 +110,35 @@ Item {
             researchStore.setSetting("library.arxivVersions", "0")
             tryVerify(function() { return !researchStore.arxivVersions.enabled })
         }
+        function test_publishedVersionIsOfferedNotFilledIn() {
+            const paper = testInput.uniqueFixture("arxiv published.pdf")
+            verify(researchStore.rememberDocument(paper))
+            verify(researchStore.updateDocumentDetails(paper, {title: "Published Preprint", arxiv: "2401.12345v3"}))
+            researchStore.setSetting("arxivVersions.baseUrl", testInput.webFixture("/api").toString())
+            researchStore.setSetting("library.arxivVersions", "1")
+            findChild(workspace, "homeView").libraryFilterRequested({})
+            const view = library()
+            view.query = "Published Preprint"
+            tryVerify(function() { return view.rows.length === 1 && view.rows[0].publishedDoi !== undefined }, 5000)
+            const id = view.rows[0].id
+            // Nothing is changed by itself: the paper still has no DOI.
+            compare(researchStore.documentDetails(paper).doi, "")
+            let chip = null
+            tryVerify(function() { chip = findChild(view, "arxivPublished-" + id); return chip !== null && chip.visible })
+            chip.clicked()
+            let details = null
+            tryVerify(function() { details = findChild(view, "paperDetails"); return details !== null && details.opened })
+            compare(findChild(details, "detailsPublishedText").text, "Published in Robotics: Science and Systems 2024  ·  DOI 10.15607/RSS.2024.XX.001")
+            // Apply fills the form; Save keeps it.
+            findChild(details, "applyPublished").clicked()
+            compare(researchStore.documentDetails(paper).doi, "")
+            findChild(details, "saveDetails").clicked()
+            tryCompare(details, "opened", false)
+            compare(researchStore.documentDetails(paper).doi, "10.15607/RSS.2024.XX.001")
+            tryVerify(function() { return !chip.visible })
+            view.query = ""
+            researchStore.setSetting("library.arxivVersions", "0")
+        }
         function test_readingTimeOnHomeAndInTheLibrary() {
             const paper = testInput.uniqueFixture("reading time.pdf")
             verify(researchStore.rememberDocument(paper))

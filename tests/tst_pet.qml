@@ -105,31 +105,67 @@ Item {
             pet.stretch = 0; pet.stretch = 100 * 60
             compare(pet.message, null)
         }
-        function test_facesForTalkingAndThinking() {
+        function test_facesForEachMoment() {
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
             const pet = createTemporaryObject(petComponent, null, {ai: fakeAi, ownerActive: false})
             compare(String(pet.shown), String(Theme.picture))
             const narrow = pet.width
             // Without faces: the picture, also while talking.
             pet.say({text: "Hello"}, true)
+            compare(pet.mood, "talk")
             compare(String(pet.shown), String(Theme.picture))
             pet.message = null
-            verify(Theme.setPictureMood("talk", testInput.pictureFile(1000, 1300, true)))
-            verify(Theme.setPictureMood("think", testInput.pictureFile(500, 1300, true)))
+            verify(Theme.addPictureMood("talk", testInput.pictureFile(1000, 1300, true)))
+            verify(Theme.addPictureMood("think", testInput.pictureFile(500, 1300, true, "#a0c4f2")))
+            verify(Theme.addPictureMood("think", testInput.pictureFile(500, 1300, true, "#a0f2c4")))
+            Theme.setPictureMoodMode("think", "cycle")
             // As wide as the widest face, so each stands as tall.
             tryVerify(function() { return pet.width > narrow })
+            const talk = String(Theme.pictureMoods.talk.frames[0].url)
+            const think = Theme.pictureMoods.think.frames.map(function(f) { return String(f.url) })
             pet.say({text: "Hello"}, true)
-            compare(String(pet.shown), String(Theme.pictureMoods.talk.url))
+            compare(String(pet.shown), talk)
             pet.message = null
             compare(String(pet.shown), String(Theme.picture))
-            // Thinking while an answer is written, even with something to say.
+            // Thinking while an answer is written: its faces one after another.
             fakeAi.started(7, "thread", "p", "m", false)
-            compare(String(pet.shown), String(Theme.pictureMoods.think.url))
+            compare(pet.mood, "think")
+            compare(String(pet.shown), think[0])
+            tryCompare(pet, "frame", 1, 2000)
+            compare(String(pet.shown), think[1])
+            // The answer: happy, with the talking face while there is no happy one, then its own.
             fakeAi.finished(7, "done", {})
-            compare(String(pet.shown), String(Theme.pictureMoods.talk.url))
+            compare(pet.mood, "happy")
+            compare(String(pet.shown), talk)
+            verify(Theme.addPictureMood("happy", testInput.pictureFile(500, 1300, true, "#f2f2a0")))
+            compare(String(pet.shown), String(Theme.pictureMoods.happy.frames[0].url))
             pet.message = null
-            verify(Theme.setPictureMood("talk", ""))
-            verify(Theme.setPictureMood("think", ""))
+            // A failure: worried. A break: rest.
+            fakeAi.started(8, "thread", "p", "m", false)
+            fakeAi.failed(8, "No network")
+            compare(pet.mood, "worried")
+            pet.message = null
+            DesktopPet.breakMinutes = 25
+            pet.stretch = 25 * 60
+            compare(pet.mood, "rest")
+            pet.stretch = 0
+            compare(pet.mood, "")
+            // Clicked: poked for a moment. Dragged: held.
+            pet.poke()
+            compare(pet.mood, "poke")
+            tryCompare(pet, "poking", false, 3000)
+            mouseDrag(pet.contentItem, pet.width / 2, pet.height - 20, 40, -30)
+            compare(pet.mood, "held")
+            tryCompare(pet, "held", false, 2000)
+            // Nothing for a while: sleepy (minutes of 5 ms here); anything happening wakes it.
+            pet.minute = 5
+            pet.stir()
+            tryCompare(pet, "sleepy", true, 2000)
+            compare(pet.mood, "sleepy")
+            pet.poke()
+            verify(!pet.sleepy)
+            pet.minute = 60000
+            pet.stir()
         }
         function test_longWorkIsToldWhenItStartsAndEnds() {
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))

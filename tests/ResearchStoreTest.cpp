@@ -388,6 +388,15 @@ private slots:
         QCOMPARE(entries[0].version, 3);
         QCOMPARE(entries[1].id, QString("hep-th/9901001"));
         QCOMPARE(entries[1].version, 2);
+        // Where it was published, when the authors told arXiv.
+        const auto published = ArxivVersions::parseFeed(
+            "<feed xmlns=\"http://www.w3.org/2005/Atom\" xmlns:arxiv=\"http://arxiv.org/schemas/atom\"><entry>"
+            "<arxiv:journal_ref>IEEE  RA-L 9(2), 2024</arxiv:journal_ref><id>http://arxiv.org/abs/2401.12345v3</id>"
+            "<arxiv:doi>10.1109/LRA.2024.1</arxiv:doi></entry></feed>");
+        QCOMPARE(published.size(), 1);
+        QCOMPARE(published[0].journalRef, QString("IEEE RA-L 9(2), 2024"));
+        QCOMPARE(published[0].doi, QString("10.1109/LRA.2024.1"));
+        QVERIFY(entries[0].doi.isEmpty());
     }
     void figuresAreFoundByTheirCaptions()
     {
@@ -677,7 +686,7 @@ private slots:
         QTemporaryDir directory;
         ResearchStore store(directory.filePath("data"));
         QVERIFY(store.initialize(nullptr));
-        // A cut-out character, and a wider one for talking (a different color: the picture's colors stay).
+        // A cut-out character, and a wider one for its faces (a different color: the picture's colors stay).
         QImage picture(200, 400, QImage::Format_ARGB32), talking(500, 400, QImage::Format_ARGB32);
         picture.fill(Qt::transparent);
         talking.fill(Qt::transparent);
@@ -687,36 +696,63 @@ private slots:
         QVERIFY(picture.save(main));
         QVERIFY(talking.save(talk));
         const auto folder = QDir(store.dataDirectory()).filePath("picture");
+        const auto frames
+            = [](Theme &theme, const QString &mood) { return theme.pictureMoods()[mood].toMap()["frames"].toList(); };
+        const auto file = [](const QVariant &frame) { return frame.toMap()["url"].toUrl().toLocalFile(); };
         QStringList colors;
         {
             Theme theme(&store);
             QVERIFY(theme.usePicture(QUrl::fromLocalFile(main)));
             colors = theme.pictureColors();
             QVERIFY(theme.pictureMoods().isEmpty());
-            QVERIFY(!theme.setPictureMood("smile", QUrl::fromLocalFile(talk)));
-            QVERIFY(!theme.setPictureMood("talk", QUrl::fromLocalFile(directory.filePath("missing.png"))));
-            QVERIFY(theme.setPictureMood("talk", QUrl::fromLocalFile(talk)));
+            QVERIFY(!theme.addPictureMood("smile", QUrl::fromLocalFile(talk)));
+            QVERIFY(!theme.addPictureMood("talk", QUrl::fromLocalFile(directory.filePath("missing.png"))));
+            QVERIFY(theme.addPictureMood("talk", QUrl::fromLocalFile(talk)));
             QCOMPARE(theme.pictureColors(), colors);
-            const auto face = theme.pictureMoods()["talk"].toMap();
+            const auto face = frames(theme, "talk");
+            QCOMPARE(face.size(), 1);
             // Kept like the picture: a copy beside it, trimmed to what is drawn.
-            QVERIFY(face["url"].toUrl().toLocalFile().startsWith(folder));
-            QVERIFY(QFileInfo::exists(face["url"].toUrl().toLocalFile()));
-            QCOMPARE(face["aspect"].toDouble(), 460.0 / 380.0);
+            QVERIFY(file(face[0]).startsWith(folder));
+            QVERIFY(QFileInfo::exists(file(face[0])));
+            QCOMPARE(face[0].toMap()["aspect"].toDouble(), 460.0 / 380.0);
+            QCOMPARE(theme.pictureMoods()["talk"].toMap()["mode"].toString(), QString("random"));
             QVERIFY(!theme.pictureMoods().contains("think"));
+            // Several for thinking, one after another; six at most.
+            for (int i = 0; i < 6; ++i)
+                QVERIFY(theme.addPictureMood("think", QUrl::fromLocalFile(i % 2 ? talk : main)));
+            QVERIFY(!theme.addPictureMood("think", QUrl::fromLocalFile(talk)));
+            QCOMPARE(frames(theme, "think").size(), 6);
+            theme.setPictureMoodMode("think", "cycle");
+            theme.setPictureMoodMode("think", "sideways");
+            QCOMPARE(theme.pictureMoods()["think"].toMap()["mode"].toString(), QString("cycle"));
         }
         // Read again at the next launch.
         Theme theme(&store);
-        auto face = theme.pictureMoods()["talk"].toMap()["url"].toUrl().toLocalFile();
-        QVERIFY(QFileInfo::exists(face));
-        // Replaced: the old copy goes. Removed: so does the new one.
-        QVERIFY(theme.setPictureMood("talk", QUrl::fromLocalFile(talk)));
+        QCOMPARE(frames(theme, "think").size(), 6);
+        QCOMPARE(theme.pictureMoods()["think"].toMap()["mode"].toString(), QString("cycle"));
+        // One removed: its copy goes, the others stay in order. The last one removed: the mood goes.
+        const auto second = file(frames(theme, "think")[1]), third = file(frames(theme, "think")[2]);
+        theme.removePictureMood("think", 1);
+        QVERIFY(!QFileInfo::exists(second));
+        QCOMPARE(file(frames(theme, "think")[1]), third);
+        const auto face = file(frames(theme, "talk")[0]);
+        theme.removePictureMood("talk", 0);
         QVERIFY(!QFileInfo::exists(face));
-        face = theme.pictureMoods()["talk"].toMap()["url"].toUrl().toLocalFile();
-        QVERIFY(theme.setPictureMood("talk", QUrl()));
-        QVERIFY(!QFileInfo::exists(face));
-        QVERIFY(theme.pictureMoods().isEmpty());
-        // Removing the picture removes its faces too.
-        QVERIFY(theme.setPictureMood("think", QUrl::fromLocalFile(talk)));
+        QVERIFY(!theme.pictureMoods().contains("talk"));
+        // Faces kept by the first version (one for talking and thinking each) are read as one each.
+        auto pictures = QJsonDocument::fromJson(store.setting("appearance.pictures").toUtf8()).array();
+        auto kept = pictures[0].toObject();
+        kept.remove("moods");
+        kept.insert("talk", QFileInfo(third).fileName());
+        pictures[0] = kept;
+        store.setSetting(
+            "appearance.pictures", QString::fromUtf8(QJsonDocument(pictures).toJson(QJsonDocument::Compact)));
+        {
+            Theme older(&store);
+            QCOMPARE(frames(older, "talk").size(), 1);
+            QCOMPARE(file(frames(older, "talk")[0]), third);
+        }
+        // Removing the picture removes all its faces too.
         theme.removePicture();
         QCOMPARE(QDir(folder).entryList(QDir::Files).size(), 0);
     }

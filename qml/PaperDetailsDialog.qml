@@ -15,6 +15,8 @@ Dialog {
     modal: true
     property url source: ""
     property var details: ({})
+    // Where arXiv says it was published (Settings › Library › Newer arXiv versions): offered, filled in only on Apply.
+    property var published: ({})
     property int lookupRequest: -1
     property string lookupStatus: ""
     function lookUp() {
@@ -39,6 +41,7 @@ Dialog {
     function begin(url) {
         source = url
         details = researchStore.documentDetails(url)
+        published = researchStore.arxivVersions.published(url)
         titleField.text = details.title || ""
         authorsField.text = details.authors || ""
         yearField.text = details.year || ""
@@ -118,6 +121,27 @@ Dialog {
                 visible: (root.details.readSeconds || 0) >= 60
                 text: qsTr("Read for %1").arg(Platform.duration(root.details.readSeconds || 0))
                 font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+            }
+        }
+        Label { visible: publishedRow.visible; text: qsTr("Published"); color: Theme.text }
+        RowLayout {
+            id: publishedRow
+            objectName: "detailsPublished"
+            visible: !root.details.doi && !!(root.published.journalRef || root.published.doi)
+            Layout.fillWidth: true
+            Label {
+                objectName: "detailsPublishedText"
+                Layout.fillWidth: true
+                text: [root.published.journalRef ? qsTr("Published in %1").arg(root.published.journalRef) : "",
+                       root.published.doi ? qsTr("DOI %1").arg(root.published.doi) : ""].filter(function(t) { return t.length }).join("  ·  ")
+                wrapMode: Text.Wrap; textFormat: Text.PlainText
+                font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
+            }
+            Button {
+                objectName: "applyPublished"
+                visible: !!root.published.doi
+                text: qsTr("Apply")
+                onClicked: { doiField.text = root.published.doi; root.lookupStatus = qsTr("DOI filled from arXiv. Review, then Save.") }
             }
         }
         Item { width: 1; height: 1; visible: root.lookupStatus.length > 0 }

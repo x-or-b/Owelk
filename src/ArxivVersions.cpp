@@ -77,21 +77,31 @@ int ArxivVersions::printedVersion(const QString &text, const QString &id)
 
 QList<ArxivVersions::Entry> ArxivVersions::parseFeed(const QByteArray &xml)
 {
+    const auto atom = QLatin1String("http://www.w3.org/2005/Atom"),
+               arxiv = QLatin1String("http://arxiv.org/schemas/atom");
     QList<Entry> entries;
     QXmlStreamReader reader(xml);
+    Entry entry;
     bool inEntry = false;
     while (!reader.atEnd()) {
         reader.readNext();
         if (reader.isStartElement() && reader.name() == QLatin1String("entry")) {
             inEntry = true;
+            entry = {};
         } else if (reader.isEndElement() && reader.name() == QLatin1String("entry")) {
             inEntry = false;
-        } else if (inEntry && reader.isStartElement() && reader.name() == QLatin1String("id")
-            && reader.namespaceUri() == QLatin1String("http://www.w3.org/2005/Atom")) {
-            // http://arxiv.org/abs/2401.12345v3; an error comes as an entry with another kind of ID.
-            const auto abs = reader.readElementText().trimmed().section("/abs/", 1);
-            const auto id = plainId(abs);
-            if (!id.isEmpty() && versionOf(abs) > 0) entries.append({id, versionOf(abs)});
+            // An error comes as an entry with another kind of ID.
+            if (!entry.id.isEmpty()) entries.append(entry);
+        } else if (inEntry && reader.isStartElement()) {
+            if (reader.name() == QLatin1String("id") && reader.namespaceUri() == atom) {
+                // http://arxiv.org/abs/2401.12345v3
+                const auto abs = reader.readElementText().trimmed().section("/abs/", 1);
+                if (versionOf(abs) > 0) entry = {plainId(abs), versionOf(abs), entry.journalRef, entry.doi};
+            } else if (reader.name() == QLatin1String("journal_ref") && reader.namespaceUri() == arxiv) {
+                entry.journalRef = reader.readElementText().simplified().left(300);
+            } else if (reader.name() == QLatin1String("doi") && reader.namespaceUri() == arxiv) {
+                entry.doi = reader.readElementText().trimmed().left(200);
+            }
         }
     }
     return entries;
@@ -108,6 +118,20 @@ QVariantMap ArxivVersions::details(const QString &documentId, const QString &arx
     if (mine > 0 && latest > mine) result["arxivLatest"] = latest;
     const QUrl newer(m_newer.value(documentId).toString());
     if (newer.isLocalFile() && QFileInfo::exists(newer.toLocalFile())) result["arxivNewer"] = newer;
+    const auto entry = m_entries.value(id).toObject();
+    if (const auto journal = entry.value("journalRef").toString(); !journal.isEmpty()) result["published"] = journal;
+    if (const auto doi = entry.value("doi").toString(); !doi.isEmpty()) result["publishedDoi"] = doi;
+    return result;
+}
+
+QVariantMap ArxivVersions::published(const QUrl &source) const
+{
+    const auto id = plainId(m_store->documentDetails(source).value("arxiv").toString());
+    if (!m_enabled || id.isEmpty()) return {};
+    const auto entry = m_entries.value(id).toObject();
+    QVariantMap result;
+    if (const auto journal = entry.value("journalRef").toString(); !journal.isEmpty()) result["journalRef"] = journal;
+    if (const auto doi = entry.value("doi").toString(); !doi.isEmpty()) result["doi"] = doi;
     return result;
 }
 
@@ -212,7 +236,8 @@ void ArxivVersions::ask()
         }
         const auto stamp = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
         for (const auto &entry : parseFeed(reply->readAll()))
-            m_entries[entry.id] = QJsonObject{{"latest", entry.version}, {"fetched", stamp}};
+            m_entries[entry.id] = QJsonObject{
+                {"latest", entry.version}, {"journalRef", entry.journalRef}, {"doi", entry.doi}, {"fetched", stamp}};
         save();
         emit changed();
         // arXiv asks for three seconds between requests.

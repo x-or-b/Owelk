@@ -56,6 +56,9 @@ Window {
     signal poked()
     function poke() {
         if (message && message.reminder) message = null
+        stir()
+        poking = true
+        pokeFace.restart()
         hop.restart()
         poked()
     }
@@ -83,13 +86,13 @@ Window {
             const thread = pet.answering[request]
             if (thread === undefined) return
             pet.settle(request)
-            pet.say({text: qsTr("Your answer is ready."), thread: thread})
+            pet.say({text: qsTr("Your answer is ready."), thread: thread, mood: "happy"})
         }
         function onFailed(request, error) {
             const thread = pet.answering[request]
             if (thread === undefined) return
             pet.settle(request)
-            pet.say({text: qsTr("The AI could not answer: ") + String(error).split("\n")[0], thread: thread})
+            pet.say({text: qsTr("The AI could not answer: ") + String(error).split("\n")[0], thread: thread, mood: "worried"})
         }
     }
     // A finished or failed answer; a "writing" bubble for it goes (another one still written keeps it).
@@ -109,6 +112,7 @@ Window {
     property var failed: ({})
     property string lastMessage: ""
     onActivitiesChanged: {
+        if (activities.length) stir()
         const now = Date.now(), before = work, next = {}
         for (const a of activities) next[a.id] = before[a.id] || {label: a.label, since: now, told: false}
         // Ended: told when it started, or failed.
@@ -165,8 +169,11 @@ Window {
             else if (failures.length) text = pet.failed[failures[0].id]
             else if (told.every(function(item) { return pet.workKind(item.id) === "download" })) text = qsTr("%1 downloads finished.").arg(told.length)
             else text = qsTr("%1 tasks finished.").arg(told.length)
+            // Glad when it went well; worried when something failed; as Owelk put it, when it said something.
+            const failed = failures.length > 0 || (told.length === 1 && !!pet.failed[told[0].id])
+            const mood = failed ? "worried" : told.length === 1 && pet.lastMessage.length ? "talk" : "happy"
             pet.failed = ({}); pet.lastMessage = ""
-            pet.say(Object.assign({text: text}, pet.workPlace((failures[0] || told[0]).id)))
+            pet.say(Object.assign({text: text, mood: mood}, pet.workPlace((failures[0] || told[0]).id)))
         }
     }
     // What Owelk said as work ended ("Download failed: …", "Saved …") is the news, for a single ending.
@@ -182,7 +189,7 @@ Window {
                 const next = Object.assign({}, pet.failed); next.backup = text; pet.failed = next
                 if (!pet.work.backup) endings.restart()
             } else {
-                pet.say({text: text, settings: "sync"})
+                pet.say({text: text, settings: "sync", mood: "worried"})
             }
         }
     }
@@ -192,6 +199,7 @@ Window {
     property int stretch: 0
     property int reminded: 0
     onStretchChanged: {
+        stir()
         if (stretch === 0) {
             reminded = 0
             if (message && message.reminder) message = null
@@ -216,24 +224,62 @@ Window {
         ignoreUnknownSignals: true
         function onChanged() {
             const count = pet.forYou.items.length
-            if (count > pet.knownPapers) pet.say({text: qsTr("New papers in For You: ") + (count - pet.knownPapers), forYou: true})
+            if (count > pet.knownPapers) pet.say({text: qsTr("New papers in For You: ") + (count - pet.knownPapers), forYou: true, mood: "happy"})
             pet.knownPapers = count
         }
     }
-    // Its face: the picture, or the one for talking (a bubble) or thinking (an answer being written) when the
-    // picture has them (Settings › Appearance › Picture).
-    readonly property string mood: writing ? "think" : message ? "talk" : ""
-    readonly property var face: Theme.pictureMoods[mood] || null
-    readonly property url shown: face ? face.url : Theme.picture
-    onShownChanged: Qt.callLater(fitClicks)
+    // Its face, by what is happening (the first that applies): held (dragged), poke (just clicked), what the bubble
+    // says (happy, worried, rest, else talk), think (an answer being written), sleepy (nothing for a while). A mood
+    // without faces of its own shows talking's for news, else the picture (Settings › Appearance › Pet faces).
+    readonly property string mood: held ? "held" : poking ? "poke"
+        : message && !message.writing ? (message.mood || (message.reminder ? "rest" : "talk"))
+        : writing ? "think" : sleepy ? "sleepy" : ""
+    readonly property var face: Theme.pictureMoods[mood]
+        || (["happy", "worried", "rest"].indexOf(mood) >= 0 && Theme.pictureMoods.talk) || null
+    // Of several faces: one picked as the mood comes ("random"), or each in turn while it lasts ("cycle").
+    property int frame: 0
+    onMoodChanged: frame = face && face.mode === "random" ? Math.floor(Math.random() * face.frames.length) : 0
+    Timer {
+        objectName: "petFaceTurn"
+        interval: 600; repeat: true
+        running: pet.visible && !!pet.face && pet.face.mode === "cycle" && pet.face.frames.length > 1
+        onTriggered: pet.frame = (pet.frame + 1) % pet.face.frames.length
+    }
+    readonly property url shown: face ? face.frames[Math.min(frame, face.frames.length - 1)].url : Theme.picture
+    // Every face, for the shape that takes clicks: worked out again only when they change, not at each turn.
+    readonly property var faces: {
+        const list = [Theme.picture]
+        for (const name in Theme.pictureMoods) for (const f of Theme.pictureMoods[name].frames) list.push(f.url)
+        return list
+    }
+    readonly property string facesKey: faces.join("\n")
+    onFacesKeyChanged: Qt.callLater(fitClicks)
     // As wide as the widest face of a cut-out, so each stands the same height at the bottom middle.
     readonly property real aspect: {
         const clamp = function(a) { return Math.max(.3, Math.min(1.6, a)) }
         let widest = Theme.pictureSize.height > 0 ? clamp(Theme.pictureSize.width / Theme.pictureSize.height) : 1
         if (Theme.pictureCutout)
-            for (const name in Theme.pictureMoods) widest = Math.max(widest, clamp(Theme.pictureMoods[name].aspect))
+            for (const name in Theme.pictureMoods)
+                for (const f of Theme.pictureMoods[name].frames) widest = Math.max(widest, clamp(f.aspect))
         return widest
     }
+    // Sleepy once nothing has happened for half an hour (ten minutes late at night): no reading, news, click or drag.
+    property bool sleepy: false
+    // A minute, in milliseconds (tests shorten it).
+    property real minute: 60000
+    function stir() {
+        sleepy = false
+        idleClock.interval = (new Date().getHours() < 6 ? 10 : 30) * minute
+        idleClock.restart()
+    }
+    Timer { id: idleClock; objectName: "petIdleClock"; onTriggered: pet.sleepy = true }
+    onMessageChanged: if (message) stir()
+    // Just clicked: its poked face for a moment.
+    property bool poking: false
+    Timer { id: pokeFace; interval: 1500; onTriggered: pet.poking = false }
+    // Held while dragged: until the window has stood still a moment.
+    property bool held: false
+    Timer { id: heldSettle; interval: 400; onTriggered: pet.held = false }
     flags: Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.NoDropShadowWindowHint | Qt.WindowDoesNotAcceptFocus
     // Its own window, not one that follows Owelk's (minimised, on another desktop).
     transientParent: null
@@ -263,15 +309,16 @@ Window {
         visible = true
         DesktopPet.floatEverywhere(pet)
         fitClicks()
+        stir()
     }
     // Clicks on the transparent parts go to whatever is behind the pet.
-    function fitClicks() { DesktopPet.letClicksThrough(pet, shown, Qt.size(width, DesktopPet.height), headroom, headroom + 4) }
+    function fitClicks() { DesktopPet.letClicksThroughAll(pet, faces, Qt.size(width, DesktopPet.height), headroom, headroom + 4) }
     onWidthChanged: Qt.callLater(fitClicks)
     onHeightChanged: Qt.callLater(fitClicks)
-    Connections { target: Theme; function onPicturesChanged() { Qt.callLater(pet.fitClicks) } }
     // Where it was left, once it stops moving.
-    onXChanged: { if (moving) movedAt = Date.now(); rememberLater.restart() }
-    onYChanged: { if (moving) movedAt = Date.now(); rememberLater.restart() }
+    onXChanged: { if (moving) dragged(); rememberLater.restart() }
+    onYChanged: { if (moving) dragged(); rememberLater.restart() }
+    function dragged() { movedAt = Date.now(); held = true; heldSettle.restart() }
     Timer { id: rememberLater; interval: 500; onTriggered: DesktopPet.remember(pet.x, pet.y) }
 
     Image {
@@ -316,7 +363,11 @@ Window {
     // the window moved (the system's move can end with one).
     property bool moving: false
     property real movedAt: 0
-    DragHandler { objectName: "petMove"; target: null; onActiveChanged: if (active) { pet.moving = true; pet.startSystemMove() } }
+    DragHandler {
+        objectName: "petMove"
+        target: null
+        onActiveChanged: if (active) { pet.moving = true; pet.held = true; heldSettle.restart(); pet.stir(); pet.startSystemMove() }
+    }
     TapHandler {
         objectName: "petTap"
         onPressedChanged: if (pressed) pet.moving = false

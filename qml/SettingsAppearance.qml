@@ -194,48 +194,6 @@ ColumnLayout {
                 }
             }
         }
-        // The pet's faces with the picture in use: while it talks (a bubble) and while it thinks (an answer
-        // being written). Without one, the picture itself.
-        SettingsRow {
-            visible: DesktopPet.supported && DesktopPet.enabled
-            label: qsTr("Pet faces")
-            detail: qsTr("Shown while the pet talks and while it waits for an answer. Right-click to remove one.")
-            Repeater {
-                model: [{mood: "talk", name: qsTr("Talking")}, {mood: "think", name: qsTr("Thinking")}]
-                delegate: Rectangle {
-                    id: faceSlot
-                    required property var modelData
-                    readonly property var face: Theme.pictureMoods[modelData.mood] || null
-                    objectName: "petFace-" + modelData.mood
-                    width: 56; height: 56; radius: Theme.radius
-                    color: "transparent"
-                    border.width: 1
-                    border.color: faceHover.hovered ? Theme.border : Theme.separator
-                    Image {
-                        visible: !!faceSlot.face
-                        anchors.fill: parent; anchors.margins: 5
-                        source: faceSlot.face ? faceSlot.face.url : ""
-                        fillMode: Image.PreserveAspectFit
-                        sourceSize: Qt.size(112, 112)
-                        asynchronous: true
-                    }
-                    Column {
-                        visible: !faceSlot.face
-                        anchors.centerIn: parent
-                        spacing: 2
-                        Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "add"; size: Theme.fontBody; color: Theme.textTertiary }
-                        Label { text: faceSlot.modelData.name; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
-                    }
-                    HoverHandler { id: faceHover; cursorShape: Qt.PointingHandCursor }
-                    TapHandler { onTapped: { faceDialog.mood = faceSlot.modelData.mood; faceDialog.open() } }
-                    TapHandler { acceptedButtons: Qt.RightButton; enabled: !!faceSlot.face; onTapped: Theme.setPictureMood(faceSlot.modelData.mood, "") }
-                    ToolTip.visible: faceHover.hovered && !!face
-                    ToolTip.text: modelData.name
-                    Accessible.role: Accessible.Button
-                    Accessible.name: modelData.name
-                }
-            }
-        }
         SettingsRow {
             visible: Theme.pictureColors.length > 0
             label: qsTr("Accent from the picture")
@@ -345,6 +303,71 @@ ColumnLayout {
                 model: [qsTr("Off"), qsTr("25 minutes"), qsTr("50 minutes"), qsTr("90 minutes")]
                 currentIndex: Math.max(0, values.indexOf(DesktopPet.breakMinutes))
                 onActivated: function(index) { DesktopPet.breakMinutes = values[index] }
+            }
+        }
+    }
+    // The pet's faces with the picture in use, for each moment: up to six, one picked each time or one after
+    // another while it lasts. A moment without faces shows talking's for news, else the picture.
+    SettingsGroup {
+        visible: Theme.picture.toString().length > 0 && DesktopPet.supported && DesktopPet.enabled
+        objectName: "settingsGroup-petFaces"
+        title: qsTr("Pet faces")
+        note: qsTr("Up to six for each moment; right-click one to remove it. Without any, the pet shows the picture (for news, its talking face).")
+        Repeater {
+            model: [{mood: "talk", name: qsTr("Talking"), detail: qsTr("Saying something")},
+                {mood: "think", name: qsTr("Thinking"), detail: qsTr("An answer is being written")},
+                {mood: "happy", name: qsTr("Happy"), detail: qsTr("An answer is ready, work is done")},
+                {mood: "worried", name: qsTr("Worried"), detail: qsTr("Something failed")},
+                {mood: "rest", name: qsTr("Break"), detail: qsTr("Time for a break")},
+                {mood: "sleepy", name: qsTr("Sleepy"), detail: qsTr("Nothing for a while")},
+                {mood: "held", name: qsTr("Held"), detail: qsTr("Being dragged")},
+                {mood: "poke", name: qsTr("Poked"), detail: qsTr("Clicked")}]
+            delegate: SettingsRow {
+                id: moodRow
+                required property var modelData
+                readonly property var faces: Theme.pictureMoods[modelData.mood] || null
+                readonly property int count: faces ? faces.frames.length : 0
+                objectName: "petMood-" + modelData.mood
+                label: modelData.name
+                detail: modelData.detail
+                Repeater {
+                    model: moodRow.faces ? moodRow.faces.frames : []
+                    delegate: Rectangle {
+                        id: faceTile
+                        required property var modelData
+                        required property int index
+                        objectName: "petFace-" + moodRow.modelData.mood + "-" + index
+                        width: 40; height: 40; radius: Theme.radiusSmall
+                        color: "transparent"
+                        border.width: 1
+                        border.color: tileHover.hovered ? Theme.border : Theme.separator
+                        Image {
+                            anchors.fill: parent; anchors.margins: 3
+                            source: faceTile.modelData.url
+                            fillMode: Image.PreserveAspectFit
+                            sourceSize: Qt.size(80, 80)
+                            asynchronous: true
+                        }
+                        HoverHandler { id: tileHover }
+                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: Theme.removePictureMood(moodRow.modelData.mood, faceTile.index) }
+                        Accessible.role: Accessible.Graphic
+                        Accessible.name: moodRow.modelData.name + " " + (index + 1)
+                    }
+                }
+                IconButton {
+                    objectName: "petFaceAdd-" + moodRow.modelData.mood
+                    visible: moodRow.count < 6
+                    icon.name: "add"; description: qsTr("Add faces")
+                    onClicked: { faceDialog.mood = moodRow.modelData.mood; faceDialog.open() }
+                }
+                ComboBox {
+                    objectName: "petFaceMode-" + moodRow.modelData.mood
+                    visible: moodRow.count > 1
+                    Layout.preferredWidth: 110
+                    model: [qsTr("Random"), qsTr("In turn")]
+                    currentIndex: moodRow.faces && moodRow.faces.mode === "cycle" ? 1 : 0
+                    onActivated: function(index) { Theme.setPictureMoodMode(moodRow.modelData.mood, index ? "cycle" : "random") }
+                }
             }
         }
     }
@@ -491,10 +514,13 @@ ColumnLayout {
         id: faceDialog
         objectName: "petFaceDialog"
         property string mood: "talk"
-        title: mood === "talk" ? qsTr("Choose the Pet's Talking Face") : qsTr("Choose the Pet's Thinking Face")
+        title: qsTr("Choose Faces for the Pet")
+        fileMode: Native.FileDialog.OpenFiles
         nameFilters: [qsTr("Pictures") + " (" + Theme.pictureFilter + ")"]
+        // Each one that can be read, while there is room.
         onAccepted: {
-            if (!Theme.setPictureMood(mood, selectedFile)) themeGroup.note = qsTr("This picture could not be opened.")
+            const failed = selectedFiles.filter(function(file) { return !Theme.addPictureMood(mood, file) })
+            if (failed.length) themeGroup.note = qsTr("Some pictures could not be added (unreadable, or six already).")
         }
     }
     Native.ColorDialog {

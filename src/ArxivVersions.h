@@ -28,12 +28,15 @@ public:
     struct Entry {
         QString id;
         int version = 0;
+        // Where it was published, as arXiv has it (the authors' journal reference and DOI).
+        QString journalRef, doi;
     };
     explicit ArxivVersions(ResearchStore *store, QObject *parent = nullptr);
     ~ArxivVersions() override;
     bool enabled() const { return m_enabled; }
     // For a Library row: {arxivVersion (this copy's), arxivLatest (when newer than it), arxivNewer (the newer
-    // version's URL once it is in the Library)}; {} when off or not known.
+    // version's URL once it is in the Library), published, publishedDoi (where arXiv says it was published)}; {}
+    // when off or not known.
     QVariantMap details(const QString &documentId, const QString &arxiv) const;
     // An arXiv ID without its version ("2401.12345", "hep-th/9901001"); empty when it is none.
     static QString plainId(const QString &arxiv);
@@ -43,6 +46,9 @@ public:
     static int printedVersion(const QString &text, const QString &id);
     // The entries of an answer from arXiv's API: each paper's ID and its newest version.
     static QList<Entry> parseFeed(const QByteArray &xml);
+    // Where arXiv says a paper was published: {journalRef, doi} (either may be missing); {} when off or not known.
+    // Paper Details offers it; nothing is filled in until the reader applies it.
+    Q_INVOKABLE QVariantMap published(const QUrl &source) const;
     // Downloads the newest version of a paper as a paper of its own and links the two.
     Q_INVOKABLE void getLatest(const QUrl &source);
     // Once a day: reads the versions of copies not known yet, then asks arXiv about every paper with an ID.

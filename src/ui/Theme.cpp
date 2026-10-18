@@ -127,6 +127,20 @@ QRect visibleBounds(const QImage &image)
     }
     return right < 0 ? image.rect() : QRect(QPoint(left, top), QPoint(right, bottom));
 }
+constexpr int maxMoodFaces = 6;
+QJsonObject moodsJson(const QHash<QString, QStringList> &moods)
+{
+    QJsonObject json;
+    for (auto it = moods.cbegin(); it != moods.cend(); ++it)
+        json.insert(it.key(), QJsonArray::fromStringList(it.value()));
+    return json;
+}
+QJsonObject modesJson(const QHash<QString, QString> &modes)
+{
+    QJsonObject json;
+    for (auto it = modes.cbegin(); it != modes.cend(); ++it) json.insert(it.key(), it.value());
+    return json;
+}
 // A picture file as kept: upright, no larger than pictureSide, a cut-out trimmed to what is drawn. Null if this
 // build cannot read it.
 QImage keptPicture(const QString &path, bool *cutout)
@@ -169,9 +183,14 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
             Picture kept{o.value("file").toString(), o.value("cutout").toBool(),
                 o.value("colors").toVariant().toStringList(), o.value("accent").toString(),
                 qBound(40, o.value("scale").toInt(100), 100)};
-            for (const auto &[key, mood] : {std::pair{"talk", &kept.talk}, std::pair{"think", &kept.think}}) {
-                *mood = o.value(key).toString();
-                if (!mood->isEmpty() && !QFile::exists(folder.filePath(*mood))) mood->clear();
+            const auto moods = o.value("moods").toObject(), modes = o.value("moodModes").toObject();
+            for (const auto &mood : petMoods()) {
+                auto files = moods.value(mood).toVariant().toStringList();
+                // One face each for talking and thinking, as the first version kept them.
+                if (const auto single = o.value(mood).toString(); files.isEmpty() && !single.isEmpty()) files << single;
+                files.removeIf([&folder](const QString &file) { return !QFile::exists(folder.filePath(file)); });
+                if (!files.isEmpty()) kept.moods.insert(mood, files.mid(0, maxMoodFaces));
+                if (modes.value(mood).toString() == "cycle") kept.moodModes.insert(mood, "cycle");
             }
             if (!kept.file.isEmpty() && QFile::exists(folder.filePath(kept.file))) m_pictures.append(kept);
         }
@@ -604,34 +623,71 @@ QString Theme::keepPictureFile(const QImage &image, bool cutout, const QString &
     if (!folder.mkpath(".")) return {};
     // A new name each time, so no image cache shows another picture. A cut-out keeps its transparency; a
     // photo is smaller as JPEG.
-    const auto name = QString("picture-%1%2.%3")
-                          .arg(QDateTime::currentMSecsSinceEpoch())
-                          .arg(mood.isEmpty() ? QString() : "-" + mood)
-                          .arg(cutout ? "png" : "jpg");
+    const auto stem
+        = QString("picture-%1%2").arg(QDateTime::currentMSecsSinceEpoch()).arg(mood.isEmpty() ? QString() : "-" + mood);
+    auto name = stem + (cutout ? ".png" : ".jpg");
+    // Several faces kept within the same millisecond.
+    for (int n = 2; QFile::exists(folder.filePath(name)); ++n)
+        name = QString("%1-%2.%3").arg(stem).arg(n).arg(cutout ? "png" : "jpg");
     return image.save(folder.filePath(name), nullptr, cutout ? -1 : 90) ? name : QString();
 }
 
-bool Theme::setPictureMood(const QString &mood, const QUrl &file)
+QStringList Theme::petMoods()
 {
-    if (mood != "talk" && mood != "think") return false;
-    for (auto &picture : m_pictures) {
-        if (picture.file != m_picture) continue;
-        auto &kept = mood == "talk" ? picture.talk : picture.think;
-        QString name;
-        if (!file.isEmpty()) {
-            bool cutout = false;
-            const auto image = file.isLocalFile() ? keptPicture(file.toLocalFile(), &cutout) : QImage();
-            name = image.isNull() ? QString() : keepPictureFile(image, cutout, mood);
-            if (name.isEmpty()) return false;
-        }
-        if (!kept.isEmpty()) QFile::remove(QDir(pictureFolder()).filePath(kept));
-        kept = name;
-        mirror(&picture);
-        savePictures(false);
-        emit changed();
-        return true;
+    return {"talk", "think", "happy", "worried", "rest", "sleepy", "held", "poke"};
+}
+
+Theme::Picture *Theme::currentPicture()
+{
+    for (auto &picture : m_pictures)
+        if (picture.file == m_picture) return &picture;
+    return nullptr;
+}
+
+void Theme::savePictureMoods(Picture &picture)
+{
+    mirror(&picture);
+    savePictures(false);
+    emit changed();
+}
+
+bool Theme::addPictureMood(const QString &mood, const QUrl &file)
+{
+    auto *picture = currentPicture();
+    if (!picture || !petMoods().contains(mood) || picture->moods.value(mood).size() >= maxMoodFaces) return false;
+    bool cutout = false;
+    const auto image = file.isLocalFile() ? keptPicture(file.toLocalFile(), &cutout) : QImage();
+    const auto name = image.isNull() ? QString() : keepPictureFile(image, cutout, mood);
+    if (name.isEmpty()) return false;
+    picture->moods[mood].append(name);
+    savePictureMoods(*picture);
+    return true;
+}
+
+void Theme::removePictureMood(const QString &mood, int index)
+{
+    auto *picture = currentPicture();
+    if (!picture || !picture->moods.contains(mood)) return;
+    auto &files = picture->moods[mood];
+    if (index < 0 || index >= files.size()) return;
+    QFile::remove(QDir(pictureFolder()).filePath(files.takeAt(index)));
+    if (files.isEmpty()) {
+        picture->moods.remove(mood);
+        picture->moodModes.remove(mood);
     }
-    return false;
+    savePictureMoods(*picture);
+}
+
+void Theme::setPictureMoodMode(const QString &mood, const QString &mode)
+{
+    auto *picture = currentPicture();
+    if (!picture || !petMoods().contains(mood) || (mode != "cycle" && mode != "random")) return;
+    if ((picture->moodModes.value(mood, "random")) == mode) return;
+    if (mode == "cycle")
+        picture->moodModes.insert(mood, mode);
+    else
+        picture->moodModes.remove(mood);
+    savePictureMoods(*picture);
 }
 
 QVariantMap Theme::pictureMoods() const
@@ -640,12 +696,20 @@ QVariantMap Theme::pictureMoods() const
     QVariantMap moods;
     for (const auto &picture : m_pictures) {
         if (picture.file != m_picture) continue;
-        for (const auto &[mood, file] : {std::pair{"talk", picture.talk}, std::pair{"think", picture.think}}) {
-            if (file.isEmpty()) continue;
-            const auto size = QImageReader(folder.filePath(file)).size();
-            moods.insert(mood,
-                QVariantMap{{"url", QUrl::fromLocalFile(folder.filePath(file))},
-                    {"aspect", size.height() > 0 ? qreal(size.width()) / size.height() : 1.}});
+        for (auto it = picture.moods.cbegin(); it != picture.moods.cend(); ++it) {
+            QVariantList frames;
+            for (const auto &file : it.value()) {
+                // Each file's shape, read once (the names never change).
+                auto aspect = m_faceAspects.value(file);
+                if (aspect <= 0) {
+                    const auto size = QImageReader(folder.filePath(file)).size();
+                    aspect = size.height() > 0 ? qreal(size.width()) / size.height() : 1.;
+                    m_faceAspects.insert(file, aspect);
+                }
+                frames.append(QVariantMap{{"url", QUrl::fromLocalFile(folder.filePath(file))}, {"aspect", aspect}});
+            }
+            moods.insert(
+                it.key(), QVariantMap{{"frames", frames}, {"mode", picture.moodModes.value(it.key(), "random")}});
         }
     }
     return moods;
@@ -769,8 +833,9 @@ void Theme::removePicture(const QString &id)
     for (qsizetype i = 0; i < m_pictures.size(); ++i)
         if (m_pictures[i].file == file) at = i;
     if (at < 0) return;
-    for (const auto &kept : {file, m_pictures[at].talk, m_pictures[at].think})
-        if (!kept.isEmpty()) QFile::remove(QDir(pictureFolder()).filePath(kept));
+    QStringList files{file};
+    for (const auto &faces : std::as_const(m_pictures[at].moods)) files += faces;
+    for (const auto &kept : std::as_const(files)) QFile::remove(QDir(pictureFolder()).filePath(kept));
     m_pictures.removeAt(at);
     const bool shown = showing();
     if (file != m_picture) {
@@ -823,7 +888,8 @@ void Theme::savePictures(bool listChanged)
     for (const auto &picture : std::as_const(m_pictures))
         list.append(QJsonObject{{"file", picture.file}, {"cutout", picture.cutout},
             {"colors", QJsonArray::fromStringList(picture.colors)}, {"accent", picture.accent},
-            {"scale", picture.scale}, {"talk", picture.talk}, {"think", picture.think}});
+            {"scale", picture.scale}, {"moods", moodsJson(picture.moods)},
+            {"moodModes", modesJson(picture.moodModes)}});
     save("appearance.pictures", QString::fromUtf8(QJsonDocument(list).toJson(QJsonDocument::Compact)));
     save("appearance.picture", m_picture);
     // Read only by the step that made one picture into a list.

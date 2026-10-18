@@ -1434,6 +1434,14 @@ Rectangle {
                                     else paperMenu.askLatest(paper.modelData)
                                 }
                             }
+                            // Published with a DOI the paper does not have yet: its details offer it.
+                            Chip {
+                                objectName: "arxivPublished-" + paper.modelData.id
+                                visible: !!paper.modelData.publishedDoi && !paper.modelData.doi
+                                text: qsTr("Published")
+                                ToolTip.text: paper.modelData.published ? qsTr("Published in %1").arg(paper.modelData.published) : qsTr("Published, with a DOI")
+                                onClicked: paperMenu.showDetails(paper.modelData)
+                            }
                             Repeater {
                                 model: paper.suggestions
                                 delegate: Chip {

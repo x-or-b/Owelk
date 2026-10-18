@@ -47,6 +47,10 @@ public:
     // Clicks on the transparent parts of a pet window go to whatever is behind it. The picture is drawn
     // fitted and centred in area, top points down; it hops up to rise points.
     Q_INVOKABLE void letClicksThrough(QWindow *window, const QUrl &picture, const QSize &area, int top, int rise);
+    // The same for a pet with several faces (pictures): the part that takes clicks is what any of them draws, worked
+    // out once rather than at each change of face.
+    Q_INVOKABLE void letClicksThroughAll(
+        QWindow *window, const QVariantList &pictures, const QSize &area, int top, int rise);
     // The part that takes clicks, in window points: where the picture is drawn, a little around it and up
     // as far as it hops. Empty for a picture with no transparency (all of the window takes them).
     static QRegion pictureRegion(const QString &file, const QSize &area, int top, int rise);

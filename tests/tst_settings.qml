@@ -303,6 +303,21 @@ Item {
             petSwitch.toggle(); petSwitch.toggled()
             compare(DesktopPet.enabled, true)
             verify(visualChild(settings.contentItem, "petSizeBox").visible)
+            // The pet's faces, for each moment: shown as they are added, taking turns when chosen, gone when removed.
+            const faces = visualChild(settings.contentItem, "settingsGroup-petFaces")
+            verify(faces.visible)
+            verify(visualChild(faces, "petMood-sleepy") !== null)
+            verify(Theme.addPictureMood("think", testInput.pictureFile(500, 1300, true, "#a0c4f2")))
+            verify(Theme.addPictureMood("think", testInput.pictureFile(500, 1300, true, "#a0f2c4")))
+            let mode = null
+            tryVerify(function() { mode = visualChild(faces, "petFaceMode-think"); return mode !== null && mode.visible })
+            verify(visualChild(faces, "petFace-think-1") !== null)
+            mode.activated(1)
+            compare(Theme.pictureMoods.think.mode, "cycle")
+            Theme.removePictureMood("think", 1)
+            tryVerify(function() { return !mode.visible })
+            Theme.removePictureMood("think", 0)
+            compare(Theme.pictureMoods.think, undefined)
             visualChild(settings.contentItem, "petBreakBox").activated(0)
             compare(DesktopPet.breakMinutes, 0)
             DesktopPet.breakMinutes = 50

@@ -76,8 +76,9 @@ class Theme : public QObject {
     Q_PROPERTY(QString pictureAlign READ pictureAlign WRITE setPictureAlign NOTIFY changed)
     // How tall a cut-out stands, in percent of the area's height (40–100); kept for each picture.
     Q_PROPERTY(int pictureScale READ pictureScale WRITE setPictureScale NOTIFY changed)
-    // The desktop pet's other faces for the picture in use, each kept like it: {talk: {url, aspect}, think: …}
-    // (width over height), for those it has.
+    // The desktop pet's other faces for the picture in use, each kept like it, by mood (petMoods()): {talk: {frames:
+    // [{url, aspect (width over height)}], mode: "random" (one picked each time) or "cycle" (one after another while
+    // the mood lasts)}, …}, for the moods it has faces for.
     Q_PROPERTY(QVariantMap pictureMoods READ pictureMoods NOTIFY changed)
     // The picture files this build opens, as a file dialog filter ("*.png *.jpg …").
     Q_PROPERTY(QString pictureFilter READ pictureFilter CONSTANT)
@@ -238,9 +239,16 @@ public:
     // Drops a kept picture (empty id: the one in use). Another one takes the place of the one in use;
     // after the last, the theme, accent and Custom colors from before the first picture come back.
     Q_INVOKABLE void removePicture(const QString &id = QString());
-    // The pet's face for "talk" (saying something) or "think" (an answer being written) with the picture in use,
-    // kept like a picture (its colors are not taken); an empty file removes it. False if it cannot be read.
-    Q_INVOKABLE bool setPictureMood(const QString &mood, const QUrl &file);
+    // The moods the pet has faces for: talk (a bubble), think (an answer being written), happy (good news), worried
+    // (something failed), rest (time for a break), sleepy (nothing for a while), held (dragged), poke (clicked).
+    static QStringList petMoods();
+    // Adds a face for a mood with the picture in use, kept like a picture (its colors are not taken); up to six
+    // each. False if it cannot be read or there is no room.
+    Q_INVOKABLE bool addPictureMood(const QString &mood, const QUrl &file);
+    // Drops a mood's face (index in its frames).
+    Q_INVOKABLE void removePictureMood(const QString &mood, int index);
+    // "random" or "cycle", for a mood with several faces.
+    Q_INVOKABLE void setPictureMoodMode(const QString &mood, const QString &mode);
     // a → b by t (0..1), for the rare place that needs an in-between color.
     Q_INVOKABLE QColor mix(const QColor &a, const QColor &b, qreal t) const;
 
@@ -305,8 +313,14 @@ private:
         QStringList colors; // most prominent first
         QString accent; // the accent last chosen for it
         int scale = 100; // how tall it stands (a cut-out), percent of the area's height
-        QString talk, think; // the pet's faces while it talks and thinks (files beside it), if any
+        // The pet's faces by mood (files beside it), and the moods whose faces take turns ("cycle").
+        QHash<QString, QStringList> moods;
+        QHash<QString, QString> moodModes;
     };
+    Picture *currentPicture();
+    void savePictureMoods(Picture &picture);
+    // Faces' width over height, read once per file.
+    mutable QHash<QString, qreal> m_faceAspects;
     QString pictureFolder() const;
     // Saves a picture into pictureFolder() under a new name (with "-mood" for a pet face); empty on failure.
     QString keepPictureFile(const QImage &image, bool cutout, const QString &mood) const;

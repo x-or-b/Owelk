@@ -2216,6 +2216,18 @@ Same file as another library entry</source>
         <translation>프리뷰 더 피디에프</translation>
     </message>
     <message>
+        <source>Published</source>
+        <translation>퍼블리시드</translation>
+    </message>
+    <message>
+        <source>Published in %1</source>
+        <translation>퍼블리시드 인 %1</translation>
+    </message>
+    <message>
+        <source>Published, with a DOI</source>
+        <translation>퍼블리시드, 위드 어 디오아이</translation>
+    </message>
+    <message>
         <source>Read</source>
         <translation>리드</translation>
     </message>
@@ -3905,6 +3917,10 @@ Same file as another library entry</source>
 <context>
     <name>PaperDetailsDialog</name>
     <message>
+        <source>Apply</source>
+        <translation>어플라이</translation>
+    </message>
+    <message>
         <source>Authors</source>
         <translation>오서스</translation>
     </message>
@@ -3915,6 +3931,14 @@ Same file as another library entry</source>
     <message>
         <source>DOI</source>
         <translation>디오아이</translation>
+    </message>
+    <message>
+        <source>DOI %1</source>
+        <translation>디오아이 %1</translation>
+    </message>
+    <message>
+        <source>DOI filled from arXiv. Review, then Save.</source>
+        <translation>디오아이 필드 프롬 아카이브. 리뷰, 덴 세이브.</translation>
     </message>
     <message>
         <source>Discard edits and read the details from the PDF again</source>
@@ -3943,6 +3967,14 @@ Same file as another library entry</source>
     <message>
         <source>Paper details</source>
         <translation>페이퍼 디테일스</translation>
+    </message>
+    <message>
+        <source>Published</source>
+        <translation>퍼블리시드</translation>
+    </message>
+    <message>
+        <source>Published in %1</source>
+        <translation>퍼블리시드 인 %1</translation>
     </message>
     <message>
         <source>Read</source>
@@ -5214,8 +5246,20 @@ You can open the same document twice.</source>
         <translation>액센트 프롬 더 픽처</translation>
     </message>
     <message>
+        <source>Add faces</source>
+        <translation>애드 페이시즈</translation>
+    </message>
+    <message>
         <source>Add…</source>
         <translation>애드…</translation>
+    </message>
+    <message>
+        <source>An answer is being written</source>
+        <translation>언 앤서 이즈 빙 리튼</translation>
+    </message>
+    <message>
+        <source>An answer is ready, work is done</source>
+        <translation>언 앤서 이즈 레디, 워크 이즈 던</translation>
     </message>
     <message>
         <source>App icon</source>
@@ -5228,6 +5272,14 @@ You can open the same document twice.</source>
     <message>
         <source>Behind Home and pages</source>
         <translation>비하인드 홈 앤드 페이지스</translation>
+    </message>
+    <message>
+        <source>Being dragged</source>
+        <translation>빙 드래그드</translation>
+    </message>
+    <message>
+        <source>Break</source>
+        <translation>브레이크</translation>
     </message>
     <message>
         <source>Break reminder</source>
@@ -5250,20 +5302,20 @@ You can open the same document twice.</source>
         <translation>체인지스 더 아이콘 인 더 태스크바 앤드 타이틀 바스.</translation>
     </message>
     <message>
+        <source>Choose Faces for the Pet</source>
+        <translation>추즈 페이시즈 포 더 펫</translation>
+    </message>
+    <message>
         <source>Choose a Picture</source>
         <translation>추즈 어 픽처</translation>
     </message>
     <message>
-        <source>Choose the Pet's Talking Face</source>
-        <translation>추즈 더 펫츠 토킹 페이스</translation>
-    </message>
-    <message>
-        <source>Choose the Pet's Thinking Face</source>
-        <translation>추즈 더 펫츠 싱킹 페이스</translation>
-    </message>
-    <message>
         <source>Click one to use it. Right-click to remove it.</source>
         <translation>클릭 원 투 유즈 잇. 라이트-클릭 투 리무브 잇.</translation>
+    </message>
+    <message>
+        <source>Clicked</source>
+        <translation>클릭트</translation>
     </message>
     <message>
         <source>Custom</source>
@@ -5322,8 +5374,20 @@ You can open the same document twice.</source>
         <translation>에브리 아워</translation>
     </message>
     <message>
+        <source>Happy</source>
+        <translation>해피</translation>
+    </message>
+    <message>
+        <source>Held</source>
+        <translation>헬드</translation>
+    </message>
+    <message>
         <source>Hover, selection and secondary text are worked out from these colors, so the theme stays consistent.</source>
         <translation>호버, 셀렉션 앤드 세컨더리 텍스트 아 워크트 아웃 프롬 디즈 컬러스, 소 더 테마 스테이즈 컨시스턴트.</translation>
+    </message>
+    <message>
+        <source>In turn</source>
+        <translation>인 턴</translation>
     </message>
     <message>
         <source>Keep this picture</source>
@@ -5366,6 +5430,10 @@ You can open the same document twice.</source>
         <translation>메뉴스 앤드 팝오버스</translation>
     </message>
     <message>
+        <source>Nothing for a while</source>
+        <translation>낫싱 포 어 와일</translation>
+    </message>
+    <message>
         <source>Off</source>
         <translation>오프</translation>
     </message>
@@ -5398,8 +5466,16 @@ You can open the same document twice.</source>
         <translation>픽처스</translation>
     </message>
     <message>
+        <source>Poked</source>
+        <translation>포크트</translation>
+    </message>
+    <message>
         <source>Position</source>
         <translation>포지션</translation>
+    </message>
+    <message>
+        <source>Random</source>
+        <translation>랜덤</translation>
     </message>
     <message>
         <source>Remove Picture</source>
@@ -5408,6 +5484,10 @@ You can open the same document twice.</source>
     <message>
         <source>Right</source>
         <translation>라이트</translation>
+    </message>
+    <message>
+        <source>Saying something</source>
+        <translation>세잉 섬싱</translation>
     </message>
     <message>
         <source>Scales all text and the controls around it. PDF pages keep their own zoom.</source>
@@ -5422,10 +5502,6 @@ You can open the same document twice.</source>
         <translation>숀 비하인드 홈 앤드 피디에프 페이지스 와일 더 커스텀 테마 이즈 인 유즈. 익스포츠 앤드 프린팅 킵 더 오리지널 페이지스.</translation>
     </message>
     <message>
-        <source>Shown while the pet talks and while it waits for an answer. Right-click to remove one.</source>
-        <translation>숀 와일 더 펫 톡스 앤드 와일 잇 웨이츠 포 언 앤서. 라이트-클릭 투 리무브 원.</translation>
-    </message>
-    <message>
         <source>Sidebars</source>
         <translation>사이드바스</translation>
     </message>
@@ -5434,8 +5510,20 @@ You can open the same document twice.</source>
         <translation>사이즈</translation>
     </message>
     <message>
+        <source>Sleepy</source>
+        <translation>슬리피</translation>
+    </message>
+    <message>
         <source>Small</source>
         <translation>스몰</translation>
+    </message>
+    <message>
+        <source>Some pictures could not be added (unreadable, or six already).</source>
+        <translation>섬 픽처스 쿠드 낫 비 애디드 (언리더블, 오어 식스 올레디).</translation>
+    </message>
+    <message>
+        <source>Something failed</source>
+        <translation>섬싱 페일드</translation>
     </message>
     <message>
         <source>Talking</source>
@@ -5478,6 +5566,14 @@ You can open the same document twice.</source>
         <translation>스루 더 페이퍼</translation>
     </message>
     <message>
+        <source>Time for a break</source>
+        <translation>타임 포 어 브레이크</translation>
+    </message>
+    <message>
+        <source>Up to six for each moment; right-click one to remove it. Without any, the pet shows the picture (for news, its talking face).</source>
+        <translation>업 투 식스 포 이치 모먼트; 라이트-클릭 원 투 리무브 잇. 위다웃 애니, 더 펫 쇼즈 더 픽처 (포 뉴스, 잇츠 토킹 페이스).</translation>
+    </message>
+    <message>
         <source>Use light text and dark controls</source>
         <translation>유즈 라이트 텍스트 앤드 다크 컨트롤스</translation>
     </message>
@@ -5488,6 +5584,10 @@ You can open the same document twice.</source>
     <message>
         <source>Window and toolbars</source>
         <translation>윈도 앤드 툴바스</translation>
+    </message>
+    <message>
+        <source>Worried</source>
+        <translation>워리드</translation>
     </message>
 </context>
 <context>
