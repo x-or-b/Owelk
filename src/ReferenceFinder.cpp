@@ -796,6 +796,65 @@ QVariantMap ReferenceFinder::floatRegion(QPdfDocument &pdf, int page, const QRec
     return region;
 }
 
+int ReferenceFinder::figures(const QUrl &source)
+{
+    const int request = ++m_next;
+    const auto path = source.toLocalFile();
+    m_pool.start([this, request, path] {
+        const auto modified = QFileInfo(path).lastModified();
+        QVariantList found;
+        bool known = false;
+        {
+            QMutexLocker lock(&m_mutex);
+            const auto cached = m_figures.constFind(path);
+            if ((known = cached != m_figures.constEnd() && cached->first == modified)) found = cached->second;
+        }
+        QPdfDocument pdf;
+        if (!known && !path.isEmpty() && PdfAccess::load(pdf, path) == QPdfDocument::Error::None) {
+            found = figuresIn(pdf, pageTexts(pdf, path, request));
+            QMutexLocker lock(&m_mutex);
+            if (m_figures.size() >= 4) m_figures.clear();
+            m_figures.insert(path, {modified, found});
+        }
+        QMetaObject::invokeMethod(
+            this, [this, request, found] { emit figuresFound(request, found); }, Qt::QueuedConnection);
+    });
+    return request;
+}
+
+QVariantList ReferenceFinder::figuresIn(QPdfDocument &pdf, const QStringList &texts)
+{
+    // Pages without a line starting like a caption are passed over without laying out their lines.
+    static const QRegularExpression likely(R"((?:^|[\r\n])[ \t]*(?:Figs?\.|Figure|FIG\.?|FIGURE|TABLE|Table))");
+    // Of captions with the same label, the one with the largest area: a line that only starts with "Table 2"
+    // (a mention, or a continued table) has little or none.
+    QHash<QString, QVariantMap> best;
+    for (int page = 0; page < texts.size() && page < pdf.pageCount(); ++page) {
+        if (!likely.match(texts[page]).hasMatch()) continue;
+        for (int waited = 0; m_readerBusy && m_readerBusy->load() && waited < 100; ++waited) QThread::msleep(20);
+        const auto layout = pageLines(pdf, page);
+        const auto captions = captionsOn(pdf, page, layout.text);
+        for (const auto &caption : captions) {
+            if (caption.kind == "algorithm") continue;
+            auto region = floatIn(pdf, page, layout, captions, caption.line, caption.kind == "table");
+            if (region.isEmpty()) continue;
+            const auto kept = best.constFind(caption.label);
+            if (kept != best.constEnd() && kept->value("height").toDouble() >= region["height"].toDouble()) continue;
+            region.insert({{"kind", caption.kind}, {"label", caption.label}, {"page", page},
+                {"caption", captionText(pdf, page, region)}});
+            best.insert(caption.label, region);
+        }
+    }
+    auto list = best.values();
+    std::sort(list.begin(), list.end(), [](const QVariantMap &a, const QVariantMap &b) {
+        return a["page"].toInt() != b["page"].toInt() ? a["page"].toInt() < b["page"].toInt()
+                                                      : a["y"].toDouble() < b["y"].toDouble();
+    });
+    QVariantList figures;
+    for (const auto &figure : std::as_const(list)) figures.append(figure);
+    return figures;
+}
+
 int ReferenceFinder::objectAt(const QUrl &source, int page, const QPointF &point)
 {
     const int request = ++m_next;

@@ -6,9 +6,9 @@ import QtQuick.Pdf
 import "WorkspaceTree.js" as Tree
 import "WebSearch.js" as WebSearch
 
-// The Document panel: the paper in front, in four views (mode): 0 Contents (outline or pages), 1
+// The Document panel: the paper in front, in five views (mode): 0 Contents (outline or pages), 1
 // Annotations (notes about it, then its annotations), 2 Symbols, 3 Related (similar papers in the
-// Library, what it cites, what cites it).
+// Library, what it cites, what cites it), 4 Figures (its figures and tables).
 Item {
     id: root
     objectName: "pdfNavigationPanel"
@@ -137,6 +137,31 @@ Item {
         }
         function onNotationChanged(paper) { if (root.symbolsSource.length && researchStore.sameSource(paper, root.reader.source)) root.loadSymbols() }
     }
+    // Figures: the paper's figures and tables by their captions (ReferenceFinder), asked for while the view shows.
+    property var figures: []
+    property int figuresRequest: -1
+    property bool figuresLoading: false
+    readonly property string figuresSource: ready && mode === 4 ? reader.source.toString() : ""
+    onFiguresSourceChanged: {
+        figures = []
+        figuresLoading = figuresSource.length > 0
+        figuresRequest = figuresLoading ? researchStore.references.figures(reader.source) : -1
+    }
+    Connections {
+        target: researchStore.references
+        function onFiguresFound(request, found) {
+            if (request !== root.figuresRequest) return
+            root.figures = found
+            root.figuresLoading = false
+        }
+    }
+    // A figure's area as a part of its page (0..1).
+    function figureRegion(figure) {
+        const size = reader.pdfDocument.pagePointSize(figure.page)
+        return Qt.rect(figure.x / size.width, figure.y / size.height, figure.width / size.width, figure.height / size.height)
+    }
+    // There, lit for a moment.
+    function showFigure(figure) { if (ready) reader.reveal(reader.source, figure.page, figureRegion(figure), false) }
     PdfDocument { id: emptyDocument }
     // A blank document also avoids passing null to an active Qt PDF image/model during tab removal.
     readonly property var navigationDocument: reader && reader.pdfDocument ? reader.pdfDocument : emptyDocument
@@ -166,6 +191,7 @@ Item {
             TabButton { objectName: "annotationsTab"; icon.name: "annotations"; ToolTip.text: qsTr("Annotations"); onClicked: root.modeChosen(1) }
             TabButton { objectName: "symbolsTab"; icon.name: "symbols"; ToolTip.text: qsTr("Symbols"); onClicked: root.modeChosen(2) }
             TabButton { objectName: "relatedTab"; icon.name: "related"; ToolTip.text: qsTr("Related"); onClicked: root.modeChosen(3) }
+            TabButton { objectName: "figuresTab"; icon.name: "image"; ToolTip.text: qsTr("Figures"); onClicked: root.modeChosen(4) }
         }
         // Each view's own choices, in the same small switch.
         TabBar {
@@ -587,6 +613,84 @@ Item {
                 }
             }
         }
+        // Figures and tables, a small picture of each (made only for those in view): click to go there, the
+        // right button to ask AI about it or pin it over the pages.
+        GridView {
+            id: figureGrid
+            objectName: "figureGrid"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.mode === 4 && root.ready && root.figures.length > 0
+            model: visible ? root.figures : []
+            clip: true
+            readonly property int columns: Math.max(1, Math.floor(width / 140))
+            cellWidth: Math.floor(width / columns)
+            cellHeight: Math.round(cellWidth * .8) + 26
+            ScrollBar.vertical: ScrollBar {}
+            delegate: ItemDelegate {
+                id: figureCell
+                required property var modelData
+                required property int index
+                objectName: "figure-" + index
+                width: figureGrid.cellWidth
+                height: figureGrid.cellHeight
+                padding: 4
+                onClicked: root.showFigure(modelData)
+                ToolTip.visible: hovered && (modelData.caption || "").length > 0
+                ToolTip.delay: 600
+                ToolTip.text: (modelData.caption || "").slice(0, 300)
+                TapHandler { acceptedButtons: Qt.RightButton; onTapped: { figureMenu.figure = figureCell.modelData; figureMenu.popup() } }
+                contentItem: Column {
+                    spacing: 4
+                    // The page drawn just large enough for the figure to fill the frame, the rest cut away.
+                    Rectangle {
+                        id: frame
+                        readonly property var figure: figureCell.modelData
+                        readonly property size points: root.reader.pdfDocument.pagePointSize(figure.page)
+                        readonly property real fit: Math.min((width - 6) / Math.max(1, figure.width), (height - 6) / Math.max(1, figure.height))
+                        width: parent.width
+                        height: figureCell.height - 30
+                        radius: Theme.radiusSmall
+                        clip: true
+                        color: root.invertPages ? Theme.paperInverted : Theme.paper
+                        border.color: Theme.separator
+                        PdfPageImage {
+                            objectName: "figureImage-" + figureCell.index
+                            document: root.navigationDocument
+                            currentFrame: frame.figure.page
+                            width: frame.points.width * frame.fit
+                            height: frame.points.height * frame.fit
+                            x: (frame.width - frame.figure.width * frame.fit) / 2 - frame.figure.x * frame.fit
+                            y: (frame.height - frame.figure.height * frame.fit) / 2 - frame.figure.y * frame.fit
+                            sourceSize.width: Math.ceil(width * Screen.devicePixelRatio)
+                            asynchronous: true
+                            cache: false
+                            layer.enabled: root.invertPages
+                            layer.effect: ShaderEffect { fragmentShader: "qrc:/owelk/shaders/invert.frag.qsb" }
+                        }
+                    }
+                    Label {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        text: figureCell.modelData.label + qsTr(" · p. ") + (figureCell.modelData.page + 1)
+                        elide: Text.ElideRight
+                        font.pixelSize: Theme.fontCaption
+                        color: Theme.textSecondary
+                    }
+                }
+            }
+        }
+        Label {
+            objectName: "figuresEmpty"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.mode === 4 && root.ready && root.figures.length === 0
+            text: root.figuresLoading ? qsTr("Finding figures and tables…") : qsTr("No figure or table captions found in this paper.")
+            wrapMode: Text.Wrap
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            color: Theme.textTertiary
+        }
         Label {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -596,6 +700,25 @@ Item {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             color: Theme.textTertiary
+        }
+    }
+    Menu {
+        id: figureMenu
+        objectName: "figureMenu"
+        property var figure: null
+        MenuItem {
+            objectName: "figureAskAi"
+            text: qsTr("Ask AI"); icon.name: "ai"
+            onTriggered: root.reader.pdfCanvas.figureAiRequested(figureMenu.figure.page, root.figureRegion(figureMenu.figure), figureMenu.figure.label)
+        }
+        MenuItem {
+            objectName: "figurePin"
+            text: qsTr("Pin over the pages"); icon.name: "pin"
+            onTriggered: {
+                const f = figureMenu.figure
+                root.reader.pdfCanvas.pin({page: f.page, kind: f.kind, label: f.label, y: root.figureRegion(f).y,
+                                           rect: Qt.rect(f.x, f.y, f.width, f.height), float: f})
+            }
         }
     }
 }

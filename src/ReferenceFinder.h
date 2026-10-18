@@ -30,6 +30,12 @@ public:
     // The reference-list entry at a point (a link's destination): {kind: "citation", label, text, page, x,
     // y, width, height, top}, or {} when no entry ("[n] …" or "n. …") starts around there.
     Q_INVOKABLE int entryAt(const QUrl &source, int page, const QPointF &point);
+    // Every figure and table of a paper, by their captions (a line starting "Figure N", "Fig. N" or "Table N"):
+    // answered by figuresFound(request, figures) with [{kind (figure | table), label ("Figure 3", "Table II"),
+    // page, x, y, width, height (the float with its caption, PDF points), caption}] in page order. The page
+    // texts come from the same cache as references; it waits while the reader zooms or scrolls, and answers
+    // again from memory for the same file.
+    Q_INVOKABLE int figures(const QUrl &source);
     // Local repository links, independent of hover cancellation; at most three canonical repositories.
     Q_INVOKABLE int codeLinks(const QUrl &source);
     static QStringList repositoryLinks(const QStringList &pages, const QVariantList &annotations = {});
@@ -66,6 +72,7 @@ public:
 
 signals:
     void codeLinksFound(int request, const QStringList &links);
+    void figuresFound(int request, const QVariantList &figures);
     void resolved(int request, const QVariantMap &target);
     void objectFound(int request, const QVariantMap &target);
     void wordFound(int request, const QVariantMap &word);
@@ -75,6 +82,7 @@ private:
     QVariantMap find(const QString &path, int page, const QPointF &point, int request);
     QVariantMap findEntry(const QString &path, int page, const QPointF &point, int request);
     QStringList pageTexts(QPdfDocument &pdf, const QString &path, int request);
+    QVariantList figuresIn(QPdfDocument &pdf, const QStringList &texts);
     static QVariantMap describe(QPdfDocument &pdf, const QStringList &texts, const QVariantMap &target);
     std::shared_ptr<std::atomic_bool> m_readerBusy;
     std::atomic_int m_latest{0};
@@ -88,4 +96,6 @@ private:
     };
     QHash<QString, Texts> m_texts;
     QStringList m_order;
+    // The figures of the last few files, by file and its time.
+    QHash<QString, QPair<QDateTime, QVariantList>> m_figures;
 };

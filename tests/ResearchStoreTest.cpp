@@ -353,6 +353,32 @@ private slots:
         QVERIFY(!finder.eventFilter(nullptr, &other));
         QCOMPARE(finder.takePending(), QVariantList{QUrl::fromLocalFile(directory.filePath("paper.pdf"))});
     }
+    void figuresAreFoundByTheirCaptions()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("references.pdf");
+        writeReferenceFixture(path);
+        ReferenceFinder finder(std::make_shared<std::atomic_bool>(false));
+        QSignalSpy found(&finder, &ReferenceFinder::figuresFound);
+        const int request = finder.figures(QUrl::fromLocalFile(path));
+        QVERIFY(found.wait(10000));
+        QCOMPARE(found.last()[0].toInt(), request);
+        const auto figures = found.last()[1].toList();
+        // "Fig. 2." and "TABLE I" start their lines on page 2; the mentions on page 1 do not.
+        QCOMPARE(figures.size(), 2);
+        const auto figure = figures[0].toMap(), table = figures[1].toMap();
+        QCOMPARE(figure["label"].toString(), QString("Figure 2"));
+        QCOMPARE(figure["kind"].toString(), QString("figure"));
+        QCOMPARE(figure["page"].toInt(), 1);
+        QVERIFY(figure["caption"].toString().contains("Overview of the pipeline"));
+        QVERIFY(figure["width"].toDouble() > 0 && figure["height"].toDouble() > 0);
+        QCOMPARE(table["label"].toString(), QString("Table I"));
+        QCOMPARE(table["kind"].toString(), QString("table"));
+        // Asked again for the same file: the same answer.
+        finder.figures(QUrl::fromLocalFile(path));
+        QVERIFY(found.wait(10000));
+        QCOMPARE(found.last()[1].toList(), figures);
+    }
     void referencesWithoutLinksPointToTheirTargets()
     {
         QTemporaryDir directory;

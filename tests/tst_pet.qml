@@ -12,6 +12,7 @@ Item {
     SignalSpy { id: forYouSpy; signalName: "forYouRequested" }
     SignalSpy { id: pdfSpy; signalName: "pdfsDropped" }
     SignalSpy { id: explainSpy; signalName: "explainRequested" }
+    SignalSpy { id: settingsSpy; signalName: "settingsRequested" }
     // Stand-ins for researchStore.ai and researchStore.forYou.
     QtObject {
         id: fakeAi
@@ -123,6 +124,47 @@ Item {
             pet.message = null
             verify(Theme.setPictureMood("talk", ""))
             verify(Theme.setPictureMood("think", ""))
+        }
+        function test_longWorkIsToldWhenItStartsAndEnds() {
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            // Owelk behind other apps; work told after 300 ms here (three seconds in the app).
+            const pet = createTemporaryObject(petComponent, null, {ownerActive: false, workDelay: 300})
+            // Quick work: nothing to say.
+            pet.activities = [{id: "download:1", label: "Downloading a.pdf"}]
+            pet.activities = []
+            wait(500)
+            compare(pet.message, null)
+            // Long work: its start, then its end; a click goes to its settings.
+            pet.activities = [{id: "sync", label: "Syncing…"}]
+            tryVerify(function() { return pet.message !== null && pet.message.text === "Syncing…" })
+            pet.message = null
+            pet.activities = []
+            tryVerify(function() { return pet.message !== null && pet.message.text === "Sync finished." })
+            settingsSpy.target = pet; settingsSpy.clear()
+            pet.act()
+            compare(settingsSpy.count, 1)
+            compare(settingsSpy.signalArguments[0][0], "sync")
+            // Several at once: told together.
+            pet.activities = [{id: "download:1", label: "Downloading a.pdf"}, {id: "download:2", label: "Downloading b.pdf"}, {id: "download:3", label: "Downloading c.pdf"}]
+            tryVerify(function() { return pet.message !== null && pet.message.text === "Downloading a.pdf and 2 more" })
+            pet.message = null
+            pet.activities = []
+            tryVerify(function() { return pet.message !== null && pet.message.text === "3 downloads finished." })
+            pet.message = null
+            // What Owelk says as one ends is the news ("Download failed: …").
+            pet.activities = [{id: "download:4", label: "Downloading d.pdf"}]
+            tryVerify(function() { return pet.message !== null })
+            pet.message = null
+            pet.activities = []
+            researchStore.notify("Download failed: network error")
+            tryVerify(function() { return pet.message !== null && pet.message.text === "Download failed: network error" })
+            pet.message = null
+            // Owelk in front: nothing is said.
+            pet.ownerActive = true
+            pet.activities = [{id: "index", label: "Indexing 1/3"}]
+            wait(600)
+            compare(pet.message, null)
+            pet.activities = []
         }
         function test_droppedPdfsOpenAndTextIsExplained() {
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))

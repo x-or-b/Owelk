@@ -86,7 +86,7 @@ Item {
             tryCompare(canvas, "restoring", false)
             verify(canvas.position().y > .3)
         }
-        function test_fourViewsAsIconSegments() {
+        function test_fiveViewsAsIconSegments() {
             const contents = findChild(panel, "contentsTab"), annotations = findChild(panel, "annotationsTab")
             // The current segment is raised; the others are flat until hovered. Icons say what each is.
             verify(contents.checked && !annotations.checked)
@@ -94,7 +94,8 @@ Item {
             compare(annotations.background.color.a, 0)
             compare(annotations.icon.name, "annotations")
             compare(annotations.ToolTip.text, "Annotations")
-            compare(findChild(panel, "navigationMode").count, 4)
+            compare(findChild(panel, "navigationMode").count, 5)
+            compare(findChild(panel, "figuresTab").icon.name, "image")
             // Contents switches between the outline and the pages, and remembers it.
             mouseClick(findChild(panel, "pagesTab"))
             compare(panel.contents, "pages")
@@ -104,6 +105,35 @@ Item {
             mouseClick(annotations)
             compare(panel.mode, 1)
             verify(annotations.checked && !contents.checked)
+        }
+        function test_figuresAndTablesInTheirOwnView() {
+            reader.openFile(referenceSource)
+            tryCompare(reader, "pdfReady", true)
+            const canvas = findChild(reader, "pdfCanvas0")
+            tryCompare(canvas, "restoring", false)
+            mouseClick(findChild(panel, "figuresTab"))
+            compare(panel.mode, 4)
+            tryCompare(panel, "figuresLoading", false, 10000)
+            compare(panel.figures.map(function(f) { return f.label }), ["Figure 2", "Table I"])
+            compare(panel.figures[0].page, 1)
+            const grid = findChild(panel, "figureGrid")
+            tryVerify(function() { return grid.visible && grid.count === 2 })
+            let cell = null
+            tryVerify(function() { cell = findChild(grid, "figure-1"); return cell !== null && cell.width > 0 })
+            // A click goes there and lights it.
+            mouseClick(cell)
+            tryCompare(canvas, "currentPage", 1)
+            tryVerify(function() { return !!canvas.highlight && canvas.highlight.page === 1 })
+            // The right button: Ask AI about it, or pin it over the pages.
+            mouseClick(cell, cell.width / 2, cell.height / 2, Qt.RightButton)
+            const menu = findChild(panel, "figureMenu")
+            tryCompare(menu, "opened", true)
+            findChild(panel, "figurePin").triggered()
+            compare(canvas.pinnedCards.length, 1)
+            compare(canvas.pinnedCards[0].label, "Table I")
+            canvas.pinsByTab = ({})
+            menu.close()
+            panel.mode = 0
         }
         function test_annotationsShowNotesAboutThePaperAndItsMarks() {
             const spy = createTemporaryObject(linkSpyComponent, panel)

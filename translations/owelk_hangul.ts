@@ -4186,12 +4186,20 @@ Same file as another library entry</source>
         <translation> 심벌스</translation>
     </message>
     <message>
+        <source> · p. </source>
+        <translation> · 피. </translation>
+    </message>
+    <message>
         <source>Add an API key in Settings → AI.</source>
         <translation>애드 언 에이피아이 키 인 세팅스 → 에이아이.</translation>
     </message>
     <message>
         <source>Annotations</source>
         <translation>애노테이션스</translation>
+    </message>
+    <message>
+        <source>Ask AI</source>
+        <translation>애스크 에이아이</translation>
     </message>
     <message>
         <source>Asking Semantic Scholar…</source>
@@ -4218,6 +4226,10 @@ Same file as another library entry</source>
         <translation>카피 타이틀</translation>
     </message>
     <message>
+        <source>Figures</source>
+        <translation>피겨스</translation>
+    </message>
+    <message>
         <source>Find Citations</source>
         <translation>파인드 사이테이션스</translation>
     </message>
@@ -4228,6 +4240,10 @@ Same file as another library entry</source>
     <message>
         <source>Find Symbols</source>
         <translation>파인드 심벌스</translation>
+    </message>
+    <message>
+        <source>Finding figures and tables…</source>
+        <translation>파인딩 피겨스 앤드 테이블스…</translation>
     </message>
     <message>
         <source>Finding symbols…</source>
@@ -4264,6 +4280,10 @@ Same file as another library entry</source>
     <message>
         <source>No citing papers are known yet.</source>
         <translation>노 사이팅 페이퍼스 아 노운 옛.</translation>
+    </message>
+    <message>
+        <source>No figure or table captions found in this paper.</source>
+        <translation>노 피겨 오어 테이블 캡션스 파운드 인 디스 페이퍼.</translation>
     </message>
     <message>
         <source>No notes about this paper yet.</source>
@@ -4312,6 +4332,10 @@ Same file as another library entry</source>
     <message>
         <source>Papers this one cites and papers citing it, from Semantic Scholar. Sends this paper's DOI, arXiv ID or title.</source>
         <translation>페이퍼스 디스 원 사이츠 앤드 페이퍼스 사이팅 잇, 프롬 시맨틱 스칼라. 센즈 디스 페이퍼스 디오아이, 아카이브 아이디 오어 타이틀.</translation>
+    </message>
+    <message>
+        <source>Pin over the pages</source>
+        <translation>핀 오버 더 페이지스</translation>
     </message>
     <message>
         <source>Refresh</source>
@@ -4375,12 +4399,48 @@ Use Pages to navigate.</source>
 <context>
     <name>PetWindow</name>
     <message>
+        <source>%1 and %2 more</source>
+        <translation>%1 앤드 %2 모어</translation>
+    </message>
+    <message>
+        <source>%1 downloads finished.</source>
+        <translation>%1 다운로즈 피니시드.</translation>
+    </message>
+    <message>
         <source>%1 minutes of reading. Time for a short break?</source>
         <translation>%1 미닛츠 오브 리딩. 타임 포 어 쇼트 브레이크?</translation>
     </message>
     <message>
+        <source>%1 tasks finished.</source>
+        <translation>%1 태스크스 피니시드.</translation>
+    </message>
+    <message>
+        <source>Backup failed: </source>
+        <translation>백업 페일드: </translation>
+    </message>
+    <message>
+        <source>Backup finished.</source>
+        <translation>백업 피니시드.</translation>
+    </message>
+    <message>
+        <source>Downloaded: %1</source>
+        <translation>다운로디드: %1</translation>
+    </message>
+    <message>
+        <source>Finished: %1</source>
+        <translation>피니시드: %1</translation>
+    </message>
+    <message>
         <source>Hide Pet</source>
         <translation>하이드 펫</translation>
+    </message>
+    <message>
+        <source>Indexing finished.</source>
+        <translation>인덱싱 피니시드.</translation>
+    </message>
+    <message>
+        <source>Meaning search is up to date.</source>
+        <translation>미닝 서치 이즈 업 투 데이트.</translation>
     </message>
     <message>
         <source>New papers in For You: </source>
@@ -4389,6 +4449,10 @@ Use Pages to navigate.</source>
     <message>
         <source>Open Owelk</source>
         <translation>오픈 오웰크</translation>
+    </message>
+    <message>
+        <source>Sync finished.</source>
+        <translation>싱크 피니시드.</translation>
     </message>
     <message>
         <source>The AI could not answer: </source>

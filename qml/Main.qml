@@ -434,7 +434,7 @@ ApplicationWindow {
         threadsVisible = !!panels.threadsVisible
         threadsSide = panels.threadsSide === "right" ? "right" : "left"
         threadsWidth = Number(panels.threadsWidth) || 220
-        navigationMode = [0, 1, 2, 3].indexOf(panels.navigationMode) >= 0 ? panels.navigationMode : 0
+        navigationMode = [0, 1, 2, 3, 4].indexOf(panels.navigationMode) >= 0 ? panels.navigationMode : 0
         paperFolder = panels.folder || ""
         // Sessions from when a dock held several panels keep the one in front.
         for (const side of ["left", "right"]) {
@@ -482,6 +482,8 @@ ApplicationWindow {
             ai: researchStore.ai
             forYou: researchStore.forYou
             stretch: researchStore.readingClock.stretch
+            activities: window.activities
+            onSettingsRequested: function(page) { settingsDialog.openPage(page) }
             // Owelk's window in front; closed (macOS), the pet keeps saying what happened.
             ownerActive: window.visible && Qt.application.state === Qt.ApplicationActive
             onOpenRequested: window.comeForward()

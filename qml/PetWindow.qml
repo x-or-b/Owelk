@@ -17,6 +17,8 @@ Window {
     signal forYouRequested()
     signal pdfsDropped(var urls)
     signal explainRequested(string text)
+    // A Settings page to open (Sync & Backup, Search).
+    signal settingsRequested(string page)
     // Something dropped on the pet: PDFs to open, else text to explain. False if it was neither.
     function received(urls, text) {
         const pdfs = (urls || []).filter(function(url) { return /^file:.*\.pdf$/i.test(String(url)) })
@@ -55,6 +57,7 @@ Window {
         if (m && m.reminder) return
         if (m && m.thread) threadRequested(m.thread)
         else if (m && m.forYou) forYouRequested()
+        else if (m && m.settings) { openRequested(); settingsRequested(m.settings) }
         else openRequested()
     }
     // Conversations being answered (gloss and other requests are not news).
@@ -84,6 +87,95 @@ Window {
     function settle(request) {
         const next = Object.assign({}, answering); delete next[request]; answering = next
         if (message && message.writing) { message = null; sayWriting() }
+    }
+    // Long work (activities: the status bar's list in the app — downloads, folder imports, copying PDFs, For You,
+    // indexing, sync, backups): what has run three seconds is told when it starts and when it ends, or fails.
+    // Endings close together are told as one ("3 downloads finished"). A click goes where it belongs.
+    property var activities: []
+    // How long work runs before it is told about, in milliseconds (tests shorten it).
+    property int workDelay: 3000
+    // id → {label, since, told}; what ended and is waiting to be told; what failed, by id.
+    property var work: ({})
+    property var ended: []
+    property var failed: ({})
+    property string lastMessage: ""
+    onActivitiesChanged: {
+        const now = Date.now(), before = work, next = {}
+        for (const a of activities) next[a.id] = before[a.id] || {label: a.label, since: now, told: false}
+        // Ended: told when it started, or failed.
+        const done = Object.keys(before).filter(function(id) { return !next[id] && (before[id].told || !!pet.failed[id]) })
+        work = next
+        if (!done.length) return
+        ended = ended.concat(done.map(function(id) { return {id: id, label: before[id].label} }))
+        endings.restart()
+    }
+    function workKind(id) { return id.indexOf("download:") === 0 || id === "forYouAdd" ? "download" : id }
+    // Where a click on news about it goes.
+    function workPlace(id) {
+        const kind = workKind(id)
+        return kind === "sync" || kind === "backup" ? {settings: "sync"} : kind === "index" || kind === "meaning" ? {settings: "search"}
+             : kind === "forYou" || kind === "forYouAi" ? {forYou: true} : {}
+    }
+    function workDone(item) {
+        const kind = workKind(item.id)
+        if (kind === "download") return qsTr("Downloaded: %1").arg(item.label.replace(/^Downloading /, ""))
+        if (kind === "sync") return qsTr("Sync finished.")
+        if (kind === "backup") return qsTr("Backup finished.")
+        if (kind === "index") return qsTr("Indexing finished.")
+        if (kind === "meaning") return qsTr("Meaning search is up to date.")
+        return qsTr("Finished: %1").arg(item.label.replace(/…$/, ""))
+    }
+    Timer {
+        objectName: "petWorkClock"
+        interval: pet.workDelay / 3; repeat: true
+        running: Object.keys(pet.work).some(function(id) { return !pet.work[id].told })
+        onTriggered: {
+            const now = Date.now(), started = []
+            for (const id in pet.work)
+                if (!pet.work[id].told && now - pet.work[id].since >= pet.workDelay) { pet.work[id].told = true; started.push(id) }
+            if (!started.length) return
+            pet.work = Object.assign({}, pet.work)
+            const first = pet.work[started[0]]
+            pet.say(Object.assign({text: started.length > 1 ? qsTr("%1 and %2 more").arg(first.label).arg(started.length - 1) : first.label},
+                                  pet.workPlace(started[0])), true)
+        }
+    }
+    Timer {
+        id: endings
+        interval: pet.workDelay / 2
+        onTriggered: {
+            const list = pet.ended
+            pet.ended = []
+            if (!list.length) return
+            // For You tells what it found itself.
+            const told = list.filter(function(item) { return pet.workKind(item.id) !== "forYou" && pet.workKind(item.id) !== "forYouAi" })
+            if (!told.length) return
+            const failures = told.filter(function(item) { return !!pet.failed[item.id] })
+            let text
+            if (told.length === 1) text = pet.failed[told[0].id] || pet.lastMessage || pet.workDone(told[0])
+            else if (failures.length) text = pet.failed[failures[0].id]
+            else if (told.every(function(item) { return pet.workKind(item.id) === "download" })) text = qsTr("%1 downloads finished.").arg(told.length)
+            else text = qsTr("%1 tasks finished.").arg(told.length)
+            pet.failed = ({}); pet.lastMessage = ""
+            pet.say(Object.assign({text: text}, pet.workPlace((failures[0] || told[0]).id)))
+        }
+    }
+    // What Owelk said as work ended ("Download failed: …", "Saved …") is the news, for a single ending.
+    Connections {
+        target: typeof researchStore !== "undefined" ? researchStore : null
+        ignoreUnknownSignals: true
+        function onMessage(text) { if (pet.ended.length) pet.lastMessage = text }
+        function onBackupFinished(ok, path, message) {
+            if (ok) return
+            const text = qsTr("Backup failed: ") + message
+            // Told with the backup's ending when it is still running or about to be told; otherwise now.
+            if (pet.work.backup || pet.ended.some(function(item) { return item.id === "backup" })) {
+                const next = Object.assign({}, pet.failed); next.backup = text; pet.failed = next
+                if (!pet.work.backup) endings.restart()
+            } else {
+                pet.say({text: text, settings: "sync"})
+            }
+        }
     }
     // Break reminder: after DesktopPet.breakMinutes of reading (stretch: researchStore.readingClock's seconds read
     // since the last break, which five minutes away from reading start again) the pet suggests a break, also
