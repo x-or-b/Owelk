@@ -129,6 +129,18 @@ Item {
             action.trigger()
             compare(closingSpy.count, 1)
             tryCompare(workspace, "visible", false)
+            if (Qt.platform.os === "osx") {
+                // Owelk keeps running with its window closed; Close has nothing left to do. The Dock icon (Owelk asked to
+                // come forward) and the menu bar's commands bring the window back.
+                verify(!action.enabled)
+                appInstance.filesRequested([])
+                tryCompare(workspace, "visible", true)
+                action.trigger()
+                tryCompare(workspace, "visible", false)
+                findChild(workspace, "libraryAction").trigger()
+                tryCompare(workspace, "visible", true)
+                d.restore({})
+            }
             workspace.visible = true
             waitForRendering(workspace.contentItem)
         }

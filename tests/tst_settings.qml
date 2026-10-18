@@ -26,6 +26,7 @@ Item {
             settings.close(); tryCompare(settings, "visible", false)
             while (Theme.pictures.length) Theme.removePicture()
             Theme.pictureOn = true
+            Theme.pictureInterval = 0
             Theme.matchSystem = false; Theme.lightTheme = "neutral"; Theme.darkTheme = "dark"
             Theme.theme = "neutral"; Theme.accentName = "blue"; Theme.textSize = 13; Theme.invertPages = false; Theme.appIcon = "paper"
             researchStore.setSetting("appearance.custom", "")
@@ -272,6 +273,7 @@ Item {
             compare(group.visible, false)
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
             compare(group.visible, true)
+            verify(!visualChild(settings.contentItem, "pictureIntervalBox").visible)
             verify(visualChild(settings.contentItem, "pictureColor-" + Theme.pictureColors[0]).chosen, "the main color is the accent")
             // A color of the picture becomes the accent.
             const color = Theme.pictureColors[0]
@@ -318,6 +320,11 @@ Item {
             verify(Theme.usePicture(testInput.pictureFile(1000, 1000, true, "#6ec8f5")))
             verify(String(Theme.picture) !== first)
             compare(Theme.pictureScale, 100)
+            const interval = visualChild(settings.contentItem, "pictureIntervalBox")
+            verify(interval.visible)
+            interval.activated(2)
+            compare(Theme.pictureInterval, 60)
+            Theme.pictureInterval = 0
             // The Custom theme's colors below follow the picture in use.
             const secondWindow = Theme.seeds("custom").window
             verify(Qt.colorEqual(visualChild(settings.contentItem, "seed-window").color, secondWindow))

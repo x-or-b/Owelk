@@ -13,6 +13,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRandomGenerator>
 #include <QStyleHints>
 #include <algorithm>
 #include <cmath>
@@ -91,6 +92,11 @@ bool knownTheme(const QString &id)
         if (id == QLatin1String(t.id)) return true;
     return false;
 }
+// Settings › Appearance › Picture › Change picture, in minutes (-1: at each launch, 0: never).
+bool knownInterval(int minutes)
+{
+    return QList<int>{-1, 0, 30, 60, 360, 720, 1440}.contains(minutes);
+}
 constexpr const char *seedKeys[] = {"window", "sidebar", "content", "raised", "text", "separator", "backdrop"};
 // Pictures are kept no larger than this on their long side: enough for a window on a large screen, where
 // a full illustration would decode to tens of megabytes.
@@ -166,6 +172,9 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
         m_matchSystem = m_store->setting("appearance.matchSystem") == "1";
         if (const auto light = m_store->setting("appearance.lightTheme"); knownTheme(light)) m_lightTheme = light;
         if (const auto dark = m_store->setting("appearance.darkTheme"); knownTheme(dark)) m_darkTheme = dark;
+        if (const int interval = m_store->setting("appearance.pictureInterval", "0").toInt(); knownInterval(interval))
+            m_pictureInterval = interval;
+        m_pictureNext = QDateTime::fromString(m_store->setting("appearance.pictureNext"), Qt::ISODate);
     }
     if (const auto *app = qobject_cast<QGuiApplication *>(QCoreApplication::instance())) {
         if (const auto scheme = app->styleHints()->colorScheme(); scheme != Qt::ColorScheme::Unknown)
@@ -178,6 +187,13 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
     if (m_matchSystem && m_systemDark) useThemeFor(*m_systemDark);
     apply();
     showAppIcon(false);
+    m_pictureTimer.setSingleShot(true);
+    connect(&m_pictureTimer, &QTimer::timeout, this, &Theme::schedulePicture);
+    connect(this, &Theme::changed, this, &Theme::schedulePicture);
+    connect(this, &Theme::picturesChanged, this, &Theme::schedulePicture);
+    // At each launch: another picture before the window opens.
+    if (m_pictureInterval == -1) rotatePicture();
+    schedulePicture();
 }
 
 QVariantList Theme::appIcons() const
@@ -775,4 +791,58 @@ QString Theme::defaultInk() const
 QString Theme::defaultTextInk() const
 {
     return inks[std::size(inks) - 1].id;
+}
+
+void Theme::setPictureInterval(int minutes)
+{
+    if (!knownInterval(minutes) || minutes == m_pictureInterval) return;
+    m_pictureInterval = minutes;
+    save("appearance.pictureInterval", QString::number(minutes));
+    m_pictureNext = minutes > 0 ? QDateTime::currentDateTimeUtc().addSecs(minutes * 60) : QDateTime();
+    save("appearance.pictureNext", m_pictureNext.toString(Qt::ISODate));
+    emit rotationChanged();
+    schedulePicture();
+}
+
+void Theme::setPictureRotationAllowed(bool allowed)
+{
+    if (m_pictureRotationAllowed == allowed) return;
+    m_pictureRotationAllowed = allowed;
+    emit rotationChanged();
+    schedulePicture();
+}
+
+void Theme::rotatePicture()
+{
+    if (m_pictures.size() < 2 || !pictureShown()) return;
+    QStringList choices;
+    for (const auto &picture : std::as_const(m_pictures))
+        if (picture.file != m_picture) choices << picture.file;
+    if (choices.isEmpty()) return;
+    choosePicture(choices[QRandomGenerator::global()->bounded(int(choices.size()))]);
+}
+
+void Theme::schedulePicture()
+{
+    if (m_rotating) return;
+    m_pictureTimer.stop();
+    if (m_pictureInterval <= 0 || m_pictures.size() < 2 || !pictureShown()) return;
+    const auto now = QDateTime::currentDateTimeUtc();
+    if (!m_pictureNext.isValid()) {
+        m_pictureNext = now.addSecs(m_pictureInterval * 60);
+        save("appearance.pictureNext", m_pictureNext.toString(Qt::ISODate));
+    }
+    const qint64 remaining = now.msecsTo(m_pictureNext);
+    if (remaining > 0) {
+        m_pictureTimer.start(int(qMin<qint64>(remaining, 24 * 60 * 60 * 1000)));
+        return;
+    }
+    // A due change waits for Home or the application to leave the foreground, without polling.
+    if (!m_pictureRotationAllowed) return;
+    m_rotating = true;
+    m_pictureNext = now.addSecs(m_pictureInterval * 60);
+    save("appearance.pictureNext", m_pictureNext.toString(Qt::ISODate));
+    rotatePicture();
+    m_rotating = false;
+    schedulePicture();
 }

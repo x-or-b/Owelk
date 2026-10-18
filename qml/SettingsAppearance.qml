@@ -258,6 +258,18 @@ ColumnLayout {
             Label { text: Theme.paperStrength + "%"; color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
         }
         SettingsRow {
+            visible: Theme.pictures.length > 1
+            label: qsTr("Change picture")
+            ComboBox {
+                objectName: "pictureIntervalBox"
+                Layout.preferredWidth: 180
+                readonly property var intervals: [0, 30, 60, 360, 720, 1440, -1]
+                model: [qsTr("Keep this picture"), qsTr("Every 30 minutes"), qsTr("Every hour"), qsTr("Every 6 hours"), qsTr("Every 12 hours"), qsTr("Every day"), qsTr("Each launch")]
+                currentIndex: Math.max(0, intervals.indexOf(Theme.pictureInterval))
+                onActivated: function(index) { Theme.pictureInterval = intervals[index] }
+            }
+        }
+        SettingsRow {
             visible: DesktopPet.supported
             label: qsTr("Desktop pet")
             detail: qsTr("The picture floats above other apps while Owelk is open. Click it to come back here.")

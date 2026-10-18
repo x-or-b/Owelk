@@ -444,6 +444,7 @@ ApplicationWindow {
         try { documents.restore(state) }
         catch (error) { restoreFailed = true; notification = error.message }
         moveMenusIntoButton()
+        menusBringWindowBack()
         initialized = true
         Qt.callLater(recordPlace)
         // Files from the command line, Finder or a second launch made before the window was ready.
@@ -455,6 +456,10 @@ ApplicationWindow {
         // After a restore or an unexpected exit, say what happened.
         if (!restoreFailed && researchStore.startupMessage.length) notify(researchStore.startupMessage)
         else if (!restoreFailed && researchStore.recoveredFromCrash) notify(qsTr("Owelk closed unexpectedly last time. Your tabs are back; unsaved notes are offered when you reopen them."))
+    }
+    Binding {
+        target: Theme; property: "pictureRotationAllowed"
+        value: window.homeVisible || !window.visible || Qt.application.state !== Qt.ApplicationActive
     }
     Shortcut {
         sequence: "Ctrl+Alt+Shift+P"
@@ -470,7 +475,9 @@ ApplicationWindow {
         sourceComponent: PetWindow {
             ai: researchStore.ai
             forYou: researchStore.forYou
-            reading: Qt.application.state === Qt.ApplicationActive && !window.homeVisible
+            reading: window.visible && Qt.application.state === Qt.ApplicationActive && !window.homeVisible
+            // Owelk's window in front; closed (macOS), the pet keeps saying what happened.
+            ownerActive: window.visible && Qt.application.state === Qt.ApplicationActive
             onOpenRequested: window.comeForward()
             onThreadRequested: function(threadId) { window.comeForward(); window.openAiThread(threadId) }
             onForYouRequested: { window.comeForward(); window.showHome() }
@@ -496,13 +503,37 @@ ApplicationWindow {
     }
     // Logging out or quitting from the dock can skip the window's close handler.
     Connections { target: Qt.application; function onAboutToQuit() { window.persist() } }
+    // Nothing would be lost by closing the window now (the session is saved); otherwise it says why not.
+    function readyToClose() {
+        if (researchStore.printing) { notify(qsTr("Finish or cancel printing before closing the window.")); return false }
+        if (window.currentReader && window.currentReader.annotationDirty) { notify(qsTr("Save or discard annotation edits before closing the window.")); return false }
+        if (researchStore.busy) { notify(qsTr("Saving. Please close the window after saving finishes.")); return false }
+        if (initialized && !restoreFailed && !persist()) { notify(qsTr("Cannot save the session. Check storage and try again.")); return false }
+        return true
+    }
+    // Quit (Cmd+Q, ≡ › Quit): Owelk ends, the desktop pet with it. A closed window comes back to say what is in the way.
+    property bool quitting: false
+    function quit() {
+        if (!readyToClose()) { comeForward(); return }
+        quitting = true
+        if (petLoader.item) petLoader.item.close()
+        Qt.quit()
+    }
     onClosing: function(close) {
-        if (researchStore.printing) { close.accepted = false; notify(qsTr("Finish or cancel printing before closing the window.")); return }
-        if (window.currentReader && window.currentReader.annotationDirty) { close.accepted = false; notify(qsTr("Save or discard annotation edits before closing the window.")); return }
-        if (researchStore.busy) { close.accepted = false; notify(qsTr("Saving. Please close the window after saving finishes.")) }
-        else if (initialized && !restoreFailed && !persist()) { close.accepted = false; notify(qsTr("Cannot save the session. Check storage and try again.")) }
-        // Closing this window ends Owelk (Quit, Cmd+Q too): the pet, a window of its own, would keep it running.
-        if (close.accepted) Qt.callLater(function() { if (petLoader.item) petLoader.item.close() })
+        if (quitting) return
+        if (!readyToClose()) { close.accepted = false; return }
+        // macOS: closing the window (its red button, Cmd+W with no tabs) leaves Owelk running, as Mac apps do, and
+        // the desktop pet with it; the Dock icon, the pet and opening a PDF bring the window back as it was.
+        if (Qt.platform.os === "osx") {
+            close.accepted = false
+            // Out of full screen first, then hidden; focus mode ends with it.
+            if (typeof windowChrome !== "undefined") windowChrome.hideWindow(window)
+            else window.hide()
+            setFocusMode(false)
+            return
+        }
+        // Elsewhere closing this window ends Owelk: the pet, a window of its own, would keep it running.
+        Qt.callLater(function() { if (petLoader.item) petLoader.item.close() })
     }
     onWidthChanged: scheduleSave()
     onHeightChanged: scheduleSave()
@@ -615,6 +646,19 @@ ApplicationWindow {
     // ≡ is one list: File's items, a line, View's. The emptied menus are kept, in the window: they still own the
     // actions, whose keys only work while their menu belongs to a window.
     property var movedMenus: []
+    // macOS keeps Owelk's menu bar while its window is closed: a command there brings the window back (not
+    // Close and Quit, which have nothing to do then).
+    function menusBringWindowBack() {
+        if (Qt.platform.os !== "osx" || !window.menuBar) return
+        for (let m = 0; m < window.menuBar.count; ++m) {
+            const menu = window.menuBar.menuAt(m)
+            for (let i = 0; i < menu.count; ++i) {
+                const action = menu.actionAt(i)
+                if (action && action.objectName !== "closeTabAction" && action.objectName !== "quitAction")
+                    action.triggered.connect(function() { if (!window.visible && !window.quitting) window.comeForward() })
+            }
+        }
+    }
     function moveMenusIntoButton() {
         if (Qt.platform.os === "osx" || !window.menuBar) return
         const moved = []
@@ -655,11 +699,11 @@ ApplicationWindow {
             Action { objectName: "openWebAction"; text: qsTr("Open Web Page…"); shortcut: window.keys("openWeb"); enabled: !window.restoreFailed; onTriggered: window.openWebAddress() }
             Action { objectName: "newNoteAction"; text: qsTr("New Note"); shortcut: window.keys("newNote"); enabled: !window.restoreFailed; onTriggered: documents.newNote() }
             MenuSeparator {}
-            Action { objectName: "closeTabAction"; text: documents.hasTabs ? qsTr("Close Tab") : qsTr("Close Window"); shortcut: window.keys("closeTab"); enabled: !(!window.homeVisible && window.currentReader && window.currentReader.annotationDirty); onTriggered: window.closeTabOrWindow() }
+            Action { objectName: "closeTabAction"; text: documents.hasTabs ? qsTr("Close Tab") : qsTr("Close Window"); shortcut: window.keys("closeTab"); enabled: window.visible && !(!window.homeVisible && window.currentReader && window.currentReader.annotationDirty); onTriggered: window.closeTabOrWindow() }
             Action { text: qsTr("Reopen Closed Tab"); shortcut: window.keys("reopenTab"); enabled: documents.closedTabs.length > 0 && !window.restoreFailed; onTriggered: documents.reopenClosedTab() }
             MenuSeparator {}
             Action { objectName: "settingsAction"; text: qsTr("Settings…"); shortcut: Qt.platform.os === "osx" ? StandardKey.Preferences : "Ctrl+,"; onTriggered: settingsDialog.open() }
-            Action { text: qsTr("Quit"); shortcut: StandardKey.Quit; onTriggered: window.close() }
+            Action { objectName: "quitAction"; text: qsTr("Quit"); shortcut: StandardKey.Quit; onTriggered: window.quit() }
         }
         Menu {
             title: qsTr("View")

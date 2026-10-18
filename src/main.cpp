@@ -64,6 +64,7 @@ int main(int argc, char *argv[])
             qPrintable(instance.serverName()));
     // Finder: Open With and double-click arrive as file-open events.
     app.installEventFilter(&instance);
+    instance.watchReopen();
     ResearchStore store(dataDir);
     QString error;
     if (!store.initialize(&error)) {

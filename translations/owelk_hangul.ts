@@ -5048,6 +5048,10 @@ You can open the same document twice.</source>
         <translation>센터</translation>
     </message>
     <message>
+        <source>Change picture</source>
+        <translation>체인지 픽처</translation>
+    </message>
+    <message>
         <source>Changes the icon in the Dock and on the app in Finder. If the Dock keeps the old one, it updates after Owelk restarts.</source>
         <translation>체인지스 더 아이콘 인 더 독 앤드 온 더 앱 인 파인더. 이프 더 독 킵스 더 올드 원, 잇 업데이츠 애프터 오웰크 리스타츠.</translation>
     </message>
@@ -5096,8 +5100,36 @@ You can open the same document twice.</source>
         <translation>다큐먼츠 앤드 리스츠</translation>
     </message>
     <message>
+        <source>Each launch</source>
+        <translation>이치 런치</translation>
+    </message>
+    <message>
+        <source>Every 12 hours</source>
+        <translation>에브리 12 아워스</translation>
+    </message>
+    <message>
+        <source>Every 30 minutes</source>
+        <translation>에브리 30 미닛츠</translation>
+    </message>
+    <message>
+        <source>Every 6 hours</source>
+        <translation>에브리 6 아워스</translation>
+    </message>
+    <message>
+        <source>Every day</source>
+        <translation>에브리 데이</translation>
+    </message>
+    <message>
+        <source>Every hour</source>
+        <translation>에브리 아워</translation>
+    </message>
+    <message>
         <source>Hover, selection and secondary text are worked out from these colors, so the theme stays consistent.</source>
         <translation>호버, 셀렉션 앤드 세컨더리 텍스트 아 워크트 아웃 프롬 디즈 컬러스, 소 더 테마 스테이즈 컨시스턴트.</translation>
+    </message>
+    <message>
+        <source>Keep this picture</source>
+        <translation>킵 디스 픽처</translation>
     </message>
     <message>
         <source>Large</source>

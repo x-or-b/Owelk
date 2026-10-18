@@ -25,6 +25,9 @@ public:
     QString serverName() const { return m_name; }
     // Takes Finder's file-open events for PDFs (installed on the application).
     bool eventFilter(QObject *watched, QEvent *event) override;
+    // macOS: a click on Owelk's Dock icon (or opening it again from Finder) asks the window to come forward,
+    // as a later launch does elsewhere. With the window closed, that is how it comes back.
+    void watchReopen();
 
 signals:
     // urls of PDFs to open; empty when another launch only asked this window to come forward.

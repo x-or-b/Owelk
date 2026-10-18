@@ -2,7 +2,9 @@
 
 #include <QGuiApplication>
 #include <QHash>
+#include <QPointer>
 #include <QRectF>
+#include <QTimer>
 #include <QWindow>
 #import <AppKit/AppKit.h>
 
@@ -90,6 +92,34 @@ void WindowChrome::setToolbarShown(QWindow *window, bool shown)
         NSWindow *native = reinterpret_cast<NSView *>(window->winId()).window;
         if (native && native.toolbar && native.toolbar.visible != shown) native.toolbar.visible = shown;
     }
+}
+
+void WindowChrome::hideWindow(QWindow *window)
+{
+    if (!window) return;
+    if (QGuiApplication::platformName() == QLatin1String("cocoa")) {
+        @autoreleasepool {
+            NSWindow *native = reinterpret_cast<NSView *>(window->winId()).window;
+            if (native && (native.styleMask & NSWindowStyleMaskFullScreen)) {
+                const QPointer<QWindow> guard(window);
+                // Built without ARC: retained until it has seen the window leave full screen once.
+                __block id observer = nil;
+                observer = [[NSNotificationCenter.defaultCenter
+                    addObserverForName:NSWindowDidExitFullScreenNotification
+                                object:native
+                                 queue:nil
+                            usingBlock:^(NSNotification *) {
+                                [NSNotificationCenter.defaultCenter removeObserver:observer];
+                                [observer release];
+                                if (guard) QTimer::singleShot(0, guard.data(), [guard] { guard->hide(); });
+                            }] retain];
+                // Through Qt, so the window's state follows; nothing more when focus mode, ending, has asked already.
+                window->showNormal();
+                return;
+            }
+        }
+    }
+    window->hide();
 }
 
 void WindowChrome::setDragArea(QWindow *window, qreal height, const QVariantList &controls)

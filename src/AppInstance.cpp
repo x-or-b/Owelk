@@ -6,7 +6,15 @@
 #include <QFileOpenEvent>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QPointer>
+#include <QTimer>
 #include <QUrl>
+
+#ifdef Q_OS_MACOS
+#include <functional>
+// AppInstanceMac.mm
+void appInstanceWatchReopen(std::function<void()> reopened);
+#endif
 
 AppInstance::AppInstance(const QString &dataDirectory, QObject *parent) : QObject(parent)
 {
@@ -95,4 +103,15 @@ bool AppInstance::eventFilter(QObject *watched, QEvent *event)
         }
     }
     return QObject::eventFilter(watched, event);
+}
+
+void AppInstance::watchReopen()
+{
+#ifdef Q_OS_MACOS
+    // After AppKit's call returns, in Qt's own turn of the event loop.
+    const QPointer<AppInstance> self(this);
+    appInstanceWatchReopen([self] {
+        if (self) QTimer::singleShot(0, self.data(), [self] { self->deliver({}); });
+    });
+#endif
 }

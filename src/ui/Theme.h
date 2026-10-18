@@ -1,10 +1,12 @@
 #pragma once
 
 #include <QColor>
+#include <QDateTime>
 #include <QList>
 #include <QObject>
 #include <QSize>
 #include <QStringList>
+#include <QTimer>
 #include <QUrl>
 #include <QVariant>
 #include <QVariantList>
@@ -54,8 +56,14 @@ class Theme : public QObject {
     Q_PROPERTY(QVariantList pictures READ pictures NOTIFY picturesChanged)
     // Its size in pixels (as kept), for laying it out without stretching.
     Q_PROPERTY(QSize pictureSize READ pictureSize NOTIFY changed)
-    // Shown while the Custom theme is in use (another theme keeps the picture but does not show it).
+    // Minutes between changes to another kept picture: 0 keeps this one, -1 changes it at each launch. A change
+    // that is due waits until it is allowed (Home, or Owelk in the background), so colors never change mid-page.
+    Q_PROPERTY(int pictureInterval READ pictureInterval WRITE setPictureInterval NOTIFY rotationChanged)
+    Q_PROPERTY(
+        bool pictureRotationAllowed READ pictureRotationAllowed WRITE setPictureRotationAllowed NOTIFY rotationChanged)
+    // Put away for now (a shortcut), without forgetting the picture.
     Q_PROPERTY(bool pictureHidden MEMBER m_pictureHidden NOTIFY changed)
+    // Shown while the Custom theme is in use (another theme keeps the picture but does not show it).
     Q_PROPERTY(bool pictureShown READ pictureShown NOTIFY changed)
     // The picture theme can be turned off: Custom is the reader's own colors again, the kept pictures stay
     // for when it is turned on (five taps on Theme). Off, picture is empty.
@@ -175,6 +183,10 @@ public:
     QVariantList pictures() const;
     QColor customAccent() const { return m_customAccent; }
     QSize pictureSize() const { return m_pictureSize; }
+    int pictureInterval() const { return m_pictureInterval; }
+    void setPictureInterval(int minutes);
+    bool pictureRotationAllowed() const { return m_pictureRotationAllowed; }
+    void setPictureRotationAllowed(bool allowed);
     bool pictureShown() const { return !m_pictureHidden && showing() && m_theme == "custom"; }
     bool pictureOn() const { return m_pictureOn; }
     void setPictureOn(bool on);
@@ -245,6 +257,8 @@ signals:
     void changed();
     // The kept pictures or the one in use (not on every theme change, so lists of them stay put).
     void picturesChanged();
+    // How often the picture changes, or whether it may change now.
+    void rotationChanged();
 
 private:
     struct Seeds {
@@ -298,6 +312,14 @@ private:
     // The theme, accent and Custom colors to come back to when the picture theme goes; and coming back.
     void keepBeforePicture();
     void restoreBeforePicture();
+    // One single-shot timer waits for the next change; a change that is due is made once it is allowed.
+    void schedulePicture();
+    // Another kept picture, chosen at random.
+    void rotatePicture();
+    int m_pictureInterval = 0;
+    QDateTime m_pictureNext; // kept, so quitting does not put the next change off
+    QTimer m_pictureTimer;
+    bool m_pictureRotationAllowed = false, m_rotating = false;
     bool m_pictureOn = true, m_pictureHidden = false;
     QList<Picture> m_pictures;
     QString m_picture; // the one in use

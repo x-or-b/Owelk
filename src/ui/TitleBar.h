@@ -29,4 +29,7 @@ public:
     // macOS: the empty toolbar that sizes the title bar shows (false in full screen, where macOS would otherwise keep a
     // blank strip above the window's content). Elsewhere nothing happens.
     Q_INVOKABLE void setToolbarShown(QWindow *window, bool shown);
+    // Hides the window. macOS: one in full screen leaves it first and hides once that is over (hidden at once, it
+    // would leave an empty full-screen space behind).
+    Q_INVOKABLE void hideWindow(QWindow *window);
 };

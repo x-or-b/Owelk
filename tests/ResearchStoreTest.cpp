@@ -48,6 +48,57 @@
 class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void picturesRotateOnlyWhenReadingAllowsIt()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QVERIFY(store.initialize(nullptr));
+        QImage picture(20, 30, QImage::Format_RGB32);
+        picture.fill(Qt::blue);
+        const auto first = directory.filePath("first.png"), second = directory.filePath("second.png");
+        QVERIFY(picture.save(first));
+        picture.fill(Qt::green);
+        QVERIFY(picture.save(second));
+        QString before;
+        {
+            Theme theme(&store);
+            QCOMPARE(theme.pictureInterval(), 0);
+            QVERIFY(theme.usePicture(QUrl::fromLocalFile(first)));
+            QVERIFY(theme.usePicture(QUrl::fromLocalFile(second)));
+            before = theme.picture().toString();
+            theme.setPictureScale(60);
+            theme.setPictureInterval(30);
+            theme.setPictureInterval(7);
+            QCOMPARE(theme.pictureInterval(), 30);
+        }
+        store.setSetting("appearance.pictureNext", QDateTime::currentDateTimeUtc().addSecs(-60).toString(Qt::ISODate));
+        {
+            Theme theme(&store);
+            QCOMPARE(theme.picture().toString(), before);
+            theme.setPictureRotationAllowed(false);
+            QCOMPARE(theme.picture().toString(), before);
+            theme.setPictureRotationAllowed(true);
+            QVERIFY(theme.picture().toString() != before);
+            QCOMPARE(theme.pictureScale(), 100);
+            const auto now = theme.picture();
+            theme.setPictureRotationAllowed(false);
+            theme.setPictureRotationAllowed(true);
+            QCOMPARE(theme.picture(), now); // Next due time was moved forward, one change only.
+            theme.setPictureInterval(-1);
+            before = theme.picture().toString();
+        }
+        {
+            Theme theme(&store);
+            QCOMPARE(theme.pictureInterval(), -1);
+            QVERIFY(theme.picture().toString() != before);
+            QCOMPARE(theme.pictureScale(), 60);
+            theme.removePicture();
+            before = theme.picture().toString();
+        }
+        Theme single(&store);
+        QCOMPARE(single.picture().toString(), before);
+    }
+
     void repositoriesComeFromBodyAndPdfLinks()
     {
         const auto links = ReferenceFinder::repositoryLinks(
