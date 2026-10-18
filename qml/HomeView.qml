@@ -330,6 +330,96 @@ Rectangle {
                     }
                 }
             }
+            // Reading: a square a day for the last weeks, darker the more minutes were read (hovered: the day, its
+            // minutes and papers), with the days read in a row, today and the last seven days. Shown once a minute
+            // has been read in these weeks.
+            ColumnLayout {
+                id: readingBox
+                objectName: "homeReading"
+                readonly property int weeks: 18
+                // Read again when the reading clock saves and when Home shows; nothing while it is hidden.
+                readonly property var calendar: (researchStore.readingRevision, root.visible)
+                    ? researchStore.readingCalendar(weeks * 7) : ({days: [], streak: 0, today: 0, week: 0})
+                // Whole weeks from the first day of the week the system uses; the last column ends today.
+                readonly property var cells: {
+                    const days = calendar.days
+                    if (!days.length) return []
+                    const today = days[days.length - 1].day.split("-")
+                    const into = (new Date(+today[0], today[1] - 1, +today[2]).getDay() - Qt.locale().firstDayOfWeek + 7) % 7
+                    return days.slice(days.length - ((weeks - 1) * 7 + into + 1))
+                }
+                readonly property int step: 14
+                visible: cells.some(function(c) { return c.seconds >= 60 })
+                Layout.fillWidth: true
+                spacing: 6
+                BoxHeading {
+                    objectName: "homeReadingHeading"
+                    text: qsTr("Reading")
+                    detail: readingBox.calendar.streak > 1 ? qsTr("%1 days in a row").arg(readingBox.calendar.streak) : ""
+                }
+                Rectangle {
+                    Layout.fillWidth: true
+                    implicitHeight: readingRow.implicitHeight + 28
+                    radius: Theme.radiusLarge
+                    color: Theme.content
+                    border.color: Theme.separator
+                    RowLayout {
+                        id: readingRow
+                        anchors.fill: parent; anchors.margins: 14
+                        spacing: 28
+                        Grid {
+                            id: readingGrid
+                            objectName: "homeReadingGrid"
+                            rows: 7; flow: Grid.TopToBottom
+                            spacing: readingBox.step - 11
+                            readonly property int hovered: dayHover.hovered
+                                ? Math.floor(dayHover.point.position.x / readingBox.step) * 7 + Math.floor(dayHover.point.position.y / readingBox.step) : -1
+                            readonly property var hoveredDay: hovered >= 0 && hovered < readingBox.cells.length ? readingBox.cells[hovered] : null
+                            HoverHandler { id: dayHover }
+                            Repeater {
+                                model: readingBox.cells
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    readonly property real minutes: modelData.seconds / 60
+                                    width: 11; height: 11; radius: 2
+                                    color: minutes < 1 ? Theme.separator
+                                        : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, minutes < 15 ? .3 : minutes < 30 ? .5 : minutes < 60 ? .75 : 1)
+                                }
+                            }
+                            ToolTip {
+                                objectName: "homeReadingDay"
+                                parent: readingGrid
+                                visible: !!readingGrid.hoveredDay
+                                x: Math.floor(readingGrid.hovered / 7) * readingBox.step + 5 - width / 2
+                                y: readingGrid.hovered % 7 * readingBox.step - height - 4
+                                text: {
+                                    const day = readingGrid.hoveredDay
+                                    if (!day) return ""
+                                    const parts = day.day.split("-")
+                                    const date = new Date(+parts[0], parts[1] - 1, +parts[2]).toLocaleDateString(Qt.locale(), Locale.ShortFormat)
+                                    if (day.seconds < 60) return date + "  ·  " + qsTr("Not read")
+                                    return [date, Platform.duration(day.seconds), day.papers === 1 ? qsTr("1 paper") : qsTr("%1 papers").arg(day.papers)].join("  ·  ")
+                                }
+                            }
+                        }
+                        ColumnLayout {
+                            Layout.alignment: Qt.AlignTop
+                            spacing: 12
+                            ColumnLayout {
+                                spacing: 2
+                                Label { text: qsTr("Today"); font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textTertiary }
+                                Label { objectName: "homeReadingToday"; text: Platform.duration(readingBox.calendar.today); font.pixelSize: Theme.fontHeadline; color: Theme.text }
+                            }
+                            ColumnLayout {
+                                spacing: 2
+                                Label { text: qsTr("Last 7 days"); font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textTertiary }
+                                Label { objectName: "homeReadingWeek"; text: Platform.duration(readingBox.calendar.week); font.pixelSize: Theme.fontHeadline; color: Theme.text }
+                            }
+                        }
+                        Item { Layout.fillWidth: true }
+                    }
+                }
+            }
             // Collections and recent papers, then notes and AI conversations; all last opened first.
             GridLayout {
                 Layout.fillWidth: true

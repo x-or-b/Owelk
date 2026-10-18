@@ -20,6 +20,7 @@
 class LibrarySync;
 class ForYou;
 class LibraryInsights;
+class ReadingClock;
 class PaperIndex;
 class ReferenceFinder;
 class QNetworkAccessManager;
@@ -48,6 +49,9 @@ class ResearchStore final : public QObject {
     Q_PROPERTY(QObject *libraryInsights READ libraryInsights CONSTANT)
     // New papers in the fields the reader follows (ForYou.h).
     Q_PROPERTY(QObject *forYou READ forYou CONSTANT)
+    // Counts time spent reading each paper (ReadingClock.h); readingRevision bumps when stored totals change.
+    Q_PROPERTY(QObject *readingClock READ readingClock CONSTANT)
+    Q_PROPERTY(int readingRevision READ readingRevision NOTIFY readingSaved)
     Q_PROPERTY(bool backingUp READ backingUp NOTIFY backingUpChanged)
     Q_PROPERTY(bool recoveredFromCrash READ recoveredFromCrash CONSTANT)
     Q_PROPERTY(QString startupMessage READ startupMessage CONSTANT)
@@ -82,6 +86,16 @@ public:
     QObject *sync() const;
     QObject *forYou() const;
     QObject *libraryInsights() const;
+    QObject *readingClock() const;
+    int readingRevision() const { return m_readingRevision; }
+    // Time read (ResearchStoreReading.cpp), kept per computer, paper and day in reading_days and added up over
+    // computers. recordReading adds seconds read in source on day (yyyy-MM-dd, local time).
+    Q_INVOKABLE bool recordReading(const QUrl &source, const QString &day, int seconds);
+    // The last days days up to today: {days: [{day, seconds, papers}] oldest first, streak (days in a row with a
+    // minute or more, up to today or yesterday), today, week (seconds, the last seven days)}.
+    Q_INVOKABLE QVariantMap readingCalendar(int days) const;
+    // Seconds read in a paper, over all days and computers.
+    Q_INVOKABLE int readingSeconds(const QUrl &source) const;
     // Whether a paper with this arXiv ID (any version) or DOI is in the Library.
     bool hasPaper(const QString &arxiv, const QString &doi) const { return !paperUrlFor(arxiv, doi).isEmpty(); }
     // That paper's URL, or empty.
@@ -428,6 +442,7 @@ signals:
     void passageReady(const QUrl &source, int page, const QRectF &region);
     void folderLoaded(int requestId, const QUrl &folder, const QVariantList &entries, const QString &error);
     void homeChanged();
+    void readingSaved();
     void relinkingChanged();
     void copyingPdfsChanged();
     void tasksChanged();
@@ -537,5 +552,9 @@ private:
     LibrarySync *m_sync;
     ForYou *m_forYou = nullptr;
     LibraryInsights *m_libraryInsights = nullptr;
+    ReadingClock *m_readingClock = nullptr;
+    int m_readingRevision = 0;
+    QString readingDevice();
+    QString m_readingDevice;
     void syncReceived(const QSet<QString> &tables, const QStringList &sources);
 };

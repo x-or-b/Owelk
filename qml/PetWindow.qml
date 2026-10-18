@@ -85,32 +85,24 @@ Window {
         const next = Object.assign({}, answering); delete next[request]; answering = next
         if (message && message.writing) { message = null; sayWriting() }
     }
-    // Break reminder: minutes of reading (Owelk in front with a document) are counted, and after
-    // DesktopPet.breakMinutes the pet suggests a break, also while Owelk is in front. Five minutes away
-    // from reading count as a break and start the count again. A reminder nobody answers goes after two
-    // minutes.
-    property bool reading: false
-    // A minute, in milliseconds (tests shorten it).
-    property int minuteLength: 60000
-    property int readMinutes: 0
-    Timer {
-        objectName: "readingClock"
-        interval: pet.minuteLength; repeat: true
-        running: pet.reading && DesktopPet.breakMinutes > 0
-        onTriggered: {
-            pet.readMinutes = pet.readMinutes + 1
-            if (pet.readMinutes < DesktopPet.breakMinutes) return
-            pet.readMinutes = 0
-            pet.say({text: qsTr("%1 minutes of reading. Time for a short break?").arg(DesktopPet.breakMinutes), reminder: true})
+    // Break reminder: after DesktopPet.breakMinutes of reading (stretch: researchStore.readingClock's seconds read
+    // since the last break, which five minutes away from reading start again) the pet suggests a break, also
+    // while Owelk is in front; again after as many more. A reminder nobody answers goes after two minutes.
+    property int stretch: 0
+    property int reminded: 0
+    onStretchChanged: {
+        if (stretch === 0) {
+            reminded = 0
+            if (message && message.reminder) message = null
+            return
         }
+        const every = DesktopPet.breakMinutes * 60
+        if (every <= 0 || stretch < (reminded + 1) * every) return
+        reminded = Math.floor(stretch / every)
+        say({text: qsTr("%1 minutes of reading. Time for a short break?").arg(DesktopPet.breakMinutes), reminder: true})
     }
     Timer {
-        interval: pet.minuteLength * 5
-        running: !pet.reading
-        onTriggered: { pet.readMinutes = 0; if (pet.message && pet.message.reminder) pet.message = null }
-    }
-    Timer {
-        interval: pet.minuteLength * 2
+        interval: 2 * 60000
         running: pet.message !== null && !!pet.message.reminder
         onTriggered: pet.message = null
     }

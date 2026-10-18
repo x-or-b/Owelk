@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Owelk.Ui
 import QtQuick.Dialogs as Native
 import QtQuick.Pdf
+import "Platform.js" as Platform
 
 // The Library tab: Papers (filtered by reading state, favorites, collection or tag), Notes, and the
 // Trash (papers, notes and AI conversations together). Papers are referenced, never copied:
@@ -1406,7 +1407,7 @@ Rectangle {
                                 Label {
                                     Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                                     objectName: "libraryPaperMeta-" + paper.modelData.id
-                                    text: [paper.modelData.authors, paper.modelData.year, paper.modelData.citationCount === undefined ? "" : paper.modelData.citationCount === 1 ? qsTr("1 citation") : qsTr("%1 citations").arg(paper.modelData.citationCount), paper.modelData.tags ? "# " + paper.modelData.tags : ""].filter(function(s) { return s && s.length }).join("  ·  ")
+                                    text: [paper.modelData.authors, paper.modelData.year, paper.modelData.citationCount === undefined ? "" : paper.modelData.citationCount === 1 ? qsTr("1 citation") : qsTr("%1 citations").arg(paper.modelData.citationCount), paper.modelData.readSeconds >= 60 ? qsTr("Read for %1").arg(Platform.duration(paper.modelData.readSeconds)) : "", paper.modelData.tags ? "# " + paper.modelData.tags : ""].filter(function(s) { return s && s.length }).join("  ·  ")
                                 }
                                 Label {
                                     id: paperSummary

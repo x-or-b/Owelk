@@ -1498,6 +1498,18 @@
         <translation> 뉴</translation>
     </message>
     <message>
+        <source>%1 days in a row</source>
+        <translation>%1 데이즈 인 어 로우</translation>
+    </message>
+    <message>
+        <source>%1 papers</source>
+        <translation>%1 페이퍼스</translation>
+    </message>
+    <message>
+        <source>1 paper</source>
+        <translation>1 페이퍼</translation>
+    </message>
+    <message>
         <source>AI Conversations</source>
         <translation>에이아이 컨버세이션스</translation>
     </message>
@@ -1546,6 +1558,10 @@
         <translation>포워드</translation>
     </message>
     <message>
+        <source>Last 7 days</source>
+        <translation>라스트 7 데이즈</translation>
+    </message>
+    <message>
         <source>Menu</source>
         <translation>메뉴</translation>
     </message>
@@ -1574,6 +1590,10 @@
         <translation>노 리센트 페이퍼스</translation>
     </message>
     <message>
+        <source>Not read</source>
+        <translation>낫 리드</translation>
+    </message>
+    <message>
         <source>Notes</source>
         <translation>노츠</translation>
     </message>
@@ -1594,12 +1614,20 @@
         <translation>페이지 </translation>
     </message>
     <message>
+        <source>Reading</source>
+        <translation>리딩</translation>
+    </message>
+    <message>
         <source>Recent Papers</source>
         <translation>리센트 페이퍼스</translation>
     </message>
     <message>
         <source>Start with a paper</source>
         <translation>스타트 위드 어 페이퍼</translation>
+    </message>
+    <message>
+        <source>Today</source>
+        <translation>투데이</translation>
     </message>
 </context>
 <context>
@@ -2182,6 +2210,10 @@ Same file as another library entry</source>
     <message>
         <source>Read</source>
         <translation>리드</translation>
+    </message>
+    <message>
+        <source>Read for %1</source>
+        <translation>리드 포 %1</translation>
     </message>
     <message>
         <source>Reading</source>
@@ -3889,6 +3921,10 @@ Same file as another library entry</source>
         <translation>리드</translation>
     </message>
     <message>
+        <source>Read for %1</source>
+        <translation>리드 포 %1</translation>
+    </message>
+    <message>
         <source>Read from PDF</source>
         <translation>리드 프롬 피디에프</translation>
     </message>
@@ -4361,6 +4397,21 @@ Use Pages to navigate.</source>
     <message>
         <source>Your answer is ready.</source>
         <translation>유어 앤서 이즈 레디.</translation>
+    </message>
+</context>
+<context>
+    <name>Platform</name>
+    <message>
+        <source>%1 h</source>
+        <translation>%1 에이치</translation>
+    </message>
+    <message>
+        <source>%1 h %2 min</source>
+        <translation>%1 에이치 %2 민</translation>
+    </message>
+    <message>
+        <source>%1 min</source>
+        <translation>%1 민</translation>
     </message>
 </context>
 <context>

@@ -2,6 +2,7 @@ import Owelk.Ui
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "Platform.js" as Platform
 
 // Edit the title and bibliographic details shown for a PDF. The PDF file itself is never changed.
 Dialog {
@@ -110,6 +111,14 @@ Dialog {
         RowLayout {
             ComboBox { id: stateBox; objectName: "detailsReadingState"; model: [qsTr("Unread"), qsTr("Reading"), qsTr("Read")]; Layout.preferredWidth: 120 }
             CheckBox { id: favoriteBox; objectName: "detailsFavorite"; text: qsTr("Favorite") }
+            Item { Layout.fillWidth: true }
+            // Time read on every computer, as Owelk counted it.
+            Label {
+                objectName: "detailsTimeRead"
+                visible: (root.details.readSeconds || 0) >= 60
+                text: qsTr("Read for %1").arg(Platform.duration(root.details.readSeconds || 0))
+                font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
+            }
         }
         Item { width: 1; height: 1; visible: root.lookupStatus.length > 0 }
         Label {

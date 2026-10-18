@@ -196,7 +196,13 @@ bool ResearchStore::applyRelink(const QUrl &source, const QUrl &candidate, const
             return abort();
         for (const auto &[sql, args] : movePaperReferences(duplicate, original))
             if (!run(sql, args)) return abort();
-        for (const auto *table : {"recent_documents", "reading_positions"})
+        // Time read in either adds up.
+        if (!run("INSERT INTO reading_days(device,document_id,day,seconds) SELECT device,?,day,seconds FROM "
+                 "reading_days WHERE document_id=? ON CONFLICT(device,document_id,day) DO UPDATE SET "
+                 "seconds=seconds+excluded.seconds",
+                {original, duplicate}))
+            return abort();
+        for (const auto *table : {"recent_documents", "reading_positions", "reading_days"})
             if (!run(QStringLiteral("DELETE FROM %1 WHERE document_id=?").arg(table), {duplicate})) return abort();
         if (!run("DELETE FROM documents WHERE id=?", {duplicate})) return abort();
     }

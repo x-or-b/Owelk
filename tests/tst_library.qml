@@ -74,6 +74,55 @@ Item {
             tryVerify(function() { return view.rows.length === 1 && view.rows[0].tldr === undefined })
             tryVerify(function() { row = findChild(view, "libraryPaper-" + id); return row && row.height === plainHeight })
         }
+        function test_readingTimeOnHomeAndInTheLibrary() {
+            const paper = testInput.uniqueFixture("reading time.pdf")
+            verify(researchStore.rememberDocument(paper))
+            const date = function(ago) {
+                const d = new Date(); d.setDate(d.getDate() - ago)
+                return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")
+            }
+            verify(researchStore.recordReading(paper, date(1), 40 * 60))
+            verify(researchStore.recordReading(paper, date(0), 25 * 60))
+            // The Home in front (Home tabs closed by earlier tests may still be around, hidden).
+            const shownHome = function(item) {
+                if (!item || item.visible === false) return null
+                if (item.objectName === "homeView") return item
+                const children = item.children || []
+                for (let i = 0; i < children.length; ++i) { const found = shownHome(children[i]); if (found) return found }
+                return null
+            }
+            let home = null, card = null
+            tryVerify(function() { home = shownHome(workspace.contentItem); card = visualChild(home, "homeReading"); return card !== null && card.visible })
+            const calendar = researchStore.readingCalendar(7)
+            verify(calendar.today >= 25 * 60)
+            const minutes = function(seconds) { const m = Math.floor(seconds / 60); return m < 60 ? m + " min" : Math.floor(m / 60) + " h" + (m % 60 ? " " + m % 60 + " min" : "") }
+            compare(visualChild(home, "homeReadingToday").text, minutes(calendar.today))
+            compare(visualChild(home, "homeReadingWeek").text, minutes(calendar.week))
+            compare(visualChild(home, "homeReadingHeading").detail, "2 days in a row")
+            // Today is the last square; hovering it says the day, the minutes and the papers.
+            const grid = visualChild(home, "homeReadingGrid")
+            // Scrolled into view (For You from earlier tests may push it down).
+            let flick = card
+            while (flick && flick.flicking === undefined) flick = flick.parent
+            flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, card.mapToItem(flick.contentItem, 0, 0).y - 20))
+            waitForRendering(grid)
+            const last = card.cells.length - 1
+            mouseMove(grid, Math.floor(last / 7) * 14 + 5, last % 7 * 14 + 5)
+            const tip = findChild(grid, "homeReadingDay")
+            tryCompare(tip, "visible", true)
+            verify(tip.text.indexOf(minutes(calendar.today)) > 0, tip.text)
+            mouseMove(grid, -20, -20)
+            // The Library row and the paper's details show the time read.
+            home.libraryFilterRequested({})
+            const view = library()
+            view.query = "reading time"
+            tryVerify(function() { return view.rows.length === 1 })
+            const id = view.rows[0].id
+            let meta = null
+            tryVerify(function() { meta = findChild(view, "libraryPaperMeta-" + id); return meta !== null })
+            verify(meta.text.indexOf("Read for 1 h 5 min") >= 0, meta.text)
+            view.query = ""
+        }
         function test_readingDotFollowsTheState() {
             // Added, not opened: an accent dot.
             const paper = testInput.copyFixture("reading dot.pdf")

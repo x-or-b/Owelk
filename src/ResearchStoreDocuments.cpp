@@ -243,13 +243,15 @@ QVariantMap ResearchStore::documentDetails(const QUrl &source) const
     const auto url = resolvedSource(source);
     QSqlQuery query(m_database);
     query.prepare(
-        "SELECT title,authors,year,doi,arxiv,metadata_origin,reading_state,favorite FROM documents WHERE url=?");
+        "SELECT title,authors,year,doi,arxiv,metadata_origin,reading_state,favorite,(SELECT sum(seconds) FROM "
+        "reading_days r WHERE r.document_id=documents.id) FROM documents WHERE url=?");
     query.addBindValue(url.toString());
     QVariantMap details{{"source", url}, {"fileName", fileName(url)}};
     if (!query.exec() || !query.next()) return details;
-    details.insert({{"title", query.value(0)}, {"authors", query.value(1)}, {"year", query.value(2)},
-        {"doi", query.value(3)}, {"arxiv", query.value(4)}, {"origin", query.value(5)},
-        {"readingState", query.value(6)}, {"favorite", query.value(7).toBool()}});
+    details.insert(
+        {{"title", query.value(0)}, {"authors", query.value(1)}, {"year", query.value(2)}, {"doi", query.value(3)},
+            {"arxiv", query.value(4)}, {"origin", query.value(5)}, {"readingState", query.value(6)},
+            {"favorite", query.value(7).toBool()}, {"readSeconds", query.value(8).toInt()}});
     return details;
 }
 

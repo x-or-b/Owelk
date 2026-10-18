@@ -68,26 +68,35 @@ Item {
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
             DesktopPet.breakMinutes = 25
             compare(researchStore.setting("pet.breakMinutes"), "25")
-            // Minutes of 20 ms; Owelk in front, a document open.
-            const pet = createTemporaryObject(petComponent, null, {minuteLength: 20, ownerActive: true, reading: true})
-            const words = findChild(pet, "petBubbleText")
+            // stretch: the reading clock's seconds read since the last break; Owelk in front.
+            const pet = createTemporaryObject(petComponent, null, {ownerActive: true})
+            waitForRendering(pet.contentItem)
+            pet.stretch = 24 * 60
+            compare(pet.message, null)
+            pet.stretch = 25 * 60
             // Shown although Owelk is in front: that is where the reading happens.
-            tryVerify(function() { return pet.message !== null }, 2000)
-            compare(words.text, "25 minutes of reading. Time for a short break?")
-            // The count starts again (test minutes are short: a few may have passed already).
-            verify(pet.readMinutes < 25, "count " + pet.readMinutes)
+            verify(pet.message !== null)
+            compare(findChild(pet, "petBubbleText").text, "25 minutes of reading. Time for a short break?")
             // A click dismisses it and opens nothing.
             openSpy.target = pet; openSpy.clear()
+            waitForRendering(pet.contentItem)
             mouseClick(pet.contentItem, pet.width / 2, pet.height - 10)
             compare(pet.message, null); compare(openSpy.count, 0)
-            // Away for a while: the count starts again.
-            tryVerify(function() { return pet.readMinutes >= 3 })
-            pet.reading = false
-            tryCompare(pet, "readMinutes", 0, 1000)
-            // Off: no counting.
+            // Once every 25 minutes of the stretch.
+            pet.stretch = 49 * 60
+            compare(pet.message, null)
+            pet.stretch = 50 * 60
+            verify(pet.message !== null)
+            // A break starts the stretch again and takes the reminder away.
+            pet.stretch = 0
+            compare(pet.message, null)
+            pet.stretch = 25 * 60
+            verify(pet.message !== null)
+            pet.message = null
+            // Off: no reminders.
             DesktopPet.breakMinutes = 0
-            pet.reading = true
-            verify(!findChild(pet, "readingClock").running)
+            pet.stretch = 0; pet.stretch = 100 * 60
+            compare(pet.message, null)
         }
         function test_droppedPdfsOpenAndTextIsExplained() {
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))

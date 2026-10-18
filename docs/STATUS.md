@@ -14,7 +14,7 @@
 | 12–16. 검색·커맨드 | FTS5 본문(+OCR), 단어 순서 무관·점수 순위, 범위 칩·검색어 조건, 선택적 의미 검색(Ollama·OpenAI), 명령 팔레트 | — |
 | 17–21. 주석·연결 | 5색 주석·코멘트, 영역 표시(캡션 함께), 노트 링크·역링크, 주석 포함 PDF 내보내기(표준 주석). 이전 Captures는 주석·노트로 통합(스키마 15) | Figure 자동 인식 |
 | 22–27. 노트·AI | Markdown 노트, AI 4종(Claude API, OpenAI API, ChatGPT 계정, Ollama), 모델·추론 강도·Fast, 이미지·PDF/웹 영역 첨부(저장 안 함), Threads 패널(채팅 폴더: 논문별 자동 생성·직접 만들기·끌어 옮기기, 최근·이름 정렬, 검색), 채팅에 여러 논문(3편까지 전문, 그 이상은 구절 검색)·Collection·라이브러리 전체 첨부, 노트 첨부와 AI 노트 제안(고친 노트·새 노트를 카드로 보여 주고 Apply/Create를 눌러야 저장, Undo), 선호 언어, 논문 비교표, 쪽별 번역·논문 요약, 탭·Collection AI 정리 | 라이브러리 전체에 묻기(v0.6) |
-| 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, 공유 폴더를 통한 컴퓨터 간 동기화(Google Drive·Dropbox·Syncthing, 항목별 나중 변경 우선), SQLite(라이브러리 스키마 19, 색인 5, 업그레이드 전 백업), 백업·복원, Markdown·BibTeX 내보내기, 단축키 변경, macOS·Linux·Windows 키 저장소, 로컬 설치 스크립트(macOS·Linux `install-local.sh`, Windows `install-local.ps1`, 모두 `tools/qt.txt`의 Qt 6.11.3 하나로 고정), Docker 빌드·테스트, 자동 테스트 7묶음 | Linux/Windows 실기기, 배포 패키지 |
+| 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, 공유 폴더를 통한 컴퓨터 간 동기화(Google Drive·Dropbox·Syncthing, 항목별 나중 변경 우선), SQLite(라이브러리 스키마 20, 색인 5, 업그레이드 전 백업), 백업·복원, Markdown·BibTeX 내보내기, 단축키 변경, macOS·Linux·Windows 키 저장소, 로컬 설치 스크립트(macOS·Linux `install-local.sh`, Windows `install-local.ps1`, 모두 `tools/qt.txt`의 Qt 6.11.3 하나로 고정), Docker 빌드·테스트, 자동 테스트 7묶음 | Linux/Windows 실기기, 배포 패키지 |
 
 ## 우선순위
 
@@ -40,6 +40,7 @@
 - 집중 모드(⌘⇧F, Ctrl+Shift+F, View 메뉴·명령 팔레트): 상단 바·탭 줄·리더 도구 막대·아래 상태 막대를 숨기고 기본으로 전체 화면(Settings › General › Focus mode에서 끔). 맨 위 끝에 포인터를 대면 숨긴 것이 한 막대에 모여 페이지 위에 잠깐 나타남: 양 끝에 상태 막대와 같은 패널 아이콘, ←/→·검색, 가운데 지금 탭(누르면 열린 탭 목록·⌘1~9·New Tab), Exit Focus. macOS 전체 화면에서는 제목 막대의 빈 도구 막대 띠를 숨김. 앱을 다시 켜면 보통 화면.
 - Windows·Linux 상단 바: Settings › General › Tabs › Top bar(기본 끔). 끄면 창이 한 줄 줄어 검색창은 Home 맨 위(다른 화면은 Ctrl+K로 가운데에), ←/→는 위 왼쪽 탭 줄 왼쪽 끝, 검색 버튼과 ≡는 위 오른쪽 탭 줄 오른쪽 끝, 창을 채운 Home은 자기 줄에 함께. 세로 탭일 때는 상단 바를 유지. macOS는 상단 바가 제목 막대라 그대로.
 - 메뉴 정리: File(새 탭·열기·웹·노트·닫기·다시 열기·Settings·Quit)과 View(Home·Library·확대·맞춤·Dark Pages·패널)만 남기고, 나머지는 단축키와 명령 팔레트로. Windows·Linux의 ≡는 하위 메뉴 없는 한 목록.
+- 읽기 달력·읽은 시간: Home에 최근 18주를 하루 한 칸으로 보여 주는 달력(강조색 진하기 4단계: 15·30·60분), 연속 기록(하루 1분 이상, 오늘 아직이면 어제까지), 오늘·최근 7일 시간. 칸에 올리면 날짜·읽은 시간·논문 수. Library 행과 Paper Details에 논문별 읽은 시간("Read for 1 h 5 min"). 리더 탭이 앞에 있고 Owelk가 활성일 때만 세고, 2분 넘게 스크롤·키·클릭이 없으면 멈춥니다(`ReadingClock`, 시각 기준이라 읽는 동안 매초 도는 타이머 없음). 1분에 한 번 모아 `reading_days`(컴퓨터·논문·날짜, 스키마 20, 업그레이드 전 백업)에 씁니다. 컴퓨터마다 따로 기록해 동기화하고 합산합니다.
 - macOS 창 닫기: 빨간 버튼·⌘W(탭 없음)는 창만 닫고 앱은 Dock에 남습니다(전체 화면이면 먼저 끝냄). Dock 아이콘 클릭·메뉴 막대 명령·Finder에서 연 PDF로 창이 그대로 돌아오고, ⌘Q만 앱을 끝냅니다. 닫힌 동안 Close는 꺼집니다.
 - PDF 선택 띠: 줄 상자가 줄 간격보다 큰 PDF에서 위아래 띠가 겹치던 것을 줄 사이 가운데에서 나눔(Library의 논문 24편, 3줄 드래그 262번 기준 겹침 127 → 2).
 - For You 개수: 주제·연구자·기관·Collection마다 확인 한 번에 가져올 최대 편수(5·10·20·50)를 따로 정하고, 정하지 않은 것은 공통 값(Usually at most, from each)을 따릅니다. 이 컴퓨터의 설정입니다.

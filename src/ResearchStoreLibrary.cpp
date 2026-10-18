@@ -76,7 +76,8 @@ QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
                   "(SELECT group_concat(t.name, ', ') FROM document_tags dt JOIN tags t ON t.id=dt.tag_id "
                   "WHERE dt.document_id=d.id),"
                   "(d.sha256<>'' AND EXISTS(SELECT 1 FROM documents o WHERE o.sha256=d.sha256 AND "
-                  "o.id<>d.id)),p.position,d.doi,d.arxiv "
+                  "o.id<>d.id)),p.position,d.doi,d.arxiv,"
+                  "(SELECT sum(seconds) FROM reading_days rd WHERE rd.document_id=d.id) "
                   "FROM documents d LEFT JOIN recent_documents r ON r.document_id=d.id "
                   "LEFT JOIN reading_positions p ON p.document_id=d.id WHERE "
         + where.join(" AND ") + " ORDER BY " + order
@@ -92,7 +93,7 @@ QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
             {"favorite", query.value(5).toBool()}, {"excluded", query.value(6).toBool()},
             {"tags", query.value(8).toString()}, {"duplicate", query.value(9).toBool()},
             {"position", QJsonDocument::fromJson(query.value(10).toByteArray()).object().toVariantMap()},
-            {"doi", query.value(11)}, {"arxiv", query.value(12)}};
+            {"doi", query.value(11)}, {"arxiv", query.value(12)}, {"readSeconds", query.value(13).toInt()}};
         if (m_libraryInsights)
             row.insert(m_libraryInsights->details(query.value(11).toString(), query.value(12).toString()));
         rows.append(row);

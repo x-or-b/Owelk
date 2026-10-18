@@ -42,11 +42,11 @@ const QList<Table> &tables()
 {
     static const QList<Table> list{{"documents", {"id"}}, {"tags", {"id"}}, {"collections", {"id"}}, {"notes", {"id"}},
         {"highlights", {"id"}}, {"recent_documents", {"document_id"}}, {"reading_positions", {"document_id"}},
-        {"collection_documents", {"collection_id", "document_id"}}, {"document_tags", {"document_id", "tag_id"}},
-        {"links", {"from_kind", "from_id", "to_kind", "to_id"}}, {"ai_folders", {"id"}}, {"ai_threads", {"id"}},
-        {"ai_messages", {"id"}}, {"ai_responses", {"id"}}, {"foryou_topics", {"id"}},
-        {"foryou_follows", {"collection_id"}}, {"foryou_items", {"id"}}, {"foryou_meta", {"key"}},
-        {"foryou_people", {"id"}}};
+        {"reading_days", {"device", "document_id", "day"}}, {"collection_documents", {"collection_id", "document_id"}},
+        {"document_tags", {"document_id", "tag_id"}}, {"links", {"from_kind", "from_id", "to_kind", "to_id"}},
+        {"ai_folders", {"id"}}, {"ai_threads", {"id"}}, {"ai_messages", {"id"}}, {"ai_responses", {"id"}},
+        {"foryou_topics", {"id"}}, {"foryou_follows", {"collection_id"}}, {"foryou_items", {"id"}},
+        {"foryou_meta", {"key"}}, {"foryou_people", {"id"}}};
     return list;
 }
 
@@ -526,6 +526,12 @@ bool Pass::rekey(const QString &table, const QString &from, const QString &to)
         for (const auto *child : {"recent_documents", "reading_positions"})
             statements.append(
                 {QStringLiteral("UPDATE OR REPLACE %1 SET document_id=? WHERE document_id=?").arg(child), {to, from}});
+        // Time read in either copy adds up.
+        statements.append({"INSERT INTO reading_days(device,document_id,day,seconds) SELECT device,?,day,seconds FROM "
+                           "reading_days WHERE document_id=? ON CONFLICT(device,document_id,day) DO UPDATE SET "
+                           "seconds=seconds+excluded.seconds",
+            {to, from}});
+        statements.append({"DELETE FROM reading_days WHERE document_id=?", {from}});
         statements += movePaperReferences(from, to);
     } else {
         statements.append({"UPDATE OR REPLACE document_tags SET tag_id=? WHERE tag_id=?", {to, from}});

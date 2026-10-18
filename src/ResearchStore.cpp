@@ -12,6 +12,7 @@
 #include "SelectionGeometry.h"
 #include "LibrarySync.h"
 #include "LibraryInsights.h"
+#include "ReadingClock.h"
 
 #include <QClipboard>
 #include <QDateTime>
@@ -88,9 +89,10 @@ ResearchStore::ResearchStore(const QString &directory, QObject *parent)
     : QObject(parent), m_directory(directory), m_connection(QUuid::createUuid().toString()),
       m_index(new PaperIndex(directory, this)), m_references(new ReferenceFinder(m_index->readerBusyFlag(), this)),
       m_lookup(new MetadataLookup(this)), m_ai(new AiService(this, this)), m_sync(new LibrarySync(directory, this)),
-      m_forYou(new ForYou(this, this))
+      m_forYou(new ForYou(this, this)), m_readingClock(new ReadingClock(this))
 {
     m_papers = defaultPapersFolder(directory);
+    connect(m_readingClock, &ReadingClock::counted, this, &ResearchStore::recordReading);
     m_sync->setPapersFolder(m_papers);
     connect(m_sync, &LibrarySync::received, this, &ResearchStore::syncReceived);
     m_workers.setMaxThreadCount(1);
@@ -116,6 +118,11 @@ QObject *ResearchStore::libraryInsights() const
     return m_libraryInsights;
 }
 
+QObject *ResearchStore::readingClock() const
+{
+    return m_readingClock;
+}
+
 QObject *ResearchStore::forYou() const
 {
     return m_forYou;
@@ -139,6 +146,7 @@ QStringList ResearchStore::annotationColors()
 ResearchStore::~ResearchStore()
 {
     // First, while this object is whole: copying and importing report their progress to it.
+    if (m_database.isOpen()) m_readingClock->flush();
     m_stopping->store(true);
     m_fileWorkers.waitForDone();
     m_sync->finish();
@@ -482,6 +490,14 @@ bool ResearchStore::initialize(QString *error)
             {"CREATE TABLE IF NOT EXISTS foryou_people (id TEXT PRIMARY KEY, kind TEXT NOT NULL, name TEXT NOT NULL "
              "DEFAULT '', detail TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 1, position INTEGER NOT "
              "NULL DEFAULT 0)"}},
+        // Time read, by computer (so that totals from several computers add up rather than replace one
+        // another when they sync), paper and day.
+        {20,
+            {"CREATE TABLE IF NOT EXISTS reading_days (device TEXT NOT NULL, document_id TEXT NOT NULL, day TEXT NOT "
+             "NULL, seconds INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(device,document_id,day))",
+                "CREATE INDEX IF NOT EXISTS reading_days_document ON reading_days(document_id)",
+                "CREATE INDEX IF NOT EXISTS reading_days_day ON reading_days(day)"},
+            {}, true},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     // Set aside only once step 18 is committed, so a failed upgrade still finds it next time.
@@ -514,6 +530,9 @@ bool ResearchStore::initialize(QString *error)
     m_forYou->start();
     m_libraryInsights = new LibraryInsights(this, this);
     connect(m_libraryInsights, &LibraryInsights::changed, this, &ResearchStore::announceDocumentsChanged);
+    // Every key, scroll and click in Owelk's windows tells the reading clock that the reader is still there.
+    qApp->installEventFilter(m_readingClock);
+    connect(qApp, &QCoreApplication::aboutToQuit, m_readingClock, &ReadingClock::flush);
     // Papers past their days in the Trash go a little after start, not while the window opens.
     QTimer::singleShot(20000, this, &ResearchStore::purgeExpired);
     QTimer::singleShot(25000, this, &ResearchStore::pruneIndex);
@@ -652,6 +671,10 @@ void ResearchStore::syncReceived(const QSet<QString> &tables, const QStringList 
     }
     if (touched({"ai_threads", "ai_messages", "ai_responses"})) emit aiThreadsChanged();
     if (touched({"foryou_topics", "foryou_follows", "foryou_items", "foryou_meta"})) m_forYou->reload();
+    if (touched({"reading_days"})) {
+        ++m_readingRevision;
+        emit readingSaved();
+    }
     // Papers removed or deleted on another computer leave this computer's text index too.
     if (touched({"documents"})) pruneIndex();
 }

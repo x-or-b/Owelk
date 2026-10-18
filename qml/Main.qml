@@ -457,6 +457,12 @@ ApplicationWindow {
         if (!restoreFailed && researchStore.startupMessage.length) notify(researchStore.startupMessage)
         else if (!restoreFailed && researchStore.recoveredFromCrash) notify(qsTr("Owelk closed unexpectedly last time. Your tabs are back; unsaved notes are offered when you reopen them."))
     }
+    // Time read counts while a paper is in front of this window and Owelk is the active app.
+    Binding {
+        target: researchStore.readingClock; property: "source"
+        value: window.visible && Qt.application.state === Qt.ApplicationActive && !window.homeVisible && window.currentReader
+            && window.currentReader.isActive ? window.currentReader.source : ""
+    }
     Binding {
         target: Theme; property: "pictureRotationAllowed"
         value: window.homeVisible || !window.visible || Qt.application.state !== Qt.ApplicationActive
@@ -475,7 +481,7 @@ ApplicationWindow {
         sourceComponent: PetWindow {
             ai: researchStore.ai
             forYou: researchStore.forYou
-            reading: window.visible && Qt.application.state === Qt.ApplicationActive && !window.homeVisible
+            stretch: researchStore.readingClock.stretch
             // Owelk's window in front; closed (macOS), the pet keeps saying what happened.
             ownerActive: window.visible && Qt.application.state === Qt.ApplicationActive
             onOpenRequested: window.comeForward()

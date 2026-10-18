@@ -14,6 +14,7 @@
 #include "PaperMetadata.h"
 #include "MetadataLookup.h"
 #include "ForYou.h"
+#include "ReadingClock.h"
 #include "ImagePalette.h"
 #include "Theme.h"
 #include "DesktopPet.h"
@@ -48,6 +49,101 @@
 class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void readingTimeAddsUpByDayAndComputer()
+    {
+        // The clock counts while a paper is in front and used, splits at local midnight, stops two minutes after
+        // the last use, and starts its stretch again after five minutes away.
+        ReadingClock clock;
+        auto now = QDateTime(QDate(2026, 3, 10), QTime(23, 59)).toMSecsSinceEpoch();
+        clock.setClock([&now] { return now; });
+        QHash<QString, int> counted;
+        connect(&clock, &ReadingClock::counted, this,
+            [&counted](const QUrl &, const QString &day, int seconds) { counted[day] += seconds; });
+        clock.setSource(QUrl::fromLocalFile("/papers/a.pdf"));
+        QVERIFY(clock.reading());
+        now += 30000;
+        clock.touch();
+        now += 60000;
+        clock.touch();
+        clock.flush();
+        QCOMPARE(counted.value("2026-03-10"), 60);
+        QCOMPARE(counted.value("2026-03-11"), 30);
+        QCOMPARE(clock.stretch(), 90);
+        // Three minutes untouched: two count, then it stops; the next use starts it again from then.
+        now += 3 * 60000;
+        clock.update();
+        QVERIFY(!clock.reading());
+        clock.flush();
+        QCOMPARE(counted.value("2026-03-11"), 150);
+        now += 60000;
+        clock.touch();
+        QVERIFY(clock.reading());
+        now += 30000;
+        clock.flush();
+        QCOMPARE(counted.value("2026-03-11"), 180);
+        QCOMPARE(clock.stretch(), 240);
+        // Away from the paper (Home, another app): it stops, and five minutes later the stretch is over.
+        clock.setSource({});
+        QVERIFY(!clock.reading());
+        now += 4 * 60000;
+        clock.update();
+        QCOMPARE(clock.stretch(), 240);
+        now += 60000;
+        clock.update();
+        QCOMPARE(clock.stretch(), 0);
+        clock.flush();
+        QCOMPARE(counted.value("2026-03-11"), 180);
+
+        // The store keeps it by computer, paper and day, and adds it up.
+        QTemporaryDir directory;
+        const auto path = directory.filePath("paper.pdf");
+        writeFixture(path);
+        const auto source = QUrl::fromLocalFile(path);
+        ResearchStore store(directory.filePath("data"));
+        QVERIFY(store.initialize(nullptr));
+        QCOMPARE(store.readingCalendar(7)["streak"].toInt(), 0);
+        const auto day = [](int ago) { return QDate::currentDate().addDays(-ago).toString(Qt::ISODate); };
+        QVERIFY(store.recordReading(source, day(1), 600));
+        QVERIFY(store.recordReading(source, day(1), 300));
+        QVERIFY(store.recordReading(source, day(2), 90));
+        QVERIFY(store.recordReading(source, day(4), 3000));
+        QVERIFY(!store.recordReading(source, "yesterday", 60));
+        QCOMPARE(store.readingSeconds(source), 3990);
+        {
+            // Another computer's time on the same day, as sync brings it.
+            WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3", false);
+            QVERIFY(QSqlQuery(db.db).exec("INSERT INTO reading_days(device,document_id,day,seconds) SELECT 'other',id,'"
+                + day(1) + "',100 FROM documents"));
+        }
+        QCOMPARE(store.readingSeconds(source), 4090);
+        QCOMPARE(store.documentDetails(source)["readSeconds"].toInt(), 4090);
+        auto calendar = store.readingCalendar(7);
+        const auto days = calendar["days"].toList();
+        QCOMPARE(days.size(), 7);
+        QCOMPARE(days.last().toMap()["day"].toString(), day(0));
+        QCOMPARE(days[5].toMap()["seconds"].toInt(), 1000);
+        QCOMPARE(days[5].toMap()["papers"].toInt(), 1);
+        QCOMPARE(calendar["week"].toInt(), 4090);
+        // Before today's first minute the run counts up to yesterday; day 3 breaks it.
+        QCOMPARE(calendar["streak"].toInt(), 2);
+        QVERIFY(store.recordReading(source, day(0), 30));
+        QCOMPARE(store.readingCalendar(7)["streak"].toInt(), 2);
+        QVERIFY(store.recordReading(source, day(0), 30));
+        calendar = store.readingCalendar(7);
+        QCOMPARE(calendar["streak"].toInt(), 3);
+        QCOMPARE(calendar["today"].toInt(), 60);
+        // What the store's own clock counts is saved there.
+        auto *storeClock = qobject_cast<ReadingClock *>(store.readingClock());
+        auto clockNow = QDateTime::currentMSecsSinceEpoch();
+        storeClock->setClock([&clockNow] { return clockNow; });
+        QSignalSpy saved(&store, &ResearchStore::readingSaved);
+        storeClock->setSource(source);
+        clockNow += 45000;
+        storeClock->flush();
+        QCOMPARE(saved.size(), 1);
+        QCOMPARE(store.readingSeconds(source), 4090 + 60 + 45);
+        storeClock->setSource({});
+    }
     void picturesRotateOnlyWhenReadingAllowsIt()
     {
         QTemporaryDir directory;
@@ -669,6 +765,7 @@ private slots:
         const auto robots = mac.createCollection("Robots");
         QVERIFY(mac.setDocumentCollection(source, robots, true));
         QVERIFY(mac.setReadingState(source, "read"));
+        QVERIFY(mac.recordReading(source, "2026-10-01", 120));
         // AI chats travel in their Threads: the paper's own and one made by hand.
         const QVariantMap chat{{"provider", "claude"}, {"model", "m"}};
         auto about = chat;
@@ -700,6 +797,7 @@ private slots:
         QVERIFY(QFileInfo::exists(copy.toLocalFile()));
         QCOMPARE(ubuntu.displayName(copy), QString("Shared Paper"));
         QCOMPARE(papers[0].toMap()["readingState"].toString(), QString("read"));
+        QCOMPARE(ubuntu.readingSeconds(copy), 120);
         QCOMPARE(ubuntu.note(note)["title"].toString(), QString("Idea"));
         QCOMPARE(ubuntu.collections().size(), 1);
         QCOMPARE(scalar(ubuntu, "SELECT body FROM highlights WHERE kind='text'").toString(),
@@ -709,11 +807,15 @@ private slots:
         QCOMPARE(folderOf(ubuntu, looseChat), thesis);
         QCOMPARE(scalar(ubuntu, "SELECT name FROM ai_folders WHERE id='" + thesis + "'").toString(), QString("Thesis"));
 
-        // Edits travel back, and of two edits to the same note the later one wins on both.
+        // Edits travel back, and of two edits to the same note the later one wins on both. Time read on the
+        // same day on two computers adds up.
         QVERIFY(ubuntu.saveNote(note, "Idea from Ubuntu", "Radar drift"));
+        QVERIFY(ubuntu.recordReading(copy, "2026-10-01", 60));
         QVERIFY(ubuntuSync->syncBlocking().error.isEmpty());
         QVERIFY(macSync->syncBlocking().error.isEmpty());
         QCOMPARE(mac.note(note)["title"].toString(), QString("Idea from Ubuntu"));
+        QCOMPARE(mac.readingSeconds(source), 180);
+        QCOMPARE(mac.readingCalendar(400)["days"].toList().size(), 400);
         QVERIFY(mac.saveNote(note, "Older", "x"));
         QTest::qWait(5);
         QVERIFY(ubuntu.saveNote(note, "Newer", "y"));
@@ -735,6 +837,7 @@ private slots:
         QVERIFY(laptop.rememberDocument(QUrl::fromLocalFile(own)));
         QTRY_VERIFY_WITH_TIMEOUT(!scalar(laptop, "SELECT sha256 FROM documents").toString().isEmpty(), 10000);
         annotate(laptop, QUrl::fromLocalFile(own), "Laptop remark");
+        QVERIFY(laptop.recordReading(QUrl::fromLocalFile(own), "2026-10-01", 30));
         about.insert("source", QUrl::fromLocalFile(own));
         const auto laptopChat = laptop.createAiThread(about);
         QCOMPARE(laptop.librarySync()->setFolder(QUrl::fromLocalFile(drive)), QString());
@@ -746,6 +849,9 @@ private slots:
             QCOMPARE(scalar(*store, "SELECT count(*) FROM highlights WHERE deleted_at IS NULL").toInt(), 3);
             QCOMPARE(
                 scalar(*store, "SELECT count(*) FROM highlights h JOIN documents d ON d.id=h.document_id").toInt(), 3);
+            QCOMPARE(scalar(*store, "SELECT sum(r.seconds) FROM reading_days r JOIN documents d ON d.id=r.document_id")
+                         .toInt(),
+                210);
         }
         QCOMPARE(laptop.libraryDocuments()[0].toMap()["url"].toUrl(), QUrl::fromLocalFile(own));
         QCOMPARE(scalar(laptop, "SELECT id FROM documents"), scalar(mac, "SELECT id FROM documents"));
@@ -769,6 +875,10 @@ private slots:
             QCOMPARE(quiet.received, 0);
         }
         QCOMPARE(scalar(ubuntu, "SELECT count(*) FROM documents").toInt(), 1);
+        for (auto *store : {&mac, &ubuntu, &laptop})
+            QCOMPARE(scalar(*store, "SELECT sum(r.seconds) FROM reading_days r JOIN documents d ON d.id=r.document_id")
+                         .toInt(),
+                210);
         for (auto *store : {&mac, &ubuntu}) {
             QCOMPARE(folderOf(*store, laptopChat), paperThread);
             QCOMPARE(scalar(*store, "SELECT count(*) FROM ai_folders WHERE id LIKE 'document:%'").toInt(), 1);
