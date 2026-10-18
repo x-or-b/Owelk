@@ -526,10 +526,12 @@ bool Pass::rekey(const QString &table, const QString &from, const QString &to)
         for (const auto *child : {"recent_documents", "reading_positions"})
             statements.append(
                 {QStringLiteral("UPDATE OR REPLACE %1 SET document_id=? WHERE document_id=?").arg(child), {to, from}});
-        // Time read in either copy adds up.
+        // Time read moves with the paper, as annotations do. A computer's day already there under the merged paper is
+        // the same reading come by another way (that computer's own row, or its move announced from elsewhere):
+        // the larger stays, never the two added up.
         statements.append({"INSERT INTO reading_days(device,document_id,day,seconds) SELECT device,?,day,seconds FROM "
                            "reading_days WHERE document_id=? ON CONFLICT(device,document_id,day) DO UPDATE SET "
-                           "seconds=seconds+excluded.seconds",
+                           "seconds=max(seconds,excluded.seconds)",
             {to, from}});
         statements.append({"DELETE FROM reading_days WHERE document_id=?", {from}});
         statements += movePaperReferences(from, to);

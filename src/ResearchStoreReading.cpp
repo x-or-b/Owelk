@@ -1,6 +1,9 @@
 #include "ResearchStore.h"
 
 #include <QDate>
+#include <algorithm>
+#include <functional>
+#include <QSet>
 #include <QSqlQuery>
 #include <QSysInfo>
 #include <QUuid>
@@ -48,52 +51,92 @@ bool ResearchStore::recordReading(const QUrl &source, const QString &day, int se
     return true;
 }
 
+QHash<QString, QString> ResearchStore::mergedPapers() const
+{
+    QHash<QString, QString> merged;
+    QSqlQuery query(m_database);
+    // Kept by sync once it has been on (LibrarySync.cpp); none before.
+    if (!query.exec("SELECT from_id,to_id FROM sync_alias WHERE kind='document'")) return merged;
+    while (query.next()) merged.insert(query.value(0).toString(), query.value(1).toString());
+    // Each to the paper it is now, also when it was merged more than once.
+    for (auto it = merged.begin(); it != merged.end(); ++it)
+        for (int hop = 0; hop < 8 && merged.contains(it.value()); ++hop) it.value() = merged.value(it.value());
+    return merged;
+}
+
+QHash<QString, QHash<QString, qint64>> ResearchStore::readingByDay(const QString &since) const
+{
+    // By computer, paper (as merged) and day, one row's seconds: the largest where there are several. A computer's
+    // own rows move with a merged paper there, and elsewhere the old row can stay beside the moved one: the same
+    // reading twice, never two readings (two copies read the same day were added up where they were read).
+    const auto merged = mergedPapers();
+    QHash<QString, qint64> rows;
+    QSqlQuery query(m_database);
+    query.prepare("SELECT device,document_id,day,seconds FROM reading_days WHERE day>=?");
+    query.addBindValue(since.isEmpty() ? QStringLiteral("0") : since);
+    if (query.exec())
+        while (query.next()) {
+            const auto id = query.value(1).toString();
+            const auto key = query.value(0).toString() + '\n' + merged.value(id, id) + '\n' + query.value(2).toString();
+            rows[key] = qMax(rows.value(key), query.value(3).toLongLong());
+        }
+    QHash<QString, QHash<QString, qint64>> days;
+    for (auto it = rows.cbegin(); it != rows.cend(); ++it) {
+        const auto parts = it.key().split('\n');
+        days[parts[2]][parts[1]] += it.value();
+    }
+    return days;
+}
+
+QHash<QString, qint64> ResearchStore::readingTotals() const
+{
+    QHash<QString, qint64> totals;
+    for (const auto &papers : readingByDay(QString()))
+        for (auto it = papers.cbegin(); it != papers.cend(); ++it) totals[it.key()] += it.value();
+    return totals;
+}
+
 QVariantMap ResearchStore::readingCalendar(int days) const
 {
     const auto today = QDate::currentDate();
     days = qBound(1, days, 400);
     const auto first = today.addDays(1 - days);
-    QHash<QString, QPair<qint64, int>> read;
-    QSqlQuery query(m_database);
-    query.prepare("SELECT day,sum(seconds),count(DISTINCT document_id) FROM reading_days WHERE day>=? GROUP BY day");
-    query.addBindValue(first.toString(Qt::ISODate));
-    if (query.exec())
-        while (query.next())
-            read.insert(query.value(0).toString(), {query.value(1).toLongLong(), query.value(2).toInt()});
+    const auto read = readingByDay(QString());
+    const auto total = [&read](const QString &day) {
+        qint64 seconds = 0;
+        for (const auto value : read.value(day)) seconds += value;
+        return seconds;
+    };
     QVariantList list;
     qint64 week = 0;
     for (int i = 0; i < days; ++i) {
         const auto key = first.addDays(i).toString(Qt::ISODate);
-        const auto [seconds, papers] = read.value(key);
-        list.append(QVariantMap{{"day", key}, {"seconds", seconds}, {"papers", papers}});
-        if (i >= days - 7) week += seconds;
+        list.append(QVariantMap{{"day", key}, {"seconds", total(key)}, {"papers", read.value(key).size()}});
+        if (i >= days - 7) week += total(key);
     }
     // Days in a row with a minute or more of reading, up to today; before today's first minute, up to yesterday.
     int streak = 0;
     auto expected = today;
-    QSqlQuery daysRead(m_database);
-    if (daysRead.exec("SELECT day FROM reading_days GROUP BY day HAVING sum(seconds)>=60 ORDER BY day DESC"))
-        while (daysRead.next()) {
-            const auto date = QDate::fromString(daysRead.value(0).toString(), Qt::ISODate);
-            // Ahead of this computer's date (another computer in a later time zone): not counted.
-            if (date > expected) continue;
-            if (date == expected || (streak == 0 && expected == today && date == today.addDays(-1))) {
-                ++streak;
-                expected = date.addDays(-1);
-                continue;
-            }
-            break;
+    QStringList daysRead;
+    for (auto it = read.cbegin(); it != read.cend(); ++it)
+        if (total(it.key()) >= 60) daysRead << it.key();
+    std::sort(daysRead.begin(), daysRead.end(), std::greater<>());
+    for (const auto &day : std::as_const(daysRead)) {
+        const auto date = QDate::fromString(day, Qt::ISODate);
+        // Ahead of this computer's date (another computer in a later time zone): not counted.
+        if (date > expected) continue;
+        if (date == expected || (streak == 0 && expected == today && date == today.addDays(-1))) {
+            ++streak;
+            expected = date.addDays(-1);
+            continue;
         }
-    return {
-        {"days", list}, {"streak", streak}, {"today", read.value(today.toString(Qt::ISODate)).first}, {"week", week}};
+        break;
+    }
+    return {{"days", list}, {"streak", streak}, {"today", total(today.toString(Qt::ISODate))}, {"week", week}};
 }
 
 int ResearchStore::readingSeconds(const QUrl &source) const
 {
     const auto id = findDocument(source);
-    if (id.isEmpty()) return 0;
-    QSqlQuery query(m_database);
-    query.prepare("SELECT coalesce(sum(seconds),0) FROM reading_days WHERE document_id=?");
-    query.addBindValue(id);
-    return query.exec() && query.next() ? query.value(0).toInt() : 0;
+    return id.isEmpty() ? 0 : int(readingTotals().value(id));
 }

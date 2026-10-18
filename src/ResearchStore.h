@@ -561,5 +561,11 @@ private:
     int m_readingRevision = 0;
     QString readingDevice();
     QString m_readingDevice;
+    // Seconds read by paper, over all days and computers. A paper merged by sync with another copy (sync_alias)
+    // counts as the one it became: each computer's rows stay as that computer wrote them.
+    QHash<QString, qint64> readingTotals() const;
+    QHash<QString, QString> mergedPapers() const;
+    // Seconds read by day and paper (as merged), from since (yyyy-MM-dd; empty: all).
+    QHash<QString, QHash<QString, qint64>> readingByDay(const QString &since) const;
     void syncReceived(const QSet<QString> &tables, const QStringList &sources);
 };

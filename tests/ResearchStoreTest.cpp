@@ -118,13 +118,27 @@ private slots:
         }
         QCOMPARE(store.readingSeconds(source), 4090);
         QCOMPARE(store.documentDetails(source)["readSeconds"].toInt(), 4090);
+        {
+            // A copy of this paper merged into it by sync: rows under its old ID count as this paper's, and the same
+            // computer's day there twice (its own row and its move from elsewhere) counts once.
+            WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3", false);
+            QSqlQuery query(db.db);
+            QVERIFY(query.exec("CREATE TABLE IF NOT EXISTS sync_alias(kind TEXT NOT NULL, from_id TEXT NOT NULL, to_id "
+                               "TEXT NOT NULL, PRIMARY KEY(kind,from_id))"));
+            QVERIFY(query.exec(
+                "INSERT INTO sync_alias(kind,from_id,to_id) SELECT 'document','merged-copy',id FROM documents"));
+            QVERIFY(query.exec("INSERT INTO reading_days(device,document_id,day,seconds) VALUES('third','merged-copy','"
+                + day(3) + "',50),('other','merged-copy','" + day(1) + "',100)"));
+        }
+        QCOMPARE(store.readingSeconds(source), 4140);
+        QCOMPARE(store.readingCalendar(7)["days"].toList()[3].toMap()["papers"].toInt(), 1);
         auto calendar = store.readingCalendar(7);
         const auto days = calendar["days"].toList();
         QCOMPARE(days.size(), 7);
         QCOMPARE(days.last().toMap()["day"].toString(), day(0));
         QCOMPARE(days[5].toMap()["seconds"].toInt(), 1000);
         QCOMPARE(days[5].toMap()["papers"].toInt(), 1);
-        QCOMPARE(calendar["week"].toInt(), 4090);
+        QCOMPARE(calendar["week"].toInt(), 4140);
         // Before today's first minute the run counts up to yesterday; day 3 breaks it.
         QCOMPARE(calendar["streak"].toInt(), 2);
         QVERIFY(store.recordReading(source, day(0), 30));
@@ -142,7 +156,7 @@ private slots:
         clockNow += 45000;
         storeClock->flush();
         QCOMPARE(saved.size(), 1);
-        QCOMPARE(store.readingSeconds(source), 4090 + 60 + 45);
+        QCOMPARE(store.readingSeconds(source), 4140 + 60 + 45);
         storeClock->setSource({});
     }
     void picturesRotateOnlyWhenReadingAllowsIt()
@@ -945,9 +959,7 @@ private slots:
             QCOMPARE(scalar(*store, "SELECT count(*) FROM highlights WHERE deleted_at IS NULL").toInt(), 3);
             QCOMPARE(
                 scalar(*store, "SELECT count(*) FROM highlights h JOIN documents d ON d.id=h.document_id").toInt(), 3);
-            QCOMPARE(scalar(*store, "SELECT sum(r.seconds) FROM reading_days r JOIN documents d ON d.id=r.document_id")
-                         .toInt(),
-                210);
+            QCOMPARE(store->readingSeconds(store->libraryDocuments()[0].toMap()["url"].toUrl()), 210);
         }
         QCOMPARE(laptop.libraryDocuments()[0].toMap()["url"].toUrl(), QUrl::fromLocalFile(own));
         QCOMPARE(scalar(laptop, "SELECT id FROM documents"), scalar(mac, "SELECT id FROM documents"));
@@ -972,9 +984,7 @@ private slots:
         }
         QCOMPARE(scalar(ubuntu, "SELECT count(*) FROM documents").toInt(), 1);
         for (auto *store : {&mac, &ubuntu, &laptop})
-            QCOMPARE(scalar(*store, "SELECT sum(r.seconds) FROM reading_days r JOIN documents d ON d.id=r.document_id")
-                         .toInt(),
-                210);
+            QCOMPARE(store->readingSeconds(store->libraryDocuments()[0].toMap()["url"].toUrl()), 210);
         for (auto *store : {&mac, &ubuntu}) {
             QCOMPARE(folderOf(*store, laptopChat), paperThread);
             QCOMPARE(scalar(*store, "SELECT count(*) FROM ai_folders WHERE id LIKE 'document:%'").toInt(), 1);
