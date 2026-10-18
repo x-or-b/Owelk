@@ -405,7 +405,8 @@ Rectangle {
                     onClicked: { root.activated(); canvas.nextPage() }
                 }
             }
-            // Annotation tools, then the Annotations list, then everything else (find, print, export) behind ⋯.
+            // Annotation tools, then the paper's code links (only when it names a repository) and the Annotations
+            // list, then everything else (find, print, export) behind ⋯.
             // Highlight and Draw keep their own colors; the narrow arrow next to each picks one.
             Row {
                 anchors.right:parent.right;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter
