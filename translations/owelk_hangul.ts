@@ -4422,6 +4422,10 @@ Use Pages to navigate.</source>
         <translation>클로즈 서치 · 이에스씨</translation>
     </message>
     <message>
+        <source>Code links</source>
+        <translation>코드 링크스</translation>
+    </message>
+    <message>
         <source>Comment</source>
         <translation>코멘트</translation>
     </message>

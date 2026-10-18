@@ -53,6 +53,24 @@ Item {
             compare(findChild(panel, "citesTab").text, "Cites 1")
             mouseClick(findChild(panel, "contentsTab"))
         }
+        function test_codeLinksFollowTheDocument() {
+            reader.openFile(repositorySource)
+            tryCompare(reader, "pdfReady", true)
+            tryCompare(reader, "codeLinks", ["https://github.com/test/repository"], 5000)
+            const button = findChild(reader, "readerCodeButton")
+            verify(button.visible)
+            mouseClick(button)
+            const menu = findChild(reader, "readerCodeMenu")
+            tryCompare(menu, "opened", true)
+            compare(menu.count, 1)
+            compare(menu.itemAt(0).text, "github.com/test/repository")
+            menu.close()
+            reader.openFile(outlineSource)
+            compare(reader.codeLinks.length, 0)
+            verify(!button.visible)
+            wait(400)
+            compare(reader.codeLinks.length, 0)
+        }
         function test_nestedOutlineAndDestination() {
             const tree = findChild(panel, "pdfOutline")
             tryVerify(function() { return tree.rows >= 2 })

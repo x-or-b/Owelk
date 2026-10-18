@@ -48,6 +48,38 @@
 class ResearchStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void repositoriesComeFromBodyAndPdfLinks()
+    {
+        const auto links = ReferenceFinder::repositoryLinks(
+            {"Code: https://github.com/Owner/Repo/tree/main. github.com/owner/repo.git\n"
+             "https://gitlab.com/lab/project/-/tree/main https://huggingface.co/spaces/team/demo/tree/main\n"
+             "https://github.com/extra/four\nReferences\nhttps://github.com/cited/other"});
+        QCOMPARE(links,
+            QStringList({"https://github.com/Owner/Repo", "https://gitlab.com/lab/project",
+                "https://huggingface.co/spaces/team/demo"}));
+        QVERIFY(ReferenceFinder::repositoryLinks(
+            {"github.com/person https://github.com/explore/projects evilgithub.com/a/b "
+             "https://github.com.evil/a/b\nReferences\ngithub.com/cited/repo",
+                "github.com/cited/another"})
+                .isEmpty());
+        QCOMPARE(ReferenceFinder::repositoryLinks({"An article\n7. References\ngithub.com/skip/this"},
+                     {QVariantMap{{"page", 0}, {"url", "https://huggingface.co/datasets/team/data"}, {"body", true}},
+                         QVariantMap{{"page", 0}, {"url", "https://github.com/skip/annotation"}, {"body", false}}}),
+            QStringList({"https://huggingface.co/datasets/team/data"}));
+        QTemporaryDir directory;
+        const auto path = directory.filePath("repository.pdf");
+        QVERIFY(writeLinkFixture(path, false, false, "https://github.com/test/repository/tree/main"));
+        ReferenceFinder finder(std::make_shared<std::atomic_bool>(false));
+        QSignalSpy found(&finder, &ReferenceFinder::codeLinksFound);
+        const auto request = finder.codeLinks(QUrl::fromLocalFile(path));
+        // New pointer requests must not cancel this document request.
+        finder.resolve(QUrl::fromLocalFile(path), 0, {60, 60});
+        finder.resolve(QUrl::fromLocalFile(path), 1, {60, 60});
+        QTRY_COMPARE(found.size(), 1);
+        QCOMPARE(found.first()[0].toInt(), request);
+        QCOMPARE(found.first()[1].toStringList(), QStringList({"https://github.com/test/repository"}));
+    }
+
     void trackpadNavigation()
     {
         class Window : public QWindow {

@@ -456,11 +456,17 @@ ApplicationWindow {
         if (!restoreFailed && researchStore.startupMessage.length) notify(researchStore.startupMessage)
         else if (!restoreFailed && researchStore.recoveredFromCrash) notify(qsTr("Owelk closed unexpectedly last time. Your tabs are back; unsaved notes are offered when you reopen them."))
     }
+    Shortcut {
+        sequence: "Ctrl+Alt+Shift+P"
+        context: Qt.ApplicationShortcut
+        enabled: Theme.picture.toString().length > 0
+        onActivated: Theme.pictureHidden = !Theme.pictureHidden
+    }
     // The desktop pet (Settings › Appearance › Picture), only while it is on.
     Loader {
         id: petLoader
         objectName: "petLoader"
-        active: DesktopPet.enabled && DesktopPet.supported && Theme.picture.toString().length > 0
+        active: !Theme.pictureHidden && DesktopPet.enabled && DesktopPet.supported && Theme.picture.toString().length > 0
         sourceComponent: PetWindow {
             ai: researchStore.ai
             forYou: researchStore.forYou

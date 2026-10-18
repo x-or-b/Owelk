@@ -14,6 +14,7 @@ Item {
         name: "Theme"
         when: windowShown
         function cleanup() {
+            Theme.pictureHidden = false
             Theme.matchSystem = false; Theme.lightTheme = "neutral"; Theme.darkTheme = "dark"
             while (Theme.pictures.length) Theme.removePicture()
             Theme.pictureStrength = 35
@@ -25,6 +26,16 @@ Item {
         function luminance(c) {
             const linear = function(v) { return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4) }
             return .2126 * linear(c.r) + .7152 * linear(c.g) + .0722 * linear(c.b)
+        }
+        function test_temporaryPictureHide() {
+            verify(Theme.usePicture(testInput.pictureFile(200, 300, true)))
+            const picture = Theme.picture
+            verify(Theme.pictureShown)
+            Theme.pictureHidden = true
+            verify(!Theme.pictureShown)
+            compare(Theme.picture, picture)
+            Theme.pictureHidden = false
+            verify(Theme.pictureShown)
         }
         function test_matchSystemFollowsTheAppearance() {
             Theme.theme = "paper"

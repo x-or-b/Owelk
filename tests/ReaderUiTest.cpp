@@ -168,6 +168,8 @@ public slots:
         writeFixture(m_directory.filePath("long.pdf"), "Long PDF benchmark", 120);
         if (!writeOutlineFixture(m_directory.filePath("outline.pdf"))) qFatal("Cannot create outline fixture");
         if (!writeLinkFixture(m_directory.filePath("links.pdf"))) qFatal("Cannot create link fixture");
+        writeLinkFixture(
+            m_directory.filePath("repository.pdf"), false, false, "https://github.com/test/repository/tree/main");
         writeReferenceFixture(m_directory.filePath("references.pdf"));
         if (!writeLinkFixture(m_directory.filePath("lost-links.pdf"), true)) qFatal("Cannot create link fixture");
         if (!writeLinkFixture(m_directory.filePath("reference-links.pdf"), false, true))
@@ -213,6 +215,8 @@ public slots:
             "fixtureImage", QUrl::fromLocalFile(m_directory.filePath("preview 한글 %.png")));
         engine->rootContext()->setContextProperty(
             "outlineSource", QUrl::fromLocalFile(m_directory.filePath("outline.pdf")));
+        engine->rootContext()->setContextProperty(
+            "repositorySource", QUrl::fromLocalFile(m_directory.filePath("repository.pdf")));
         engine->rootContext()->setContextProperty("linkSource", QUrl::fromLocalFile(m_directory.filePath("links.pdf")));
         engine->rootContext()->setContextProperty("longSource", QUrl::fromLocalFile(m_directory.filePath("long.pdf")));
         engine->rootContext()->setContextProperty(

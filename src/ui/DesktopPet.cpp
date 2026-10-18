@@ -8,6 +8,10 @@
 #include <QSurfaceFormat>
 #include <QWindow>
 
+#ifdef Q_OS_WIN
+#include <qt_windows.h>
+#endif
+
 #ifdef Q_OS_MACOS
 // DesktopPetMac.mm
 void desktopPetFloatEverywhere(QWindow *window);
@@ -89,12 +93,16 @@ void DesktopPet::prepare(QWindow *window)
     window->setFormat(format);
     // Qt::Tool windows hide while another app is active on macOS unless asked not to.
     window->setProperty("_q_macAlwaysShowToolWindow", true);
+    floatEverywhere(window);
 }
 
 void DesktopPet::floatEverywhere(QWindow *window)
 {
 #ifdef Q_OS_MACOS
     desktopPetFloatEverywhere(window);
+#elif defined(Q_OS_WIN)
+    if (window && QGuiApplication::platformName() == "windows")
+        SetWindowDisplayAffinity(reinterpret_cast<HWND>(window->winId()), 0x00000011 /* WDA_EXCLUDEFROMCAPTURE */);
 #else
     Q_UNUSED(window)
 #endif

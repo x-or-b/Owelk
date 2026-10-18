@@ -4,6 +4,8 @@
 
 ## 1. 실사용 확인 (사용자)
 
+- 여러 출판사 PDF의 Code links: 본문 URL·클릭 가능한 링크·References 제외 결과 확인.
+
 - macOS 트랙패드: 자연스러운 스크롤 켬/끔에서 오른쪽 손가락 이동이 뒤로인지, 확대 PDF 가장자리·취소·관성·시스템 페이지 간 쓸어넘기 끔을 확인.
 
 - GitHub에 push해 CI(Ubuntu·Windows·macOS) 결과 확인 → 실패 로그를 주면 고칩니다.

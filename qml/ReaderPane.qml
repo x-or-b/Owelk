@@ -21,6 +21,32 @@ Rectangle {
     readonly property int pageCount: canvas.pageCount
     property alias selectedText: canvas.selectedText
     property var sourceToReveal: null
+    property var codeLinks: []
+    property int codeRequest: -1
+    onSourceChanged: { codeLinks = []; codeRequest = -1; codeScan.restart() }
+    onPdfReadyChanged: if (pdfReady) codeScan.restart()
+    Timer {
+        id: codeScan; interval: 200
+        onTriggered: if (root.pdfReady) root.codeRequest = researchStore.references.codeLinks(root.source)
+    }
+    Connections {
+        target: researchStore.references
+        function onCodeLinksFound(request, links) { if (request === root.codeRequest) root.codeLinks = links }
+    }
+    Menu {
+        id: codeMenu
+        objectName: "readerCodeMenu"
+        Instantiator {
+            model: root.codeLinks
+            delegate: MenuItem {
+                required property string modelData
+                text: modelData.replace(/^https:\/\//, "")
+                onTriggered: Qt.openUrlExternally(modelData)
+            }
+            onObjectAdded: function(index, object) { codeMenu.insertItem(index, object) }
+            onObjectRemoved: function(index, object) { codeMenu.removeItem(object) }
+        }
+    }
     property bool searchVisible: false
     readonly property bool annotationDirty: annotationEditor.visible || annotationEditor.saving
     property bool applyHighlightOnColor: false
@@ -409,6 +435,12 @@ Rectangle {
                     IconButton { objectName:"areaTool";icon.name: "area";checked:canvas.tool==="area";description: qsTr("Mark region");onClicked:root.setTool("area") }
                 }
                 Rectangle { visible: readerToolbar.width >= 600; width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
+                IconButton {
+                    id: codeButton; objectName: "readerCodeButton"
+                    visible: root.codeLinks.length > 0
+                    icon.name: "external"; description: qsTr("Code links")
+                    onClicked: codeMenu.popup(codeButton, 0, height)
+                }
                 IconButton { objectName:"annotationsButton";icon.name: "annotations";checked:root.annotationList !== null;description: qsTr("Annotations");onClicked:root.annotationsToggled() }
                 Rectangle { width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
                 IconButton { icon.name: "more";
@@ -426,6 +458,7 @@ Rectangle {
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Image");onTriggered:root.setTool("image") }
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Mark Region");onTriggered:root.setTool("area") }
                         MenuSeparator { visible:readerToolbar.width<600;height:visible?implicitHeight:0 }
+                        MenuItem { objectName: "readerCodeOption"; text: qsTr("Code links"); enabled: root.codeLinks.length > 0; onTriggered: codeMenu.popup(codeButton, 0, codeButton.height) }
                         MenuItem { text:qsTr("Find in Document · ") + Platform.keys("Ctrl+F");onTriggered:root.find() }
                         MenuItem { objectName:"printOption";text:qsTr("Print…");onTriggered:root.printDocument() }
                         MenuItem { objectName:"exportAnnotatedOption";text:qsTr("Export Annotated PDF…");visible:researchStore.canExportAnnotatedPdf();height:visible?implicitHeight:0;enabled:canvas.documentFingerprint.length>0;onTriggered:annotatedFile.open() }

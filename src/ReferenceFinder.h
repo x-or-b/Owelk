@@ -30,6 +30,9 @@ public:
     // The reference-list entry at a point (a link's destination): {kind: "citation", label, text, page, x,
     // y, width, height, top}, or {} when no entry ("[n] …" or "n. …") starts around there.
     Q_INVOKABLE int entryAt(const QUrl &source, int page, const QPointF &point);
+    // Local repository links, independent of hover cancellation; at most three canonical repositories.
+    Q_INVOKABLE int codeLinks(const QUrl &source);
+    static QStringList repositoryLinks(const QStringList &pages, const QVariantList &annotations = {});
     static QVariantMap entryAround(const QString &text, qsizetype index);
 
     // The text-only steps, also used by tests. referenceAt: {kind, key, label, start} for the reference
@@ -62,6 +65,7 @@ public:
     static QPair<qsizetype, qsizetype> sentenceBounds(const QString &text, qsizetype at);
 
 signals:
+    void codeLinksFound(int request, const QStringList &links);
     void resolved(int request, const QVariantMap &target);
     void objectFound(int request, const QVariantMap &target);
     void wordFound(int request, const QVariantMap &word);

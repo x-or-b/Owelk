@@ -17,6 +17,7 @@ void desktopPetFloatEverywhere(QWindow *window)
             | NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary
             | NSWindowCollectionBehaviorIgnoresCycle;
         native.hidesOnDeactivate = NO;
+        native.sharingType = NSWindowSharingNone;
     }
 }
 

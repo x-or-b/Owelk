@@ -92,7 +92,8 @@ inline bool writeOutlineFixture(const QString &path)
 // With lostTarget the link names a destination the file no longer has (as tools that strip /Names leave
 // it), and page 3 lists the reference instead. With referencesPage the link works and leads to that
 // list's entry.
-inline bool writeLinkFixture(const QString &path, bool lostTarget = false, bool referencesPage = false)
+inline bool writeLinkFixture(
+    const QString &path, bool lostTarget = false, bool referencesPage = false, const QByteArray &external = {})
 {
     QList<QByteArray> objects;
     objects << "<< /Type /Catalog /Pages 2 0 R >>"
@@ -109,10 +110,14 @@ inline bool writeLinkFixture(const QString &path, bool lostTarget = false, bool 
                 + "\nendstream";
     }
     objects << "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
-            << (lostTarget ? QByteArray("<< /Type /Annot /Subtype /Link /Rect [60 600 300 640] /Border [0 0 0] /A << "
-                                        "/S /GoTo /D (cite.lost) >> >>")
-                           : QByteArray("<< /Type /Annot /Subtype /Link /Rect [60 600 300 640] /Border [0 0 0] /Dest "
-                                        "[7 0 R /XYZ ")
+            << (!external.isEmpty()
+                       ? QByteArray("<< /Type /Annot /Subtype /Link /Rect [60 600 300 640] /A << /S /URI /URI (")
+                           + external + ") >> >>"
+                       : lostTarget
+                       ? QByteArray("<< /Type /Annot /Subtype /Link /Rect [60 600 300 640] /Border [0 0 0] /A << "
+                                    "/S /GoTo /D (cite.lost) >> >>")
+                       : QByteArray("<< /Type /Annot /Subtype /Link /Rect [60 600 300 640] /Border [0 0 0] /Dest "
+                                    "[7 0 R /XYZ ")
                            + (referencesPage ? "60 410" : "0 400") + " 0] >>");
     QByteArray pdf("%PDF-1.4\n");
     QList<qsizetype> offsets;

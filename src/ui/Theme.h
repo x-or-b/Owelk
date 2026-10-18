@@ -55,6 +55,7 @@ class Theme : public QObject {
     // Its size in pixels (as kept), for laying it out without stretching.
     Q_PROPERTY(QSize pictureSize READ pictureSize NOTIFY changed)
     // Shown while the Custom theme is in use (another theme keeps the picture but does not show it).
+    Q_PROPERTY(bool pictureHidden MEMBER m_pictureHidden NOTIFY changed)
     Q_PROPERTY(bool pictureShown READ pictureShown NOTIFY changed)
     // The picture theme can be turned off: Custom is the reader's own colors again, the kept pictures stay
     // for when it is turned on (five taps on Theme). Off, picture is empty.
@@ -174,7 +175,7 @@ public:
     QVariantList pictures() const;
     QColor customAccent() const { return m_customAccent; }
     QSize pictureSize() const { return m_pictureSize; }
-    bool pictureShown() const { return showing() && m_theme == "custom"; }
+    bool pictureShown() const { return !m_pictureHidden && showing() && m_theme == "custom"; }
     bool pictureOn() const { return m_pictureOn; }
     void setPictureOn(bool on);
     int pictureStrength() const { return m_pictureStrength; }
@@ -297,7 +298,7 @@ private:
     // The theme, accent and Custom colors to come back to when the picture theme goes; and coming back.
     void keepBeforePicture();
     void restoreBeforePicture();
-    bool m_pictureOn = true;
+    bool m_pictureOn = true, m_pictureHidden = false;
     QList<Picture> m_pictures;
     QString m_picture; // the one in use
     bool m_pictureCutout = false;
