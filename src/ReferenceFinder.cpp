@@ -825,7 +825,7 @@ int ReferenceFinder::figures(const QUrl &source)
 QVariantList ReferenceFinder::figuresIn(QPdfDocument &pdf, const QStringList &texts)
 {
     // Pages without a line starting like a caption are passed over without laying out their lines.
-    static const QRegularExpression likely(R"((?:^|[\r\n])[ \t]*(?:Figs?\.|Figure|FIG\.?|FIGURE|TABLE|Table))");
+    static const QRegularExpression likely(R"((?:^|[\r\n])[ \t]*(?:Figs?\.?|Figure|FIG\.?|FIGURE|TABLE|Table))");
     // Of captions with the same label, the one with the largest area: a line that only starts with "Table 2"
     // (a mention, or a continued table) has little or none.
     QHash<QString, QVariantMap> best;
