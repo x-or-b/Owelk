@@ -1801,7 +1801,8 @@ Item {
         color: root.invertPages ? Theme.paperInverted : Theme.paper
         // The card is a piece of page: its text is ink for that paper, not the app theme's text colour.
         readonly property color ink: root.invertPages ? Theme.paperInkInverted : Theme.paperInk
-        border.color: Theme.border
+        // The page view stays this far inside the edge, so its square corners stay within the rounded outline.
+        readonly property int inset: 4
         clip: true
         // Created only while shown, so references cost nothing until hovered. The page scrolls inside
         // the card (wheel, trackpad or drag) to see more around the target.
@@ -1809,7 +1810,8 @@ Item {
             id: previewLoader
             active: previewCard.visible && !previewCard.showsList
             anchors.fill: parent
-            anchors.bottomMargin: previewCard.showsFloat ? 40 : 0
+            anchors.margins: previewCard.inset
+            anchors.bottomMargin: previewCard.showsFloat ? 40 : previewCard.inset
             sourceComponent: Flickable {
                 id: previewFlick
                 objectName: "linkPreviewFlick"
@@ -1829,9 +1831,11 @@ Item {
                 // table below. Anything else: the target a little below the top, with context above.
                 function place() {
                     const s = scale, a = area
+                    // 8 from the card's edges.
                     if (previewCard.area) {
-                        contentX = Math.max(0, Math.min(contentWidth - width, previewCard.area.x * s - 8))
-                        contentY = Math.max(0, Math.min(contentHeight - height, previewCard.area.y * s - 8))
+                        const room = 8 - previewCard.inset
+                        contentX = Math.max(0, Math.min(contentWidth - width, previewCard.area.x * s - room))
+                        contentY = Math.max(0, Math.min(contentHeight - height, previewCard.area.y * s - room))
                         return
                     }
                     let x = previewCard.showsFloat && a.width > 0 ? a.x * s - 14 : 0
@@ -2002,6 +2006,14 @@ Item {
             onClicked: root.findPaper(previewCard.spec.text)
         }
         HoverHandler { id: previewHover; onHoveredChanged: if (!hovered) previewHide.restart() }
+        // The outline, over the page view (which would cover a border drawn under it).
+        Rectangle {
+            objectName: "linkPreviewOutline"
+            anchors.fill: parent
+            radius: previewCard.radius
+            color: "transparent"
+            border.color: Theme.border
+        }
     }
     // Mouse side buttons turn pages, like ← / →.
     // A handler, not a MouseArea, so text and link cursors underneath are unaffected.

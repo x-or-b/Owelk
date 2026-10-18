@@ -326,6 +326,9 @@ Item {
             verify(!!canvas.linkPreview.float, "the figure's region was found")
             verify(canvas.linkPreview.float.caption.length > 0)
             verify(!findChild(card, "linkPreviewTarget").visible)
+            // An outline over the page view, which stays inside its rounded corners.
+            verify(findChild(card, "linkPreviewOutline").visible)
+            compare(shown.flick.mapToItem(card, 0, 0).x, card.inset)
             // On the card, drags, pinches and Ctrl+wheel are the card's: the page behind stays put.
             mouseMove(card, card.width / 2, card.height / 2)
             tryCompare(canvas, "overPreview", true)

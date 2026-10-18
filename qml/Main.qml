@@ -424,6 +424,7 @@ ApplicationWindow {
     }
     // The desktop pet (Settings › Appearance › Picture), only while it is on.
     Loader {
+        id: petLoader
         objectName: "petLoader"
         active: DesktopPet.enabled && DesktopPet.supported && Theme.picture.toString().length > 0
         sourceComponent: PetWindow {
@@ -460,6 +461,8 @@ ApplicationWindow {
         if (window.currentReader && window.currentReader.annotationDirty) { close.accepted = false; notify(qsTr("Save or discard annotation edits before closing the window.")); return }
         if (researchStore.busy) { close.accepted = false; notify(qsTr("Saving. Please close the window after saving finishes.")) }
         else if (initialized && !restoreFailed && !persist()) { close.accepted = false; notify(qsTr("Cannot save the session. Check storage and try again.")) }
+        // Closing this window ends Owelk (Quit, Cmd+Q too): the pet, a window of its own, would keep it running.
+        if (close.accepted) Qt.callLater(function() { if (petLoader.item) petLoader.item.close() })
     }
     onWidthChanged: scheduleSave()
     onHeightChanged: scheduleSave()
