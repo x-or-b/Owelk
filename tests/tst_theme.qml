@@ -59,17 +59,44 @@ Item {
             Theme.followAppearance(false)
             compare(Theme.theme, "solarized")
             compare(researchStore.setting("appearance.lightTheme"), "solarized")
-            // A picture's theme for both: tinted again for dark, and still shown.
+            // The picture theme comes first: it stays in both appearances, tinted light or dark with the system,
+            // and leaves the themes chosen for each as they were.
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
-            compare(Theme.lightTheme, "custom")
-            Theme.darkTheme = "custom"
+            compare(Theme.theme, "custom")
+            verify(!Theme.dark)
+            compare(Theme.lightTheme, "solarized")
             Theme.followAppearance(true)
             compare(Theme.theme, "custom")
             verify(Theme.dark)
             verify(Theme.pictureShown)
             compare(Theme.seeds("custom").window, Theme.tintedSeeds(Theme.pictureColors[0], true).window)
+            compare(Theme.darkTheme, "nord")
             Theme.followAppearance(false)
             verify(!Theme.dark)
+            verify(Theme.pictureShown)
+            // Turned off: the theme chosen for the appearance the system has now; on again, dark like it.
+            Theme.followAppearance(true)
+            Theme.pictureOn = false
+            compare(Theme.theme, "nord")
+            Theme.pictureOn = true
+            compare(Theme.theme, "custom")
+            verify(Theme.dark)
+            // Match System turned on with the picture theme in use: the themes for each stay, the picture follows.
+            Theme.matchSystem = false
+            Theme.followAppearance(false)
+            verify(Theme.dark)
+            Theme.matchSystem = true
+            compare(Theme.theme, "custom")
+            verify(!Theme.dark)
+            compare(Theme.lightTheme, "solarized"); compare(Theme.darkTheme, "nord")
+            // Another theme chosen while it is in use is for this appearance, as always.
+            Theme.theme = "paper"
+            compare(Theme.lightTheme, "paper")
+            verify(!Theme.pictureShown)
+            Theme.followAppearance(true)
+            compare(Theme.theme, "nord")
+            Theme.followAppearance(false)
+            compare(Theme.theme, "paper")
             // Off: the appearance leaves the theme alone.
             Theme.matchSystem = false
             Theme.followAppearance(true)

@@ -351,10 +351,15 @@ void Theme::setTheme(const QString &id)
     if (!knownTheme(id) || id == m_theme) return;
     m_theme = id;
     save("appearance.theme", id);
-    // With Match System, the choice is for the appearance the system has now.
     if (m_matchSystem && m_systemDark) {
-        (*m_systemDark ? m_darkTheme : m_lightTheme) = id;
-        save(*m_systemDark ? "appearance.darkTheme" : "appearance.lightTheme", id);
+        if (pictureInUse()) {
+            // The picture theme is for both appearances: tinted for the one the system has now.
+            tintPictureFor(*m_systemDark);
+        } else {
+            // With Match System, the choice is for the appearance the system has now.
+            (*m_systemDark ? m_darkTheme : m_lightTheme) = id;
+            save(*m_systemDark ? "appearance.darkTheme" : "appearance.lightTheme", id);
+        }
     }
     apply();
 }
@@ -365,10 +370,13 @@ void Theme::setMatchSystem(bool on)
     m_matchSystem = on;
     save("appearance.matchSystem", on ? "1" : "0");
     if (on) {
-        // The theme in use stays the one for its kind of appearance.
-        const bool dark = m_theme == "custom" ? custom().dark : preset(m_theme).dark;
-        (dark ? m_darkTheme : m_lightTheme) = m_theme;
-        save(dark ? "appearance.darkTheme" : "appearance.lightTheme", m_theme);
+        // The theme in use stays the one for its kind of appearance; the picture theme, for both, leaves the
+        // themes chosen for each as they were.
+        if (!pictureInUse()) {
+            const bool dark = m_theme == "custom" ? custom().dark : preset(m_theme).dark;
+            (dark ? m_darkTheme : m_lightTheme) = m_theme;
+            save(dark ? "appearance.darkTheme" : "appearance.lightTheme", m_theme);
+        }
         if (m_systemDark) useThemeFor(*m_systemDark);
     }
     apply();
@@ -402,13 +410,20 @@ void Theme::followAppearance(bool dark)
 
 void Theme::useThemeFor(bool dark)
 {
-    const auto id = dark ? m_darkTheme : m_lightTheme;
-    // A picture's theme in the other brightness: its colors tinted again, as its Dark switch does.
-    if (id == "custom" && showing() && custom().dark != dark)
-        writeCustomSeeds(tintedSeeds(m_pictureColors.isEmpty() ? QColor() : QColor(m_pictureColors.first()), dark));
+    // The picture theme in use comes first: it stays, light or dark with the system. Otherwise the theme chosen
+    // for this appearance (Custom with a picture is that picture's theme, tinted for it).
+    const auto id = pictureInUse() ? QStringLiteral("custom") : dark ? m_darkTheme : m_lightTheme;
+    if (id == "custom") tintPictureFor(dark);
     if (id == m_theme) return;
     m_theme = id;
     save("appearance.theme", id);
+}
+
+void Theme::tintPictureFor(bool dark)
+{
+    // A picture's theme in the other brightness: its colors tinted again, as its Dark switch does.
+    if (showing() && custom().dark != dark)
+        writeCustomSeeds(tintedSeeds(m_pictureColors.isEmpty() ? QColor() : QColor(m_pictureColors.first()), dark));
 }
 
 void Theme::setAccentName(const QString &id)
@@ -671,8 +686,9 @@ bool Theme::usePicture(const QUrl &file)
     Picture picture{name, cutout, {}, colors.main.isValid() ? colors.main.name() : QString()};
     for (const auto &color : colors.swatches) picture.colors.append(color.name());
     m_pictures.append(picture);
-    // Light or dark like the theme in use; the Custom theme's Dark switch changes it afterwards.
-    showPicture(picture, m_dark, true);
+    // Light or dark like the system with Match System, else like the theme in use; the Custom theme's Dark switch
+    // changes it afterwards.
+    showPicture(picture, wantedDark(), true);
     return true;
 }
 
@@ -681,8 +697,9 @@ bool Theme::choosePicture(const QString &id)
     const auto file = id.isEmpty() ? m_picture : id;
     for (const auto &picture : std::as_const(m_pictures))
         if (picture.file == file) {
-            // Another picture, the same brightness as the picture theme had; turned on, the theme in use's.
-            const bool dark = showing() ? custom().dark : m_dark;
+            // Another picture, the same brightness as the picture theme had; turned on, the theme in use's. With
+            // Match System, the system's.
+            const bool dark = m_matchSystem && m_systemDark ? *m_systemDark : showing() ? custom().dark : m_dark;
             if (!m_pictureOn) {
                 keepBeforePicture();
                 m_pictureOn = true;
@@ -737,6 +754,8 @@ void Theme::restoreBeforePicture()
     save("appearance.customAccent", QString());
     const auto theme = before.value("theme").toString(), accent = before.value("accent").toString();
     m_theme = knownTheme(theme) ? theme : QStringLiteral("neutral");
+    // With Match System, the theme chosen for the appearance the system has now.
+    if (m_matchSystem && m_systemDark) m_theme = *m_systemDark ? m_darkTheme : m_lightTheme;
     m_accentName = accentFor(accent).id;
     save("appearance.theme", m_theme);
     save("appearance.accent", m_accentName);

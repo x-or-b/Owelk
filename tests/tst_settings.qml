@@ -163,8 +163,16 @@ Item {
             darkBox.activated(darkBox.ids.indexOf("nord"))
             compare(Theme.darkTheme, "nord")
             compare(darkBox.currentIndex, darkBox.ids.indexOf("nord"))
+            // With the picture theme in use it is for both appearances: no theme for each, its Dark switch follows.
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            tryVerify(function() { return !darkBox.visible })
+            let darkSwitch = null
+            tryVerify(function() { darkSwitch = visualChild(settings.contentItem, "customDarkSwitch"); return darkSwitch !== null && darkSwitch.visible })
+            verify(!darkSwitch.enabled)
             on.toggle(); on.toggled()
             compare(Theme.matchSystem, false)
+            verify(darkSwitch.enabled)
+            Theme.removePicture()
         }
         function test_appIconChoice() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)

@@ -5306,6 +5306,10 @@ You can open the same document twice.</source>
         <translation>라이트 오어 다크 위드 유어 시스템. 어 테마 초즌 어보브 이즈 포 더 어피어런스 잇 해즈 나우.</translation>
     </message>
     <message>
+        <source>Light or dark with your system. The picture theme stays and turns light or dark with it.</source>
+        <translation>라이트 오어 다크 위드 유어 시스템. 더 픽처 테마 스테이즈 앤드 턴스 라이트 오어 다크 위드 잇.</translation>
+    </message>
+    <message>
         <source>Lines</source>
         <translation>라인스</translation>
     </message>
@@ -5368,6 +5372,10 @@ You can open the same document twice.</source>
     <message>
         <source>Scales all text and the controls around it. PDF pages keep their own zoom.</source>
         <translation>스케일스 올 텍스트 앤드 더 컨트롤스 어라운드 잇. 피디에프 페이지스 킵 데어 오운 줌.</translation>
+    </message>
+    <message>
+        <source>Set by Match System. Turn it off to change this.</source>
+        <translation>셋 바이 매치 시스템. 턴 잇 오프 투 체인지 디스.</translation>
     </message>
     <message>
         <source>Shown behind Home and PDF pages while the Custom theme is in use. Exports and printing keep the original pages.</source>

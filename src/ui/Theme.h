@@ -319,6 +319,12 @@ private:
     bool writeCustomSeeds(const QVariantMap &seeds);
     // A picture is in use and the picture theme is on.
     bool showing() const { return m_pictureOn && !m_picture.isEmpty(); }
+    // The picture theme is the theme in use. It comes before Match System's theme for each appearance (which it
+    // leaves as they were): it turns light or dark with the system itself.
+    bool pictureInUse() const { return showing() && m_theme == "custom"; }
+    void tintPictureFor(bool dark);
+    // How bright a theme starting now should be: the system's with Match System, else the theme in use's.
+    bool wantedDark() const { return m_matchSystem && m_systemDark ? *m_systemDark : m_dark; }
     // The theme, accent and Custom colors to come back to when the picture theme goes; and coming back.
     void keepBeforePicture();
     void restoreBeforePicture();

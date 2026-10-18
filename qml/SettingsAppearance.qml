@@ -15,6 +15,10 @@ ColumnLayout {
         {key: "content", name: qsTr("Documents and lists")}, {key: "raised", name: qsTr("Menus and popovers")},
         {key: "text", name: qsTr("Text")}, {key: "separator", name: qsTr("Lines")}, {key: "backdrop", name: qsTr("Around PDF pages")}]
     property string editing: ""
+    // The picture theme is in use: with Match System it is the theme for both appearances, light or dark with the
+    // system, so no theme for each appearance applies. With Match System on, Custom's Dark is the system's to set
+    // (the picture's colors are tinted for it); turning Match System off leaves it to the reader.
+    readonly property bool pictureTheme: Theme.picture.toString().length > 0 && Theme.theme === "custom"
     function startCustom() {
         if (Theme.theme === "custom") return
         // With a picture, Custom is the picture's theme; otherwise it starts as a copy of the theme in use.
@@ -110,7 +114,8 @@ ColumnLayout {
         SettingsRow {
             objectName: "settingsRow-matchSystem"
             label: qsTr("Match System")
-            detail: qsTr("Light or dark with your system. A theme chosen above is for the appearance it has now.")
+            detail: root.pictureTheme ? qsTr("Light or dark with your system. The picture theme stays and turns light or dark with it.")
+                                      : qsTr("Light or dark with your system. A theme chosen above is for the appearance it has now.")
             Switch { objectName: "matchSystemSwitch"; checked: Theme.matchSystem; onToggled: Theme.matchSystem = checked }
         }
         // The theme for each appearance.
@@ -119,7 +124,7 @@ ColumnLayout {
             delegate: SettingsRow {
                 id: appearanceRow
                 required property var modelData
-                visible: Theme.matchSystem
+                visible: Theme.matchSystem && !root.pictureTheme
                 label: modelData.label
                 ComboBox {
                     objectName: "matchSystem-" + appearanceRow.modelData.key
@@ -447,9 +452,10 @@ ColumnLayout {
         }
         SettingsRow {
             label: qsTr("Dark")
-            detail: qsTr("Use light text and dark controls")
+            detail: Theme.matchSystem ? qsTr("Set by Match System. Turn it off to change this.") : qsTr("Use light text and dark controls")
             Switch {
                 objectName: "customDarkSwitch"
+                enabled: !Theme.matchSystem
                 checked: !!root.custom.dark
                 onToggled: {
                     // A picture's theme is tinted again for the other brightness; other custom colors are kept.
