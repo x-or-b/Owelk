@@ -13,6 +13,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QStyleHints>
 #include <algorithm>
 #include <cmath>
 
@@ -161,7 +162,19 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
         m_paperStrength = qBound(0, m_store->setting("appearance.paperStrength", "15").toInt(), 50);
         if (const auto align = m_store->setting("appearance.pictureAlign"); align == "left" || align == "center")
             m_pictureAlign = align;
+        m_matchSystem = m_store->setting("appearance.matchSystem") == "1";
+        if (const auto light = m_store->setting("appearance.lightTheme"); knownTheme(light)) m_lightTheme = light;
+        if (const auto dark = m_store->setting("appearance.darkTheme"); knownTheme(dark)) m_darkTheme = dark;
     }
+    if (const auto *app = qobject_cast<QGuiApplication *>(QCoreApplication::instance())) {
+        if (const auto scheme = app->styleHints()->colorScheme(); scheme != Qt::ColorScheme::Unknown)
+            m_systemDark = scheme == Qt::ColorScheme::Dark;
+        connect(app->styleHints(), &QStyleHints::colorSchemeChanged, this, [this](Qt::ColorScheme scheme) {
+            if (scheme != Qt::ColorScheme::Unknown) followAppearance(scheme == Qt::ColorScheme::Dark);
+        });
+    }
+    // Before the first paint, so a window never opens in the other appearance's theme.
+    if (m_matchSystem && m_systemDark) useThemeFor(*m_systemDark);
     apply();
     showAppIcon(false);
 }
@@ -299,7 +312,64 @@ void Theme::setTheme(const QString &id)
     if (!knownTheme(id) || id == m_theme) return;
     m_theme = id;
     save("appearance.theme", id);
+    // With Match System, the choice is for the appearance the system has now.
+    if (m_matchSystem && m_systemDark) {
+        (*m_systemDark ? m_darkTheme : m_lightTheme) = id;
+        save(*m_systemDark ? "appearance.darkTheme" : "appearance.lightTheme", id);
+    }
     apply();
+}
+
+void Theme::setMatchSystem(bool on)
+{
+    if (on == m_matchSystem) return;
+    m_matchSystem = on;
+    save("appearance.matchSystem", on ? "1" : "0");
+    if (on) {
+        // The theme in use stays the one for its kind of appearance.
+        const bool dark = m_theme == "custom" ? custom().dark : preset(m_theme).dark;
+        (dark ? m_darkTheme : m_lightTheme) = m_theme;
+        save(dark ? "appearance.darkTheme" : "appearance.lightTheme", m_theme);
+        if (m_systemDark) useThemeFor(*m_systemDark);
+    }
+    apply();
+}
+
+void Theme::setLightTheme(const QString &id)
+{
+    if (!knownTheme(id) || id == m_lightTheme) return;
+    m_lightTheme = id;
+    save("appearance.lightTheme", id);
+    if (m_matchSystem && m_systemDark && !*m_systemDark) useThemeFor(false);
+    apply();
+}
+
+void Theme::setDarkTheme(const QString &id)
+{
+    if (!knownTheme(id) || id == m_darkTheme) return;
+    m_darkTheme = id;
+    save("appearance.darkTheme", id);
+    if (m_matchSystem && m_systemDark && *m_systemDark) useThemeFor(true);
+    apply();
+}
+
+void Theme::followAppearance(bool dark)
+{
+    m_systemDark = dark;
+    if (!m_matchSystem) return;
+    useThemeFor(dark);
+    apply();
+}
+
+void Theme::useThemeFor(bool dark)
+{
+    const auto id = dark ? m_darkTheme : m_lightTheme;
+    // A picture's theme in the other brightness: its colors tinted again, as its Dark switch does.
+    if (id == "custom" && showing() && custom().dark != dark)
+        writeCustomSeeds(tintedSeeds(m_pictureColors.isEmpty() ? QColor() : QColor(m_pictureColors.first()), dark));
+    if (id == m_theme) return;
+    m_theme = id;
+    save("appearance.theme", id);
 }
 
 void Theme::setAccentName(const QString &id)

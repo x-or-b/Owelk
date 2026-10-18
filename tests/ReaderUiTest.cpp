@@ -450,14 +450,15 @@ public slots:
         return QUrl(QStringLiteral("http://127.0.0.1:%1%2").arg(m_web.serverPort()).arg(path));
     }
     Q_INVOKABLE QSize imageSize(const QUrl &file) { return QImage(file.toLocalFile()).size(); }
-    // A picture for the picture theme: a pink figure on a transparent ground (inset by a tenth on every
-    // side), or an opaque photo.
-    Q_INVOKABLE QUrl pictureFile(int width, int height, bool cutout)
+    // A picture for the picture theme: a figure (pink unless another color is given) on a transparent ground
+    // (inset by a tenth on every side), or an opaque photo.
+    Q_INVOKABLE QUrl pictureFile(int width, int height, bool cutout, const QString &color = "#f2a0c4")
     {
         QImage image(width, height, QImage::Format_ARGB32);
         image.fill(cutout ? QColor(Qt::transparent) : QColor("#3a6ea5"));
-        QPainter(&image).fillRect(width / 10, height / 10, width * 8 / 10, height * 8 / 10, QColor("#f2a0c4"));
-        const auto path = m_directory.filePath(QString("picture-%1x%2-%3.png").arg(width).arg(height).arg(cutout));
+        QPainter(&image).fillRect(width / 10, height / 10, width * 8 / 10, height * 8 / 10, QColor(color));
+        const auto path = m_directory.filePath(
+            QString("picture-%1x%2-%3-%4.png").arg(width).arg(height).arg(cutout).arg(QString(color).remove('#')));
         image.save(path);
         return QUrl::fromLocalFile(path);
     }

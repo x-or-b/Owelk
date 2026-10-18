@@ -8,8 +8,9 @@ import "Platform.js" as Platform
 ColumnLayout {
     id: root
     spacing: 22
-    // The custom theme's seeds, edited one color at a time.
-    property var custom: Theme.seeds("custom")
+    // The custom theme's seeds, edited one color at a time; read again whenever the theme changes (choosing,
+    // adding or removing a picture changes them too).
+    readonly property var custom: (Theme.window, Theme.seeds("custom"))
     readonly property var seedNames: [{key: "window", name: qsTr("Window and toolbars")}, {key: "sidebar", name: qsTr("Sidebars")},
         {key: "content", name: qsTr("Documents and lists")}, {key: "raised", name: qsTr("Menus and popovers")},
         {key: "text", name: qsTr("Text")}, {key: "separator", name: qsTr("Lines")}, {key: "backdrop", name: qsTr("Around PDF pages")}]
@@ -17,8 +18,8 @@ ColumnLayout {
     function startCustom() {
         if (Theme.theme === "custom") return
         // With a picture, Custom is the picture's theme; otherwise it starts as a copy of the theme in use.
-        if (Theme.picture.toString().length) { Theme.theme = "custom"; custom = Theme.seeds("custom"); return }
-        custom = Theme.seeds(Theme.theme); Theme.setCustomSeeds(custom)
+        if (Theme.picture.toString().length) { Theme.theme = "custom"; return }
+        Theme.setCustomSeeds(Theme.seeds(Theme.theme))
     }
     // A small picture of a theme: toolbar, sidebar, page with lines of text and an accent mark.
     component ThemeTile: Item {
@@ -89,7 +90,7 @@ ColumnLayout {
             taps = 0
             note = ""
             // Turned off with pictures kept: on again with them; otherwise a picture to start from.
-            if (!Theme.pictureOn && Theme.pictures.length) { Theme.pictureOn = true; root.custom = Theme.seeds("custom") }
+            if (!Theme.pictureOn && Theme.pictures.length) Theme.pictureOn = true
             else pictureDialog.open()
         }
         Item {
@@ -106,6 +107,33 @@ ColumnLayout {
                 }
             }
         }
+        SettingsRow {
+            objectName: "settingsRow-matchSystem"
+            label: qsTr("Match System")
+            detail: qsTr("Light or dark with your system. A theme chosen above is for the appearance it has now.")
+            Switch { objectName: "matchSystemSwitch"; checked: Theme.matchSystem; onToggled: Theme.matchSystem = checked }
+        }
+        // The theme for each appearance.
+        Repeater {
+            model: [{key: "light", label: qsTr("Light appearance")}, {key: "dark", label: qsTr("Dark appearance")}]
+            delegate: SettingsRow {
+                id: appearanceRow
+                required property var modelData
+                visible: Theme.matchSystem
+                label: modelData.label
+                ComboBox {
+                    objectName: "matchSystem-" + appearanceRow.modelData.key
+                    Layout.preferredWidth: 160
+                    readonly property var ids: Theme.themes.map(function(t) { return t.id }).concat(["custom"])
+                    model: Theme.themes.map(function(t) { return qsTranslate("Owelk", t.name) }).concat([qsTr("Custom")])
+                    currentIndex: Math.max(0, ids.indexOf(appearanceRow.modelData.key === "dark" ? Theme.darkTheme : Theme.lightTheme))
+                    onActivated: function(index) {
+                        if (appearanceRow.modelData.key === "dark") Theme.darkTheme = ids[index]
+                        else Theme.lightTheme = ids[index]
+                    }
+                }
+            }
+        }
     }
     SettingsGroup {
         visible: Theme.picture.toString().length > 0
@@ -118,7 +146,7 @@ ColumnLayout {
             Switch {
                 objectName: "pictureOnSwitch"
                 checked: Theme.pictureOn
-                onToggled: { Theme.pictureOn = checked; root.custom = Theme.seeds("custom") }
+                onToggled: Theme.pictureOn = checked
             }
         }
         SettingsRow {
@@ -153,7 +181,7 @@ ColumnLayout {
                             asynchronous: true
                         }
                         HoverHandler { id: thumbHover; cursorShape: Qt.PointingHandCursor }
-                        TapHandler { onTapped: { Theme.choosePicture(thumb.modelData.id); root.custom = Theme.seeds("custom") } }
+                        TapHandler { onTapped: Theme.choosePicture(thumb.modelData.id) }
                         TapHandler { acceptedButtons: Qt.RightButton; onTapped: { pictureMenu.pictureId = thumb.modelData.id; pictureMenu.popup() } }
                         Accessible.role: Accessible.RadioButton
                         Accessible.name: qsTr("Picture") + " " + (index + 1)
@@ -360,7 +388,6 @@ ColumnLayout {
                     // A picture's theme is tinted again for the other brightness; other custom colors are kept.
                     const next = Theme.picture.toString().length ? Theme.tintedSeeds(Theme.pictureColors.length ? Theme.pictureColors[0] : "", checked)
                                                                  : Object.assign({}, root.custom, {dark: checked})
-                    root.custom = next
                     Theme.setCustomSeeds(next)
                 }
             }
@@ -375,7 +402,7 @@ ColumnLayout {
             objectName: "removePicture"
             text: qsTr("Remove Picture")
             palette.windowText: Theme.danger
-            onTriggered: { Theme.removePicture(pictureMenu.pictureId); root.custom = Theme.seeds("custom") }
+            onTriggered: Theme.removePicture(pictureMenu.pictureId)
         }
     }
     Native.FileDialog {
@@ -384,8 +411,7 @@ ColumnLayout {
         title: qsTr("Choose a Picture")
         nameFilters: [qsTr("Pictures") + " (" + Theme.pictureFilter + ")"]
         onAccepted: {
-            if (Theme.usePicture(selectedFile)) root.custom = Theme.seeds("custom")
-            else themeGroup.note = qsTr("This picture could not be opened.")
+            if (!Theme.usePicture(selectedFile)) themeGroup.note = qsTr("This picture could not be opened.")
         }
     }
     Native.ColorDialog {
@@ -394,7 +420,6 @@ ColumnLayout {
         onAccepted: {
             const next = Object.assign({}, root.custom)
             next[root.editing] = selectedColor.toString()
-            root.custom = next
             Theme.setCustomSeeds(next)
         }
     }

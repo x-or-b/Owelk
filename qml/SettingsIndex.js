@@ -12,6 +12,7 @@ const entries = [
     {page: "general", anchor: "settingsRow-controlTab", text: QT_TR_NOOP("Ctrl+Tab"), words: "control tab switch next last used recent"},
     {page: "general", anchor: "settingsRow-language", text: QT_TR_NOOP("Language"), words: "english korean hangul interface"},
     {page: "appearance", anchor: "settingsGroup-theme", text: QT_TR_NOOP("Theme"), words: "dark light mode colors"},
+    {page: "appearance", anchor: "settingsRow-matchSystem", text: QT_TR_NOOP("Match System"), words: "dark light mode automatic system appearance night"},
     {page: "appearance", anchor: "settingsGroup-accent", text: QT_TR_NOOP("Accent color"), words: "highlight selection color blue"},
     {page: "appearance", anchor: "settingsGroup-appIcon", text: QT_TR_NOOP("App icon"), words: "dock taskbar icon"},
     {page: "appearance", anchor: "settingsRow-textSize", text: QT_TR_NOOP("Text size"), words: "font bigger smaller scale zoom"},

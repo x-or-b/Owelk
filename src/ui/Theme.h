@@ -9,6 +9,7 @@
 #include <QVariant>
 #include <QVariantList>
 #include <QVariantMap>
+#include <optional>
 
 class ResearchStore;
 
@@ -20,6 +21,11 @@ class Theme : public QObject {
     Q_OBJECT
     // Choices (persisted under appearance.* in the settings table).
     Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY changed)
+    // Match System: the theme follows the system's light or dark appearance, with a theme chosen for each.
+    // Choosing a theme while it is on chooses it for the appearance the system has now.
+    Q_PROPERTY(bool matchSystem READ matchSystem WRITE setMatchSystem NOTIFY changed)
+    Q_PROPERTY(QString lightTheme READ lightTheme WRITE setLightTheme NOTIFY changed)
+    Q_PROPERTY(QString darkTheme READ darkTheme WRITE setDarkTheme NOTIFY changed)
     Q_PROPERTY(QString accentName READ accentName WRITE setAccentName NOTIFY changed)
     Q_PROPERTY(int textSize READ textSize WRITE setTextSize NOTIFY changed)
     Q_PROPERTY(bool invertPages READ invertPages WRITE setInvertPages NOTIFY changed)
@@ -140,6 +146,12 @@ public:
 
     QString theme() const { return m_theme; }
     void setTheme(const QString &id);
+    bool matchSystem() const { return m_matchSystem; }
+    void setMatchSystem(bool on);
+    QString lightTheme() const { return m_lightTheme; }
+    void setLightTheme(const QString &id);
+    QString darkTheme() const { return m_darkTheme; }
+    void setDarkTheme(const QString &id);
     QString accentName() const { return m_accentName; }
     void setAccentName(const QString &id);
     int textSize() const { return m_textSize; }
@@ -197,6 +209,8 @@ public:
     // it is kept with the data, and its main color becomes the accent and the tint of the Custom theme
     // (light or dark as the theme in use). False if the file is not a picture this build reads.
     Q_INVOKABLE bool usePicture(const QUrl &file);
+    // The system's appearance is now dark or light (called when it changes, and by tests).
+    Q_INVOKABLE void followAppearance(bool dark);
     // Uses a kept picture again (id from pictures; empty: the one in use), with the accent last chosen
     // for it and the Custom theme's brightness.
     Q_INVOKABLE bool choosePicture(const QString &id);
@@ -241,6 +255,13 @@ private:
     static AccentPair derivedAccent(const QColor &base);
     void apply();
     void save(const QString &key, const QString &value);
+    // Uses the theme chosen for an appearance; a picture's theme is tinted again for it.
+    void useThemeFor(bool dark);
+
+    bool m_matchSystem = false;
+    QString m_lightTheme = "neutral", m_darkTheme = "dark";
+    // The system's appearance, once known (some Linux desktops never tell).
+    std::optional<bool> m_systemDark;
 
     ResearchStore *m_store = nullptr;
     QString m_theme = "neutral", m_accentName = "blue";

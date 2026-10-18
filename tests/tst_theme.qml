@@ -14,6 +14,7 @@ Item {
         name: "Theme"
         when: windowShown
         function cleanup() {
+            Theme.matchSystem = false; Theme.lightTheme = "neutral"; Theme.darkTheme = "dark"
             while (Theme.pictures.length) Theme.removePicture()
             Theme.pictureStrength = 35
             Theme.clearCustomAccent()
@@ -24,6 +25,44 @@ Item {
         function luminance(c) {
             const linear = function(v) { return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4) }
             return .2126 * linear(c.r) + .7152 * linear(c.g) + .0722 * linear(c.b)
+        }
+        function test_matchSystemFollowsTheAppearance() {
+            Theme.theme = "paper"
+            Theme.matchSystem = true
+            compare(researchStore.setting("appearance.matchSystem"), "1")
+            compare(Theme.lightTheme, "paper", "the theme in use stays the one for light")
+            // Dark: the theme chosen for it; a theme chosen now is for dark.
+            Theme.followAppearance(true)
+            compare(Theme.theme, "dark")
+            verify(Theme.dark)
+            Theme.theme = "nord"
+            compare(Theme.darkTheme, "nord")
+            compare(Theme.lightTheme, "paper")
+            Theme.followAppearance(false)
+            compare(Theme.theme, "paper")
+            Theme.followAppearance(true)
+            compare(Theme.theme, "nord")
+            // Choosing the other appearance's theme waits for it.
+            Theme.lightTheme = "solarized"
+            compare(Theme.theme, "nord")
+            Theme.followAppearance(false)
+            compare(Theme.theme, "solarized")
+            compare(researchStore.setting("appearance.lightTheme"), "solarized")
+            // A picture's theme for both: tinted again for dark, and still shown.
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            compare(Theme.lightTheme, "custom")
+            Theme.darkTheme = "custom"
+            Theme.followAppearance(true)
+            compare(Theme.theme, "custom")
+            verify(Theme.dark)
+            verify(Theme.pictureShown)
+            compare(Theme.seeds("custom").window, Theme.tintedSeeds(Theme.pictureColors[0], true).window)
+            Theme.followAppearance(false)
+            verify(!Theme.dark)
+            // Off: the appearance leaves the theme alone.
+            Theme.matchSystem = false
+            Theme.followAppearance(true)
+            verify(!Theme.dark)
         }
         function test_themesSwitchLiveAndPersist() {
             compare(Theme.themes.map(function(t) { return t.id }), ["neutral", "paper", "solarized", "dark", "nord", "onedark", "dracula"])

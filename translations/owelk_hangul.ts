@@ -5064,6 +5064,10 @@ You can open the same document twice.</source>
         <translation>다크</translation>
     </message>
     <message>
+        <source>Dark appearance</source>
+        <translation>다크 어피어런스</translation>
+    </message>
+    <message>
         <source>Dark pages</source>
         <translation>다크 페이지스</translation>
     </message>
@@ -5092,8 +5096,20 @@ You can open the same document twice.</source>
         <translation>레프트</translation>
     </message>
     <message>
+        <source>Light appearance</source>
+        <translation>라이트 어피어런스</translation>
+    </message>
+    <message>
+        <source>Light or dark with your system. A theme chosen above is for the appearance it has now.</source>
+        <translation>라이트 오어 다크 위드 유어 시스템. 어 테마 초즌 어보브 이즈 포 더 어피어런스 잇 해즈 나우.</translation>
+    </message>
+    <message>
         <source>Lines</source>
         <translation>라인스</translation>
+    </message>
+    <message>
+        <source>Match System</source>
+        <translation>매치 시스템</translation>
     </message>
     <message>
         <source>Medium</source>
@@ -5530,6 +5546,10 @@ You can open the same document twice.</source>
     <message>
         <source>Language</source>
         <translation>랭귀지</translation>
+    </message>
+    <message>
+        <source>Match System</source>
+        <translation>매치 시스템</translation>
     </message>
     <message>
         <source>Meaning search</source>

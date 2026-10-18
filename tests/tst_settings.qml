@@ -26,6 +26,7 @@ Item {
             settings.close(); tryCompare(settings, "visible", false)
             while (Theme.pictures.length) Theme.removePicture()
             Theme.pictureOn = true
+            Theme.matchSystem = false; Theme.lightTheme = "neutral"; Theme.darkTheme = "dark"
             Theme.theme = "neutral"; Theme.accentName = "blue"; Theme.textSize = 13; Theme.invertPages = false; Theme.appIcon = "paper"
             researchStore.setSetting("appearance.custom", "")
         }
@@ -148,6 +149,21 @@ Item {
             slider.value = 15; slider.moved()
             compare(Theme.textSize, 15)
             compare(Theme.fontBody, 15)
+        }
+        function test_matchSystemChoosesAThemeForEachAppearance() {
+            settings.openPage("appearance"); tryCompare(settings, "opened", true)
+            let on = null
+            tryVerify(function() { on = visualChild(settings.contentItem, "matchSystemSwitch"); return on !== null })
+            const darkBox = visualChild(settings.contentItem, "matchSystem-dark")
+            verify(!darkBox.visible, "the choices show only while it is on")
+            on.toggle(); on.toggled()
+            compare(Theme.matchSystem, true)
+            tryVerify(function() { return darkBox.visible })
+            darkBox.activated(darkBox.ids.indexOf("nord"))
+            compare(Theme.darkTheme, "nord")
+            compare(darkBox.currentIndex, darkBox.ids.indexOf("nord"))
+            on.toggle(); on.toggled()
+            compare(Theme.matchSystem, false)
         }
         function test_appIconChoice() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
@@ -294,13 +310,18 @@ Item {
             verify(Theme.pictureShown)
             // A second picture is kept beside the first; a thumbnail goes back to the first.
             const first = String(Theme.picture)
-            verify(Theme.usePicture(testInput.pictureFile(1000, 1000, true)))
+            verify(Theme.usePicture(testInput.pictureFile(1000, 1000, true, "#6ec8f5")))
             verify(String(Theme.picture) !== first)
+            // The Custom theme's colors below follow the picture in use.
+            const secondWindow = Theme.seeds("custom").window
+            verify(Qt.colorEqual(visualChild(settings.contentItem, "seed-window").color, secondWindow))
             waitForPolish(settings.contentItem); wait(50)
             tryVerify(function() { return visualChild(settings.contentItem, "pictureThumb-1") !== null })
             verify(visualChild(settings.contentItem, "pictureThumb-1").modelData.current)
             mouseClick(visualChild(settings.contentItem, "pictureThumb-0"))
             compare(String(Theme.picture), first)
+            verify(Theme.seeds("custom").window !== secondWindow)
+            tryVerify(function() { return Qt.colorEqual(visualChild(settings.contentItem, "seed-window").color, Theme.seeds("custom").window) })
             // Right-click removes one (once the thumbnails, made again for the new one in use, are laid out).
             waitForPolish(settings.contentItem); wait(50)
             mouseClick(visualChild(settings.contentItem, "pictureThumb-1"), 20, 20, Qt.RightButton)
