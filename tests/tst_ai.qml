@@ -887,8 +887,24 @@ Item {
             tryCompare(gloss, "opened", true)
             verify(!gloss.streaming)
             verify(gloss.answer.indexOf("Mock answer") >= 0)
+            // A passage has no ☆; a word is kept in Library › Words with its meaning here.
+            verify(!findChild(gloss.contentItem, "glossSave").visible)
             gloss.close()
             c.clearSelection()
+            gloss.show({source: fixtureSource, page: 0, text: "occlusion", from: Qt.point(150, 185), to: Qt.point(215, 185)})
+            tryCompare(gloss, "streaming", false, 10000)
+            const star = findChild(gloss.contentItem, "glossSave")
+            verify(star.visible)
+            const before = researchStore.words().length
+            star.clicked()
+            tryVerify(function() { return researchStore.words().length === before + 1 }, 10000)
+            const word = researchStore.words()[0]
+            compare(word.term, "occlusion")
+            verify(word.meaning.indexOf("Mock answer") >= 0)
+            compare(word.page, 0)
+            compare(star.description, "Saved to Words")
+            gloss.close()
+            researchStore.removeWords([word.id])
         }
         function test_9zzzzzy_aPageLinkInFrontLeavesABackButton() {
             workspace.documents.restore({})

@@ -41,12 +41,13 @@ struct Table {
 const QList<Table> &tables()
 {
     static const QList<Table> list{{"documents", {"id"}}, {"tags", {"id"}}, {"collections", {"id"}}, {"notes", {"id"}},
-        {"highlights", {"id"}}, {"recent_documents", {"document_id"}}, {"reading_positions", {"document_id"}},
-        {"reading_days", {"device", "document_id", "day"}}, {"collection_documents", {"collection_id", "document_id"}},
-        {"document_tags", {"document_id", "tag_id"}}, {"links", {"from_kind", "from_id", "to_kind", "to_id"}},
-        {"ai_folders", {"id"}}, {"ai_threads", {"id"}}, {"ai_messages", {"id"}}, {"ai_responses", {"id"}},
-        {"foryou_topics", {"id"}}, {"foryou_follows", {"collection_id"}}, {"foryou_items", {"id"}},
-        {"foryou_meta", {"key"}}, {"foryou_people", {"id"}}};
+        {"highlights", {"id"}}, {"vocabulary", {"id"}}, {"recent_documents", {"document_id"}},
+        {"reading_positions", {"document_id"}}, {"reading_days", {"device", "document_id", "day"}},
+        {"collection_documents", {"collection_id", "document_id"}}, {"document_tags", {"document_id", "tag_id"}},
+        {"links", {"from_kind", "from_id", "to_kind", "to_id"}}, {"ai_folders", {"id"}}, {"ai_threads", {"id"}},
+        {"ai_messages", {"id"}}, {"ai_responses", {"id"}}, {"foryou_topics", {"id"}},
+        {"foryou_follows", {"collection_id"}}, {"foryou_items", {"id"}}, {"foryou_meta", {"key"}},
+        {"foryou_people", {"id"}}};
     return list;
 }
 

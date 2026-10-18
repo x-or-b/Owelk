@@ -368,6 +368,70 @@ private slots:
         QVERIFY(!finder.eventFilter(nullptr, &other));
         QCOMPARE(finder.takePending(), QVariantList{QUrl::fromLocalFile(directory.filePath("paper.pdf"))});
     }
+    void wordsAreKeptWithTheirSentenceAndTravel()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath("words.pdf");
+        writeTextFixture(
+            path, {"Odometry estimates motion. The drift term grows slowly over time. Loop closure fixes it."});
+        const auto source = QUrl::fromLocalFile(path);
+        // Where "drift" is on the page, as a selection's two ends (PDF points).
+        QPdfDocument pdf;
+        QCOMPARE(PdfAccess::load(pdf, path), QPdfDocument::Error::None);
+        const auto at = pdf.getAllText(0).text().indexOf("drift");
+        const auto box = pdf.getSelectionAtIndex(0, int(at), 5).boundingRectangle();
+        const QPointF from(box.left() + 1, box.center().y()), to(box.right() - 1, box.center().y());
+        QString error;
+        ResearchStore mac(directory.filePath("mac"));
+        QVERIFY2(mac.initialize(&error), qPrintable(error));
+        QVERIFY(mac.rememberDocument(source));
+        QSignalSpy saved(&mac, &ResearchStore::wordSaved);
+        mac.saveWord({{"source", source}, {"page", 0}, {"from", from}, {"to", to}, {"term", " drift "},
+            {"meaning", "**drift** — 표류. Error that adds up."}});
+        QVERIFY(saved.wait(10000));
+        QCOMPARE(saved.last()[1].toBool(), false);
+        auto words = mac.words();
+        QCOMPARE(words.size(), 1);
+        auto word = words[0].toMap();
+        QCOMPARE(word["term"].toString(), QString("drift"));
+        QCOMPARE(word["sentence"].toString(), QString("The drift term grows slowly over time."));
+        QCOMPARE(word["page"].toInt(), 0);
+        QCOMPARE(word["source"].toUrl(), source);
+        // The same term in the same paper again: only its meaning changes.
+        mac.saveWord({{"source", source}, {"page", 0}, {"from", from}, {"to", to}, {"term", "Drift"},
+            {"meaning", "Slowly growing error."}});
+        QVERIFY(saved.wait(10000));
+        QCOMPARE(saved.last()[1].toBool(), true);
+        QCOMPARE(mac.words().size(), 1);
+        QCOMPARE(mac.words()[0].toMap()["meaning"].toString(), QString("Slowly growing error."));
+        QCOMPARE(mac.words()[0].toMap()["term"].toString(), QString("drift"));
+        const auto id = word["id"].toString();
+        QVERIFY(mac.setWordMeaning(id, "Error that grows."));
+        QCOMPARE(mac.words("grows")[0].toMap()["meaning"].toString(), QString("Error that grows."));
+        QCOMPARE(mac.words("closure").size(), 0);
+        QCOMPARE(mac.words("words").size(), 1); // its paper's name
+        // Removed, and back with Undo.
+        QCOMPARE(mac.removeWords({id}), 1);
+        QCOMPARE(mac.words().size(), 0);
+        QCOMPARE(mac.restoreWords({id}), 1);
+        QCOMPARE(mac.words().size(), 1);
+        // To another computer through the sync folder; a removal goes too.
+        const auto drive = directory.filePath("Drive");
+        QVERIFY(QDir().mkpath(drive));
+        QCOMPARE(mac.librarySync()->setFolder(QUrl::fromLocalFile(drive)), QString());
+        QVERIFY(mac.librarySync()->syncBlocking().error.isEmpty());
+        ResearchStore ubuntu(directory.filePath("ubuntu"));
+        QVERIFY2(ubuntu.initialize(&error), qPrintable(error));
+        QCOMPARE(ubuntu.librarySync()->setFolder(QUrl::fromLocalFile(drive)), QString());
+        QVERIFY(ubuntu.librarySync()->syncBlocking().error.isEmpty());
+        QCOMPARE(ubuntu.words().size(), 1);
+        QCOMPARE(ubuntu.words()[0].toMap()["meaning"].toString(), QString("Error that grows."));
+        QVERIFY(!ubuntu.words()[0].toMap()["source"].toUrl().isEmpty());
+        QCOMPARE(ubuntu.removeWords({id}), 1);
+        QVERIFY(ubuntu.librarySync()->syncBlocking().error.isEmpty());
+        QVERIFY(mac.librarySync()->syncBlocking().error.isEmpty());
+        QCOMPARE(mac.words().size(), 0);
+    }
     void arxivVersionsAreReadFromTheFeedAndThePage()
     {
         QCOMPARE(ArxivVersions::plainId("2401.12345v3"), QString("2401.12345"));

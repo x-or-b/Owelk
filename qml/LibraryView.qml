@@ -66,9 +66,10 @@ Rectangle {
     property var tagRows: []
     property var noteRows: []
     // Which list: papers (no view in the filter), For You, notes or the Trash.
-    readonly property string view: ["notes", "trash", "foryou"].indexOf(filter.view) >= 0 ? filter.view : "papers"
+    readonly property string view: ["notes", "words", "trash", "foryou"].indexOf(filter.view) >= 0 ? filter.view : "papers"
     readonly property bool showingPapers: view === "papers"
     readonly property bool showingNotes: view === "notes"
+    readonly property bool showingWords: view === "words"
     readonly property bool showingTrash: view === "trash"
     readonly property bool showingForYou: view === "foryou"
     // For You: Papers (all found), Following (those of the researchers and institutions followed, by who) and Manage
@@ -246,6 +247,8 @@ Rectangle {
     // collection: "" for the whole library.
     signal askLibraryRequested(string collection, string collectionName)
     signal documentChosen(url source, var position)
+    // An owelk:// link to open (a saved word's place in its paper).
+    signal linkRequested(string link)
     signal filterEdited(var filter)
     function refresh() {
         const f = Object.assign({}, filter)
@@ -507,11 +510,12 @@ Rectangle {
             TabBar {
                 objectName: "libraryViews"
                 anchors.left: parent.left; anchors.leftMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                width: Math.min(parent.width - 16, 420)
-                currentIndex: ["papers", "foryou", "notes", "trash"].indexOf(root.view)
+                width: Math.min(parent.width - 16, 500)
+                currentIndex: ["papers", "foryou", "notes", "words", "trash"].indexOf(root.view)
                 TabButton { objectName: "libraryPapersTab"; text: qsTr("Papers"); onClicked: root.setView("papers") }
                 TabButton { objectName: "libraryForYouTab"; text: root.forYou.items.length ? qsTr("For You ") + root.forYou.items.length : qsTr("For You"); onClicked: root.setView("foryou") }
                 TabButton { objectName: "libraryNotesTab"; text: qsTr("Notes"); onClicked: root.setView("notes") }
+                TabButton { objectName: "libraryWordsTab"; text: qsTr("Words"); onClicked: root.setView("words") }
                 TabButton { objectName: "libraryTrashTab"; text: root.trashCount ? qsTr("Trash ") + root.trashCount : qsTr("Trash"); onClicked: root.setView("trash") }
             }
             Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.separator }
@@ -1208,6 +1212,12 @@ Rectangle {
                         }
                     }
                     Label { anchors.centerIn: parent; visible: noteList.count === 0; text: qsTr("No notes yet."); color: Theme.textTertiary }
+                }
+                WordsView {
+                    objectName: "libraryWords"
+                    visible: root.showingWords
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    onLinkRequested: function(link) { root.linkRequested(link) }
                 }
                 RowLayout {
                     Layout.fillWidth: true

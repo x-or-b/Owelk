@@ -440,6 +440,7 @@ Rectangle {
                 onFilterEdited: function(filter) { if (root.activeTabData) root.controller.setLibraryFilter(root.activeTabData.id, filter) }
                 onDocumentChosen: function(source, position) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source, position, true) }
                 onNoteChosen: function(id) { root.controller.activateGroup(root.groupId); root.controller.openNote(id, true) }
+                onLinkRequested: function(link) { root.controller.activateGroup(root.groupId); root.controller.openLink(link) }
                 onNewNoteRequested: { root.controller.activateGroup(root.groupId); root.controller.newNote() }
                 onAskNotesRequested: function(ids) { root.controller.aiRequested({attach: true, notes: ids}) }
                 onSettingsRequested: function(page) { root.controller.settingsRequested(page) }

@@ -12,7 +12,7 @@
 inline QList<QPair<QString, QVariantList>> movePaperReferences(const QString &from, const QString &to)
 {
     QList<QPair<QString, QVariantList>> statements;
-    for (const auto *table : {"highlights", "collection_documents", "document_tags"})
+    for (const auto *table : {"highlights", "vocabulary", "collection_documents", "document_tags"})
         statements.append(
             {QStringLiteral("UPDATE OR REPLACE %1 SET document_id=? WHERE document_id=?").arg(table), {to, from}});
     statements.append({"UPDATE OR REPLACE links SET from_id=? WHERE from_kind='document' AND from_id=?", {to, from}});

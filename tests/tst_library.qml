@@ -139,6 +139,41 @@ Item {
             view.query = ""
             researchStore.setSetting("library.arxivVersions", "0")
         }
+        function test_wordsListOpensEditsAndRemovesWithUndo() {
+            const paper = testInput.uniqueFixture("words paper.pdf")
+            verify(researchStore.rememberDocument(paper))
+            researchStore.saveWord({source: paper, page: 2, from: Qt.point(150, 185), to: Qt.point(215, 185), term: "occlusion", meaning: "**occlusion** — 가림. Hidden from view."})
+            tryVerify(function() { return researchStore.words("occlusion").length === 1 }, 10000)
+            findChild(workspace, "homeView").libraryFilterRequested({view: "words"})
+            const view = library()
+            compare(view.view, "words")
+            const words = findChild(view, "libraryWords")
+            tryVerify(function() { return words.visible && words.rows.length >= 1 })
+            findChild(words, "wordsQuery").text = "occlusion"
+            tryCompare(words.rows, "length", 1)
+            let row = null
+            tryVerify(function() { row = findChild(words, "word-0"); return row !== null })
+            compare(findChild(words, "wordMeaning-0").text, "occlusion — 가림. Hidden from view.")
+            // Edit the meaning.
+            words.rows[0] && findChild(words, "wordMeaningDialog").begin(words.rows[0])
+            const dialog = findChild(words, "wordMeaningDialog")
+            tryCompare(dialog, "opened", true)
+            findChild(dialog, "wordMeaningField").text = "Hidden behind something."
+            dialog.accept()
+            tryCompare(findChild(words, "wordMeaning-0"), "text", "Hidden behind something.")
+            // Removed, then back with Undo.
+            const id = words.rows[0].id
+            words.remove([id])
+            tryCompare(words.rows, "length", 0)
+            verify(findChild(words, "wordsUndoBar").visible)
+            findChild(words, "wordsUndo").clicked()
+            tryCompare(words.rows, "length", 1)
+            // A click opens the paper at the word's page.
+            mouseClick(findChild(words, "word-0"))
+            tryVerify(function() { const t = activeTab(); return t && t.kind !== "library" && researchStore.sameSource(t.source, paper) }, 5000)
+            tryCompare(workspace.currentReader, "currentPage", 2, 5000)
+            researchStore.removeWords([id])
+        }
         function test_readingTimeOnHomeAndInTheLibrary() {
             const paper = testInput.uniqueFixture("reading time.pdf")
             verify(researchStore.rememberDocument(paper))

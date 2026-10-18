@@ -19,6 +19,8 @@ Window {
     signal explainRequested(string text)
     // A Settings page to open (Sync & Backup, Search).
     signal settingsRequested(string page)
+    // The paper last read, from the card (Continue).
+    signal continueRequested(url source, var position)
     // Something dropped on the pet: PDFs to open, else text to explain. False if it was neither.
     function received(urls, text) {
         const pdfs = (urls || []).filter(function(url) { return /^file:.*\.pdf$/i.test(String(url)) })
@@ -52,7 +54,7 @@ Window {
         if (threads.length) say({text: qsTr("Writing your answer…"), thread: threads[threads.length - 1], writing: true}, true)
     }
     // A click on the pet. The screen stays where it is: Owelk opens from the menu, a bubble's click goes to what it
-    // says. The one place for what a click does: for now a hop, and a break reminder goes.
+    // says. The one place for what a click does: a hop, a break reminder goes, and its card shows (or goes).
     signal poked()
     function poke() {
         if (message && message.reminder) message = null
@@ -60,7 +62,20 @@ Window {
         poking = true
         pokeFace.restart()
         hop.restart()
+        cardShown = !cardShown
         poked()
+    }
+    // The card beside the pet: today's reading and the days in a row, the paper to continue, the work going on.
+    // Read when it shows; it goes after a while without the pointer on it.
+    property bool cardShown: false
+    onCardShownChanged: if (cardShown) cardHide.restart()
+    Timer { id: cardHide; interval: 8000; onTriggered: if (!cardHover.hovered) pet.cardShown = false; else restart() }
+    readonly property var calendar: cardShown && typeof researchStore !== "undefined"
+        ? (researchStore.readingRevision, researchStore.readingCalendar(1)) : ({today: 0, streak: 0})
+    readonly property var lastPaper: cardShown && typeof researchStore !== "undefined" ? researchStore.continueReading : ({})
+    function minutes(seconds) {
+        const m = Math.floor(seconds / 60)
+        return m < 60 ? qsTr("%1 min").arg(m) : m % 60 ? qsTr("%1 h %2 min").arg(Math.floor(m / 60)).arg(m % 60) : qsTr("%1 h").arg(Math.floor(m / 60))
     }
     // A click on the bubble: what it says, in Owelk.
     function act() {
@@ -391,6 +406,61 @@ Window {
         MenuItem { objectName: "hidePet"; text: qsTr("Hide Pet"); onTriggered: DesktopPet.enabled = false }
     }
 
+    Window {
+        id: cardWindow
+        objectName: "petCard"
+        flags: Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.NoDropShadowWindowHint | Qt.WindowDoesNotAcceptFocus
+        color: "transparent"
+        title: "Owelk"
+        visible: pet.cardShown && pet.visible
+        width: cardBox.width + 4; height: cardBox.height + 4
+        // Beside the pet, on the side with room, its bottom at the pet's.
+        readonly property bool left: pet.x - width - 4 >= pet.screen.virtualX
+        x: left ? pet.x - width - 4 : pet.x + pet.width + 4
+        y: Math.max(pet.screen.virtualY, pet.y + pet.height - height)
+        Component.onCompleted: DesktopPet.prepare(cardWindow)
+        onVisibleChanged: if (visible) DesktopPet.floatEverywhere(cardWindow)
+        HoverHandler { id: cardHover }
+        Rectangle {
+            id: cardBox
+            x: 2; y: 2
+            width: 240; height: cardColumn.implicitHeight + 20
+            radius: Theme.radiusLarge
+            color: Theme.raised
+            border.color: Theme.border
+            Column {
+                id: cardColumn
+                x: 12; y: 10; width: parent.width - 24
+                spacing: 6
+                Label {
+                    objectName: "petCardToday"
+                    width: parent.width
+                    text: qsTr("Today: %1").arg(pet.minutes(pet.calendar.today || 0))
+                        + (pet.calendar.streak > 1 ? qsTr("  ·  %1 days in a row").arg(pet.calendar.streak) : "")
+                    font.weight: Font.DemiBold; color: Theme.text
+                }
+                Button {
+                    objectName: "petCardContinue"
+                    visible: !!pet.lastPaper.source
+                    width: parent.width
+                    text: qsTr("Continue: ") + (pet.lastPaper.name || "")
+                    contentItem: Label { text: parent.text; elide: Text.ElideRight; color: Theme.text; font.pixelSize: Theme.fontSmall }
+                    // Taken before the card goes (its paper is read only while it shows).
+                    onClicked: { const paper = pet.lastPaper; pet.cardShown = false; pet.continueRequested(paper.source, paper.position) }
+                }
+                Repeater {
+                    model: pet.activities.slice(0, 3)
+                    delegate: Label {
+                        required property var modelData
+                        width: cardColumn.width
+                        text: modelData.label
+                        elide: Text.ElideRight; textFormat: Text.PlainText
+                        font.pixelSize: Theme.fontCaption; color: Theme.textSecondary
+                    }
+                }
+            }
+        }
+    }
     // The bubble: its own small window above the pet (below it near the top of the screen), so the
     // pet's window stays the size of the picture. A click does what it says; the right button
     // dismisses it.

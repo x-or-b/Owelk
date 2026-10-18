@@ -160,7 +160,9 @@ Rectangle {
         activated()
         const end = canvas.selectedAnchor
         gloss.anchor = {page: end.page, x: end.to.x, y: end.to.y}
-        gloss.show({source: source, page: selectionPage(), text: canvas.selectedText})
+        // Where it is, for keeping a word (☆): the first page's part of the selection, in PDF points.
+        const first = end.segments ? end.segments[0] : end
+        gloss.show({source: source, page: selectionPage(), text: canvas.selectedText, from: first.from, to: first.to})
     }
     function askAboutSelection() {
         if (!canvas.selectedText.length) return

@@ -100,6 +100,17 @@ public:
     Q_INVOKABLE QVariantMap readingCalendar(int days) const;
     // Seconds read in a paper, over all days and computers.
     Q_INVOKABLE int readingSeconds(const QUrl &source) const;
+    // Words saved from Gloss (ResearchStoreWords.cpp), kept in the library and synced: the term, what it means
+    // there, the sentence it was in, its paper and page. word: {source, page, from, to (the selection, PDF points),
+    // term, meaning}; the same term in the same paper again only updates its meaning. Answered by wordSaved.
+    Q_INVOKABLE void saveWord(const QVariantMap &word);
+    // Newest first, matching query in the term, meaning, sentence or paper name: {id, term, meaning, sentence,
+    // documentId, source, paper, page, createdAt}.
+    Q_INVOKABLE QVariantList words(const QString &query = QString()) const;
+    Q_INVOKABLE bool setWordMeaning(const QString &id, const QString &meaning);
+    // Removed words can be put back (Undo) by their IDs.
+    Q_INVOKABLE int removeWords(const QVariantList &ids);
+    Q_INVOKABLE int restoreWords(const QVariantList &ids);
     // Whether a paper with this arXiv ID (any version) or DOI is in the Library.
     bool hasPaper(const QString &arxiv, const QString &doi) const { return !paperUrlFor(arxiv, doi).isEmpty(); }
     // That paper's URL, or empty.
@@ -447,6 +458,9 @@ signals:
     void folderLoaded(int requestId, const QUrl &folder, const QVariantList &entries, const QString &error);
     void homeChanged();
     void readingSaved();
+    void wordsChanged();
+    // updated: the term was in that paper's words already; its meaning is the newer one now.
+    void wordSaved(const QString &id, bool updated);
     void relinkingChanged();
     void copyingPdfsChanged();
     void tasksChanged();
@@ -561,6 +575,7 @@ private:
     int m_readingRevision = 0;
     QString readingDevice();
     QString m_readingDevice;
+    int markWords(const QVariantList &ids, bool removed);
     // Seconds read by paper, over all days and computers. A paper merged by sync with another copy (sync_alias)
     // counts as the one it became: each computer's rows stay as that computer wrote them.
     QHash<QString, qint64> readingTotals() const;

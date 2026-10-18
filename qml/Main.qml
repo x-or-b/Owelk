@@ -490,6 +490,7 @@ ApplicationWindow {
             stretch: researchStore.readingClock.stretch
             activities: window.activities
             onSettingsRequested: function(page) { settingsDialog.openPage(page) }
+            onContinueRequested: function(source, position) { window.comeHere(); window.openDocument(source, position); window.homeVisible = false }
             // Owelk's window in front; closed (macOS), the pet keeps saying what happened.
             ownerActive: window.visible && Qt.application.state === Qt.ApplicationActive
             onOpenRequested: window.comeHere()

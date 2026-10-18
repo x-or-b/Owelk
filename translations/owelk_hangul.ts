@@ -1448,6 +1448,14 @@
         <translation>글로스 센즈 더 셀렉티드 워즈 앤드 더 센텐시즈 어라운드 뎀 투 </translation>
     </message>
     <message>
+        <source>Save to Words</source>
+        <translation>세이브 투 워즈</translation>
+    </message>
+    <message>
+        <source>Saved to Words</source>
+        <translation>세이브드 투 워즈</translation>
+    </message>
+    <message>
         <source>Send</source>
         <translation>센드</translation>
     </message>
@@ -2328,6 +2336,10 @@ Same file as another library entry</source>
         <translation>언소티드</translation>
     </message>
     <message>
+        <source>Words</source>
+        <translation>워즈</translation>
+    </message>
+    <message>
         <source>Year</source>
         <translation>이어</translation>
     </message>
@@ -3056,6 +3068,10 @@ Same file as another library entry</source>
     <message>
         <source>Cannot save the sync folder.</source>
         <translation>캔낫 세이브 더 싱크 폴더.</translation>
+    </message>
+    <message>
+        <source>Cannot save the word.</source>
+        <translation>캔낫 세이브 더 워드.</translation>
     </message>
     <message>
         <source>Cannot start Codex (%1). Install the Codex CLI to sign in with ChatGPT.</source>
@@ -4471,12 +4487,28 @@ Use Pages to navigate.</source>
 <context>
     <name>PetWindow</name>
     <message>
+        <source>  ·  %1 days in a row</source>
+        <translation>  ·  %1 데이즈 인 어 로우</translation>
+    </message>
+    <message>
         <source>%1 and %2 more</source>
         <translation>%1 앤드 %2 모어</translation>
     </message>
     <message>
         <source>%1 downloads finished.</source>
         <translation>%1 다운로즈 피니시드.</translation>
+    </message>
+    <message>
+        <source>%1 h</source>
+        <translation>%1 에이치</translation>
+    </message>
+    <message>
+        <source>%1 h %2 min</source>
+        <translation>%1 에이치 %2 민</translation>
+    </message>
+    <message>
+        <source>%1 min</source>
+        <translation>%1 민</translation>
     </message>
     <message>
         <source>%1 minutes of reading. Time for a short break?</source>
@@ -4493,6 +4525,10 @@ Use Pages to navigate.</source>
     <message>
         <source>Backup finished.</source>
         <translation>백업 피니시드.</translation>
+    </message>
+    <message>
+        <source>Continue: </source>
+        <translation>컨티뉴: </translation>
     </message>
     <message>
         <source>Downloaded: %1</source>
@@ -4529,6 +4565,10 @@ Use Pages to navigate.</source>
     <message>
         <source>The AI could not answer: </source>
         <translation>더 에이아이 쿠드 낫 앤서: </translation>
+    </message>
+    <message>
+        <source>Today: %1</source>
+        <translation>투데이: %1</translation>
     </message>
     <message>
         <source>Writing your answer…</source>
@@ -7083,6 +7123,65 @@ You can open the same document twice.</source>
     <message>
         <source>Search “</source>
         <translation>서치 “</translation>
+    </message>
+</context>
+<context>
+    <name>WordsView</name>
+    <message>
+        <source> word</source>
+        <translation> 워드</translation>
+    </message>
+    <message>
+        <source> words</source>
+        <translation> 워즈</translation>
+    </message>
+    <message>
+        <source> · p. </source>
+        <translation> · 피. </translation>
+    </message>
+    <message>
+        <source>Edit Meaning…</source>
+        <translation>에디트 미닝…</translation>
+    </message>
+    <message>
+        <source>Find a word, its meaning, its sentence or its paper</source>
+        <translation>파인드 어 워드, 잇츠 미닝, 잇츠 센텐스 오어 잇츠 페이퍼</translation>
+    </message>
+    <message>
+        <source>No words match.</source>
+        <translation>노 워즈 매치.</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>오픈</translation>
+    </message>
+    <message>
+        <source>Paper no longer in the Library</source>
+        <translation>페이퍼 노 롱거 인 더 라이브러리</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>리무브</translation>
+    </message>
+    <message>
+        <source>Removed %1 words.</source>
+        <translation>리무브드 %1 워즈.</translation>
+    </message>
+    <message>
+        <source>Removed a word.</source>
+        <translation>리무브드 어 워드.</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>언두</translation>
+    </message>
+    <message>
+        <source>Words</source>
+        <translation>워즈</translation>
+    </message>
+    <message>
+        <source>Words you save from Gloss (select a word, Gloss it, then ☆) appear here.</source>
+        <translation>워즈 유 세이브 프롬 글로스 (셀렉트 어 워드, 글로스 잇, 덴 ☆) 어피어 히어.</translation>
     </message>
 </context>
 <context>

@@ -504,6 +504,13 @@ bool ResearchStore::initialize(QString *error)
                 "CREATE INDEX IF NOT EXISTS reading_days_document ON reading_days(document_id)",
                 "CREATE INDEX IF NOT EXISTS reading_days_day ON reading_days(day)"},
             {}, true},
+        // Words saved from Gloss: the term, its meaning there, the sentence and the place it was in.
+        {21,
+            {"CREATE TABLE IF NOT EXISTS vocabulary (id TEXT PRIMARY KEY, term TEXT NOT NULL, meaning TEXT NOT NULL "
+             "DEFAULT '', sentence TEXT NOT NULL DEFAULT '', document_id TEXT, page INTEGER NOT NULL DEFAULT 0, anchor "
+             "TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL, removed_at TEXT)",
+                "CREATE INDEX IF NOT EXISTS vocabulary_document ON vocabulary(document_id)"},
+            {}, true},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     // Set aside only once step 18 is committed, so a failed upgrade still finds it next time.

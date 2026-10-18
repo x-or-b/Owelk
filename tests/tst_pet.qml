@@ -9,6 +9,7 @@ Item {
     Component { id: petComponent; App.PetWindow {} }
     SignalSpy { id: openSpy; signalName: "openRequested" }
     SignalSpy { id: pokeSpy; signalName: "poked" }
+    SignalSpy { id: continueSpy; signalName: "continueRequested" }
     SignalSpy { id: threadSpy; signalName: "threadRequested" }
     SignalSpy { id: forYouSpy; signalName: "forYouRequested" }
     SignalSpy { id: pdfSpy; signalName: "pdfsDropped" }
@@ -207,6 +208,32 @@ Item {
             wait(600)
             compare(pet.message, null)
             pet.activities = []
+        }
+        function test_aClickShowsItsCard() {
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            // The paper last read: the one in front when Owelk last kept its tabs.
+            verify(researchStore.saveSession({version: 2, activeGroup: "g", tree: {kind: "group", id: "g", activeTab: "t",
+                tabs: [{id: "t", source: fixtureSource.toString(), position: {page: 2, y: 0, x: 0, zoom: 1}}]}}))
+            const pet = createTemporaryObject(petComponent, null, {ownerActive: false})
+            continueSpy.target = pet; continueSpy.clear()
+            const card = findChild(pet, "petCard")
+            verify(!card.visible)
+            pet.poke()
+            tryCompare(card, "visible", true)
+            verify(findChild(card.contentItem, "petCardToday").text.indexOf("Today: ") === 0)
+            // Continue: the paper last read, in Owelk.
+            const go = findChild(card.contentItem, "petCardContinue")
+            verify(go.visible)
+            go.clicked()
+            compare(continueSpy.count, 1)
+            verify(researchStore.sameSource(continueSpy.signalArguments[0][0], fixtureSource))
+            verify(!pet.cardShown)
+            // Another click shows it, one more puts it away.
+            pet.poke()
+            verify(pet.cardShown)
+            pet.poke()
+            verify(!pet.cardShown)
+            researchStore.saveSession({})
         }
         function test_aDragMovesItWithoutOpeningOwelk() {
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))

@@ -21,6 +21,10 @@ Popup {
     readonly property var providerInfo: ai.providers.find(function(p) { return p.id === ai.provider }) || ({})
     readonly property bool needsConsent: (ai.providers, !ai.consented(ai.provider))
     readonly property string key: (spec.source || "").toString() + "|" + (spec.text || "")
+    // A word or a short phrase (as Gloss tells them from passages) can be kept in Library › Words with its meaning
+    // here, its sentence and its place (☆); saved again later, its meaning is the newer one.
+    readonly property bool term: String(spec.text || "").trim().split(/\s+/).length <= 3 && String(spec.text || "").trim().length <= 48
+    property var saved: ({})
     // Gloss's own model and effort for this provider (also in Settings → AI): chosen from the chip below.
     property var models: []
     readonly property string choice: (ai.providers, ai.glossChoice(ai.provider))
@@ -151,6 +155,20 @@ Popup {
                     onClicked: { if (!root.models.length) root.ai.listModels(root.ai.provider); modelMenu.popup(modelChip, 0, modelChip.height) }
                 }
                 IconButton {
+                    objectName: "glossSave"
+                    visible: root.term && root.answer.length > 0 && !root.streaming
+                    anchors.right: copyButton.left; anchors.verticalCenter: parent.verticalCenter
+                    icon.name: "star"
+                    tint: root.saved[root.key] ? Theme.accent : Theme.icon
+                    description: root.saved[root.key] ? qsTr("Saved to Words") : qsTr("Save to Words")
+                    onClicked: {
+                        researchStore.saveWord({source: root.spec.source, page: root.spec.page, from: root.spec.from, to: root.spec.to,
+                                                term: String(root.spec.text).trim(), meaning: root.answer})
+                        const next = Object.assign({}, root.saved); next[root.key] = true; root.saved = next
+                    }
+                }
+                IconButton {
+                    id: copyButton
                     objectName: "glossCopy"
                     visible: root.answer.length > 0 && !root.streaming
                     anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
