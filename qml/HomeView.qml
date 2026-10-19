@@ -30,6 +30,8 @@ Rectangle {
     property string sectionsText: researchStore.setting("home.sections")
     readonly property var places: HomeLayout.places(HomeLayout.parse(sectionsText))
     function placeOf(name) { return places[name] || {row: 0, column: 0, span: 1, rows: HomeLayout.rows[name] || 0} }
+    readonly property var heights: HomeLayout.heights(places, {collections: recentCollections.length,
+        recent: researchStore.recentDocuments.length, notes: recentNotes.length, threads: recentThreads.length})
     onPlacesChanged: listsLater.restart()
     signal newNoteRequested()
     onVisibleChanged: refreshLists()
@@ -63,8 +65,8 @@ Rectangle {
     readonly property alias searchBox: homeSearch
     // A note or an AI chat chosen in Home's lists.
     signal resultChosen(var result)
-    // A list in a slot of fixed height (rows rows): the rounded box grows with its rows up to the slot and
-    // shows no more (the rest is in the Library), so the page keeps its layout however long each list is.
+    // A list of at most rows rows (the rest is in the Library), shown rows tall: as tall as it lists, or as the
+    // box beside it if that one is taller (heights), so the two line up.
     readonly property real rowStep: Theme.rowHeight + 4
     component ListBox: Item {
         id: slot
@@ -72,11 +74,11 @@ Rectangle {
         property alias delegate: boxList.delegate
         property string empty: ""
         property int rows: 7
+        property int shown: 1
         Layout.fillWidth: true
-        Layout.preferredHeight: rows * root.rowStep + rows - 1 + 8
+        Layout.preferredHeight: shown * root.rowStep + shown - 1 + 8
         Rectangle {
-            width: parent.width
-            height: boxList.count ? Math.min(slot.height, boxList.contentHeight + 8) : root.rowStep + 8
+            anchors.fill: parent
             radius: Theme.radiusLarge
             color: Theme.content
             border.color: Theme.separator
@@ -573,13 +575,16 @@ Rectangle {
                                 }
                             }
                             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.separator }
-                            // The papers read on the day chosen, else in the last seven days, longest first; a click opens
-                            // one where it was left. Room for five, so the card keeps its height from day to day.
+                            // The papers read on the day chosen, else in the last seven days, longest first (the first five;
+                            // the card grows and shrinks with them); a click opens one where it was left.
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 2
+                                // As tall with the button as without it, so the list stays put when a day is chosen.
                                 RowLayout {
+                                    objectName: "homeReadingPapersHeader"
                                     Layout.fillWidth: true
+                                    Layout.preferredHeight: Theme.controlHeightSmall
                                     Label {
                                         objectName: "homeReadingPapersTitle"
                                         Layout.fillWidth: true
@@ -600,7 +605,7 @@ Rectangle {
                                 }
                                 Item {
                                     Layout.fillWidth: true
-                                    implicitHeight: 5 * root.rowStep + 16
+                                    implicitHeight: readingBox.papers.length ? readPapers.implicitHeight : root.rowStep
                                     Column {
                                         id: readPapers
                                         width: parent.width
@@ -645,18 +650,18 @@ Rectangle {
                                         }
                                     }
                                     Label {
-                                        anchors.right: parent.right; anchors.rightMargin: 12; anchors.bottom: parent.bottom
-                                        visible: readingBox.papers.length > 5
-                                        text: qsTr("and %1 more").arg(readingBox.papers.length - 5)
-                                        font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
-                                    }
-                                    Label {
                                         objectName: "homeReadingNone"
                                         anchors.centerIn: parent
                                         visible: readingBox.papers.length === 0
                                         text: readingBox.chosenIndex >= 0 ? qsTr("Nothing read on this day.") : qsTr("Nothing read in the last 7 days.")
                                         color: Theme.textTertiary
                                     }
+                                }
+                                Label {
+                                    Layout.alignment: Qt.AlignRight; Layout.rightMargin: 12
+                                    visible: readingBox.papers.length > 5
+                                    text: qsTr("and %1 more").arg(readingBox.papers.length - 5)
+                                    font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                                 }
                             }
                         }
@@ -672,6 +677,7 @@ Rectangle {
                     BoxHeading { objectName: "homeCollectionsHeading"; text: qsTr("Collections"); goes: true; onOpened: root.libraryFilterRequested({}) }
                     ListBox {
                         rows: root.placeOf("collections").rows
+                        shown: root.heights.collections || 1
                         model: root.recentCollections
                         empty: qsTr("No collections yet")
                         delegate: ItemDelegate {
@@ -706,6 +712,7 @@ Rectangle {
                     }
                     ListBox {
                         rows: root.placeOf("recent").rows
+                        shown: root.heights.recent || 1
                         model: researchStore.recentDocuments
                         empty: qsTr("No recent papers")
                         delegate: RecentPaperDelegate {
@@ -728,6 +735,7 @@ Rectangle {
                     BoxHeading { objectName: "homeNotesHeading"; text: qsTr("Notes"); goes: true; onOpened: root.libraryFilterRequested({view: "notes"}); adding: true; addDescription: qsTr("New note"); onAdded: root.newNoteRequested() }
                     ListBox {
                         rows: root.placeOf("notes").rows
+                        shown: root.heights.notes || 1
                         model: root.recentNotes
                         empty: qsTr("No notes yet")
                         delegate: ItemDelegate {
@@ -752,6 +760,7 @@ Rectangle {
                     BoxHeading { text: qsTr("AI Conversations") }
                     ListBox {
                         rows: root.placeOf("threads").rows
+                        shown: root.heights.threads || 1
                         model: root.recentThreads
                         empty: qsTr("No conversations yet")
                         // The question, and the paper it was about.

@@ -216,6 +216,7 @@ Item {
             // Below: the papers read in the last seven days; a day clicked shows that day's, the arrow keys move it.
             const title = visualChild(home, "homeReadingPapersTitle")
             compare(title.text, "Most read in the last 7 days")
+            const headerHeight = visualChild(home, "homeReadingPapersHeader").height
             const paperTime = function() {
                 for (let i = 0; i < 5; ++i) {
                     const row = findChild(card, "homeReadingPaper-" + i)
@@ -230,6 +231,7 @@ Item {
             compare(card.chosen, card.cells[today].day)
             verify(title.text.indexOf(minutes(calendar.today)) > 0, title.text)
             tryCompare({get t() { return paperTime() }}, "t", "25 min")
+            compare(visualChild(home, "homeReadingPapersHeader").height, headerHeight)
             verify(findChild(card, "homeReadingKeys").focus)
             testInput.keyClick(findChild(card, "homeReadingKeys"), Qt.Key_Up)
             compare(card.chosen, card.cells[today - 1].day)

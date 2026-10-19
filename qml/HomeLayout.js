@@ -44,6 +44,22 @@ function places(list) {
     return result
 }
 
+// How many rows tall each small box placed is ({name: rows}), given how many each has (counts): as many as it lists
+// (one when it has none, for its note), or as the box beside it, whichever is more, so the two line up.
+function heights(placed, counts) {
+    const listed = {}, result = {}
+    Object.keys(placed).forEach(function(name) {
+        if (placed[name].rows) listed[name] = Math.max(1, Math.min(counts[name] || 0, placed[name].rows))
+    })
+    Object.keys(listed).forEach(function(name) {
+        result[name] = listed[name]
+        Object.keys(listed).forEach(function(other) {
+            if (placed[other].row === placed[name].row) result[name] = Math.max(result[name], listed[other])
+        })
+    })
+    return result
+}
+
 // The list with the section at index moved by one place up (-1) or down (1).
 function move(list, index, by) {
     const to = index + by

@@ -190,6 +190,11 @@ TestCase {
         compare(places.foryou.row, 2)
         compare(JSON.stringify(places.collections), JSON.stringify({row: 3, column: 0, span: 2, rows: 7}))
         compare(places.threads, undefined)
+        // A box is as tall as it lists (one row with nothing, for its note), or as the one beside it if that is taller.
+        compare(JSON.stringify(HomeLayout.heights(places, {collections: 2, recent: 1, notes: 4})),
+            JSON.stringify({recent: 4, notes: 4, collections: 2}))
+        compare(JSON.stringify(HomeLayout.heights(HomeLayout.places(HomeLayout.parse("")), {recent: 9})),
+            JSON.stringify({collections: 7, recent: 7, notes: 1, threads: 1}))
         compare(JSON.stringify(HomeLayout.preview(HomeLayout.parse("recent,reading,notes,threads,-foryou,-collections"))),
             JSON.stringify([["recent"], ["reading"], ["notes", "threads"]]))
         compare(Object.keys(HomeLayout.places(HomeLayout.parse("-foryou,-reading,-collections,-recent,-notes,-threads"))).length, 0)
