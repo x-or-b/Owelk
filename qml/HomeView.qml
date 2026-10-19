@@ -330,26 +330,51 @@ Rectangle {
                     }
                 }
             }
-            // Reading: a square a day for the last weeks, darker the more minutes were read (hovered: the day, its
-            // minutes and papers), with the days read in a row, today and the last seven days. Shown once a minute
-            // has been read in these weeks.
+            // Reading: a square a day, as many weeks as fit (up to a year), darker the more minutes were read, with
+            // the months above, the weekdays beside and a key below; hovered, a day's minutes and papers. A click
+            // chooses a day (then the arrow keys move it, Esc lets it go) and the list below shows the papers read
+            // that day, else the last seven days'. Beside: the days read in a row, today, the last seven days and how
+            // they compare with the seven before. Shown once a minute has been read in the last year.
             ColumnLayout {
                 id: readingBox
                 objectName: "homeReading"
-                readonly property int weeks: 18
+                readonly property int step: 14
                 // Read again when the reading clock saves and when Home shows; nothing while it is hidden.
                 readonly property var calendar: (researchStore.readingRevision, root.visible)
-                    ? researchStore.readingCalendar(weeks * 7) : ({days: [], streak: 0, today: 0, week: 0})
+                    ? researchStore.readingCalendar(53 * 7) : ({days: [], streak: 0, today: 0, week: 0, previousWeek: 0})
+                // As many weeks as the room beside the totals holds (the room never follows the squares).
+                readonly property int weeks: Math.max(12, Math.min(53, Math.floor(gridArea.width / step)))
                 // Whole weeks from the first day of the week the system uses; the last column ends today.
                 readonly property var cells: {
                     const days = calendar.days
                     if (!days.length) return []
                     const today = days[days.length - 1].day.split("-")
                     const into = (new Date(+today[0], today[1] - 1, +today[2]).getDay() - Qt.locale().firstDayOfWeek + 7) % 7
-                    return days.slice(days.length - ((weeks - 1) * 7 + into + 1))
+                    return days.slice(Math.max(0, days.length - ((weeks - 1) * 7 + into + 1)))
                 }
-                readonly property int step: 14
-                visible: cells.some(function(c) { return c.seconds >= 60 })
+                // The day chosen (yyyy-MM-dd); none: the last seven days.
+                property string chosen: ""
+                readonly property int chosenIndex: chosen.length ? cells.findIndex(function(c) { return c.day === chosen }) : -1
+                function choose(index) {
+                    if (index < 0 || index >= cells.length) return
+                    chosen = cells[index].day === chosen ? "" : cells[index].day
+                }
+                function move(by) {
+                    const from = chosenIndex >= 0 ? chosenIndex : cells.length - 1
+                    chosen = cells[Math.max(0, Math.min(cells.length - 1, from + by))].day
+                }
+                readonly property var papers: {
+                    const days = calendar.days
+                    if (!days.length) return []
+                    return chosenIndex >= 0 ? researchStore.readingPapers(chosen, chosen)
+                        : researchStore.readingPapers(days[Math.max(0, days.length - 7)].day, days[days.length - 1].day)
+                }
+                function dayText(day) {
+                    const parts = day.split("-")
+                    return new Date(+parts[0], parts[1] - 1, +parts[2]).toLocaleDateString(Qt.locale(), Locale.ShortFormat)
+                }
+                function time(seconds) { return seconds < 60 ? qsTr("<1 min") : Platform.duration(seconds) }
+                visible: calendar.days.some(function(c) { return c.seconds >= 60 })
                 Layout.fillWidth: true
                 spacing: 6
                 BoxHeading {
@@ -359,64 +384,264 @@ Rectangle {
                 }
                 Rectangle {
                     Layout.fillWidth: true
-                    implicitHeight: readingRow.implicitHeight + 28
+                    implicitHeight: readingColumn.implicitHeight + 28
                     radius: Theme.radiusLarge
                     color: Theme.content
                     border.color: Theme.separator
-                    RowLayout {
-                        id: readingRow
+                    // Arrow keys move the chosen day: up and down a day, left and right a week, as the squares lie.
+                    Item {
+                        id: readingKeys
+                        objectName: "homeReadingKeys"
+                        Keys.onPressed: function(event) {
+                            const by = {[Qt.Key_Up]: -1, [Qt.Key_Down]: 1, [Qt.Key_Left]: -7, [Qt.Key_Right]: 7}[event.key]
+                            if (by) { readingBox.move(by); event.accepted = true }
+                            else if (event.key === Qt.Key_Escape && readingBox.chosenIndex >= 0) { readingBox.chosen = ""; event.accepted = true }
+                        }
+                    }
+                    ColumnLayout {
+                        id: readingColumn
                         anchors.fill: parent; anchors.margins: 14
-                        spacing: 28
-                        Grid {
-                            id: readingGrid
-                            objectName: "homeReadingGrid"
-                            rows: 7; flow: Grid.TopToBottom
-                            spacing: readingBox.step - 11
-                            readonly property int hovered: dayHover.hovered
-                                ? Math.floor(dayHover.point.position.x / readingBox.step) * 7 + Math.floor(dayHover.point.position.y / readingBox.step) : -1
-                            readonly property var hoveredDay: hovered >= 0 && hovered < readingBox.cells.length ? readingBox.cells[hovered] : null
-                            HoverHandler { id: dayHover }
-                            Repeater {
-                                model: readingBox.cells
-                                delegate: Rectangle {
-                                    required property var modelData
-                                    readonly property real minutes: modelData.seconds / 60
-                                    width: 11; height: 11; radius: 2
-                                    color: minutes < 1 ? Theme.separator
-                                        : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, minutes < 15 ? .3 : minutes < 30 ? .5 : minutes < 60 ? .75 : 1)
+                        spacing: 12
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 28
+                            // Weekdays (every other one), then the months over the squares and the key under them.
+                            Column {
+                                Layout.alignment: Qt.AlignTop
+                                topPadding: monthRow.height + 4
+                                Repeater {
+                                    model: 7
+                                    delegate: Label {
+                                        required property int index
+                                        height: readingBox.step
+                                        verticalAlignment: Text.AlignVCenter
+                                        text: index % 2 ? Qt.locale().dayName((Qt.locale().firstDayOfWeek + index) % 7, Locale.ShortFormat) : ""
+                                        font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                    }
                                 }
                             }
-                            ToolTip {
-                                objectName: "homeReadingDay"
-                                parent: readingGrid
-                                visible: !!readingGrid.hoveredDay
-                                x: Math.floor(readingGrid.hovered / 7) * readingBox.step + 5 - width / 2
-                                y: readingGrid.hovered % 7 * readingBox.step - height - 4
-                                text: {
-                                    const day = readingGrid.hoveredDay
-                                    if (!day) return ""
-                                    const parts = day.day.split("-")
-                                    const date = new Date(+parts[0], parts[1] - 1, +parts[2]).toLocaleDateString(Qt.locale(), Locale.ShortFormat)
-                                    if (day.seconds < 60) return date + "  ·  " + qsTr("Not read")
-                                    return [date, Platform.duration(day.seconds), day.papers === 1 ? qsTr("1 paper") : qsTr("%1 papers").arg(day.papers)].join("  ·  ")
+                            ColumnLayout {
+                                Layout.fillWidth: true; Layout.preferredWidth: 1
+                                Layout.minimumWidth: 12 * readingBox.step
+                                Layout.alignment: Qt.AlignTop
+                                spacing: 4
+                                // A month's name over its first week (not one crowding the next).
+                                Item {
+                                    id: monthRow
+                                    Layout.fillWidth: true
+                                    implicitHeight: Theme.fontCaption + 4
+                                    readonly property var months: {
+                                        const list = []
+                                        const cells = readingBox.cells
+                                        for (let c = 0; c * 7 < cells.length; ++c) {
+                                            const month = +cells[c * 7].day.split("-")[1]
+                                            if (c > 0 && month === +cells[(c - 1) * 7].day.split("-")[1]) continue
+                                            list.push({column: c, name: Qt.locale().standaloneMonthName(month - 1, Locale.ShortFormat)})
+                                        }
+                                        if (list.length > 1 && list[1].column - list[0].column < 3) list.shift()
+                                        return list
+                                    }
+                                    Repeater {
+                                        model: monthRow.months
+                                        delegate: Label {
+                                            required property var modelData
+                                            x: modelData.column * readingBox.step
+                                            text: modelData.name
+                                            font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                        }
+                                    }
+                                }
+                                Item {
+                                    id: gridArea
+                                    Layout.fillWidth: true
+                                    implicitHeight: 7 * readingBox.step - 3
+                                    readonly property int hovered: dayHover.hovered ? at(dayHover.point.position) : -1
+                                    function at(point) {
+                                        const column = Math.floor(point.x / readingBox.step), row = Math.floor(point.y / readingBox.step)
+                                        return row >= 0 && row < 7 && column >= 0 ? column * 7 + row : -1
+                                    }
+                                    readonly property var hoveredDay: hovered >= 0 && hovered < readingBox.cells.length ? readingBox.cells[hovered] : null
+                                    HoverHandler { id: dayHover; cursorShape: gridArea.hoveredDay ? Qt.PointingHandCursor : Qt.ArrowCursor }
+                                    TapHandler {
+                                        onTapped: function(point) {
+                                            readingBox.choose(gridArea.at(point.position))
+                                            readingKeys.forceActiveFocus()
+                                        }
+                                    }
+                                    Grid {
+                                        id: readingGrid
+                                        objectName: "homeReadingGrid"
+                                        rows: 7; flow: Grid.TopToBottom
+                                        spacing: readingBox.step - 11
+                                        Repeater {
+                                            model: readingBox.cells
+                                            delegate: Rectangle {
+                                                required property var modelData
+                                                readonly property real minutes: modelData.seconds / 60
+                                                width: 11; height: 11; radius: 2
+                                                color: minutes < 1 ? Theme.separator
+                                                    : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, minutes < 15 ? .3 : minutes < 30 ? .5 : minutes < 60 ? .75 : 1)
+                                            }
+                                        }
+                                        ToolTip {
+                                            objectName: "homeReadingDay"
+                                            parent: readingGrid
+                                            visible: !!gridArea.hoveredDay
+                                            x: Math.floor(gridArea.hovered / 7) * readingBox.step + 5 - width / 2
+                                            y: gridArea.hovered % 7 * readingBox.step - height - 4
+                                            text: {
+                                                const day = gridArea.hoveredDay
+                                                if (!day) return ""
+                                                const date = readingBox.dayText(day.day)
+                                                if (day.seconds < 60) return date + "  ·  " + qsTr("Not read")
+                                                return [date, Platform.duration(day.seconds), day.papers === 1 ? qsTr("1 paper") : qsTr("%1 papers").arg(day.papers)].join("  ·  ")
+                                            }
+                                        }
+                                    }
+                                    // The day chosen.
+                                    Rectangle {
+                                        objectName: "homeReadingChosen"
+                                        visible: readingBox.chosenIndex >= 0
+                                        x: Math.floor(readingBox.chosenIndex / 7) * readingBox.step - 2
+                                        y: readingBox.chosenIndex % 7 * readingBox.step - 2
+                                        width: 15; height: 15; radius: 3
+                                        color: "transparent"
+                                        border.width: 2; border.color: Theme.accent
+                                    }
+                                }
+                                // What the shades mean, under the squares' right end.
+                                Row {
+                                    Layout.leftMargin: Math.max(0, readingGrid.width - width)
+                                    spacing: 3
+                                    Label { text: qsTr("Less"); font.pixelSize: Theme.fontCaption; color: Theme.textTertiary; rightPadding: 2 }
+                                    Repeater {
+                                        model: [0, .3, .5, .75, 1]
+                                        delegate: Rectangle {
+                                            required property real modelData
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: 11; height: 11; radius: 2
+                                            color: modelData ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, modelData) : Theme.separator
+                                        }
+                                    }
+                                    Label { text: qsTr("More"); font.pixelSize: Theme.fontCaption; color: Theme.textTertiary; leftPadding: 2 }
+                                }
+                            }
+                            ColumnLayout {
+                                Layout.alignment: Qt.AlignTop
+                                Layout.maximumWidth: 150
+                                spacing: 12
+                                ColumnLayout {
+                                    spacing: 2
+                                    Label { text: qsTr("Today"); font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textTertiary }
+                                    Label { objectName: "homeReadingToday"; text: Platform.duration(readingBox.calendar.today); font.pixelSize: Theme.fontHeadline; color: Theme.text }
+                                }
+                                ColumnLayout {
+                                    spacing: 2
+                                    Label { text: qsTr("Last 7 days"); font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textTertiary }
+                                    Label { objectName: "homeReadingWeek"; text: Platform.duration(readingBox.calendar.week); font.pixelSize: Theme.fontHeadline; color: Theme.text }
+                                    // Against the seven days before (once either has a minute).
+                                    Label {
+                                        objectName: "homeReadingCompare"
+                                        Layout.fillWidth: true
+                                        readonly property int change: readingBox.calendar.week - readingBox.calendar.previousWeek
+                                        visible: text.length > 0
+                                        text: readingBox.calendar.week < 60 && readingBox.calendar.previousWeek < 60 ? ""
+                                            : Math.abs(change) < 60 ? qsTr("Same as the week before")
+                                            : change > 0 ? qsTr("%1 more than the week before").arg(Platform.duration(change))
+                                            : qsTr("%1 less than the week before").arg(Platform.duration(-change))
+                                        wrapMode: Text.Wrap
+                                        font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                    }
                                 }
                             }
                         }
+                        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.separator }
+                        // The papers read on the day chosen, else in the last seven days, longest first; a click opens
+                        // one where it was left. Room for five, so the card keeps its height from day to day.
                         ColumnLayout {
-                            Layout.alignment: Qt.AlignTop
-                            spacing: 12
-                            ColumnLayout {
-                                spacing: 2
-                                Label { text: qsTr("Today"); font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textTertiary }
-                                Label { objectName: "homeReadingToday"; text: Platform.duration(readingBox.calendar.today); font.pixelSize: Theme.fontHeadline; color: Theme.text }
+                            Layout.fillWidth: true
+                            spacing: 2
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Label {
+                                    objectName: "homeReadingPapersTitle"
+                                    Layout.fillWidth: true
+                                    readonly property var day: readingBox.chosenIndex >= 0 ? readingBox.cells[readingBox.chosenIndex] : null
+                                    text: !day ? qsTr("Most read in the last 7 days")
+                                        : day.seconds < 60 ? readingBox.dayText(day.day) + "  ·  " + qsTr("Not read")
+                                        : [readingBox.dayText(day.day), Platform.duration(day.seconds), day.papers === 1 ? qsTr("1 paper") : qsTr("%1 papers").arg(day.papers)].join("  ·  ")
+                                    elide: Text.ElideRight
+                                    font.pixelSize: Theme.fontSmall; font.weight: Font.DemiBold; color: Theme.textSecondary
+                                }
+                                Button {
+                                    objectName: "homeReadingWeekButton"
+                                    visible: readingBox.chosenIndex >= 0
+                                    flat: true; font.pixelSize: Theme.fontSmall; implicitHeight: Theme.controlHeightSmall
+                                    text: qsTr("Last 7 days")
+                                    onClicked: readingBox.chosen = ""
+                                }
                             }
-                            ColumnLayout {
-                                spacing: 2
-                                Label { text: qsTr("Last 7 days"); font.pixelSize: Theme.fontCaption; font.weight: Font.DemiBold; color: Theme.textTertiary }
-                                Label { objectName: "homeReadingWeek"; text: Platform.duration(readingBox.calendar.week); font.pixelSize: Theme.fontHeadline; color: Theme.text }
+                            Item {
+                                Layout.fillWidth: true
+                                implicitHeight: 5 * root.rowStep + 16
+                                Column {
+                                    id: readPapers
+                                    width: parent.width
+                                    Repeater {
+                                        model: readingBox.papers.slice(0, 5)
+                                        delegate: ItemDelegate {
+                                            id: readPaper
+                                            required property var modelData
+                                            required property int index
+                                            readonly property bool here: modelData.source.toString().length > 0
+                                            objectName: "homeReadingPaper-" + index
+                                            width: readPapers.width
+                                            height: root.rowStep
+                                            enabled: here
+                                            onClicked: root.documentChosen(modelData.source, undefined)
+                                            contentItem: RowLayout {
+                                                spacing: 12
+                                                Label {
+                                                    Layout.fillWidth: true
+                                                    text: readPaper.here ? readPaper.modelData.name : qsTr("Paper no longer in the Library")
+                                                    elide: Text.ElideRight; textFormat: Text.PlainText
+                                                    color: readPaper.here ? Theme.text : Theme.textTertiary
+                                                }
+                                                // Its share of the longest in the list.
+                                                Item {
+                                                    Layout.preferredWidth: 120; implicitHeight: 4
+                                                    Rectangle {
+                                                        width: Math.max(4, parent.width * readPaper.modelData.seconds / readingBox.papers[0].seconds)
+                                                        height: parent.height; radius: 2
+                                                        color: Theme.accent
+                                                        opacity: readPaper.here ? 1 : .4
+                                                    }
+                                                }
+                                                Label {
+                                                    Layout.preferredWidth: 72
+                                                    horizontalAlignment: Text.AlignRight
+                                                    text: readingBox.time(readPaper.modelData.seconds)
+                                                    font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Label {
+                                    anchors.right: parent.right; anchors.rightMargin: 12; anchors.bottom: parent.bottom
+                                    visible: readingBox.papers.length > 5
+                                    text: qsTr("and %1 more").arg(readingBox.papers.length - 5)
+                                    font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                                }
+                                Label {
+                                    objectName: "homeReadingNone"
+                                    anchors.centerIn: parent
+                                    visible: readingBox.papers.length === 0
+                                    text: readingBox.chosenIndex >= 0 ? qsTr("Nothing read on this day.") : qsTr("Nothing read in the last 7 days.")
+                                    color: Theme.textTertiary
+                                }
                             }
                         }
-                        Item { Layout.fillWidth: true }
                     }
                 }
             }

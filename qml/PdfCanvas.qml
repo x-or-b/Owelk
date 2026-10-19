@@ -905,13 +905,12 @@ Item {
                 color: root.invertPages ? Theme.paperInverted : Theme.paper
 
                 // The picture theme's picture through the paper, under the ink: the part of it that is
-                // behind this page, fainter than around the pages.
+                // behind this page, as strong as around the pages.
                 PictureLayer {
                     objectName: "pagePicture" + pageHolder.index
                     anchors.fill: parent
                     areaWidth: pictureBackdrop.width; areaHeight: pictureBackdrop.height
                     origin: Qt.point(pageHolder.x + paper.x - pages.contentX, pageHolder.y + paper.y - pages.contentY)
-                    strength: Theme.paperStrength / 100
                 }
 
                 PdfPageImage {

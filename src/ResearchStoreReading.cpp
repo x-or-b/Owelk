@@ -132,7 +132,33 @@ QVariantMap ResearchStore::readingCalendar(int days) const
         }
         break;
     }
-    return {{"days", list}, {"streak", streak}, {"today", total(today.toString(Qt::ISODate))}, {"week", week}};
+    qint64 previousWeek = 0;
+    for (int ago = 7; ago < 14; ++ago) previousWeek += total(today.addDays(-ago).toString(Qt::ISODate));
+    return {{"days", list}, {"streak", streak}, {"today", total(today.toString(Qt::ISODate))}, {"week", week},
+        {"previousWeek", previousWeek}};
+}
+
+QVariantList ResearchStore::readingPapers(const QString &from, const QString &to) const
+{
+    QHash<QString, qint64> seconds;
+    const auto read = readingByDay(from);
+    for (auto day = read.cbegin(); day != read.cend(); ++day)
+        if (day.key() <= to)
+            for (auto it = day.value().cbegin(); it != day.value().cend(); ++it) seconds[it.key()] += it.value();
+    QVariantList papers;
+    QSqlQuery query(m_database);
+    query.prepare("SELECT url FROM documents WHERE id=? AND removed_at IS NULL AND trashed_at IS NULL");
+    for (auto it = seconds.cbegin(); it != seconds.cend(); ++it) {
+        query.addBindValue(it.key());
+        const QUrl url = query.exec() && query.next() ? QUrl(query.value(0).toString()) : QUrl();
+        query.finish();
+        papers.append(QVariantMap{{"documentId", it.key()}, {"seconds", it.value()}, {"source", url},
+            {"name", url.isEmpty() ? QString() : displayName(url)}});
+    }
+    std::sort(papers.begin(), papers.end(), [](const QVariant &a, const QVariant &b) {
+        return a.toMap().value("seconds").toLongLong() > b.toMap().value("seconds").toLongLong();
+    });
+    return papers;
 }
 
 int ResearchStore::readingSeconds(const QUrl &source) const

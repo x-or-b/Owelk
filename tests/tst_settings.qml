@@ -404,7 +404,9 @@ Item {
             compare(page.visible, false, "nothing while there is no picture")
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
             verify(page.visible && around.visible)
-            fuzzyCompare(findChild(page, "pictureImage").opacity, .15, .001)
+            // As strong on the paper as around it.
+            fuzzyCompare(findChild(page, "pictureImage").opacity, Theme.pictureStrength / 100, .001)
+            fuzzyCompare(findChild(around, "pictureImage").opacity, Theme.pictureStrength / 100, .001)
             // The page shows the same part of the picture as around it, wherever it is scrolled to.
             const check = function() {
                 const outer = findChild(around, "pictureImage"), inner = findChild(page, "pictureImage")

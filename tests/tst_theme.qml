@@ -17,7 +17,7 @@ Item {
             Theme.pictureHidden = false
             Theme.matchSystem = false; Theme.lightTheme = "neutral"; Theme.darkTheme = "dark"
             while (Theme.pictures.length) Theme.removePicture()
-            Theme.pictureStrength = 35
+            Theme.pictureStrength = 25
             Theme.clearCustomAccent()
             Theme.theme = "neutral"; Theme.accentName = "blue"; Theme.textSize = 13
             researchStore.setSetting("appearance.custom", "")
@@ -181,7 +181,7 @@ Item {
             compare(image.y, 0)
             compare(image.fillMode, Image.PreserveAspectFit)
             compare(part.x, image.x - 700); compare(part.y, image.y - 600); compare(part.width, image.width)
-            fuzzyCompare(part.opacity, .35, .001)
+            fuzzyCompare(part.opacity, .25, .001)
             // Smaller, still standing at the bottom right; the part of the area shows the same part.
             Theme.pictureScale = 60
             fuzzyCompare(image.height, 480, .5)
@@ -200,7 +200,7 @@ Item {
             compare(image.fillMode, Image.PreserveAspectCrop)
             Theme.pictureStrength = 0
             verify(!partOfArea.visible)
-            Theme.pictureStrength = 35
+            Theme.pictureStrength = 25
             // Another theme keeps the picture without showing it.
             Theme.theme = "nord"
             verify(!Theme.pictureShown)

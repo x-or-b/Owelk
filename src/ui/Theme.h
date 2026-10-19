@@ -68,10 +68,9 @@ class Theme : public QObject {
     // The picture theme can be turned off: Custom is the reader's own colors again, the kept pictures stay
     // for when it is turned on (five taps on Theme). Off, picture is empty.
     Q_PROPERTY(bool pictureOn READ pictureOn WRITE setPictureOn NOTIFY changed)
-    // How much of the picture shows (percent): over Home and around PDF pages (0–60), through the PDF
-    // paper (0–50).
+    // How much of the picture shows (percent, 0–100): the same over Home, around PDF pages and through the paper,
+    // so the picture looks alike on a page and beside it.
     Q_PROPERTY(int pictureStrength READ pictureStrength WRITE setPictureStrength NOTIFY changed)
-    Q_PROPERTY(int paperStrength READ paperStrength WRITE setPaperStrength NOTIFY changed)
     // Where a cut-out stands, or which part of a full picture is kept: "left", "center" or "right".
     Q_PROPERTY(QString pictureAlign READ pictureAlign WRITE setPictureAlign NOTIFY changed)
     // How tall a cut-out stands, in percent of the area's height (40–100); kept for each picture.
@@ -201,8 +200,6 @@ public:
     int pictureScale() const { return m_pictureScale; }
     void setPictureScale(int percent);
     QVariantMap pictureMoods() const;
-    int paperStrength() const { return m_paperStrength; }
-    void setPaperStrength(int percent);
     static QString pictureFilter();
     bool canInvertPages() const
     {
@@ -355,7 +352,7 @@ private:
     QString m_picture; // the one in use
     bool m_pictureCutout = false;
     QSize m_pictureSize;
-    int m_pictureStrength = 35, m_paperStrength = 15;
+    int m_pictureStrength = 25;
     QString m_pictureAlign = "right";
     int m_pictureScale = 100;
     QStringList m_pictureColors;

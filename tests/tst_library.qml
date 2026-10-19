@@ -212,6 +212,31 @@ Item {
             tryCompare(tip, "visible", true)
             verify(tip.text.indexOf(minutes(calendar.today)) > 0, tip.text)
             mouseMove(grid, -20, -20)
+            verify(visualChild(home, "homeReadingCompare").visible)
+            // Below: the papers read in the last seven days; a day clicked shows that day's, the arrow keys move it.
+            const title = visualChild(home, "homeReadingPapersTitle")
+            compare(title.text, "Most read in the last 7 days")
+            const paperTime = function() {
+                for (let i = 0; i < 5; ++i) {
+                    const row = findChild(card, "homeReadingPaper-" + i)
+                    if (row && researchStore.sameSource(row.modelData.source, paper)) return row.contentItem.children[2].text
+                }
+                return ""
+            }
+            compare(paperTime(), "1 h 5 min")
+            // Today, as the squares are now (their count follows the card's width).
+            const today = card.cells.length - 1
+            mouseClick(grid, Math.floor(today / 7) * 14 + 5, today % 7 * 14 + 5)
+            compare(card.chosen, card.cells[today].day)
+            verify(title.text.indexOf(minutes(calendar.today)) > 0, title.text)
+            tryCompare({get t() { return paperTime() }}, "t", "25 min")
+            verify(findChild(card, "homeReadingKeys").focus)
+            testInput.keyClick(findChild(card, "homeReadingKeys"), Qt.Key_Up)
+            compare(card.chosen, card.cells[today - 1].day)
+            tryCompare({get t() { return paperTime() }}, "t", "40 min")
+            mouseClick(visualChild(home, "homeReadingWeekButton"))
+            compare(card.chosenIndex, -1)
+            compare(title.text, "Most read in the last 7 days")
             // The Library row and the paper's details show the time read.
             home.libraryFilterRequested({})
             const view = library()

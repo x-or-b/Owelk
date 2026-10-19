@@ -241,26 +241,16 @@ ColumnLayout {
             Label { text: Theme.pictureScale + "%"; color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
         }
         SettingsRow {
-            label: qsTr("Behind Home and pages")
+            // One strength for Home, around the pages and through the paper alike.
+            label: qsTr("Opacity")
             Slider {
                 objectName: "pictureStrengthSlider"
                 Layout.preferredWidth: 180
-                from: 0; to: 60; stepSize: 5; snapMode: Slider.SnapAlways
+                from: 0; to: 100; stepSize: 5; snapMode: Slider.SnapAlways
                 value: Theme.pictureStrength
                 onMoved: Theme.pictureStrength = value
             }
             Label { text: Theme.pictureStrength + "%"; color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
-        }
-        SettingsRow {
-            label: qsTr("Through the paper")
-            Slider {
-                objectName: "paperStrengthSlider"
-                Layout.preferredWidth: 180
-                from: 0; to: 50; stepSize: 5; snapMode: Slider.SnapAlways
-                value: Theme.paperStrength
-                onMoved: Theme.paperStrength = value
-            }
-            Label { text: Theme.paperStrength + "%"; color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
         }
         SettingsRow {
             visible: Theme.pictures.length > 1

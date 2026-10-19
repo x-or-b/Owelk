@@ -1510,12 +1510,24 @@
         <translation>%1 데이즈 인 어 로우</translation>
     </message>
     <message>
+        <source>%1 less than the week before</source>
+        <translation>%1 레스 댄 더 위크 비포</translation>
+    </message>
+    <message>
+        <source>%1 more than the week before</source>
+        <translation>%1 모어 댄 더 위크 비포</translation>
+    </message>
+    <message>
         <source>%1 papers</source>
         <translation>%1 페이퍼스</translation>
     </message>
     <message>
         <source>1 paper</source>
         <translation>1 페이퍼</translation>
+    </message>
+    <message>
+        <source>&lt;1 min</source>
+        <translation>&lt;1 민</translation>
     </message>
     <message>
         <source>AI Conversations</source>
@@ -1570,8 +1582,20 @@
         <translation>라스트 7 데이즈</translation>
     </message>
     <message>
+        <source>Less</source>
+        <translation>레스</translation>
+    </message>
+    <message>
         <source>Menu</source>
         <translation>메뉴</translation>
+    </message>
+    <message>
+        <source>More</source>
+        <translation>모어</translation>
+    </message>
+    <message>
+        <source>Most read in the last 7 days</source>
+        <translation>모스트 리드 인 더 라스트 7 데이즈</translation>
     </message>
     <message>
         <source>New note</source>
@@ -1606,6 +1630,14 @@
         <translation>노츠</translation>
     </message>
     <message>
+        <source>Nothing read in the last 7 days.</source>
+        <translation>낫싱 리드 인 더 라스트 7 데이즈.</translation>
+    </message>
+    <message>
+        <source>Nothing read on this day.</source>
+        <translation>낫싱 리드 온 디스 데이.</translation>
+    </message>
+    <message>
         <source>Open</source>
         <translation>오픈</translation>
     </message>
@@ -1622,6 +1654,10 @@
         <translation>페이지 </translation>
     </message>
     <message>
+        <source>Paper no longer in the Library</source>
+        <translation>페이퍼 노 롱거 인 더 라이브러리</translation>
+    </message>
+    <message>
         <source>Reading</source>
         <translation>리딩</translation>
     </message>
@@ -1630,12 +1666,20 @@
         <translation>리센트 페이퍼스</translation>
     </message>
     <message>
+        <source>Same as the week before</source>
+        <translation>세임 애즈 더 위크 비포</translation>
+    </message>
+    <message>
         <source>Start with a paper</source>
         <translation>스타트 위드 어 페이퍼</translation>
     </message>
     <message>
         <source>Today</source>
         <translation>투데이</translation>
+    </message>
+    <message>
+        <source>and %1 more</source>
+        <translation>앤드 %1 모어</translation>
     </message>
 </context>
 <context>
@@ -5354,10 +5398,6 @@ You can open the same document twice.</source>
         <translation>어라운드 피디에프 페이지스</translation>
     </message>
     <message>
-        <source>Behind Home and pages</source>
-        <translation>비하인드 홈 앤드 페이지스</translation>
-    </message>
-    <message>
         <source>Being dragged</source>
         <translation>빙 드래그드</translation>
     </message>
@@ -5534,6 +5574,10 @@ You can open the same document twice.</source>
         <translation>오프, 커스텀 해즈 유어 오운 컬러스 어게인 앤드 더 펫 고즈 어웨이. 더 픽처스 아 켑트.</translation>
     </message>
     <message>
+        <source>Opacity</source>
+        <translation>오패시티</translation>
+    </message>
+    <message>
         <source>PDF pages</source>
         <translation>피디에프 페이지스</translation>
     </message>
@@ -5664,10 +5708,6 @@ You can open the same document twice.</source>
     <message>
         <source>This picture could not be opened.</source>
         <translation>디스 픽처 쿠드 낫 비 오픈드.</translation>
-    </message>
-    <message>
-        <source>Through the paper</source>
-        <translation>스루 더 페이퍼</translation>
     </message>
     <message>
         <source>Time for a break</source>

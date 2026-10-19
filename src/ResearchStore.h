@@ -96,8 +96,12 @@ public:
     // computers. recordReading adds seconds read in source on day (yyyy-MM-dd, local time).
     Q_INVOKABLE bool recordReading(const QUrl &source, const QString &day, int seconds);
     // The last days days up to today: {days: [{day, seconds, papers}] oldest first, streak (days in a row with a
-    // minute or more, up to today or yesterday), today, week (seconds, the last seven days)}.
+    // minute or more, up to today or yesterday), today, week (seconds, the last seven days), previousWeek (the
+    // seven before them)}.
     Q_INVOKABLE QVariantMap readingCalendar(int days) const;
+    // The papers read from one day to another (yyyy-MM-dd, both included), longest first: [{documentId, name,
+    // seconds, source}]; source is empty for a paper no longer in the Library (removed or in the Trash).
+    Q_INVOKABLE QVariantList readingPapers(const QString &from, const QString &to) const;
     // Seconds read in a paper, over all days and computers.
     Q_INVOKABLE int readingSeconds(const QUrl &source) const;
     // Words saved from Gloss (ResearchStoreWords.cpp), kept in the library and synced: the term, what it means

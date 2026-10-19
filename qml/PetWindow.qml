@@ -88,7 +88,7 @@ Window {
     // Read when it shows; it goes after a while without the pointer on it.
     property bool cardShown: false
     onCardShownChanged: if (cardShown) cardHide.restart()
-    Timer { id: cardHide; interval: 8000; onTriggered: if (!cardHover.hovered) pet.cardShown = false; else restart() }
+    Timer { id: cardHide; interval: 2000; onTriggered: if (!cardHover.hovered) pet.cardShown = false; else restart() }
     readonly property var calendar: cardShown && typeof researchStore !== "undefined"
         ? (researchStore.readingRevision, researchStore.readingCalendar(1)) : ({today: 0, streak: 0})
     readonly property var lastPaper: cardShown && typeof researchStore !== "undefined" ? researchStore.continueReading : ({})

@@ -158,6 +158,29 @@ private slots:
         QCOMPARE(saved.size(), 1);
         QCOMPARE(store.readingSeconds(source), 4140 + 60 + 45);
         storeClock->setSource({});
+        // The papers read in a span of days, longest first; one no longer in the Library has no source.
+        const auto otherPath = directory.filePath("other.pdf");
+        writeFixture(otherPath);
+        const auto other = QUrl::fromLocalFile(otherPath);
+        QVERIFY(store.recordReading(other, day(1), 2000));
+        QVERIFY(store.recordReading(other, day(9), 500));
+        {
+            WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3", false);
+            QVERIFY(QSqlQuery(db.db).exec(
+                "INSERT INTO reading_days(device,document_id,day,seconds) VALUES('other','gone','" + day(1) + "',70)"));
+        }
+        const auto papers = store.readingPapers(day(1), day(1));
+        QCOMPARE(papers.size(), 3);
+        QVERIFY(store.sameSource(papers[0].toMap()["source"].toUrl(), other));
+        QCOMPARE(papers[0].toMap()["seconds"].toInt(), 2000);
+        QVERIFY(store.sameSource(papers[1].toMap()["source"].toUrl(), source));
+        QCOMPARE(papers[1].toMap()["seconds"].toInt(), 1000);
+        QVERIFY(!papers[1].toMap()["name"].toString().isEmpty());
+        QVERIFY(papers[2].toMap()["source"].toUrl().isEmpty());
+        QCOMPARE(store.readingPapers(day(6), day(0)).size(), 3);
+        QCOMPARE(store.readingPapers(day(9), day(9)).size(), 1);
+        // The seven days before the last seven.
+        QCOMPARE(store.readingCalendar(7)["previousWeek"].toInt(), 500);
     }
     void picturesRotateOnlyWhenReadingAllowsIt()
     {

@@ -206,8 +206,7 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
             if (kept.file == current) shown = &kept;
         mirror(shown);
         m_pictureOn = m_store->setting("appearance.pictureOn") != "0";
-        m_pictureStrength = qBound(0, m_store->setting("appearance.pictureStrength", "35").toInt(), 60);
-        m_paperStrength = qBound(0, m_store->setting("appearance.paperStrength", "15").toInt(), 50);
+        m_pictureStrength = qBound(0, m_store->setting("appearance.pictureStrength", "25").toInt(), 100);
         if (const auto align = m_store->setting("appearance.pictureAlign"); align == "left" || align == "center")
             m_pictureAlign = align;
         m_matchSystem = m_store->setting("appearance.matchSystem") == "1";
@@ -465,7 +464,7 @@ void Theme::setTextSize(int size)
 
 void Theme::setPictureStrength(int percent)
 {
-    percent = qBound(0, percent, 60);
+    percent = qBound(0, percent, 100);
     if (percent == m_pictureStrength) return;
     m_pictureStrength = percent;
     save("appearance.pictureStrength", QString::number(percent));
@@ -488,15 +487,6 @@ void Theme::setPictureScale(int percent)
         if (picture.file == m_picture) picture.scale = percent;
     m_pictureScale = percent;
     savePictures(false);
-    emit changed();
-}
-
-void Theme::setPaperStrength(int percent)
-{
-    percent = qBound(0, percent, 50);
-    if (percent == m_paperStrength) return;
-    m_paperStrength = percent;
-    save("appearance.paperStrength", QString::number(percent));
     emit changed();
 }
 
