@@ -27,6 +27,27 @@ ColumnLayout {
                 TabButton { objectName: "startupTabsOption"; text: qsTr("Last Tabs"); width: 96; onClicked: { startupBar.chosen = "tabs"; researchStore.setSetting("startup.view", "tabs") } }
             }
         }
+        // Owelk opening by itself at login (LoginItem). The system keeps it and its own settings change it too, so
+        // it is asked again whenever Owelk comes back to the front.
+        SettingsRow {
+            id: loginRow
+            objectName: "settingsRow-openAtLogin"
+            readonly property bool available: typeof loginItem !== "undefined" && loginItem.supported
+            visible: available
+            label: qsTr("Open at login")
+            detail: available && loginItem.needsApproval ? qsTr("Allow Owelk in System Settings › General › Login Items.") : ""
+            Connections {
+                target: Qt.application
+                enabled: loginRow.available
+                function onStateChanged() { if (Qt.application.state === Qt.ApplicationActive) loginItem.refresh() }
+            }
+            Switch {
+                objectName: "openAtLoginSwitch"
+                checked: loginRow.available && loginItem.enabled
+                // As the system has it afterwards: back off when it refused.
+                onToggled: { loginItem.setEnabled(checked); checked = Qt.binding(function() { return loginRow.available && loginItem.enabled }) }
+            }
+        }
     }
     // Home: the sections below Continue Reading, each on or off, moved up and down; a sketch shows where they go
     // (HomeLayout.js). Kept on this computer: screens differ.

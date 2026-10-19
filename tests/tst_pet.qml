@@ -177,8 +177,18 @@ Item {
             pet.poke()
             compare(pet.mood, "poke")
             tryCompare(pet, "poking", false, 3000)
-            mouseDrag(pet.contentItem, pet.width / 2, pet.height - 20, 40, -30)
+            // Held until the button is let go, standing still in between too.
+            const x = pet.width / 2, y = pet.height - 20
+            mousePress(pet.contentItem, x, y)
+            mouseMove(pet.contentItem, x + 20, y - 15, -1, Qt.LeftButton)
+            mouseMove(pet.contentItem, x + 40, y - 30, -1, Qt.LeftButton)
             compare(pet.mood, "held")
+            const heldFace = String(pet.shown)
+            wait(600)
+            compare(pet.mood, "held")
+            mouseMove(pet.contentItem, x + 60, y - 30, -1, Qt.LeftButton)
+            compare(String(pet.shown), heldFace)
+            mouseRelease(pet.contentItem, x + 60, y - 30)
             tryCompare(pet, "held", false, 2000)
             // Nothing for a while: sleepy (minutes of 5 ms here); anything happening wakes it.
             pet.minute = 5

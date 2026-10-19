@@ -1,5 +1,6 @@
 #include "ResearchStore.h"
 #include "AppInstance.h"
+#include "LoginItem.h"
 #include "AnnotationImageProvider.h"
 #include "MathImageProvider.h"
 #include "SelectionGeometry.h"
@@ -82,6 +83,8 @@ int main(int argc, char *argv[])
     DesktopPet pet(&store);
     qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "DesktopPet", &pet);
     UiLanguage language(&store);
+    // Asks the system only when Settings shows it.
+    LoginItem loginItem;
     // Declared before the engine, so it outlives the QML that uses it.
     WindowChrome chrome;
     SwipeNavigation swipe;
@@ -94,6 +97,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("initialFiles", initialFiles);
     engine.rootContext()->setContextProperty("appInstance", &instance);
     engine.rootContext()->setContextProperty("uiLanguage", &language);
+    engine.rootContext()->setContextProperty("loginItem", &loginItem);
     engine.rootContext()->setContextProperty("windowChrome", &chrome);
     engine.rootContext()->setContextProperty("swipeNavigation", &swipe);
     QObject::connect(

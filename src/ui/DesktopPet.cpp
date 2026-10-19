@@ -15,6 +15,7 @@
 #ifdef Q_OS_MACOS
 // DesktopPetMac.mm
 void desktopPetFloatEverywhere(QWindow *window, bool hiddenWhenShared);
+bool desktopPetButtonDown();
 bool desktopPetPassThrough(QWindow *window, const QRegion &region);
 #endif
 
@@ -85,6 +86,17 @@ int DesktopPet::height() const
 bool DesktopPet::supported()
 {
     return !QGuiApplication::platformName().startsWith(QLatin1String("wayland"));
+}
+
+bool DesktopPet::buttonDown()
+{
+#ifdef Q_OS_MACOS
+    if (QGuiApplication::platformName() == "cocoa") return desktopPetButtonDown();
+#elif defined(Q_OS_WIN)
+    if (QGuiApplication::platformName() == "windows")
+        return GetAsyncKeyState(GetSystemMetrics(SM_SWAPBUTTON) ? VK_RBUTTON : VK_LBUTTON) & 0x8000;
+#endif
+    return QGuiApplication::mouseButtons() & Qt::LeftButton;
 }
 
 QPoint DesktopPet::place(int width, int height) const

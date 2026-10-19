@@ -5927,6 +5927,10 @@ You can open the same document twice.</source>
         <translation>에이아이 컨버세이션스</translation>
     </message>
     <message>
+        <source>Allow Owelk in System Settings › General › Login Items.</source>
+        <translation>얼라우 오웰크 인 시스템 세팅스 › 제너럴 › 로그인 아이템스.</translation>
+    </message>
+    <message>
         <source>Back, Forward, search and the menu above the tabs. Off, search is on Home (%1 elsewhere).</source>
         <translation>백, 포워드, 서치 앤드 더 메뉴 어보브 더 탭스. 오프, 서치 이즈 온 홈 (%1 엘스웨어).</translation>
     </message>
@@ -6001,6 +6005,10 @@ You can open the same document twice.</source>
     <message>
         <source>On launch</source>
         <translation>온 런치</translation>
+    </message>
+    <message>
+        <source>Open at login</source>
+        <translation>오픈 앳 로그인</translation>
     </message>
     <message>
         <source>Reading</source>
@@ -6140,6 +6148,10 @@ You can open the same document twice.</source>
     <message>
         <source>On launch</source>
         <translation>온 런치</translation>
+    </message>
+    <message>
+        <source>Open at login</source>
+        <translation>오픈 앳 로그인</translation>
     </message>
     <message>
         <source>OpenAlex key</source>

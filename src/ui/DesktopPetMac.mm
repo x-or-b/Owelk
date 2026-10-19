@@ -32,6 +32,11 @@ void desktopPetFloatEverywhere(QWindow *window, bool hiddenWhenShared)
     }
 }
 
+bool desktopPetButtonDown()
+{
+    return NSEvent.pressedMouseButtons & 1;
+}
+
 namespace {
 // Event monitors that let clicks through a pet window, and the part of it that takes them.
 struct PassThrough {

@@ -42,6 +42,9 @@ public:
     void setHiddenWhenShared(bool hidden);
     void setBreakMinutes(int minutes);
     static bool supported();
+    // Whether the main mouse button is down now, wherever the pointer is: a move the system makes of a window keeps
+    // the release to itself.
+    Q_INVOKABLE static bool buttonDown();
 
     // Where a pet window of this size goes: where it was left while that is still on a screen, else the
     // bottom right of the main screen.

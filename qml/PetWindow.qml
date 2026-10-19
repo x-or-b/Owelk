@@ -333,9 +333,10 @@ Window {
     // Just clicked: its poked face for a moment.
     property bool poking: false
     Timer { id: pokeFace; interval: 1500; onTriggered: pet.poking = false }
-    // Held while dragged: until the window has stood still a moment.
+    // Held from the press that drags it to the release, standing still in between too: one face for the whole drag.
+    // The system's move keeps the release to itself, so the button is asked.
     property bool held: false
-    Timer { id: heldSettle; interval: 400; onTriggered: pet.held = false }
+    Timer { objectName: "petHeldWatch"; interval: 100; repeat: true; running: pet.held; onTriggered: if (!DesktopPet.buttonDown()) pet.held = false }
     flags: Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.NoDropShadowWindowHint | Qt.WindowDoesNotAcceptFocus
     // Its own window, not one that follows Owelk's (minimised, on another desktop).
     transientParent: null
@@ -374,7 +375,7 @@ Window {
     // Where it was left, once it stops moving.
     onXChanged: { if (moving) dragged(); rememberLater.restart() }
     onYChanged: { if (moving) dragged(); rememberLater.restart() }
-    function dragged() { movedAt = Date.now(); held = true; heldSettle.restart() }
+    function dragged() { movedAt = Date.now() }
     Timer { id: rememberLater; interval: 500; onTriggered: DesktopPet.remember(pet.x, pet.y) }
     // Shown in screen sharing or not, as Settings has it now (its bubble and card follow when they next show).
     Connections {
@@ -427,7 +428,7 @@ Window {
     DragHandler {
         objectName: "petMove"
         target: null
-        onActiveChanged: if (active) { pet.moving = true; pet.held = true; heldSettle.restart(); pet.stir(); pet.startSystemMove() }
+        onActiveChanged: if (active) { pet.moving = true; pet.held = true; pet.stir(); pet.startSystemMove() }
     }
     TapHandler {
         objectName: "petTap"

@@ -7,6 +7,7 @@
 // every anchor is on its page.
 const entries = [
     {page: "general", anchor: "settingsRow-launch", text: QT_TR_NOOP("On launch"), words: "start startup open home last tabs restore"},
+    {page: "general", anchor: "settingsRow-openAtLogin", text: QT_TR_NOOP("Open at login"), words: "start startup login boot automatically launch run computer turns on autostart"},
     {page: "general", anchor: "settingsGroup-home", text: QT_TR_NOOP("Home"), words: "home sections order layout customize hide show reading for you collections recent papers notes ai conversations"},
     {page: "general", anchor: "settingsGroup-focus", text: QT_TR_NOOP("Focus mode"), words: "distraction free zen full screen hide bars toolbar reading"},
     {page: "general", anchor: "settingsRow-tabLayout", text: QT_TR_NOOP("Tab layout"), words: "vertical horizontal tabs sidebar"},
