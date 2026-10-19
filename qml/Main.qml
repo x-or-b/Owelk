@@ -739,6 +739,16 @@ ApplicationWindow {
             Action { objectName: "threadsPanelAction"; text: qsTr("Threads"); shortcut: window.keys("threadsPanel"); onTriggered: window.togglePanel("threads") }
             Action { objectName: "tabsPanelAction"; text: window.tabsPanelOpen ? qsTr("Hide Vertical Tabs") : qsTr("Show Vertical Tabs"); shortcut: window.keys("tabsPanel"); enabled: Theme.verticalTabs; onTriggered: window.setTabsPanel(!window.tabsPanelOpen) }
         }
+        // As in every Mac app: Cmd+M minimises the window to the Dock (not from full screen, which macOS refuses).
+        Menu {
+            title: qsTr("Window")
+            Action {
+                objectName: "minimizeAction"; text: qsTr("Minimize")
+                shortcut: Qt.platform.os === "osx" ? "Ctrl+M" : ""
+                enabled: window.visible && window.visibility !== Window.Minimized && window.visibility !== Window.FullScreen
+                onTriggered: window.showMinimized()
+            }
+        }
     }
     // Keys without a menu item. Tab switching stays an action too (the Command Palette and tests trigger it).
     Action { id: nextTabAction; objectName: "nextTabAction"; enabled: window.canSwitchTabs; onTriggered: documents.cycleTab(1) }

@@ -112,6 +112,16 @@ Item {
             testInput.keyClick(workspace.contentItem, mac ? Qt.Key_BracketRight : Qt.Key_Right, mac ? Qt.ControlModifier : Qt.AltModifier)
             tryCompare(c, "currentPage", 5)
         }
+        function test_minimizeFromTheWindowMenu() {
+            const minimize = findChild(workspace, "minimizeAction")
+            verify(minimize.enabled)
+            if (Qt.platform.os === "osx") compare(String(minimize.shortcut), "Ctrl+M")
+            minimize.trigger()
+            tryCompare(workspace, "visibility", Window.Minimized)
+            verify(!minimize.enabled)
+            workspace.showNormal()
+            tryVerify(function() { return workspace.visibility !== Window.Minimized })
+        }
         function test_closeShortcutEndsWithTheWindow() {
             const d = workspace.documents
             workspace.openDocument(fixtureSource); canvas()

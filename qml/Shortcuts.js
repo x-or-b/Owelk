@@ -72,6 +72,7 @@ function conflicts(overrides, os) {
     for (let n = 1; n <= 9; ++n) used["Ctrl+" + n] = [n === 9 ? QT_TR_NOOP("Last Tab") : "Tab " + n]
     fixed.forEach(function(f) { used[f.keys] = [f.name] })
     if (os !== "osx") used["Ctrl+Y"] = [QT_TR_NOOP("Redo")]
+    if (os === "osx") used["Ctrl+M"] = [QT_TR_NOOP("Minimize")]
     actions.forEach(function(a) {
         const k = keys(a.id, overrides, os)
         if (k.length) used[k] = (used[k] || []).concat([a.name])

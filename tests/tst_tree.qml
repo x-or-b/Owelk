@@ -21,6 +21,9 @@ TestCase {
         compare(Shortcuts.conflicts({library: "Ctrl+C"}, "osx")["Ctrl+C"], ["Copy", "Library"])
         compare(Shortcuts.conflicts({library: "Ctrl+Y"}, "windows")["Ctrl+Y"].length, 2)
         verify(!Shortcuts.conflicts({library: "Ctrl+Y"}, "osx")["Ctrl+Y"])
+        // Cmd+M minimises the window on macOS; elsewhere Ctrl+M is free.
+        compare(Shortcuts.conflicts({library: "Ctrl+M"}, "osx")["Ctrl+M"], ["Minimize", "Library"])
+        verify(!Shortcuts.conflicts({library: "Ctrl+M"}, "windows")["Ctrl+M"])
         const mine = {newTab: "Ctrl+K", closeTab: ""}
         compare(Shortcuts.keys("newTab", mine, "linux"), "Ctrl+K")
         compare(Shortcuts.keys("closeTab", mine, "linux"), "")

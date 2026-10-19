@@ -2494,6 +2494,10 @@ Same file as another library entry</source>
         <translation>라이브러리 패널</translation>
     </message>
     <message>
+        <source>Minimize</source>
+        <translation>미니마이즈</translation>
+    </message>
+    <message>
         <source>New Note</source>
         <translation>뉴 노트</translation>
     </message>
@@ -2576,6 +2580,10 @@ Same file as another library entry</source>
     <message>
         <source>View</source>
         <translation>뷰</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>윈도</translation>
     </message>
     <message>
         <source>Zoom In</source>
@@ -6742,6 +6750,10 @@ You can open the same document twice.</source>
     <message>
         <source>Mark Region</source>
         <translation>마크 리전</translation>
+    </message>
+    <message>
+        <source>Minimize</source>
+        <translation>미니마이즈</translation>
     </message>
     <message>
         <source>Move Tab to Bottom Split</source>
