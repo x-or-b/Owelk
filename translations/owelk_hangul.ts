@@ -5462,6 +5462,10 @@ You can open the same document twice.</source>
         <translation>헬드</translation>
     </message>
     <message>
+        <source>Hide in screen sharing</source>
+        <translation>하이드 인 스크린 셰어링</translation>
+    </message>
+    <message>
         <source>Hover, selection and secondary text are worked out from these colors, so the theme stays consistent.</source>
         <translation>호버, 셀렉션 앤드 세컨더리 텍스트 아 워크트 아웃 프롬 디즈 컬러스, 소 더 테마 스테이즈 컨시스턴트.</translation>
     </message>
@@ -5558,6 +5562,10 @@ You can open the same document twice.</source>
         <translation>랜덤</translation>
     </message>
     <message>
+        <source>Remove Face</source>
+        <translation>리무브 페이스</translation>
+    </message>
+    <message>
         <source>Remove Picture</source>
         <translation>리무브 픽처</translation>
     </message>
@@ -5572,6 +5580,10 @@ You can open the same document twice.</source>
     <message>
         <source>Scales all text and the controls around it. PDF pages keep their own zoom.</source>
         <translation>스케일스 올 텍스트 앤드 더 컨트롤스 어라운드 잇. 피디에프 페이지스 킵 데어 오운 줌.</translation>
+    </message>
+    <message>
+        <source>Screen sharing and recordings leave out the pet. Some recorders on recent macOS show it anyway, stuck in place.</source>
+        <translation>스크린 셰어링 앤드 리코딩스 리브 아웃 더 펫. 섬 리코더즈 온 리센트 맥오에스 쇼 잇 애니웨이, 스턱 인 플레이스.</translation>
     </message>
     <message>
         <source>Set by Match System. Turn it off to change this.</source>
@@ -5654,8 +5666,8 @@ You can open the same document twice.</source>
         <translation>타임 포 어 브레이크</translation>
     </message>
     <message>
-        <source>Up to six for each moment; right-click one to remove it. Without any, the pet shows the picture (for news, its talking face).</source>
-        <translation>업 투 식스 포 이치 모먼트; 라이트-클릭 원 투 리무브 잇. 위다웃 애니, 더 펫 쇼즈 더 픽처 (포 뉴스, 잇츠 토킹 페이스).</translation>
+        <source>Up to six for each moment, a different one each time or one after another; right-click one to remove it. Without any, the pet shows the picture (for news, its talking face).</source>
+        <translation>업 투 식스 포 이치 모먼트, 어 디퍼런트 원 이치 타임 오어 원 애프터 어나더; 라이트-클릭 원 투 리무브 잇. 위다웃 애니, 더 펫 쇼즈 더 픽처 (포 뉴스, 잇츠 토킹 페이스).</translation>
     </message>
     <message>
         <source>Use light text and dark controls</source>

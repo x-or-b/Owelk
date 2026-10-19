@@ -28,6 +28,7 @@ Item {
         when: windowShown
         function cleanup() {
             DesktopPet.enabled = false; DesktopPet.size = "medium"; DesktopPet.breakMinutes = 50; DesktopPet.dailyGoal = 0
+            DesktopPet.hiddenWhenShared = false
             researchStore.setSetting("pet.position", "")
             while (Theme.pictures.length) Theme.removePicture()
         }
@@ -151,6 +152,27 @@ Item {
             compare(pet.mood, "rest")
             pet.stretch = 0
             compare(pet.mood, "")
+            // Several faces picked at random: another one each time the moment comes.
+            verify(Theme.addPictureMood("poke", testInput.pictureFile(500, 1300, true, "#c4a0f2")))
+            verify(Theme.addPictureMood("poke", testInput.pictureFile(500, 1300, true, "#f2a0c4")))
+            verify(Theme.addPictureMood("poke", testInput.pictureFile(500, 1300, true, "#c4f2a0")))
+            let shown = String(pet.shown)
+            for (let i = 0; i < 6; ++i) {
+                pet.poking = true
+                verify(String(pet.shown) !== shown)
+                shown = String(pet.shown)
+                pet.poking = false
+            }
+            // In turn: the next one each time, going on from the last.
+            Theme.setPictureMoodMode("poke", "cycle")
+            const poked = Theme.pictureMoods.poke.frames.map(function(f) { return String(f.url) })
+            pet.poking = true
+            const first = poked.indexOf(String(pet.shown))
+            pet.poking = false
+            pet.poking = true
+            compare(String(pet.shown), poked[(first + 1) % 3])
+            pet.poking = false
+            Theme.setPictureMoodMode("poke", "random")
             // Clicked: poked for a moment. Dragged: held.
             pet.poke()
             compare(pet.mood, "poke")

@@ -314,10 +314,20 @@ Item {
             verify(visualChild(faces, "petFace-think-1") !== null)
             mode.activated(1)
             compare(Theme.pictureMoods.think.mode, "cycle")
-            Theme.removePictureMood("think", 1)
+            // Its menu (right-click) removes it.
+            const faceMenu = findChild(page(), "petFaceMenu")
+            faceMenu.mood = "think"; faceMenu.index = 1
+            findChild(page(), "removePetFace").triggered()
             tryVerify(function() { return !mode.visible })
             Theme.removePictureMood("think", 0)
             compare(Theme.pictureMoods.think, undefined)
+            // Left out of screen sharing only when chosen.
+            const shared = visualChild(settings.contentItem, "petHideWhenShared")
+            compare(shared.checked, false)
+            shared.toggle(); shared.toggled()
+            compare(DesktopPet.hiddenWhenShared, true)
+            compare(researchStore.setting("pet.hideWhenShared"), "1")
+            DesktopPet.hiddenWhenShared = false
             visualChild(settings.contentItem, "petBreakBox").activated(0)
             compare(DesktopPet.breakMinutes, 0)
             DesktopPet.breakMinutes = 50

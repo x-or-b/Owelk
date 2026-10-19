@@ -52,7 +52,7 @@ class ResearchStoreTest : public QObject {
 private slots:
     void readingTimeAddsUpByDayAndComputer()
     {
-        // The clock counts while a paper is in front and used, splits at local midnight, stops two minutes after
+        // The clock counts while a paper is in front and used, splits at local midnight, stops three minutes after
         // the last use, and starts its stretch again after five minutes away.
         ReadingClock clock;
         auto now = QDateTime(QDate(2026, 3, 10), QTime(23, 59)).toMSecsSinceEpoch();
@@ -70,30 +70,30 @@ private slots:
         QCOMPARE(counted.value("2026-03-10"), 60);
         QCOMPARE(counted.value("2026-03-11"), 30);
         QCOMPARE(clock.stretch(), 90);
-        // Three minutes untouched: two count, then it stops; the next use starts it again from then.
-        now += 3 * 60000;
+        // Four minutes untouched: three count, then it stops; the next use starts it again from then.
+        now += 4 * 60000;
         clock.update();
         QVERIFY(!clock.reading());
         clock.flush();
-        QCOMPARE(counted.value("2026-03-11"), 150);
+        QCOMPARE(counted.value("2026-03-11"), 210);
         now += 60000;
         clock.touch();
         QVERIFY(clock.reading());
         now += 30000;
         clock.flush();
-        QCOMPARE(counted.value("2026-03-11"), 180);
-        QCOMPARE(clock.stretch(), 240);
-        // Away from the paper (Home, another app): it stops, and five minutes later the stretch is over.
+        QCOMPARE(counted.value("2026-03-11"), 240);
+        QCOMPARE(clock.stretch(), 300);
+        // Away from the paper (Home, the window closed): it stops, and five minutes later the stretch is over.
         clock.setSource({});
         QVERIFY(!clock.reading());
         now += 4 * 60000;
         clock.update();
-        QCOMPARE(clock.stretch(), 240);
+        QCOMPARE(clock.stretch(), 300);
         now += 60000;
         clock.update();
         QCOMPARE(clock.stretch(), 0);
         clock.flush();
-        QCOMPARE(counted.value("2026-03-11"), 180);
+        QCOMPARE(counted.value("2026-03-11"), 240);
 
         // The store keeps it by computer, paper and day, and adds it up.
         QTemporaryDir directory;

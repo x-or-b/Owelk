@@ -7,19 +7,20 @@
 #include <functional>
 
 // Time spent reading (QML: researchStore.readingClock). It runs while source names the paper in front of
-// Owelk's active window and the reader keeps using it: scrolling, a key or a click at least every two minutes.
-// Two minutes without one stop it until the next. What it counts goes out once a minute, by paper and day
+// Owelk's window and the reader keeps using it: scrolling, a key or a click at least every three minutes, also
+// while another app is active (macOS scrolls the window under the pointer). Three minutes without one stop it
+// until the next. What it counts goes out once a minute, by paper and day
 // (local time), through counted(). Nothing ticks while nobody reads.
 class ReadingClock final : public QObject {
     Q_OBJECT
-    // The paper being read; empty when none is in front or Owelk is not the active app.
+    // The paper being read; empty when none is in front or the window is closed or minimised.
     Q_PROPERTY(QUrl source READ source WRITE setSource NOTIFY readingChanged)
     Q_PROPERTY(bool reading READ reading NOTIFY readingChanged)
     // Seconds read since the last break; five minutes away from reading start it again.
     Q_PROPERTY(int stretch READ stretch NOTIFY stretchChanged)
 
 public:
-    static constexpr qint64 idleMs = 2 * 60 * 1000;
+    static constexpr qint64 idleMs = 3 * 60 * 1000;
     static constexpr qint64 breakMs = 5 * 60 * 1000;
     explicit ReadingClock(QObject *parent = nullptr);
     QUrl source() const { return m_source; }

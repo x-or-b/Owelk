@@ -318,6 +318,12 @@ ColumnLayout {
                 onActivated: function(index) { DesktopPet.dailyGoal = values[index] }
             }
         }
+        SettingsRow {
+            visible: DesktopPet.supported && DesktopPet.enabled && (Qt.platform.os === "osx" || Qt.platform.os === "windows")
+            label: qsTr("Hide in screen sharing")
+            detail: qsTr("Screen sharing and recordings leave out the pet. Some recorders on recent macOS show it anyway, stuck in place.")
+            Switch { objectName: "petHideWhenShared"; checked: DesktopPet.hiddenWhenShared; onToggled: DesktopPet.hiddenWhenShared = checked }
+        }
     }
     // The pet's faces with the picture in use, for each moment: up to six, one picked each time or one after
     // another while it lasts. A moment without faces shows talking's for news, else the picture.
@@ -325,7 +331,7 @@ ColumnLayout {
         visible: Theme.picture.toString().length > 0 && DesktopPet.supported && DesktopPet.enabled
         objectName: "settingsGroup-petFaces"
         title: qsTr("Pet faces")
-        note: qsTr("Up to six for each moment; right-click one to remove it. Without any, the pet shows the picture (for news, its talking face).")
+        note: qsTr("Up to six for each moment, a different one each time or one after another; right-click one to remove it. Without any, the pet shows the picture (for news, its talking face).")
         Repeater {
             model: [{mood: "talk", name: qsTr("Talking"), detail: qsTr("Saying something")},
                 {mood: "think", name: qsTr("Thinking"), detail: qsTr("An answer is being written")},
@@ -362,7 +368,7 @@ ColumnLayout {
                             asynchronous: true
                         }
                         HoverHandler { id: tileHover }
-                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: Theme.removePictureMood(moodRow.modelData.mood, faceTile.index) }
+                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: { faceMenu.mood = moodRow.modelData.mood; faceMenu.index = faceTile.index; faceMenu.popup() } }
                         Accessible.role: Accessible.Graphic
                         Accessible.name: moodRow.modelData.name + " " + (index + 1)
                     }
@@ -512,6 +518,18 @@ ColumnLayout {
             text: qsTr("Remove Picture")
             palette.windowText: Theme.danger
             onTriggered: Theme.removePicture(pictureMenu.pictureId)
+        }
+    }
+    Menu {
+        id: faceMenu
+        objectName: "petFaceMenu"
+        property string mood: ""
+        property int index: -1
+        MenuItem {
+            objectName: "removePetFace"
+            text: qsTr("Remove Face")
+            palette.windowText: Theme.danger
+            onTriggered: Theme.removePictureMood(faceMenu.mood, faceMenu.index)
         }
     }
     Native.FileDialog {

@@ -268,16 +268,38 @@ Window {
     readonly property string mood: held ? "held" : poking ? "poke"
         : message && !message.writing ? (message.mood || (message.reminder ? "rest" : "talk"))
         : writing ? "think" : sleepy ? "sleepy" : ""
-    readonly property var face: Theme.pictureMoods[mood]
-        || (["happy", "worried", "rest"].indexOf(mood) >= 0 && Theme.pictureMoods.talk) || null
-    // Of several faces: one picked as the mood comes ("random"), or each in turn while it lasts ("cycle").
+    // Whose faces a mood shows: its own, else talking's for news, else none.
+    function faceName(name) {
+        if (Theme.pictureMoods[name]) return name
+        return ["happy", "worried", "rest"].indexOf(name) >= 0 && Theme.pictureMoods.talk ? "talk" : ""
+    }
+    readonly property string faceShown: faceName(mood)
+    readonly property var face: Theme.pictureMoods[faceShown] || null
+    // Of several faces: another one picked each time the mood comes ("random"), or the next one, also every so
+    // often while it lasts ("cycle"). Each set's last face is kept, so the next time goes on from it. Picked
+    // from the mood itself: the face binding may not have followed it yet when this runs.
     property int frame: 0
-    onMoodChanged: frame = face && face.mode === "random" ? Math.floor(Math.random() * face.frames.length) : 0
+    property var lastFrames: ({})
+    onMoodChanged: {
+        const name = faceName(mood), faces = Theme.pictureMoods[name], count = faces ? faces.frames.length : 0
+        const last = lastFrames[name]
+        let next = 0
+        if (count > 1 && faces.mode === "cycle") next = last === undefined ? 0 : (last + 1) % count
+        else if (count > 1 && last === undefined) next = Math.floor(Math.random() * count)
+        else if (count > 1) next = (last + 1 + Math.floor(Math.random() * (count - 1))) % count
+        if (name) lastFrames[name] = next
+        frame = next
+        if (faceTurn.running) faceTurn.restart()
+    }
     Timer {
+        id: faceTurn
         objectName: "petFaceTurn"
         interval: 600; repeat: true
         running: pet.visible && !!pet.face && pet.face.mode === "cycle" && pet.face.frames.length > 1
-        onTriggered: pet.frame = (pet.frame + 1) % pet.face.frames.length
+        onTriggered: {
+            pet.frame = (pet.frame + 1) % pet.face.frames.length
+            pet.lastFrames[pet.faceShown] = pet.frame
+        }
     }
     readonly property url shown: face ? face.frames[Math.min(frame, face.frames.length - 1)].url : Theme.picture
     // Every face, for the shape that takes clicks: worked out again only when they change, not at each turn.
@@ -354,6 +376,11 @@ Window {
     onYChanged: { if (moving) dragged(); rememberLater.restart() }
     function dragged() { movedAt = Date.now(); held = true; heldSettle.restart() }
     Timer { id: rememberLater; interval: 500; onTriggered: DesktopPet.remember(pet.x, pet.y) }
+    // Shown in screen sharing or not, as Settings has it now (its bubble and card follow when they next show).
+    Connections {
+        target: DesktopPet
+        function onChanged() { DesktopPet.floatEverywhere(pet) }
+    }
 
     Image {
         objectName: "petPicture"

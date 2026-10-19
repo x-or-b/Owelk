@@ -14,7 +14,7 @@
 
 #ifdef Q_OS_MACOS
 // DesktopPetMac.mm
-void desktopPetFloatEverywhere(QWindow *window);
+void desktopPetFloatEverywhere(QWindow *window, bool hiddenWhenShared);
 bool desktopPetPassThrough(QWindow *window, const QRegion &region);
 #endif
 
@@ -28,6 +28,7 @@ DesktopPet::DesktopPet(ResearchStore *store, QObject *parent) : QObject(parent),
     if (const auto goal = m_store->setting("pet.dailyGoal", "0").toInt();
         goal == 15 || goal == 30 || goal == 60 || goal == 90)
         m_dailyGoal = goal;
+    m_hiddenWhenShared = m_store->setting("pet.hideWhenShared") == "1";
 }
 
 void DesktopPet::save(const QString &key, const QString &value)
@@ -65,6 +66,14 @@ void DesktopPet::setDailyGoal(int minutes)
         return;
     m_dailyGoal = minutes;
     save("pet.dailyGoal", QString::number(minutes));
+    emit changed();
+}
+
+void DesktopPet::setHiddenWhenShared(bool hidden)
+{
+    if (hidden == m_hiddenWhenShared) return;
+    m_hiddenWhenShared = hidden;
+    save("pet.hideWhenShared", hidden ? "1" : "0");
     emit changed();
 }
 
@@ -111,10 +120,11 @@ void DesktopPet::prepare(QWindow *window)
 void DesktopPet::floatEverywhere(QWindow *window)
 {
 #ifdef Q_OS_MACOS
-    desktopPetFloatEverywhere(window);
+    desktopPetFloatEverywhere(window, m_hiddenWhenShared);
 #elif defined(Q_OS_WIN)
     if (window && QGuiApplication::platformName() == "windows")
-        SetWindowDisplayAffinity(reinterpret_cast<HWND>(window->winId()), 0x00000011 /* WDA_EXCLUDEFROMCAPTURE */);
+        SetWindowDisplayAffinity(reinterpret_cast<HWND>(window->winId()),
+            m_hiddenWhenShared ? 0x00000011 /* WDA_EXCLUDEFROMCAPTURE */ : 0 /* WDA_NONE */);
 #else
     Q_UNUSED(window)
 #endif

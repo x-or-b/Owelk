@@ -7,7 +7,7 @@
 #import <AppKit/AppKit.h>
 #include <objc/message.h>
 
-void desktopPetFloatEverywhere(QWindow *window)
+void desktopPetFloatEverywhere(QWindow *window, bool hiddenWhenShared)
 {
     // Only real Cocoa windows (not the offscreen platform tests use).
     if (!window || QGuiApplication::platformName() != QLatin1String("cocoa")) return;
@@ -18,7 +18,7 @@ void desktopPetFloatEverywhere(QWindow *window)
             | NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary
             | NSWindowCollectionBehaviorIgnoresCycle;
         native.hidesOnDeactivate = NO;
-        native.sharingType = NSWindowSharingNone;
+        native.sharingType = hiddenWhenShared ? NSWindowSharingNone : NSWindowSharingReadOnly;
         // A press on it (a drag to move it, too) leaves Owelk in the background: activating Owelk would take the
         // screen to the desktop its window is on. A panel made non-activating after it was created still
         // activates the app, so the window server is told directly as well (as ChatGPT's pet does), where the

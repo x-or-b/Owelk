@@ -21,6 +21,9 @@ class DesktopPet : public QObject {
     Q_PROPERTY(int breakMinutes READ breakMinutes WRITE setBreakMinutes NOTIFY changed)
     // Minutes of reading a day the pet cheers once they are reached: 0 (none), 15, 30, 60 or 90.
     Q_PROPERTY(int dailyGoal READ dailyGoal WRITE setDailyGoal NOTIFY changed)
+    // Left out of screen sharing and recording (macOS, Windows), when the reader asks for it: recent macOS
+    // recorders can show such a window anyway, stuck where it was, so it is off unless chosen.
+    Q_PROPERTY(bool hiddenWhenShared READ hiddenWhenShared WRITE setHiddenWhenShared NOTIFY changed)
     // Not on Wayland, where a window can neither stay above others nor say where it goes.
     Q_PROPERTY(bool supported READ supported CONSTANT)
 
@@ -35,6 +38,8 @@ public:
     int breakMinutes() const { return m_breakMinutes; }
     int dailyGoal() const { return m_dailyGoal; }
     void setDailyGoal(int minutes);
+    bool hiddenWhenShared() const { return m_hiddenWhenShared; }
+    void setHiddenWhenShared(bool hidden);
     void setBreakMinutes(int minutes);
     static bool supported();
 
@@ -46,7 +51,7 @@ public:
     // kept on screen while another app is in front.
     Q_INVOKABLE void prepare(QWindow *window);
     // Once shown, on macOS: on every desktop (Space) and beside full-screen apps, left out of window
-    // cycling. Elsewhere staying on top is all there is.
+    // cycling. Elsewhere staying on top is all there is. Also left out of screen sharing or not, as chosen.
     Q_INVOKABLE void floatEverywhere(QWindow *window);
     // Clicks on the transparent parts of a pet window go to whatever is behind it. The picture is drawn
     // fitted and centred in area, top points down; it hops up to rise points.
@@ -69,4 +74,5 @@ private:
     QString m_size = "medium";
     int m_breakMinutes = 50;
     int m_dailyGoal = 0;
+    bool m_hiddenWhenShared = false;
 };

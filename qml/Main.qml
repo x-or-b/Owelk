@@ -463,10 +463,11 @@ ApplicationWindow {
         if (!restoreFailed && researchStore.startupMessage.length) notify(researchStore.startupMessage)
         else if (!restoreFailed && researchStore.recoveredFromCrash) notify(qsTr("Owelk closed unexpectedly last time. Your tabs are back; unsaved notes are offered when you reopen them."))
     }
-    // Time read counts while a paper is in front of this window and Owelk is the active app.
+    // Time read counts while a paper is in front of this window, open and not minimised, also behind another app:
+    // the reader may read it there, scrolling it now and then (the clock stops once nothing comes for a while).
     Binding {
         target: researchStore.readingClock; property: "source"
-        value: window.visible && Qt.application.state === Qt.ApplicationActive && !window.homeVisible && window.currentReader
+        value: window.visible && window.visibility !== Window.Minimized && !window.homeVisible && window.currentReader
             && window.currentReader.isActive ? window.currentReader.source : ""
     }
     Binding {
