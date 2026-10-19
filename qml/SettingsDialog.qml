@@ -31,7 +31,13 @@ Dialog {
         {id: "ai", name: qsTr("AI"), icon: "ai"},
         {id: "sync", name: qsTr("Sync & Backup"), icon: "data"}
     ]
-    function openPage(id) { page = id; open() }
+    // A page, or a setting on it ("general#settingsGroup-home"), lit up as a search does.
+    function openPage(id) {
+        const parts = id.split("#")
+        page = parts[0]
+        open()
+        if (parts.length > 1) reveal({page: parts[0], anchor: parts[1]})
+    }
     function pageName(id) { const p = pages.find(function(x) { return x.id === id }); return p ? p.name : "" }
     // Search: settings whose name or related words hold what is typed; choosing one opens its page there.
     property string query: ""

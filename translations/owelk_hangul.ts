@@ -1558,6 +1558,10 @@
         <translation>컨티뉴 리딩</translation>
     </message>
     <message>
+        <source>Customize Home…</source>
+        <translation>커스터마이즈 홈…</translation>
+    </message>
+    <message>
         <source>Dismiss</source>
         <translation>디스미스</translation>
     </message>
@@ -1576,6 +1580,10 @@
     <message>
         <source>Forward</source>
         <translation>포워드</translation>
+    </message>
+    <message>
+        <source>Home shows nothing else. Choose what it shows in Settings › General.</source>
+        <translation>홈 쇼즈 낫싱 엘스. 추즈 왓 잇 쇼즈 인 세팅스 › 제너럴.</translation>
     </message>
     <message>
         <source>Last 7 days</source>
@@ -5915,6 +5923,10 @@ You can open the same document twice.</source>
 <context>
     <name>SettingsGeneral</name>
     <message>
+        <source>AI Conversations</source>
+        <translation>에이아이 컨버세이션스</translation>
+    </message>
+    <message>
         <source>Back, Forward, search and the menu above the tabs. Off, search is on Home (%1 elsewhere).</source>
         <translation>백, 포워드, 서치 앤드 더 메뉴 어보브 더 탭스. 오프, 서치 이즈 온 홈 (%1 엘스웨어).</translation>
     </message>
@@ -5923,8 +5935,16 @@ You can open the same document twice.</source>
         <translation>백, 포워드, 서치 앤드 더 메뉴 어보브 더 윈도. 잇 스테이즈 위드 버티컬 탭스.</translation>
     </message>
     <message>
+        <source>Collections</source>
+        <translation>컬렉션스</translation>
+    </message>
+    <message>
         <source>Focus mode</source>
         <translation>포커스 모드</translation>
+    </message>
+    <message>
+        <source>For You</source>
+        <translation>포 유</translation>
     </message>
     <message>
         <source>Full screen</source>
@@ -5959,12 +5979,40 @@ You can open the same document twice.</source>
         <translation>런치</translation>
     </message>
     <message>
+        <source>Layout</source>
+        <translation>레이아웃</translation>
+    </message>
+    <message>
+        <source>Move Down</source>
+        <translation>무브 다운</translation>
+    </message>
+    <message>
+        <source>Move Up</source>
+        <translation>무브 업</translation>
+    </message>
+    <message>
         <source>Next Tab</source>
         <translation>넥스트 탭</translation>
     </message>
     <message>
+        <source>Notes</source>
+        <translation>노츠</translation>
+    </message>
+    <message>
         <source>On launch</source>
         <translation>온 런치</translation>
+    </message>
+    <message>
+        <source>Reading</source>
+        <translation>리딩</translation>
+    </message>
+    <message>
+        <source>Recent Papers</source>
+        <translation>리센트 페이퍼스</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>리셋</translation>
     </message>
     <message>
         <source>Tab layout</source>
@@ -5985,6 +6033,10 @@ You can open the same document twice.</source>
     <message>
         <source>Vertical tabs list every tab beside the window, with full titles; the panel opens and closes from its button at the top left (</source>
         <translation>버티컬 탭스 리스트 에브리 탭 비사이드 더 윈도, 위드 풀 타이틀스; 더 패널 오픈스 앤드 클로지즈 프롬 잇츠 버튼 앳 더 톱 레프트 (</translation>
+    </message>
+    <message>
+        <source>What Home shows below Continue Reading, in this order. For You and Reading take a row each; the others sit two to a row from the left.</source>
+        <translation>왓 홈 쇼즈 빌로우 컨티뉴 리딩, 인 디스 오더. 포 유 앤드 리딩 테이크 어 로우 이치; 더 아더스 싯 투 투 어 로우 프롬 더 레프트.</translation>
     </message>
 </context>
 <context>
@@ -6044,6 +6096,10 @@ You can open the same document twice.</source>
     <message>
         <source>Gloss model</source>
         <translation>글로스 모델</translation>
+    </message>
+    <message>
+        <source>Home</source>
+        <translation>홈</translation>
     </message>
     <message>
         <source>Instructions</source>

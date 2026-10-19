@@ -3,6 +3,7 @@ import QtTest
 import "../qml/WorkspaceTree.js" as Tree
 import "../qml/Platform.js" as Platform
 import "../qml/Shortcuts.js" as Shortcuts
+import "../qml/HomeLayout.js" as HomeLayout
 
 TestCase {
     name: "WorkspaceTree"
@@ -170,5 +171,32 @@ TestCase {
         const restored = Tree.restore({version: 2, tree: tree, activeGroup: groups[5].node.id})
         compare(JSON.stringify(restored.tree), JSON.stringify(tree))
         compare(restored.activeGroup, groups[5].node.id)
+    }
+    function test_homeSectionsAndTheirPlaces() {
+        // Nothing saved: every section, in the first order; unknown names go, missing ones come back at the end.
+        compare(HomeLayout.format(HomeLayout.parse("")), "foryou,reading,collections,recent,notes,threads")
+        compare(HomeLayout.format(HomeLayout.parse("notes,-reading,gone,notes")), "notes,-reading,foryou,collections,recent,threads")
+        // The first order: For You and Reading a row each, then the small boxes two to a row from the left.
+        let places = HomeLayout.places(HomeLayout.parse(""))
+        compare(JSON.stringify(places.foryou), JSON.stringify({row: 0, column: 0, span: 2}))
+        compare(JSON.stringify(places.reading), JSON.stringify({row: 1, column: 0, span: 2}))
+        compare(JSON.stringify(places.collections), JSON.stringify({row: 2, column: 0, span: 1, rows: 7}))
+        compare(JSON.stringify(places.recent), JSON.stringify({row: 2, column: 1, span: 1, rows: 7}))
+        compare(JSON.stringify(places.threads), JSON.stringify({row: 3, column: 1, span: 1, rows: 5}))
+        // Side by side, two boxes list as many rows as the longer; one with no partner (a wide one next) takes the
+        // row; one turned off has no place.
+        places = HomeLayout.places(HomeLayout.parse("reading,recent,notes,foryou,collections,-threads"))
+        compare(JSON.stringify(places.notes), JSON.stringify({row: 1, column: 1, span: 1, rows: 7}))
+        compare(places.foryou.row, 2)
+        compare(JSON.stringify(places.collections), JSON.stringify({row: 3, column: 0, span: 2, rows: 7}))
+        compare(places.threads, undefined)
+        compare(JSON.stringify(HomeLayout.preview(HomeLayout.parse("recent,reading,notes,threads,-foryou,-collections"))),
+            JSON.stringify([["recent"], ["reading"], ["notes", "threads"]]))
+        compare(Object.keys(HomeLayout.places(HomeLayout.parse("-foryou,-reading,-collections,-recent,-notes,-threads"))).length, 0)
+        // Moving one up or down; past either end nothing moves.
+        const list = HomeLayout.parse("")
+        compare(HomeLayout.format(HomeLayout.move(list, 2, -1)), "foryou,collections,reading,recent,notes,threads")
+        compare(HomeLayout.format(HomeLayout.move(list, 0, -1)), HomeLayout.format(list))
+        compare(HomeLayout.format(HomeLayout.move(list, 5, 1)), HomeLayout.format(list))
     }
 }

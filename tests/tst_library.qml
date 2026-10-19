@@ -237,6 +237,13 @@ Item {
             mouseClick(visualChild(home, "homeReadingWeekButton"))
             compare(card.chosenIndex, -1)
             compare(title.text, "Most read in the last 7 days")
+            // Turned off in Settings › General › Home, it is not shown; the boxes after it move up.
+            const recentRow = home.placeOf("recent").row
+            researchStore.setSetting("home.sections", "-reading")
+            tryCompare(card, "visible", false)
+            compare(home.placeOf("recent").row, recentRow - 1)
+            researchStore.setSetting("home.sections", "")
+            tryCompare(card, "visible", true)
             // The Library row and the paper's details show the time read.
             home.libraryFilterRequested({})
             const view = library()

@@ -73,7 +73,7 @@
 - Document 패널 네 칸: Contents(Outline·Pages), Annotations(이 논문에 대한 노트 + 모든 주석; 리더 옆 메모 열을 대신함), Symbols, Related(Library·Cites·Cited by). 새 노트는 논문 옆 분할에 링크와 함께 열림.
 - AI 답변 Save as Note: 질문 인용, 이 논문의 노트에 덧붙이기. 노트의 AI 링크는 휴지통이면 Restore 안내, 영구 삭제면 회색 `Deleted conversation`.
 - Library: Papers · Notes · Trash, 논문·노트·AI 대화를 함께 담는 휴지통(지울 항목을 링크한 노트가 있으면 먼저 알림, 기간이 지나면 노트도 자동 삭제). Library 패널은 Open Library·펼쳐지는 Favorites·Collections·Tags·Notes(+).
-- Home: 검색과 웹 검색, 이어 읽기 카드, Collections | Recent Papers, Notes | AI Conversations(마지막으로 연 순서, 고정 자리 안에서 상자가 항목 수만큼). 본문 색인 상태는 색인 중·실패일 때만 보이고 Settings → Search로 옮김.
+- Home: 검색과 웹 검색, 이어 읽기 카드, Collections | Recent Papers, Notes | AI Conversations(마지막으로 연 순서, 고정 자리 안에서 상자가 항목 수만큼). 이어 읽기 아래 여섯 칸(For You, Reading, Collections, Recent Papers, Notes, AI Conversations)은 Settings › General › Home에서 켜고 끄고 ↑↓로 순서를 바꿉니다(배치 미리보기, Reset; Home 맨 아래 Customize Home…이 그 설정으로 감). For You·Reading은 한 줄씩, 나머지는 왼쪽부터 두 개씩 채우고 짝이 없으면 한 줄 전체. 나란한 두 상자는 긴 쪽 줄 수에 맞춤. 끈 칸은 읽지 않습니다. 컴퓨터마다 따로 저장(`home.sections`, `HomeLayout.js`). 본문 색인 상태는 색인 중·실패일 때만 보이고 Settings → Search로 옮김.
 
 ## 지난 단계 (2026-10-09): 어려운 부분 읽기 돕기
 

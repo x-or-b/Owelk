@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Owelk.Ui
 import "Platform.js" as Platform
 import "Shortcuts.js" as Shortcuts
+import "HomeLayout.js" as HomeLayout
 
 // What Owelk does on launch, how tabs behave, and the interface language.
 ColumnLayout {
@@ -24,6 +25,91 @@ ColumnLayout {
                 currentIndex: chosen === "tabs" ? 1 : 0
                 TabButton { text: qsTr("Home"); width: 96; onClicked: { startupBar.chosen = "home"; researchStore.setSetting("startup.view", "home") } }
                 TabButton { objectName: "startupTabsOption"; text: qsTr("Last Tabs"); width: 96; onClicked: { startupBar.chosen = "tabs"; researchStore.setSetting("startup.view", "tabs") } }
+            }
+        }
+    }
+    // Home: the sections below Continue Reading, each on or off, moved up and down; a sketch shows where they go
+    // (HomeLayout.js). Kept on this computer: screens differ.
+    SettingsGroup {
+        id: homeGroup
+        objectName: "settingsGroup-home"
+        title: qsTr("Home")
+        note: qsTr("What Home shows below Continue Reading, in this order. For You and Reading take a row each; the others sit two to a row from the left.")
+        property string text: researchStore.setting("home.sections")
+        readonly property var sections: HomeLayout.parse(text)
+        readonly property var names: ({foryou: qsTr("For You"), reading: qsTr("Reading"), collections: qsTr("Collections"),
+            recent: qsTr("Recent Papers"), notes: qsTr("Notes"), threads: qsTr("AI Conversations")})
+        function save(list) {
+            text = HomeLayout.format(list)
+            researchStore.setSetting("home.sections", text)
+        }
+        Repeater {
+            model: homeGroup.sections
+            delegate: SettingsRow {
+                id: sectionRow
+                required property var modelData
+                required property int index
+                objectName: "homeSection-" + modelData.name
+                label: homeGroup.names[modelData.name]
+                IconButton {
+                    objectName: "homeSectionUp-" + sectionRow.modelData.name
+                    icon.name: "up"; description: qsTr("Move Up")
+                    enabled: sectionRow.index > 0
+                    onClicked: homeGroup.save(HomeLayout.move(homeGroup.sections, sectionRow.index, -1))
+                }
+                IconButton {
+                    objectName: "homeSectionDown-" + sectionRow.modelData.name
+                    icon.name: "down"; description: qsTr("Move Down")
+                    enabled: sectionRow.index < homeGroup.sections.length - 1
+                    onClicked: homeGroup.save(HomeLayout.move(homeGroup.sections, sectionRow.index, 1))
+                }
+                Switch {
+                    objectName: "homeSectionSwitch-" + sectionRow.modelData.name
+                    checked: sectionRow.modelData.on
+                    onToggled: homeGroup.save(homeGroup.sections.map(function(s) {
+                        return {name: s.name, on: s.name === sectionRow.modelData.name ? checked : s.on}
+                    }))
+                }
+            }
+        }
+        // A sketch of Home's rows as they will be.
+        SettingsRow {
+            objectName: "settingsRow-homeLayout"
+            label: qsTr("Layout")
+            Column {
+                objectName: "homeLayoutSketch"
+                spacing: 3
+                Repeater {
+                    model: HomeLayout.preview(homeGroup.sections)
+                    delegate: Row {
+                        id: sketchRow
+                        required property var modelData
+                        spacing: 3
+                        Repeater {
+                            model: sketchRow.modelData
+                            delegate: Rectangle {
+                                required property string modelData
+                                width: sketchRow.modelData.length > 1 ? 78 : 159; height: 18
+                                radius: Theme.radiusSmall
+                                color: Theme.control
+                                border.color: Theme.separator
+                                Label {
+                                    anchors.fill: parent; anchors.leftMargin: 5; anchors.rightMargin: 5
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: homeGroup.names[parent.modelData]
+                                    elide: Text.ElideRight
+                                    font.pixelSize: Theme.fontCaption; color: Theme.textSecondary
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Button {
+                objectName: "homeSectionsReset"
+                text: qsTr("Reset")
+                enabled: HomeLayout.format(homeGroup.sections) !== HomeLayout.names.join(",")
+                onClicked: homeGroup.save(HomeLayout.parse(""))
             }
         }
     }

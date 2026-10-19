@@ -73,6 +73,25 @@ Item {
             tryVerify(function() { return eye.icon.name === "preview" })
         }
         // The search index names real places: every anchor is on its page.
+        function test_homeSectionsChosenInGeneral() {
+            settings.openPage("general#settingsGroup-home")
+            tryVerify(function() { return visualChild(settings.contentItem, "settingsGroup-home") !== null })
+            const group = visualChild(settings.contentItem, "settingsGroup-home")
+            // Off: saved with a "-"; moved: saved in the new order; the sketch follows.
+            const notes = visualChild(group, "homeSectionSwitch-notes")
+            notes.toggle(); notes.toggled()
+            compare(researchStore.setting("home.sections"), "foryou,reading,collections,recent,-notes,threads")
+            visualChild(group, "homeSectionUp-reading").clicked()
+            compare(researchStore.setting("home.sections"), "reading,foryou,collections,recent,-notes,threads")
+            tryVerify(function() { return visualChild(group, "homeLayoutSketch").children.length === 4 + 1 })
+            const reset = visualChild(group, "homeSectionsReset")
+            verify(reset.enabled)
+            mouseClick(reset)
+            compare(researchStore.setting("home.sections"), "foryou,reading,collections,recent,notes,threads")
+            verify(!reset.enabled)
+            researchStore.setSetting("home.sections", "")
+            settings.close()
+        }
         function test_searchIndexPointsAtRealSettings() {
             settings.openPage("general"); tryCompare(settings, "opened", true)
             const missing = []
