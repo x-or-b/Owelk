@@ -64,6 +64,13 @@ Item {
             tryCompare(menu, "opened", true)
             compare(menu.count, 1)
             compare(menu.itemAt(0).text, "github.com/test/repository")
+            // Chosen: opened in a web tab, as the paper's own links are.
+            const opened = createTemporaryObject(linkSpyComponent, panel, {target: reader, signalName: "linkRequested"})
+            reader.managed = true
+            menu.itemAt(0).triggered()
+            reader.managed = false
+            compare(opened.count, 1)
+            compare(opened.signalArguments[0][0].toString(), "https://github.com/test/repository")
             menu.close()
             reader.openFile(outlineSource)
             compare(reader.codeLinks.length, 0)

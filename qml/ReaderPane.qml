@@ -41,7 +41,8 @@ Rectangle {
             delegate: MenuItem {
                 required property string modelData
                 text: modelData.replace(/^https:\/\//, "")
-                onTriggered: Qt.openUrlExternally(modelData)
+                // In an Owelk web tab, as the paper's own links are (one standing alone goes to the browser).
+                onTriggered: if (root.managed) root.linkRequested(modelData); else Qt.openUrlExternally(modelData)
             }
             onObjectAdded: function(index, object) { codeMenu.insertItem(index, object) }
             onObjectRemoved: function(index, object) { codeMenu.removeItem(object) }
