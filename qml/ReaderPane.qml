@@ -87,6 +87,16 @@ Rectangle {
     // The toolbar button opens and closes that list.
     signal annotationsToggled()
     function printDocument() { researchStore.printDocument(canvas.source, canvas.documentFingerprint, canvas.pageCount) }
+    // What the ⋯ menu and the code button do, for the command palette too.
+    function exportAnnotated() { if (canvas.documentFingerprint.length) annotatedFile.open() }
+    function exportMarkdown() { markdownFolder.open() }
+    function showDetails() { paperDetails.active = true; paperDetails.item.begin(root.source) }
+    // Under the code button, or (its toolbar hidden in Focus Mode) where the pointer is.
+    function showCodeLinks() {
+        if (!codeLinks.length) return
+        if (codeButton.visible) codeMenu.popup(codeButton, 0, codeButton.height)
+        else codeMenu.popup()
+    }
     signal activated()
     signal changed()
     signal documentAboutToOpen()
@@ -464,14 +474,14 @@ Rectangle {
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Image");onTriggered:root.setTool("image") }
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Mark Region");onTriggered:root.setTool("area") }
                         MenuSeparator { visible:readerToolbar.width<600;height:visible?implicitHeight:0 }
-                        MenuItem { objectName: "readerCodeOption"; text: qsTr("Code links"); enabled: root.codeLinks.length > 0; onTriggered: codeMenu.popup(codeButton, 0, codeButton.height) }
+                        MenuItem { objectName: "readerCodeOption"; text: qsTr("Code links"); enabled: root.codeLinks.length > 0; onTriggered: root.showCodeLinks() }
                         MenuItem { text:qsTr("Find in Document · ") + Platform.keys("Ctrl+F");onTriggered:root.find() }
                         MenuItem { objectName:"printOption";text:qsTr("Print…");onTriggered:root.printDocument() }
-                        MenuItem { objectName:"exportAnnotatedOption";text:qsTr("Export Annotated PDF…");visible:researchStore.canExportAnnotatedPdf();height:visible?implicitHeight:0;enabled:canvas.documentFingerprint.length>0;onTriggered:annotatedFile.open() }
-                        MenuItem { objectName:"exportMarkdownOption";text:qsTr("Export Annotations as Markdown…");onTriggered:markdownFolder.open() }
+                        MenuItem { objectName:"exportAnnotatedOption";text:qsTr("Export Annotated PDF…");visible:researchStore.canExportAnnotatedPdf();height:visible?implicitHeight:0;enabled:canvas.documentFingerprint.length>0;onTriggered:root.exportAnnotated() }
+                        MenuItem { objectName:"exportMarkdownOption";text:qsTr("Export Annotations as Markdown…");onTriggered:root.exportMarkdown() }
                         MenuSeparator {}
                         MenuItem { text:qsTr("Mark Paper as Read");onTriggered:researchStore.setReadingState(root.source, "read") }
-                        MenuItem { objectName:"paperDetailsOption";text:qsTr("Paper Details…");onTriggered:{ paperDetails.active = true; paperDetails.item.begin(root.source) } }
+                        MenuItem { objectName:"paperDetailsOption";text:qsTr("Paper Details…");onTriggered:root.showDetails() }
                         // This paper's authors from OpenAlex, to follow in For You.
                         MenuItem {
                             objectName: "readerFollowAuthorOption"

@@ -743,6 +743,20 @@ Item {
             tryCompare(commands, "opened", true); compare(search.visible, false)
             commands.close()
         }
+        function test_paletteCommandsOpenTheirPlaces() {
+            workspace.openDocument(fixtureSource); canvas()
+            const commands = findChild(workspace, "commandPalette")
+            // A view of the Document panel, then a list of the Library's own.
+            commands.commandChosen("/figures")
+            verify(workspace.documentVisible); compare(workspace.navigationMode, 4)
+            commands.commandChosen("/contents")
+            compare(workspace.navigationMode, 0)
+            commands.commandChosen("/words")
+            tryVerify(function() {
+                const view = findChild(workspace.documents.groupView(workspace.documents.activeGroup), "libraryView")
+                return view !== null && view.view === "words"
+            }, 5000)
+        }
         function test_dragTabsLikeABrowserAndGroupByHolding() {
             workspace.documents.restore({})
             const d = workspace.documents

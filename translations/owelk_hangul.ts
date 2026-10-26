@@ -745,16 +745,40 @@
         <translation>에이아이: 애스크 유어 라이브러리…</translation>
     </message>
     <message>
-        <source>App: Settings</source>
-        <translation>앱: 세팅스</translation>
+        <source>AI: Ask about the Selection or This Paper</source>
+        <translation>에이아이: 애스크 어바웃 더 셀렉션 오어 디스 페이퍼</translation>
     </message>
     <message>
-        <source>File: Open PDF</source>
-        <translation>파일: 오픈 피디에프</translation>
+        <source>AI: Gloss the Selection</source>
+        <translation>에이아이: 글로스 더 셀렉션</translation>
+    </message>
+    <message>
+        <source>AI: Translate This Page</source>
+        <translation>에이아이: 트랜슬레이트 디스 페이지</translation>
+    </message>
+    <message>
+        <source>File: Open PDF…</source>
+        <translation>파일: 오픈 피디에프…</translation>
     </message>
     <message>
         <source>Library: All Papers, Collections and Tags</source>
         <translation>라이브러리: 올 페이퍼스, 컬렉션스 앤드 태그스</translation>
+    </message>
+    <message>
+        <source>Library: For You</source>
+        <translation>라이브러리: 포 유</translation>
+    </message>
+    <message>
+        <source>Library: Notes</source>
+        <translation>라이브러리: 노츠</translation>
+    </message>
+    <message>
+        <source>Library: Trash</source>
+        <translation>라이브러리: 트래시</translation>
+    </message>
+    <message>
+        <source>Library: Words Kept from Gloss</source>
+        <translation>라이브러리: 워즈 켑트 프롬 글로스</translation>
     </message>
     <message>
         <source>No matching commands</source>
@@ -767,6 +791,30 @@
     <message>
         <source>Note: New Note about This Paper</source>
         <translation>노트: 뉴 노트 어바웃 디스 페이퍼</translation>
+    </message>
+    <message>
+        <source>PDF: Add a Text Box</source>
+        <translation>피디에프: 애드 어 텍스트 박스</translation>
+    </message>
+    <message>
+        <source>PDF: Code Links</source>
+        <translation>피디에프: 코드 링크스</translation>
+    </message>
+    <message>
+        <source>PDF: Comment on the Selection</source>
+        <translation>피디에프: 코멘트 온 더 셀렉션</translation>
+    </message>
+    <message>
+        <source>PDF: Draw</source>
+        <translation>피디에프: 드로</translation>
+    </message>
+    <message>
+        <source>PDF: Export Annotated PDF…</source>
+        <translation>피디에프: 익스포트 애노테이티드 피디에프…</translation>
+    </message>
+    <message>
+        <source>PDF: Export Annotations as Markdown…</source>
+        <translation>피디에프: 익스포트 애노테이션스 애즈 마크다운…</translation>
     </message>
     <message>
         <source>PDF: Fit Page</source>
@@ -785,20 +833,64 @@
         <translation>피디에프: 마크 어 리전</translation>
     </message>
     <message>
+        <source>PDF: Print…</source>
+        <translation>피디에프: 프린트…</translation>
+    </message>
+    <message>
+        <source>PDF: Zoom In</source>
+        <translation>피디에프: 줌 인</translation>
+    </message>
+    <message>
+        <source>PDF: Zoom Out</source>
+        <translation>피디에프: 줌 아웃</translation>
+    </message>
+    <message>
         <source>Panel: Annotations of This Paper</source>
         <translation>패널: 애노테이션스 오브 디스 페이퍼</translation>
     </message>
     <message>
-        <source>Panel: Toggle Document</source>
-        <translation>패널: 토글 다큐먼트</translation>
+        <source>Panel: Contents of This Paper</source>
+        <translation>패널: 콘텐츠 오브 디스 페이퍼</translation>
     </message>
     <message>
-        <source>Panel: Toggle Files</source>
-        <translation>패널: 토글 파일스</translation>
+        <source>Panel: Figures and Tables of This Paper</source>
+        <translation>패널: 피겨스 앤드 테이블스 오브 디스 페이퍼</translation>
+    </message>
+    <message>
+        <source>Panel: Related Papers</source>
+        <translation>패널: 릴레이티드 페이퍼스</translation>
+    </message>
+    <message>
+        <source>Panel: Symbols of This Paper</source>
+        <translation>패널: 심벌스 오브 디스 페이퍼</translation>
+    </message>
+    <message>
+        <source>Panel: Toggle AI Chat</source>
+        <translation>패널: 토글 에이아이 챗</translation>
+    </message>
+    <message>
+        <source>Panel: Toggle Document Panel</source>
+        <translation>패널: 토글 다큐먼트 패널</translation>
+    </message>
+    <message>
+        <source>Panel: Toggle Library Panel</source>
+        <translation>패널: 토글 라이브러리 패널</translation>
     </message>
     <message>
         <source>Panel: Toggle Threads</source>
         <translation>패널: 토글 스레즈</translation>
+    </message>
+    <message>
+        <source>Panel: Toggle Vertical Tabs</source>
+        <translation>패널: 토글 버티컬 탭스</translation>
+    </message>
+    <message>
+        <source>Paper: Details…</source>
+        <translation>페이퍼: 디테일스…</translation>
+    </message>
+    <message>
+        <source>Paper: Mark as Read</source>
+        <translation>페이퍼: 마크 애즈 리드</translation>
     </message>
     <message>
         <source>Search commands</source>
@@ -807,6 +899,38 @@
     <message>
         <source>Search: Find in Current PDF</source>
         <translation>서치: 파인드 인 커런트 피디에프</translation>
+    </message>
+    <message>
+        <source>Search: Papers, Notes and Annotations</source>
+        <translation>서치: 페이퍼스, 노츠 앤드 애노테이션스</translation>
+    </message>
+    <message>
+        <source>Settings: AI</source>
+        <translation>세팅스: 에이아이</translation>
+    </message>
+    <message>
+        <source>Settings: Appearance</source>
+        <translation>세팅스: 어피어런스</translation>
+    </message>
+    <message>
+        <source>Settings: Customize Home</source>
+        <translation>세팅스: 커스터마이즈 홈</translation>
+    </message>
+    <message>
+        <source>Settings: For You</source>
+        <translation>세팅스: 포 유</translation>
+    </message>
+    <message>
+        <source>Settings: Open</source>
+        <translation>세팅스: 오픈</translation>
+    </message>
+    <message>
+        <source>Settings: Shortcuts</source>
+        <translation>세팅스: 쇼트컷츠</translation>
+    </message>
+    <message>
+        <source>Settings: Sync &amp; Backup</source>
+        <translation>세팅스: 싱크 &amp; 백업</translation>
     </message>
     <message>
         <source>Split: Duplicate Tab Below</source>
@@ -845,24 +969,48 @@
         <translation>탭: 뉴 홈 탭</translation>
     </message>
     <message>
+        <source>Tab: Next Tab</source>
+        <translation>탭: 넥스트 탭</translation>
+    </message>
+    <message>
+        <source>Tab: Organize with AI…</source>
+        <translation>탭: 오거나이즈 위드 에이아이…</translation>
+    </message>
+    <message>
+        <source>Tab: Previous Tab</source>
+        <translation>탭: 프리비어스 탭</translation>
+    </message>
+    <message>
         <source>Tab: Reopen Closed Tab</source>
         <translation>탭: 리오픈 클로즈드 탭</translation>
     </message>
     <message>
-        <source>Tabs: Organize with AI…</source>
-        <translation>탭스: 오거나이즈 위드 에이아이…</translation>
+        <source>View: Back</source>
+        <translation>뷰: 백</translation>
     </message>
     <message>
-        <source>View: Focus Mode (on or off)</source>
-        <translation>뷰: 포커스 모드 (온 오어 오프)</translation>
+        <source>View: Forward</source>
+        <translation>뷰: 포워드</translation>
     </message>
     <message>
         <source>View: Go to Home</source>
         <translation>뷰: 고 투 홈</translation>
     </message>
     <message>
+        <source>View: Toggle Dark Pages</source>
+        <translation>뷰: 토글 다크 페이지스</translation>
+    </message>
+    <message>
+        <source>View: Toggle Focus Mode</source>
+        <translation>뷰: 토글 포커스 모드</translation>
+    </message>
+    <message>
         <source>Web: Open Address or Search</source>
         <translation>웹: 오픈 어드레스 오어 서치</translation>
+    </message>
+    <message>
+        <source>Window: Minimize</source>
+        <translation>윈도: 미니마이즈</translation>
     </message>
     <message>
         <source>↑↓ Navigate · Enter Run · Esc Close</source>

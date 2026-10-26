@@ -196,7 +196,11 @@ ApplicationWindow {
     // The Document panel's Annotations view (the reader toolbar button opens and closes it).
     function toggleAnnotations() {
         if (documentVisible && navigationMode === 1) { documentVisible = false; return }
-        navigationMode = 1
+        showDocumentView(1)
+    }
+    // The Document panel open at one of its views (0 Contents, 1 Annotations, 2 Symbols, 3 Related, 4 Figures).
+    function showDocumentView(mode) {
+        navigationMode = mode
         setPanelShown("document", true); closeOthers("document")
     }
     // The AI panel shows this thread right now (panel open and in front in its dock).
@@ -592,6 +596,14 @@ ApplicationWindow {
         hasSelection: hasDocument && window.currentReader.selectedText.length > 0
         canReopenTab: documents.closedTabs.length > 0
         canCloseTab: !window.homeVisible && documents.hasTabs
+        canSwitchTabs: window.canSwitchTabs
+        canGoBack: window.canGoBack
+        canGoForward: window.canGoForward
+        canMinimize: window.visibility !== Window.FullScreen
+        canDarkPages: Theme.canInvertPages
+        hasVerticalTabs: Theme.verticalTabs
+        hasCodeLinks: hasDocument && window.currentReader.codeLinks.length > 0
+        canExportAnnotated: researchStore.canExportAnnotatedPdf()
         onCommandChosen: function(command) {
             if (window.currentReader && window.currentReader.annotationDirty) { window.notify(qsTr("Finish annotation editing first.")); return }
             switch (command) {
@@ -624,6 +636,48 @@ ApplicationWindow {
             case "/reopen tab": documents.reopenClosedTab(); break
             case "/fit width": if (window.currentReader) window.currentReader.fitWidth(); break
             case "/fit page": if (window.currentReader) window.currentReader.fitPage(); break
+            case "/next tab": documents.cycleTab(1); break
+            case "/previous tab": documents.cycleTab(-1); break
+            case "/back": window.goBack(); break
+            case "/forward": window.goForward(); break
+            case "/dark pages": Theme.invertPages = !Theme.invertPages; break
+            case "/minimize": window.showMinimized(); break
+            case "/ai": window.togglePanel("ai"); break
+            case "/vertical tabs": window.setTabsPanel(!window.tabsPanelOpen); break
+            case "/contents": window.showDocumentView(0); break
+            case "/symbols": window.showDocumentView(2); break
+            case "/related": window.showDocumentView(3); break
+            case "/figures": window.showDocumentView(4); break
+            case "/for you": documents.openLibrary({view: "foryou"}); break
+            case "/notes": documents.openLibrary({view: "notes"}); break
+            case "/words": documents.openLibrary({view: "words"}); break
+            case "/trash": documents.openLibrary({view: "trash"}); break
+            case "/search": window.focusSearch(true); break
+            case "/ask ai": window.askAiNow(); break
+            case "/customize home": settingsDialog.openPage("general#settingsGroup-home"); break
+            case "/settings appearance": settingsDialog.openPage("appearance"); break
+            case "/settings shortcuts": settingsDialog.openPage("shortcuts"); break
+            case "/settings foryou": settingsDialog.openPage("foryou"); break
+            case "/settings ai": settingsDialog.openPage("ai"); break
+            case "/settings sync": settingsDialog.openPage("sync"); break
+            }
+            // The paper in front, for the rest.
+            const reader = !window.homeVisible ? window.currentReader : null
+            if (!reader) return
+            switch (command) {
+            case "/zoom in": reader.zoom(1.2); break
+            case "/zoom out": reader.zoom(1 / 1.2); break
+            case "/comment": reader.addComment(); break
+            case "/draw": reader.setTool("draw"); break
+            case "/text box": reader.setTool("text"); break
+            case "/code links": reader.showCodeLinks(); break
+            case "/print": reader.printDocument(); break
+            case "/export annotated": reader.exportAnnotated(); break
+            case "/export markdown": reader.exportMarkdown(); break
+            case "/mark read": researchStore.setReadingState(reader.source, "read"); break
+            case "/paper details": reader.showDetails(); break
+            case "/gloss": reader.glossSelection(); break
+            case "/translate page": reader.translatePage(); break
             }
         }
     }
