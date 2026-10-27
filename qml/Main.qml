@@ -34,6 +34,15 @@ ApplicationWindow {
     // starts as usual.
     property bool focusMode: false
     property bool focusPeek: false
+    // The bar kept down (its pin), with room made for it above the pages; remembered on this computer.
+    property bool focusPinned: researchStore.setting("focus.pinned") === "1"
+    readonly property bool focusBarShown: focusMode && (focusPeek || focusPinned)
+    function setFocusPinned(on) {
+        focusPinned = on
+        researchStore.setSetting("focus.pinned", on ? "1" : "0")
+        // Unpinned under the pointer: it stays until the pointer leaves.
+        if (!on) { focusPeek = focusTopHover.hovered; if (!focusPeek) focusLeave.restart() }
+    }
     // macOS keeps a blank strip for the title bar's (empty) toolbar in full screen; it goes while full screen lasts.
     onVisibilityChanged: if (typeof windowChrome !== "undefined") windowChrome.setToolbarShown(window, visibility !== Window.FullScreen)
     property int visibilityBeforeFocus: Window.Windowed
@@ -854,7 +863,7 @@ ApplicationWindow {
         readonly property real notch: Overlay.overlay ? Overlay.overlay.SafeArea.margins.top : 0
         readonly property real offset: Qt.platform.os === "osx" && window.visibility === Window.FullScreen ? Math.max(notch, 24) : notch
         width: parent ? parent.width : 0
-        height: window.focusPeek ? offset + focusBar.height : offset + 4
+        height: window.focusBarShown ? offset + focusBar.height : offset + 4
         HoverHandler {
             id: focusTopHover
             onHoveredChanged: {
@@ -865,14 +874,14 @@ ApplicationWindow {
         // While the bar is down, the strip above it (where macOS's menu bar comes down) has its color, not the page's.
         Rectangle {
             objectName: "focusBarStrip"
-            visible: window.focusPeek && focusTop.offset > 0
+            visible: window.focusBarShown && focusTop.offset > 0
             width: parent.width; height: focusTop.offset
             color: Theme.window
         }
         Rectangle {
             id: focusBar
             objectName: "focusBar"
-            visible: window.focusPeek
+            visible: window.focusBarShown
             y: focusTop.offset
             width: parent.width; height: Theme.barHeight
             color: Theme.window
@@ -921,6 +930,14 @@ ApplicationWindow {
                         onTriggered: window.togglePanel(kind)
                         onDockSideChosen: function(side) { const panel = kind; Qt.callLater(function() { window.movePanel(panel, side) }) }
                     }
+                }
+                IconButton {
+                    objectName: "focusPinButton"
+                    Layout.leftMargin: 6
+                    icon.name: "pin"
+                    checked: window.focusPinned
+                    description: window.focusPinned ? qsTr("Let the bar hide") : qsTr("Keep the bar shown")
+                    onClicked: window.setFocusPinned(!window.focusPinned)
                 }
                 Button {
                     objectName: "exitFocusButton"
@@ -1106,6 +1123,13 @@ ApplicationWindow {
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
+        // Focus Mode's bar pinned: room for it (and the strip above it), so it covers none of the page.
+        Item {
+            objectName: "focusPinnedRoom"
+            visible: window.focusBarShown && window.focusPinned
+            Layout.fillWidth: true
+            Layout.preferredHeight: focusTop.offset + Theme.barHeight
+        }
         TopBar {
             id: topBar
             Layout.fillWidth: true

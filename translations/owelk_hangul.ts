@@ -2718,8 +2718,16 @@ Same file as another library entry</source>
         <translation>킵 보스</translation>
     </message>
     <message>
+        <source>Keep the bar shown</source>
+        <translation>킵 더 바 숀</translation>
+    </message>
+    <message>
         <source>Keep two separate papers, each with its own notes. Owelk won't ask again about this file.</source>
         <translation>킵 투 세퍼레이트 페이퍼스, 이치 위드 잇츠 오운 노츠. 오웰크 원트 애스크 어게인 어바웃 디스 파일.</translation>
+    </message>
+    <message>
+        <source>Let the bar hide</source>
+        <translation>렛 더 바 하이드</translation>
     </message>
     <message>
         <source>Library</source>
