@@ -155,7 +155,9 @@ PaperMetadata readFirstPage(QPdfDocument &pdf)
             if (!parts.isEmpty()) break;
             continue;
         }
-        if (!parts.isEmpty() && line.box.top() - lines[after].box.bottom() > tallest * 1.2) break;
+        // Title lines sit close together. The authors come after a wider gap, and their line can be nearly as
+        // tall as the title's when superscripts (affiliation numbers) raise it.
+        if (!parts.isEmpty() && line.box.top() - lines[after].box.bottom() > tallest * .6) break;
         parts.append(line.text);
         after = i;
         if (parts.size() == 4) break;

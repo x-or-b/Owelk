@@ -554,14 +554,22 @@ bool ResearchStore::initialize(QString *error)
     // Durable redirects also replay any search-cache update interrupted by process exit.
     for (auto it = m_relinks.cbegin(); it != m_relinks.cend(); ++it)
         m_index->relocateSource(QUrl(it.key()), resolvedSource(QUrl(it.value())));
+    // Page one is read better now (2: authors no longer taken for the title's last line): papers it found no
+    // authors for are read again, once on each computer.
+    const bool readAgain = setting("metadata.reader").toInt() < 2;
     QSqlQuery known(m_database);
-    known.exec("SELECT id,url,metadata_origin FROM documents WHERE removed_at IS NULL");
+    known.exec("SELECT id,url,metadata_origin,authors FROM documents WHERE removed_at IS NULL");
     while (known.next()) {
         const QUrl url(known.value(1).toString());
         m_index->enqueue(url);
         // Details are read once per file version; unread documents catch up in the background.
-        if (known.value(2).toString().isEmpty()) refreshMetadata(known.value(0).toString(), url, false);
+        const auto origin = known.value(2).toString();
+        if (origin.isEmpty())
+            refreshMetadata(known.value(0).toString(), url, false);
+        else if (readAgain && origin == "pdf" && known.value(3).toString().isEmpty())
+            refreshMetadata(known.value(0).toString(), url, true);
     }
+    if (readAgain) setSetting("metadata.reader", "2");
     return true;
 }
 

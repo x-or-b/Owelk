@@ -2591,6 +2591,26 @@ private slots:
         QCOMPARE(PaperMetadataText::authorNames({"J. R. R. Tolkien, Ludwig van Beethoven", "Department of Music"}),
             QStringList({"J. R. R. Tolkien", "Ludwig van Beethoven"}));
         QVERIFY(PaperMetadataText::authorNames({"Deep learning for all of us"}).isEmpty());
+        // Authors nearly as tall as the title (as superscripts can make them), a little way below it: not the title.
+        const auto tall = directory.filePath("tall authors.pdf");
+        {
+            QPdfWriter writer(tall);
+            writer.setResolution(72);
+            writer.setPageSize(QPageSize(QPageSize::A4));
+            QPainter painter(&writer);
+            const auto line = [&](qreal y, int size, const QString &text, qreal x = 60) {
+                painter.setFont(QFont("Helvetica", size));
+                painter.drawText(QPointF(x, y), text);
+            };
+            line(120, 20, "Lunar Odometry with Warped Feature Matching");
+            line(144, 20, "on Repetitive Terrain");
+            line(189, 18, "Gregory Pyle1, Jay Quigley2");
+            line(232, 10, "Abstract");
+            for (int i = 0; i < 30; ++i) line(252 + i * 14, 10, "Body text of the page number " + QString::number(i));
+        }
+        const auto read = extractPaperMetadata(tall);
+        QCOMPARE(read.title, QString("Lunar Odometry with Warped Feature Matching on Repetitive Terrain"));
+        QCOMPARE(read.authors, QString("Gregory Pyle, Jay Quigley"));
     }
     void paperMetadataIsReadLocally()
     {
