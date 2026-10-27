@@ -758,6 +758,33 @@ Item {
                 return view !== null && view.view === "words"
             }, 5000)
         }
+        function test_statusActivityGoesWhereTheWorkIs() {
+            workspace.openDocument(fixtureSource); canvas()
+            const activity = findChild(workspace, "statusActivity")
+            // One piece of work: a click goes where it is seen.
+            researchStore.startTask("forYou", "Looking for new papers in For You…")
+            tryCompare(activity, "visible", true)
+            verify(activity.goes)
+            findChild(activity, "statusActivityTap").tapped(null, Qt.LeftButton)
+            tryVerify(function() {
+                const view = findChild(workspace.documents.groupView(workspace.documents.activeGroup), "libraryView")
+                return view !== null && view.view === "foryou"
+            }, 5000)
+            // Several: a list to choose from.
+            researchStore.startTask("fillDetails", "Looking up details 1/3", 3)
+            findChild(activity, "statusActivityTap").tapped(null, Qt.LeftButton)
+            const menu = findChild(workspace, "statusActivityMenu")
+            tryCompare(menu, "opened", true)
+            compare(menu.count, 2)
+            menu.itemAt(1).triggered()
+            tryVerify(function() {
+                const view = findChild(workspace.documents.groupView(workspace.documents.activeGroup), "libraryView")
+                return view !== null && !!view.filter.missing
+            }, 5000)
+            menu.close()
+            researchStore.finishTask("forYou"); researchStore.finishTask("fillDetails")
+            tryCompare(activity, "visible", false)
+        }
         function test_dragTabsLikeABrowserAndGroupByHolding() {
             workspace.documents.restore({})
             const d = workspace.documents

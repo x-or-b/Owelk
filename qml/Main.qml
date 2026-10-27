@@ -423,6 +423,21 @@ ApplicationWindow {
         if (researchStore.backingUp) list.push({id: "backup", label: qsTr("Backing up…"), done: 0, total: 0})
         return list
     }
+    // Where a piece of long work is seen (a click on it in the status bar goes there): null when nowhere.
+    function activityPlace(id) {
+        if (/^forYou/.test(id)) return {library: {view: "foryou"}}
+        if (id === "fillDetails") return {library: {missing: true}}
+        if (id === "arxivGet" || id === "copyPdfs" || /^import:/.test(id)) return {library: {}}
+        if (id === "index" || id === "meaning") return {settings: "search"}
+        if (id === "sync" || id === "backup") return {settings: "sync"}
+        return null
+    }
+    function goToActivity(id) {
+        const place = activityPlace(id)
+        if (!place || restoreFailed) return
+        if (place.settings) settingsDialog.openPage(place.settings)
+        else { documents.openLibrary(place.library); homeVisible = false }
+    }
     function scheduleSave() { if (initialized && !restoreFailed) saveTimer.restart() }
     function notify(text) { notification = text; notificationTimer.restart() }
     function chooseFile() { if (!restoreFailed && !(currentReader && currentReader.annotationDirty)) fileDialog.open() }
@@ -1322,6 +1337,7 @@ ApplicationWindow {
                 readonly property var first: window.activities.length ? window.activities[0] : ({label: "", done: 0, total: 0})
                 readonly property bool measured: first.total > 0
                 Label {
+                    id: activityLabel
                     objectName: "statusActivityLabel"
                     Layout.maximumWidth: 300
                     text: activity.first.label + (window.activities.length > 1 ? "  +" + (window.activities.length - 1) : "")
@@ -1349,9 +1365,35 @@ ApplicationWindow {
                         }
                     }
                 }
-                HoverHandler { id: activityHover }
-                ToolTip.visible: activityHover.hovered && window.activities.length > 1
+                // All of it on hover when cut short or when more is running; a click goes where the work is seen
+                // (with more than one, a list to choose from).
+                readonly property bool goes: window.activities.some(function(a) { return window.activityPlace(a.id) !== null })
+                HoverHandler { id: activityHover; cursorShape: activity.goes ? Qt.PointingHandCursor : Qt.ArrowCursor }
+                ToolTip.visible: activityHover.hovered && !activityMenu.opened && (window.activities.length > 1 || activityLabel.truncated)
                 ToolTip.text: window.activities.map(function(a) { return a.label }).join("\n")
+                TapHandler {
+                    objectName: "statusActivityTap"
+                    enabled: activity.goes
+                    onTapped: {
+                        if (window.activities.length === 1) window.goToActivity(window.activities[0].id)
+                        else activityMenu.popup(activity, 0, -activityMenu.implicitHeight - 4)
+                    }
+                }
+                Menu {
+                    id: activityMenu
+                    objectName: "statusActivityMenu"
+                    Instantiator {
+                        model: window.activities
+                        delegate: MenuItem {
+                            required property var modelData
+                            text: modelData.label
+                            enabled: window.activityPlace(modelData.id) !== null
+                            onTriggered: window.goToActivity(modelData.id)
+                        }
+                        onObjectAdded: function(index, object) { activityMenu.insertItem(index, object) }
+                        onObjectRemoved: function(index, object) { activityMenu.removeItem(object) }
+                    }
+                }
             }
             Label {
                 Layout.fillWidth: true
