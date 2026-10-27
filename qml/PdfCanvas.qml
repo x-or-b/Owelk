@@ -154,9 +154,10 @@ Item {
         backStack = []; forwardStack = []; selectedMarkId = ""; markEdit = null
         closeLinkPreview(); hoveredLink = null; restSpot = null
         // PdfDocument may become Ready synchronously before this handler resets the request.
-        Qt.callLater(refreshHighlights)
-        Qt.callLater(loadSymbols)
+        afterSource.restart()
     }
+    // A moment later, on the canvas's own timer: it goes with the canvas, so nothing runs on a closed reader.
+    Timer { id: afterSource; interval: 0; onTriggered: { root.refreshHighlights(); root.loadSymbols() } }
     Connections {
         target: researchStore
         function onHighlightsChanged() { root.refreshHighlights() }
@@ -342,11 +343,9 @@ Item {
         pages.contentX = Math.max(0, x || 0) * pages.contentWidth
         pages.returnToBounds()
         currentPage = target
-        Qt.callLater(function() {
-            restoring = false
-            updatePosition()
-        })
+        afterJump.restart()
     }
+    Timer { id: afterJump; interval: 0; onTriggered: { root.restoring = false; root.updatePosition() } }
 
     function zoom(multiplier) {
         if (!ready) return
