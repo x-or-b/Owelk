@@ -861,10 +861,13 @@ void ForYou::refresh()
         if (!person.value("on").toBool() || !openAlexPerson.match(id).hasMatch()) continue;
         const bool researcher = person.value("kind") == "person";
         QUrl url(openAlex + "/works");
+        // Publication dates are calendar days: the reader's, not UTC's (a day behind in the morning east of
+        // Greenwich, which left out today's papers).
+        const auto days = ",from_publication_date:" + from.toLocalTime().date().toString(Qt::ISODate)
+            + ",to_publication_date:" + QDate::currentDate().toString(Qt::ISODate);
         QUrlQuery query{{"filter",
-                            (researcher ? "authorships.author.id:" : "authorships.institutions.lineage:") + id
-                                + ",from_publication_date:" + from.date().toString(Qt::ISODate)
-                                + ",to_publication_date:" + to.date().toString(Qt::ISODate) + ",type:article|preprint"},
+                            (researcher ? "authorships.author.id:" : "authorships.institutions.lineage:") + id + days
+                                + ",type:article|preprint"},
             {"sort", "publication_date:desc"}, {"per-page", most((researcher ? "person:" : "institution:") + id)},
             {"select",
                 "id,doi,title,publication_date,publication_year,authorships,abstract_inverted_index,"

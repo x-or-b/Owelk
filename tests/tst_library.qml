@@ -813,7 +813,11 @@ Item {
             // Period chips: All, Today, This week, This month; rows show short details, the abstract when opened.
             compare(visibleChild(view, "libraryForYouRange-all").checked, true)
             verify(visibleChild(view, "libraryForYouRange-today").enabled)
-            mouseClick(visibleChild(view, "libraryForYouRange-today"))
+            // The pointer comes to the chip first, as a hand on the mouse does: a press with no move since Home went
+            // away is not delivered to the Library offscreen.
+            const today = visibleChild(view, "libraryForYouRange-today")
+            mouseMove(today); wait(30)
+            mouseClick(today)
             compare(view.forYouRange, "today")
             compare(view.forYouRows.length, 1)
             const meta = visualChild(view, "libraryForYouMeta-0").text
