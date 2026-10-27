@@ -356,7 +356,9 @@ Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         width: Theme.controlHeightSmall - 2; height: width; glyphSize: Theme.fontBody
                         icon.name: "close"
+                        // Named for screen readers; the × needs no tooltip.
                         description: qsTr("Close tab")
+                        ToolTip.visible: false
                         onClicked: { const id = row.tab.id; Qt.callLater(function() { root.controller.closeTab(id) }) }
                     }
                     ToolTip.visible: pointer.containsMouse && !pointer.pressed && !root.open
