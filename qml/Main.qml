@@ -862,6 +862,13 @@ ApplicationWindow {
                 else if (!focusTabsPopup.opened) focusLeave.restart()
             }
         }
+        // While the bar is down, the strip above it (where macOS's menu bar comes down) has its color, not the page's.
+        Rectangle {
+            objectName: "focusBarStrip"
+            visible: window.focusPeek && focusTop.offset > 0
+            width: parent.width; height: focusTop.offset
+            color: Theme.window
+        }
         Rectangle {
             id: focusBar
             objectName: "focusBar"
