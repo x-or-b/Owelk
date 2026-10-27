@@ -60,7 +60,7 @@ ColumnLayout {
             readonly property bool usable: !!provider.configured || provider.id === "ollama"
             label: qsTr("Explain with AI")
             detail: !usable ? qsTr("Set up AI in Settings › AI first.")
-                : qsTr("Orders new papers by how well they fit what you follow, with one sentence each. Sends their titles and abstracts and what you follow to ") + (provider.sends || provider.name) + "."
+                : qsTr("Orders new papers by how well they fit what you follow, with a one-line summary of each. Sends their titles and abstracts and what you follow to ") + (provider.sends || provider.name) + "."
             Switch {
                 objectName: "forYouAi"
                 enabled: aiRow.usable

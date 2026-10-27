@@ -6044,8 +6044,8 @@ You can open the same document twice.</source>
         <translation>오픈알렉스 키</translation>
     </message>
     <message>
-        <source>Orders new papers by how well they fit what you follow, with one sentence each. Sends their titles and abstracts and what you follow to </source>
-        <translation>오더스 뉴 페이퍼스 바이 하우 웰 데이 핏 왓 유 팔로, 위드 원 센텐스 이치. 센즈 데어 타이틀스 앤드 앱스트랙츠 앤드 왓 유 팔로 투 </translation>
+        <source>Orders new papers by how well they fit what you follow, with a one-line summary of each. Sends their titles and abstracts and what you follow to </source>
+        <translation>오더스 뉴 페이퍼스 바이 하우 웰 데이 핏 왓 유 팔로, 위드 어 원-라인 서머리 오브 이치. 센즈 데어 타이틀스 앤드 앱스트랙츠 앤드 왓 유 팔로 투 </translation>
     </message>
     <message>
         <source>Papers found wait in Home and in Library › For You until you add or dismiss them. Only the words, categories, arXiv IDs or DOIs of what you follow, and the OpenAlex IDs of the researchers and institutions you follow, are sent.</source>
