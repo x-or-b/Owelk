@@ -808,6 +808,12 @@ Item {
             tryVerify(function() { return !forYou.explaining && !!forYou.items[0].why }, 10000)
             compare(forYou.items[0].why, "Directly on the odometry you follow.")
             compare(forYou.items[0].score, 92)
+            // Sentences from before they were summaries are written again once for the library (launch may have
+            // done it already), then never again.
+            forYou.summarizeOnce()
+            tryVerify(function() { return !forYou.explaining && !!forYou.items[0].why }, 10000)
+            verify(!forYou.summarizeOnce())
+            compare(forYou.items[0].score, 92)
             compare(forYou.aiProblem, "")
             tryVerify(function() { return visualChild(home, "homeForYou-0") !== null && !visualChild(home, "homeForYouHint").visible })
             verify(visualChild(home, "homeForYouHeading").detail.indexOf("1") === 0)

@@ -408,6 +408,14 @@ void ForYou::ranked(int request, const QVariantList &ranking, const QString &err
     }
     load();
     emit explainingChanged();
+    // Explaining all of them: the next forty, while each round gets some done.
+    if (m_explainAll) {
+        const auto left = int(std::count_if(
+            m_items.cbegin(), m_items.cend(), [](const QVariant &value) { return !value.toMap().contains("why"); }));
+        m_explainAll = error.isEmpty() && left > 0 && left < m_unexplained;
+        m_unexplained = left;
+        if (m_explainAll) QMetaObject::invokeMethod(this, &ForYou::explain, Qt::QueuedConnection);
+    }
 }
 void ForYou::start()
 {
@@ -421,6 +429,30 @@ void ForYou::start()
     connect(m_daily, &QTimer::timeout, this, &ForYou::checkIfDue);
     m_daily->start();
     QTimer::singleShot(8000, this, &ForYou::checkIfDue);
+    QTimer::singleShot(9000, this, [this] { summarizeOnce(); });
+}
+
+bool ForYou::summarizeOnce()
+{
+    QSqlQuery meta(m_store->m_database);
+    meta.exec("SELECT 1 FROM foryou_meta WHERE key='summaries'");
+    if (meta.next()) return false;
+    meta.finish();
+    if (m_store->setting("forYou.ai", "1") != "1" || !aiReady()) return false;
+    if (m_explaining || m_checking || (m_store->librarySync() && m_store->librarySync()->running())) {
+        QTimer::singleShot(10000, this, [this] { summarizeOnce(); });
+        return false;
+    }
+    exec("INSERT INTO foryou_meta(key,value) VALUES('summaries','1') ON CONFLICT(key) DO UPDATE SET "
+         "value=excluded.value",
+        {});
+    exec("UPDATE foryou_items SET score=NULL,why=NULL WHERE state='new' AND why IS NOT NULL", {});
+    load();
+    m_explainAll = true;
+    m_unexplained = int(m_items.size()) + 1;
+    explain();
+    if (!m_explaining) m_explainAll = false;
+    return true;
 }
 
 bool ForYou::exec(const QString &sql, const QVariantList &values) const
