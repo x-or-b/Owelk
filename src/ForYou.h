@@ -102,8 +102,8 @@ public:
     // why (score, why), from what is followed. Done after each check when forYou.ai is on.
     Q_INVOKABLE void explain();
     // The sentences written before they summed up each paper (they said how it fits what is followed) are written
-    // again, all of them, once for the library: after syncing, so that two computers do not both do it. True when
-    // it started.
+    // again, all of them, once for the library: after syncing, so that two computers do not both do it, and on at
+    // the next launch when Owelk quit part-way. True when it started (or went on).
     Q_INVOKABLE bool summarizeOnce();
     // A paper's PDF to read before deciding: fetched into <data>/foryou-preview (kept a week) and not
     // added to the Library; Add then uses it rather than fetching again. Answered by previewReady(id,
@@ -185,6 +185,7 @@ private:
     // Explaining all that wait (forty at a time) rather than only a check's new ones; how many were left.
     bool m_explainAll = false;
     int m_unexplained = 0;
+    void markSummaries(const QString &state);
     int m_rankRequest = -1;
     QString m_aiProblem;
     int m_peopleRequests = 0;
