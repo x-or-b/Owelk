@@ -94,6 +94,8 @@ ResearchStore::ResearchStore(const QString &directory, QObject *parent)
 {
     m_papers = defaultPapersFolder(directory);
     connect(m_readingClock, &ReadingClock::counted, this, &ResearchStore::recordReading);
+    connect(static_cast<MetadataLookup *>(m_lookup), &MetadataLookup::lookupFinished, this,
+        &ResearchStore::detailsLookedUp);
     m_sync->setPapersFolder(m_papers);
     connect(m_sync, &LibrarySync::received, this, &ResearchStore::syncReceived);
     m_workers.setMaxThreadCount(1);

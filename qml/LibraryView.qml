@@ -19,6 +19,8 @@ Rectangle {
     property var rows: []
     property var collectionRows: []
     property int unsortedCount: 0
+    // Papers with no title, authors or year, and how many have a DOI or arXiv ID to look them up by.
+    property var missing: ({count: 0, lookable: 0})
     // Papers chosen with Cmd/Ctrl-click or Shift-click (URLs as strings), for moving several at once.
     property var selection: []
     property int selectionAnchor: -1
@@ -256,6 +258,7 @@ Rectangle {
         f.sort = sort
         rows = researchStore.libraryDocuments(f)
         unsortedCount = researchStore.unsortedCount()
+        missing = researchStore.missingDetails()
         collectionRows = researchStore.collections()
         tagRows = researchStore.tags()
         noteRows = showingNotes ? researchStore.notes(false) : []
@@ -544,7 +547,10 @@ Rectangle {
                     }
                     model: [{key: "all", label: qsTr("All Papers")}, {key: "unsorted", value: true, label: qsTr("Unsorted"), count: root.unsortedCount}, {key: "favorite", value: true, label: qsTr("Favorites")},
                             {key: "state", value: "unread", label: qsTr("Unread")}, {key: "state", value: "reading", label: qsTr("Reading")},
-                            {key: "state", value: "read", label: qsTr("Read")}, {header: qsTr("Collections"), add: true}]
+                            {key: "state", value: "read", label: qsTr("Read")}]
+                        // Only while some paper lacks them (or the view is open).
+                        .concat(root.missing.count > 0 || root.filter.missing ? [{key: "missing", value: true, label: qsTr("Missing Details"), count: root.missing.count}] : [])
+                        .concat([{header: qsTr("Collections"), add: true}])
                         .concat(root.collectionRows.map(function(c) { return {key: "collection", value: c.id, label: c.name, depth: c.depth, count: c.count, row: c} }))
                         .concat(root.tagRows.length ? [{header: qsTr("Tags")}] : [])
                         .concat(root.tagRows.map(function(t) { return {key: "tag", value: t.id, label: "# " + t.name, count: t.count} }))
@@ -1328,6 +1334,28 @@ Rectangle {
                     defaultSuffix: "bib"
                     nameFilters: ["BibTeX (*.bib)"]
                     onAccepted: researchStore.exportBibTeX(root.rows.map(function(r) { return r.url.toString() }), researchStore.localPath(selectedFile))
+                }
+                // Missing Details: what Look Up sends, and the button (Stop while it runs). Pressing it is the OK.
+                RowLayout {
+                    objectName: "libraryMissingBar"
+                    Layout.fillWidth: true
+                    visible: root.showingPapers && !!root.filter.missing && (root.missing.count > 0 || researchStore.fillingDetails)
+                    spacing: 8
+                    Label {
+                        Layout.fillWidth: true
+                        text: root.missing.lookable === 0
+                            ? qsTr("None of these has a DOI or arXiv ID to look it up by. Add one, or the details themselves, in Paper Details.")
+                            : qsTr("Look Up sends the DOI or arXiv ID of %1 of these to Crossref or arXiv, one at a time, and fills in only what is empty.").arg(root.missing.lookable)
+                              + (root.missing.lookable < root.missing.count ? qsTr(" The others have neither.") : "")
+                        wrapMode: Text.Wrap
+                        font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
+                    }
+                    Button {
+                        objectName: "libraryLookUpMissing"
+                        visible: root.missing.lookable > 0 || researchStore.fillingDetails
+                        text: researchStore.fillingDetails ? qsTr("Stop") : qsTr("Look Up Details")
+                        onClicked: researchStore.fillingDetails ? researchStore.stopFillingDetails() : researchStore.fillMissingDetails()
+                    }
                 }
                 ListView {
                     id: papers

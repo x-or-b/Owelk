@@ -773,6 +773,10 @@
         <translation>라이브러리: 노츠</translation>
     </message>
     <message>
+        <source>Library: Papers with Missing Details</source>
+        <translation>라이브러리: 페이퍼스 위드 미싱 디테일스</translation>
+    </message>
+    <message>
         <source>Library: Trash</source>
         <translation>라이브러리: 트래시</translation>
     </message>
@@ -1952,6 +1956,10 @@ Same file as another library entry</source>
         <translation> (잇 리즈 “딜리티드 컨버세이션”).</translation>
     </message>
     <message>
+        <source> The others have neither.</source>
+        <translation> 더 아더스 해브 니더.</translation>
+    </message>
+    <message>
         <source> day</source>
         <translation> 데이</translation>
     </message>
@@ -2280,6 +2288,14 @@ Same file as another library entry</source>
         <translation>라스트 오픈드</translation>
     </message>
     <message>
+        <source>Look Up Details</source>
+        <translation>룩 업 디테일스</translation>
+    </message>
+    <message>
+        <source>Look Up sends the DOI or arXiv ID of %1 of these to Crossref or arXiv, one at a time, and fills in only what is empty.</source>
+        <translation>룩 업 센즈 더 디오아이 오어 아카이브 아이디 오브 %1 오브 디즈 투 크로스레프 오어 아카이브, 원 앳 어 타임, 앤드 필스 인 온리 왓 이즈 엠티.</translation>
+    </message>
+    <message>
         <source>Looking for new papers…</source>
         <translation>루킹 포 뉴 페이퍼스…</translation>
     </message>
@@ -2298,6 +2314,10 @@ Same file as another library entry</source>
     <message>
         <source>Mark as Read</source>
         <translation>마크 애즈 리드</translation>
+    </message>
+    <message>
+        <source>Missing Details</source>
+        <translation>미싱 디테일스</translation>
     </message>
     <message>
         <source>Move Note to Trash</source>
@@ -2358,6 +2378,10 @@ Same file as another library entry</source>
     <message>
         <source>No papers match.</source>
         <translation>노 페이퍼스 매치.</translation>
+    </message>
+    <message>
+        <source>None of these has a DOI or arXiv ID to look it up by. Add one, or the details themselves, in Paper Details.</source>
+        <translation>넌 오브 디즈 해즈 어 디오아이 오어 아카이브 아이디 투 룩 잇 업 바이. 애드 원, 오어 더 디테일스 뎀셀브스, 인 페이퍼 디테일스.</translation>
     </message>
     <message>
         <source>Not checked yet.</source>
@@ -2490,6 +2514,10 @@ Same file as another library entry</source>
     <message>
         <source>Select papers</source>
         <translation>셀렉트 페이퍼스</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>스톱</translation>
     </message>
     <message>
         <source>Tags</source>
@@ -3190,6 +3218,10 @@ Same file as another library entry</source>
         <translation>캔낫 리치 시맨틱 스칼라: </translation>
     </message>
     <message>
+        <source>Cannot reach arXiv or Crossref. Try again later.</source>
+        <translation>캔낫 리치 아카이브 오어 크로스레프. 트라이 어게인 레이터.</translation>
+    </message>
+    <message>
         <source>Cannot reach the AI service. Check the connection.</source>
         <translation>캔낫 리치 더 에이아이 서비스. 체크 더 커넥션.</translation>
     </message>
@@ -3538,6 +3570,10 @@ Same file as another library entry</source>
         <translation>익스포티드 투 </translation>
     </message>
     <message>
+        <source>Filled in the details of %1 of %2 papers.</source>
+        <translation>필드 인 더 디테일스 오브 %1 오브 %2 페이퍼스.</translation>
+    </message>
+    <message>
         <source>For You: %1 new papers.</source>
         <translation>포 유: %1 뉴 페이퍼스.</translation>
     </message>
@@ -3604,6 +3640,10 @@ Same file as another library entry</source>
     <message>
         <source>Looking for PDFs in %1… %2 found</source>
         <translation>루킹 포 피디에프스 인 %1… %2 파운드</translation>
+    </message>
+    <message>
+        <source>Looking up details %1/%2</source>
+        <translation>루킹 업 디테일스 %1/%2</translation>
     </message>
     <message>
         <source>Meaning search paused: %1</source>

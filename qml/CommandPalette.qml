@@ -63,6 +63,7 @@ Popup {
         {command: "/notes", title: qsTr("Library: Notes"), enabled: true},
         {command: "/words", title: qsTr("Library: Words Kept from Gloss"), enabled: true},
         {command: "/trash", title: qsTr("Library: Trash"), enabled: true},
+        {command: "/missing details", title: qsTr("Library: Papers with Missing Details"), enabled: true},
         {command: "/search", title: qsTr("Search: Papers, Notes and Annotations"), enabled: true},
         {command: "/find", title: qsTr("Search: Find in Current PDF"), enabled: hasDocument},
         {command: "/web", title: qsTr("Web: Open Address or Search"), enabled: true},

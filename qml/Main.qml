@@ -652,6 +652,7 @@ ApplicationWindow {
             case "/notes": documents.openLibrary({view: "notes"}); break
             case "/words": documents.openLibrary({view: "words"}); break
             case "/trash": documents.openLibrary({view: "trash"}); break
+            case "/missing details": documents.openLibrary({missing: true}); break
             case "/search": window.focusSearch(true); break
             case "/ask ai": window.askAiNow(); break
             case "/customize home": settingsDialog.openPage("general#settingsGroup-home"); break

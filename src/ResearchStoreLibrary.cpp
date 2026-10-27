@@ -31,8 +31,8 @@ QString newId()
 }
 
 // Documents in scope of the library filters. Keys (all optional): text, state (unread|reading|read),
-// favorite (bool), unsorted (bool: in no collection), collection (id), tag (id), yearFrom, yearTo, sort
-// (opened|added|title|year).
+// favorite (bool), unsorted (bool: in no collection), missing (bool: no title, authors or year), collection (id),
+// tag (id), yearFrom, yearTo, sort (opened|added|title|year).
 QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
 {
     QStringList where{"d.url LIKE 'file:%'", "d.removed_at IS NULL"};
@@ -49,6 +49,7 @@ QVariantList ResearchStore::libraryDocuments(const QVariantMap &filter) const
     }
     if (filter.value("favorite").toBool()) where << "d.favorite=1";
     if (filter.value("unsorted").toBool()) where << "d.id NOT IN (SELECT document_id FROM collection_documents)";
+    if (filter.value("missing").toBool()) where << "(trim(d.title)='' OR trim(d.authors)='' OR trim(d.year)='')";
     if (filter.contains("collection")) {
         // A collection includes the papers of its sub-collections.
         where << "d.id IN (WITH RECURSIVE tree(id) AS (SELECT ? UNION SELECT c.id FROM collections c JOIN tree ON "

@@ -34,6 +34,21 @@ Item {
             tryVerify(function() { view = findChild(workspace.documents.groupView(workspace.documents.activeGroup), "libraryView"); return view !== null && view.width > 0 && view.height > 0 }, 5000)
             return view
         }
+        function test_missingDetailsSaysWhatLookUpSends() {
+            const paper = testInput.uniqueFixture("missing details.pdf")
+            verify(researchStore.rememberDocument(paper))
+            verify(researchStore.updateDocumentDetails(paper, {title: "No Authors Here", doi: "10.1/abc"}))
+            workspace.homeVisible = false
+            workspace.documents.openLibrary({missing: true})
+            const view = library()
+            tryVerify(function() { return view.rows.some(function(r) { return researchStore.sameSource(r.url, paper) }) })
+            verify(visualChild(view, "librarySidebar-missing-true") !== null)
+            tryCompare(visualChild(view, "libraryMissingBar"), "visible", true)
+            verify(visualChild(view, "libraryLookUpMissing").visible)
+            // Nothing is sent from here; given its details, it leaves the view.
+            verify(researchStore.updateDocumentDetails(paper, {title: "No Authors Here", authors: "Ada Lovelace", year: "2020", doi: "10.1/abc"}))
+            tryVerify(function() { return !view.rows.some(function(r) { return researchStore.sameSource(r.url, paper) }) })
+        }
         function test_homeTabForYouGearOpensItsSettings() {
             researchStore.forYou.saveTopics([])
             workspace.homeVisible = false

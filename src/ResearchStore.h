@@ -63,6 +63,7 @@ class ResearchStore final : public QObject {
     Q_PROPERTY(bool copyingPdfs READ copyingPdfs NOTIFY copyingPdfsChanged)
     // Long work shown in the status bar with a progress bar: [{id, label, done, total}] (total 0: no measure).
     Q_PROPERTY(QVariantList tasks READ tasks NOTIFY tasksChanged)
+    Q_PROPERTY(bool fillingDetails READ fillingDetails NOTIFY fillingDetailsChanged)
     Q_PROPERTY(QStringList annotationColors READ annotationColors CONSTANT)
     // Bumped when paper titles or details change; bind to it next to displayName() calls.
     Q_PROPERTY(int documentsRevision READ documentsRevision NOTIFY documentsChanged)
@@ -204,6 +205,16 @@ public:
     Q_INVOKABLE QVariantList recentItems(const QString &kind, int limit) const;
     // Papers in no collection (the Library's Unsorted view).
     Q_INVOKABLE int unsortedCount() const;
+    // Papers with no title, authors or year (the Library's Missing Details view): {count, lookable}, lookable
+    // being those with a DOI or arXiv ID to look them up by.
+    Q_INVOKABLE QVariantMap missingDetails() const;
+    // Looks those up on arXiv or Crossref, one at a time (by DOI or arXiv ID only, never by title, which can
+    // find another paper), and fills only what is empty. Asked for by the reader; nothing else is sent.
+    Q_INVOKABLE void fillMissingDetails();
+    Q_INVOKABLE void stopFillingDetails();
+    bool fillingDetails() const { return m_fillRequest >= 0 || !m_fillQueue.isEmpty(); }
+    // The pause between two lookups (three times as long after arXiv's, which asks for 3 s); tests set 0.
+    int detailsPauseMs = 1000;
     // Modifier keys of the current input event (list rows: Cmd/Ctrl-click and Shift-click select).
     Q_INVOKABLE int keyboardModifiers() const;
     // Adds (or removes) several papers at once.
@@ -474,6 +485,7 @@ signals:
     void relinkingChanged();
     void copyingPdfsChanged();
     void tasksChanged();
+    void fillingDetailsChanged();
     // Papers moved to the Trash: their open tabs close.
     void papersDeleted(const QVariantList &sources);
     void relinkRequested(const QUrl &source);
@@ -504,6 +516,14 @@ private:
     bool m_relinking = false;
     bool m_copyingPdfs = false;
     QList<QVariantMap> m_tasks;
+    // Missing details being looked up: what is left, the request out, and the count so far.
+    QList<QVariantMap> m_fillQueue;
+    int m_fillRequest = -1;
+    bool m_fillAfterArxiv = false;
+    int m_fillTotal = 0, m_fillDone = 0, m_fillFilled = 0, m_fillFailures = 0;
+    void fillNextDetails();
+    void detailsLookedUp(int request, const QVariantMap &details, const QString &error);
+    void endFillingDetails(const QString &note);
     // progress(done) is called after each file (on the worker); once stop is set the rest stay as they are.
     static QStringList adoptPdfFiles(const QString &directory, const QString &papers,
         const QHash<QString, QString> &relinks, const QStringList &paths, const std::function<void(int)> &progress = {},

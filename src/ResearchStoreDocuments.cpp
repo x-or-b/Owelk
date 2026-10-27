@@ -5,6 +5,7 @@
 #include <QDir>
 #include "FileFingerprint.h"
 #include "PaperIndex.h"
+#include "MetadataLookup.h"
 #include "PaperMetadata.h"
 
 #include <QDateTime>
@@ -276,6 +277,110 @@ bool ResearchStore::updateDocumentDetails(const QUrl &source, const QVariantMap 
     rememberPaperName(resolvedSource(source));
     announceDocumentsChanged();
     return true;
+}
+
+namespace {
+const auto missingWhere = QStringLiteral(
+    "url LIKE 'file:%' AND removed_at IS NULL AND (trim(title)='' OR trim(authors)='' OR trim(year)='')");
+}
+
+QVariantMap ResearchStore::missingDetails() const
+{
+    QSqlQuery query(m_database);
+    if (!query.exec("SELECT count(*),coalesce(sum(doi<>'' OR arxiv<>''),0) FROM documents WHERE " + missingWhere)
+        || !query.next())
+        return {{"count", 0}, {"lookable", 0}};
+    return {{"count", query.value(0).toInt()}, {"lookable", query.value(1).toInt()}};
+}
+
+void ResearchStore::fillMissingDetails()
+{
+    if (fillingDetails()) return;
+    QSqlQuery query(m_database);
+    query.exec("SELECT id,url,doi,arxiv FROM documents WHERE " + missingWhere
+        + " AND (doi<>'' OR arxiv<>'') ORDER BY added_at");
+    while (query.next())
+        m_fillQueue.append(
+            {{"id", query.value(0)}, {"url", query.value(1)}, {"doi", query.value(2)}, {"arxiv", query.value(3)}});
+    if (m_fillQueue.isEmpty()) return;
+    m_fillTotal = int(m_fillQueue.size());
+    m_fillDone = m_fillFilled = m_fillFailures = 0;
+    startTask("fillDetails", QString(ui("Looking up details %1/%2")).arg(0).arg(m_fillTotal), m_fillTotal);
+    emit fillingDetailsChanged();
+    fillNextDetails();
+}
+
+void ResearchStore::fillNextDetails()
+{
+    if (m_fillQueue.isEmpty() || m_fillRequest >= 0) return;
+    const auto next = m_fillQueue.first();
+    m_fillAfterArxiv = !next.value("arxiv").toString().isEmpty();
+    m_fillRequest
+        = static_cast<MetadataLookup *>(m_lookup)->lookup({{"doi", next.value("doi")}, {"arxiv", next.value("arxiv")}});
+}
+
+void ResearchStore::detailsLookedUp(int request, const QVariantMap &details, const QString &error)
+{
+    if (request != m_fillRequest || m_fillQueue.isEmpty()) return;
+    m_fillRequest = -1;
+    const auto paper = m_fillQueue.takeFirst();
+    ++m_fillDone;
+    // A failed request (not a paper that was not found): offline, or the service down.
+    m_fillFailures = error.startsWith("Lookup failed") ? m_fillFailures + 1 : 0;
+    if (!details.isEmpty()) {
+        const auto value = [&](const char *key, qsizetype most) {
+            const auto found = details.value(key).toString().simplified();
+            return text(found.size() <= most ? found : QString());
+        };
+        auto year = value("year", 4);
+        if (!QRegularExpression("^\\d{4}$").match(year).hasMatch()) year = "";
+        const auto title = value("title", 300), authors = value("authors", 1000);
+        QSqlQuery query(m_database);
+        // Only what is empty; the details are the reader's from now on, as after Look up and Save.
+        query.prepare("UPDATE documents SET title=CASE WHEN trim(title)='' THEN ? ELSE title END,"
+                      "authors=CASE WHEN trim(authors)='' THEN ? ELSE authors END,"
+                      "year=CASE WHEN trim(year)='' THEN ? ELSE year END,"
+                      "doi=CASE WHEN doi='' THEN ? ELSE doi END,arxiv=CASE WHEN arxiv='' THEN ? ELSE arxiv END,"
+                      "metadata_origin='user' WHERE id=? AND removed_at IS NULL AND ((trim(title)='' AND ?<>'') OR "
+                      "(trim(authors)='' AND ?<>'') OR (trim(year)='' AND ?<>''))");
+        for (const auto &field : {title, authors, year, value("doi", 200), value("arxiv", 40)})
+            query.addBindValue(field);
+        query.addBindValue(paper.value("id"));
+        for (const auto &field : {title, authors, year}) query.addBindValue(field);
+        if (query.exec() && query.numRowsAffected() == 1) {
+            ++m_fillFilled;
+            rememberPaperName(resolvedSource(QUrl(paper.value("url").toString())));
+            announceDocumentsChanged();
+        }
+    }
+    progressTask("fillDetails", m_fillDone, m_fillTotal,
+        QString(ui("Looking up details %1/%2")).arg(m_fillDone).arg(m_fillTotal));
+    if (m_fillFailures >= 3) {
+        endFillingDetails(ui("Cannot reach arXiv or Crossref. Try again later."));
+        return;
+    }
+    if (m_fillQueue.isEmpty()) {
+        endFillingDetails({});
+        return;
+    }
+    QTimer::singleShot(m_fillAfterArxiv ? 3 * detailsPauseMs : detailsPauseMs, this, &ResearchStore::fillNextDetails);
+}
+
+void ResearchStore::stopFillingDetails()
+{
+    if (!fillingDetails()) return;
+    endFillingDetails({});
+}
+
+void ResearchStore::endFillingDetails(const QString &note)
+{
+    m_fillQueue.clear();
+    m_fillRequest = -1;
+    finishTask("fillDetails");
+    emit fillingDetailsChanged();
+    emit message(note.isEmpty()
+            ? QString(ui("Filled in the details of %1 of %2 papers.")).arg(m_fillFilled).arg(m_fillDone)
+            : note);
 }
 
 void ResearchStore::resetDocumentDetails(const QUrl &source)

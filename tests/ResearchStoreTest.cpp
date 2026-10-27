@@ -2503,6 +2503,63 @@ private slots:
         result = load(paper, true);
         QVERIFY(!result["error"].toString().isEmpty());
     }
+    void missingDetailsAreLookedUpByDoiOrArxivOnly()
+    {
+        QTemporaryDir directory;
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        QStringList requests;
+        connect(&server, &QTcpServer::newConnection, &server, [&] {
+            auto *socket = server.nextPendingConnection();
+            connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
+                const auto head = QString::fromUtf8(socket->readAll()).section("\r\n", 0, 0);
+                requests.append(head);
+                const QByteArray body = head.contains("/arxiv")
+                    ? "<?xml version='1.0'?><feed xmlns='http://www.w3.org/2005/Atom'><entry>"
+                      "<id>http://arxiv.org/abs/2305.01234v2</id><published>2023-05-02T00:00:00Z</published>"
+                      "<title>Online Title</title><author><name>Ada Lovelace</name></author></entry></feed>"
+                    : R"({"message":{"title":["Crossref Work"],"DOI":"10.1145/3592433","author":[{"given":"Grace","family":"Hopper"}],"published-print":{"date-parts":[[2024,5]]}}})";
+                socket->write("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\nContent-Length: "
+                    + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+                socket->disconnectFromHost();
+            });
+        });
+        ResearchStore store(directory.filePath("data"));
+        QVERIFY(store.initialize(nullptr));
+        store.detailsPauseMs = 0;
+        auto *lookup = static_cast<MetadataLookup *>(store.metadataLookup());
+        const auto base = QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort());
+        lookup->arxivBase = QUrl(base + "/arxiv");
+        lookup->crossrefBase = QUrl(base + "/works");
+        // By arXiv ID (its title kept), by DOI, by title only (not looked up: it could find another paper).
+        QList<QUrl> papers;
+        const QList<QVariantMap> details{{{"title", "My Own Title"}, {"arxiv", "2305.01234"}},
+            {{"title", ""}, {"doi", "10.1145/3592433"}, {"year", "2020"}}, {{"title", "Only A Title Here"}}};
+        for (int i = 0; i < details.size(); ++i) {
+            const auto path = directory.filePath(QString("missing %1.pdf").arg(i));
+            writeFixture(path);
+            papers << QUrl::fromLocalFile(path);
+            QVERIFY(store.updateDocumentDetails(papers.last(), details[i]));
+        }
+        QCOMPARE(store.missingDetails()["count"].toInt(), 3);
+        QCOMPARE(store.missingDetails()["lookable"].toInt(), 2);
+        QCOMPARE(store.libraryDocuments({{"missing", true}}).size(), 3);
+        store.fillMissingDetails();
+        QVERIFY(store.fillingDetails());
+        QTRY_VERIFY_WITH_TIMEOUT(!store.fillingDetails(), 10000);
+        QCOMPARE(requests.size(), 2);
+        const auto first = store.documentDetails(papers[0]), second = store.documentDetails(papers[1]),
+                   third = store.documentDetails(papers[2]);
+        QCOMPARE(first["title"].toString(), QString("My Own Title"));
+        QCOMPARE(first["authors"].toString(), QString("Ada Lovelace"));
+        QCOMPARE(first["year"].toString(), QString("2023"));
+        QCOMPARE(second["title"].toString(), QString("Crossref Work"));
+        QCOMPARE(second["authors"].toString(), QString("Grace Hopper"));
+        QCOMPARE(second["year"].toString(), QString("2020"));
+        QVERIFY(third["authors"].toString().isEmpty());
+        QCOMPARE(store.missingDetails()["count"].toInt(), 1);
+        QVERIFY(store.tasks().isEmpty());
+    }
     void onlineLookupParsesArxivAndCrossref()
     {
         // A local stand-in for arXiv and Crossref: answers by path and records what was asked.
