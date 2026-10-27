@@ -649,6 +649,12 @@ Item {
             count.activated(1)
             compare(forYou.perCheck(key), 5)
             count.activated(0)
+            // The usual number is chosen here too, and each box says what it is.
+            const usual = visualChild(following, "forYouCount")
+            usual.activated(2)
+            compare(researchStore.setting("forYou.perSource"), "20")
+            tryCompare(count, "currentText", "Usual (20)")
+            usual.activated(1)
             const toggle = visualChild(following, "forYouTopicSwitch-0")
             toggle.toggle(); toggle.toggled()
             compare(forYou.topics()[0].on, false)

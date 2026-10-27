@@ -1525,6 +1525,10 @@
         <translation>노바디 바이 댓 네임 온 오픈알렉스</translation>
     </message>
     <message>
+        <source>Papers at most from each, in a check</source>
+        <translation>페이퍼스 앳 모스트 프롬 이치, 인 어 체크</translation>
+    </message>
+    <message>
         <source>Papers at most in each check</source>
         <translation>페이퍼스 앳 모스트 인 이치 체크</translation>
     </message>
@@ -1569,8 +1573,12 @@
         <translation>토픽스</translation>
     </message>
     <message>
-        <source>Usual</source>
-        <translation>유주얼</translation>
+        <source>Unless one has its own number below. The AI then orders them all.</source>
+        <translation>언레스 원 해즈 잇츠 오운 넘버 빌로우. 더 에이아이 덴 오더스 뎀 올.</translation>
+    </message>
+    <message>
+        <source>Usual (%1)</source>
+        <translation>유주얼 (%1)</translation>
     </message>
 </context>
 <context>
@@ -5944,10 +5952,6 @@ You can open the same document twice.</source>
 <context>
     <name>SettingsForYou</name>
     <message>
-        <source> papers</source>
-        <translation> 페이퍼스</translation>
-    </message>
-    <message>
         <source>%1 topics, researchers, institutions and collections</source>
         <translation>%1 토픽스, 리서처스, 인스티튜션스 앤드 컬렉션스</translation>
     </message>
@@ -5980,6 +5984,10 @@ You can open the same document twice.</source>
         <translation>올웨이즈</translation>
     </message>
     <message>
+        <source>And how many papers each brings</source>
+        <translation>앤드 하우 매니 페이퍼스 이치 브링스</translation>
+    </message>
+    <message>
         <source>Check Now</source>
         <translation>체크 나우</translation>
     </message>
@@ -6008,12 +6016,20 @@ You can open the same document twice.</source>
         <translation>팔로잉</translation>
     </message>
     <message>
+        <source>How far back each check looks. The Today and This week chips in For You only narrow what was found.</source>
+        <translation>하우 파 백 이치 체크 룩스. 더 투데이 앤드 디스 위크 칩스 인 포 유 온리 내로 왓 워즈 파운드.</translation>
+    </message>
+    <message>
         <source>Keep papers in the list</source>
         <translation>킵 페이퍼스 인 더 리스트</translation>
     </message>
     <message>
         <source>Last checked </source>
         <translation>라스트 체크트 </translation>
+    </message>
+    <message>
+        <source>Look back</source>
+        <translation>룩 백</translation>
     </message>
     <message>
         <source>Looking for new papers…</source>
@@ -6036,10 +6052,6 @@ You can open the same document twice.</source>
         <translation>페이퍼스 파운드 웨이트 인 홈 앤드 인 라이브러리 › 포 유 언틸 유 애드 오어 디스미스 뎀. 온리 더 워즈, 카테고리즈, 아카이브 아이디즈 오어 디오아이즈 오브 왓 유 팔로, 앤드 더 오픈알렉스 아이디즈 오브 더 리서처스 앤드 인스티튜션스 유 팔로, 아 센트.</translation>
     </message>
     <message>
-        <source>Papers from the last</source>
-        <translation>페이퍼스 프롬 더 라스트</translation>
-    </message>
-    <message>
         <source>Paste a key</source>
         <translation>페이스트 어 키</translation>
     </message>
@@ -6056,16 +6068,8 @@ You can open the same document twice.</source>
         <translation>셋 업 에이아이 인 세팅스 › 에이아이 퍼스트.</translation>
     </message>
     <message>
-        <source>Topic, researcher, institution or collection, unless it has its own number above. The AI then orders them all.</source>
-        <translation>토픽, 리서처, 인스티튜션 오어 컬렉션, 언레스 잇 해즈 잇츠 오운 넘버 어보브. 더 에이아이 덴 오더스 뎀 올.</translation>
-    </message>
-    <message>
         <source>Until you add or dismiss them, for at most</source>
         <translation>언틸 유 애드 오어 디스미스 뎀, 포 앳 모스트</translation>
-    </message>
-    <message>
-        <source>Usually at most, from each</source>
-        <translation>유주얼리 앳 모스트, 프롬 이치</translation>
     </message>
 </context>
 <context>
@@ -6258,6 +6262,10 @@ You can open the same document twice.</source>
         <translation>홈</translation>
     </message>
     <message>
+        <source>How far back For You looks</source>
+        <translation>하우 파 백 포 유 룩스</translation>
+    </message>
+    <message>
         <source>Instructions</source>
         <translation>인스트럭션스</translation>
     </message>
@@ -6284,10 +6292,6 @@ You can open the same document twice.</source>
     <message>
         <source>Name PDFs</source>
         <translation>네임 피디에프스</translation>
-    </message>
-    <message>
-        <source>New papers from the last</source>
-        <translation>뉴 페이퍼스 프롬 더 라스트</translation>
     </message>
     <message>
         <source>Newer arXiv versions</source>
@@ -6320,10 +6324,6 @@ You can open the same document twice.</source>
     <message>
         <source>Paper names</source>
         <translation>페이퍼 네임스</translation>
-    </message>
-    <message>
-        <source>Papers from each source</source>
-        <translation>페이퍼스 프롬 이치 소스</translation>
     </message>
     <message>
         <source>Preferred language</source>

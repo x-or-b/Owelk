@@ -2148,7 +2148,7 @@ private slots:
         forYou->setPerCheck("person:A111", 0);
         QCOMPARE(forYou->perCheck("person:A111"), 0);
         QCOMPARE(forYou->items().size(), 3);
-        // Theirs come first whatever the AI made of the rest (a topic paper scored high stays below them).
+        // By the AI's score, theirs too: a topic paper scored high comes before them (Following lists theirs by date).
         {
             WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3");
             QSqlQuery query(db.db);
@@ -2156,10 +2156,10 @@ private slots:
         }
         forYou->reload();
         const auto items = forYou->items();
-        QVERIFY(ForYou::fromPerson(items[0].toMap()["source"].toString()));
+        QCOMPARE(items[0].toMap()["id"].toString(), QString("arxiv:2601.00077"));
         QVERIFY(ForYou::fromPerson(items[1].toMap()["source"].toString()));
-        QCOMPARE(items[2].toMap()["id"].toString(), QString("arxiv:2601.00077"));
-        QStringList sources{items[0].toMap()["source"].toString(), items[1].toMap()["source"].toString()};
+        QVERIFY(ForYou::fromPerson(items[2].toMap()["source"].toString()));
+        QStringList sources{items[1].toMap()["source"].toString(), items[2].toMap()["source"].toString()};
         sources.sort();
         QCOMPARE(sources, (QStringList{"institution:I222", "person:A111"}));
         // A paper's authors: by DOI (none here), then by its arXiv ID; the last author first.

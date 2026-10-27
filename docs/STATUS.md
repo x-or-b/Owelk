@@ -34,7 +34,7 @@
 
 ## 지난 단계 (2026-10-17): For You 팔로우, 키, 설치
 
-- For You 연구자·기관 팔로우: Settings › For You › Researchers and institutions에서 이름으로 찾아(OpenAlex, Return이나 Search를 눌렀을 때만 요청) Follow. 그들의 새 논문(논문·프리프린트, 오늘까지)은 AI 점수와 상관없이 맨 위에 최신순으로 고정되고, AI는 이유 한 줄만 붙입니다. Library › For You 출처 메뉴의 "Researchers and institutions you follow"로 그들 것만 봅니다. 선택 입력인 OpenAlex 무료 키는 키 저장소에 둡니다(없으면 같은 네트워크가 하루 무료 한도를 나눠 씀). 팔로우 목록은 동기화됩니다(스키마 19).
+- For You 연구자·기관 팔로우: Settings › For You › Researchers and institutions에서 이름으로 찾아(OpenAlex, Return이나 Search를 눌렀을 때만 요청) Follow. 그들의 새 논문(논문·프리프린트, 오늘까지)도 다른 논문처럼 AI 점수 순으로 놓이고(Following 보기는 최신순), AI가 이유 한 줄을 붙입니다. Library › For You 출처 메뉴의 "Researchers and institutions you follow"로 그들 것만 봅니다. 선택 입력인 OpenAlex 무료 키는 키 저장소에 둡니다(없으면 같은 네트워크가 하루 무료 한도를 나눠 씀). 팔로우 목록은 동기화됩니다(스키마 19).
 - For You는 `Papers | Following` 두 칸: Following은 팔로우한 연구자·기관의 새 논문만 최신순으로 보여 주고, 왼쪽 열에 새 논문이 있는 사람·기관과 편수(맨 위 Everyone, 누르면 그 사람만)를 둡니다. 좁을 때는 왼쪽 열 대신 출처 메뉴. ⚙는 Manage Following: 입력란 하나로 주제(단어, `cs.RO` 같은 분야)는 바로, 연구자·기관은 Return을 눌러 OpenAlex에서 찾아 팔로우하고, 줄마다 새 논문 수·확인당 개수·끄기·삭제, 맨 아래 Checking and AI 설정으로 가는 줄. Settings › For You는 확인 방식·AI·OpenAlex 키와 Manage Following으로 가는 버튼만 남았습니다.
 - Follow Author: 논문 우클릭(Library·Home·Library 패널)과 For You 논문에서, OpenAlex에 있는 그 논문의 저자 목록(마지막·교신 저자를 먼저, 소속과 함께)과 소속 기관을 골라 팔로우합니다. DOI → arXiv ID → 정확히 같은 제목 순으로 찾고, 없으면 이름으로 찾기로 넘어갑니다.
 - 집중 모드(⌘⇧F, Ctrl+Shift+F, View 메뉴·명령 팔레트): 상단 바·탭 줄·리더 도구 막대·아래 상태 막대를 숨기고 기본으로 전체 화면(Settings › General › Focus mode에서 끔). 맨 위 끝에 포인터를 대면 숨긴 것이 한 막대에 모여 페이지 위에 잠깐 나타남: 양 끝에 상태 막대와 같은 패널 아이콘, ←/→·검색, 가운데 지금 탭(누르면 열린 탭 목록·⌘1~9·New Tab), Exit Focus. macOS 전체 화면에서는 제목 막대의 빈 도구 막대 띠를 숨김. 앱을 다시 켜면 보통 화면.
@@ -51,7 +51,7 @@
 - macOS 창 닫기: 빨간 버튼·⌘W(탭 없음)는 창만 닫고 앱은 Dock에 남습니다(전체 화면이면 먼저 끝냄). Dock 아이콘 클릭·메뉴 막대 명령·Finder에서 연 PDF로 창이 그대로 돌아오고, ⌘Q만 앱을 끝냅니다. 닫힌 동안 Close는 꺼집니다. Window › Minimize(⌘M)로 창을 Dock에 내립니다.
 - 로그인 시 열기: Settings › General › Launch › Open at login(기본 끔). macOS 13+는 로그인 항목(`SMAppService`, System Settings › General › Login Items에도 보임; 거기서 꺼 둔 경우 그 화면을 열고 "Allow Owelk…" 안내), Windows는 `HKCU\…\Run`(작업 관리자에서 끈 표시도 켤 때 지움), Linux는 `~/.config/autostart/owelk.desktop`(AppImage면 그 파일). 상태는 시스템에만 두고 Settings를 볼 때·Owelk가 앞으로 올 때 다시 읽음.
 - PDF 선택 띠: 줄 상자가 줄 간격보다 큰 PDF에서 위아래 띠가 겹치던 것을 줄 사이 가운데에서 나눔(Library의 논문 24편, 3줄 드래그 262번 기준 겹침 127 → 2).
-- For You 개수: 주제·연구자·기관·Collection마다 확인 한 번에 가져올 최대 편수(5·10·20·50)를 따로 정하고, 정하지 않은 것은 공통 값(Usually at most, from each)을 따릅니다. 이 컴퓨터의 설정입니다.
+- For You 개수: 주제·연구자·기관·Collection마다 확인 한 번에 가져올 최대 편수(5·10·20·50)를 따로 정하고, 정하지 않은 것은 공통 값을 따릅니다("Usual (10)"처럼 숫자와 함께 보임). 공통 값과 출처별 값 모두 Library › For You › Following 한 곳에서 정하고(Settings › For You에는 없음), 이 컴퓨터의 설정입니다. Settings › For You의 Look back은 확인할 때 거슬러 찾는 기간이고, For You의 Today·This week 칩은 찾은 논문을 거를 뿐입니다.
 - PDF 선택: 더블클릭은 단어, 세 번 클릭은 문장(약어·소수점은 넘기고, 제목이나 문단 끝의 짧은 줄에서 끝남). 보통 선택과 같아서 복사·형광펜·AI 묻기가 그대로 됩니다.
 - 키: PDF는 ←/→로 쪽을 넘깁니다(확대해 쪽이 화면보다 넓으면 먼저 옆으로 끝까지 스크롤). Back·Forward는 macOS ⌘[ / ⌘], Linux·Windows Alt+← / Alt+→. 모두 Settings › Shortcuts에서 바꿉니다.
 - Library 읽기 표시: 열지 않은 논문은 강조색 점, 연 논문(Reading)은 강조색 테두리, 읽음으로 표시한 논문은 표시 없음.
@@ -64,7 +64,7 @@
 - For You: 따라가는 주제(단어 + arXiv 분야)는 arXiv에서, 따라가는 Collection은 Semantic Scholar 추천에서 새 논문을 찾습니다(기간 1일·7일·30일, 출처당 최대 편수). 이미 Library에 있거나 Dismiss한 논문, 기간보다 오래된 논문은 뺍니다. 요청할 때와(켜져 있으면) 하루 한 번 Owelk를 연 뒤 확인하며, arXiv 요청은 몇 초 간격을 둡니다.
 - Home: 이어 읽기 아래 For You(새 논문 5편, 제목 → Library › For You, 톱니 → 설정). 따라가는 것이 없으면 설정으로 가는 한 줄, 새 논문이 없으면 숨김.
 - Library › For You: 전체 목록, 출처별 보기, 다시 확인, 선택해 Add·Dismiss. Add는 PDF를 받아 Paper names 규칙으로 이름 붙이고, Collection에서 온 논문은 그 Collection에 넣고, arXiv·Semantic Scholar의 제목·저자·연도·DOI를 채웁니다. PDF가 없으면 논문 페이지를 웹 탭으로 엽니다. Collection 우클릭 › Follow in For You.
-- For You AI(2단계): 확인 뒤 새 논문을 AI가 따라가는 것과 얼마나 맞는지 점수(0–100)로 매겨 관련도 순으로 놓고 논문마다 한 문장 이유를 붙입니다(Home·Library에 표시, Library의 AI 버튼으로 다시). Settings › For You › Explain with AI(켜는 것이 보내기 동의, AI가 설정돼 있어야 함). 보내는 것: 새 논문의 제목·초록, 주제, 따라가는 Collection의 논문 제목 몇 개.
+- For You AI(2단계): 확인 뒤 새 논문을 AI가 따라가는 것과 얼마나 맞는지 점수(0–100, 같은 점수가 몰리지 않게 범위 전체를 쓰라고 요청)로 매겨 관련도 순으로 놓고(점수가 같으면 최신순, 연구자·기관 논문도 같은 순서) 논문마다 한 문장 이유를 붙입니다(Home·Library에 표시, Library의 AI 버튼으로 다시). Settings › For You › Explain with AI(켜는 것이 보내기 동의, AI가 설정돼 있어야 함). 보내는 것: 새 논문의 제목·초록, 주제, 따라가는 Collection의 논문 제목 몇 개.
 - For You 동기화와 정리: 주제·따라가는 Collection·찾은 논문(AI 이유 포함)·Dismiss/Add 기록·마지막 확인 시각이 라이브러리 표(스키마 18, `foryou_*`)로 옮겨져 동기화됩니다. 한 컴퓨터가 확인하고 AI가 이유를 붙인 논문은 다른 컴퓨터에서 다시 찾거나 보내지 않습니다(동기화가 끝난 뒤 확인). 기간·자동 확인·목록 유지 기간(7·15·30·60일·항상, 기본 30일)은 컴퓨터마다. Library › For You는 가운데 920px 열, 제목 옆 논문 수, All·Today·This week·This month 칩, 제목 → AI 이유 → 짧은 정보(저자 et al.·"3 days ago"·출처), 초록은 펼쳤을 때만.
 - 마우스 앞·뒤 버튼: 창 어디서나 Back·Forward(웹 탭의 페이지 → 리더의 이동 → 장소 순).
 - Settings: General · Appearance · Shortcuts / Library · For You · Web · Search / AI · Sync & Backup으로 다시 묶음(설정 키는 그대로). 사이드바 검색은 설정 이름과 관련 단어로 찾고, 고르면 그 페이지의 그 설정으로 스크롤해 잠깐 표시합니다. 단축키도 동작 이름으로 찾습니다.

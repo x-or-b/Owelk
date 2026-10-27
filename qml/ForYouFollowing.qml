@@ -66,13 +66,14 @@ Flickable {
     }
     function clearSearch() { field.clear(); asked = ""; found = []; problem = "" }
 
-    // How many papers one source brings at most in a check: its own number, or the usual one (Settings).
+    // How many papers one source brings at most in a check: its own number, or the usual one (set above the lists).
     readonly property var counts: [5, 10, 20, 50]
+    readonly property int usual: (revision, Number(researchStore.setting("forYou.perSource", "10")))
     component CountBox: ComboBox {
         required property string source
         objectName: "forYouCount-" + source
-        Layout.preferredWidth: 96
-        model: [qsTr("Usual")].concat(root.counts.map(function(n) { return String(n) }))
+        Layout.preferredWidth: 110
+        model: [qsTr("Usual (%1)").arg(root.usual)].concat(root.counts.map(function(n) { return String(n) }))
         currentIndex: Math.max(0, root.counts.indexOf((root.revision, root.forYou.perCheck(source))) + 1)
         ToolTip.visible: hovered; ToolTip.delay: 500
         ToolTip.text: qsTr("Papers at most in each check")
@@ -159,6 +160,20 @@ Flickable {
                 leftPadding: 10
                 text: root.problem
                 wrapMode: Text.Wrap; font.pixelSize: Theme.fontCaption; color: Theme.danger
+            }
+        }
+        SettingsGroup {
+            objectName: "forYouUsualCount"
+            SettingsRow {
+                label: qsTr("Papers at most from each, in a check")
+                detail: qsTr("Unless one has its own number below. The AI then orders them all.")
+                ComboBox {
+                    objectName: "forYouCount"
+                    Layout.preferredWidth: 140
+                    model: root.counts.map(function(n) { return n + qsTr(" papers") })
+                    currentIndex: Math.max(0, root.counts.indexOf(root.usual))
+                    onActivated: function(index) { researchStore.setSetting("forYou.perSource", String(root.counts[index])) }
+                }
             }
         }
         SettingsGroup {

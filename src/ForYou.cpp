@@ -364,12 +364,7 @@ void ForYou::sortItems()
         };
         return score(a) > score(b);
     });
-    // Papers of the researchers and institutions followed come first, newest first, whatever their score.
-    std::stable_sort(m_items.begin(), m_items.end(), [&](const QVariant &a, const QVariant &b) {
-        const bool pa = fromPerson(a.toMap().value("source").toString()),
-                   pb = fromPerson(b.toMap().value("source").toString());
-        return pa != pb ? pa : pa && date(a) > date(b);
-    });
+    // Those of the researchers and institutions followed take their place by score too; Following lists them by date.
 }
 void ForYou::explain()
 {

@@ -1078,11 +1078,12 @@ int AiService::rankPapers(const QVariantList &papers, const QString &interests)
     call.system = QStringLiteral(
         "You help a researcher decide which new papers to read. You get what they follow (topics, and titles of "
         "papers in the collections they follow) and new papers with their abstracts. For each paper, judge how "
-        "relevant it is to what they follow: a score from 0 to 100 (80 or more: directly on their topics; 50 to "
-        "79: related; below 50: tangential), and one short sentence (at most 25 words) on why it is worth reading "
-        "or how it relates to what they follow. Be concrete and do not repeat the title. Write the sentences in "
-        "%1. Reply with JSON only, covering every paper: "
-        "{\"papers\": [{\"id\": \"p1\", \"score\": 85, \"why\": \"…\"}]}.")
+        "relevant it is to what they follow: a score from 0 to 100 (high: directly on their topics; middle: "
+        "related; low: tangential). The papers are listed by this score, so use the whole range and give two papers "
+        "the same score only when they are equally relevant. Add one short sentence (at most 25 words) on why it is "
+        "worth reading or how it relates to what they follow. Be concrete and do not repeat the title. Write the "
+        "sentences in %1. Reply with JSON only, covering every paper: "
+        "{\"papers\": [{\"id\": \"p1\", \"score\": <0-100>, \"why\": \"…\"}]}.")
                       .arg(language.isEmpty() ? QStringLiteral("the language of the paper titles") : language);
     call.text = "What the researcher follows:\n" + interests.left(6000) + "\n\nNew papers:\n\n" + lines.join("\n\n");
     call.model = model(id);

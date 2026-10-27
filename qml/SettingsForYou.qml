@@ -3,8 +3,8 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Owelk.Ui
 
-// For You: how often and how far back to look, the AI, and the OpenAlex key. What is followed is chosen in
-// Library › For You › Following.
+// For You: how often and how far back to look, the AI, and the OpenAlex key. What is followed, and how many papers
+// each brings, is chosen in Library › For You › Following.
 ColumnLayout {
     id: root
     objectName: "forYouSettings"
@@ -16,7 +16,6 @@ ColumnLayout {
     // What is followed lives in the library (it syncs).
     Connections { target: root.forYou; function onSettingsChanged() { root.revision++ } }
     readonly property var people: (revision, forYou.people())
-    readonly property var counts: [5, 10, 20, 50]
     readonly property bool openAlexKey: (revision, forYou.hasOpenAlexKey())
     readonly property int followed: (revision, researchStore.documentsRevision,
         forYou.topics().length + people.length + researchStore.collections().filter(function(c) { return root.forYou.following(c.id) }).length)
@@ -27,6 +26,7 @@ ColumnLayout {
         SettingsRow {
             objectName: "settingsRow-following"
             label: root.followed === 1 ? qsTr("1 topic, researcher, institution or collection") : qsTr("%1 topics, researchers, institutions and collections").arg(root.followed)
+            detail: qsTr("And how many papers each brings")
             Button {
                 objectName: "forYouEditFollowing"
                 text: qsTr("Edit in For You…")
@@ -73,7 +73,8 @@ ColumnLayout {
         }
         SettingsRow {
             objectName: "settingsRow-forYouDays"
-            label: qsTr("Papers from the last")
+            label: qsTr("Look back")
+            detail: qsTr("How far back each check looks. The Today and This week chips in For You only narrow what was found.")
             ComboBox {
                 objectName: "forYouDays"
                 Layout.preferredWidth: 140
@@ -94,18 +95,6 @@ ColumnLayout {
                 model: [qsTr("7 days"), qsTr("15 days"), qsTr("30 days"), qsTr("60 days"), qsTr("Always")]
                 currentIndex: Math.max(0, days.indexOf(Number((root.revision, researchStore.setting("forYou.keepDays", "30")))))
                 onActivated: function(index) { researchStore.setSetting("forYou.keepDays", String(days[index])) }
-            }
-        }
-        SettingsRow {
-            objectName: "settingsRow-forYouCount"
-            label: qsTr("Usually at most, from each")
-            detail: qsTr("Topic, researcher, institution or collection, unless it has its own number above. The AI then orders them all.")
-            ComboBox {
-                objectName: "forYouCount"
-                Layout.preferredWidth: 140
-                model: root.counts.map(function(n) { return n + qsTr(" papers") })
-                currentIndex: Math.max(0, root.counts.indexOf(Number((root.revision, researchStore.setting("forYou.perSource", "10")))))
-                onActivated: function(index) { researchStore.setSetting("forYou.perSource", String(root.counts[index])) }
             }
         }
         SettingsRow {
