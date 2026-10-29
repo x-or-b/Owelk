@@ -512,14 +512,18 @@ Item {
             const p = panel()
             const answered = Qt.createQmlObject('import QtTest; SignalSpy { signalName: "answered" }', p)
             answered.target = ai
+            const other = researchStore.aiThreads("What is the main claim?")[0].id
             ai.newThread()
             verify(ai.send("Which answer goes on?"))
             const first = ai.request
             // Another conversation at once: the first is not stopped.
-            ai.newThread()
+            verify(ai.openThread(other))
             compare(ai.streaming, false)
             compare(ai.request, -1)
             verify(ai.running[first] !== undefined)
+            // Its finishing does not read the open one again (which would start its view over at the top).
+            const reread = Qt.createQmlObject('import QtTest; SignalSpy { signalName: "threadChanged" }', p)
+            reread.target = ai
             // It is saved to its own conversation, and a card says it is ready.
             tryVerify(function() { return ai.running[first] === undefined }, 10000)
             const saved = researchStore.aiThreads("Which answer goes on?")
@@ -527,6 +531,9 @@ Item {
             compare(researchStore.aiThread(saved[0].id).messages.length, 2)
             tryCompare(answered, "count", 1)
             compare(answered.signalArguments[0][0], saved[0].id)
+            compare(reread.count, 0)
+            compare(findChild(p, "aiConversation").following, true)
+            reread.destroy()
             compare(ai.answeringThreads.length, 0)
             // Opened again: the saved answer, nothing still writing.
             verify(ai.openThread(saved[0].id))

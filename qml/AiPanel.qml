@@ -351,7 +351,26 @@ Item {
             spacing: 10
             acceptedButtons: Qt.NoButton
             ScrollBar.vertical: ScrollBar {}
-            model: root.c ? root.c.messages : []
+            // The turns are set by reload(), not bound: a new list starts a view at the top, which would make it stop
+            // following. It stays where it was (at the end while following); another conversation opens at its end.
+            model: []
+            property string shownThread: ""
+            function reload() {
+                const c = root.c
+                const other = !c || c.threadId !== shownThread || (count > 0 && c.messages.length === 0)
+                const wasFollowing = following || other, y = contentY
+                settling = true
+                model = c ? c.messages : []
+                shownThread = c ? c.threadId : ""
+                forceLayout()
+                if (wasFollowing) positionViewAtEnd()
+                else contentY = Math.max(originY, Math.min(y, contentHeight + originY - height))
+                settling = false
+                following = wasFollowing
+                if (wasFollowing) Qt.callLater(toEnd)
+            }
+            Connections { target: root.c; function onMessagesChanged() { conversation.reload() } }
+            Component.onCompleted: reload()
             property bool following: true
             property bool settling: false
             readonly property bool nearEnd: contentHeight <= height || contentY + height >= contentHeight + originY - 24

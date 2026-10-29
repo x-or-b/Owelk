@@ -582,7 +582,9 @@ Item {
         function onAiThreadsChanged() {
             if (root.threadId.length && !root.streaming) {
                 const saved = researchStore.aiThread(root.threadId)
-                if (saved.id) root.thread = saved
+                // Another conversation changed (an answer finished in the background): this one is read again only
+                // when it changed, so its view does not start over.
+                if (saved.id) { if (JSON.stringify(saved) !== JSON.stringify(root.thread)) root.thread = saved }
                 else { root.threadId = ""; root.thread = ({}) }
             }
         }
