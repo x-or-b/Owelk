@@ -963,6 +963,36 @@ private slots:
         QVERIFY(!finished[1][2].toMap()["cutOff"].toBool());
         const auto cut = store.aiThread(finished[1][2].toMap()["threadId"].toString())["messages"].toList();
         QVERIFY(cut.last().toMap()["context"].toMap()["interrupted"].toBool());
+        // Owelk closing: answers still coming are kept, the question too when nothing had come yet (marked closed),
+        // and a later question in that conversation does not send the unanswered one again.
+        server.keepOpen = true;
+        server.chunks = {};
+        auto seenBefore = server.seen.size();
+        ai->ask(
+            {{"provider", "claude"}, {"model", "claude-opus-5-5"}, {"action", "ask"}, {"question", "Before closing"}});
+        QTRY_VERIFY_WITH_TIMEOUT(server.seen.size() == seenBefore + 1, 5000);
+        ai->closeAll();
+        QVERIFY(!ai->busy());
+        const auto closed = store.aiThreads("Before closing");
+        QCOMPARE(closed.size(), 1);
+        const auto closedId = closed[0].toMap()["id"].toString();
+        const auto kept = store.aiThread(closedId)["messages"].toList();
+        QCOMPARE(kept.size(), 2);
+        QVERIFY(kept[1].toMap()["content"].toString().isEmpty());
+        QVERIFY(kept[1].toMap()["context"].toMap()["closed"].toBool());
+        server.keepOpen = false;
+        server.chunks = {MockServer::sse("content_block_delta",
+                             {{"type", "content_block_delta"},
+                                 {"delta", QJsonObject{{"type", "text_delta"}, {"text", "Answered"}}}}),
+            MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        seenBefore = server.seen.size();
+        ai->ask({{"provider", "claude"}, {"model", "claude-opus-5-5"}, {"action", "ask"},
+            {"question", "After reopening"}, {"threadId", closedId}});
+        QTRY_VERIFY_WITH_TIMEOUT(server.seen.size() == seenBefore + 1, 5000);
+        const auto sent = QJsonDocument(server.seen.last().body).toJson();
+        QVERIFY(sent.contains("After reopening"));
+        QVERIFY(!sent.contains("Before closing"));
+        QTRY_COMPARE_WITH_TIMEOUT(store.aiThread(closedId)["messages"].toList().size(), 4, 5000);
         ai->clearApiKey("claude");
     }
     void serviceRequiresConsentKeyAndSavesAnswers()

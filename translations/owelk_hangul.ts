@@ -389,6 +389,14 @@
         <translation>오픈 탭스</translation>
     </message>
     <message>
+        <source>Owelk was closed before the answer came.</source>
+        <translation>오웰크 워즈 클로즈드 비포 더 앤서 케임.</translation>
+    </message>
+    <message>
+        <source>Owelk was closed before the answer finished.</source>
+        <translation>오웰크 워즈 클로즈드 비포 더 앤서 피니시드.</translation>
+    </message>
+    <message>
         <source>Page </source>
         <translation>페이지 </translation>
     </message>

@@ -427,11 +427,13 @@ Item {
                     objectName: "aiCutOff-" + message.index
                     readonly property var context: message.modelData.context || ({})
                     visible: message.modelData.role === "assistant" && !!(context.cutOff || context.stopped || context.interrupted)
-                    text: context.stopped ? qsTr("Stopped.") : context.interrupted ? qsTr("The connection ended before the answer did.") : qsTr("Stopped at the length limit.")
+                    text: context.closed ? (message.modelData.content.length ? qsTr("Owelk was closed before the answer finished.") : qsTr("Owelk was closed before the answer came."))
+                        : context.stopped ? qsTr("Stopped.") : context.interrupted ? qsTr("The connection ended before the answer did.") : qsTr("Stopped at the length limit.")
                     textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
                 }
+                // Nothing to copy or keep when Owelk closed before the answer came.
                 RowLayout {
-                    visible: message.modelData.role === "assistant"
+                    visible: message.modelData.role === "assistant" && (message.modelData.content || "").length > 0
                     spacing: 0
                     IconButton { icon.name: "copy"; description: qsTr("Copy answer"); glyphSize: Theme.fontBody; onClicked: researchStore.copyText(message.parts.plain) }
                     // A new note, or one of the notes about this paper (a menu when there are some).

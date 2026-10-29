@@ -73,6 +73,14 @@ AiService::AiService(ResearchStore *store, QObject *parent)
     });
     // A little after start, not while the window opens.
     QTimer::singleShot(30000, this, &AiService::sweepAttachments);
+    connect(qApp, &QCoreApplication::aboutToQuit, this, &AiService::closeAll);
+}
+
+void AiService::closeAll()
+{
+    m_closing = true;
+    for (const auto request : m_running.keys()) cancel(request);
+    m_closing = false;
 }
 
 AiService::~AiService()
@@ -541,6 +549,11 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     if (!spec.value("fresh").toBool())
         for (const auto &value : m_store->aiThread(threadId).value("messages").toList()) {
             const auto message = value.toMap();
+            // A question Owelk closed on before any answer came: neither goes out again.
+            if (message.value("role") == "assistant" && message.value("content").toString().trimmed().isEmpty()) {
+                if (!history.isEmpty() && history.last().role == "user") history.removeLast();
+                continue;
+            }
             history.append({message.value("role").toString(), message.value("content").toString()});
         }
     AiMaterials materials;
@@ -675,6 +688,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         if (cutOff) answerContext.insert("cutOff", true);
         if (interrupted) answerContext.insert("interrupted", true);
         if (stopped) answerContext.insert("stopped", true);
+        if (stopped && m_closing) answerContext.insert("closed", true);
         m_store->appendAiMessage(threadId,
             {{"role", "assistant"}, {"content", text}, {"model", usedModel}, {"provider", id},
                 {"context", answerContext}});
@@ -689,8 +703,10 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     connect(provider, &AiProvider::failed, this,
         [this, request, done, store, provider, id, spec, prepared, summary = call.thinkingSummary](
             const QString &message) {
-            // Stopped part-way: the text so far is kept as the answer, with Copy and Save as Note.
-            if (message == "Stopped." && !provider->partialText().trimmed().isEmpty()) {
+            // Stopped part-way: the text so far is kept as the answer, with Copy and Save as Note. Owelk closing keeps
+            // the question even before any text (not a symbol list, which is kept only whole).
+            if (message == "Stopped."
+                && (!provider->partialText().trimmed().isEmpty() || (m_closing && !spec.value("symbols").toBool()))) {
                 store(provider->partialText(), QString(), true);
                 return;
             }

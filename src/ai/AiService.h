@@ -66,6 +66,9 @@ public:
     // Models the provider offers: Claude's current lineup, the OpenAI/Ollama/Codex lists from the service.
     Q_INVOKABLE void listModels(const QString &provider);
     Q_INVOKABLE void cancel(int request);
+    // Owelk is closing: every answer still being written is stopped and kept in its conversation with what
+    // arrived, its question too when nothing had arrived yet (marked closed).
+    void closeAll();
     Q_INVOKABLE void testConnection(const QString &provider);
     // Suggest named groups for open tabs. tabs: [{id, title, url, kind, authors, year, opening}].
     // Answered by tabsOrganized(request, groups [{name, tabIds}], error). Nothing is changed here.
@@ -139,6 +142,7 @@ private:
     QNetworkAccessManager *m_network;
     CodexBridge *m_codex;
     QHash<int, QPointer<AiProvider>> m_running;
+    bool m_closing = false;
     int m_nextRequest = 0;
     QVariantMap m_codexAccount;
 };
