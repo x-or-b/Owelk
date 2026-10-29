@@ -1846,6 +1846,10 @@
         <translation>오픈 어 피디에프. 유어 리딩 포지션 이즈 세이브드 오토매티컬리.</translation>
     </message>
     <message>
+        <source>Open in New Tab</source>
+        <translation>오픈 인 뉴 탭</translation>
+    </message>
+    <message>
         <source>Page </source>
         <translation>페이지 </translation>
     </message>

@@ -591,7 +591,7 @@ Rectangle {
     }
     Rectangle {
         readonly property var target: root.controller.dropTarget
-        readonly property string edge: target ? target.edge : ""
+        readonly property string edge: target && target.edge || ""
         // Only a split shows an area; moving among tabs shows the gap in the strip instead.
         visible: !!target && target.group === root.groupId && edge !== "center"
         x: edge === "right" ? parent.width / 2 : 0

@@ -321,6 +321,29 @@ Item {
                 text: root.c && root.c.threadId.length ? (root.c.thread.title || qsTr("Chat")) : qsTr("New Chat")
                 elide: Text.ElideRight; textFormat: Text.PlainText
                 font.pixelSize: Theme.fontBody; font.weight: Font.DemiBold; color: Theme.text
+                // Dragged into the document area, the conversation opens there in a tab of its own: beside a
+                // paper as a split, or among a strip's tabs, like a dragged tab.
+                MouseArea {
+                    objectName: "aiTitleDrag"
+                    anchors.fill: parent
+                    enabled: !root.inTab && !!root.c && root.c.threadId.length > 0 && !!root.c.workspace
+                    preventStealing: true
+                    property point start
+                    property bool moving: false
+                    function follow(mouse) {
+                        const p = mapToItem(null, mouse.x, mouse.y)
+                        if (!moving && Math.abs(p.x - start.x) + Math.abs(p.y - start.y) > 8) moving = true
+                        if (moving) root.c.workspace.dragChat(root.c.threadId, parent.text, p.x, p.y)
+                    }
+                    onPressed: function(mouse) { start = mapToItem(null, mouse.x, mouse.y); moving = false }
+                    onPositionChanged: function(mouse) { follow(mouse) }
+                    onReleased: function(mouse) {
+                        follow(mouse)
+                        if (moving) root.c.workspace.finishDrag(false)
+                        moving = false
+                    }
+                    onCanceled: { if (moving) root.c.workspace.finishDrag(true); moving = false }
+                }
             }
             IconButton { objectName: "aiNewThread"; visible: !root.inTab; icon.name: "add"; description: qsTr("New chat"); onClicked: { root.c.newThread(); root.focusQuestion() } }
         }

@@ -811,6 +811,8 @@ Rectangle {
         recent: true
         onOpenRequested: function(source, position) { root.documentChosen(source, position) }
     }
+    // A conversation dragged over Home from the AI panel (it opens in a new tab).
+    property bool chatOver: false
     // PDFs dropped on Home open; a folder becomes a collection of the PDFs in it (subfolders as collections
     // inside it). Files are not moved.
     DropArea {
@@ -829,11 +831,12 @@ Rectangle {
         onDropped: function(drop) { if (take(drop.urls)) drop.acceptProposedAction() }
         Rectangle {
             anchors.fill: parent; anchors.margins: 6
-            visible: drops.containsDrag
+            objectName: "homeDropHint"
+            visible: drops.containsDrag || root.chatOver
             radius: Theme.radiusLarge
             color: "transparent"
             border.width: 2; border.color: Theme.accent
-            Label { anchors.centerIn: parent; text: qsTr("Open"); font.pixelSize: Theme.fontSmall; color: Theme.textSecondary }
+            Label { anchors.centerIn: parent; text: root.chatOver ? qsTr("Open in New Tab") : qsTr("Open"); font.pixelSize: Theme.fontSmall; color: Theme.textSecondary }
         }
     }
 }

@@ -1224,6 +1224,7 @@ ApplicationWindow {
         HomeView {
             id: homeView
             visible: window.homeVisible
+            chatOver: !!documents.dropTarget && !!documents.dropTarget.home
             Layout.fillWidth: true; Layout.fillHeight: true
             onOpenRequested: window.chooseFile()
             onDocumentChosen: function(source, position) { window.openDocument(source, position) }
@@ -1247,6 +1248,7 @@ ApplicationWindow {
         DocumentWorkspace {
             id: documents
             aiRuns: aiRuns
+            homeArea: homeView
             visible: !window.homeVisible
             suspended: window.homeVisible
             enabled: !window.restoreFailed

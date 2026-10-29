@@ -19,6 +19,10 @@ Flickable {
     property var dropTarget: null
     // The dragged tab's title (for the tab that follows the pointer).
     property string dragTitle: ""
+    // A conversation dragged in from the AI panel ({threadId}), not a tab yet: see dragChat.
+    property var incoming: null
+    // Home, shown instead of the tabs: a conversation dropped there opens in a new tab.
+    property Item homeArea: null
     // Holding a dragged tab over the middle of another tab for a moment makes a group of the two.
     property string joinCandidate: ""
     property bool joinReady: false
@@ -327,14 +331,19 @@ Flickable {
     // An AI conversation in a tab of its own (once: an existing tab anywhere is focused instead). It shows the same
     // answers and waiting questions as the AI panel when that has it open too (AiRuns).
     property var aiRuns: null
+    function aiTabOf(threadId) {
+        const list = Tree.leaves(tree)
+        for (let i = 0; i < list.length; ++i) {
+            const t = list[i].tabs.find(function(t) { return t.kind === "ai" && t.threadId === threadId })
+            if (t) return t
+        }
+        return null
+    }
     function openAiThread(threadId, forceNew) {
         const saved = researchStore.aiThread(threadId)
         if (!saved.id) return false
-        const list = Tree.leaves(tree)
-        for (let i = 0; i < list.length; ++i) {
-            const existing = list[i].tabs.find(function(t) { return t.kind === "ai" && t.threadId === threadId })
-            if (existing) { activateTab(existing.id); return true }
-        }
+        const existing = aiTabOf(threadId)
+        if (existing) { activateTab(existing.id); return true }
         prepare()
         const g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]
         const home = !forceNew && g.tabs.find(function(t) { return t.id === g.activeTab && t.kind === "home" })
@@ -767,7 +776,7 @@ Flickable {
     Timer {
         id: dragScroll
         interval: 16; repeat: true
-        running: root.draggedTab.length > 0 && root.dragPointer !== null
+        running: root.draggedTab.length > 0 && root.dragPointer !== null && root.visible
         onTriggered: {
             const local = root.mapFromItem(null, root.dragPointer.x, root.dragPointer.y)
             const dx = root.contentWidth > root.width ? root.edgeSpeed(local.x, root.width) : 0
@@ -794,7 +803,9 @@ Flickable {
     function dragTab(id, x, y) {
         draggedTab = id; dropTarget = null; dragPointer = Qt.point(x, y)
         for (let h = 0; h < dropHandlers.length; ++h) {
-            const claimed = dropHandlers[h].claimDrop(id, x, y)
+            let claimed = dropHandlers[h].claimDrop(id, x, y)
+            // A conversation coming in is placed among tabs, never grouped with one or filed.
+            if (claimed && incoming) claimed = claimed.handler ? null : Object.assign({}, claimed, {over: ""})
             if (claimed) { setDropTarget(claimed); return }
         }
         const local = mapFromItem(null, x, y)
@@ -804,7 +815,7 @@ Flickable {
             if (p.x < 0 || p.y < 0 || p.x > view.width || p.y > view.height) continue
             let edge = "center", at = undefined, over = ""
             const owner = Tree.owner(tree, id)
-            if (p.y < view.stripHeight) { const info = view.dropInfo(p.x, id); at = info.index; over = info.over }
+            if (p.y < view.stripHeight) { const info = view.dropInfo(p.x, id); at = info.index; over = incoming ? "" : info.over }
             else if (p.x < view.width * .22) edge = "left"
             else if (p.x > view.width * .78) edge = "right"
             else if (p.y < view.height * .25) edge = "top"
@@ -818,13 +829,50 @@ Flickable {
         }
     }
     function finishDrag(cancelled) {
-        const id = draggedTab, target = dropTarget
-        draggedTab = ""; dropTarget = null; dragPointer = null; dragTitle = ""
+        const id = draggedTab, target = dropTarget, chat = incoming
+        draggedTab = ""; dropTarget = null; dragPointer = null; dragTitle = ""; incoming = null
         joinTimer.stop(); joinCandidate = ""; joinReady = false
         if (cancelled || !target) return
-        if (target.handler) Qt.callLater(function() { target.handler.dropTab(id, target) })
+        if (chat) Qt.callLater(function() { root.placeChat(chat.threadId, target) })
+        else if (target.handler) Qt.callLater(function() { target.handler.dropTab(id, target) })
         else if (target.join) Qt.callLater(function() { root.joinTabs(id, target.join) })
         else Qt.callLater(function() { root.moveTab(id, target.group, target.edge, target.index) })
+    }
+    // A conversation dragged from the AI panel (x, y in the window): it goes where a dragged tab would (a split
+    // beside a strip, or among its tabs) and opens there in a chat tab; over Home, in a new tab. One already in a
+    // tab moves that tab. Ended by finishDrag.
+    function dragChat(threadId, title, x, y) {
+        if (!enabled) return
+        dragTitle = title
+        if (!visible) {
+            incoming = {threadId: threadId}; draggedTab = "incoming"; dragPointer = Qt.point(x, y)
+            const p = homeArea && homeArea.visible ? homeArea.mapFromItem(null, x, y) : Qt.point(-1, -1)
+            dropTarget = p.x >= 0 && p.y >= 0 && p.x <= homeArea.width && p.y <= homeArea.height ? {home: true} : null
+            return
+        }
+        const open = aiTabOf(threadId)
+        incoming = open ? null : {threadId: threadId}
+        dragTab(open ? open.id : "incoming", x, y)
+    }
+    function placeChat(threadId, target) {
+        if (target.home) { openAiThread(threadId, true); return }
+        // Opened in a tab meanwhile: that tab goes there.
+        const open = aiTabOf(threadId)
+        if (open) { moveTab(open.id, target.group, target.edge, target.index); return }
+        const g = Tree.find(tree, target.group), saved = researchStore.aiThread(threadId)
+        if (!g || g.kind !== "group" || !saved.id) return
+        prepare()
+        const t = Tree.aiTab(threadId, saved.title)
+        if (target.edge === "center") {
+            const at = target.index === undefined ? g.tabs.length : target.index
+            g.tabs.splice(Math.max(0, Math.min(g.tabs.length, at)), 0, t)
+            Tree.keepGroupsTogether(g, t.id)
+            g.activeTab = t.id; activeGroup = g.id
+        } else {
+            const added = Tree.group([t])
+            tree = Tree.split(tree, g.id, added, target.edge); activeGroup = added.id
+        }
+        sync(); changed(); opened()
     }
     // The dragged tab follows the pointer, above everything.
     Rectangle {

@@ -596,6 +596,47 @@ Item {
             compare(count, 1)
             workspace.documents.closeActiveTab()
         }
+        function test_5d_aChatDraggedFromThePanelOpensBesideTheTabs() {
+            const ai = findChild(workspace, "aiController"), d = workspace.documents
+            const id = researchStore.aiThreads("First of two")[0].id
+            const chatTabs = function() {
+                let list = []
+                Tree.leaves(d.tree).forEach(function(g) { g.tabs.forEach(function(t) { if (t.kind === "ai" && t.threadId === id) list.push(g.id) }) })
+                return list
+            }
+            verify(ai.openThread(id))
+            const handle = findChild(panel(), "aiTitleDrag")
+            verify(handle.enabled)
+            const from = Qt.point(10, handle.height / 2)
+            d.openLibrary({})
+            // Over Home: a new tab.
+            workspace.homeVisible = true
+            const home = findChild(workspace, "homeView")
+            testInput.pointerDrag(handle, from, handle.mapFromItem(home, home.width / 2, home.height / 2), false)
+            tryVerify(function() { return !workspace.homeVisible && chatTabs().length === 1 })
+            compare(d.dropTarget, null)
+            // Beside the tabs: that tab goes into a split of its own.
+            const groups = d.groupCount
+            let view = d.groupView(d.activeGroup)
+            testInput.pointerDrag(handle, from, handle.mapFromItem(view, view.width - 15, view.height / 2), false)
+            tryCompare(d, "groupCount", groups + 1)
+            compare(chatTabs(), [d.activeGroup])
+            // Not in a tab yet: a new one opens in the split; let go over the panel, nothing changes.
+            d.closeActiveTab()
+            tryCompare(d, "groupCount", groups)
+            compare(chatTabs().length, 0)
+            const before = JSON.stringify(d.snapshot().tree)
+            testInput.pointerDrag(handle, from, Qt.point(from.x + 40, from.y + 30), false)
+            wait(50)
+            compare(JSON.stringify(d.snapshot().tree), before)
+            compare(d.draggedTab, "")
+            view = d.groupView(d.activeGroup)
+            testInput.pointerDrag(handle, from, handle.mapFromItem(view, view.width - 15, view.height / 2), false)
+            tryCompare(d, "groupCount", groups + 1)
+            compare(chatTabs(), [d.activeGroup])
+            tryVerify(function() { const v = d.groupView(d.activeGroup); return !!v && !!v.aiTab && v.aiTab.controller.threadId === id })
+            d.closeActiveTab(); d.closeActiveTab()
+        }
         // Visible items whose right edge passes the panel (in panel coordinates).
         function overflowing(item, panel, list) {
             if (!item.visible || item.opacity === 0) return list
