@@ -14,6 +14,9 @@ Rectangle {
     signal chatChosen(string id)
     // In a tab of its own (it stays in sync with the AI panel when that has it open too).
     signal chatInTabRequested(string id)
+    // The document area: a chat dragged out of the list opens there (see DocumentWorkspace.dragChat).
+    property var workspace: null
+    property bool draggingOut: false
     // {folder}: a new chat in that Thread ("" or none: as a chat from the AI panel would start).
     signal newChatRequested(var spec)
     signal trashRequested()
@@ -273,14 +276,26 @@ Rectangle {
                             const id = row.modelData.chat.id
                             dragProxy.ids = root.selectedChats.indexOf(id) >= 0 ? root.selectedChats.slice() : [id]
                             dragProxy.title = dragProxy.ids.length > 1 ? dragProxy.ids.length + qsTr(" chats") : row.modelData.chat.title
-                        } else if (dragProxy.Drag.active) {
-                            dragProxy.Drag.drop()
-                            dragProxy.ids = []
+                        } else {
+                            const out = root.draggingOut
+                            root.draggingOut = false
+                            if (out) root.workspace.finishDrag(false)
+                            if (dragProxy.Drag.active) {
+                                if (!out) dragProxy.Drag.drop()
+                                dragProxy.ids = []
+                            }
                         }
                     }
                     onCentroidChanged: if (active) {
                         const at = row.mapToItem(root, centroid.position.x, centroid.position.y)
                         dragProxy.x = at.x + 8; dragProxy.y = at.y - dragProxy.height / 2
+                        // Out of the list, one chat goes where a dragged tab would.
+                        const out = !!root.workspace && dragProxy.ids.length === 1 && (at.x < 0 || at.y < 0 || at.x > root.width || at.y > root.height)
+                        if (out) {
+                            const p = row.mapToItem(null, centroid.position.x, centroid.position.y)
+                            root.workspace.dragChat(dragProxy.ids[0], dragProxy.title, p.x, p.y)
+                        } else if (root.draggingOut) root.workspace.finishDrag(true)
+                        root.draggingOut = out
                     }
                 }
                 DropArea {
@@ -307,7 +322,7 @@ Rectangle {
         objectName: "threadsDragProxy"
         property var ids: []
         property string title
-        visible: ids.length > 0
+        visible: ids.length > 0 && !root.draggingOut
         width: Math.min(root.width - 16, proxyLabel.implicitWidth + 16); height: Theme.rowHeight
         radius: Theme.radius; color: Theme.raised; border.color: Theme.border
         Drag.active: ids.length > 0

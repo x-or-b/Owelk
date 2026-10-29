@@ -635,6 +635,23 @@ Item {
             tryCompare(d, "groupCount", groups + 1)
             compare(chatTabs(), [d.activeGroup])
             tryVerify(function() { const v = d.groupView(d.activeGroup); return !!v && !!v.aiTab && v.aiTab.controller.threadId === id })
+            // Out of the Threads list the same.
+            d.closeActiveTab()
+            tryCompare(d, "groupCount", groups)
+            workspace.threadsVisible = true
+            const list = threadsList(), threads = findChild(workspace, "threadsPanel")
+            let at = -1
+            tryVerify(function() { at = rowIndex(list, function(r) { return r.type === "chat" && r.chat.id === id }); return at >= 0 })
+            list.positionViewAtIndex(at, ListView.Contain)
+            tryVerify(function() { return list.itemAtIndex(at) !== null })
+            const row = list.itemAtIndex(at)
+            tryVerify(function() { view = d.groupView(d.activeGroup); return !!view && Math.abs(view.width - d.width) < 2 })
+            testInput.pointerDrag(threads, row.mapToItem(threads, 40, row.height / 2), threads.mapFromItem(view, view.width - 15, view.height / 2), false)
+            tryCompare(d, "groupCount", groups + 1)
+            compare(chatTabs(), [d.activeGroup])
+            compare(threads.draggingOut, false)
+            compare(d.draggedTab, "")
+            workspace.threadsVisible = false
             d.closeActiveTab(); d.closeActiveTab()
         }
         // Visible items whose right edge passes the panel (in panel coordinates).

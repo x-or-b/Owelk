@@ -708,6 +708,8 @@ Rectangle {
                 id: readerDrop
                 objectName: "readerDrop"
                 anchors.fill: parent
+                // Files only: a chat or a paper dragged inside Owelk is not taken here.
+                keys: ["text/uri-list"]
                 function take(urls, x, y) {
                     const images = urls.filter(function(u) { return /\.(png|jpe?g|gif|webp|bmp|tiff?|heic|heif)$/i.test(u.toString()) })
                     if (images.length) {

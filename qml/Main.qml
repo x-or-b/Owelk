@@ -1331,6 +1331,7 @@ ApplicationWindow {
         id: threadsPanel
         ThreadsPanel {
             controller: aiController
+            workspace: documents
             onChatChosen: function(id) { window.openAiThread(id) }
             onChatInTabRequested: function(id) { if (!window.restoreFailed && documents.openAiThread(id, true)) window.homeVisible = false }
             onNewChatRequested: function(spec) { window.newAiChat(spec) }
