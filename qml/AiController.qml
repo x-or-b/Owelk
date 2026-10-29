@@ -303,6 +303,49 @@ Item {
         else delete next[id]
         running = next
     }
+    // Questions asked while an answer was still coming, by conversation ("" for a new one not saved yet), each with
+    // the model chosen then: the next goes once the answer before it is done, also while another conversation is
+    // open. After a Stop or a failure they wait, each with Send. Kept only while Owelk runs.
+    property var queued: ({})
+    readonly property var queuedHere: queued[threadId] || []
+    function setQueued(key, list) {
+        const next = Object.assign({}, queued)
+        if (list.length) next[key] = list
+        else delete next[key]
+        queued = next
+    }
+    function queue(question) {
+        const text = question.trim()
+        if (!text.length) return false
+        const item = {question: text, provider: ai.provider, model: model, effort: efforts.length ? effectiveEffort : "", fast: effectiveFast}
+        setQueued(threadId, queuedHere.concat([item]))
+        return true
+    }
+    function unqueue(index) { setQueued(threadId, queuedHere.filter(function(_, i) { return i !== index })) }
+    // A waiting one sent now (the conversation open and nothing coming).
+    function sendQueued(index) {
+        if (streaming || index < 0 || index >= queuedHere.length) return false
+        const item = queuedHere[index]
+        unqueue(index)
+        return send(item.question)
+    }
+    // The next waiting question of a conversation whose answer has just come.
+    function sendNext(thread) {
+        const list = queued[thread] || []
+        if (!list.length) return
+        const item = list[0]
+        setQueued(thread, list.slice(1))
+        if (thread === threadId && !streaming) { send(item.question); return }
+        const saved = researchStore.aiThread(thread)
+        if (!saved.id || saved.trashed) return
+        const choice = {provider: item.provider, model: item.model, question: item.question, threadId: thread, action: "ask",
+                        imageFiles: [], imageLabels: [], imageNames: []}
+        if (item.effort) choice.effort = item.effort
+        if (item.fast) choice.fast = true
+        const id = ai.ask(Object.assign({}, continuing(saved), choice))
+        setRunning(id, {threadId: thread, question: item.question, answer: "", thinking: "", thinkingSeconds: 0,
+                        askedAt: Date.now(), model: "", truncated: false, translatePage: -1})
+    }
     // Stop is for the answer shown; moving to another conversation leaves it writing.
     function stop() { if (streaming) ai.cancel(request) }
     // An answer in a line, for the "answer ready" card.
@@ -517,6 +560,11 @@ Item {
         function onStarted(id, thread, provider, model, cut) {
             const r = root.running[id]
             if (r) root.setRunning(id, Object.assign({}, r, {threadId: thread, model: model, truncated: cut}))
+            // Questions waiting on a new conversation's first answer now wait on its thread.
+            if (r && !r.threadId.length && thread.length && root.queued[""]) {
+                root.setQueued(thread, (root.queued[thread] || []).concat(root.queued[""]))
+                root.setQueued("", [])
+            }
             if (id !== root.request) return
             root.usedModel = model; root.truncated = cut
             if (root.threadId !== thread) { root.threadId = thread; root.thread = researchStore.aiThread(thread); researchStore.markOpened("ai", thread) }
@@ -541,8 +589,10 @@ Item {
             if (r) root.setRunning(id, null)
             // Written while another conversation was open: saved to its own; a card says it is ready.
             if (id !== root.request) {
-                if (r && r.threadId.length)
+                if (r && r.threadId.length) {
                     root.answered(r.threadId, researchStore.aiThread(r.threadId).title || "AI", root.preview(text))
+                    if (!details.stopped) root.sendNext(r.threadId)
+                }
                 return
             }
             root.streaming = false; root.usedModel = details.model
@@ -557,6 +607,8 @@ Item {
             else if (searched) next.searchPapers = true
             if (searched && (sent.papers || []).length) next.papers = sent.papers
             root.spec = next
+            // A question asked meanwhile goes now (with what is attached to the next question by then).
+            if (!details.stopped) root.sendNext(root.threadId)
         }
         function onFailed(id, message) {
             const r = root.running[id]

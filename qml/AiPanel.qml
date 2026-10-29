@@ -529,6 +529,45 @@ Item {
                     text: visible ? researchStore.markdownHtml(parts.text, Theme.accent, Theme.text, Theme.fontBody) : ""
                     onTextChanged: conversation.follow()
                 }
+                // Asked while the answer above was coming: each goes next, in order (× takes one back). After a
+                // Stop or a failure they wait for Send.
+                Repeater {
+                    model: root.c ? root.c.queuedHere : []
+                    onCountChanged: conversation.follow()
+                    delegate: RowLayout {
+                        id: waiting
+                        required property var modelData
+                        required property int index
+                        objectName: "aiQueued-" + index
+                        Layout.fillWidth: true
+                        Layout.topMargin: 4
+                        spacing: 4
+                        Item { Layout.fillWidth: true }
+                        Label {
+                            text: root.c && root.c.streaming ? qsTr("Next") : qsTr("Waiting")
+                            font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                        }
+                        Bubble {
+                            Layout.maximumWidth: conversation.width * .75
+                            text: waiting.modelData.question
+                            opacity: .7
+                        }
+                        Button {
+                            objectName: "aiQueuedSend-" + waiting.index
+                            visible: root.c && !root.c.streaming
+                            flat: true; font.pixelSize: Theme.fontSmall; implicitHeight: Theme.controlHeightSmall
+                            text: qsTr("Send")
+                            onClicked: root.c.sendQueued(waiting.index)
+                        }
+                        IconButton {
+                            objectName: "aiQueuedRemove-" + waiting.index
+                            icon.name: "close"; glyphSize: Theme.fontSmall
+                            implicitWidth: 22; implicitHeight: 22
+                            description: qsTr("Do not ask this")
+                            onClicked: root.c.unqueue(waiting.index)
+                        }
+                    }
+                }
                 Label {
                     objectName: "aiPreparingNote"
                     visible: liveAnswer.parts.notes.length > 0 || liveAnswer.parts.preparing
@@ -633,10 +672,12 @@ Item {
                     rightPadding: composer.tall ? 28 : 8
                     // Typing with nothing open starts a chat about the paper in the reader (its chip shows).
                     onActiveFocusChanged: if (activeFocus && root.c) root.c.ensureConversation()
-                    // Return sends, Shift+Return adds a line; pasting an image attaches it.
+                    // Return sends (while an answer is coming, it waits to go next), Shift+Return adds a line; pasting
+                    // an image attaches it.
                     Keys.onPressed: function(event) {
                         if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
-                            if (!root.c.streaming && root.c.send(text)) { text = ""; composer.expanded = false }
+                            Qt.inputMethod.commit() // the last Korean character may still be composing
+                            if (root.c.streaming ? root.c.queue(text) : root.c.send(text)) { text = ""; composer.expanded = false }
                             event.accepted = true
                         } else if (event.matches(StandardKey.Paste) && root.c.pasteImage()) {
                             event.accepted = true
@@ -733,15 +774,17 @@ Item {
                 objectName: "aiSend"
                 Layout.alignment: Qt.AlignBottom
                 primary: true
-                readonly property bool stopping: root.c && root.c.streaming
+                // While an answer comes: Stop, or with a question typed, send it to go next.
+                readonly property bool typed: question.text.trim().length > 0
+                readonly property bool stopping: root.c && root.c.streaming && !typed
                 icon.name: stopping ? "stop" : "send"
                 glyphSize: stopping ? Theme.fontSmall : Theme.iconSize
-                description: stopping ? qsTr("Stop") : qsTr("Send · ") + Platform.keys("Return")
-                enabled: stopping || question.text.trim().length > 0 || (root.c && root.c.attachments.length > 0)
+                description: stopping ? qsTr("Stop") : root.c && root.c.streaming ? qsTr("Ask next · ") + Platform.keys("Return") : qsTr("Send · ") + Platform.keys("Return")
+                enabled: stopping || typed || (root.c && root.c.attachments.length > 0)
                 onClicked: {
-                    if (root.c.streaming) { root.c.stop(); return }
+                    if (stopping) { root.c.stop(); return }
                     Qt.inputMethod.commit() // the last Korean character may still be composing
-                    if (root.c.send(question.text)) question.text = ""
+                    if (root.c.streaming ? root.c.queue(question.text) : root.c.send(question.text)) question.text = ""
                 }
             }
         }

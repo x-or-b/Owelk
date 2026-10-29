@@ -237,6 +237,10 @@
         <translation>애스크 어바웃 더 페이퍼…</translation>
     </message>
     <message>
+        <source>Ask next · </source>
+        <translation>애스크 넥스트 · </translation>
+    </message>
+    <message>
         <source>Ask this collection…</source>
         <translation>애스크 디스 컬렉션…</translation>
     </message>
@@ -291,6 +295,10 @@
     <message>
         <source>Default model</source>
         <translation>디폴트 모델</translation>
+    </message>
+    <message>
+        <source>Do not ask this</source>
+        <translation>두 낫 애스크 디스</translation>
     </message>
     <message>
         <source>Fast mode</source>
@@ -351,6 +359,10 @@
     <message>
         <source>New note</source>
         <translation>뉴 노트</translation>
+    </message>
+    <message>
+        <source>Next</source>
+        <translation>넥스트</translation>
     </message>
     <message>
         <source>No collection found.</source>
@@ -465,6 +477,10 @@
         <translation>셀렉션 · </translation>
     </message>
     <message>
+        <source>Send</source>
+        <translation>센드</translation>
+    </message>
+    <message>
         <source>Send · </source>
         <translation>센드 · </translation>
     </message>
@@ -531,6 +547,10 @@
     <message>
         <source>Up to 3 are read whole; more are searched.</source>
         <translation>업 투 3 아 리드 홀; 모어 아 서치트.</translation>
+    </message>
+    <message>
+        <source>Waiting</source>
+        <translation>웨이팅</translation>
     </message>
     <message>
         <source>Whole Library</source>

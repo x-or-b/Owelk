@@ -541,6 +541,27 @@ Item {
             compare(ai.messages.length, 2)
             answered.destroy()
         }
+        function test_5b_aQuestionAskedWhileAnsweringGoesNext() {
+            const ai = findChild(workspace, "aiController")
+            const p = panel()
+            ai.newThread()
+            verify(ai.send("First of two"))
+            // Asked while the first answer is coming: it waits, shown under it, and goes once that answer is done.
+            verify(ai.queue("Second of two"))
+            compare(ai.queuedHere.length, 1)
+            tryVerify(function() { return visualChild(p, "aiQueued-0") !== null })
+            tryVerify(function() { return !ai.streaming && ai.messages.length === 4 }, 15000)
+            compare(ai.messages[0].display, "First of two")
+            compare(ai.messages[2].display, "Second of two")
+            compare(ai.queuedHere.length, 0)
+            // Taken back before it went: not asked.
+            verify(ai.send("Third"))
+            verify(ai.queue("Never asked"))
+            ai.unqueue(0)
+            tryVerify(function() { return !ai.streaming && ai.messages.length === 6 }, 15000)
+            wait(200)
+            compare(ai.messages.length, 6)
+        }
         // Visible items whose right edge passes the panel (in panel coordinates).
         function overflowing(item, panel, list) {
             if (!item.visible || item.opacity === 0) return list
