@@ -194,12 +194,14 @@ Rectangle {
                 readonly property bool isGroup: modelData.type === "group"
                 readonly property bool chosen: !isGroup && root.selectedChats.indexOf(modelData.chat.id) >= 0
                 readonly property bool current: !isGroup && !!root.controller && root.controller.threadId === modelData.chat.id
+                // Its answer is still being written (it may be in the background).
+                readonly property bool answering: !isGroup && !!root.controller && root.controller.answeringThreads.indexOf(modelData.chat.id) >= 0
                 objectName: isGroup ? "threadsGroup-" + modelData.name : "threadsChat-" + index
                 width: ListView.view.width
                 height: Theme.rowHeight
                 highlighted: chosen || current
                 leftPadding: isGroup ? 22 : 30
-                rightPadding: isGroup ? 30 : 8
+                rightPadding: isGroup || answering ? 30 : 8
                 contentItem: Label {
                     text: row.isGroup ? row.modelData.name : row.modelData.chat.title
                     elide: Text.ElideRight; textFormat: Text.PlainText
@@ -215,6 +217,13 @@ Rectangle {
                     visible: row.isGroup && !row.hovered
                     anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
                     text: row.isGroup ? row.modelData.count : ""; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                }
+                BusyIndicator {
+                    objectName: "threadsAnswering-" + row.index
+                    visible: row.answering
+                    running: visible
+                    anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                    implicitWidth: 14; implicitHeight: 14
                 }
                 IconButton {
                     objectName: "threadsGroupAdd"

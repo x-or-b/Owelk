@@ -289,11 +289,44 @@ Item {
         spec = next
         focusRequested()
     }
+    // Answers being written, by request: {threadId, question, answer, thinking, thinkingSeconds, askedAt, model,
+    // truncated, translatePage}. The one in the open conversation shows (request); the others go on while another
+    // conversation is open, are saved to theirs when done (an "answer ready" card), and show again when theirs is
+    // opened. Their text changes in place; the map is replaced only when one starts, ends or learns its thread.
+    property var running: ({})
+    readonly property var answeringThreads: Object.keys(running).map(function(k) { return running[k].threadId }).filter(function(t) { return t.length })
+    // What went wrong in a conversation while another was open, said when it is opened.
+    property var failures: ({})
+    function setRunning(id, entry) {
+        const next = Object.assign({}, running)
+        if (entry) next[id] = entry
+        else delete next[id]
+        running = next
+    }
+    // Stop is for the answer shown; moving to another conversation leaves it writing.
     function stop() { if (streaming) ai.cancel(request) }
+    // An answer in a line, for the "answer ready" card.
+    function preview(text) { return text.replace(/\]\([^)]*\)/g, "]").replace(/[#*_`>|]/g, "").replace(/\s+/g, " ").trim().slice(0, 160) }
     function reset() {
-        stop()
+        request = -1; streaming = false
         answer = ""; error = ""; pendingQuestion = ""; usedModel = ""; truncated = false
-        thinkingText = ""; thinkingSeconds = 0
+        thinkingText = ""; thinkingSeconds = 0; translatePage = -1
+    }
+    // The open conversation's answer still being written (or what went wrong with it), shown again.
+    function showRunning() {
+        if (!threadId.length) return
+        if (failures[threadId]) {
+            error = failures[threadId]
+            const left = Object.assign({}, failures); delete left[threadId]; failures = left
+        }
+        for (const key in running) {
+            const r = running[key]
+            if (r.threadId !== threadId) continue
+            request = Number(key); streaming = true
+            pendingQuestion = r.question; answer = r.answer; thinkingText = r.thinking; thinkingSeconds = r.thinkingSeconds
+            askedAt = r.askedAt; usedModel = r.model; truncated = r.truncated; translatePage = r.translatePage
+            return
+        }
     }
     // Attaching (a figure or region, the selection, a picture) adds to the conversation open in the AI panel, even
     // while the panel is hidden, or starts one; a page translation starts its own thread.
@@ -338,6 +371,7 @@ Item {
             if (saved.model) ai.setModel(saved.provider, saved.model)
         }
         spec = continuing(saved)
+        showRunning()
         return true
     }
     // What a saved chat goes on asking: its paper (already in the conversation) and, when its last question
@@ -424,6 +458,8 @@ Item {
         if (efforts.length) choice.effort = effectiveEffort
         if (effectiveFast) choice.fast = true
         request = ai.ask(Object.assign({}, spec, choice))
+        setRunning(request, {threadId: threadId, question: pendingQuestion, answer: "", thinking: "", thinkingSeconds: 0,
+                             askedAt: askedAt, model: "", truncated: false, translatePage: translatePage})
         images = []
         return true
     }
@@ -479,23 +515,40 @@ Item {
     Connections {
         target: root.ai
         function onStarted(id, thread, provider, model, cut) {
+            const r = root.running[id]
+            if (r) root.setRunning(id, Object.assign({}, r, {threadId: thread, model: model, truncated: cut}))
             if (id !== root.request) return
             root.usedModel = model; root.truncated = cut
             if (root.threadId !== thread) { root.threadId = thread; root.thread = researchStore.aiThread(thread); researchStore.markOpened("ai", thread) }
         }
-        function onThinking(id, text) { if (id === root.request) root.thinkingText += text }
+        function onThinking(id, text) {
+            const r = root.running[id]
+            if (r) r.thinking += text
+            if (id === root.request) root.thinkingText += text
+        }
         function onDelta(id, text) {
+            const r = root.running[id]
+            if (r) {
+                if (!r.answer.length) r.thinkingSeconds = Math.max(1, Math.round((Date.now() - r.askedAt) / 1000))
+                r.answer += text
+            }
             if (id !== root.request) return
             if (!root.answer.length) root.thinkingSeconds = Math.max(1, Math.round((Date.now() - root.askedAt) / 1000))
             root.answer += text
         }
         function onFinished(id, text, details) {
-            if (id !== root.request) return
+            const r = root.running[id]
+            if (r) root.setRunning(id, null)
+            // Written while another conversation was open: saved to its own; a card says it is ready.
+            if (id !== root.request) {
+                if (r && r.threadId.length)
+                    root.answered(r.threadId, researchStore.aiThread(r.threadId).title || "AI", root.preview(text))
+                return
+            }
             root.streaming = false; root.usedModel = details.model
             root.thread = researchStore.aiThread(root.threadId)
             root.answer = ""; root.pendingQuestion = ""; root.thinkingText = ""
-            root.answered(root.threadId, root.thread.title || "AI",
-                          text.replace(/\]\([^)]*\)/g, "]").replace(/[#*_`>|]/g, "").replace(/\s+/g, " ").trim().slice(0, 160))
+            root.answered(root.threadId, root.thread.title || "AI", root.preview(text))
             // The material went with this turn; follow-ups reuse it through the thread. What is searched (a
             // collection, the library, several papers) is searched again for each question.
             const sent = root.spec, searched = sent.scope === "library" || root.searchesPapers(sent)
@@ -506,7 +559,15 @@ Item {
             root.spec = next
         }
         function onFailed(id, message) {
-            if (id !== root.request) return
+            const r = root.running[id]
+            if (r) root.setRunning(id, null)
+            if (id !== root.request) {
+                // Said when that conversation is opened again.
+                if (r && r.threadId.length && message !== "Stopped.") {
+                    const next = Object.assign({}, root.failures); next[r.threadId] = message; root.failures = next
+                }
+                return
+            }
             root.streaming = false
             if (message !== "Stopped.") root.error = message
         }

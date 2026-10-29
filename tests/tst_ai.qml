@@ -507,6 +507,33 @@ Item {
             compare(ai.messages.length, 2)
             compare(ai.thread.title, "What is the main claim?")
         }
+        function test_5a_anAnswerGoesOnWhileAnotherConversationIsOpen() {
+            const ai = findChild(workspace, "aiController")
+            const p = panel()
+            const answered = Qt.createQmlObject('import QtTest; SignalSpy { signalName: "answered" }', p)
+            answered.target = ai
+            ai.newThread()
+            verify(ai.send("Which answer goes on?"))
+            const first = ai.request
+            // Another conversation at once: the first is not stopped.
+            ai.newThread()
+            compare(ai.streaming, false)
+            compare(ai.request, -1)
+            verify(ai.running[first] !== undefined)
+            // It is saved to its own conversation, and a card says it is ready.
+            tryVerify(function() { return ai.running[first] === undefined }, 10000)
+            const saved = researchStore.aiThreads("Which answer goes on?")
+            compare(saved.length, 1)
+            compare(researchStore.aiThread(saved[0].id).messages.length, 2)
+            tryCompare(answered, "count", 1)
+            compare(answered.signalArguments[0][0], saved[0].id)
+            compare(ai.answeringThreads.length, 0)
+            // Opened again: the saved answer, nothing still writing.
+            verify(ai.openThread(saved[0].id))
+            compare(ai.streaming, false)
+            compare(ai.messages.length, 2)
+            answered.destroy()
+        }
         // Visible items whose right edge passes the panel (in panel coordinates).
         function overflowing(item, panel, list) {
             if (!item.visible || item.opacity === 0) return list
