@@ -15,6 +15,8 @@ Rectangle {
     readonly property bool isHome: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "home" })
     readonly property bool isWeb: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "web" })
     readonly property bool isNote: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "note" })
+    readonly property bool isAi: groupData.tabs.some(function(t) { return t.id === groupData.activeTab && t.kind === "ai" })
+    readonly property var aiTab: aiLoader.item
     function focusNoteTitle() { if (noteLoader.item) noteLoader.item.focusTitle() }
     function focusNoteBody() { if (noteLoader.item) noteLoader.item.focusBody() }
     function saveNote() { if (noteLoader.item) noteLoader.item.save() }
@@ -83,6 +85,7 @@ Rectangle {
         loadedSource = t ? t.source : ""
         if (t && t.kind === "library") return
         if (t && t.kind === "note") return
+        if (t && t.kind === "ai") return
         if (t && t.kind === "web") {
             // Its own page, kept or created (the page reports its navigation itself).
             if (!controller.suspended) keepWebPage(t.id)
@@ -432,6 +435,16 @@ Rectangle {
             }
         }
         Loader {
+            id: aiLoader
+            Layout.fillWidth: true; Layout.fillHeight: true
+            visible: root.isAi; active: root.isAi && !root.controller.suspended
+            sourceComponent: AiTab {
+                workspace: root.controller
+                threadId: root.activeTabData && root.activeTabData.kind === "ai" ? root.activeTabData.threadId : ""
+                onActivated: root.controller.activateGroup(root.groupId)
+            }
+        }
+        Loader {
             id: libraryLoader
             Layout.fillWidth: true; Layout.fillHeight: true
             visible: root.isLibrary; active: root.isLibrary && !root.controller.suspended
@@ -478,12 +491,12 @@ Rectangle {
         }
         ReaderPane {
             id: pane
-            visible: !root.isHome && !root.isWeb && !root.isLibrary && !root.isNote
+            visible: !root.isHome && !root.isWeb && !root.isLibrary && !root.isNote && !root.isAi
             Layout.fillWidth: true
             Layout.fillHeight: true
             managed: true
             chromeHidden: root.controller.focusMode
-            isActive: !root.isHome && !root.isWeb && !root.isLibrary && !root.isNote && !root.controller.suspended && root.controller.activeGroup === root.groupId
+            isActive: !root.isHome && !root.isWeb && !root.isLibrary && !root.isNote && !root.isAi && !root.controller.suspended && root.controller.activeGroup === root.groupId
             onActivated: root.controller.activateGroup(root.groupId)
             onFileChosen: function(source) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source) }
             onAiRequested: function(spec) { root.controller.aiRequested(spec) }

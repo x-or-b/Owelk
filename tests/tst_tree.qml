@@ -72,6 +72,15 @@ TestCase {
         verify(!Tree.find(tree, left.id).tabs.some(function(t) { return t.id === libA.id }))
         compare(Tree.find(tree, right.id).tabs.map(function(t) { return t.id }), [libB.id]) // its idle Home went too
     }
+    function test_aiTabs() {
+        // A chat tab names its conversation; without one it is not a valid saved tab.
+        const chat = Tree.aiTab("thread-1", "Odometry question")
+        verify(Tree.validate(Tree.group([chat]), {}, 0))
+        compare(Tree.tabTitle(chat, function(s) { return s }), "Odometry question")
+        compare(Tree.tabTitle(Tree.aiTab("thread-2", ""), function(s) { return s }), "Chat")
+        const broken = Tree.aiTab("", "")
+        verify(!Tree.validate(Tree.group([broken]), {}, 0))
+    }
     function test_namedTabGroups() {
         const strip = Tree.group([Tree.tab("file:///a.pdf"), Tree.webTab("https://x.org"), Tree.tab("file:///b.pdf")])
         const [a, web, b] = strip.tabs

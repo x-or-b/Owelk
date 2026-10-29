@@ -562,6 +562,40 @@ Item {
             wait(200)
             compare(ai.messages.length, 6)
         }
+        function test_5c_aChatInATabFollowsThePanel() {
+            const ai = findChild(workspace, "aiController")
+            const p = panel()
+            const id = researchStore.aiThreads("First of two")[0].id
+            // Open in the panel and in a tab of its own.
+            verify(ai.openThread(id))
+            verify(workspace.documents.openAiThread(id, true))
+            workspace.homeVisible = false
+            let tab = null
+            tryVerify(function() {
+                const view = workspace.documents.groupView(workspace.documents.activeGroup)
+                tab = view && view.aiTab
+                return !!tab && tab.controller.threadId === id
+            })
+            const inTab = tab.controller
+            const before = inTab.messages.length
+            compare(ai.messages.length, before)
+            // Asked in the panel: the tab shows the same answer coming, and a question asked in the tab meanwhile
+            // waits in both.
+            verify(ai.send("Asked in the panel"))
+            tryCompare(inTab, "streaming", true)
+            compare(inTab.pendingQuestion, "Asked in the panel")
+            verify(inTab.queue("Asked in the tab"))
+            compare(ai.queuedHere.length, 1)
+            // Both answered in turn, both views showing all of it.
+            tryVerify(function() { return !ai.streaming && !inTab.streaming && ai.messages.length === before + 4 && inTab.messages.length === before + 4 }, 15000)
+            compare(inTab.messages[before + 2].display, "Asked in the tab")
+            // Only once in the window, and gone with its conversation's tab closed.
+            verify(workspace.documents.openAiThread(id, true))
+            let count = 0
+            Tree.leaves(workspace.documents.tree).forEach(function(g) { g.tabs.forEach(function(t) { if (t.kind === "ai" && t.threadId === id) ++count }) })
+            compare(count, 1)
+            workspace.documents.closeActiveTab()
+        }
         // Visible items whose right edge passes the panel (in panel coordinates).
         function overflowing(item, panel, list) {
             if (!item.visible || item.opacity === 0) return list

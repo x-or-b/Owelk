@@ -13,6 +13,8 @@ Item {
     property var controller: null
     readonly property var c: controller
     property bool threadsOpen: false
+    // In a chat tab: bound to its conversation, so no Threads toggle or New chat.
+    property bool inTab: false
     signal threadsToggled()
     signal linkActivated(string link)
     signal settingsRequested()
@@ -308,6 +310,7 @@ Item {
             spacing: 2
             IconButton {
                 objectName: "aiThreadsButton"
+                visible: !root.inTab
                 icon.name: "threads"; description: root.threadsOpen ? qsTr("Hide Threads") : qsTr("Show Threads")
                 tint: root.threadsOpen ? Theme.accent : Theme.icon
                 onClicked: root.threadsToggled()
@@ -319,7 +322,7 @@ Item {
                 elide: Text.ElideRight; textFormat: Text.PlainText
                 font.pixelSize: Theme.fontBody; font.weight: Font.DemiBold; color: Theme.text
             }
-            IconButton { objectName: "aiNewThread"; icon.name: "add"; description: qsTr("New chat"); onClicked: { root.c.newThread(); root.focusQuestion() } }
+            IconButton { objectName: "aiNewThread"; visible: !root.inTab; icon.name: "add"; description: qsTr("New chat"); onClicked: { root.c.newThread(); root.focusQuestion() } }
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }
         // A conversation opened from a note while it is in the Trash: readable, continued once restored.

@@ -55,7 +55,7 @@ Flickable {
     function flush() {
         for (let i = 0; i < groups.count; ++i) {
             const view = groups.itemAt(i)
-            if (!view || !view.loadedTab || view.isHome || view.isWeb || view.isLibrary || view.isNote) continue
+            if (!view || !view.loadedTab || view.isHome || view.isWeb || view.isLibrary || view.isNote || view.isAi) continue
             const g = Tree.owner(tree, view.loadedTab)
             if (g) g.tabs.find(function(t) { return t.id === view.loadedTab }).position = view.reader.state().position
         }
@@ -324,6 +324,49 @@ Flickable {
         Qt.callLater(function() { const view = root.groupView(root.activeGroup); if (view) view.focusNoteBody() })
         return id
     }
+    // An AI conversation in a tab of its own (once: an existing tab anywhere is focused instead). It shows the same
+    // answers and waiting questions as the AI panel when that has it open too (AiRuns).
+    property var aiRuns: null
+    function openAiThread(threadId, forceNew) {
+        const saved = researchStore.aiThread(threadId)
+        if (!saved.id) return false
+        const list = Tree.leaves(tree)
+        for (let i = 0; i < list.length; ++i) {
+            const existing = list[i].tabs.find(function(t) { return t.kind === "ai" && t.threadId === threadId })
+            if (existing) { activateTab(existing.id); return true }
+        }
+        prepare()
+        const g = Tree.find(tree, activeGroup) || Tree.leaves(tree)[0]
+        const home = !forceNew && g.tabs.find(function(t) { return t.id === g.activeTab && t.kind === "home" })
+        const t = Tree.aiTab(threadId, saved.title)
+        if (home) { t.id = home.id; g.tabs[g.tabs.indexOf(home)] = t }
+        else g.tabs.push(t)
+        g.activeTab = t.id; activeGroup = g.id
+        sync(); changed(); opened()
+        return true
+    }
+    // A chat in front of one of the strips (its answer then needs no "ready" card).
+    function aiTabShown(threadId) {
+        return Tree.leaves(tree).some(function(g) { return g.tabs.some(function(t) { return t.id === g.activeTab && t.kind === "ai" && t.threadId === threadId }) })
+    }
+    // Chat tabs follow their conversation's title, and go when it is gone for good.
+    Connections {
+        target: researchStore
+        function onAiThreadsChanged() {
+            let touched = false
+            const gone = []
+            Tree.leaves(root.tree).forEach(function(g) {
+                g.tabs.forEach(function(t) {
+                    if (t.kind !== "ai") return
+                    const saved = researchStore.aiThread(t.threadId)
+                    if (!saved.id) gone.push(t.id)
+                    else if ((saved.title || "") !== t.title) { t.title = saved.title || ""; touched = true }
+                })
+            })
+            if (touched) { root.sync(); root.changed() }
+            gone.forEach(function(id) { root.closeTab(id) })
+        }
+    }
     function updateNoteTab(noteId, title) {
         let touched = false
         const list = Tree.leaves(tree)
@@ -419,7 +462,7 @@ Flickable {
         if (!g || g.kind !== "group") return
         prepare()
         const titleOf = function(t) { return Tree.tabTitle(t, researchStore.displayName).toLowerCase() }
-        const kindOrder = function(t) { return ["home", "library", undefined, "note", "web"].indexOf(t.kind) }
+        const kindOrder = function(t) { return ["home", "library", undefined, "note", "ai", "web"].indexOf(t.kind) }
         const compare = function(a, b) {
             if (by === "kind" && kindOrder(a) !== kindOrder(b)) return kindOrder(a) - kindOrder(b)
             return titleOf(a).localeCompare(titleOf(b))
@@ -446,7 +489,7 @@ Flickable {
         const g = Tree.find(tree, stripId)
         if (!g || g.kind !== "group") return 0
         const seen = {}, closing = []
-        const key = function(t) { return (t.kind || "pdf") + "|" + (t.kind === "note" ? t.noteId : t.source) }
+        const key = function(t) { return (t.kind || "pdf") + "|" + (t.kind === "note" ? t.noteId : t.kind === "ai" ? t.threadId : t.source) }
         const active = g.tabs.find(function(t) { return t.id === g.activeTab })
         if (active && active.kind !== "home" && active.kind !== "library") seen[key(active)] = true
         g.tabs.forEach(function(t) {
@@ -642,6 +685,7 @@ Flickable {
         if (t.kind === "home") newHomeTab()
         else if (t.kind === "web") reopened = openWeb(t.source, true, t.title)
         else if (t.kind === "note") reopened = openNote(t.noteId, true)
+        else if (t.kind === "ai") reopened = openAiThread(t.threadId, true)
         else if (t.kind === "library") reopened = openLibrary(t.filter)
         else reopened = openDocument(t.source, t.position, true)
         if (!reopened) activeGroup = previousGroup
@@ -651,8 +695,8 @@ Flickable {
         if (!g || !g.activeTab) return
         prepare()
         const original = g.tabs.find(function(t) { return t.id === g.activeTab })
-        // One editor per note avoids conflicting saves; the Library is one tab in the window.
-        if (original.kind === "note" || original.kind === "library") return
+        // One editor per note avoids conflicting saves; the Library is one tab in the window; a chat is one tab.
+        if (original.kind === "note" || original.kind === "library" || original.kind === "ai") return
         const added = Tree.group([original.kind === "home" ? Tree.homeTab()
             : original.kind === "library" ? Tree.libraryTab(original.filter)
             : original.kind === "web" ? Tree.webTab(original.source, original.title) : Tree.tab(original.source, original.position)])

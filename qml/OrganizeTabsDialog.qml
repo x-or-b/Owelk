@@ -29,7 +29,7 @@ Dialog {
         const strip = Tree.find(controller.tree, groupId)
         tabs = strip ? strip.tabs.filter(function(t) { return t.kind !== "home" }).map(function(t) {
             const details = !t.kind ? researchStore.documentDetails(t.source) : ({})
-            return {id: t.id, title: t.kind === "note" ? (t.title || "Note") : t.kind === "web" ? (t.title || t.source) : t.kind === "library" ? "Library" : researchStore.displayName(t.source),
+            return {id: t.id, title: t.kind === "note" ? (t.title || "Note") : t.kind === "ai" ? (t.title || "Chat") : t.kind === "web" ? (t.title || t.source) : t.kind === "library" ? "Library" : researchStore.displayName(t.source),
                     url: t.kind === "web" ? t.source : "", authors: details.authors || "", year: details.year || "",
                     opening: !t.kind ? researchStore.paperOpening(t.source, 400) : ""}
         }) : []

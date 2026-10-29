@@ -7352,6 +7352,10 @@ You can open the same document twice.</source>
         <translation>노 챗 매치스.</translation>
     </message>
     <message>
+        <source>Open in New Tab</source>
+        <translation>오픈 인 뉴 탭</translation>
+    </message>
+    <message>
         <source>Recent First</source>
         <translation>리센트 퍼스트</translation>
     </message>
@@ -7614,6 +7618,10 @@ You can open the same document twice.</source>
 </context>
 <context>
     <name>WorkspaceTree</name>
+    <message>
+        <source>Chat</source>
+        <translation>챗</translation>
+    </message>
     <message>
         <source>Home</source>
         <translation>홈</translation>

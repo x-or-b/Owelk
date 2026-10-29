@@ -40,6 +40,8 @@ function arxivPdf(url) {
 // The library view is a tab without a source; its filter travels with the tab.
 // A standalone note; the note itself lives in the store, the tab only names it.
 function noteTab(noteId, title) { return {id: id("tab"), kind: "note", source: "", noteId: noteId, title: title || "", position: {page: 0, y: 0, x: 0, zoom: 1}} }
+// An AI conversation (its thread lives in the store; the tab only names it).
+function aiTab(threadId, title) { return {id: id("tab"), kind: "ai", source: "", threadId: threadId, title: title || "", position: {page: 0, y: 0, x: 0, zoom: 1}} }
 function libraryTab(filter) { return {id: id("tab"), kind: "library", source: "", filter: clone(filter || {}), position: {page: 0, y: 0, x: 0, zoom: 1}} }
 // Tabs that would only pile up: a Home tab left without being used closes (it stays while it is its
 // strip's shown tab), and the Library is one tab in the whole window (the one in view is kept).
@@ -147,6 +149,7 @@ function stripItems(groupNode) {
 // A tab's title as tab lists show it.
 function tabTitle(t, displayName) {
     return t.kind === "home" ? qsTr("Home") : t.kind === "library" ? qsTr("Library") : t.kind === "note" ? (t.title || qsTr("Untitled note"))
+        : t.kind === "ai" ? (t.title || qsTr("Chat"))
         : t.kind === "web" ? (t.title || t.source.replace(/^https?:\/\/(www\.)?/, "")) : displayName(t.source)
 }
 function leaves(node) { return node.kind === "group" ? [node] : leaves(node.first).concat(leaves(node.second)) }
@@ -196,7 +199,8 @@ function validate(node, ids, depth) {
         const t = node.tabs[i]
         if (!t || typeof t.id !== "string" || !t.id || ids[t.id] || typeof t.source !== "string") return false
         if (t.kind === "note" && (typeof t.noteId !== "string" || !t.noteId.length)) return false
-        if (t.kind === "home" || t.kind === "library" || t.kind === "note" ? t.source !== ""
+        if (t.kind === "ai" && (typeof t.threadId !== "string" || !t.threadId.length)) return false
+        if (t.kind === "home" || t.kind === "library" || t.kind === "note" || t.kind === "ai" ? t.source !== ""
             : t.kind === "web" ? !isWebAddress(t.source) : !t.source.startsWith("file:")) return false
         ids[t.id] = true
         if (!t.position || !Number.isFinite(t.position.page) || t.position.page < 0) return false

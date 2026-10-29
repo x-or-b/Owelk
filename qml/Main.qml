@@ -215,7 +215,8 @@ ApplicationWindow {
     // The AI panel shows this thread right now (panel open and in front in its dock).
     function aiThreadInView(id) {
         const dock = aiSide === "left" ? leftDock : rightDock
-        return aiVisible && dock.activePanel === "ai" && aiController.conversationOpen && aiController.threadId === id
+        return (aiVisible && dock.activePanel === "ai" && aiController.conversationOpen && aiController.threadId === id)
+            || (!homeVisible && documents.aiTabShown(id))
     }
     function togglePanel(panel) {
         const shown = panelShown(panel)
@@ -1245,6 +1246,7 @@ ApplicationWindow {
         }
         DocumentWorkspace {
             id: documents
+            aiRuns: aiRuns
             visible: !window.homeVisible
             suspended: window.homeVisible
             enabled: !window.restoreFailed
@@ -1328,6 +1330,7 @@ ApplicationWindow {
         ThreadsPanel {
             controller: aiController
             onChatChosen: function(id) { window.openAiThread(id) }
+            onChatInTabRequested: function(id) { if (!window.restoreFailed && documents.openAiThread(id, true)) window.homeVisible = false }
             onNewChatRequested: function(spec) { window.newAiChat(spec) }
             onTrashRequested: if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary({view: "trash"}) }
         }

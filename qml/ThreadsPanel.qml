@@ -12,6 +12,8 @@ Rectangle {
     objectName: "threadsPanel"
     property var controller: null
     signal chatChosen(string id)
+    // In a tab of its own (it stays in sync with the AI panel when that has it open too).
+    signal chatInTabRequested(string id)
     // {folder}: a new chat in that Thread ("" or none: as a chat from the AI panel would start).
     signal newChatRequested(var spec)
     signal trashRequested()
@@ -326,6 +328,13 @@ Rectangle {
         objectName: "threadsChatMenu"
         property var ids: []
         property var chat: ({})
+        MenuItem {
+            objectName: "threadsOpenInTab"
+            visible: chatMenu.ids.length === 1
+            height: visible ? implicitHeight : 0
+            text: qsTr("Open in New Tab")
+            onTriggered: { const id = chatMenu.chat.id; Qt.callLater(function() { root.chatInTabRequested(id) }) }
+        }
         MenuItem {
             visible: chatMenu.ids.length === 1
             height: visible ? implicitHeight : 0

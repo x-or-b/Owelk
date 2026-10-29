@@ -35,8 +35,8 @@ Rectangle {
     Component.onCompleted: controller.addDropHandler(root)
     Component.onDestruction: controller.removeDropHandler(root)
 
-    function iconFor(t) { return t.kind === "web" ? "globe" : t.kind === "note" ? "note" : t.kind === "library" ? "library" : t.kind === "home" ? "home" : "document" }
-    function isPaper(t) { return !!t && ["web", "note", "library", "home"].indexOf(t.kind) < 0 }
+    function iconFor(t) { return t.kind === "web" ? "globe" : t.kind === "note" ? "note" : t.kind === "ai" ? "ai" : t.kind === "library" ? "library" : t.kind === "home" ? "home" : "document" }
+    function isPaper(t) { return !!t && ["web", "note", "ai", "library", "home"].indexOf(t.kind) < 0 }
     // A paper's first letter for the closed rail, past leading quotes, brackets and punctuation.
     function initialOf(title) {
         const text = String(title || "").replace(/^[\s"'`“”‘’«»()\[\]{}<>.,:;!?\-–—_*#~|\/\\]+/, "")
