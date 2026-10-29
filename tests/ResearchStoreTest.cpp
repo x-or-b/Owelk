@@ -3355,11 +3355,12 @@ private slots:
                 if (value.toMap()["id"].toString() == id) return value.toMap()["folder"].toString();
             return QStringLiteral("missing");
         };
-        const auto folderName = [&](const QString &id) {
+        const auto folderField = [&](const QString &id, const char *field) {
             for (const auto &value : store.aiFolders())
-                if (value.toMap()["id"].toString() == id) return value.toMap()["name"].toString();
+                if (value.toMap()["id"].toString() == id) return value.toMap()[field].toString();
             return QString();
         };
+        const auto folderName = [&](const QString &id) { return folderField(id, "name"); };
         // A paper's chats start in its own Thread, named after the paper; the same one for every chat.
         const auto first = chat("About the paper", {{"source", pdf}});
         const auto second = chat("More about it", {{"source", pdf}});
@@ -3377,8 +3378,12 @@ private slots:
         const auto thesis = store.createAiFolder("  Thesis  ");
         QCOMPARE(folderName(thesis), QString("Thesis"));
         QCOMPARE(chat("Begun in Thesis", {{"source", pdf}, {"folder", thesis}}).isEmpty(), false);
+        // Moved in, a chat does not make its new Thread more recent.
+        const auto thesisUpdated = folderField(thesis, "updatedAt");
+        QTest::qSleep(5);
         QCOMPARE(store.moveAiThreads({loose, first}, thesis), 2);
         QCOMPARE(folderOf(loose), thesis);
+        QCOMPARE(folderField(thesis, "updatedAt"), thesisUpdated);
         QCOMPARE(store.moveAiThreads({loose}, thesis), 0);
         QCOMPARE(store.moveAiThreads({loose}, "missing"), 0);
         QVERIFY(store.renameAiFolder(paperThread, "My paper"));

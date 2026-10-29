@@ -201,14 +201,8 @@ int ResearchStore::moveAiThreads(const QStringList &ids, const QString &folderId
         query.addBindValue(folderId);
         if (query.exec()) moved += query.numRowsAffected();
     }
+    // Moving files a chat, nothing more: a Thread's place among the recent ones stays as it was.
     if (!moved) return 0;
-    if (!folderId.isEmpty()) {
-        QSqlQuery touch(m_database);
-        touch.prepare("UPDATE ai_folders SET updated_at=? WHERE id=?");
-        touch.addBindValue(now());
-        touch.addBindValue(folderId);
-        touch.exec();
-    }
     emit aiThreadsChanged();
     return moved;
 }
