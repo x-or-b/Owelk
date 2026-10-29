@@ -160,9 +160,10 @@ bool ResearchStore::renameAiFolder(const QString &id, const QString &name)
 {
     const auto trimmed = name.simplified().left(160);
     if (trimmed.isEmpty()) return false;
+    // Renamed, a Thread keeps its place among the recent ones.
     QSqlQuery query(m_database);
-    query.prepare("UPDATE ai_folders SET name=?,updated_at=? WHERE id=?");
-    for (const auto &value : {trimmed, now(), id}) query.addBindValue(value);
+    query.prepare("UPDATE ai_folders SET name=? WHERE id=?");
+    for (const auto &value : {trimmed, id}) query.addBindValue(value);
     if (!query.exec() || query.numRowsAffected() != 1) return false;
     emit aiThreadsChanged();
     return true;

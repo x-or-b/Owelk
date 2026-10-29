@@ -3378,7 +3378,7 @@ private slots:
         const auto thesis = store.createAiFolder("  Thesis  ");
         QCOMPARE(folderName(thesis), QString("Thesis"));
         QCOMPARE(chat("Begun in Thesis", {{"source", pdf}, {"folder", thesis}}).isEmpty(), false);
-        // Moved in, a chat does not make its new Thread more recent.
+        // Moved in, a chat does not make its new Thread more recent; nor does a new name.
         const auto thesisUpdated = folderField(thesis, "updatedAt");
         QTest::qSleep(5);
         QCOMPARE(store.moveAiThreads({loose, first}, thesis), 2);
@@ -3386,8 +3386,10 @@ private slots:
         QCOMPARE(folderField(thesis, "updatedAt"), thesisUpdated);
         QCOMPARE(store.moveAiThreads({loose}, thesis), 0);
         QCOMPARE(store.moveAiThreads({loose}, "missing"), 0);
+        const auto paperUpdated = folderField(paperThread, "updatedAt");
         QVERIFY(store.renameAiFolder(paperThread, "My paper"));
         QCOMPARE(folderName(paperThread), QString("My paper"));
+        QCOMPARE(folderField(paperThread, "updatedAt"), paperUpdated);
         QVERIFY(!store.renameAiFolder(thesis, "  "));
         // A deleted Thread lets its chats go unfiled; a deleted collection's Thread keeps its name.
         QVERIFY(store.deleteAiFolder(thesis));
