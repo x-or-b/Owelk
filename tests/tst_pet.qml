@@ -19,8 +19,12 @@ Item {
     QtObject {
         id: fakeAi
         signal started(int request, string threadId, string provider, string model, bool truncated)
+        signal delta(int request, string text)
         signal finished(int request, string text, var details)
         signal failed(int request, string error)
+        // Questions asked from the pet's box.
+        property var asked: []
+        function ask(spec) { asked = asked.concat([spec]); return 40 + asked.length }
     }
     QtObject { id: fakeForYou; property var items: []; signal changed() }
     TestCase {
@@ -288,6 +292,42 @@ Item {
             verify(researchStore.recordReading(fixtureSource, today, 60))
             compare(pet.message, null)
             researchStore.setSetting("pet.goalCheered", "")
+        }
+        function test_askedFromItsMenuAndAnsweredBesideIt() {
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            const pet = createTemporaryObject(petComponent, null, {ai: fakeAi, ownerActive: false})
+            fakeAi.asked = []
+            pet.asking = true
+            const box = findChild(pet, "petAsk")
+            tryVerify(function() { return box && box.visible })
+            // Asked: answered in the box as it comes, not told in a bubble.
+            verify(pet.ask("What is SLAM?"))
+            compare(fakeAi.asked[0].question, "What is SLAM?")
+            verify(!fakeAi.asked[0].threadId)
+            fakeAi.started(41, "pet-thread", "p", "m", false)
+            fakeAi.delta(41, "Simultaneous ")
+            fakeAi.delta(41, "localization")
+            compare(pet.askAnswer, "Simultaneous localization")
+            compare(pet.message, null)
+            compare(pet.writing, false)
+            fakeAi.finished(41, "Simultaneous localization and mapping.", {})
+            compare(pet.askWriting, false)
+            compare(pet.message, null)
+            // The next goes on in that conversation; Open in Owelk goes there.
+            verify(pet.ask("And loop closure?"))
+            compare(fakeAi.asked[1].threadId, "pet-thread")
+            fakeAi.failed(42, "No network")
+            compare(pet.askError, "No network")
+            threadSpy.target = pet; threadSpy.clear()
+            findChild(box.contentItem, "petAskOpen").clicked()
+            compare(threadSpy.count, 1)
+            compare(threadSpy.signalArguments[0][0], "pet-thread")
+            threadSpy.clear()
+            verify(!box.visible)
+            // Opened again: a new conversation.
+            pet.asking = true
+            compare(pet.askThread, "")
+            pet.asking = false
         }
         function test_lastWeekIsToldOnceAWeek() {
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))

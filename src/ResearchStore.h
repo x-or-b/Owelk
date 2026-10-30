@@ -448,6 +448,8 @@ public:
 signals:
     void highlightsChanged();
     void documentsChanged();
+    // A paper the reader marked as read here (not one read on another computer).
+    void markedRead(const QUrl &source);
     void settingsChanged();
     void notesChanged();
     void noteAppended(const QString &noteId, const QString &markdown);

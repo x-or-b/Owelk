@@ -56,6 +56,9 @@ public:
     // Once shown, on macOS: on every desktop (Space) and beside full-screen apps, left out of window
     // cycling. Elsewhere staying on top is all there is. Also left out of screen sharing or not, as chosen.
     Q_INVOKABLE void floatEverywhere(QWindow *window);
+    // A pet window that is typed in (the question box): it takes the keys, and on macOS Owelk stays where it is
+    // (its window is not brought forward nor its desktop shown).
+    Q_INVOKABLE void takeKeys(QWindow *window);
     // Clicks on the transparent parts of a pet window go to whatever is behind it. The picture is drawn
     // fitted and centred in area, top points down; it hops up to rise points.
     Q_INVOKABLE void letClicksThrough(QWindow *window, const QUrl &picture, const QSize &area, int top, int rise);

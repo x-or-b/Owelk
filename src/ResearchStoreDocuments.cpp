@@ -522,12 +522,18 @@ bool ResearchStore::useExistingCopy(const QUrl &duplicate, const QUrl &existing)
 bool ResearchStore::setReadingState(const QUrl &source, const QString &state)
 {
     if (!QStringList{"unread", "reading", "read"}.contains(state)) return false;
+    const auto id = ensureDocument(source);
+    QSqlQuery before(m_database);
+    before.prepare("SELECT reading_state FROM documents WHERE id=?");
+    before.addBindValue(id);
+    const bool wasRead = before.exec() && before.next() && before.value(0).toString() == "read";
     QSqlQuery query(m_database);
     query.prepare("UPDATE documents SET reading_state=? WHERE id=?");
     query.addBindValue(state);
-    query.addBindValue(ensureDocument(source));
+    query.addBindValue(id);
     if (!query.exec() || query.numRowsAffected() != 1) return false;
     announceDocumentsChanged();
+    if (state == "read" && !wasRead) emit markedRead(source);
     return true;
 }
 

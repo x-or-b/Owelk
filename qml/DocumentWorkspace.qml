@@ -331,6 +331,18 @@ Flickable {
         Qt.callLater(function() { const view = root.groupView(root.activeGroup); if (view) view.focusNoteBody() })
         return id
     }
+    // Three lines about a paper just read (key idea, method, limits), in a note beside it when it is open.
+    readonly property string summaryLines: "- Key idea: \n- Method: \n- Limits: \n"
+    function newSummaryFor(source) {
+        const paper = researchStore.documentLinkId(source)
+        if (!paper.length) return ""
+        const id = researchStore.createNote(researchStore.displayName(source) + " · Summary",
+                                            researchStore.markdownLink("document", paper) + "\n\n" + summaryLines)
+        const open = Tree.leaves(tree).some(function(g) { return g.tabs.some(function(t) { return !t.kind && researchStore.sameSource(t.source, source) }) })
+        if (!id.length || !(open ? openNoteBeside(id, source) : openNote(id, true))) return ""
+        Qt.callLater(function() { const view = root.groupView(root.activeGroup); if (view) view.focusNoteBody() })
+        return id
+    }
     // An AI conversation in a tab of its own (once: an existing tab anywhere is focused instead). It shows the same
     // answers and waiting questions as the AI panel when that has it open too (AiRuns).
     property var aiRuns: null

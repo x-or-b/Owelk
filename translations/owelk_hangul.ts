@@ -2734,6 +2734,10 @@ Same file as another library entry</source>
         <translation>다큐먼트: 콘텐츠, 애노테이션스, 심벌스 앤드 릴레이티드 페이퍼스</translation>
     </message>
     <message>
+        <source>Draft with AI</source>
+        <translation>드래프트 위드 에이아이</translation>
+    </message>
+    <message>
         <source>Duplicate to right split · </source>
         <translation>듀플리케이트 투 라이트 스플릿 · </translation>
     </message>
@@ -2802,6 +2806,10 @@ Same file as another library entry</source>
         <translation>라이브러리 패널</translation>
     </message>
     <message>
+        <source>Marked as read. Keep three lines about it?</source>
+        <translation>마크트 애즈 리드. 킵 스리 라인스 어바웃 잇?</translation>
+    </message>
+    <message>
         <source>Minimize</source>
         <translation>미니마이즈</translation>
     </message>
@@ -2812,6 +2820,10 @@ Same file as another library entry</source>
     <message>
         <source>New Tab</source>
         <translation>뉴 탭</translation>
+    </message>
+    <message>
+        <source>No AI draft: </source>
+        <translation>노 에이아이 드래프트: </translation>
     </message>
     <message>
         <source>No open tabs</source>
@@ -2874,6 +2886,10 @@ Same file as another library entry</source>
         <translation>싱킹…</translation>
     </message>
     <message>
+        <source>The AI is drafting the three lines…</source>
+        <translation>더 에이아이 이즈 드래프팅 더 스리 라인스…</translation>
+    </message>
+    <message>
         <source>This PDF is already in your Library</source>
         <translation>디스 피디에프 이즈 올레디 인 유어 라이브러리</translation>
     </message>
@@ -2892,6 +2908,10 @@ Same file as another library entry</source>
     <message>
         <source>Window</source>
         <translation>윈도</translation>
+    </message>
+    <message>
+        <source>Write Note</source>
+        <translation>라이트 노트</translation>
     </message>
     <message>
         <source>Zoom In</source>
@@ -4875,12 +4895,28 @@ Use Pages to navigate.</source>
         <translation>1 페이퍼</translation>
     </message>
     <message>
+        <source>Ask AI…</source>
+        <translation>애스크 에이아이…</translation>
+    </message>
+    <message>
+        <source>Ask a follow-up…</source>
+        <translation>애스크 어 팔로-업…</translation>
+    </message>
+    <message>
+        <source>Ask the AI…</source>
+        <translation>애스크 더 에이아이…</translation>
+    </message>
+    <message>
         <source>Backup failed: </source>
         <translation>백업 페일드: </translation>
     </message>
     <message>
         <source>Backup finished.</source>
         <translation>백업 피니시드.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>클로즈</translation>
     </message>
     <message>
         <source>Continue: </source>
@@ -4931,6 +4967,10 @@ Use Pages to navigate.</source>
         <translation>오픈 오웰크</translation>
     </message>
     <message>
+        <source>Open in Owelk</source>
+        <translation>오픈 인 오웰크</translation>
+    </message>
+    <message>
         <source>Saturday</source>
         <translation>새터데이</translation>
     </message>
@@ -4945,6 +4985,10 @@ Use Pages to navigate.</source>
     <message>
         <source>The AI could not answer: </source>
         <translation>더 에이아이 쿠드 낫 앤서: </translation>
+    </message>
+    <message>
+        <source>Thinking…</source>
+        <translation>싱킹…</translation>
     </message>
     <message>
         <source>Thursday</source>

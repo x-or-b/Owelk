@@ -233,7 +233,10 @@ int AiService::ask(const QVariantMap &input)
         && (spec.value("threadId").toString().isEmpty()
             || m_store->aiThread(spec.value("threadId").toString()).isEmpty())) {
         const auto question = spec.value("question").toString().simplified();
-        auto title = spec.value("action").toString() == "translate" ? QStringLiteral("Translate") : QString();
+        const auto action = spec.value("action").toString();
+        auto title = action == "translate" ? QStringLiteral("Translate")
+            : action == "summary"          ? QStringLiteral("Summary")
+                                           : QString();
         const auto source = spec.value("source").toUrl();
         // Without a question (text dropped on the desktop pet), the passage names the conversation.
         if (title.isEmpty())

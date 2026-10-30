@@ -129,6 +129,25 @@ Window {
         else if (m && m.settings) { openRequested(); settingsRequested(m.settings) }
         else openRequested()
     }
+    // Asked from the pet (its menu › Ask AI…): typed in a box beside it and answered there, kept in Threads; the
+    // next question goes on in the same conversation until the box closes. Not news for the bubble.
+    property bool asking: false
+    onAskingChanged: if (!asking) { askThread = ""; askQuestion = ""; askAnswer = ""; askError = "" }
+    property int askRequest: -1
+    property bool askWriting: false
+    property string askThread: ""
+    property string askQuestion: ""
+    property string askAnswer: ""
+    property string askError: ""
+    function ask(question) {
+        const text = question.trim()
+        if (!text.length || !ai || askWriting) return false
+        askQuestion = text; askAnswer = ""; askError = ""; askWriting = true
+        const spec = {action: "ask", question: text}
+        if (askThread.length) spec.threadId = askThread
+        askRequest = ai.ask(spec)
+        return true
+    }
     // Conversations being answered (gloss and other requests are not news).
     property var answering: ({})
     readonly property bool writing: Object.keys(answering).length > 0
@@ -136,16 +155,20 @@ Window {
         target: pet.ai
         ignoreUnknownSignals: true
         function onStarted(request, threadId) {
+            if (request === pet.askRequest) { pet.askThread = threadId; return }
             const next = Object.assign({}, pet.answering); next[request] = threadId; pet.answering = next
             pet.sayWriting()
         }
-        function onFinished(request) {
+        function onDelta(request, text) { if (request === pet.askRequest) pet.askAnswer += text }
+        function onFinished(request, text) {
+            if (request === pet.askRequest) { pet.askWriting = false; pet.askAnswer = text; return }
             const thread = pet.answering[request]
             if (thread === undefined) return
             pet.settle(request)
             pet.say({text: qsTr("Your answer is ready."), thread: thread, mood: "happy"})
         }
         function onFailed(request, error) {
+            if (request === pet.askRequest) { pet.askWriting = false; if (error !== "Stopped.") pet.askError = error; return }
             const thread = pet.answering[request]
             if (thread === undefined) return
             pet.settle(request)
@@ -472,6 +495,7 @@ Window {
         palette.buttonText: Theme.text
         palette.highlight: Theme.accent
         palette.highlightedText: Theme.onAccent
+        MenuItem { objectName: "petAskAi"; text: qsTr("Ask AI…"); onTriggered: pet.asking = true }
         MenuItem { objectName: "openOwelk"; text: qsTr("Open Owelk"); onTriggered: pet.openRequested() }
         MenuItem { objectName: "hidePet"; text: qsTr("Hide Pet"); onTriggered: DesktopPet.enabled = false }
     }
@@ -528,6 +552,96 @@ Window {
                         elide: Text.ElideRight; textFormat: Text.PlainText
                         font.pixelSize: Theme.fontCaption; color: Theme.textSecondary
                     }
+                }
+            }
+        }
+    }
+    // The question box: beside the pet like its card. It takes the keys without bringing Owelk forward; Escape or ×
+    // closes it, Open in Owelk goes on with the conversation there.
+    Window {
+        id: askWindow
+        objectName: "petAsk"
+        flags: Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.NoDropShadowWindowHint
+        color: "transparent"
+        title: "Owelk"
+        visible: pet.asking && pet.visible
+        width: askBox.width + 4; height: askBox.height + 4
+        readonly property bool left: pet.x - width - 4 >= pet.screen.virtualX
+        x: left ? pet.x - width - 4 : pet.x + pet.width + 4
+        y: Math.max(pet.screen.virtualY, pet.y + pet.height - height)
+        Component.onCompleted: DesktopPet.prepare(askWindow)
+        onVisibleChanged: if (visible) { DesktopPet.floatEverywhere(askWindow); DesktopPet.takeKeys(askWindow); askField.forceActiveFocus() }
+        Rectangle {
+            id: askBox
+            x: 2; y: 2
+            width: 320; height: askColumn.implicitHeight + 20
+            radius: Theme.radiusLarge
+            color: Theme.raised
+            border.color: Theme.border
+            Column {
+                id: askColumn
+                x: 10; y: 10; width: parent.width - 20
+                spacing: 8
+                Row {
+                    width: parent.width
+                    spacing: 4
+                    TextField {
+                        id: askField
+                        objectName: "petAskField"
+                        width: parent.width - askClose.width - parent.spacing
+                        placeholderText: pet.askThread.length ? qsTr("Ask a follow-up…") : qsTr("Ask the AI…")
+                        onAccepted: if (pet.ask(text)) text = ""
+                        Keys.onEscapePressed: pet.asking = false
+                    }
+                    IconButton {
+                        id: askClose
+                        anchors.verticalCenter: askField.verticalCenter
+                        icon.name: "close"; description: qsTr("Close")
+                        onClicked: pet.asking = false
+                    }
+                }
+                Label {
+                    objectName: "petAskQuestion"
+                    visible: pet.askQuestion.length > 0
+                    width: parent.width
+                    text: pet.askQuestion
+                    wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight; textFormat: Text.PlainText
+                    font.weight: Font.DemiBold; color: Theme.text
+                }
+                Label {
+                    visible: pet.askWriting && !pet.askAnswer.length
+                    text: qsTr("Thinking…")
+                    color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
+                }
+                Flickable {
+                    visible: pet.askAnswer.length > 0
+                    width: parent.width; height: Math.min(260, answerText.implicitHeight)
+                    contentHeight: answerText.implicitHeight
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: ScrollBar {}
+                    Label {
+                        id: answerText
+                        objectName: "petAskAnswer"
+                        width: parent.width
+                        text: typeof researchStore === "undefined" ? pet.askAnswer : researchStore.markdownHtml(pet.askAnswer, Theme.accent, Theme.text, Theme.fontSmall)
+                        textFormat: Text.RichText; wrapMode: Text.Wrap
+                        color: Theme.text; font.pixelSize: Theme.fontSmall
+                    }
+                }
+                Label {
+                    objectName: "petAskError"
+                    visible: pet.askError.length > 0
+                    width: parent.width
+                    text: pet.askError
+                    wrapMode: Text.Wrap; textFormat: Text.PlainText
+                    color: Theme.danger; font.pixelSize: Theme.fontSmall
+                }
+                Button {
+                    objectName: "petAskOpen"
+                    visible: pet.askThread.length > 0 && !pet.askWriting
+                    text: qsTr("Open in Owelk")
+                    onClicked: { const thread = pet.askThread; pet.asking = false; pet.threadRequested(thread) }
                 }
             }
         }

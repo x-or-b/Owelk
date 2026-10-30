@@ -137,6 +137,11 @@ AiPrompt buildAiPrompt(
                "passages do not answer the question, say so plainly and do not fill the gap from general knowledge "
                "without saying that you are doing so.\n\nQuestion: "
             + question.trimmed();
+    else if (action == "summary")
+        task = QStringLiteral("Summarize the paper for the reader's notes in exactly three Markdown list items, "
+                              "keeping these English labels:\n- Key idea: …\n- Method: …\n- Limits: …\nOne "
+                              "sentence each, in %1; keep technical terms as the paper writes them. No other text.")
+                   .arg(target.isEmpty() ? QStringLiteral("the paper's language") : target);
     else if (action == "notation")
         task = QStringLiteral(
             "List the mathematical symbols and notation this paper uses, as JSON only, with no other text:\n"

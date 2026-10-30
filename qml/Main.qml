@@ -1104,6 +1104,81 @@ ApplicationWindow {
             IconButton { icon.name: "close"; description: qsTr("Dismiss"); focusPolicy: Qt.NoFocus; onClicked: duplicateBar.close() }
         }
     }
+    // A paper just marked as read (one, not several at once): three lines about it, written now or drafted by the
+    // AI into the note. It goes after a while without the pointer on it.
+    property var markedRead: []
+    Connections {
+        target: researchStore
+        function onMarkedRead(source) { window.markedRead = window.markedRead.concat([source]); markedReadLater.restart() }
+    }
+    Timer {
+        id: markedReadLater
+        interval: 300
+        onTriggered: { if (window.markedRead.length === 1 && !window.restoreFailed) summaryBar.offer(window.markedRead[0]); window.markedRead = [] }
+    }
+    Rectangle {
+        id: summaryBar
+        objectName: "summaryBar"
+        parent: window.contentItem
+        z: 50
+        property url source: ""
+        function offer(url) { source = url; visible = true; summaryHide.restart() }
+        visible: false
+        x: (parent.width - width) / 2; y: duplicateBar.visible ? duplicateBar.y + duplicateBar.height + 8 : 8
+        width: Math.min(620, parent.width - 32); height: summaryRow.implicitHeight + 16
+        color: Theme.raised; border.color: Theme.border; radius: Theme.radiusLarge
+        HoverHandler { id: summaryHover }
+        Timer { id: summaryHide; interval: 12000; onTriggered: if (summaryHover.hovered) restart(); else summaryBar.visible = false }
+        RowLayout {
+            id: summaryRow
+            anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+            anchors.leftMargin: 12; anchors.rightMargin: 6
+            spacing: 6
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Marked as read. Keep three lines about it?")
+                wrapMode: Text.Wrap; color: Theme.text
+            }
+            Button { objectName: "summaryWrite"; text: qsTr("Write Note"); focusPolicy: Qt.NoFocus; onClicked: { summaryBar.visible = false; window.writeSummary(summaryBar.source, false) } }
+            Button { objectName: "summaryDraft"; text: qsTr("Draft with AI"); focusPolicy: Qt.NoFocus; onClicked: { summaryBar.visible = false; window.writeSummary(summaryBar.source, true) } }
+            IconButton { icon.name: "close"; description: qsTr("Dismiss"); focusPolicy: Qt.NoFocus; onClicked: summaryBar.visible = false }
+        }
+    }
+    // Summary notes the AI is drafting, by request: their key idea, method and limits come from its answer.
+    property var summaryDrafts: ({})
+    function writeSummary(source, draft) {
+        const note = documents.newSummaryFor(source)
+        if (!note.length || !draft) return note
+        const request = researchStore.ai.ask({provider: researchStore.ai.provider, model: aiController.model, action: "summary",
+                                              source: source, scope: "paper", label: "Summary in three lines"})
+        const next = Object.assign({}, summaryDrafts); next[request] = note; summaryDrafts = next
+        researchStore.notify(qsTr("The AI is drafting the three lines…"))
+        return note
+    }
+    function takeDraft(request) {
+        const note = summaryDrafts[request]
+        if (note === undefined) return ""
+        const next = Object.assign({}, summaryDrafts); delete next[request]; summaryDrafts = next
+        return note
+    }
+    Connections {
+        target: aiRuns
+        function onFinished(request, thread, text, details) {
+            const id = window.takeDraft(request)
+            if (!id.length || details.stopped || !text.trim().length) return
+            // What is being typed in it is kept first; the lines go in place of the empty ones, else at the end.
+            researchStore.noteReplacing(id)
+            const note = researchStore.note(id)
+            if (!note.id || note.deleted) return
+            const lines = text.trim() + "\n" + (details.threadId ? "\n---\n- " + researchStore.markdownLink("ai", details.threadId) + "\n" : "")
+            const at = note.body.indexOf(documents.summaryLines)
+            researchStore.replaceNote(id, note.title, at >= 0 ? note.body.slice(0, at) + lines + note.body.slice(at + documents.summaryLines.length)
+                                                              : note.body.replace(/\s*$/, "\n\n") + lines)
+        }
+        function onFailed(request, thread, message) {
+            if (window.takeDraft(request).length && message !== "Stopped.") researchStore.notify(qsTr("No AI draft: ") + message)
+        }
+    }
     // Areas are slices separated by 1px edges; an edge darkens under the pointer and drags to resize.
     component ResizeEdge: Rectangle {
         id: edge

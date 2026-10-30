@@ -16,6 +16,7 @@
 // DesktopPetMac.mm
 void desktopPetFloatEverywhere(QWindow *window, bool hiddenWhenShared);
 bool desktopPetButtonDown();
+void desktopPetTakeKeys(QWindow *window);
 bool desktopPetPassThrough(QWindow *window, const QRegion &region);
 #endif
 
@@ -140,6 +141,18 @@ void DesktopPet::floatEverywhere(QWindow *window)
 #else
     Q_UNUSED(window)
 #endif
+}
+
+void DesktopPet::takeKeys(QWindow *window)
+{
+    if (!window) return;
+#ifdef Q_OS_MACOS
+    if (QGuiApplication::platformName() == "cocoa") {
+        desktopPetTakeKeys(window);
+        return;
+    }
+#endif
+    window->requestActivate();
 }
 
 QRegion DesktopPet::pictureRegion(const QString &file, const QSize &area, int top, int rise)

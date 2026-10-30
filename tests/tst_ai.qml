@@ -732,6 +732,38 @@ Item {
             compare(ai.messages.length, before)
             researchStore.purgeAiThreads([branch])
         }
+        function test_5g_aPaperMarkedAsReadOffersThreeLines() {
+            const d = workspace.documents, bar = findChild(workspace, "summaryBar")
+            workspace.openDocument(fixtureSource)
+            workspace.homeVisible = false
+            tryVerify(function() { return !!workspace.currentReader && workspace.currentReader.pdfReady })
+            const paperGroup = d.activeGroup
+            researchStore.setReadingState(fixtureSource, "unread")
+            verify(researchStore.setReadingState(fixtureSource, "read"))
+            tryCompare(bar, "visible", true)
+            // Again while already read: nothing new.
+            bar.visible = false
+            verify(researchStore.setReadingState(fixtureSource, "read"))
+            wait(400)
+            compare(bar.visible, false)
+            // Several at once (the Library's selection): nothing is offered.
+            researchStore.setReadingState(fixtureSource, "unread"); researchStore.setReadingState(outlineSource, "unread")
+            researchStore.setReadingState(fixtureSource, "read"); researchStore.setReadingState(outlineSource, "read")
+            wait(400)
+            compare(bar.visible, false)
+            // Drafted by the AI: a note beside the paper whose empty lines become the answer, with a link to it.
+            const note = workspace.writeSummary(fixtureSource, true)
+            verify(note.length > 0)
+            verify(researchStore.note(note).body.indexOf(d.summaryLines) >= 0)
+            verify(d.activeGroup !== paperGroup)
+            tryVerify(function() { return researchStore.note(note).body.indexOf("Mock answer") >= 0 }, 15000)
+            const body = researchStore.note(note).body
+            compare(body.indexOf(d.summaryLines), -1)
+            verify(body.indexOf("owelk://ai/") >= 0)
+            verify(body.indexOf("owelk://document/") >= 0)
+            d.closeActiveTab()
+            d.activateGroup(paperGroup); d.closeActiveTab()
+        }
         // Visible items whose right edge passes the panel (in panel coordinates).
         function overflowing(item, panel, list) {
             if (!item.visible || item.opacity === 0) return list

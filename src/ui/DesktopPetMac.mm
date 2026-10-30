@@ -32,6 +32,20 @@ void desktopPetFloatEverywhere(QWindow *window, bool hiddenWhenShared)
     }
 }
 
+// A non-activating panel can be the key window while another app stays active: the keys come here and Owelk's
+// own window is left where it is.
+void desktopPetTakeKeys(QWindow *window)
+{
+    @autoreleasepool {
+        NSView *view = reinterpret_cast<NSView *>(window->winId());
+        NSWindow *native = view.window;
+        if (!native) return;
+        if ([native isKindOfClass:[NSPanel class]]) static_cast<NSPanel *>(native).becomesKeyOnlyIfNeeded = NO;
+        [native makeKeyAndOrderFront:nil];
+        [native makeFirstResponder:view];
+    }
+}
+
 bool desktopPetButtonDown()
 {
     return NSEvent.pressedMouseButtons & 1;
