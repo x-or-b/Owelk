@@ -582,8 +582,13 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     materials.hasImage = !images.isEmpty();
     const auto action
         = spec.value("scope").toString() == "library" ? QStringLiteral("library") : spec.value("action").toString();
-    const auto prompt = buildAiPrompt(action.isEmpty() ? QStringLiteral("ask") : action,
-        m_store->setting("aiLanguage", "ko"), spec.value("question").toString(), materials);
+    auto prompt = buildAiPrompt(action.isEmpty() ? QStringLiteral("ask") : action, m_store->setting("aiLanguage", "ko"),
+        spec.value("question").toString(), materials);
+    // Asked again: exactly what was sent then (its material included), after the turns before it.
+    if (spec.contains("resend")) {
+        prompt.context.clear();
+        prompt.text = spec.value("resend").toString();
+    }
     QString error;
     auto *provider = createProvider(id, &error);
     if (!provider) {
@@ -643,7 +648,8 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         done();
         auto text = spec.contains("sources") ? withSourceLinks(answer, spec.value("sources").toList()) : answer;
         // Page citations in an answer about papers become links to those places.
-        if (!spec.contains("sources") && (!attached.pageText.isEmpty() || !attached.paperText.isEmpty()))
+        if (!spec.contains("sources")
+            && (!attached.pageText.isEmpty() || !attached.paperText.isEmpty() || spec.contains("resend")))
             text = withPageLinks(text, spec.value("pageDocuments").toStringList());
         const auto usedModel = used.isEmpty() ? model(id) : used;
         const auto sent = prompt.context.isEmpty() ? prompt.text : prompt.context + "\n\n" + prompt.text;
@@ -665,17 +671,21 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         if (!attached.libraryText.isEmpty()) attachments << "library";
         if (!attached.quote.isEmpty()) attachments << "quote";
         if (!attached.notes.isEmpty()) attachments << "notes";
+        // What went with it, enough to ask it again or edit it (an edit attaches the same again).
+        QVariantMap context{{"attachments", attachments}, {"selection", attached.selection.left(4000)},
+            {"quote", attached.quote.left(4000)}, {"page", spec.value("page")}, {"papers", spec.value("paperNames")},
+            {"searched", spec.value("searchedNames")}, {"searchUrls", spec.value("searchUrls")},
+            {"wholeLibrary", spec.value("wholeLibrary")}, {"collection", spec.value("collection")},
+            {"collectionName", spec.value("collectionName")}, {"notes", attached.noteTitles},
+            {"noteIds", attached.noteIds}, {"action", spec.value("action")},
+            {"images", spec.value("imageNames").toStringList().mid(0, sentImages.size())}, {"imageFiles", sentImages}};
+        if (spec.contains("resendContext")) {
+            context = spec.value("resendContext").toMap();
+            context.insert("imageFiles", sentImages);
+        }
         m_store->appendAiMessage(threadId,
             {{"role", "user"}, {"content", sent}, {"display", display}, {"provider", id}, {"model", usedModel},
-                {"context",
-                    QVariantMap{{"attachments", attachments}, {"selection", attached.selection.left(400)},
-                        {"quote", attached.quote.left(400)}, {"page", spec.value("page")},
-                        {"papers", spec.value("paperNames")}, {"searched", spec.value("searchedNames")},
-                        {"searchUrls", spec.value("searchUrls")}, {"wholeLibrary", spec.value("wholeLibrary")},
-                        {"collection", spec.value("collection")}, {"collectionName", spec.value("collectionName")},
-                        {"notes", attached.noteTitles},
-                        {"images", spec.value("imageNames").toStringList().mid(0, sentImages.size())},
-                        {"imageFiles", sentImages}}}});
+                {"context", context}});
         // The reasoning summary sits in the answer's context: shown folded, never copied or resent.
         QVariantMap answerContext;
         const auto reasoning = thought->text.trimmed();

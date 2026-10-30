@@ -19,7 +19,11 @@ Item {
     signal linkActivated(string link)
     signal settingsRequested()
     function focusQuestion() { question.forceActiveFocus() }
-    Connections { target: root.c; function onFocusRequested() { root.focusQuestion() } }
+    Connections {
+        target: root.c
+        function onFocusRequested() { root.focusQuestion() }
+        function onDraftRequested(text) { question.text = text; question.cursorPosition = text.length }
+    }
     // Opened to ask about something just attached (or a new thread): the question box is ready.
     Component.onCompleted: if (c && c.conversationOpen && !c.streaming) question.forceActiveFocus()
     // The reader's turn: an accent bubble that hugs its text, with room on the left like a messenger.
@@ -418,8 +422,11 @@ Item {
                 required property int index
                 // An answer's text and the notes it proposes.
                 readonly property var parts: modelData.role === "assistant" && root.c ? root.c.noteBlocks(modelData.content) : ({text: "", notes: [], plain: ""})
+                // The last question and its answer can be edited or asked again (AiController.canRedo).
+                readonly property bool lastTurn: !!root.c && root.c.canRedo && index >= root.c.messages.length - 2
                 width: ListView.view.width
                 spacing: 4
+                HoverHandler { id: messageHover }
                 // What went with the question, above it.
                 Flow {
                     readonly property var sent: message.modelData.role === "user" ? root.sentAttachments(message.modelData) : []
@@ -442,6 +449,15 @@ Item {
                     visible: message.modelData.role === "user"
                     objectName: "aiQuestion-" + message.index
                     text: message.modelData.display || ""
+                    // Beside the last question while the pointer is on it.
+                    IconButton {
+                        objectName: "aiEditQuestion"
+                        visible: message.lastTurn && message.modelData.role === "user" && !root.c.editing.length && (messageHover.hovered || hovered)
+                        anchors.right: parent.left; anchors.rightMargin: 2; anchors.verticalCenter: parent.verticalCenter
+                        implicitWidth: 24; implicitHeight: 24; glyphSize: Theme.fontBody
+                        icon.name: "edit"; description: qsTr("Edit question")
+                        onClicked: root.c.editLast()
+                    }
                 }
                 ThinkingFold {
                     readonly property var context: message.modelData.context || ({})
@@ -476,15 +492,17 @@ Item {
                         : context.stopped ? qsTr("Stopped.") : context.interrupted ? qsTr("The connection ended before the answer did.") : qsTr("Stopped at the length limit.")
                     textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
                 }
-                // Nothing to copy or keep when Owelk closed before the answer came.
+                // Nothing to copy or keep when Owelk closed before the answer came; the last can be asked again.
                 RowLayout {
-                    visible: message.modelData.role === "assistant" && (message.modelData.content || "").length > 0
+                    readonly property bool written: (message.modelData.content || "").length > 0
+                    visible: message.modelData.role === "assistant" && (written || message.lastTurn)
                     spacing: 0
-                    IconButton { icon.name: "copy"; description: qsTr("Copy answer"); glyphSize: Theme.fontBody; onClicked: researchStore.copyText(message.parts.plain) }
+                    IconButton { visible: parent.written; icon.name: "copy"; description: qsTr("Copy answer"); glyphSize: Theme.fontBody; onClicked: researchStore.copyText(message.parts.plain) }
                     // A new note, or one of the notes about this paper (a menu when there are some).
                     IconButton {
                         id: saveNoteButton
                         objectName: "aiSaveNote-" + message.index
+                        visible: parent.written
                         icon.name: "note"; description: qsTr("Save as note"); glyphSize: Theme.fontBody
                         onClicked: {
                             const notes = root.c.paperNotes()
@@ -512,8 +530,27 @@ Item {
                     }
                     IconButton {
                         objectName: "aiToQuestion-" + message.index
+                        visible: parent.written
                         icon.name: "toQuestion"; description: qsTr("Back to the question"); glyphSize: Theme.fontBody
                         onClicked: conversation.toQuestion(message.index)
+                    }
+                    IconButton {
+                        objectName: "aiAskAgain"
+                        visible: message.lastTurn
+                        icon.name: "reload"; description: qsTr("Ask again"); glyphSize: Theme.fontBody
+                        onClicked: root.c.askAgain()
+                    }
+                    // A new conversation with the turns up to here (in a chat tab, in a tab of its own).
+                    IconButton {
+                        objectName: "aiBranch-" + message.index
+                        visible: parent.written
+                        icon.name: "add"; description: qsTr("New chat from here"); glyphSize: Theme.fontBody
+                        onClicked: {
+                            const id = root.c.branchFrom(message.index)
+                            if (!id.length) return
+                            if (root.inTab && root.c.workspace) root.c.workspace.openAiThread(id, true)
+                            else root.c.openThread(id)
+                        }
                     }
                 }
             }
@@ -648,6 +685,25 @@ Item {
                     border.color: Theme.border
                 }
                 onClicked: conversation.toEnd()
+            }
+        }
+        // An edited question: sent, it replaces the last turn.
+        RowLayout {
+            objectName: "aiEditing"
+            visible: !!root.c && root.c.editing.length > 0
+            Layout.fillWidth: true; Layout.minimumWidth: 0
+            spacing: 4
+            Icon { name: "edit"; size: Theme.fontSmall; color: Theme.textSecondary }
+            Label {
+                Layout.fillWidth: true; Layout.minimumWidth: 0
+                text: qsTr("Editing the last question; sending replaces it and its answer.")
+                elide: Text.ElideRight; color: Theme.textSecondary; font.pixelSize: Theme.fontCaption
+            }
+            IconButton {
+                objectName: "aiCancelEdit"
+                implicitWidth: 22; implicitHeight: 22; glyphSize: Theme.fontSmall
+                icon.name: "close"; description: qsTr("Cancel editing")
+                onClicked: root.c.cancelEdit()
             }
         }
         // Attachments for the next turn; × removes one. Images show a thumbnail.

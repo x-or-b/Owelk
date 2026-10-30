@@ -353,6 +353,10 @@ public:
     // A thread with its messages; trashed while it is in the Trash.
     Q_INVOKABLE QVariantMap aiThread(const QString &id) const;
     Q_INVOKABLE bool renameAiThread(const QString &id, const QString &title);
+    // The message and every one after it go (a question asked again or edited replaces its turn).
+    Q_INVOKABLE bool truncateAiThread(const QString &id, const QString &fromMessageId);
+    // A new conversation with this one's turns up to and including the message, in the same Thread; its id.
+    Q_INVOKABLE QString forkAiThread(const QString &id, const QString &throughMessageId);
     Q_INVOKABLE bool appendNoteLink(const QString &noteId, const QString &kind, const QString &id);
     int documentsRevision() const { return m_documentsRevision; }
     Q_INVOKABLE bool sameSource(const QUrl &first, const QUrl &second) const { return first == second; }

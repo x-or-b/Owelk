@@ -234,6 +234,68 @@ QVariantMap ResearchStore::aiThread(const QString &id) const
     return thread;
 }
 
+bool ResearchStore::truncateAiThread(const QString &id, const QString &fromMessageId)
+{
+    const auto messages = aiThread(id).value("messages").toList();
+    qsizetype from = -1;
+    for (qsizetype i = 0; i < messages.size() && from < 0; ++i)
+        if (messages.at(i).toMap().value("id").toString() == fromMessageId) from = i;
+    if (from < 0 || !m_database.transaction()) return false;
+    QSqlQuery query(m_database);
+    query.prepare("DELETE FROM ai_messages WHERE id=? AND thread_id=?");
+    for (auto i = from; i < messages.size(); ++i) {
+        query.addBindValue(messages.at(i).toMap().value("id"));
+        query.addBindValue(id);
+        if (!query.exec()) {
+            m_database.rollback();
+            return false;
+        }
+    }
+    if (!m_database.commit()) return false;
+    emit aiThreadsChanged();
+    return true;
+}
+
+QString ResearchStore::forkAiThread(const QString &id, const QString &throughMessageId)
+{
+    const auto messages = aiThread(id).value("messages").toList();
+    qsizetype through = -1;
+    for (qsizetype i = 0; i < messages.size() && through < 0; ++i)
+        if (messages.at(i).toMap().value("id").toString() == throughMessageId) through = i;
+    if (through < 0 || !m_database.transaction()) return {};
+    const auto fork = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const auto run = [this](const QString &sql, const QVariantList &values) {
+        QSqlQuery query(m_database);
+        query.prepare(sql);
+        for (const auto &value : values) query.addBindValue(value);
+        return query.exec() && query.numRowsAffected() > 0;
+    };
+    // The turns keep their times, so they stay in order.
+    bool ok = run("INSERT INTO ai_threads(id,title,provider,model,source,created_at,updated_at,folder_id) SELECT ?,"
+                  "CASE WHEN title LIKE 'Branch · %' THEN title ELSE substr('Branch · ' || title,1,160) END,provider,"
+                  "model,source,?,?,folder_id FROM ai_threads WHERE id=?",
+        {fork, now(), now(), id});
+    for (qsizetype i = 0; ok && i <= through; ++i)
+        ok = run("INSERT INTO ai_messages(id,thread_id,role,content,display,context_json,model,created_at) SELECT ?,?,"
+                 "role,content,display,context_json,model,created_at FROM ai_messages WHERE id=?",
+            {QUuid::createUuid().toString(QUuid::WithoutBraces), fork, messages.at(i).toMap().value("id")});
+    if (ok) {
+        // Its papers too, so their Links tabs find it.
+        QSqlQuery links(m_database);
+        links.prepare("INSERT OR IGNORE INTO links(from_kind,from_id,to_kind,to_id,created_at) SELECT from_kind,?,"
+                      "to_kind,to_id,? FROM links WHERE from_kind='ai' AND from_id=?");
+        for (const auto &value : {fork, now(), id}) links.addBindValue(value);
+        ok = links.exec();
+    }
+    if (!ok || !m_database.commit()) {
+        m_database.rollback();
+        return {};
+    }
+    emit aiThreadsChanged();
+    emit linksChanged();
+    return fork;
+}
+
 bool ResearchStore::renameAiThread(const QString &id, const QString &title)
 {
     const auto name = title.simplified().left(160);

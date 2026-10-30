@@ -915,6 +915,81 @@ private slots:
         QVERIFY(store.setSetting("ai.baseUrl.ollama", "http://localhost:11434/"));
         QCOMPARE(sends(), QString("this computer only"));
     }
+    void askedAgainSendsWhatWasSentAndBranchesKeepTheTurns()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        MockServer server;
+        const auto answer = [&server](const QString &text) {
+            server.chunks = {
+                MockServer::sse("content_block_delta",
+                    {{"type", "content_block_delta"}, {"delta", QJsonObject{{"type", "text_delta"}, {"text", text}}}}),
+                MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        };
+        store.setSetting("ai.baseUrl.claude", server.base().toString());
+        ai->giveConsent("claude");
+        QVERIFY(ai->setApiKey("claude", "sk-ant-again-test"));
+        QSignalSpy finished(ai, &AiService::finished);
+        const QVariantMap base{{"provider", "claude"}, {"model", "claude-opus-5-5"}, {"action", "ask"}};
+        answer("First answer");
+        auto first = base;
+        first.insert({{"question", "What is it?"}, {"selection", "The selected words"}});
+        ai->ask(first);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 5000);
+        const auto thread = finished[0][2].toMap()["threadId"].toString();
+        answer("Second answer");
+        auto second = base;
+        second.insert({{"question", "And then?"}, {"threadId", thread}, {"quote", "A quoted line"}});
+        ai->ask(second);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 5000);
+        auto messages = store.aiThread(thread)["messages"].toList();
+        QCOMPARE(messages.size(), 4);
+        const auto asked = messages[2].toMap();
+        QVERIFY(asked["content"].toString().contains("A quoted line"));
+        QCOMPARE(asked["context"].toMap()["action"].toString(), QString("ask"));
+        // Asked again: the turn goes, and exactly what was sent then goes again after the turns before it.
+        QVERIFY(!store.truncateAiThread(thread, "missing"));
+        QVERIFY(store.truncateAiThread(thread, asked["id"].toString()));
+        QCOMPARE(store.aiThread(thread)["messages"].toList().size(), 2);
+        answer("Better answer");
+        auto again = base;
+        again.insert({{"question", "And then?"}, {"threadId", thread}, {"resend", asked["content"]},
+            {"resendContext", asked["context"]}, {"scope", "none"}});
+        ai->ask(again);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 3, 5000);
+        const auto sent = server.seen.last().body["messages"].toArray();
+        QCOMPARE(sent.size(), 3);
+        QString lastText;
+        for (const auto &block : sent.last().toObject()["content"].toArray())
+            if (block.toObject()["type"].toString() == "text") lastText += block.toObject()["text"].toString();
+        if (lastText.isEmpty()) lastText = sent.last().toObject()["content"].toString();
+        QCOMPARE(lastText, asked["content"].toString());
+        messages = store.aiThread(thread)["messages"].toList();
+        QCOMPARE(messages.size(), 4);
+        QCOMPARE(messages[2].toMap()["content"], asked["content"]);
+        QCOMPARE(messages[2].toMap()["display"].toString(), QString("And then?"));
+        QCOMPARE(messages[2].toMap()["context"].toMap()["quote"].toString(), QString("A quoted line"));
+        QCOMPARE(messages[3].toMap()["content"].toString(), QString("Better answer"));
+        // A new chat from the first answer: those turns, in order, in the same Thread; the original stays whole.
+        const auto fork = store.forkAiThread(thread, messages[1].toMap()["id"].toString());
+        QVERIFY(!fork.isEmpty());
+        const auto branch = store.aiThread(fork), original = store.aiThread(thread);
+        QCOMPARE(branch["title"].toString(), "Branch · " + original["title"].toString());
+        QCOMPARE(branch["folder"], original["folder"]);
+        const auto copied = branch["messages"].toList();
+        QCOMPARE(copied.size(), 2);
+        QCOMPARE(copied[0].toMap()["content"], messages[0].toMap()["content"]);
+        QCOMPARE(copied[1].toMap()["content"].toString(), QString("First answer"));
+        QVERIFY(copied[0].toMap()["id"] != messages[0].toMap()["id"]);
+        QCOMPARE(original["messages"].toList().size(), 4);
+        // A branch of a branch keeps one prefix.
+        QCOMPARE(
+            store.aiThread(store.forkAiThread(fork, copied[1].toMap()["id"].toString()))["title"], branch["title"]);
+    }
+
     void stoppedAnswersKeepWhatArrived()
     {
         QTemporaryDir directory;

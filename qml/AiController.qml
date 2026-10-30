@@ -315,10 +315,86 @@ Item {
     }
     // Stop is for the answer shown; moving to another conversation leaves it writing.
     function stop() { if (streaming) ai.cancel(request) }
+    function reread() {
+        if (!threadId.length) return
+        const saved = researchStore.aiThread(threadId)
+        // Another conversation changed (an answer finished in the background): this one is read again only
+        // when it changed, so its view does not start over.
+        if (saved.id) { if (JSON.stringify(saved) !== JSON.stringify(thread)) thread = saved }
+        else { threadId = ""; thread = ({}) }
+    }
     function reset() {
         request = -1; streaming = false
         answer = ""; error = ""; pendingQuestion = ""; usedModel = ""; truncated = false
         thinkingText = ""; thinkingSeconds = 0; translatePage = -1
+        editing = ""
+    }
+    // The last question asked again (the same, with what went with it) or edited replaces its turn; nothing is
+    // coming or waiting in this conversation meanwhile.
+    readonly property bool canRedo: threadId.length > 0 && !thread.trashed && !streaming && !queuedHere.length
+        && answeringThreads.indexOf(threadId) < 0 && messages.length >= 2
+        && messages[messages.length - 1].role === "assistant" && messages[messages.length - 2].role === "user"
+    // The question being edited (its message id): sent, it and its answer give way to the new turn.
+    property string editing: ""
+    signal draftRequested(string text)
+    // The last turn taken out, to be put back if its replacement fails (AiRuns).
+    function takeLastTurn() {
+        const turn = messages.slice(messages.length - 2)
+        return researchStore.truncateAiThread(threadId, turn[0].id) ? turn : null
+    }
+    function canAsk(provider) {
+        if (!providerInfo.configured && provider !== "ollama") { error = setupHint(provider); return false }
+        if (!ai.consented(provider)) { error = qsTr("Review what is sent to this provider before the first request."); return false }
+        return true
+    }
+    function askAgain() {
+        if (!canRedo || !canAsk(ai.provider)) return false
+        const asked = messages[messages.length - 2], context = asked.context || {}
+        const turn = takeLastTurn()
+        if (!turn) return false
+        const action = context.action && context.action !== "ask" ? context.action : "ask"
+        error = ""
+        pendingQuestion = asked.display || "Ask"; translatePage = -1
+        answer = ""; streaming = true
+        thinkingText = ""; thinkingSeconds = 0; askedAt = Date.now()
+        const choice = {provider: ai.provider, model: model, threadId: threadId, action: action, question: action === "ask" ? asked.display : "",
+                        label: asked.display, resend: asked.content, resendContext: context, scope: "none",
+                        source: thread.source || "", imageFiles: context.imageFiles || [], imageNames: context.images || [], imageLabels: []}
+        if (efforts.length) choice.effort = effectiveEffort
+        if (effectiveFast) choice.fast = true
+        request = ai.ask(choice)
+        runs.asked(request, {threadId: threadId, question: pendingQuestion, answer: "", thinking: "", thinkingSeconds: 0,
+                             askedAt: askedAt, model: "", truncated: false, translatePage: -1, restore: turn})
+        return true
+    }
+    // The last question back in the question box with what went with it; sent, it replaces that turn.
+    function editLast() {
+        if (!canRedo) return false
+        const asked = messages[messages.length - 2], context = asked.context || {}, sent = context.attachments || []
+        const next = runs.continuing(thread)
+        if (sent.indexOf("paper") >= 0 && next.source) next.scope = "paper"
+        if (sent.some(function(a) { return /^page /.test(a) }) && context.page !== undefined) { next.scope = "page"; next.page = context.page }
+        if (context.selection) next.selection = context.selection
+        if (context.quote) next.quote = context.quote
+        if ((context.noteIds || []).length) next.noteIds = context.noteIds
+        spec = next
+        images = (context.imageFiles || []).map(function(url, i) { return {url: url, name: (context.images || [])[i] || qsTr("Image")} })
+        editing = asked.id
+        draftRequested(asked.display || "")
+        focusRequested()
+        return true
+    }
+    function cancelEdit() {
+        if (!editing.length) return
+        editing = ""
+        spec = runs.continuing(thread); images = []
+        draftRequested("")
+    }
+    // A new conversation with this one's turns up to the answer at index (the original stays); its id.
+    function branchFrom(index) {
+        const message = messages[index]
+        if (!message || message.role !== "assistant") return ""
+        return researchStore.forkAiThread(threadId, message.id)
     }
     // The open conversation's answer still being written (or what went wrong with it), shown again.
     function showRunning() {
@@ -439,6 +515,14 @@ Item {
         }
         if (!spec.action && !question.trim().length) return false
         if (!ai.consented(provider)) { consent.question = question; consent.open(); return false }
+        // An edited question replaces its turn (put back if the new one fails).
+        let turn = null
+        if (editing.length) {
+            if (!canRedo || messages[messages.length - 2].id !== editing) { editing = ""; error = qsTr("The conversation changed; ask it as a new question."); return false }
+            turn = takeLastTurn()
+            editing = ""
+            if (!turn) return false
+        }
         pendingQuestion = question.trim().length ? question.trim() : (spec.label || actions[spec.action] || "Ask")
         translatePage = !question.trim().length && spec.action === "translate" && spec.scope === "page" ? Number(spec.page) : -1
         answer = ""; streaming = true
@@ -451,7 +535,7 @@ Item {
         if (effectiveFast) choice.fast = true
         request = ai.ask(Object.assign({}, spec, choice))
         runs.asked(request, {threadId: threadId, question: pendingQuestion, answer: "", thinking: "", thinkingSeconds: 0,
-                             askedAt: askedAt, model: "", truncated: false, translatePage: translatePage})
+                             askedAt: askedAt, model: "", truncated: false, translatePage: translatePage, restore: turn})
         images = []
         return true
     }
@@ -543,6 +627,8 @@ Item {
             if (id !== root.request) return
             root.streaming = false
             if (message !== "Stopped.") { root.error = message; root.runs.consumeFailure(thread) }
+            // A turn taken out to be replaced may have come back meanwhile.
+            root.reread()
         }
         function onAnswered(threadId, title, preview) { root.answered(threadId, title, preview) }
     }
@@ -556,15 +642,7 @@ Item {
     }
     Connections {
         target: researchStore
-        function onAiThreadsChanged() {
-            if (root.threadId.length && !root.streaming) {
-                const saved = researchStore.aiThread(root.threadId)
-                // Another conversation changed (an answer finished in the background): this one is read again only
-                // when it changed, so its view does not start over.
-                if (saved.id) { if (JSON.stringify(saved) !== JSON.stringify(root.thread)) root.thread = saved }
-                else { root.threadId = ""; root.thread = ({}) }
-            }
-        }
+        function onAiThreadsChanged() { if (!root.streaming) root.reread() }
     }
     Dialog {
         id: consent

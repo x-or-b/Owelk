@@ -6,7 +6,8 @@ import QtQuick
 QtObject {
     id: root
     readonly property var ai: researchStore.ai
-    // By request: {threadId, question, answer, thinking, thinkingSeconds, askedAt, model, truncated, translatePage}.
+    // By request: {threadId, question, answer, thinking, thinkingSeconds, askedAt, model, truncated, translatePage,
+    // restore}: restore is the turn a question asked again or edited took out, put back if nothing replaces it.
     // Text changes in place; the map is replaced only when one starts, ends or learns its conversation.
     property var running: ({})
     readonly property var answeringThreads: Object.keys(running).map(function(k) { return running[k].threadId }).filter(function(t) { return t.length })
@@ -121,6 +122,9 @@ QtObject {
             const r = root.running[id]
             if (!r) { root.failed(id, "", message); return }
             root.setRunning(id, null)
+            ;(r.restore || []).forEach(function(m) {
+                researchStore.appendAiMessage(r.threadId, {role: m.role, content: m.content, display: m.display, context: m.context || {}, model: m.model})
+            })
             if (r.threadId.length && message !== "Stopped.") {
                 const next = Object.assign({}, root.failures); next[r.threadId] = message; root.failures = next
             }

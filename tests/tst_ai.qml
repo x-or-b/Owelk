@@ -693,6 +693,45 @@ Item {
             d.activateGroup(chatGroup); d.closeActiveTab()
             d.activateGroup(paperGroup); d.closeActiveTab()
         }
+        function test_5f_theLastTurnIsAskedAgainEditedOrBranched() {
+            const ai = findChild(workspace, "aiController")
+            const id = researchStore.aiThreads("First of two")[0].id
+            verify(ai.openThread(id))
+            tryVerify(function() { return ai.canRedo })
+            const p = panel(), box = findChild(p, "aiQuestion")
+            const before = ai.messages.length, asked = ai.messages[before - 2]
+            // Asked again: the same question, with what went with it, in place of the last turn.
+            verify(ai.askAgain())
+            compare(ai.pendingQuestion, asked.display)
+            tryVerify(function() { return !ai.streaming && ai.messages.length === before && ai.messages[before - 2].id !== asked.id }, 15000)
+            compare(ai.messages[before - 2].content, asked.content)
+            compare(ai.messages[before - 2].display, asked.display)
+            // Edited: back in the question box; sent, it replaces the last turn. Cancelled, nothing changes.
+            verify(ai.editLast())
+            compare(box.text, asked.display)
+            verify(findChild(p, "aiEditing").visible)
+            ai.cancelEdit()
+            compare(ai.editing, "")
+            compare(box.text, "")
+            verify(ai.editLast())
+            verify(ai.send("Edited question"))
+            compare(ai.editing, "")
+            tryVerify(function() { return !ai.streaming && ai.messages.length === before && ai.messages[before - 2].display === "Edited question" }, 15000)
+            // Asked again and it fails: the turn comes back, with what went wrong.
+            const kept = JSON.stringify(ai.messages.map(function(m) { return m.content }))
+            researchStore.setSetting("ai.baseUrl.claude", "http://127.0.0.1:9/")
+            verify(ai.askAgain())
+            tryVerify(function() { return !ai.streaming && ai.error.length > 0 && ai.messages.length === before }, 15000)
+            compare(JSON.stringify(ai.messages.map(function(m) { return m.content })), kept)
+            researchStore.setSetting("ai.baseUrl.claude", testInput.webFixture("/").toString())
+            ai.error = ""
+            // A new chat from the first answer; this one stays whole.
+            const branch = ai.branchFrom(1)
+            verify(branch.length > 0)
+            compare(researchStore.aiThread(branch).messages.length, 2)
+            compare(ai.messages.length, before)
+            researchStore.purgeAiThreads([branch])
+        }
         // Visible items whose right edge passes the panel (in panel coordinates).
         function overflowing(item, panel, list) {
             if (!item.visible || item.opacity === 0) return list

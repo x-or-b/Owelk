@@ -52,6 +52,10 @@
         <translation>디폴트 모델</translation>
     </message>
     <message>
+        <source>Image</source>
+        <translation>이미지</translation>
+    </message>
+    <message>
         <source>Note created.</source>
         <translation>노트 크리에이티드.</translation>
     </message>
@@ -100,6 +104,10 @@
         <translation>리스토어 디스 컨버세이션 투 컨티뉴 잇.</translation>
     </message>
     <message>
+        <source>Review what is sent to this provider before the first request.</source>
+        <translation>리뷰 왓 이즈 센트 투 디스 프로바이더 비포 더 퍼스트 리퀘스트.</translation>
+    </message>
+    <message>
         <source>Saved as a note with links to its sources.</source>
         <translation>세이브드 애즈 어 노트 위드 링크스 투 잇츠 소시즈.</translation>
     </message>
@@ -118,6 +126,10 @@
     <message>
         <source>Sign in with ChatGPT in Settings → AI.</source>
         <translation>사인 인 위드 챗지피티 인 세팅스 → 에이아이.</translation>
+    </message>
+    <message>
+        <source>The conversation changed; ask it as a new question.</source>
+        <translation>더 컨버세이션 체인지드; 애스크 잇 애즈 어 뉴 퀘스천.</translation>
     </message>
     <message>
         <source>Untitled note</source>
@@ -237,6 +249,10 @@
         <translation>애스크 어바웃 더 페이퍼…</translation>
     </message>
     <message>
+        <source>Ask again</source>
+        <translation>애스크 어게인</translation>
+    </message>
+    <message>
         <source>Ask next · </source>
         <translation>애스크 넥스트 · </translation>
     </message>
@@ -259,6 +275,10 @@
     <message>
         <source>Back to the question</source>
         <translation>백 투 더 퀘스천</translation>
+    </message>
+    <message>
+        <source>Cancel editing</source>
+        <translation>캔슬 에디팅</translation>
     </message>
     <message>
         <source>Changes</source>
@@ -299,6 +319,14 @@
     <message>
         <source>Do not ask this</source>
         <translation>두 낫 애스크 디스</translation>
+    </message>
+    <message>
+        <source>Edit question</source>
+        <translation>에디트 퀘스천</translation>
+    </message>
+    <message>
+        <source>Editing the last question; sending replaces it and its answer.</source>
+        <translation>에디팅 더 라스트 퀘스천; 센딩 리플레이시즈 잇 앤드 잇츠 앤서.</translation>
     </message>
     <message>
         <source>Fast mode</source>
@@ -355,6 +383,10 @@
     <message>
         <source>New chat</source>
         <translation>뉴 챗</translation>
+    </message>
+    <message>
+        <source>New chat from here</source>
+        <translation>뉴 챗 프롬 히어</translation>
     </message>
     <message>
         <source>New note</source>
