@@ -15,6 +15,7 @@ Item {
         when: windowShown
         function cleanup() {
             Theme.pictureHidden = false
+            Theme.usePictureColors = true
             Theme.matchSystem = false; Theme.lightTheme = "neutral"; Theme.darkTheme = "dark"
             while (Theme.pictures.length) Theme.removePicture()
             Theme.pictureStrength = 25
@@ -36,6 +37,41 @@ Item {
             compare(Theme.picture, picture)
             Theme.pictureHidden = false
             verify(Theme.pictureShown)
+        }
+        function test_aPictureWithoutItsColors() {
+            Theme.theme = "solarized"; Theme.accentName = "green"
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            compare(Theme.theme, "custom")
+            verify(Theme.pictureShown)
+            // Off: the theme and accent from before come back; the picture stays for the pet, not behind pages.
+            Theme.usePictureColors = false
+            compare(Theme.theme, "solarized")
+            compare(Theme.accentName, "green")
+            verify(Theme.picture.toString().length > 0)
+            verify(!Theme.pictureShown)
+            // Another picture, new or kept: the theme stays.
+            const first = String(Theme.picture)
+            verify(Theme.usePicture(testInput.pictureFile(800, 600, false)))
+            verify(String(Theme.picture) !== first)
+            compare(Theme.theme, "solarized")
+            verify(Theme.choosePicture(Theme.pictures[0].id))
+            compare(String(Theme.picture), first)
+            compare(Theme.theme, "solarized")
+            Theme.theme = "dark"
+            // Turned off and on with the picture theme: the theme stays as it is.
+            Theme.pictureOn = false
+            compare(Theme.theme, "dark")
+            Theme.pictureOn = true
+            compare(Theme.theme, "dark")
+            compare(String(Theme.picture), first)
+            // On: the picture's theme and accent; off again, the theme it was.
+            Theme.usePictureColors = true
+            compare(Theme.theme, "custom")
+            compare(Theme.accentName, "custom")
+            verify(Theme.pictureShown)
+            Theme.usePictureColors = false
+            compare(Theme.theme, "dark")
+            compare(Theme.accentName, "green")
         }
         function test_matchSystemFollowsTheAppearance() {
             Theme.theme = "paper"

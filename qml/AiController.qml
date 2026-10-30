@@ -219,6 +219,32 @@ Item {
         if (preparing) { text = text.slice(0, open); plain = plain.slice(0, plain.search(/<note_(update|new)\b/)) }
         return {text: text.trim(), plain: plain.trim(), notes: notes, preparing: preparing}
     }
+    // The whole conversation as a note: each question quoted above its answer, then links to the conversation and
+    // its paper. It opens beside the paper (or in a tab), where its AI button can have it rewritten. Its id.
+    function saveChatAsNote() {
+        if (!threadId.length || !messages.length) return ""
+        const turns = []
+        for (let i = 0; i + 1 < messages.length; i += 2) {
+            const asked = messages[i], answered = messages[i + 1]
+            const text = answered.role === "assistant" ? noteBlocks(answered.content).plain : ""
+            if (asked.role !== "user" || !text.length) continue
+            const question = (asked.display || asked.content || "").trim()
+            turns.push("> " + question.split("\n").join("\n> ") + "\n\n" + text)
+        }
+        if (!turns.length) return ""
+        const lines = [turns.join("\n\n"), "", "---", "- " + researchStore.markdownLink("ai", threadId)]
+        const paper = thread.source && thread.source.toString().length ? researchStore.documentLinkId(thread.source) : ""
+        if (paper.length) lines.push("- " + researchStore.markdownLink("document", paper))
+        const note = researchStore.createNote(thread.title || "AI", lines.join("\n") + "\n")
+        if (!note.length) return ""
+        if (workspace) {
+            const open = paper.length && Tree.leaves(workspace.tree).some(function(g) { return g.tabs.some(function(t) { return !t.kind && researchStore.sameSource(t.source, thread.source) }) })
+            if (open) workspace.openNoteBeside(note, thread.source)
+            else workspace.openNote(note, true)
+        }
+        researchStore.notify(qsTr("Saved the chat as a note. Its AI button can rewrite it."))
+        return note
+    }
     // Proposals applied in this session (by thread, answer and block), for Open and Undo.
     property var appliedNotes: ({})
     function noteKey(index, n) { return threadId + ":" + index + ":" + n }

@@ -68,6 +68,9 @@ class Theme : public QObject {
     // The picture theme can be turned off: Custom is the reader's own colors again, the kept pictures stay
     // for when it is turned on (five taps on Theme). Off, picture is empty.
     Q_PROPERTY(bool pictureOn READ pictureOn WRITE setPictureOn NOTIFY changed)
+    // The picture's colors make the Custom theme, and it shows behind Home and pages then. Off, the themes are as
+    // they are without a picture; the picture is the desktop pet's.
+    Q_PROPERTY(bool usePictureColors READ usePictureColors WRITE setUsePictureColors NOTIFY changed)
     // How much of the picture shows (percent, 0–100): the same over Home, around PDF pages and through the paper,
     // so the picture looks alike on a page and beside it.
     Q_PROPERTY(int pictureStrength READ pictureStrength WRITE setPictureStrength NOTIFY changed)
@@ -190,9 +193,11 @@ public:
     void setPictureInterval(int minutes);
     bool pictureRotationAllowed() const { return m_pictureRotationAllowed; }
     void setPictureRotationAllowed(bool allowed);
-    bool pictureShown() const { return !m_pictureHidden && showing() && m_theme == "custom"; }
+    bool pictureShown() const { return !m_pictureHidden && pictureInUse(); }
     bool pictureOn() const { return m_pictureOn; }
     void setPictureOn(bool on);
+    bool usePictureColors() const { return m_usePictureColors; }
+    void setUsePictureColors(bool on);
     int pictureStrength() const { return m_pictureStrength; }
     void setPictureStrength(int percent);
     QString pictureAlign() const { return m_pictureAlign; }
@@ -236,8 +241,9 @@ public:
     // Drops a kept picture (empty id: the one in use). Another one takes the place of the one in use;
     // after the last, the theme, accent and Custom colors from before the first picture come back.
     Q_INVOKABLE void removePicture(const QString &id = QString());
-    // The moods the pet has faces for: talk (a bubble), think (an answer being written), happy (good news), worried
-    // (something failed), rest (time for a break), sleepy (nothing for a while), held (dragged), poke (clicked).
+    // The moods the pet has faces for: usual (in place of the picture, the rest of the time), talk (a bubble), think
+    // (an answer being written), happy (good news), worried (something failed), rest (time for a break), sleepy
+    // (nothing for a while), held (dragged), poke (clicked).
     static QStringList petMoods();
     // Adds a face for a mood with the picture in use, kept like a picture (its colors are not taken); up to six
     // each. False if it cannot be read or there is no room.
@@ -327,12 +333,16 @@ private:
     void savePictures(bool listChanged = true);
     // Uses a kept picture: tints the Custom theme for it and, when shown, switches to it with its accent.
     void showPicture(const Picture &picture, bool dark, bool show);
+    // Uses a kept picture as the picture theme (the picture's colors in use) or only as the pet's (they are not).
+    void takePicture(const Picture &picture, bool dark);
     bool writeCustomSeeds(const QVariantMap &seeds);
     // A picture is in use and the picture theme is on.
     bool showing() const { return m_pictureOn && !m_picture.isEmpty(); }
+    // Its colors make the Custom theme.
+    bool tinting() const { return showing() && m_usePictureColors; }
     // The picture theme is the theme in use. It comes before Match System's theme for each appearance (which it
     // leaves as they were): it turns light or dark with the system itself.
-    bool pictureInUse() const { return showing() && m_theme == "custom"; }
+    bool pictureInUse() const { return tinting() && m_theme == "custom"; }
     void tintPictureFor(bool dark);
     // How bright a theme starting now should be: the system's with Match System, else the theme in use's.
     bool wantedDark() const { return m_matchSystem && m_systemDark ? *m_systemDark : m_dark; }
@@ -347,7 +357,7 @@ private:
     QDateTime m_pictureNext; // kept, so quitting does not put the next change off
     QTimer m_pictureTimer;
     bool m_pictureRotationAllowed = false, m_rotating = false;
-    bool m_pictureOn = true, m_pictureHidden = false;
+    bool m_pictureOn = true, m_pictureHidden = false, m_usePictureColors = true;
     QList<Picture> m_pictures;
     QString m_picture; // the one in use
     bool m_pictureCutout = false;

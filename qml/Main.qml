@@ -534,6 +534,10 @@ ApplicationWindow {
             }
             // Data for the AI, not interface text: the label is kept with the conversation like "Ask".
             onExplainRequested: function(text) { window.comeHere(); window.askAi({action: "explain", selection: text, label: "Explain"}) }
+            onLinkDropped: function(address) {
+                window.comeHere()
+                if (!window.restoreFailed && documents.openWeb(address, true)) window.homeVisible = false
+            }
         }
     }
     // PDFs opened from Finder or handed over by another launch while this window is open.

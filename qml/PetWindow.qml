@@ -17,18 +17,34 @@ Window {
     signal forYouRequested()
     signal pdfsDropped(var urls)
     signal explainRequested(string text)
+    // A link dropped on it, to open in Owelk: an arXiv paper's PDF (it joins the Library), a DOI's page, a web page.
+    signal linkDropped(string address)
     // A Settings page to open (Sync & Backup, Search).
     signal settingsRequested(string page)
     // The paper last read, from the card (Continue).
     signal continueRequested(url source, var position)
-    // Something dropped on the pet: PDFs to open, else text to explain. False if it was neither.
+    // Something dropped on the pet: PDFs to open, a link to open, else text to explain. False if it was none.
     function received(urls, text) {
         const pdfs = (urls || []).filter(function(url) { return /^file:.*\.pdf$/i.test(String(url)) })
         if (pdfs.length) { pdfsDropped(pdfs); return true }
+        const link = paperLink((urls || []).map(String).concat([String(text || "").trim()]))
+        if (link.length) { linkDropped(link); return true }
         const words = String(text || "").trim()
         if (!words.length) return false
         explainRequested(words)
         return true
+    }
+    // The first that is a link: arXiv (abs, pdf or "arXiv:2401.01234") goes to its PDF, a DOI to doi.org.
+    function paperLink(values) {
+        for (const value of values) {
+            const arxiv = /^https?:\/\/(?:www\.)?arxiv\.org\/(?:abs|pdf)\/([^?#\s]+?)(?:\.pdf)?(?:[?#]\S*)?$/i.exec(value)
+                || /^arxiv:\s*(\d{4}\.\d{4,5}(?:v\d+)?)$/i.exec(value)
+            if (arxiv) return "https://arxiv.org/pdf/" + arxiv[1]
+            const doi = /^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)?(10\.\d{4,9}\/\S+)$/i.exec(value)
+            if (doi) return "https://doi.org/" + doi[1]
+            if (/^https?:\/\/\S+$/i.test(value)) return value
+        }
+        return ""
     }
     // Where the news comes from (researchStore.ai and researchStore.forYou in the app).
     property QtObject ai: null
@@ -314,10 +330,11 @@ Window {
     readonly property string mood: held ? "held" : poking ? "poke"
         : message && !message.writing ? (message.mood || (message.reminder ? "rest" : "talk"))
         : writing ? "think" : sleepy ? "sleepy" : ""
-    // Whose faces a mood shows: its own, else talking's for news, else none.
+    // Whose faces a mood shows: its own, else talking's for news, else the usual ones (none: the picture).
     function faceName(name) {
-        if (Theme.pictureMoods[name]) return name
-        return ["happy", "worried", "rest"].indexOf(name) >= 0 && Theme.pictureMoods.talk ? "talk" : ""
+        if (name && Theme.pictureMoods[name]) return name
+        if (["happy", "worried", "rest"].indexOf(name) >= 0 && Theme.pictureMoods.talk) return "talk"
+        return Theme.pictureMoods.usual ? "usual" : ""
     }
     readonly property string faceShown: faceName(mood)
     readonly property var face: Theme.pictureMoods[faceShown] || null
@@ -341,16 +358,18 @@ Window {
         id: faceTurn
         objectName: "petFaceTurn"
         interval: 600; repeat: true
-        running: pet.visible && !!pet.face && pet.face.mode === "cycle" && pet.face.frames.length > 1
+        // Not the usual faces: those last, so the next one comes when it is back to them (nothing moves meanwhile).
+        running: pet.visible && !!pet.face && pet.face.mode === "cycle" && pet.face.frames.length > 1 && pet.faceShown !== "usual"
         onTriggered: {
             pet.frame = (pet.frame + 1) % pet.face.frames.length
             pet.lastFrames[pet.faceShown] = pet.frame
         }
     }
     readonly property url shown: face ? face.frames[Math.min(frame, face.frames.length - 1)].url : Theme.picture
-    // Every face, for the shape that takes clicks: worked out again only when they change, not at each turn.
+    // Every face, for the shape that takes clicks: worked out again only when they change, not at each turn. With
+    // usual faces the picture is not one.
     readonly property var faces: {
-        const list = [Theme.picture]
+        const list = Theme.pictureMoods.usual ? [] : [Theme.picture]
         for (const name in Theme.pictureMoods) for (const f of Theme.pictureMoods[name].frames) list.push(f.url)
         return list
     }
@@ -359,7 +378,8 @@ Window {
     // As wide as the widest face of a cut-out, so each stands the same height at the bottom middle.
     readonly property real aspect: {
         const clamp = function(a) { return Math.max(.3, Math.min(1.6, a)) }
-        let widest = Theme.pictureSize.height > 0 ? clamp(Theme.pictureSize.width / Theme.pictureSize.height) : 1
+        const usual = Theme.pictureMoods.usual
+        let widest = usual ? clamp(usual.frames[0].aspect) : Theme.pictureSize.height > 0 ? clamp(Theme.pictureSize.width / Theme.pictureSize.height) : 1
         if (Theme.pictureCutout)
             for (const name in Theme.pictureMoods)
                 for (const f of Theme.pictureMoods[name].frames) widest = Math.max(widest, clamp(f.aspect))

@@ -112,6 +112,10 @@
         <translation>세이브드 애즈 어 노트 위드 링크스 투 잇츠 소시즈.</translation>
     </message>
     <message>
+        <source>Saved the chat as a note. Its AI button can rewrite it.</source>
+        <translation>세이브드 더 챗 애즈 어 노트. 잇츠 에이아이 버튼 캔 리라이트 잇.</translation>
+    </message>
+    <message>
         <source>Selection · </source>
         <translation>셀렉션 · </translation>
     </message>
@@ -483,6 +487,10 @@
     <message>
         <source>Save as note</source>
         <translation>세이브 애즈 노트</translation>
+    </message>
+    <message>
+        <source>Save chat as note</source>
+        <translation>세이브 챗 애즈 노트</translation>
     </message>
     <message>
         <source>Search collections</source>
@@ -5938,6 +5946,10 @@ You can open the same document twice.</source>
         <translation>오프, 커스텀 해즈 유어 오운 컬러스 어게인 앤드 더 펫 고즈 어웨이. 더 픽처스 아 켑트.</translation>
     </message>
     <message>
+        <source>On, Custom takes the picture's colors and the picture shows behind Home and pages. Off, the themes above are as they are; the picture is the pet's.</source>
+        <translation>온, 커스텀 테이크스 더 픽처스 컬러스 앤드 더 픽처 쇼즈 비하인드 홈 앤드 페이지스. 오프, 더 테마즈 어보브 아 애즈 데이 아; 더 픽처 이즈 더 펫츠.</translation>
+    </message>
+    <message>
         <source>Opacity</source>
         <translation>오패시티</translation>
     </message>
@@ -5956,6 +5968,10 @@ You can open the same document twice.</source>
     <message>
         <source>Picture</source>
         <translation>픽처</translation>
+    </message>
+    <message>
+        <source>Picture colors</source>
+        <translation>픽처 컬러스</translation>
     </message>
     <message>
         <source>Picture theme</source>
@@ -6058,6 +6074,10 @@ You can open the same document twice.</source>
         <translation>더 픽처 플로츠 어보브 아더 앱스 와일 오웰크 이즈 오픈. 클릭 잇 투 컴 백 히어.</translation>
     </message>
     <message>
+        <source>The rest of the time, in place of the picture</source>
+        <translation>더 레스트 오브 더 타임, 인 플레이스 오브 더 픽처</translation>
+    </message>
+    <message>
         <source>Theme</source>
         <translation>테마</translation>
     </message>
@@ -6078,8 +6098,8 @@ You can open the same document twice.</source>
         <translation>타임 포 어 브레이크</translation>
     </message>
     <message>
-        <source>Up to six for each moment, a different one each time or one after another; right-click one to remove it. Without any, the pet shows the picture (for news, its talking face).</source>
-        <translation>업 투 식스 포 이치 모먼트, 어 디퍼런트 원 이치 타임 오어 원 애프터 어나더; 라이트-클릭 원 투 리무브 잇. 위다웃 애니, 더 펫 쇼즈 더 픽처 (포 뉴스, 잇츠 토킹 페이스).</translation>
+        <source>Up to six for each moment, a different one each time or one after another; right-click one to remove it. Without any, the pet shows its usual face, else the picture (for news, its talking face).</source>
+        <translation>업 투 식스 포 이치 모먼트, 어 디퍼런트 원 이치 타임 오어 원 애프터 어나더; 라이트-클릭 원 투 리무브 잇. 위다웃 애니, 더 펫 쇼즈 잇츠 유주얼 페이스, 엘스 더 픽처 (포 뉴스, 잇츠 토킹 페이스).</translation>
     </message>
     <message>
         <source>Use light text and dark controls</source>
@@ -6088,6 +6108,10 @@ You can open the same document twice.</source>
     <message>
         <source>Used for selection, the main button of each area, focus and links. Annotation inks keep their own colors.</source>
         <translation>유즈드 포 셀렉션, 더 메인 버튼 오브 이치 에어리어, 포커스 앤드 링크스. 애노테이션 잉크스 킵 데어 오운 컬러스.</translation>
+    </message>
+    <message>
+        <source>Usual</source>
+        <translation>유주얼</translation>
     </message>
     <message>
         <source>Window and toolbars</source>

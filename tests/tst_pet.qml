@@ -293,6 +293,54 @@ Item {
             compare(pet.message, null)
             researchStore.setSetting("pet.goalCheered", "")
         }
+        function test_aLinkDroppedOnItOpensInOwelk() {
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            const pet = createTemporaryObject(petComponent, null)
+            const links = [], explained = []
+            pet.linkDropped.connect(function(address) { links.push(address) })
+            pet.explainRequested.connect(function(text) { explained.push(text) })
+            // arXiv pages and ids go to the PDF (it joins the Library); a DOI to its page; any other link as it is.
+            verify(pet.received(["https://arxiv.org/abs/2401.01234v2"], "https://arxiv.org/abs/2401.01234v2"))
+            verify(pet.received([], "arXiv:2401.01234"))
+            verify(pet.received([], "doi:10.1145/3592433"))
+            verify(pet.received(["https://dl.acm.org/doi/10.1145/3592433"], ""))
+            compare(links, ["https://arxiv.org/pdf/2401.01234v2", "https://arxiv.org/pdf/2401.01234",
+                            "https://doi.org/10.1145/3592433", "https://dl.acm.org/doi/10.1145/3592433"])
+            // Words with a link among them are still words to explain.
+            verify(pet.received([], "See https://arxiv.org/abs/2401.01234 for details"))
+            compare(explained.length, 1)
+            compare(links.length, 4)
+        }
+        function test_usualFacesTakeThePicturesPlace() {
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            const pet = createTemporaryObject(petComponent, null, {ai: fakeAi, ownerActive: false})
+            verify(Theme.addPictureMood("talk", testInput.pictureFile(1000, 1300, true)))
+            const talk = String(Theme.pictureMoods.talk.frames[0].url)
+            compare(String(pet.shown), String(Theme.picture))
+            // A usual face: shown in place of the picture; the other moments keep theirs.
+            verify(Theme.addPictureMood("usual", testInput.pictureFile(500, 1300, true, "#a0c4f2")))
+            const usual = String(Theme.pictureMoods.usual.frames[0].url)
+            compare(String(pet.shown), usual)
+            verify(!pet.faces.some(function(f) { return String(f) === String(Theme.picture) }))
+            pet.say({text: "Hello"}, true)
+            compare(String(pet.shown), talk)
+            pet.message = null
+            compare(String(pet.shown), usual)
+            // Several in turn: the next one each time it is back to them, nothing turning meanwhile.
+            verify(Theme.addPictureMood("usual", testInput.pictureFile(500, 1300, true, "#a0f2c4")))
+            Theme.setPictureMoodMode("usual", "cycle")
+            const faces = Theme.pictureMoods.usual.frames.map(function(f) { return String(f.url) })
+            pet.say({text: "Hello"}, true); pet.message = null
+            const at = faces.indexOf(String(pet.shown))
+            verify(at >= 0)
+            verify(!findChild(pet, "petFaceTurn").running)
+            pet.say({text: "Hello"}, true); pet.message = null
+            compare(String(pet.shown), faces[(at + 1) % 2])
+            // Without them: the picture again.
+            Theme.removePictureMood("usual", 1); Theme.removePictureMood("usual", 0)
+            compare(String(pet.shown), String(Theme.picture))
+            Theme.removePictureMood("talk", 0)
+        }
         function test_askedFromItsMenuAndAnsweredBesideIt() {
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
             const pet = createTemporaryObject(petComponent, null, {ai: fakeAi, ownerActive: false})

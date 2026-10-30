@@ -206,6 +206,7 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
             if (kept.file == current) shown = &kept;
         mirror(shown);
         m_pictureOn = m_store->setting("appearance.pictureOn") != "0";
+        m_usePictureColors = m_store->setting("appearance.usePictureColors") != "0";
         m_pictureStrength = qBound(0, m_store->setting("appearance.pictureStrength", "25").toInt(), 100);
         if (const auto align = m_store->setting("appearance.pictureAlign"); align == "left" || align == "center")
             m_pictureAlign = align;
@@ -440,7 +441,7 @@ void Theme::useThemeFor(bool dark)
 void Theme::tintPictureFor(bool dark)
 {
     // A picture's theme in the other brightness: its colors tinted again, as its Dark switch does.
-    if (showing() && custom().dark != dark)
+    if (tinting() && custom().dark != dark)
         writeCustomSeeds(tintedSeeds(m_pictureColors.isEmpty() ? QColor() : QColor(m_pictureColors.first()), dark));
 }
 
@@ -538,7 +539,7 @@ bool Theme::setCustomAccent(const QVariant &color)
     save("appearance.customAccent", c.name());
     // The picture in use remembers it, for when it is chosen again.
     for (auto &picture : m_pictures)
-        if (showing() && picture.file == m_picture && picture.accent != c.name()) {
+        if (tinting() && picture.file == m_picture && picture.accent != c.name()) {
             picture.accent = c.name();
             savePictures();
         }
@@ -624,7 +625,7 @@ QString Theme::keepPictureFile(const QImage &image, bool cutout, const QString &
 
 QStringList Theme::petMoods()
 {
-    return {"talk", "think", "happy", "worried", "rest", "sleepy", "held", "poke"};
+    return {"usual", "talk", "think", "happy", "worried", "rest", "sleepy", "held", "poke"};
 }
 
 Theme::Picture *Theme::currentPicture()
@@ -731,7 +732,7 @@ bool Theme::usePicture(const QUrl &file)
     const auto image = keptPicture(file.toLocalFile(), &cutout);
     const auto name = image.isNull() ? QString() : keepPictureFile(image, cutout, QString());
     if (name.isEmpty()) return false;
-    if (!showing()) keepBeforePicture();
+    if (!showing() && m_usePictureColors) keepBeforePicture();
     if (!m_pictureOn) {
         m_pictureOn = true;
         save("appearance.pictureOn", "1");
@@ -742,7 +743,7 @@ bool Theme::usePicture(const QUrl &file)
     m_pictures.append(picture);
     // Light or dark like the system with Match System, else like the theme in use; the Custom theme's Dark switch
     // changes it afterwards.
-    showPicture(picture, wantedDark(), true);
+    takePicture(picture, wantedDark());
     return true;
 }
 
@@ -755,11 +756,11 @@ bool Theme::choosePicture(const QString &id)
             // Match System, the system's.
             const bool dark = m_matchSystem && m_systemDark ? *m_systemDark : showing() ? custom().dark : m_dark;
             if (!m_pictureOn) {
-                keepBeforePicture();
+                if (m_usePictureColors) keepBeforePicture();
                 m_pictureOn = true;
                 save("appearance.pictureOn", "1");
             }
-            showPicture(picture, dark, true);
+            takePicture(picture, dark);
             return true;
         }
     return false;
@@ -778,7 +779,7 @@ void Theme::setPictureOn(bool on)
         emit changed();
         return;
     }
-    const bool shown = showing();
+    const bool shown = tinting();
     m_pictureOn = false;
     save("appearance.pictureOn", "0");
     if (shown)
@@ -827,7 +828,7 @@ void Theme::removePicture(const QString &id)
     for (const auto &faces : std::as_const(m_pictures[at].moods)) files += faces;
     for (const auto &kept : std::as_const(files)) QFile::remove(QDir(pictureFolder()).filePath(kept));
     m_pictures.removeAt(at);
-    const bool shown = showing();
+    const bool shown = tinting();
     if (file != m_picture) {
         savePictures();
         emit changed();
@@ -886,6 +887,42 @@ void Theme::savePictures(bool listChanged)
     save("appearance.pictureCutout", QString());
     save("appearance.pictureColors", QString());
     if (listChanged) emit picturesChanged();
+}
+
+void Theme::takePicture(const Picture &picture, bool dark)
+{
+    if (m_usePictureColors) {
+        showPicture(picture, dark, true);
+        return;
+    }
+    // The themes stay as they are: only the pet's picture changes.
+    mirror(&picture);
+    savePictures();
+    emit changed();
+}
+
+void Theme::setUsePictureColors(bool on)
+{
+    if (on == m_usePictureColors) return;
+    m_usePictureColors = on;
+    save("appearance.usePictureColors", on ? "1" : "0");
+    if (!showing()) {
+        emit changed();
+        return;
+    }
+    // Off, the theme, accent and Custom colors from before the picture come back; on again, those are kept for
+    // the next time and the picture's theme is used.
+    if (!on) {
+        restoreBeforePicture();
+        return;
+    }
+    keepBeforePicture();
+    for (const auto &picture : std::as_const(m_pictures))
+        if (picture.file == m_picture) {
+            showPicture(picture, wantedDark(), true);
+            return;
+        }
+    emit changed();
 }
 
 void Theme::showPicture(const Picture &picture, bool dark, bool show)

@@ -732,6 +732,23 @@ Item {
             compare(ai.messages.length, before)
             researchStore.purgeAiThreads([branch])
         }
+        function test_5h_aChatSavedAsANote() {
+            const ai = findChild(workspace, "aiController"), d = workspace.documents
+            const id = researchStore.aiThreads("First of two")[0].id
+            verify(ai.openThread(id))
+            workspace.homeVisible = false
+            // The whole chat as a note: each question quoted above its answer, with a link back; it opens.
+            const note = ai.saveChatAsNote()
+            verify(note.length > 0)
+            const body = researchStore.note(note).body
+            const asked = ai.messages.filter(function(m) { return m.role === "user" })
+            verify(body.indexOf("> " + asked[0].display) >= 0)
+            verify(body.indexOf("> " + asked[asked.length - 1].display) >= 0)
+            verify(body.indexOf("Mock answer") >= 0)
+            verify(body.indexOf("owelk://ai/" + id) >= 0)
+            tryVerify(function() { const v = d.groupView(d.activeGroup); return !!v && v.isNote })
+            d.closeActiveTab()
+        }
         function test_5g_aPaperMarkedAsReadOffersThreeLines() {
             const d = workspace.documents, bar = findChild(workspace, "summaryBar")
             workspace.openDocument(fixtureSource)

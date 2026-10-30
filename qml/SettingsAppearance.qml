@@ -18,11 +18,11 @@ ColumnLayout {
     // The picture theme is in use: with Match System it is the theme for both appearances, light or dark with the
     // system, so no theme for each appearance applies. With Match System on, Custom's Dark is the system's to set
     // (the picture's colors are tinted for it); turning Match System off leaves it to the reader.
-    readonly property bool pictureTheme: Theme.picture.toString().length > 0 && Theme.theme === "custom"
+    readonly property bool pictureTheme: Theme.picture.toString().length > 0 && Theme.usePictureColors && Theme.theme === "custom"
     function startCustom() {
         if (Theme.theme === "custom") return
         // With a picture, Custom is the picture's theme; otherwise it starts as a copy of the theme in use.
-        if (Theme.picture.toString().length) { Theme.theme = "custom"; return }
+        if (Theme.picture.toString().length && Theme.usePictureColors) { Theme.theme = "custom"; return }
         Theme.setCustomSeeds(Theme.seeds(Theme.theme))
     }
     // A small picture of a theme: toolbar, sidebar, page with lines of text and an accent mark.
@@ -55,7 +55,7 @@ ColumnLayout {
             Row { x: 6; y: 4; spacing: 3; Repeater { model: 3; Rectangle { width: 4; height: 4; radius: 2; color: tile.seeds.text; opacity: .25 } } }
             // Custom made from a picture shows it.
             Image {
-                visible: tile.themeId === "custom" && Theme.picture.toString().length > 0
+                visible: tile.themeId === "custom" && Theme.picture.toString().length > 0 && Theme.usePictureColors
                 source: visible ? Theme.picture : ""
                 anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 2
                 width: parent.height - 8; height: width
@@ -152,6 +152,15 @@ ColumnLayout {
                 objectName: "pictureOnSwitch"
                 checked: Theme.pictureOn
                 onToggled: Theme.pictureOn = checked
+            }
+        }
+        SettingsRow {
+            label: qsTr("Picture colors")
+            detail: qsTr("On, Custom takes the picture's colors and the picture shows behind Home and pages. Off, the themes above are as they are; the picture is the pet's.")
+            Switch {
+                objectName: "pictureColorsSwitch"
+                checked: Theme.usePictureColors
+                onToggled: Theme.usePictureColors = checked
             }
         }
         SettingsRow {
@@ -321,9 +330,10 @@ ColumnLayout {
         visible: Theme.picture.toString().length > 0 && DesktopPet.supported && DesktopPet.enabled
         objectName: "settingsGroup-petFaces"
         title: qsTr("Pet faces")
-        note: qsTr("Up to six for each moment, a different one each time or one after another; right-click one to remove it. Without any, the pet shows the picture (for news, its talking face).")
+        note: qsTr("Up to six for each moment, a different one each time or one after another; right-click one to remove it. Without any, the pet shows its usual face, else the picture (for news, its talking face).")
         Repeater {
-            model: [{mood: "talk", name: qsTr("Talking"), detail: qsTr("Saying something")},
+            model: [{mood: "usual", name: qsTr("Usual"), detail: qsTr("The rest of the time, in place of the picture")},
+                {mood: "talk", name: qsTr("Talking"), detail: qsTr("Saying something")},
                 {mood: "think", name: qsTr("Thinking"), detail: qsTr("An answer is being written")},
                 {mood: "happy", name: qsTr("Happy"), detail: qsTr("An answer is ready, work is done")},
                 {mood: "worried", name: qsTr("Worried"), detail: qsTr("Something failed")},

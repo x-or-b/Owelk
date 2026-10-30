@@ -349,6 +349,12 @@ Item {
                     onCanceled: { if (moving) root.c.workspace.finishDrag(true); moving = false }
                 }
             }
+            IconButton {
+                objectName: "aiSaveChat"
+                visible: !!root.c && root.c.threadId.length > 0 && root.c.messages.length > 1
+                icon.name: "note"; description: qsTr("Save chat as note")
+                onClicked: root.c.saveChatAsNote()
+            }
             IconButton { objectName: "aiNewThread"; visible: !root.inTab; icon.name: "add"; description: qsTr("New chat"); onClicked: { root.c.newThread(); root.focusQuestion() } }
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.separator }
