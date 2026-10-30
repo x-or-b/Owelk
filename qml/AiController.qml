@@ -96,6 +96,7 @@ Item {
     function captureRegion() {
         if (!reader || !reader.pdfReady) { error = qsTr("Open a PDF to choose a region."); return false }
         error = ""
+        if (workspace) workspace.capturingFor = root
         reader.startCapture()
         return true
     }

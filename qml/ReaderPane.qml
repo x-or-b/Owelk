@@ -152,8 +152,8 @@ Rectangle {
     function goForward() { return canvas.goForward() }
     // Web links in a PDF open in an app tab when the pane is in a tab group.
     signal linkRequested(url url)
-    // AI help: a page translated, or something attached to the AI conversation to ask about (the one open
-    // in the AI panel, else a new one about this paper). The composer is shared app-wide.
+    // AI help: a page translated, or something attached to the AI conversation to ask about (a chat tab beside
+    // this paper, else the one open in the AI panel, else a new one about this paper; see DocumentWorkspace.readerAsked).
     signal aiRequested(var spec)
     function translatePage() {
         activated()
@@ -613,7 +613,7 @@ Rectangle {
                 }
                 onRegionSelected: function(page, rect) {
                     captureMode = false
-                    root.aiRequested({attach: true, source: root.source, page: page, region: rect, label: "Region"})
+                    root.aiRequested({attach: true, source: root.source, page: page, region: rect, label: "Region", captured: true})
                 }
                 onSourceChanged: {
                     searchDelay.stop()

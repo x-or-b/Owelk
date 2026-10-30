@@ -4831,8 +4831,16 @@ Use Pages to navigate.</source>
         <translation>%1 미닛츠 오브 리딩. 타임 포 어 쇼트 브레이크?</translation>
     </message>
     <message>
+        <source>%1 papers</source>
+        <translation>%1 페이퍼스</translation>
+    </message>
+    <message>
         <source>%1 tasks finished.</source>
         <translation>%1 태스크스 피니시드.</translation>
+    </message>
+    <message>
+        <source>1 paper</source>
+        <translation>1 페이퍼</translation>
     </message>
     <message>
         <source>Backup failed: </source>
@@ -4855,6 +4863,10 @@ Use Pages to navigate.</source>
         <translation>피니시드: %1</translation>
     </message>
     <message>
+        <source>Friday</source>
+        <translation>프라이데이</translation>
+    </message>
+    <message>
         <source>Hide Pet</source>
         <translation>하이드 펫</translation>
     </message>
@@ -4863,8 +4875,20 @@ Use Pages to navigate.</source>
         <translation>인덱싱 피니시드.</translation>
     </message>
     <message>
+        <source>Last week: %1 of reading, %2.</source>
+        <translation>라스트 위크: %1 오브 리딩, %2.</translation>
+    </message>
+    <message>
         <source>Meaning search is up to date.</source>
         <translation>미닝 서치 이즈 업 투 데이트.</translation>
+    </message>
+    <message>
+        <source>Monday</source>
+        <translation>먼데이</translation>
+    </message>
+    <message>
+        <source>Most on %1.</source>
+        <translation>모스트 온 %1.</translation>
     </message>
     <message>
         <source>New papers in For You: </source>
@@ -4875,6 +4899,14 @@ Use Pages to navigate.</source>
         <translation>오픈 오웰크</translation>
     </message>
     <message>
+        <source>Saturday</source>
+        <translation>새터데이</translation>
+    </message>
+    <message>
+        <source>Sunday</source>
+        <translation>선데이</translation>
+    </message>
+    <message>
         <source>Sync finished.</source>
         <translation>싱크 피니시드.</translation>
     </message>
@@ -4883,12 +4915,24 @@ Use Pages to navigate.</source>
         <translation>더 에이아이 쿠드 낫 앤서: </translation>
     </message>
     <message>
+        <source>Thursday</source>
+        <translation>서즈데이</translation>
+    </message>
+    <message>
         <source>Today's reading goal reached: %1.</source>
         <translation>투데이즈 리딩 골 리치트: %1.</translation>
     </message>
     <message>
         <source>Today: %1</source>
         <translation>투데이: %1</translation>
+    </message>
+    <message>
+        <source>Tuesday</source>
+        <translation>튜즈데이</translation>
+    </message>
+    <message>
+        <source>Wednesday</source>
+        <translation>웬즈데이</translation>
     </message>
     <message>
         <source>Writing your answer…</source>

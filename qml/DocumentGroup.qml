@@ -440,6 +440,7 @@ Rectangle {
             visible: root.isAi; active: root.isAi && !root.controller.suspended
             sourceComponent: AiTab {
                 workspace: root.controller
+                groupId: root.groupId
                 threadId: root.activeTabData && root.activeTabData.kind === "ai" ? root.activeTabData.threadId : ""
                 onActivated: root.controller.activateGroup(root.groupId)
             }
@@ -499,7 +500,7 @@ Rectangle {
             isActive: !root.isHome && !root.isWeb && !root.isLibrary && !root.isNote && !root.isAi && !root.controller.suspended && root.controller.activeGroup === root.groupId
             onActivated: root.controller.activateGroup(root.groupId)
             onFileChosen: function(source) { root.controller.activateGroup(root.groupId); root.controller.openDocument(source) }
-            onAiRequested: function(spec) { root.controller.aiRequested(spec) }
+            onAiRequested: function(spec) { root.controller.readerAsked(spec, pane) }
             onAnnotationsToggled: root.controller.annotationsToggled()
             onLinkRequested: function(url) { root.controller.activateGroup(root.groupId); root.controller.openWeb(url.toString(), true) }
             onChanged: if (!root.controller.syncing) root.controller.changed()

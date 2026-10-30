@@ -2,10 +2,12 @@ import QtQuick
 
 // An AI conversation in a tab: the AI panel's view with a controller of its own, bound to the tab's conversation.
 // Answers and waiting questions are shared with every other view of it (AiRuns), so the panel and the tab show the
-// same conversation as it goes; what is typed but not sent, and what is attached to it, stay in each.
+// same conversation as it goes; what is typed but not sent, and what is attached to it, stay in each. Its paper
+// ("This Paper", a region) is the one in front of another strip; what that paper attaches comes here.
 Item {
     id: root
     property var workspace: null
+    property string groupId: ""
     property string threadId: ""
     readonly property alias controller: chat
     signal activated()
@@ -13,6 +15,7 @@ Item {
         id: chat
         workspace: root.workspace
         runs: root.workspace ? root.workspace.aiRuns : null
+        reader: root.workspace ? root.workspace.paperBeside(root.groupId) : null
     }
     // Another chat tab of the strip in front reuses this view.
     function show() { if (threadId.length && chat.threadId !== threadId) chat.openThread(threadId) }

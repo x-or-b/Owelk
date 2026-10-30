@@ -289,6 +289,31 @@ Item {
             compare(pet.message, null)
             researchStore.setSetting("pet.goalCheered", "")
         }
+        function test_lastWeekIsToldOnceAWeek() {
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            const pet = createTemporaryObject(petComponent, null, {ownerActive: true})
+            // Days before this week's Monday.
+            const before = function(days) {
+                const date = new Date(); date.setHours(12, 0, 0, 0)
+                date.setDate(date.getDate() - (date.getDay() + 6) % 7 - days)
+                return Qt.formatDate(date, "yyyy-MM-dd")
+            }
+            const goal = DesktopPet.dailyGoal
+            DesktopPet.dailyGoal = 0
+            researchStore.setSetting("pet.weekTold", before(0))
+            verify(researchStore.recordReading(fixtureSource, before(7), 1200))
+            verify(researchStore.recordReading(fixtureSource, before(5), 3000))
+            compare(pet.message, null)
+            // From Monday on, once, also with Owelk in front: last Monday to Sunday.
+            researchStore.setSetting("pet.weekTold", "")
+            verify(pet.recap())
+            compare(pet.message.text, "Last week: 1 h 10 min of reading, 1 paper. Most on Wednesday.")
+            compare(pet.mood, "happy")
+            pet.message = null
+            verify(!pet.recap())
+            compare(pet.message, null)
+            DesktopPet.dailyGoal = goal
+        }
         function test_aDragMovesItWithoutOpeningOwelk() {
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
             const pet = createTemporaryObject(petComponent, null)

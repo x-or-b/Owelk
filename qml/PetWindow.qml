@@ -71,7 +71,30 @@ Window {
     Connections {
         target: typeof researchStore !== "undefined" ? researchStore : null
         ignoreUnknownSignals: true
-        function onReadingSaved() { pet.cheer() }
+        function onReadingSaved() { if (!pet.recap()) pet.cheer() }
+    }
+    // Once a week, at the first chance from Monday on: last week's reading (when there was any), told once.
+    Timer { interval: 4000; running: true; onTriggered: pet.recap() }
+    function recap() {
+        if (typeof researchStore === "undefined") return false
+        const day = function(date) { return Qt.formatDate(date, "yyyy-MM-dd") }
+        const monday = new Date(); monday.setHours(12, 0, 0, 0); monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7)
+        const week = day(monday)
+        if (researchStore.setting("pet.weekTold") === week) return false
+        researchStore.setSetting("pet.weekTold", week)
+        const from = new Date(monday); from.setDate(from.getDate() - 7)
+        const sunday = new Date(monday); sunday.setDate(sunday.getDate() - 1)
+        const days = researchStore.readingCalendar(14).days.filter(function(d) { return d.day >= day(from) && d.day <= day(sunday) })
+        const total = days.reduce(function(sum, d) { return sum + d.seconds }, 0)
+        if (total < 60) return false
+        const papers = researchStore.readingPapers(day(from), day(sunday)).length
+        const best = days.reduce(function(m, d) { return d.seconds > m.seconds ? d : m }, days[0])
+        const names = [qsTr("Sunday"), qsTr("Monday"), qsTr("Tuesday"), qsTr("Wednesday"), qsTr("Thursday"), qsTr("Friday"), qsTr("Saturday")]
+        const read = days.filter(function(d) { return d.seconds >= 60 }).length
+        say({text: qsTr("Last week: %1 of reading, %2.").arg(minutes(total)).arg(papers === 1 ? qsTr("1 paper") : qsTr("%1 papers").arg(papers))
+                   + (read > 1 ? " " + qsTr("Most on %1.").arg(names[new Date(best.day + "T12:00:00").getDay()]) : ""),
+             mood: "happy", cheer: true})
+        return true
     }
     function cheer() {
         const read = researchStore.readingCalendar(1), day = read.days.length ? read.days[0].day : ""

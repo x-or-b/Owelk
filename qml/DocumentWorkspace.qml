@@ -152,7 +152,10 @@ Flickable {
         if (Math.abs(x - contentX) < 1 && Math.abs(y - contentY) < 1) return
         revealX.to = x; revealY.to = y; reveal.restart()
     }
-    onActiveGroupChanged: Qt.callLater(function() { root.revealGroup(root.activeGroup) })
+    onActiveGroupChanged: {
+        groupOrder = [activeGroup].concat(groupOrder.filter(function(g) { return g !== activeGroup })).slice(0, 32)
+        Qt.callLater(function() { root.revealGroup(root.activeGroup) })
+    }
     ParallelAnimation {
         id: reveal
         NumberAnimation { id: revealX; target: root; property: "contentX"; duration: 180; easing.type: Easing.OutCubic }
@@ -353,6 +356,45 @@ Flickable {
         g.activeTab = t.id; activeGroup = g.id
         sync(); changed(); opened()
         return true
+    }
+    // The strips by when they were last in front, latest first.
+    property var groupOrder: []
+    function showsPaper(view) {
+        return !!view && !view.isHome && !view.isWeb && !view.isLibrary && !view.isNote && !view.isAi && view.reader.source.toString().length > 0
+    }
+    // The paper a chat tab in strip `id` goes with ("This Paper"): the one in front of another strip, the latest of them.
+    function paperBeside(id) {
+        const r = revision, order = groupOrder
+        let found = null, rank = Infinity
+        for (let i = 0; i < groups.count; ++i) {
+            const view = groups.itemAt(i)
+            if (!view || view.groupId === id || !showsPaper(view)) continue
+            const at = order.indexOf(view.groupId), k = at < 0 ? order.length + i : at
+            if (k < rank) { rank = k; found = view.reader }
+        }
+        return found
+    }
+    // A chat tab in front with this paper beside it, the latest in front of them.
+    function chatBeside(reader) {
+        let found = null, rank = Infinity
+        for (let i = 0; i < groups.count; ++i) {
+            const view = groups.itemAt(i)
+            if (!view || !view.isAi || !view.aiTab || view.aiTab.controller.reader !== reader) continue
+            const at = groupOrder.indexOf(view.groupId), k = at < 0 ? groupOrder.length + i : at
+            if (k < rank) { rank = k; found = view.aiTab }
+        }
+        return found
+    }
+    // The conversation (AI panel or chat tab) that asked a paper for a region (AiController.captureRegion).
+    property var capturingFor: null
+    // What a paper sends to the AI. A region goes back to the conversation that asked for it; anything else the
+    // paper attaches (a selection, a figure) goes to a chat tab beside it; the rest, and without such a tab, to
+    // the AI panel.
+    function readerAsked(spec, reader) {
+        if (spec.captured && capturingFor) { const asker = capturingFor; capturingFor = null; asker.begin(spec); return }
+        const tab = spec.attach ? chatBeside(reader) : null
+        if (tab) { activateGroup(tab.groupId); tab.controller.begin(spec); return }
+        aiRequested(spec)
     }
     // A chat in front of one of the strips (its answer then needs no "ready" card).
     function aiTabShown(threadId) {

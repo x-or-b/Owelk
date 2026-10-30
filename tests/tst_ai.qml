@@ -654,6 +654,45 @@ Item {
             workspace.threadsVisible = false
             d.closeActiveTab(); d.closeActiveTab()
         }
+        function test_5e_aChatTabTakesThePaperBesideIt() {
+            const ai = findChild(workspace, "aiController"), d = workspace.documents
+            const id = researchStore.aiThreads("First of two")[0].id
+            workspace.openDocument(fixtureSource)
+            workspace.homeVisible = false
+            tryVerify(function() { return !!workspace.currentReader && workspace.currentReader.pdfReady && researchStore.sameSource(workspace.currentReader.source, fixtureSource) })
+            const paper = workspace.currentReader, paperGroup = d.activeGroup
+            const canvas = findChild(paper, "pdfCanvas" + paper.paneIndex)
+            d.placeChat(id, {group: paperGroup, edge: "right"})
+            let tab = null
+            tryVerify(function() { const v = d.groupView(d.activeGroup); tab = v && v.aiTab; return !!tab && tab.controller.threadId === id })
+            const chatGroup = d.activeGroup
+            // Its paper is the one beside it.
+            tryCompare(tab.controller, "reader", paper)
+            tab.controller.attachPaper()
+            verify(researchStore.sameSource(tab.controller.spec.source, fixtureSource)
+                   || (tab.controller.spec.papers || []).some(function(url) { return researchStore.sameSource(url, fixtureSource) }))
+            // A selection asked about in that paper goes to the chat beside it, not to the AI panel.
+            d.activateGroup(paperGroup)
+            const panelSpec = JSON.stringify(ai.spec)
+            paper.aiRequested({attach: true, source: fixtureSource, page: 0, selection: "Words from beside"})
+            verify(tab.controller.spec.selection.indexOf("Words from beside") >= 0)
+            compare(JSON.stringify(ai.spec), panelSpec)
+            compare(d.activeGroup, chatGroup)
+            // A region goes back to the conversation that asked for it.
+            const inPanel = ai.images.length, inTab = tab.controller.images.length
+            verify(tab.controller.captureRegion())
+            canvas.regionSelected(0, Qt.rect(.1, .1, .3, .2))
+            compare(tab.controller.images.length, inTab + 1)
+            compare(ai.images.length, inPanel)
+            d.activateGroup(paperGroup)
+            verify(ai.captureRegion())
+            canvas.regionSelected(0, Qt.rect(.1, .4, .3, .2))
+            compare(ai.images.length, inPanel + 1)
+            compare(tab.controller.images.length, inTab + 1)
+            ai.images = []; tab.controller.images = []
+            d.activateGroup(chatGroup); d.closeActiveTab()
+            d.activateGroup(paperGroup); d.closeActiveTab()
+        }
         // Visible items whose right edge passes the panel (in panel coordinates).
         function overflowing(item, panel, list) {
             if (!item.visible || item.opacity === 0) return list
