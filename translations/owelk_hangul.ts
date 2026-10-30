@@ -5683,6 +5683,10 @@ You can open the same document twice.</source>
         <translation>스토어드 시큐얼리</translation>
     </message>
     <message>
+        <source>Suggest next questions</source>
+        <translation>서제스트 넥스트 퀘스천스</translation>
+    </message>
+    <message>
         <source>Symbol hints</source>
         <translation>심벌 힌츠</translation>
     </message>
@@ -5693,6 +5697,10 @@ You can open the same document twice.</source>
     <message>
         <source>Testing…</source>
         <translation>테스팅…</translation>
+    </message>
+    <message>
+        <source>Two or three questions under the last answer; a click asks one</source>
+        <translation>투 오어 스리 퀘스천스 언더 더 라스트 앤서; 어 클릭 애스크스 원</translation>
     </message>
     <message>
         <source>Used for Explain, Summarize and other one-click actions, and as the Translate target. A question you type is answered in the language you wrote it in.</source>
@@ -6572,6 +6580,10 @@ You can open the same document twice.</source>
     <message>
         <source>Show thinking</source>
         <translation>쇼 싱킹</translation>
+    </message>
+    <message>
+        <source>Suggest next questions</source>
+        <translation>서제스트 넥스트 퀘스천스</translation>
     </message>
     <message>
         <source>Summaries and citation counts</source>

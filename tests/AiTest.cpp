@@ -990,6 +990,50 @@ private slots:
             store.aiThread(store.forkAiThread(fork, copied[1].toMap()["id"].toString()))["title"], branch["title"]);
     }
 
+    void suggestedQuestionsAreKeptApartFromTheAnswer()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        MockServer server;
+        server.chunks = {MockServer::sse("content_block_delta",
+                             {{"type", "content_block_delta"},
+                                 {"delta",
+                                     QJsonObject{{"type", "text_delta"},
+                                         {"text",
+                                             "The answer.\n\n<followups>\n- What comes next?\n2. Why "
+                                             "so?\n</followups>\n"}}}}),
+            MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        store.setSetting("ai.baseUrl.claude", server.base().toString());
+        ai->giveConsent("claude");
+        QVERIFY(ai->setApiKey("claude", "sk-ant-next-test"));
+        QSignalSpy finished(ai, &AiService::finished);
+        const QVariantMap base{{"provider", "claude"}, {"model", "claude-opus-5-5"}};
+        auto ask = base;
+        ask.insert({{"action", "ask"}, {"question", "What is it?"}});
+        ai->ask(ask);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 5000);
+        QVERIFY(server.seen.last().body["system"].toString().contains("<followups>"));
+        // The answer is what is shown, copied and sent again; the questions go with it.
+        QCOMPARE(finished[0][1].toString(), QString("The answer."));
+        const auto messages = store.aiThread(finished[0][2].toMap()["threadId"].toString())["messages"].toList();
+        QCOMPARE(messages[1].toMap()["content"].toString(), QString("The answer."));
+        QCOMPARE(messages[1].toMap()["context"].toMap()["followUps"].toStringList(),
+            QStringList({"What comes next?", "Why so?"}));
+        // Not for a translation, nor when turned off.
+        auto translate = base;
+        translate.insert({{"action", "translate"}, {"selection", "Ein Satz."}});
+        ai->ask(translate);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 5000);
+        QVERIFY(!server.seen.last().body["system"].toString().contains("<followups>"));
+        store.setSetting("ai.followUps", "0");
+        ai->ask(ask);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 3, 5000);
+        QVERIFY(!server.seen.last().body["system"].toString().contains("<followups>"));
+    }
+
     void stoppedAnswersKeepWhatArrived()
     {
         QTemporaryDir directory;

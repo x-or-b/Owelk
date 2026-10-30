@@ -493,6 +493,23 @@ void AiService::retrieveLibrary(int request, const QString &id, QVariantMap spec
 // [p. 3: "exact words"] (or [p. 3], [pp. 3-4]) in an answer about a paper: a link that opens the paper at
 // that page and lights up the words (DocumentWorkspace.openLink, ResearchStore::revealPassage). With several
 // papers the citation names one, [P2 p. 3: "…"]; documents are P1, P2… in order.
+// The questions an answer suggests asking next (AiMaterials::followUps), taken out of it: up to three.
+static QStringList takeFollowUps(QString *answer)
+{
+    static const QRegularExpression block(R"(<followups>([\s\S]*?)(?:</followups>|$))");
+    const auto m = block.match(*answer);
+    if (!m.hasMatch()) return {};
+    static const QRegularExpression bullet(R"(^\s*(?:[-*\x{2022}]|\d+[.)])\s*)");
+    QStringList questions;
+    for (auto line : m.captured(1).split('\n')) {
+        line = line.remove(bullet).trimmed();
+        if (!line.isEmpty() && line.size() <= 200 && questions.size() < 3) questions << line;
+    }
+    answer->remove(m.capturedStart(), m.capturedLength());
+    *answer = answer->trimmed();
+    return questions;
+}
+
 static QString withPageLinks(const QString &answer, const QStringList &documents)
 {
     static const QRegularExpression cite(
@@ -585,6 +602,8 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     materials.hasImage = !images.isEmpty();
     const auto action
         = spec.value("scope").toString() == "library" ? QStringLiteral("library") : spec.value("action").toString();
+    materials.followUps = (action.isEmpty() || action == "ask" || action == "library") && !spec.value("fresh").toBool()
+        && !spec.value("symbols").toBool() && m_store->setting("ai.followUps", "1") == "1";
     auto prompt = buildAiPrompt(action.isEmpty() ? QStringLiteral("ask") : action, m_store->setting("aiLanguage", "ko"),
         spec.value("question").toString(), materials);
     // Asked again: exactly what was sent then (its material included), after the turns before it.
@@ -649,7 +668,9 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     const auto store = [this, request, id, prompt, spec, done, threadId, thought, provider, attached = materials,
                            sentImages](const QString &answer, const QString &used, bool stopped) {
         done();
-        auto text = spec.contains("sources") ? withSourceLinks(answer, spec.value("sources").toList()) : answer;
+        auto reply = answer;
+        const auto followUps = takeFollowUps(&reply);
+        auto text = spec.contains("sources") ? withSourceLinks(reply, spec.value("sources").toList()) : reply;
         // Page citations in an answer about papers become links to those places.
         if (!spec.contains("sources")
             && (!attached.pageText.isEmpty() || !attached.paperText.isEmpty() || spec.contains("resend")))
@@ -702,6 +723,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         if (interrupted) answerContext.insert("interrupted", true);
         if (stopped) answerContext.insert("stopped", true);
         if (stopped && m_closing) answerContext.insert("closed", true);
+        if (!followUps.isEmpty()) answerContext.insert("followUps", followUps);
         m_store->appendAiMessage(threadId,
             {{"role", "assistant"}, {"content", text}, {"model", usedModel}, {"provider", id},
                 {"context", answerContext}});

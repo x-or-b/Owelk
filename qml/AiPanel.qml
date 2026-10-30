@@ -559,6 +559,27 @@ Item {
                         }
                     }
                 }
+                // Under the last answer: questions it suggests asking next; a click asks one.
+                Flow {
+                    id: followUps
+                    objectName: "aiFollowUps"
+                    readonly property var questions: message.modelData.role === "assistant" && message.lastTurn && !root.c.editing.length
+                        ? (message.modelData.context || {}).followUps || [] : []
+                    visible: questions.length > 0
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Repeater {
+                        model: followUps.questions
+                        delegate: Chip {
+                            required property string modelData
+                            required property int index
+                            objectName: "aiFollowUp-" + index
+                            width: Math.min(implicitWidth, followUps.width)
+                            text: modelData
+                            onClicked: { const question = modelData; Qt.callLater(function() { root.c.send(question) }) }
+                        }
+                    }
+                }
             }
             footer: ColumnLayout {
                 width: conversation.width

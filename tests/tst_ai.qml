@@ -749,6 +749,25 @@ Item {
             tryVerify(function() { const v = d.groupView(d.activeGroup); return !!v && v.isNote })
             d.closeActiveTab()
         }
+        function test_5i_questionsSuggestedNextAreAskedWithAClick() {
+            const ai = findChild(workspace, "aiController")
+            const id = researchStore.aiThreads("First of two")[0].id
+            verify(ai.openThread(id))
+            // Under the last answer only; a click asks one.
+            verify(researchStore.appendAiMessage(id, {role: "user", content: "Q", display: "Q"}))
+            verify(researchStore.appendAiMessage(id, {role: "assistant", content: "A", context: {followUps: ["What next?", "Why?"]}}))
+            tryVerify(function() { return ai.canRedo && ai.messages[ai.messages.length - 1].content === "A" })
+            const p = panel()
+            let chip = null
+            tryVerify(function() { chip = findChild(p, "aiFollowUp-0"); return !!chip && chip.visible })
+            compare(chip.text, "What next?")
+            const before = ai.messages.length
+            chip.clicked()
+            tryVerify(function() { return !ai.streaming && ai.messages.length === before + 2 }, 15000)
+            compare(ai.messages[before].display, "What next?")
+            // While an answer is written, its block of questions does not show.
+            compare(ai.noteBlocks("Text\n\n<followups>\nOne?").text, "Text")
+        }
         function test_5g_aPaperMarkedAsReadOffersThreeLines() {
             const d = workspace.documents, bar = findChild(workspace, "summaryBar")
             workspace.openDocument(fixtureSource)

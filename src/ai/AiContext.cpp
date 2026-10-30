@@ -77,6 +77,11 @@ AiPrompt buildAiPrompt(
             "they did not ask to change), or <note_new title=\"Title\">Markdown</note_new> for a new note. Owelk "
             "shows the block to the reader, who decides whether to apply it, so do not say it is saved. Never write "
             "these blocks otherwise.");
+    if (materials.followUps)
+        prompt.system += QStringLiteral(
+            "\n\nAfter everything else, end with two or three short questions the reader might ask next about this, "
+            "in the language of your answer, one per line in a single block: <followups>\nquestion\nquestion\n"
+            "</followups>. Nothing comes after the block.");
     // Paper text comes with page numbers: answers point to their places, which Owelk turns into links.
     if (materials.paperMarkers.size() > 1 && action != "translate")
         prompt.system += " The material holds several papers, each opened by a line such as \"=== P2: Title ===\" ("

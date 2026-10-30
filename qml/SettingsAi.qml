@@ -100,6 +100,16 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            objectName: "settingsRow-followUps"
+            label: qsTr("Suggest next questions")
+            detail: qsTr("Two or three questions under the last answer; a click asks one")
+            Switch {
+                objectName: "aiFollowUpsSwitch"
+                checked: researchStore.setting("ai.followUps", "1") === "1"
+                onToggled: researchStore.setSetting("ai.followUps", checked ? "1" : "0")
+            }
+        }
+        SettingsRow {
             objectName: "settingsRow-showThinking"
             label: qsTr("Show thinking")
             detail: qsTr("A short summary of the model's reasoning, folded above each answer")

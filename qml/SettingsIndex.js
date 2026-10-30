@@ -43,6 +43,7 @@ const entries = [
     {page: "ai", anchor: "settingsRow-explanations", text: QT_TR_NOOP("Explanations"), words: "easy brief level student"},
     {page: "ai", anchor: "settingsRow-instructions", text: QT_TR_NOOP("Instructions"), words: "custom prompt system"},
     {page: "ai", anchor: "settingsRow-symbolHints", text: QT_TR_NOOP("Symbol hints"), words: "math notation symbols"},
+    {page: "ai", anchor: "settingsRow-followUps", text: QT_TR_NOOP("Suggest next questions"), words: "follow-up suggestions"},
     {page: "ai", anchor: "settingsRow-showThinking", text: QT_TR_NOOP("Show thinking"), words: "reasoning summary"},
     {page: "ai", anchor: "settingsRow-provider", text: QT_TR_NOOP("AI provider"), words: "claude openai chatgpt codex ollama account api key sign in model"},
     {page: "ai", anchor: "settingsRow-reasoning", text: QT_TR_NOOP("Reasoning"), words: "effort thinking"},

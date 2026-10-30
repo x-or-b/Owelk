@@ -22,6 +22,8 @@ struct AiMaterials {
     // How the reader wants things explained: "easy" (plain words and examples) or "brief"; and the
     // reader's own standing instructions (Settings → AI).
     QString level, instructions;
+    // The answer ends with questions the reader might ask next, in a <followups> block Owelk takes out.
+    bool followUps = false;
 };
 
 struct AiPrompt {
