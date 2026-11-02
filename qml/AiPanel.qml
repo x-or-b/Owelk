@@ -29,7 +29,7 @@ Item {
     // The reader's turn: an accent bubble that hugs its text, with room on the left like a messenger.
     component Bubble: Rectangle {
         property alias text: bubbleText.text
-        readonly property real room: conversation.width - Math.min(40, conversation.width * 0.12)
+        readonly property real room: conversation.column - Math.min(40, conversation.column * 0.12)
         Layout.alignment: Qt.AlignRight
         Layout.preferredWidth: Math.min(room, bubbleText.implicitWidth + 18)
         implicitHeight: bubbleText.contentHeight + 14
@@ -39,7 +39,8 @@ Item {
             anchors.fill: parent; anchors.leftMargin: 9; anchors.rightMargin: 9; anchors.topMargin: 7; anchors.bottomMargin: 7
             readOnly: true; selectByMouse: true
             textFormat: TextEdit.PlainText; wrapMode: TextEdit.WrapAtWordBoundaryOrAnywhere
-            color: Theme.onAccent; font.pixelSize: Theme.fontSmall
+            color: Theme.onAccent; font.pixelSize: Theme.answerSize - 1
+            renderType: Theme.answerNative ? TextEdit.NativeRendering : TextEdit.QtRendering
             selectionColor: Theme.onAccent; selectedTextColor: Theme.accent
             TapHandler { acceptedButtons: Qt.RightButton; onTapped: function(point) { root.openTextMenu(bubbleText, point.position) } }
         }
@@ -254,11 +255,15 @@ Item {
             }
         }
     }
-    // An answer: Markdown as rich text that can be selected and copied; links open in Owelk.
+    // An answer: Markdown as rich text that can be selected and copied; links open in Owelk. Its size,
+    // spacing and drawing are the reader's (Settings › AI › Answer text).
     component AnswerText: TextEdit {
+        property string markdown
         readOnly: true; selectByMouse: true
         textFormat: TextEdit.RichText; wrapMode: TextEdit.WrapAtWordBoundaryOrAnywhere
-        color: Theme.text; font.pixelSize: Theme.fontBody
+        text: markdown.length ? researchStore.markdownHtml(markdown, Theme.accent, Theme.text, Theme.answerSize, Theme.textTertiary, Theme.answerLineHeight) : ""
+        renderType: Theme.answerNative ? TextEdit.NativeRendering : TextEdit.QtRendering
+        color: Theme.text; font.pixelSize: Theme.answerSize
         selectionColor: Theme.mix(Theme.accent, Theme.field, .65); selectedTextColor: Theme.text
         onLinkActivated: function(link) { root.linkActivated(link) }
         HoverHandler { cursorShape: parent.hoveredLink.length > 0 ? Qt.PointingHandCursor : Qt.IBeamCursor }
@@ -417,172 +422,188 @@ Item {
                 const list = root.c ? root.c.messages : []
                 let at = index
                 while (at > 0 && list[at].role !== "user") --at
-                following = false
+                // It stops following even when the question is on the last screen.
+                settling = true
                 positionViewAtIndex(at, ListView.Beginning)
+                settling = false
+                following = false
             }
             onContentYChanged: if (!settling) following = nearEnd
             onCountChanged: follow()
-            delegate: ColumnLayout {
-                id: message
+            // The turns' column: in a wide chat, about 48 characters of answer wide and centred (Settings ›
+            // AI › Answer text); the view itself stays full width, so it scrolls anywhere.
+            readonly property real column: Theme.answerWidth > 0 ? Math.min(width, Theme.answerWidth) : width
+            readonly property real inset: (width - column) / 2
+            delegate: Item {
+                id: turn
                 required property var modelData
                 required property int index
-                // An answer's text and the notes it proposes.
-                readonly property var parts: modelData.role === "assistant" && root.c ? root.c.noteBlocks(modelData.content) : ({text: "", notes: [], plain: ""})
-                // The last question and its answer can be edited or asked again (AiController.canRedo).
-                readonly property bool lastTurn: !!root.c && root.c.canRedo && index >= root.c.messages.length - 2
                 width: ListView.view.width
-                spacing: 4
-                HoverHandler { id: messageHover }
-                // What went with the question, above it.
-                Flow {
-                    readonly property var sent: message.modelData.role === "user" ? root.sentAttachments(message.modelData) : []
-                    objectName: "aiSent-" + message.index
-                    visible: sent.length > 0
-                    Layout.fillWidth: true
-                    Layout.leftMargin: Math.min(40, conversation.width * 0.12)
-                    // Right-aligned like the question; filled from the right, so the list is reversed.
-                    layoutDirection: Qt.RightToLeft
+                height: message.height
+                ColumnLayout {
+                    id: message
+                    readonly property var modelData: turn.modelData
+                    readonly property int index: turn.index
+                    // An answer's text and the notes it proposes.
+                    readonly property var parts: modelData.role === "assistant" && root.c ? root.c.noteBlocks(modelData.content) : ({text: "", notes: [], plain: ""})
+                    // The last question and its answer can be edited or asked again (AiController.canRedo).
+                    readonly property bool lastTurn: !!root.c && root.c.canRedo && index >= root.c.messages.length - 2
+                    x: conversation.inset
+                    width: conversation.column
                     spacing: 4
-                    Repeater {
-                        model: parent.sent.slice().reverse()
-                        delegate: AttachmentChip {
-                            required property int index
-                            objectName: "aiSentChip-" + message.index + "-" + index
-                        }
-                    }
-                }
-                Bubble {
-                    visible: message.modelData.role === "user"
-                    objectName: "aiQuestion-" + message.index
-                    text: message.modelData.display || ""
-                    // Beside the last question while the pointer is on it.
-                    IconButton {
-                        objectName: "aiEditQuestion"
-                        visible: message.lastTurn && message.modelData.role === "user" && !root.c.editing.length && (messageHover.hovered || hovered)
-                        anchors.right: parent.left; anchors.rightMargin: 2; anchors.verticalCenter: parent.verticalCenter
-                        implicitWidth: 24; implicitHeight: 24; glyphSize: Theme.fontBody
-                        icon.name: "edit"; description: qsTr("Edit question")
-                        onClicked: root.c.editLast()
-                    }
-                }
-                ThinkingFold {
-                    readonly property var context: message.modelData.context || ({})
-                    objectName: "aiThought-" + message.index
-                    Layout.fillWidth: true
-                    summary: message.modelData.role === "assistant" ? (context.thinking || "") : ""
-                    seconds: context.thinkingSeconds || 0
-                }
-                AnswerText {
-                    visible: message.modelData.role === "assistant" && message.parts.text.length > 0
-                    objectName: "aiMessage-" + message.index
-                    Layout.fillWidth: true
-                    text: visible ? researchStore.markdownHtml(message.parts.text, Theme.accent, Theme.text, Theme.fontBody) : ""
-                }
-                Repeater {
-                    model: message.modelData.role === "assistant" ? message.parts.notes : []
-                    delegate: NoteCard {
-                        required property var modelData
-                        required property int index
+                    HoverHandler { id: messageHover }
+                    // What went with the question, above it.
+                    Flow {
+                        readonly property var sent: message.modelData.role === "user" ? root.sentAttachments(message.modelData) : []
+                        objectName: "aiSent-" + message.index
+                        visible: sent.length > 0
                         Layout.fillWidth: true
-                        objectName: "aiNoteCard-" + message.index + "-" + index
-                        block: modelData
-                        messageIndex: message.index
-                        blockIndex: index
-                    }
-                }
-                Label {
-                    objectName: "aiCutOff-" + message.index
-                    readonly property var context: message.modelData.context || ({})
-                    visible: message.modelData.role === "assistant" && !!(context.cutOff || context.stopped || context.interrupted)
-                    text: context.closed ? (message.modelData.content.length ? qsTr("Owelk was closed before the answer finished.") : qsTr("Owelk was closed before the answer came."))
-                        : context.stopped ? qsTr("Stopped.") : context.interrupted ? qsTr("The connection ended before the answer did.") : qsTr("Stopped at the length limit.")
-                    textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
-                }
-                // Nothing to copy or keep when Owelk closed before the answer came; the last can be asked again.
-                RowLayout {
-                    readonly property bool written: (message.modelData.content || "").length > 0
-                    visible: message.modelData.role === "assistant" && (written || message.lastTurn)
-                    spacing: 0
-                    IconButton { visible: parent.written; icon.name: "copy"; description: qsTr("Copy answer"); glyphSize: Theme.fontBody; onClicked: researchStore.copyText(message.parts.plain) }
-                    // A new note, or one of the notes about this paper (a menu when there are some).
-                    IconButton {
-                        id: saveNoteButton
-                        objectName: "aiSaveNote-" + message.index
-                        visible: parent.written
-                        icon.name: "note"; description: qsTr("Save as note"); glyphSize: Theme.fontBody
-                        onClicked: {
-                            const notes = root.c.paperNotes()
-                            if (!notes.length) { root.c.saveAsNote(message.index); return }
-                            saveNoteMenu.notes = notes
-                            saveNoteMenu.popup(saveNoteButton, 0, saveNoteButton.height)
-                        }
-                        Menu {
-                            id: saveNoteMenu
-                            objectName: "aiSaveNoteMenu"
-                            property var notes: []
-                            MenuItem { objectName: "aiSaveNewNote"; text: qsTr("New Note"); onTriggered: root.c.saveAsNote(message.index) }
-                            MenuSeparator {}
-                            Instantiator {
-                                model: saveNoteMenu.notes
-                                delegate: MenuItem {
-                                    required property var modelData
-                                    text: qsTr("Add to \u201c") + modelData.title + "\u201d"
-                                    onTriggered: root.c.saveAsNote(message.index, modelData.id)
-                                }
-                                onObjectAdded: function(index, item) { saveNoteMenu.insertItem(index + 2, item) }
-                                onObjectRemoved: function(index, item) { saveNoteMenu.removeItem(item) }
+                        Layout.leftMargin: Math.min(40, conversation.column * 0.12)
+                        // Right-aligned like the question; filled from the right, so the list is reversed.
+                        layoutDirection: Qt.RightToLeft
+                        spacing: 4
+                        Repeater {
+                            model: parent.sent.slice().reverse()
+                            delegate: AttachmentChip {
+                                required property int index
+                                objectName: "aiSentChip-" + message.index + "-" + index
                             }
                         }
                     }
-                    IconButton {
-                        objectName: "aiToQuestion-" + message.index
-                        visible: parent.written
-                        icon.name: "toQuestion"; description: qsTr("Back to the question"); glyphSize: Theme.fontBody
-                        onClicked: conversation.toQuestion(message.index)
-                    }
-                    IconButton {
-                        objectName: "aiAskAgain"
-                        visible: message.lastTurn
-                        icon.name: "reload"; description: qsTr("Ask again"); glyphSize: Theme.fontBody
-                        onClicked: root.c.askAgain()
-                    }
-                    // A new conversation with the turns up to here (in a chat tab, in a tab of its own).
-                    IconButton {
-                        objectName: "aiBranch-" + message.index
-                        visible: parent.written
-                        icon.name: "add"; description: qsTr("New chat from here"); glyphSize: Theme.fontBody
-                        onClicked: {
-                            const id = root.c.branchFrom(message.index)
-                            if (!id.length) return
-                            if (root.inTab && root.c.workspace) root.c.workspace.openAiThread(id, true)
-                            else root.c.openThread(id)
+                    Bubble {
+                        visible: message.modelData.role === "user"
+                        objectName: "aiQuestion-" + message.index
+                        text: message.modelData.display || ""
+                        // Beside the last question while the pointer is on it.
+                        IconButton {
+                            objectName: "aiEditQuestion"
+                            visible: message.lastTurn && message.modelData.role === "user" && !root.c.editing.length && (messageHover.hovered || hovered)
+                            anchors.right: parent.left; anchors.rightMargin: 2; anchors.verticalCenter: parent.verticalCenter
+                            implicitWidth: 24; implicitHeight: 24; glyphSize: Theme.fontBody
+                            icon.name: "edit"; description: qsTr("Edit question")
+                            onClicked: root.c.editLast()
                         }
                     }
-                }
-                // Under the last answer: questions it suggests asking next; a click asks one.
-                Flow {
-                    id: followUps
-                    objectName: "aiFollowUps"
-                    readonly property var questions: message.modelData.role === "assistant" && message.lastTurn && !root.c.editing.length
-                        ? (message.modelData.context || {}).followUps || [] : []
-                    visible: questions.length > 0
-                    Layout.fillWidth: true
-                    spacing: 4
+                    ThinkingFold {
+                        readonly property var context: message.modelData.context || ({})
+                        objectName: "aiThought-" + message.index
+                        Layout.fillWidth: true
+                        summary: message.modelData.role === "assistant" ? (context.thinking || "") : ""
+                        seconds: context.thinkingSeconds || 0
+                    }
+                    AnswerText {
+                        visible: message.modelData.role === "assistant" && message.parts.text.length > 0
+                        objectName: "aiMessage-" + message.index
+                        Layout.fillWidth: true
+                        markdown: visible ? message.parts.text : ""
+                    }
                     Repeater {
-                        model: followUps.questions
-                        delegate: Chip {
-                            required property string modelData
+                        model: message.modelData.role === "assistant" ? message.parts.notes : []
+                        delegate: NoteCard {
+                            required property var modelData
                             required property int index
-                            objectName: "aiFollowUp-" + index
-                            width: Math.min(implicitWidth, followUps.width)
-                            text: modelData
-                            onClicked: { const question = modelData; Qt.callLater(function() { root.c.send(question) }) }
+                            Layout.fillWidth: true
+                            objectName: "aiNoteCard-" + message.index + "-" + index
+                            block: modelData
+                            messageIndex: message.index
+                            blockIndex: index
+                        }
+                    }
+                    Label {
+                        objectName: "aiCutOff-" + message.index
+                        readonly property var context: message.modelData.context || ({})
+                        visible: message.modelData.role === "assistant" && !!(context.cutOff || context.stopped || context.interrupted)
+                        text: context.closed ? (message.modelData.content.length ? qsTr("Owelk was closed before the answer finished.") : qsTr("Owelk was closed before the answer came."))
+                            : context.stopped ? qsTr("Stopped.") : context.interrupted ? qsTr("The connection ended before the answer did.") : qsTr("Stopped at the length limit.")
+                        textFormat: Text.PlainText; color: Theme.textTertiary; font.pixelSize: Theme.fontSmall
+                    }
+                    // Nothing to copy or keep when Owelk closed before the answer came; the last can be asked again.
+                    RowLayout {
+                        readonly property bool written: (message.modelData.content || "").length > 0
+                        visible: message.modelData.role === "assistant" && (written || message.lastTurn)
+                        spacing: 0
+                        IconButton { visible: parent.written; icon.name: "copy"; description: qsTr("Copy answer"); glyphSize: Theme.fontBody; onClicked: researchStore.copyText(message.parts.plain) }
+                        // A new note, or one of the notes about this paper (a menu when there are some).
+                        IconButton {
+                            id: saveNoteButton
+                            objectName: "aiSaveNote-" + message.index
+                            visible: parent.written
+                            icon.name: "note"; description: qsTr("Save as note"); glyphSize: Theme.fontBody
+                            onClicked: {
+                                const notes = root.c.paperNotes()
+                                if (!notes.length) { root.c.saveAsNote(message.index); return }
+                                saveNoteMenu.notes = notes
+                                saveNoteMenu.popup(saveNoteButton, 0, saveNoteButton.height)
+                            }
+                            Menu {
+                                id: saveNoteMenu
+                                objectName: "aiSaveNoteMenu"
+                                property var notes: []
+                                MenuItem { objectName: "aiSaveNewNote"; text: qsTr("New Note"); onTriggered: root.c.saveAsNote(message.index) }
+                                MenuSeparator {}
+                                Instantiator {
+                                    model: saveNoteMenu.notes
+                                    delegate: MenuItem {
+                                        required property var modelData
+                                        text: qsTr("Add to \u201c") + modelData.title + "\u201d"
+                                        onTriggered: root.c.saveAsNote(message.index, modelData.id)
+                                    }
+                                    onObjectAdded: function(index, item) { saveNoteMenu.insertItem(index + 2, item) }
+                                    onObjectRemoved: function(index, item) { saveNoteMenu.removeItem(item) }
+                                }
+                            }
+                        }
+                        IconButton {
+                            objectName: "aiToQuestion-" + message.index
+                            visible: parent.written
+                            icon.name: "toQuestion"; description: qsTr("Back to the question"); glyphSize: Theme.fontBody
+                            onClicked: conversation.toQuestion(message.index)
+                        }
+                        IconButton {
+                            objectName: "aiAskAgain"
+                            visible: message.lastTurn
+                            icon.name: "reload"; description: qsTr("Ask again"); glyphSize: Theme.fontBody
+                            onClicked: root.c.askAgain()
+                        }
+                        // A new conversation with the turns up to here (in a chat tab, in a tab of its own).
+                        IconButton {
+                            objectName: "aiBranch-" + message.index
+                            visible: parent.written
+                            icon.name: "add"; description: qsTr("New chat from here"); glyphSize: Theme.fontBody
+                            onClicked: {
+                                const id = root.c.branchFrom(message.index)
+                                if (!id.length) return
+                                if (root.inTab && root.c.workspace) root.c.workspace.openAiThread(id, true)
+                                else root.c.openThread(id)
+                            }
+                        }
+                    }
+                    // Under the last answer: questions it suggests asking next; a click asks one.
+                    Flow {
+                        id: followUps
+                        objectName: "aiFollowUps"
+                        readonly property var questions: message.modelData.role === "assistant" && message.lastTurn && !root.c.editing.length
+                            ? (message.modelData.context || {}).followUps || [] : []
+                        visible: questions.length > 0
+                        Layout.fillWidth: true
+                        spacing: 4
+                        Repeater {
+                            model: followUps.questions
+                            delegate: Chip {
+                                required property string modelData
+                                required property int index
+                                objectName: "aiFollowUp-" + index
+                                width: Math.min(implicitWidth, followUps.width)
+                                text: modelData
+                                onClicked: { const question = modelData; Qt.callLater(function() { root.c.send(question) }) }
+                            }
                         }
                     }
                 }
             }
             footer: ColumnLayout {
-                width: conversation.width
+                x: conversation.inset
+                width: conversation.column
                 spacing: 4
                 Bubble {
                     visible: root.c && root.c.pendingQuestion.length > 0
@@ -616,7 +637,7 @@ Item {
                     readonly property var parts: root.c && drawn.length ? root.c.noteBlocks(drawn) : ({text: "", notes: [], preparing: false})
                     visible: parts.text.length > 0
                     Layout.fillWidth: true
-                    text: visible ? researchStore.markdownHtml(parts.text, Theme.accent, Theme.text, Theme.fontBody) : ""
+                    markdown: visible ? parts.text : ""
                     onTextChanged: conversation.follow()
                 }
                 // Asked while the answer above was coming: each goes next, in order (× takes one back). After a
@@ -638,7 +659,7 @@ Item {
                             font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                         }
                         Bubble {
-                            Layout.maximumWidth: conversation.width * .75
+                            Layout.maximumWidth: conversation.column * .75
                             text: waiting.modelData.question
                             opacity: .7
                         }
@@ -719,6 +740,7 @@ Item {
             objectName: "aiEditing"
             visible: !!root.c && root.c.editing.length > 0
             Layout.fillWidth: true; Layout.minimumWidth: 0
+            Layout.leftMargin: conversation.inset; Layout.rightMargin: conversation.inset
             spacing: 4
             Icon { name: "edit"; size: Theme.fontSmall; color: Theme.textSecondary }
             Label {
@@ -738,6 +760,7 @@ Item {
             id: attachmentRow
             objectName: "aiAttachments"
             Layout.fillWidth: true; Layout.minimumWidth: 0
+            Layout.leftMargin: conversation.inset; Layout.rightMargin: conversation.inset
             spacing: 4
             visible: root.c && root.c.attachments.length > 0
             Repeater {
@@ -760,6 +783,7 @@ Item {
             readonly property real limit: expanded ? Math.max(140, root.height * 0.5) : 140
             Layout.minimumWidth: 0
             Layout.fillWidth: true
+            Layout.leftMargin: conversation.inset; Layout.rightMargin: conversation.inset
             // Expanded, the box keeps its larger height (like Zed or ChatGPT) until collapsed or sent.
             Layout.preferredHeight: expanded ? limit : Math.min(limit, Math.max(56, question.implicitHeight))
             onTallChanged: if (!tall) expanded = false
@@ -777,7 +801,7 @@ Item {
                     property var keepFocusWithin: [composer, attachmentRow, bar]
                     placeholderText: root.c && root.c.spec.scope === "library" ? (root.c.spec.collection ? qsTr("Ask this collection…") : qsTr("Ask your library…")) : root.c && root.c.threadId.length ? qsTr("Ask a follow-up…") : qsTr("Ask about the paper…")
                     wrapMode: TextEdit.Wrap
-                    font.pixelSize: Theme.fontSmall
+                    font.pixelSize: Theme.answerSize - 1
                     rightPadding: composer.tall ? 28 : 8
                     // Typing with nothing open starts a chat about the paper in the reader (its chip shows).
                     onActiveFocusChanged: if (activeFocus && root.c) root.c.ensureConversation()
@@ -809,6 +833,7 @@ Item {
         RowLayout {
             id: bar
             Layout.fillWidth: true; Layout.minimumWidth: 0
+            Layout.leftMargin: conversation.inset; Layout.rightMargin: conversation.inset
             spacing: width < Theme.fontBody * 16 ? 2 : 4
             IconButton {
                 id: attachButton

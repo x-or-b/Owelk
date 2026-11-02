@@ -768,6 +768,39 @@ Item {
             // While an answer is written, its block of questions does not show.
             compare(ai.noteBlocks("Text\n\n<followups>\nOne?").text, "Text")
         }
+        function test_5j_answersReadInAColumnAtTheirOwnSize() {
+            const ai = findChild(workspace, "aiController"), d = workspace.documents
+            const id = researchStore.aiThreads("First of two")[0].id
+            verify(d.openAiThread(id, true))
+            workspace.homeVisible = false
+            let tab = null
+            tryVerify(function() { const v = d.groupView(d.activeGroup); tab = v && v.aiTab; return !!tab && tab.controller.threadId === id })
+            const conversation = findChild(tab, "aiConversation"), last = tab.controller.messages.length - 1
+            let answer = null
+            tryVerify(function() { answer = findChild(conversation, "aiMessage-" + last); return !!answer && answer.visible && answer.width > 0 })
+            compare(answer.font.pixelSize, Theme.answerSize)
+            compare(answer.renderType, TextEdit.NativeRendering)
+            // In a wide tab the turns keep to a column in the middle; the question box keeps to it too.
+            verify(conversation.width > Theme.answerWidth)
+            const left = function(item) { return item.mapToItem(conversation, 0, 0).x }
+            tryVerify(function() { return Math.abs(answer.width - Theme.answerWidth) < 1 })
+            fuzzyCompare(left(answer), (conversation.width - Theme.answerWidth) / 2, 1)
+            const box = findChild(tab, "aiComposer")
+            tryVerify(function() { return Math.abs(box.width - Theme.answerWidth) < 1 && Math.abs(left(box) - left(answer)) < 1 })
+            Theme.answerColumn = false
+            tryVerify(function() { return Math.abs(answer.width - conversation.width) < 1 })
+            fuzzyCompare(left(answer), 0, 1)
+            Theme.answerColumn = true
+            // Tighter lines make the same answer shorter; sharp text can be turned off.
+            const comfortable = answer.contentHeight
+            Theme.answerSpacing = "compact"
+            tryVerify(function() { return answer.contentHeight < comfortable })
+            Theme.answerSpacing = "comfortable"
+            Theme.answerNative = false
+            compare(answer.renderType, TextEdit.QtRendering)
+            Theme.answerNative = true
+            d.closeActiveTab()
+        }
         function test_5g_aPaperMarkedAsReadOffersThreeLines() {
             const d = workspace.documents, bar = findChild(workspace, "summaryBar")
             workspace.openDocument(fixtureSource)

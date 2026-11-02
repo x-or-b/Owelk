@@ -149,6 +149,16 @@ class Theme : public QObject {
     Q_PROPERTY(int fontBody READ fontBody NOTIFY changed)
     Q_PROPERTY(int fontHeadline READ fontHeadline NOTIFY changed)
     Q_PROPERTY(int fontTitle READ fontTitle NOTIFY changed)
+    // AI answers (Settings › AI › Answer text, persisted under ai.answer*): a size that follows the text
+    // size, line spacing ("compact", "comfortable", "relaxed") as a percentage of the font's own line
+    // height, a column 48 times the answer size wide in a wide chat (answerWidth, 0 when off), and the
+    // system's own glyph drawing, sharper than Qt's for small text and Hangul.
+    Q_PROPERTY(int answerSize READ answerSize WRITE setAnswerSize NOTIFY changed)
+    Q_PROPERTY(QString answerSpacing READ answerSpacing WRITE setAnswerSpacing NOTIFY changed)
+    Q_PROPERTY(int answerLineHeight READ answerLineHeight NOTIFY changed)
+    Q_PROPERTY(bool answerColumn READ answerColumn WRITE setAnswerColumn NOTIFY changed)
+    Q_PROPERTY(int answerWidth READ answerWidth NOTIFY changed)
+    Q_PROPERTY(bool answerNative READ answerNative WRITE setAnswerNative NOTIFY changed)
 
     // Annotation inks are document data, not theme: they never follow the accent.
     Q_PROPERTY(QVariantList annotationInks READ annotationInks CONSTANT)
@@ -267,6 +277,16 @@ public:
     int fontBody() const { return m_textSize; }
     int fontHeadline() const { return m_textSize + 2; }
     int fontTitle() const { return m_textSize + 7; }
+    int answerSize() const { return m_textSize + m_answerOffset; }
+    void setAnswerSize(int size);
+    QString answerSpacing() const { return m_answerSpacing; }
+    void setAnswerSpacing(const QString &spacing);
+    int answerLineHeight() const;
+    bool answerColumn() const { return m_answerColumn; }
+    void setAnswerColumn(bool on);
+    int answerWidth() const { return m_answerColumn ? answerSize() * 48 : 0; }
+    bool answerNative() const { return m_answerNative; }
+    void setAnswerNative(bool on);
     QVariantList annotationInks() const;
     QString defaultInk() const;
     QString defaultTextInk() const;
@@ -303,6 +323,9 @@ private:
     ResearchStore *m_store = nullptr;
     QString m_theme = "neutral", m_accentName = "blue";
     int m_textSize = 13;
+    int m_answerOffset = 2; // answerSize() - m_textSize, -1..5
+    QString m_answerSpacing = "comfortable";
+    bool m_answerColumn = true, m_answerNative = true;
     bool m_invertPages = false, m_dark = false, m_verticalTabs = false;
     QString m_appIcon = "paper";
     void showAppIcon(bool finderToo);

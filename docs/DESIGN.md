@@ -57,6 +57,7 @@
 - 강조색은 밝은 테마용·어두운 테마용 값이 짝입니다. 빨강은 오류·삭제용이라 강조색 목록에 없습니다.
 - Settings는 왼쪽 카테고리 + 오른쪽 둥근 그룹 행(`SettingsGroup`, `SettingsRow`: 이름 왼쪽·컨트롤 오른쪽·행 사이 구분선·그룹 아래 짧은 설명)입니다. 켜고 끄는 값은 Switch, 고르는 값은 팝업 버튼, 실행은 버튼, 아이콘으로 충분한 동작(폴더 고르기·새로 고침·키 삭제)은 아이콘입니다.
 - Dark pages는 페이지 이미지에만 셰이더를 씌우며 켰을 때만 존재합니다(`shaders/invert.frag`).
+- AI 답 글자는 `Theme.answerSize`·`answerLineHeight`(글꼴 자체 줄 높이의 %, `markdownHtml`의 lineHeight로 넘김)·`answerWidth`(0이면 제한 없음)·`answerNative`를 씁니다(Settings › AI › Answer text). Qt의 비례 줄 높이는 글꼴 줄(약 1.2em) 기준이라 125%가 웹의 1.5em에 해당합니다. 질문 말풍선과 입력창은 `answerSize - 1`입니다.
 
 ## 화면 언어
 

@@ -323,9 +323,11 @@ public:
     Q_INVOKABLE QString documentLinkId(const QUrl &source);
     // Markdown as rich text: links in linkColor, LaTeX math ($…$, $$…$$, \(…\), \[…\]) as images in
     // textColor at the text's pixel size (see MathRenderer.h). A link to an AI conversation deleted for
-    // good reads "Deleted conversation" in mutedColor.
+    // good reads "Deleted conversation" in mutedColor. A lineHeight above 100 (percent of the font's own
+    // line) spaces lines, paragraphs and headings to match, for reading at length (AI answers).
     Q_INVOKABLE QString markdownHtml(const QString &markdown, const QString &linkColor,
-        const QString &textColor = QString(), int pixelSize = 0, const QString &mutedColor = QString()) const;
+        const QString &textColor = QString(), int pixelSize = 0, const QString &mutedColor = QString(),
+        int lineHeight = 0) const;
     // Plain text of rich text made by markdownHtml (a selection's HTML), with formulas as their LaTeX.
     Q_INVOKABLE QString plainTextWithMath(const QString &html) const;
     // "[title](owelk://kind/id)" for inserting into a note.

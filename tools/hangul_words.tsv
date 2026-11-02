@@ -64,6 +64,7 @@ aspect	애스펙트
 at	앳
 attach	어태치
 attached	어태치트
+attention	어텐션
 author	오서
 authors	오서스
 auto	오토
@@ -95,10 +96,12 @@ being	빙
 below	빌로우
 beside	비사이드
 better	베터
+between	비트윈
 bibtex	빕텍
 billed	빌드
 blocked	블락트
 blue	블루
+blurry	블러리
 both	보스
 bottom	바텀
 box	박스
@@ -160,6 +163,7 @@ clicked	클릭트
 close	클로즈
 closed	클로즈드
 closes	클로지즈
+closest	클로지스트
 closing	클로징
 codex	코덱스
 collapse	컬랩스
@@ -172,12 +176,14 @@ column	칼럼
 columns	칼럼스
 com	컴
 come	컴
+comfortable	컴퍼터블
 comma	콤마
 command	커맨드
 commands	커맨즈
 commas	콤마스
 comment	코멘트
 comments	코멘츠
+compact	컴팩트
 compare	컴페어
 comparison	컴패리슨
 complete	컴플리트
@@ -206,6 +212,7 @@ copying	카피잉
 corresponding	코레스폰딩
 costs	코스츠
 could	쿠드
+count	카운트
 create	크리에이트
 created	크리에이티드
 crossref	크로스레프
@@ -265,6 +272,7 @@ drag	드래그
 dragged	드래그드
 draw	드로
 drawing	드로잉
+drawn	드론
 drive	드라이브
 drop	드롭
 dropbox	드롭박스
@@ -490,6 +498,8 @@ left	레프트
 length	렝스
 less	레스
 let	렛
+lets	렛츠
+letters	레터스
 library	라이브러리
 library's	라이브러리스
 lidar	라이다
@@ -540,6 +550,7 @@ match	매치
 matches	매치스
 matching	매칭
 math	매스
+matter	매터
 max	맥스
 may	메이
 mb	엠비
@@ -549,6 +560,7 @@ medium	미디엄
 megapixels	메가픽셀스
 menu	메뉴
 menus	메뉴스
+middle	미들
 min	민
 minimal	미니멀
 minimize	미니마이즈
@@ -654,6 +666,7 @@ panels	패널스
 paper	페이퍼
 paper's	페이퍼스
 papers	페이퍼스
+paragraphs	패러그래프스
 part	파트
 parts	파츠
 party	파티
@@ -723,6 +736,7 @@ reach	리치
 reachable	리처블
 reached	리치트
 read	리드
+readable	리더블
 reader	리더
 reader's	리더스
 reading	리딩
@@ -747,6 +761,7 @@ region	리전
 regions	리전스
 rejected	리젝티드
 related	릴레이티드
+relaxed	릴랙스트
 relink	리링크
 relinking	리링킹
 reload	리로드
@@ -838,6 +853,7 @@ share	셰어
 shared	셰어드
 shares	셰어스
 sharing	셰어링
+sharp	샤프
 short	쇼트
 shortcut	쇼트컷
 shortcuts	쇼트컷츠
@@ -871,6 +887,7 @@ something	섬싱
 sort	소트
 source	소스
 sources	소시즈
+spacing	스페이싱
 spanish	스패니시
 specific	스페시픽
 split	스플릿
@@ -1038,6 +1055,7 @@ web	웹
 website	웹사이트
 wednesday	웬즈데이
 week	위크
+weigh	웨이
 well	웰
 were	워
 what	왓
@@ -1049,6 +1067,7 @@ while	와일
 white	화이트
 whole	홀
 whose	후즈
+wide	와이드
 width	위드스
 will	윌
 window	윈도

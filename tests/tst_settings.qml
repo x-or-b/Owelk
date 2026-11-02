@@ -293,6 +293,31 @@ Item {
             researchStore.setSetting("ai.instructions", "")
             settings.close()
         }
+        function test_answerTextChosenInTheAiPage() {
+            settings.openPage("ai"); tryCompare(settings, "opened", true)
+            tryVerify(function() { return findChild(settings, "answerSizeSlider") !== null })
+            // A little larger than the rest by default; it follows the text size.
+            compare(Theme.answerSize, Theme.textSize + 2)
+            const slider = findChild(settings, "answerSizeSlider")
+            slider.value = Theme.textSize + 4; slider.moved()
+            compare(Theme.answerSize, 17)
+            Theme.textSize = 14
+            compare(Theme.answerSize, 18)
+            Theme.textSize = 13
+            // Line spacing changes the preview's height; the column and the drawing are switches.
+            const preview = findChild(settings, "answerPreview")
+            const comfortable = preview.contentHeight
+            findChild(settings, "answerSpacingBox").activated(0)
+            compare(Theme.answerSpacing, "compact")
+            compare(researchStore.setting("ai.answerSpacing"), "compact")
+            tryVerify(function() { return preview.contentHeight < comfortable })
+            findChild(settings, "answerColumnSwitch").toggle(); findChild(settings, "answerColumnSwitch").toggled()
+            compare(Theme.answerWidth, 0)
+            findChild(settings, "answerNativeSwitch").toggle(); findChild(settings, "answerNativeSwitch").toggled()
+            compare(preview.renderType, TextEdit.QtRendering)
+            Theme.answerSize = 15; Theme.answerSpacing = "comfortable"; Theme.answerColumn = true; Theme.answerNative = true
+            compare(preview.renderType, TextEdit.NativeRendering)
+        }
         function test_pictureGroupOnlyWithAPicture() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
             tryVerify(function() { return visualChild(settings.contentItem, "settingsGroup-picture") !== null })

@@ -120,6 +120,70 @@ ColumnLayout {
             }
         }
     }
+    // How answers read in the AI panel and chat tabs (kept by Theme, like the text size).
+    SettingsGroup {
+        objectName: "settingsGroup-answerText"
+        title: qsTr("Answer text")
+        note: qsTr("How answers look in the AI panel and chat tabs.")
+        SettingsRow {
+            objectName: "settingsRow-answerSize"
+            label: qsTr("Text size")
+            Icon { name: "text"; size: Theme.fontCaption; color: Theme.textTertiary }
+            Slider {
+                objectName: "answerSizeSlider"
+                Layout.preferredWidth: 180
+                from: Theme.textSize - 1; to: Theme.textSize + 5; stepSize: 1; snapMode: Slider.SnapAlways
+                value: Theme.answerSize
+                onMoved: Theme.answerSize = value
+            }
+            Icon { name: "text"; size: Theme.fontTitle; color: Theme.textTertiary }
+            Label { text: Theme.answerSize + qsTr(" pt"); color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
+        }
+        SettingsRow {
+            objectName: "settingsRow-answerSpacing"
+            label: qsTr("Line spacing")
+            detail: qsTr("Between lines and between paragraphs")
+            ComboBox {
+                readonly property var spacings: ["compact", "comfortable", "relaxed"]
+                objectName: "answerSpacingBox"
+                Layout.preferredWidth: 200
+                model: [qsTr("Compact"), qsTr("Comfortable"), qsTr("Relaxed")]
+                currentIndex: Math.max(0, spacings.indexOf(Theme.answerSpacing))
+                onActivated: function(index) { Theme.answerSpacing = spacings[index] }
+            }
+        }
+        SettingsRow {
+            objectName: "settingsRow-answerColumn"
+            label: qsTr("Limit line length")
+            detail: qsTr("In a wide chat tab, the conversation stays a readable width in the middle")
+            Switch { objectName: "answerColumnSwitch"; checked: Theme.answerColumn; onToggled: Theme.answerColumn = checked }
+        }
+        SettingsRow {
+            objectName: "settingsRow-answerNative"
+            label: qsTr("Sharp text")
+            detail: qsTr("Letters drawn by the system, as in other apps; turn off if they look blurry")
+            Switch { objectName: "answerNativeSwitch"; checked: Theme.answerNative; onToggled: Theme.answerNative = checked }
+        }
+        SettingsRow {
+            objectName: "settingsRow-answerPreview"
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: preview.implicitHeight + 20
+                radius: Theme.radius; color: Theme.content; border.color: Theme.separator
+                TextEdit {
+                    id: preview
+                    objectName: "answerPreview"
+                    x: 12; y: 10; width: Math.min(parent.width - 24, Theme.answerWidth || parent.width)
+                    readOnly: true; activeFocusOnPress: false
+                    textFormat: TextEdit.RichText; wrapMode: TextEdit.Wrap
+                    renderType: Theme.answerNative ? TextEdit.NativeRendering : TextEdit.QtRendering
+                    color: Theme.text; font.pixelSize: Theme.answerSize
+                    text: researchStore.markdownHtml(qsTr("**Attention** lets each word look at the others and weigh which matter here.\n\n- Each word asks a question.\n- The others answer, and the closest answers count most.\n\nThe result is a new meaning for every word, read in its sentence."),
+                                                     Theme.accent, Theme.text, Theme.answerSize, Theme.textTertiary, Theme.answerLineHeight)
+                }
+            }
+        }
+    }
     SettingsGroup {
         objectName: "settingsGroup-provider"
         title: qsTr("Provider")

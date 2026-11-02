@@ -5479,6 +5479,24 @@ You can open the same document twice.</source>
         <translation> 애즈 </translation>
     </message>
     <message>
+        <source> pt</source>
+        <translation> 피티</translation>
+    </message>
+    <message>
+        <source>**Attention** lets each word look at the others and weigh which matter here.
+
+- Each word asks a question.
+- The others answer, and the closest answers count most.
+
+The result is a new meaning for every word, read in its sentence.</source>
+        <translation>**어텐션** 렛츠 이치 워드 룩 앳 더 아더스 앤드 웨이 위치 매터 히어.
+
+- 이치 워드 애스크스 어 퀘스천.
+- 더 아더스 앤서, 앤드 더 클로지스트 앤서스 카운트 모스트.
+
+더 리절트 이즈 어 뉴 미닝 포 에브리 워드, 리드 인 잇츠 센텐스.</translation>
+    </message>
+    <message>
         <source>A short summary of the model's reasoning, folded above each answer</source>
         <translation>어 쇼트 서머리 오브 더 모델스 리즈닝, 폴디드 어보브 이치 앤서</translation>
     </message>
@@ -5495,12 +5513,20 @@ You can open the same document twice.</source>
         <translation>애디드 투 에브리 퀘스천, 포 이그잼플: "풋 잉글리시 텀스 인 브래킷츠" 오어 "아이 노 칼만 필터스"</translation>
     </message>
     <message>
+        <source>Answer text</source>
+        <translation>앤서 텍스트</translation>
+    </message>
+    <message>
         <source>Answers</source>
         <translation>앤서스</translation>
     </message>
     <message>
         <source>Before the first request to a provider, Owelk shows what will be sent.</source>
         <translation>비포 더 퍼스트 리퀘스트 투 어 프로바이더, 오웰크 쇼즈 왓 윌 비 센트.</translation>
+    </message>
+    <message>
+        <source>Between lines and between paragraphs</source>
+        <translation>비트윈 라인스 앤드 비트윈 패러그래프스</translation>
     </message>
     <message>
         <source>Brief</source>
@@ -5517,6 +5543,14 @@ You can open the same document twice.</source>
     <message>
         <source>Codex CLI not found — install it to sign in</source>
         <translation>코덱스 씨엘아이 낫 파운드 — 인스톨 잇 투 사인 인</translation>
+    </message>
+    <message>
+        <source>Comfortable</source>
+        <translation>컴퍼터블</translation>
+    </message>
+    <message>
+        <source>Compact</source>
+        <translation>컴팩트</translation>
     </message>
     <message>
         <source>Connection</source>
@@ -5571,8 +5605,16 @@ You can open the same document twice.</source>
         <translation>호스트</translation>
     </message>
     <message>
+        <source>How answers look in the AI panel and chat tabs.</source>
+        <translation>하우 앤서스 룩 인 더 에이아이 패널 앤드 챗 탭스.</translation>
+    </message>
+    <message>
         <source>How every answer is written</source>
         <translation>하우 에브리 앤서 이즈 리튼</translation>
+    </message>
+    <message>
+        <source>In a wide chat tab, the conversation stays a readable width in the middle</source>
+        <translation>인 어 와이드 챗 탭, 더 컨버세이션 스테이즈 어 리더블 위드스 인 더 미들</translation>
     </message>
     <message>
         <source>Instructions</source>
@@ -5589,6 +5631,18 @@ You can open the same document twice.</source>
     <message>
         <source>Korean</source>
         <translation>코리언</translation>
+    </message>
+    <message>
+        <source>Letters drawn by the system, as in other apps; turn off if they look blurry</source>
+        <translation>레터스 드론 바이 더 시스템, 애즈 인 아더 앱스; 턴 오프 이프 데이 룩 블러리</translation>
+    </message>
+    <message>
+        <source>Limit line length</source>
+        <translation>리밋 라인 렝스</translation>
+    </message>
+    <message>
+        <source>Line spacing</source>
+        <translation>라인 스페이싱</translation>
     </message>
     <message>
         <source>Loading…</source>
@@ -5639,6 +5693,10 @@ You can open the same document twice.</source>
         <translation>리즈닝</translation>
     </message>
     <message>
+        <source>Relaxed</source>
+        <translation>릴랙스트</translation>
+    </message>
+    <message>
         <source>Remove</source>
         <translation>리무브</translation>
     </message>
@@ -5657,6 +5715,10 @@ You can open the same document twice.</source>
     <message>
         <source>Save</source>
         <translation>세이브</translation>
+    </message>
+    <message>
+        <source>Sharp text</source>
+        <translation>샤프 텍스트</translation>
     </message>
     <message>
         <source>Show thinking</source>
@@ -5697,6 +5759,10 @@ You can open the same document twice.</source>
     <message>
         <source>Testing…</source>
         <translation>테스팅…</translation>
+    </message>
+    <message>
+        <source>Text size</source>
+        <translation>텍스트 사이즈</translation>
     </message>
     <message>
         <source>Two or three questions under the last answer; a click asks one</source>
@@ -6442,6 +6508,10 @@ You can open the same document twice.</source>
         <translation>액센트 컬러</translation>
     </message>
     <message>
+        <source>Answer text size</source>
+        <translation>앤서 텍스트 사이즈</translation>
+    </message>
+    <message>
         <source>App icon</source>
         <translation>앱 아이콘</translation>
     </message>
@@ -6514,6 +6584,14 @@ You can open the same document twice.</source>
         <translation>랭귀지</translation>
     </message>
     <message>
+        <source>Limit line length</source>
+        <translation>리밋 라인 렝스</translation>
+    </message>
+    <message>
+        <source>Line spacing</source>
+        <translation>라인 스페이싱</translation>
+    </message>
+    <message>
         <source>Match System</source>
         <translation>매치 시스템</translation>
     </message>
@@ -6576,6 +6654,10 @@ You can open the same document twice.</source>
     <message>
         <source>Search engines</source>
         <translation>서치 엔진스</translation>
+    </message>
+    <message>
+        <source>Sharp text</source>
+        <translation>샤프 텍스트</translation>
     </message>
     <message>
         <source>Show thinking</source>

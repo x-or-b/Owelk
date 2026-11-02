@@ -173,6 +173,11 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
         const auto accent = m_store->setting("appearance.accent");
         m_accentName = accent == "custom" && m_customAccent.isValid() ? accent : QString(accentFor(accent).id);
         m_textSize = qBound(11, m_store->setting("appearance.textSize", "13").toInt(), 17);
+        m_answerOffset = qBound(-1, m_store->setting("ai.answerSizeOffset", "2").toInt(), 5);
+        if (const auto spacing = m_store->setting("ai.answerSpacing"); spacing == "compact" || spacing == "relaxed")
+            m_answerSpacing = spacing;
+        m_answerColumn = m_store->setting("ai.answerColumn", "1") == "1";
+        m_answerNative = m_store->setting("ai.answerNative", "1") == "1";
         m_invertPages = m_store->setting("appearance.invertPages") == "1";
         m_verticalTabs = m_store->setting("appearance.verticalTabs") == "1";
         const auto icon = m_store->setting("appearance.appIcon", "paper");
@@ -460,6 +465,46 @@ void Theme::setTextSize(int size)
     if (size == m_textSize) return;
     m_textSize = size;
     save("appearance.textSize", QString::number(size));
+    emit changed();
+}
+
+void Theme::setAnswerSize(int size)
+{
+    const int offset = qBound(-1, size - m_textSize, 5);
+    if (offset == m_answerOffset) return;
+    m_answerOffset = offset;
+    save("ai.answerSizeOffset", QString::number(offset));
+    emit changed();
+}
+
+void Theme::setAnswerSpacing(const QString &spacing)
+{
+    if (spacing == m_answerSpacing || (spacing != "compact" && spacing != "comfortable" && spacing != "relaxed"))
+        return;
+    m_answerSpacing = spacing;
+    save("ai.answerSpacing", spacing);
+    emit changed();
+}
+
+// The font's own line is about 1.2 times its size: these come to about 1.5 and 1.75, as on the web.
+int Theme::answerLineHeight() const
+{
+    return m_answerSpacing == "compact" ? 100 : m_answerSpacing == "relaxed" ? 145 : 125;
+}
+
+void Theme::setAnswerColumn(bool on)
+{
+    if (on == m_answerColumn) return;
+    m_answerColumn = on;
+    save("ai.answerColumn", on ? "1" : "0");
+    emit changed();
+}
+
+void Theme::setAnswerNative(bool on)
+{
+    if (on == m_answerNative) return;
+    m_answerNative = on;
+    save("ai.answerNative", on ? "1" : "0");
     emit changed();
 }
 

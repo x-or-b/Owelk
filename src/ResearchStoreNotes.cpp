@@ -15,7 +15,11 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QImageReader>
+#include <QTextBlock>
+#include <QTextCursor>
 #include <QTextDocument>
+#include <QTextList>
+#include <QTextTable>
 #include <QRegularExpression>
 #include <QSet>
 #include <QSqlQuery>
@@ -283,10 +287,35 @@ QString takePictures(const QString &markdown, const QString &directory, QStringL
     }
     return found->isEmpty() ? markdown : out + markdown.mid(last);
 }
+
+// Qt's Markdown sets paragraphs 6 px apart and headings against the text above. Taller lines get
+// paragraphs about twice the extra apart and headings a gap above (margins between blocks overlap);
+// lists keep Qt's own, and code and tables stay as they are.
+void spaceForReading(QTextDocument *document, int lineHeight, int pixelSize)
+{
+    const int gap = qRound(pixelSize * (lineHeight - 100) / 50.0);
+    QTextCursor cursor(document);
+    for (auto block = document->begin(); block.isValid(); block = block.next()) {
+        auto format = block.blockFormat();
+        cursor.setPosition(block.position());
+        if (format.nonBreakableLines() || cursor.currentTable()) continue;
+        if (format.headingLevel() > 0) {
+            format.setTopMargin(gap + pixelSize / 2);
+            format.setBottomMargin(gap / 2);
+        } else {
+            format.setLineHeight(lineHeight, QTextBlockFormat::ProportionalHeight);
+            if (!block.textList()) {
+                format.setTopMargin(gap);
+                format.setBottomMargin(gap);
+            }
+        }
+        cursor.setBlockFormat(format);
+    }
+}
 } // namespace
 
 QString ResearchStore::markdownHtml(const QString &markdown, const QString &linkColor, const QString &textColor,
-    int pixelSize, const QString &mutedColor) const
+    int pixelSize, const QString &mutedColor, int lineHeight) const
 {
     QList<MathSpan> math;
     QStringList pictures;
@@ -294,7 +323,11 @@ QString ResearchStore::markdownHtml(const QString &markdown, const QString &link
     // Markdown rendered as rich text bakes Qt's default link blue into the HTML; use the app accent instead.
     QTextDocument document;
     document.setMarkdown(prepared);
+    if (lineHeight > 100) spaceForReading(&document, lineHeight, pixelSize > 0 ? pixelSize : 14);
     auto html = document.toHtml();
+    // Qt writes the application font onto <body>, which would outrank the size the view gives the text.
+    static const QRegularExpression bodyFont(R"((<body[^>]*?) font-family:[^;]*; font-size:[^;]*;)");
+    html.replace(bodyFont, "\\1");
     // Pictures Qt made itself (a web address, a reference-style picture) would be fetched when shown, which
     // a prompt hidden in a paper could use to send words away: their alt text stays instead.
     static const QRegularExpression foreign(R"(<img\b[^>]*>)"), alt(R"re(\balt="([^"]*)")re");
