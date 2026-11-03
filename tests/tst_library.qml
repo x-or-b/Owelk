@@ -350,7 +350,6 @@ Item {
             const sortBox = visualChild(view, "librarySort")
             sortBox.activated(1)
             compare(view.sort, "added")
-            compare(researchStore.setting("library.sort"), "added")
             // A paper opened from it, then the Library again: the same view, in the same order. Behind the paper it
             // reads nothing and catches up once shown.
             workspace.openDocument(fixtureSource)
@@ -364,9 +363,7 @@ Item {
             compare(sortBox.currentIndex, 1)
             tryCompare(view, "stale", false)
             verify(researchStore.setFavorite(fixtureSource, false))
-            // The order is kept for the next time too.
             sortBox.activated(0)
-            compare(researchStore.setting("library.sort"), "opened")
         }
         function visibleChild(item, name) {
             if (!item || !item.visible) return null

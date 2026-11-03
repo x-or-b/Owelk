@@ -14,8 +14,8 @@ Rectangle {
     objectName: "libraryView"
     color: Theme.content
     property var filter: ({})
-    // Kept for the next time (a setting), like the order a list was last read in.
-    property string sort: ["added", "title", "year"].indexOf(researchStore.setting("library.sort")) >= 0 ? researchStore.setting("library.sort") : "opened"
+    // Kept while the tab is (DocumentGroup keeps the view); each run starts with Last opened.
+    property string sort: "opened"
     property string query: ""
     property var rows: []
     property var collectionRows: []
@@ -302,7 +302,7 @@ Rectangle {
         if (filter.open) openForYou(filter.open)
         if (!choosing) Qt.callLater(root.refresh)
     }
-    onSortChanged: { researchStore.setSetting("library.sort", sort); refresh() }
+    onSortChanged: refresh()
     Component.onCompleted: refresh()
     Timer { id: refreshTimer; interval: 120; onTriggered: root.refresh() }
     // Behind another tab the view stays as it was (DocumentGroup keeps it) and reads nothing; it catches up
