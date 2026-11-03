@@ -14,7 +14,8 @@ Rectangle {
     objectName: "libraryView"
     color: Theme.content
     property var filter: ({})
-    property string sort: "opened"
+    // Kept for the next time (a setting), like the order a list was last read in.
+    property string sort: ["added", "title", "year"].indexOf(researchStore.setting("library.sort")) >= 0 ? researchStore.setting("library.sort") : "opened"
     property string query: ""
     property var rows: []
     property var collectionRows: []
@@ -295,24 +296,36 @@ Rectangle {
         appliedFilter = applied
         selection = []; selectionAnchor = -1
         if (filter.collection) researchStore.markOpened("collection", filter.collection)
+        // Opened from elsewhere (Home, a search): only the paper named there is open. Coming back to the tab
+        // changes nothing.
+        if (!choosing) forYouOpen = ""
         if (filter.open) openForYou(filter.open)
         if (!choosing) Qt.callLater(root.refresh)
     }
-    onSortChanged: refresh()
+    onSortChanged: { researchStore.setSetting("library.sort", sort); refresh() }
     Component.onCompleted: refresh()
     Timer { id: refreshTimer; interval: 120; onTriggered: root.refresh() }
+    // Behind another tab the view stays as it was (DocumentGroup keeps it) and reads nothing; it catches up
+    // once shown again.
+    property bool stale: false
+    function refreshSoon() { if (visible) refreshTimer.restart(); else stale = true }
+    onVisibleChanged: if (visible && stale) { stale = false; refresh() }
     Connections {
         target: researchStore
         // Papers: once a burst is over (details read in the background, a session saved on every tab change).
-        function onDocumentsChanged() { refreshTimer.restart() }
-        function onRecentDocumentsChanged() { refreshTimer.restart() }
+        function onDocumentsChanged() { root.refreshSoon() }
+        function onRecentDocumentsChanged() { root.refreshSoon() }
         // A note saved (every pause in typing): only what shows notes.
         function onNotesChanged() {
+            if (!root.visible) { root.stale = true; return }
             if (root.showingNotes) root.noteRows = researchStore.notes(false)
             root.trashCount = researchStore.trashCount()
             if (root.showingTrash) root.trashRows = researchStore.trash()
         }
-        function onAiThreadsChanged() { if (root.showingTrash) root.refresh(); else root.trashCount = researchStore.trashCount() }
+        function onAiThreadsChanged() {
+            if (!root.visible) root.stale = true
+            else if (root.showingTrash) root.refresh(); else root.trashCount = researchStore.trashCount()
+        }
     }
     Dialog {
         id: collectionDialog
@@ -1239,6 +1252,7 @@ Rectangle {
                         Layout.preferredWidth: 140
                         model: [qsTr("Last opened"), qsTr("Last added"), qsTr("Title"), qsTr("Year")]
                         readonly property var keys: ["opened", "added", "title", "year"]
+                        currentIndex: Math.max(0, keys.indexOf(root.sort))
                         onActivated: function(index) { root.sort = keys[index] }
                     }
                 }

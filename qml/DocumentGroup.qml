@@ -445,10 +445,16 @@ Rectangle {
                 onActivated: root.controller.activateGroup(root.groupId)
             }
         }
+        // The Library stays while its tab is in this group, hidden behind the others, so a sort, a preview or a
+        // place in a list is there on coming back (hidden, it reads nothing). Not made before it is first shown.
         Loader {
             id: libraryLoader
+            readonly property bool kept: root.groupData.tabs.some(function(t) { return t.kind === "library" })
+            property bool made: false
+            onKeptChanged: if (!kept) made = false
+            onLoaded: made = true
             Layout.fillWidth: true; Layout.fillHeight: true
-            visible: root.isLibrary; active: root.isLibrary && !root.controller.suspended
+            visible: root.isLibrary; active: kept && (made || (root.isLibrary && !root.controller.suspended))
             sourceComponent: LibraryView {
                 // The tab's filter, applied again whenever the tab's changes (openLibrary from a search result or
                 // the Threads panel), also after the view chose one itself with a click.
