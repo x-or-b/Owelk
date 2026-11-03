@@ -183,13 +183,22 @@ Item {
             compare(pane.browserPdf, true)
             tryVerify(function() { return !pane.view.loading && pane.embeddedPdf.length > 0 }, 15000)
             compare(findChild(pane, "webShowPdfHere").visible, false)
-            // Open in Reader fetches the framed PDF through the tab and opens it beside the page.
-            const webTab = activeTab().id
+            // Open in Reader fetches the framed PDF through the tab. The page is only the PDF: it stays while
+            // the PDF downloads, then the PDF takes its tab.
+            verify(pane.embeddedFills)
+            const webTab = activeTab().id, at = Tree.owner(d.tree, webTab).tabs.findIndex(function(t) { return t.id === webTab })
+            pane.embeddedPdf = testInput.webFixture("/slow.pdf").toString()
             downloads.clear(); downloads.target = pane
             findChild(pane, "webOpenInReader").clicked()
             tryCompare(downloads, "count", 1, 15000)
-            tryVerify(function() { return activeTab().kind !== "web" }, 15000)
-            verify(Tree.owner(d.tree, webTab) !== null && Tree.owner(d.tree, webTab) !== undefined)
+            tryVerify(function() { return pane.download !== null && pane.download.receivedBytes > 0 }, 5000)
+            compare(activeTab().id, webTab)
+            verify(activeTab().source.indexOf("/embed.html") > 0, activeTab().source)
+            verify(pane.view.url.toString().indexOf("/embed.html") > 0, pane.view.url)
+            tryVerify(function() { return !Tree.owner(d.tree, webTab) }, 15000)
+            const g = Tree.find(d.tree, d.activeGroup)
+            compare(g.tabs[at].id, g.activeTab)
+            verify(activeTab().source.indexOf("slow") > 0, activeTab().source)
         }
         function test_homeTabSearchesTheWeb() {
             const d = workspace.documents

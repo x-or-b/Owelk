@@ -26,15 +26,23 @@ Rectangle {
     readonly property bool showsPdf: /\.pdf([?#]|$)/i.test(view.url.toString()) || Tree.arxivPdf(view.url).length === 0 && /arxiv\.org\/pdf\//i.test(view.url.toString())
     // A PDF shown inside the page (e.g. IEEE's getPDF.jsp frames it); found after each load.
     property string embeddedPdf: ""
+    // Its frame fills the page (IEEE's stamp.jsp): the page is only the PDF.
+    property bool embeddedFills: false
     readonly property string pdfAddress: showsPdf ? view.url.toString() : embeddedPdf
     function detectEmbeddedPdf() {
-        view.runJavaScript("(function(){var e=document.querySelector('embed[type=\"application/pdf\"],object[type=\"application/pdf\"],iframe[src*=\"pdf\" i],embed[src*=\"pdf\" i],object[data*=\"pdf\" i],frame[src*=\"pdf\" i]');return e?(e.src||e.data||''):'';})()",
-            function(result) { root.embeddedPdf = typeof result === "string" && /^https?:/i.test(result) ? result : "" })
+        view.runJavaScript("(function(){var e=document.querySelector('embed[type=\"application/pdf\"],object[type=\"application/pdf\"],iframe[src*=\"pdf\" i],embed[src*=\"pdf\" i],object[data*=\"pdf\" i],frame[src*=\"pdf\" i]');if(!e)return null;var r=e.getBoundingClientRect();return {src:e.src||e.data||'',fills:r.width*r.height>=0.8*innerWidth*innerHeight};})()",
+            function(result) {
+                root.embeddedPdf = result && typeof result.src === "string" && /^https?:/i.test(result.src) ? result.src : ""
+                root.embeddedFills = root.embeddedPdf.length > 0 && !!result.fills
+            })
     }
-    // Send the shown PDF to the reader: downloaded through this tab's session, opened beside it.
+    // Send the shown PDF to the reader: downloaded through this tab's session, opened beside it. A page
+    // that is only the PDF stays while it downloads, then the PDF takes its tab.
+    property bool fetchReplaces: false
     function openPdfInReader() {
         if (!pdfAddress.length) return
         fetchPdf = true
+        fetchReplaces = !showsPdf && embeddedFills
         if (showsPdf) view.reload()
         else view.url = embeddedPdf
     }
@@ -78,8 +86,8 @@ Rectangle {
         download.downloadDirectory = target.directory
         download.downloadFileName = target.fileName
         const replace = !view.canGoBack && download.url.toString() === root.openedUrl
-        const fetched = root.fetchPdf
-        root.fetchPdf = false
+        const fetched = root.fetchPdf, replaces = root.fetchReplaces
+        root.fetchPdf = false; root.fetchReplaces = false
         // Also in the status bar's progress, whichever tab is in front.
         const task = "download:" + download.id
         const label = qsTr("Downloading ") + target.fileName
@@ -97,7 +105,7 @@ Rectangle {
                         if (file.toString() !== target.url.toString()) return
                         researchStore.downloadNamed.disconnect(named)
                         root.downloadOpening = false
-                        root.controller.openDownloaded(root.tabId, to, replace && !fetched)
+                        root.controller.openDownloaded(root.tabId, to, replace && !fetched || replaces)
                     }
                     researchStore.downloadNamed.connect(named)
                     researchStore.nameDownloadedPdf(target.url)
@@ -311,7 +319,7 @@ Rectangle {
             }
             onActiveFocusChanged: if (activeFocus) root.activated()
             onLoadingChanged: function(request) {
-                if (request.status === WebEngineView.LoadStartedStatus) root.embeddedPdf = ""
+                if (request.status === WebEngineView.LoadStartedStatus) { root.embeddedPdf = ""; root.embeddedFills = false }
                 else if (request.status === WebEngineView.LoadSucceededStatus) root.detectEmbeddedPdf()
             }
             MouseArea {

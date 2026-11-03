@@ -463,7 +463,8 @@ public slots:
                     } else if (head.contains("/embed.html")) {
                         // Like IEEE's getPDF.jsp: an HTML page showing the PDF in a frame.
                         body = "<html><head><title>getPDF</title></head><body>"
-                               "<iframe id='frame' src='/paper.pdf' width='600' height='400'></iframe></body></html>";
+                               "<style>iframe{position:fixed;width:100%;height:100%;border:0}</style>"
+                               "<iframe id='frame' src='/paper.pdf'></iframe></body></html>";
                     } else if (head.contains("/paper.pdf")) {
                         QFile pdf(m_directory.filePath("fixture.pdf"));
                         pdf.open(QIODevice::ReadOnly);
