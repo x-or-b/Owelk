@@ -77,6 +77,11 @@ AiPrompt buildAiPrompt(
             "they did not ask to change), or <note_new title=\"Title\">Markdown</note_new> for a new note. Owelk "
             "shows the block to the reader, who decides whether to apply it, so do not say it is saved. Never write "
             "these blocks otherwise.");
+    if (materials.nameChat)
+        prompt.system += QStringLiteral(
+            "\n\nAfter your answer, name this conversation for the reader's list of chats, on a line of its own: "
+            "<chat_title>name</chat_title>, 2 to 6 words in the language of the question saying what it is about "
+            "(paper and method names as written), with no quotes and no final period.");
     if (materials.followUps)
         prompt.system += QStringLiteral(
             "\n\nAfter everything else, end with two or three short questions the reader might ask next about this, "

@@ -210,8 +210,9 @@ Item {
             return m ? m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&") : ""
         }
         const pattern = /<note_(update|new)\b([^>]*)>([\s\S]*?)<\/note_\1>/g
-        // Suggested next questions are kept apart once the answer is saved; while it is written they do not show.
-        let text = (content || "").replace(/<followups>[\s\S]*$/, ""), plain = text
+        // Suggested next questions and the chat's name are kept apart once the answer is saved; while it is
+        // written they do not show.
+        let text = (content || "").replace(/<chat_title>[\s\S]*?(<\/chat_title>|$)/, "").replace(/<followups>[\s\S]*$/, ""), plain = text
         text = text.replace(pattern, function(all, kind, attrs, body) {
             notes.push({kind: kind, id: kind === "update" ? value(attrs, "id") : "", title: value(attrs, "title"), body: body.replace(/^\n+|\s+$/g, "")})
             return ""

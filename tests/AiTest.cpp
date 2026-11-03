@@ -761,6 +761,51 @@ private slots:
         QVERIFY(request.contains("a student new to this field"));
         ai->clearApiKey("claude");
     }
+    void chatsAreNamedByTheirFirstAnswer()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        MockServer server;
+        server.chunks = {
+            MockServer::sse("content_block_delta",
+                {{"type", "content_block_delta"},
+                    {"delta",
+                        QJsonObject{{"type", "text_delta"},
+                            {"text", "Radar waves pass through fog.\n<chat_title>\"안개 속 레이더.\"</chat_title>"}}}}),
+            MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        store.setSetting("ai.baseUrl.claude", server.base().toString());
+        ai->giveConsent("claude");
+        QVERIFY(ai->setApiKey("claude", "sk-ant-title-test"));
+        QSignalSpy finished(ai, &AiService::finished);
+        // The first answer names the chat, in the same request; the name is not part of the answer.
+        ai->ask({{"provider", "claude"}, {"model", "claude-opus-5-5"}, {"action", "ask"},
+            {"question", "레이더는 안개를 어떻게 통과하나요?"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 10000);
+        const auto threadId = finished[0][2].toMap()["threadId"].toString();
+        QCOMPARE(store.aiThread(threadId)["title"].toString(), QString("안개 속 레이더"));
+        QCOMPARE(finished[0][1].toString(), QString("Radar waves pass through fog."));
+        QCOMPARE(server.seen.size(), 1);
+        QVERIFY(server.seen[0].body["system"].toString().contains("<chat_title>"));
+        // Later turns keep the name (also one the reader gave): no naming asked, a stray block taken out.
+        QVERIFY(store.renameAiThread(threadId, "My radar notes"));
+        ai->ask({{"provider", "claude"}, {"model", "claude-opus-5-5"}, {"action", "ask"}, {"threadId", threadId},
+            {"question", "더 자세히"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 10000);
+        QCOMPARE(store.aiThread(threadId)["title"].toString(), QString("My radar notes"));
+        QVERIFY(!server.seen[1].body["system"].toString().contains("<chat_title>"));
+        QVERIFY(!finished[1][1].toString().contains("chat_title"));
+        // A translation keeps its plain name.
+        ai->ask({{"provider", "claude"}, {"model", "claude-opus-5-5"}, {"action", "translate"},
+            {"selection", "Radar waves pass through fog."}, {"question", ""}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 3, 10000);
+        QVERIFY(!server.seen[2].body["system"].toString().contains("<chat_title>"));
+        QCOMPARE(
+            store.aiThread(finished[2][2].toMap()["threadId"].toString())["title"].toString(), QString("Translate"));
+        ai->clearApiKey("claude");
+    }
     void attachedFiguresAreNamedAndSymbolsAreKept()
     {
         QTemporaryDir directory;

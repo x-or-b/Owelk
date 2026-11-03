@@ -644,7 +644,7 @@ Window {
                         id: answerText
                         objectName: "petAskAnswer"
                         width: parent.width
-                        readonly property string words: pet.askAnswer.replace(/<followups>[\s\S]*$/, "")
+                        readonly property string words: pet.askAnswer.replace(/<chat_title>[\s\S]*?(<\/chat_title>|$)/, "").replace(/<followups>[\s\S]*$/, "")
                         text: typeof researchStore === "undefined" ? words : researchStore.markdownHtml(words, Theme.accent, Theme.text, Theme.fontSmall)
                         textFormat: Text.RichText; wrapMode: Text.Wrap
                         color: Theme.text; font.pixelSize: Theme.fontSmall

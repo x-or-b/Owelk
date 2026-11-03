@@ -250,6 +250,9 @@ int AiService::ask(const QVariantMap &input)
                 spec.value("scope").toString() == "library" ? spec.value("collection").toString() : QString()}});
         if (thread.isEmpty()) return fail(ui("Cannot start an AI thread."));
         spec.insert("threadId", thread);
+        // Named after its question for now; the first answer gives it a short name (AiService::run).
+        if (action != "translate" && action != "summary" && !question.isEmpty())
+            spec.insert("autoTitle", title.simplified().left(160));
     }
     // Gather on the UI thread what the store knows; PDF text and images are read on a worker.
     const QUrl source = spec.value("source").toUrl();
@@ -519,6 +522,20 @@ void AiService::retrieveLibrary(int request, const QString &id, QVariantMap spec
 // [p. 3: "exact words"] (or [p. 3], [pp. 3-4]) in an answer about a paper: a link that opens the paper at
 // that page and lights up the words (DocumentWorkspace.openLink, ResearchStore::revealPassage). With several
 // papers the citation names one, [P2 p. 3: "…"]; documents are P1, P2… in order.
+// The chat's name a first answer gives (AiMaterials::nameChat), taken out of it. An unclosed block at the end
+// (a stopped answer) is dropped; one with more text after it is left alone.
+static QString takeChatTitle(QString *answer)
+{
+    static const QRegularExpression block(R"(<chat_title>([\s\S]*?)(</chat_title>|$))");
+    const auto m = block.match(*answer);
+    if (!m.hasMatch() || (m.captured(2).isEmpty() && m.capturedLength(1) > 200)) return {};
+    auto title = m.captured(2).isEmpty() ? QString() : m.captured(1).simplified();
+    answer->remove(m.capturedStart(), m.capturedLength());
+    *answer = answer->trimmed();
+    static const QRegularExpression wrapping(R"(^["'\x{201c}\x{2018}*#\s]+|["'\x{201d}\x{2019}*.\s]+$)");
+    return title.remove(wrapping).left(80);
+}
+
 // The questions an answer suggests asking next (AiMaterials::followUps), taken out of it: up to three.
 static QStringList takeFollowUps(QString *answer)
 {
@@ -637,6 +654,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         = spec.value("scope").toString() == "library" ? QStringLiteral("library") : spec.value("action").toString();
     materials.followUps = (action.isEmpty() || action == "ask" || action == "library") && !spec.value("fresh").toBool()
         && !spec.value("symbols").toBool() && m_store->setting("ai.followUps", "1") == "1";
+    materials.nameChat = history.isEmpty() && spec.contains("autoTitle");
     auto prompt = buildAiPrompt(action.isEmpty() ? QStringLiteral("ask") : action, m_store->setting("aiLanguage", "ko"),
         spec.value("question").toString(), materials);
     // Asked again: exactly what was sent then (its material included), after the turns before it.
@@ -702,6 +720,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
                            sentImages](const QString &answer, const QString &used, bool stopped) {
         done();
         auto reply = answer;
+        const auto chatTitle = takeChatTitle(&reply);
         const auto followUps = takeFollowUps(&reply);
         auto text = spec.contains("sources") ? withSourceLinks(reply, spec.value("sources").toList()) : reply;
         // Page citations in an answer about papers become links to those places.
@@ -760,6 +779,10 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         m_store->appendAiMessage(threadId,
             {{"role", "assistant"}, {"content", text}, {"model", usedModel}, {"provider", id},
                 {"context", answerContext}});
+        // Named by its first answer, unless the reader renamed it meanwhile.
+        if (!chatTitle.isEmpty() && spec.contains("autoTitle")
+            && m_store->aiThread(threadId).value("title").toString() == spec.value("autoTitle").toString())
+            m_store->renameAiThread(threadId, chatTitle);
         emit finished(request, text,
             {{"provider", id}, {"model", usedModel}, {"prompt", sent}, {"threadId", threadId},
                 {"action", spec.value("action")}, {"question", spec.value("question")},

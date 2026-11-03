@@ -25,6 +25,8 @@ struct AiMaterials {
     QString level, instructions;
     // The answer ends with questions the reader might ask next, in a <followups> block Owelk takes out.
     bool followUps = false;
+    // A chat's first answer also names the chat, in a <chat_title> block Owelk takes out.
+    bool nameChat = false;
 };
 
 struct AiPrompt {
