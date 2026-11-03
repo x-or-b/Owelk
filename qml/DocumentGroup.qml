@@ -450,11 +450,14 @@ Rectangle {
         Loader {
             id: libraryLoader
             readonly property bool kept: root.groupData.tabs.some(function(t) { return t.kind === "library" })
+            readonly property bool shown: root.isLibrary && !root.controller.suspended
+            // Set when shown, not on loading: loading happens while `active` is being set.
             property bool made: false
             onKeptChanged: if (!kept) made = false
-            onLoaded: made = true
+            onShownChanged: if (shown) made = true
+            Component.onCompleted: if (shown) made = true
             Layout.fillWidth: true; Layout.fillHeight: true
-            visible: root.isLibrary; active: kept && (made || (root.isLibrary && !root.controller.suspended))
+            visible: root.isLibrary; active: kept && (made || shown)
             sourceComponent: LibraryView {
                 // The tab's filter, applied again whenever the tab's changes (openLibrary from a search result or
                 // the Threads panel), also after the view chose one itself with a click.
