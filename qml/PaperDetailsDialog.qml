@@ -60,28 +60,31 @@ Dialog {
         if (researchStore.updateDocumentDetails(source, {title: titleField.text, authors: authorsField.text,
                 year: yearField.text, doi: doiField.text, arxiv: arxivField.text})) close()
     }
-    footer: RowLayout {
-        spacing: 8
-        Item { Layout.preferredWidth: 4 }
-        Button {
-            objectName: "readDetailsFromPdf"
-            text: qsTr("Read from PDF")
-            ToolTip.visible: hovered; ToolTip.delay: 450
-            ToolTip.text: qsTr("Discard edits and read the details from the PDF again")
-            onClicked: { researchStore.resetDocumentDetails(root.source); root.close() }
+    // Padded like the dialog's own button box (style/DialogButtonBox.qml), so nothing touches the edge.
+    footer: Control {
+        padding: 16
+        topPadding: 8
+        contentItem: RowLayout {
+            spacing: 8
+            Button {
+                objectName: "readDetailsFromPdf"
+                text: qsTr("Read from PDF")
+                ToolTip.visible: hovered; ToolTip.delay: 450
+                ToolTip.text: qsTr("Discard edits and read the details from the PDF again")
+                onClicked: { researchStore.resetDocumentDetails(root.source); root.close() }
+            }
+            Button {
+                objectName: "lookUpOnline"
+                text: qsTr("Look up online")
+                enabled: !researchStore.metadataLookup.busy
+                ToolTip.visible: hovered; ToolTip.delay: 450
+                ToolTip.text: qsTr("Sends the arXiv ID, DOI or title (not the PDF) to arXiv or Crossref")
+                onClicked: root.lookUp()
+            }
+            Item { Layout.fillWidth: true }
+            Button { text: qsTr("Cancel"); onClicked: root.close() }
+            Button { objectName: "saveDetails"; text: qsTr("Save"); highlighted: true; onClicked: root.save() }
         }
-        Button {
-            objectName: "lookUpOnline"
-            text: qsTr("Look up online")
-            enabled: !researchStore.metadataLookup.busy
-            ToolTip.visible: hovered; ToolTip.delay: 450
-            ToolTip.text: qsTr("Sends the arXiv ID, DOI or title (not the PDF) to arXiv or Crossref")
-            onClicked: root.lookUp()
-        }
-        Item { Layout.fillWidth: true }
-        Button { text: qsTr("Cancel"); onClicked: root.close() }
-        Button { objectName: "saveDetails"; text: qsTr("Save"); highlighted: true; onClicked: root.save() }
-        Item { Layout.preferredWidth: 4 }
     }
     GridLayout {
         width: parent.width

@@ -143,6 +143,9 @@ Item {
             chip.clicked()
             let details = null
             tryVerify(function() { details = findChild(view, "paperDetails"); return details !== null && details.opened })
+            // The buttons sit inside the dialog with room below them.
+            const save = findChild(details, "saveDetails")
+            verify(details.background.height - save.mapToItem(details.background, 0, save.height).y >= 12)
             compare(findChild(details, "detailsPublishedText").text, "Published in Robotics: Science and Systems 2024  ·  DOI 10.15607/RSS.2024.XX.001")
             // Apply fills the form; Save keeps it.
             findChild(details, "applyPublished").clicked()
