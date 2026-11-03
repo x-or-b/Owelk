@@ -617,6 +617,33 @@ private slots:
         QVERIFY(sent.contains("<library_passages>"));
         QVERIFY(!sent.contains("Zeta Paper"));
         QVERIFY(!sent.contains("=== P1"));
+        // Each of the five comes first with its overview (beginning and conclusion), before the passages.
+        const auto from = sent.indexOf("<paper_overviews>"), to = sent.indexOf("</paper_overviews>");
+        QVERIFY(from >= 0 && to > from && to < sent.indexOf("<library_passages>"));
+        const auto overviews = sent.mid(from, to - from);
+        QCOMPARE(overviews.count("Beginning (page 1): "), 5);
+        for (const auto *name : {"Alpha", "Beta", "Gamma", "Delta", "Epsilon"})
+            QVERIFY2(overviews.contains(QStringLiteral("%1 Paper").arg(name)), qPrintable(overviews.left(600)));
+        // A question about all of them has no topic words: no passage matches, yet every paper is there.
+        answer("zzqx, wqzz");
+        ai->ask({{"source", papers[0]}, {"scope", "paper"}, {"papers", five},
+            {"question", "여기있는 논문들 전부 간단하게 요약해줘"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size() + failed.size(), 3, 10000);
+        QVERIFY2(failed.isEmpty(), failed.isEmpty() ? "" : qPrintable(failed[0][1].toString()));
+        const auto summarized = server.seen.last()
+                                    .body["messages"]
+                                    .toArray()
+                                    .last()
+                                    .toObject()["content"]
+                                    .toArray()
+                                    .last()
+                                    .toObject()["text"]
+                                    .toString();
+        QVERIFY(summarized.contains("<paper_overviews>"));
+        QVERIFY(!summarized.contains("<library_passages>"));
+        for (const auto *name : {"Alpha", "Beta", "Gamma", "Delta", "Epsilon"})
+            QVERIFY2(summarized.contains(QStringLiteral("%1 Paper").arg(name)), name);
+        QVERIFY(summarized.contains("covers every paper in the overviews"));
         QVERIFY(ai->clearApiKey("claude"));
     }
     void organizePapersSuggestsCollectionsWithoutApplying()

@@ -12,8 +12,8 @@
         <translation> 텍스트</translation>
     </message>
     <message>
-        <source> · passages that answer the question</source>
-        <translation> · 패시지스 댓 앤서 더 퀘스천</translation>
+        <source> · overview of each paper, plus matching passages</source>
+        <translation> · 오버뷰 오브 이치 페이퍼, 플러스 매칭 패시지스</translation>
     </message>
     <message>
         <source>AI provider</source>
@@ -124,8 +124,8 @@
         <translation>센드 투 </translation>
     </message>
     <message>
-        <source>Several papers · passages that answer the question</source>
-        <translation>세버럴 페이퍼스 · 패시지스 댓 앤서 더 퀘스천</translation>
+        <source>Several papers · overview of each, plus matching passages</source>
+        <translation>세버럴 페이퍼스 · 오버뷰 오브 이치, 플러스 매칭 패시지스</translation>
     </message>
     <message>
         <source>Sign in with ChatGPT in Settings → AI.</source>
@@ -148,8 +148,8 @@
         <translation>업 투 6 이미지스 퍼 퀘스천.</translation>
     </message>
     <message>
-        <source>Whole library</source>
-        <translation>홀 라이브러리</translation>
+        <source>Whole library · passages that answer the question</source>
+        <translation>홀 라이브러리 · 패시지스 댓 앤서 더 퀘스천</translation>
     </message>
     <message>
         <source>You are asked once per provider. Usage is billed by the provider under your account.</source>

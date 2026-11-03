@@ -699,8 +699,7 @@ QString ResearchStore::paperOpening(const QUrl &source, int characters)
     return document.isEmpty() ? QString() : m_index->openingText(document, qBound(0, characters, 2000));
 }
 
-QVariantList ResearchStore::libraryPassages(
-    const QStringList &terms, int limit, const QString &collection, const QStringList &papers)
+QStringList ResearchStore::askedDocuments(const QString &collection, const QStringList &papers) const
 {
     QStringList documents = papers;
     if (!collection.isEmpty()) {
@@ -712,8 +711,40 @@ QVariantList ResearchStore::libraryPassages(
         if (members.exec())
             while (members.next())
                 if (!documents.contains(members.value(0).toString())) documents << members.value(0).toString();
-        if (documents.isEmpty()) return {};
     }
+    return documents;
+}
+
+QVariantList ResearchStore::paperOverviews(
+    const QString &collection, const QStringList &papers, int characters, int *left)
+{
+    QList<QPair<QString, QUrl>> asked;
+    for (const auto &document : askedDocuments(collection, papers)) {
+        // Papers removed from the Library are not asked.
+        QSqlQuery query(m_database);
+        query.prepare("SELECT url FROM documents WHERE id=? AND removed_at IS NULL");
+        query.addBindValue(document);
+        if (query.exec() && query.next()) asked.append({document, QUrl(query.value(0).toString())});
+    }
+    if (left) *left = std::max<int>(0, int(asked.size()) - 40);
+    asked = asked.mid(0, 40);
+    // The beginning holds the abstract and the problem; the conclusion what came of it.
+    const int share = asked.isEmpty() ? 0 : characters / int(asked.size());
+    const int opening = std::min(4000, share * 2 / 3), closing = std::min(2000, share - opening);
+    QVariantList overviews;
+    for (const auto &[document, source] : std::as_const(asked))
+        overviews.append(QVariantMap{{"documentId", document}, {"source", source}, {"title", displayName(source)},
+            {"year", documentDetails(source).value("year")}, {"page", 0},
+            {"opening", m_index->openingText(document, opening)},
+            {"closing", m_index->closingText(document, closing)}});
+    return overviews;
+}
+
+QVariantList ResearchStore::libraryPassages(
+    const QStringList &terms, int limit, const QString &collection, const QStringList &papers)
+{
+    const auto documents = askedDocuments(collection, papers);
+    if (!collection.isEmpty() && documents.isEmpty()) return {};
     QVariantList passages;
     QHash<QString, int> perPaper;
     for (const auto &value : m_index->matchingPages(terms, limit * 6, documents)) {

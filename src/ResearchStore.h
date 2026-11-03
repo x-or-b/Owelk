@@ -294,6 +294,10 @@ public:
     // from the whole library.
     QVariantList libraryPassages(const QStringList &terms, int limit, const QString &collection = QString(),
         const QStringList &documents = QStringList());
+    // Every paper a question is about (these papers and a collection's, up to 40), each with its beginning and
+    // conclusion from the index, sharing about `characters`; left: how many more there were.
+    QVariantList paperOverviews(
+        const QString &collection, const QStringList &documents, int characters, int *left = nullptr);
     Q_INVOKABLE QVariantMap paperExcerpt(const QUrl &source, int opening = 5000, int closing = 2500);
     // Encrypted PDFs: the viewer hands over a password that worked, so indexing, annotations,
     // printing and AI can open the file too. keep: also store it in the system keyring.
@@ -521,6 +525,8 @@ private:
     void refreshMetadata(const QString &id, const QUrl &url, bool force, bool checkDuplicate = false);
     void reportDuplicate(const QString &id, const QUrl &url, const QString &hash);
     bool answerDuplicates(const QString &id);
+    // These papers and a collection's (with its subcollections); empty with neither, for the whole library.
+    QStringList askedDocuments(const QString &collection, const QStringList &documents) const;
     void announceDocumentsChanged();
     static bool adoptDocumentIds(QSqlDatabase &db, QString *error);
     QVariantMap canonicalState(const QVariantMap &state) const;

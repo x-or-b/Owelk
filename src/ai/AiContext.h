@@ -11,6 +11,7 @@ struct AiMaterials {
     QString pageText; // The current page.
     QString paperText; // Leading pages of the paper (for "Ask about paper").
     QString libraryText; // Passages from several papers, each marked [n] (for "Ask your library").
+    QString overviewText; // Each paper asked about: its beginning and conclusion, marked [n] like the passages.
     // Several papers in paperText, each opened by "=== P2: Title ===": "P1: Title", "P2: Title"…
     QStringList paperMarkers;
     // Notes the reader attached: their Markdown, with ids and titles so an answer can propose changes.

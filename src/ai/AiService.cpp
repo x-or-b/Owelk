@@ -20,6 +20,7 @@
 #include <QDir>
 #include <QTimer>
 #include <QDateTime>
+#include <QSet>
 #include <QSqlQuery>
 #include "WorkerConnection.h"
 #include <QFile>
@@ -253,8 +254,8 @@ int AiService::ask(const QVariantMap &input)
     // Gather on the UI thread what the store knows; PDF text and images are read on a worker.
     const QUrl source = spec.value("source").toUrl();
     // Other papers attached to this turn, after the chat's own (P1): P2, P3… Up to three papers are read
-    // whole (sharing one paper's room); more, or a collection or the whole library, are searched for the
-    // passages that answer the question.
+    // whole (sharing one paper's room); more, or a collection, get an overview of each paper and the passages
+    // that answer the question (the whole library: passages only).
     QList<QUrl> others;
     for (const auto &value : spec.value("papers").toList()) {
         const QUrl url(value.toString());
@@ -450,8 +451,15 @@ void AiService::retrieveLibrary(int request, const QString &id, QVariantMap spec
                 if (word.size() >= 4 && !terms.contains(word, Qt::CaseInsensitive)) terms << word;
             const auto collection = spec.value("collection").toString();
             const auto papers = spec.value("searchDocuments").toStringList();
+            // Papers asked about by name (attached, a collection) each come with an overview, so a question
+            // about all of them (summarize, compare, which is easiest) reaches every one; the passages found
+            // for the question add the details. The whole library has no such list: passages only.
+            int left = 0;
+            const auto overviews = spec.value("wholeLibrary").toBool()
+                ? QVariantList{}
+                : m_store->paperOverviews(collection, papers, 30000, &left);
             const auto passages = m_store->libraryPassages(terms.mid(0, 20), 8, collection, papers);
-            if (passages.isEmpty()) {
+            if (passages.isEmpty() && overviews.isEmpty()) {
                 m_running.remove(request);
                 emit busyChanged();
                 emit failed(request,
@@ -462,18 +470,36 @@ void AiService::retrieveLibrary(int request, const QString &id, QVariantMap spec
                                                    : ui("these papers")));
                 return;
             }
-            QStringList blocks;
+            // One numbering for both, [1]… in the order sent.
+            QStringList summaries, blocks;
             QVariantList sources;
+            const auto heading = [&sources](QVariantMap p) {
+                p["n"] = int(sources.size()) + 1;
+                sources << p;
+                const auto year = p["year"].toString();
+                return QStringLiteral("[%1] %2%3")
+                    .arg(p["n"].toInt())
+                    .arg(p["title"].toString(), year.isEmpty() ? QString() : " (" + year + ")");
+            };
+            for (const auto &value : overviews) {
+                const auto p = value.toMap();
+                const auto opening = p["opening"].toString(), closing = p["closing"].toString();
+                auto block = heading(p);
+                if (opening.isEmpty())
+                    block += "\n(Its text is not indexed yet.)";
+                else
+                    block += "\nBeginning (page 1): " + opening;
+                if (!closing.isEmpty()) block += "\nConclusion: " + closing;
+                summaries << block;
+            }
+            if (left > 0)
+                summaries << QStringLiteral("(%1 more papers are asked about; only passages reach them.)").arg(left);
             for (const auto &value : passages) {
                 const auto p = value.toMap();
-                const auto year = p["year"].toString();
-                blocks << QStringLiteral("[%1] %2%3, page %4\n%5")
-                              .arg(p["n"].toInt())
-                              .arg(p["title"].toString(), year.isEmpty() ? QString() : " (" + year + ")")
-                              .arg(p["page"].toInt() + 1)
-                              .arg(p["excerpt"].toString());
-                sources << p;
+                blocks << heading(p)
+                        + QStringLiteral(", page %1\n%2").arg(p["page"].toInt() + 1).arg(p["excerpt"].toString());
             }
+            prepared.insert("overviewText", summaries.join("\n\n"));
             prepared.insert("libraryText", blocks.join("\n\n"));
             spec.insert("sources", sources);
             m_running.insert(request, nullptr);
@@ -534,30 +560,36 @@ static QString withPageLinks(const QString &answer, const QStringList &documents
 static QString withSourceLinks(const QString &answer, const QVariantList &sources)
 {
     QHash<int, QString> links;
-    QStringList list;
     for (const auto &value : sources) {
         const auto p = value.toMap();
-        const auto link
-            = QStringLiteral("owelk://document/%1#page=%2").arg(p["documentId"].toString()).arg(p["page"].toInt() + 1);
-        links.insert(p["n"].toInt(), link);
-        list << QStringLiteral("- [%1] [%2, p. %3](%4)")
-                    .arg(p["n"].toInt())
-                    .arg(p["title"].toString())
-                    .arg(p["page"].toInt() + 1)
-                    .arg(link);
+        links.insert(p["n"].toInt(),
+            QStringLiteral("owelk://document/%1#page=%2").arg(p["documentId"].toString()).arg(p["page"].toInt() + 1));
     }
     QString text = answer;
     static const QRegularExpression marker(R"(\[(\d{1,2})\](?!\())");
     QString linked;
+    QSet<int> cited;
     qsizetype last = 0;
     for (auto it = marker.globalMatch(text); it.hasNext();) {
         const auto m = it.next();
         linked += text.mid(last, m.capturedStart() - last);
         const auto link = links.value(m.captured(1).toInt());
         linked += link.isEmpty() ? m.captured() : "[[" + m.captured(1) + "]](" + link + ")";
+        if (!link.isEmpty()) cited.insert(m.captured(1).toInt());
         last = m.capturedEnd();
     }
     linked += text.mid(last);
+    // The sources the answer cites (a collection's overviews would make a long list), or all when it cites none.
+    QStringList list;
+    for (const auto &value : sources) {
+        const auto p = value.toMap();
+        if (!cited.isEmpty() && !cited.contains(p["n"].toInt())) continue;
+        list << QStringLiteral("- [%1] [%2, p. %3](%4)")
+                    .arg(p["n"].toInt())
+                    .arg(p["title"].toString())
+                    .arg(p["page"].toInt() + 1)
+                    .arg(links.value(p["n"].toInt()));
+    }
     return linked.trimmed() + "\n\n**Sources**\n" + list.join('\n');
 }
 
@@ -588,6 +620,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     materials.pageText = prepared.value("pageText").toString();
     materials.paperText = prepared.value("paperText").toString();
     if (!materials.paperText.isEmpty()) materials.paperMarkers = prepared.value("paperMarkers").toStringList();
+    materials.overviewText = prepared.value("overviewText").toString();
     materials.libraryText = prepared.value("libraryText").toString();
     materials.notes = prepared.value("notes").toStringList();
     materials.noteIds = prepared.value("noteIds").toStringList();
@@ -692,7 +725,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         if (!attached.paperText.isEmpty()) attachments << "paper";
         if (attached.hasImage) attachments << "image";
         if (!spec.value("paperNames").toStringList().isEmpty()) attachments << "papers";
-        if (!attached.libraryText.isEmpty()) attachments << "library";
+        if (!attached.libraryText.isEmpty() || !attached.overviewText.isEmpty()) attachments << "library";
         if (!attached.quote.isEmpty()) attachments << "quote";
         if (!attached.notes.isEmpty()) attachments << "notes";
         // What went with it, enough to ask it again or edit it (an edit attaches the same again).

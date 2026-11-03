@@ -124,6 +124,9 @@ AiPrompt buildAiPrompt(
         parts << QStringLiteral("<page%1>\n")
                      .arg(materials.pageNumber ? QStringLiteral(" number=\"%1\"").arg(materials.pageNumber) : QString())
                 + clip(materials.pageText, remaining, cut) + "\n</page>";
+    // Overviews first: cut last, so every paper stays in when notes take room.
+    if (!materials.overviewText.isEmpty())
+        parts << "<paper_overviews>\n" + clip(materials.overviewText, remaining, cut) + "\n</paper_overviews>";
     if (!materials.libraryText.isEmpty())
         parts << "<library_passages>\n" + clip(materials.libraryText, remaining, cut) + "\n</library_passages>";
     prompt.truncated = cut;
@@ -137,10 +140,14 @@ AiPrompt buildAiPrompt(
                              "keep equations, symbols and citation markers unchanged.")
                   .arg(into);
     else if (action == "library")
-        task = "Answer from the passages of the reader's library above. Put the source marker, such as [2], right "
-               "after each claim it supports; combine sources where they agree and say where they differ. If the "
-               "passages do not answer the question, say so plainly and do not fill the gap from general knowledge "
-               "without saying that you are doing so.\n\nQuestion: "
+        task = QString(materials.overviewText.isEmpty()
+                       ? "Answer from the passages of the reader's library above."
+                       : "Answer from the papers above: an overview of each paper asked about (its beginning and "
+                         "conclusion) and passages found for the question. A question about all of them "
+                         "(summarize, compare, which to read first) covers every paper in the overviews.")
+            + " Put the source marker, such as [2], right after each claim it supports; combine sources where they "
+              "agree and say where they differ. If the material does not answer the question, say so plainly and do "
+              "not fill the gap from general knowledge without saying that you are doing so.\n\nQuestion: "
             + question.trimmed();
     else if (action == "summary")
         task = QStringLiteral("Summarize the paper for the reader's notes in exactly three Markdown list items, "

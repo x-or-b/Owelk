@@ -176,8 +176,10 @@ Item {
         }
         if (s.scope === "page") list.push({kind: "page", label: qsTr("Page ") + (Number(s.page) + 1) + qsTr(" text")})
         ;(s.papers || []).forEach(function(url, index) { list.push({kind: "extra", index: index, label: qsTr("Paper · ") + researchStore.displayName(url)}) })
-        if (s.scope === "library") list.push({kind: "library", label: (s.collection ? qsTr("Collection · ") + s.collectionName : qsTr("Whole library")) + qsTr(" · passages that answer the question")})
-        else if (searchesPapers(s)) list.push({kind: "passages", fixed: true, label: qsTr("Several papers · passages that answer the question")})
+        // A collection or several papers: an overview of each paper, and passages for the question
+        // (AiService::retrieveLibrary); the whole library: passages only.
+        if (s.scope === "library") list.push({kind: "library", label: s.collection ? qsTr("Collection · ") + s.collectionName + qsTr(" · overview of each paper, plus matching passages") : qsTr("Whole library · passages that answer the question")})
+        else if (searchesPapers(s)) list.push({kind: "passages", fixed: true, label: qsTr("Several papers · overview of each, plus matching passages")})
         ;(s.noteIds || []).forEach(function(id, index) { list.push({kind: "note", index: index, label: qsTr("Note · ") + (researchStore.note(id).title || qsTr("Untitled note"))}) })
         images.forEach(function(image, index) { list.push({kind: "image", index: index, label: image.name, url: image.url}) })
         return list
@@ -287,7 +289,7 @@ Item {
         return true
     }
     // Several papers are read whole up to three; past that (or once a chat has searched them) each question
-    // gets the passages that answer it, as for a collection (AiService::ask).
+    // gets an overview of each paper and the passages that answer it, as for a collection (AiService::ask).
     function searchesPapers(s) {
         const reads = (s.scope === "paper" && s.source && s.source.toString().length ? 1 : 0) + (s.papers || []).length
         return s.scope !== "library" && (reads > 3 || (!!s.searchPapers && (s.papers || []).length > 0))
