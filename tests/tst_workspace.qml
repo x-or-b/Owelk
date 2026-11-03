@@ -586,6 +586,8 @@ Item {
             verify(existing.toString().length > 0 && !researchStore.sameSource(existing, copy))
             mouseClick(findChild(bar, "openExistingCopy"))
             tryCompare(bar, "opened", false)
+            wait(800)
+            verify(!bar.opened, "the copy kept, opened again, does not ask about the one set aside")
             tryVerify(function() { return researchStore.sameSource(Tree.find(d.tree, d.activeGroup).tabs.find(function(t) { return t.id === Tree.find(d.tree, d.activeGroup).activeTab }).source, existing) })
             verify(!researchStore.recentDocuments.some(function(p) { return researchStore.sameSource(p.url, copy) }))
         }

@@ -1056,7 +1056,9 @@ ApplicationWindow {
     AiRuns { id: aiRuns; objectName: "aiRuns" }
     AiController { id: aiController; reader: window.homeVisible ? null : window.currentReader; workspace: documents; runs: aiRuns }
     // Same bytes as another library entry: offer the existing copy without merging anything silently.
-    // A notice, not a dialog: it never takes keyboard focus from the reader.
+    // A notice, not a dialog: it never takes keyboard focus from the reader. Opening the copy you have is
+    // the usual answer, so it is the main button; either answer holds for every copy of the file, and Not
+    // Now holds while Owelk runs.
     Rectangle {
         id: duplicateBar
         objectName: "duplicateBar"
@@ -1065,8 +1067,12 @@ ApplicationWindow {
         property url source: ""
         property url existing: ""
         property string existingTitle: ""
+        property var notNow: ({})
         readonly property bool opened: visible
-        function show(url, other, title) { source = url; existing = other; existingTitle = title; visible = true }
+        function show(url, other, title) {
+            if (notNow[url.toString()]) return
+            source = url; existing = other; existingTitle = title; visible = true
+        }
         function close() { visible = false }
         visible: false
         x: (parent.width - width) / 2; y: 8
@@ -1080,7 +1086,7 @@ ApplicationWindow {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 1
-                Label { Layout.fillWidth: true; text: qsTr("This PDF is already in your Library"); font.weight: Font.DemiBold; color: Theme.text; wrapMode: Text.Wrap }
+                Label { Layout.fillWidth: true; text: qsTr("You already have this paper"); font.weight: Font.DemiBold; color: Theme.text; wrapMode: Text.Wrap }
                 // The title wraps to two lines; anything longer shows in full on hover.
                 Label {
                     Layout.fillWidth: true
@@ -1088,11 +1094,16 @@ ApplicationWindow {
                     wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; textFormat: Text.PlainText
                     font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
                 }
+                Label {
+                    Layout.fillWidth: true
+                    text: qsTr("Open it to keep your highlights and notes in one place. No file is deleted.")
+                    wrapMode: Text.Wrap; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                }
             }
             Button {
-                objectName: "openExistingCopy"; text: qsTr("Use Existing"); focusPolicy: Qt.NoFocus
+                objectName: "openExistingCopy"; text: qsTr("Open My Copy"); primary: true; focusPolicy: Qt.NoFocus
                 ToolTip.visible: hovered; ToolTip.delay: 450
-                ToolTip.text: qsTr("Read the paper already in your Library (with its notes). This extra entry is set aside; no file is deleted.")
+                ToolTip.text: qsTr("Opens the paper already in your Library, with its highlights and notes. The new file is set aside and stays on disk.")
                 onClicked: {
                     if (researchStore.useExistingCopy(duplicateBar.source, duplicateBar.existing))
                         documents.relinkSource(duplicateBar.source, duplicateBar.existing)
@@ -1100,12 +1111,16 @@ ApplicationWindow {
                 }
             }
             Button {
-                objectName: "keepBothCopies"; text: qsTr("Keep Both"); focusPolicy: Qt.NoFocus
+                objectName: "keepBothCopies"; text: qsTr("Keep Both"); flat: true; focusPolicy: Qt.NoFocus
                 ToolTip.visible: hovered; ToolTip.delay: 450
-                ToolTip.text: qsTr("Keep two separate papers, each with its own notes. Owelk won't ask again about this file.")
+                ToolTip.text: qsTr("Two separate papers, each with its own highlights and notes. Owelk won't ask again about this file.")
                 onClicked: { researchStore.keepDuplicate(duplicateBar.source); duplicateBar.close() }
             }
-            IconButton { icon.name: "close"; description: qsTr("Dismiss"); focusPolicy: Qt.NoFocus; onClicked: duplicateBar.close() }
+            IconButton {
+                objectName: "duplicateNotNow"
+                icon.name: "close"; description: qsTr("Not Now"); focusPolicy: Qt.NoFocus
+                onClicked: { duplicateBar.notNow[duplicateBar.source.toString()] = true; duplicateBar.close() }
+            }
         }
     }
     // A paper just marked as read (one, not several at once): three lines about it, written now or drafted by the

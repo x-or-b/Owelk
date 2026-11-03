@@ -475,17 +475,26 @@ void ResearchStore::reportDuplicate(const QString &id, const QUrl &url, const QS
     }
 }
 
+// Answered for this file version: none of its copies asks about the others again (the one opened next would
+// otherwise offer the one just answered for); a changed file is checked again.
+bool ResearchStore::answerDuplicates(const QString &id)
+{
+    QSqlQuery query(m_database);
+    query.prepare("UPDATE documents SET duplicate_ack=sha256 WHERE sha256<>'' AND "
+                  "sha256=(SELECT sha256 FROM documents WHERE id=?)");
+    query.addBindValue(id);
+    return query.exec() && query.numRowsAffected() > 0;
+}
+
 bool ResearchStore::keepDuplicate(const QUrl &source)
 {
-    // "Keep both": stop asking for this file version; a changed file is checked again.
-    QSqlQuery query(m_database);
-    query.prepare("UPDATE documents SET duplicate_ack=sha256 WHERE id=?");
-    query.addBindValue(findDocument(source));
-    return query.exec() && query.numRowsAffected() == 1;
+    return answerDuplicates(findDocument(source));
 }
 
 bool ResearchStore::useExistingCopy(const QUrl &duplicate, const QUrl &existing)
 {
+    // Before the copy kept is checked again (its check ends later, in the event loop).
+    answerDuplicates(findDocument(duplicate));
     if (!rememberDocument(existing)) return false;
     const auto id = findDocument(duplicate);
     QSqlQuery query(m_database);

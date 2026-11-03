@@ -1774,10 +1774,6 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(duplicates.size(), 1, 10000);
         QCOMPARE(duplicates[0][0].toUrl(), second);
         QCOMPARE(duplicates[0][1].toUrl(), first);
-        QVERIFY(store.keepDuplicate(second));
-        QVERIFY(store.rememberDocument(second));
-        QTest::qWait(500);
-        QCOMPARE(duplicates.size(), 1); // "Keep both" stops asking for this file version.
         // What the extra entry was filed under moves to the copy kept.
         const auto shelf = store.createCollection("Shelf");
         QVERIFY(store.setDocumentCollection(second, shelf, true));
@@ -1788,6 +1784,19 @@ private slots:
         QCOMPARE(store.recentDocuments().size(), 1);
         QCOMPARE(store.recentDocuments()[0].toMap()["url"].toUrl(), first);
         QVERIFY(QFileInfo::exists(copy)); // Files are never touched.
+        QTest::qWait(800);
+        QCOMPARE(duplicates.size(), 1); // The copy kept, opened again, does not offer the one set aside.
+        // "Keep both" stops asking for this file version, from either copy.
+        const auto third = QUrl::fromLocalFile(directory.filePath("third.pdf"));
+        QVERIFY(QFile::copy(original, third.toLocalFile()));
+        QVERIFY(store.rememberDocument(third));
+        QTRY_COMPARE_WITH_TIMEOUT(duplicates.size(), 2, 10000);
+        QCOMPARE(duplicates[1][0].toUrl(), third);
+        QVERIFY(store.keepDuplicate(third));
+        QVERIFY(store.rememberDocument(third));
+        QVERIFY(store.rememberDocument(first));
+        QTest::qWait(800);
+        QCOMPARE(duplicates.size(), 2);
     }
     void doubleAndTripleClicksTakeAWordAndASentence()
     {

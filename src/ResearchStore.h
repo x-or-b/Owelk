@@ -190,9 +190,10 @@ public:
     // unread | reading | read. Opening a paper moves it from unread to reading.
     Q_INVOKABLE bool setReadingState(const QUrl &source, const QString &state);
     Q_INVOKABLE bool setFavorite(const QUrl &source, bool favorite);
-    // Stop offering the existing copy for this exact file version.
+    // Stop offering one copy for another for this exact file version, from any of its copies.
     Q_INVOKABLE bool keepDuplicate(const QUrl &source);
-    // Read the existing copy instead: the duplicate leaves Recent Papers, the existing copy is reopened.
+    // Read the existing copy instead: the duplicate leaves Recent Papers, the existing copy is reopened (and
+    // no longer offers the one set aside).
     Q_INVOKABLE bool useExistingCopy(const QUrl &duplicate, const QUrl &existing);
 
     // Library organisation (ResearchStoreLibrary.cpp). Filters: see libraryDocuments().
@@ -516,6 +517,7 @@ private:
     void rememberPaperName(const QUrl &url);
     void refreshMetadata(const QString &id, const QUrl &url, bool force, bool checkDuplicate = false);
     void reportDuplicate(const QString &id, const QUrl &url, const QString &hash);
+    bool answerDuplicates(const QString &id);
     void announceDocumentsChanged();
     static bool adoptDocumentIds(QSqlDatabase &db, QString *error);
     QVariantMap canonicalState(const QVariantMap &state) const;

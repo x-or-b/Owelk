@@ -2798,10 +2798,6 @@ Same file as another library entry</source>
         <translation>킵 더 바 숀</translation>
     </message>
     <message>
-        <source>Keep two separate papers, each with its own notes. Owelk won't ask again about this file.</source>
-        <translation>킵 투 세퍼레이트 페이퍼스, 이치 위드 잇츠 오운 노츠. 오웰크 원트 애스크 어게인 어바웃 디스 파일.</translation>
-    </message>
-    <message>
         <source>Let the bar hide</source>
         <translation>렛 더 바 하이드</translation>
     </message>
@@ -2838,6 +2834,14 @@ Same file as another library entry</source>
         <translation>노 오픈 탭스</translation>
     </message>
     <message>
+        <source>Not Now</source>
+        <translation>낫 나우</translation>
+    </message>
+    <message>
+        <source>Open My Copy</source>
+        <translation>오픈 마이 카피</translation>
+    </message>
+    <message>
         <source>Open PDF</source>
         <translation>오픈 피디에프</translation>
     </message>
@@ -2850,16 +2854,20 @@ Same file as another library entry</source>
         <translation>오픈 웹 페이지…</translation>
     </message>
     <message>
+        <source>Open it to keep your highlights and notes in one place. No file is deleted.</source>
+        <translation>오픈 잇 투 킵 유어 하이라이츠 앤드 노츠 인 원 플레이스. 노 파일 이즈 딜리티드.</translation>
+    </message>
+    <message>
+        <source>Opens the paper already in your Library, with its highlights and notes. The new file is set aside and stays on disk.</source>
+        <translation>오픈스 더 페이퍼 올레디 인 유어 라이브러리, 위드 잇츠 하이라이츠 앤드 노츠. 더 뉴 파일 이즈 셋 어사이드 앤드 스테이즈 온 디스크.</translation>
+    </message>
+    <message>
         <source>Owelk closed unexpectedly last time. Your tabs are back; unsaved notes are offered when you reopen them.</source>
         <translation>오웰크 클로즈드 언익스펙티들리 라스트 타임. 유어 탭스 아 백; 언세이브드 노츠 아 오퍼드 웬 유 리오픈 뎀.</translation>
     </message>
     <message>
         <source>Quit</source>
         <translation>큇</translation>
-    </message>
-    <message>
-        <source>Read the paper already in your Library (with its notes). This extra entry is set aside; no file is deleted.</source>
-        <translation>리드 더 페이퍼 올레디 인 유어 라이브러리 (위드 잇츠 노츠). 디스 엑스트라 엔트리 이즈 셋 어사이드; 노 파일 이즈 딜리티드.</translation>
     </message>
     <message>
         <source>Reopen Closed Tab</source>
@@ -2898,16 +2906,12 @@ Same file as another library entry</source>
         <translation>더 에이아이 이즈 드래프팅 더 스리 라인스…</translation>
     </message>
     <message>
-        <source>This PDF is already in your Library</source>
-        <translation>디스 피디에프 이즈 올레디 인 유어 라이브러리</translation>
-    </message>
-    <message>
         <source>Threads</source>
         <translation>스레즈</translation>
     </message>
     <message>
-        <source>Use Existing</source>
-        <translation>유즈 이그지스팅</translation>
+        <source>Two separate papers, each with its own highlights and notes. Owelk won't ask again about this file.</source>
+        <translation>투 세퍼레이트 페이퍼스, 이치 위드 잇츠 오운 하이라이츠 앤드 노츠. 오웰크 원트 애스크 어게인 어바웃 디스 파일.</translation>
     </message>
     <message>
         <source>View</source>
@@ -2920,6 +2924,10 @@ Same file as another library entry</source>
     <message>
         <source>Write Note</source>
         <translation>라이트 노트</translation>
+    </message>
+    <message>
+        <source>You already have this paper</source>
+        <translation>유 올레디 해브 디스 페이퍼</translation>
     </message>
     <message>
         <source>Zoom In</source>
