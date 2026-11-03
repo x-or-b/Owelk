@@ -161,7 +161,13 @@ Item {
             verify(label.text.indexOf("%") < 0 && label.text.indexOf(" of ") < 0)
             const first = track.progress
             tryVerify(function() { return track.progress > first }, 5000)
-            tryVerify(function() { return activeTab().kind !== "web" }, 15000)
+            // Turned to another tab meanwhile: the paper opens behind it; nothing is brought to the front.
+            const webTab = activeTab().id
+            d.newHomeTab()
+            const other = activeTab().id
+            tryVerify(function() { return Tree.owner(d.tree, webTab).tabs.some(function(t) { return !t.kind && t.source.indexOf("slow") > 0 }) }, 15000)
+            compare(activeTab().id, other)
+            compare(workspace.homeVisible, false)
         }
         function test_pageWithAFramedPdfOffersBothWays() {
             const d = workspace.documents

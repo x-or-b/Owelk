@@ -272,10 +272,13 @@ Flickable {
         prepare()
         const t = Tree.tab(file, researchStore.readingPosition(file))
         const at = g.tabs.findIndex(function(tab) { return tab.id === tabId })
+        // It comes to the front only where its page still was: a tab (or Home) turned to while it downloaded
+        // stays in front, and focus stays where it is.
+        const shown = g.activeTab === tabId
         if (replace && at >= 0) g.tabs[at] = t
         else g.tabs.splice(at + 1, 0, t)
-        g.activeTab = t.id; activeGroup = g.id
-        sync(); changed(); opened()
+        if (shown) g.activeTab = t.id
+        sync(); changed()
         return true
     }
     // A note opens once: an existing tab anywhere is focused instead of a second editor.

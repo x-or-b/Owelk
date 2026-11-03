@@ -70,6 +70,7 @@
 - 키: PDF는 ←/→로 쪽을 넘깁니다(확대해 쪽이 화면보다 넓으면 먼저 옆으로 끝까지 스크롤). Back·Forward는 macOS ⌘[ / ⌘], Linux·Windows Alt+← / Alt+→. 모두 Settings › Shortcuts에서 바꿉니다.
 - Library 읽기 표시: 열지 않은 논문은 강조색 점, 연 논문(Reading)은 강조색 테두리, 읽음으로 표시한 논문은 표시 없음.
 - 웹 탭: PDF만 바로 받고 다른 파일은 Save·Cancel을 묻습니다. 페이지가 스스로 여는 팝업은 막고, 클릭으로 연 새 창만 탭으로 엽니다.
+- 받은 PDF는 그 웹 탭이 아직 앞에 있을 때만 앞으로 나옵니다. 받는 동안 다른 탭이나 Home으로 옮겼으면 그 화면을 그대로 두고, PDF는 웹 탭 옆에 조용히 열립니다(포커스도 그대로).
 - 설치: `tools/qt.txt`의 Qt 하나를 모든 시스템이 씁니다. macOS도 공식 Qt를 `~/Qt`에 받고 Homebrew의 Qt는 쓰지 않으며(Homebrew는 cmake·ninja·qpdf만), Command Line Tools·Homebrew 설치를 안내합니다. Linux는 컨테이너와 이름이 바뀐 패키지(t64)도 처리합니다. `Dockerfile`로 Linux 빌드·전체 테스트(`docker run --rm owelk`).
 - 코드 리뷰 수정 묶음: 데이터 경계 사례(같은 초 백업, 손상된 인용 캐시, 노트 링크 풀기, 중복본의 Collection, OCR 잔여 행), 동기화 가져오기를 200개씩 나눠 저장·이어 읽기, 번역 누락·Theme 색, 첨부 그림 정리, Ollama 16k 컨텍스트, macOS 누수, Windows 파일 이름·파일 지문.
 
