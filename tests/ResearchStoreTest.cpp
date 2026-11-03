@@ -1760,10 +1760,18 @@ private slots:
         QVERIFY2(store.initialize(&error), qPrintable(error));
         QSignalSpy duplicates(&store, &ResearchStore::duplicateFound);
         const auto first = QUrl::fromLocalFile(original), second = QUrl::fromLocalFile(copy);
+        // Opening a paper is not reading it: five minutes in all are (here over two days).
         QVERIFY(store.rememberDocument(first));
+        QCOMPARE(store.documentDetails(first)["readingState"].toString(), QString("unread"));
+        const auto today = QDate::currentDate();
+        QVERIFY(store.recordReading(first, today.addDays(-1).toString(Qt::ISODate), 200));
+        QVERIFY(store.recordReading(first, today.toString(Qt::ISODate), 99));
+        QCOMPARE(store.documentDetails(first)["readingState"].toString(), QString("unread"));
+        QVERIFY(store.recordReading(first, today.toString(Qt::ISODate), 1));
         QCOMPARE(store.documentDetails(first)["readingState"].toString(), QString("reading"));
         QVERIFY(store.setReadingState(first, "read"));
-        QVERIFY(store.rememberDocument(first)); // Reopening does not demote a finished paper.
+        QVERIFY(store.rememberDocument(first)); // Reopening or reading on does not demote a finished paper.
+        QVERIFY(store.recordReading(first, today.toString(Qt::ISODate), 60));
         QCOMPARE(store.documentDetails(first)["readingState"].toString(), QString("read"));
         QVERIFY(!store.setReadingState(first, "skimmed"));
         QVERIFY(store.setFavorite(first, true));
@@ -3269,9 +3277,12 @@ private slots:
                 = pdf.getSelectionAtIndex(0, int(pdf.getAllText(0).text().indexOf("Research finding 1.2")), 40)
                       .boundingRectangle();
             const QPointF from(bounds.left(), bounds.center().y()), to(bounds.right(), bounds.center().y());
+            QCOMPARE(store.documentDetails(source)["readingState"].toString(), QString("unread"));
             store.highlightText(source, 0, from, to, pdf.getSelection(0, from, to).text());
         }
         QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 10000);
+        // A first annotation: the paper is being read, however short the time.
+        QCOMPARE(store.documentDetails(source)["readingState"].toString(), QString("reading"));
         store.loadHighlights(source);
         QTRY_COMPARE_WITH_TIMEOUT(loaded.size(), 1, 5000);
         QCOMPARE(loaded.last().at(2).toList().size(), 1);

@@ -289,6 +289,7 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
             return;
         }
         recordAnnotation(id, before, "");
+        if (!editing) startReading(document, true);
         emit highlightsChanged();
         emit homeChanged();
         emit annotationSaved(id);

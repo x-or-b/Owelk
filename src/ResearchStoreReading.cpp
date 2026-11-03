@@ -48,7 +48,21 @@ bool ResearchStore::recordReading(const QUrl &source, const QString &day, int se
     if (!query.exec()) return false;
     ++m_readingRevision;
     emit readingSaved();
+    startReading(id, false);
     return true;
+}
+
+void ResearchStore::startReading(const QString &document, bool annotated)
+{
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral("UPDATE documents SET reading_state='reading' WHERE id=? AND reading_state='unread'")
+        + (annotated ? QString() : " AND (SELECT COALESCE(SUM(seconds),0) FROM reading_days WHERE document_id=?)>=?"));
+    query.addBindValue(document);
+    if (!annotated) {
+        query.addBindValue(document);
+        query.addBindValue(readingAfterSeconds);
+    }
+    if (query.exec() && query.numRowsAffected() > 0) announceDocumentsChanged();
 }
 
 QHash<QString, QString> ResearchStore::mergedPapers() const

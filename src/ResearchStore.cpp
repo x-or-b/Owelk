@@ -653,10 +653,6 @@ bool ResearchStore::rememberDocument(const QUrl &url)
     restore.prepare("UPDATE documents SET removed_at=NULL,trashed_at=NULL WHERE id=? AND removed_at IS NOT NULL");
     restore.addBindValue(document);
     if (restore.exec() && restore.numRowsAffected() > 0) announceDocumentsChanged();
-    QSqlQuery reading(m_database);
-    reading.prepare("UPDATE documents SET reading_state='reading' WHERE id=? AND reading_state='unread'");
-    reading.addBindValue(document);
-    reading.exec();
     refreshMetadata(document, resolvedSource(url), false, true);
     emit recentDocumentsChanged();
     emit homeChanged();
@@ -874,6 +870,7 @@ void ResearchStore::saveTextSelection(const QUrl &source, int page, const QPoint
             mark.addBindValue(value);
         if (!mark.exec()) return fail(ui("Cannot save annotation. Check storage and permissions."));
         recordAnnotation(result.id, {}, "");
+        startReading(document, true);
         emit highlightsChanged();
         emit homeChanged();
         emit highlightSaved(result.id, result.source);

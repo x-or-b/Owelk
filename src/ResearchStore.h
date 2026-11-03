@@ -96,6 +96,8 @@ public:
     // Time read (ResearchStoreReading.cpp), kept per computer, paper and day in reading_days and added up over
     // computers. recordReading adds seconds read in source on day (yyyy-MM-dd, local time).
     Q_INVOKABLE bool recordReading(const QUrl &source, const QString &day, int seconds);
+    // An unread paper is being read after this much reading in all, or with its first annotation.
+    static constexpr int readingAfterSeconds = 5 * 60;
     // The last days days up to today: {days: [{day, seconds, papers}] oldest first, streak (days in a row with a
     // minute or more, up to today or yesterday), today, week (seconds, the last seven days), previousWeek (the
     // seven before them)}.
@@ -187,7 +189,8 @@ public:
     Q_INVOKABLE bool updateDocumentDetails(const QUrl &source, const QVariantMap &details);
     // Forget edits and read the details from the PDF again.
     Q_INVOKABLE void resetDocumentDetails(const QUrl &source);
-    // unread | reading | read. Opening a paper moves it from unread to reading.
+    // unread | reading | read. Five minutes read or a first annotation move a paper from unread to reading
+    // (startReading); opening it does not.
     Q_INVOKABLE bool setReadingState(const QUrl &source, const QString &state);
     Q_INVOKABLE bool setFavorite(const QUrl &source, bool favorite);
     // Stop offering one copy for another for this exact file version, from any of its copies.
@@ -615,6 +618,8 @@ private:
     int m_readingRevision = 0;
     QString readingDevice();
     QString m_readingDevice;
+    // Unread to reading, once readingAfterSeconds are read (or at once with an annotation).
+    void startReading(const QString &document, bool annotated);
     int markWords(const QVariantList &ids, bool removed);
     // Seconds read by paper, over all days and computers. A paper merged by sync with another copy (sync_alias)
     // counts as the one it became: each computer's rows stay as that computer wrote them.

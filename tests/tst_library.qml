@@ -288,9 +288,12 @@ Item {
             tryVerify(findDot)
             compare(dot.state, "unread")
             verify(Qt.colorEqual(dot.color, Theme.accent))
-            // Opened in the reader: an accent ring while reading, also when the Library comes back.
+            // Read for five minutes: an accent ring while reading, also when the Library comes back. Opened
+            // alone, it stays unread.
             workspace.openDocument(paper)
             tryCompare(activeTab(), "kind", undefined)
+            compare(researchStore.documentDetails(paper).readingState, "unread")
+            verify(researchStore.recordReading(paper, Qt.formatDate(new Date(), "yyyy-MM-dd"), 300))
             workspace.documents.activateTab(libraryTab)
             tryVerify(function() { return findDot() && dot.state === "reading" })
             verify(Qt.colorEqual(dot.color, "transparent"))
