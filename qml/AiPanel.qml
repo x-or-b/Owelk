@@ -121,6 +121,9 @@ Item {
             else if (kind === "selection") list.push({kind: kind, label: qsTr("Selection · ") + flat(context.selection), detail: context.selection || ""})
             else if (kind === "quote") list.push({kind: kind, label: qsTr("Quote · ") + flat(context.quote), detail: context.quote || ""})
             else if (kind === "papers") (context.papers || []).forEach(function(name) { list.push({kind: "paper", label: qsTr("Paper · ") + name}) })
+            else if (kind === "library" && context.readEach)
+                list.push({kind: kind, label: context.collectionName ? qsTr("Collection · ") + context.collectionName + qsTr(" · read in full")
+                                             : (context.searched || []).length + qsTr(" papers read in full")})
             else if (kind === "library")
                 list.push({kind: kind, label: context.collectionName ? qsTr("Collection · ") + context.collectionName
                                              : !context.wholeLibrary && (context.searched || []).length > 1 ? qsTr("Passages from ") + context.searched.length + qsTr(" papers")
@@ -149,7 +152,8 @@ Item {
             objectName: "aiThinkingNow"
             visible: fold.live
             Layout.fillWidth: true
-            text: fold.shown ? qsTr("Thinking · ") + root.c.thinkingHeadline(fold.summary) : qsTr("Thinking…")
+            text: fold.shown ? qsTr("Thinking · ") + root.c.thinkingHeadline(fold.summary)
+                : root.c && root.c.progressText.length ? root.c.progressText : qsTr("Thinking…")
             elide: Text.ElideRight; textFormat: Text.PlainText
             color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
         }
@@ -811,6 +815,17 @@ Item {
                     removable: !modelData.fixed
                     onRemoved: { const kind = modelData.kind, at = modelData.index; Qt.callLater(function() { root.c.detach(kind, at) }) }
                 }
+            }
+            // Several papers or a collection: each read whole for the next question (a request per paper, then
+            // the answer from what each says) instead of an overview of each and passages.
+            Chip {
+                objectName: "aiReadEach"
+                visible: root.c && root.c.readEachOffered && root.c.readEachCount >= 2
+                enabled: root.c && root.c.readEachCount <= 8
+                checked: root.c && root.c.readsEach
+                text: enabled ? qsTr("Read each paper in full") : qsTr("Read each in full: up to 8 papers")
+                ToolTip.text: qsTr("One request per paper, then the answer from what each says. Slower, and uses more of your AI allowance.")
+                onClicked: root.c.setReadEach(!checked)
             }
         }
         // The question box grows with its text up to a limit, then scrolls (the scroll bar shows only

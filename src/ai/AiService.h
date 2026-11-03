@@ -5,6 +5,7 @@
 #include <QPointer>
 #include <QVariantList>
 #include <QVariantMap>
+#include <memory>
 
 class AiProvider;
 class CodexBridge;
@@ -108,6 +109,8 @@ signals:
     void delta(int request, const QString &text);
     // Summarized reasoning while the answer is prepared (kept with the answer, never resent).
     void thinking(int request, const QString &text);
+    // What a long preparation is doing ("Reading each paper in full · 2 of 5 done"), shown until the answer.
+    void progress(int request, const QString &text);
     void finished(int request, const QString &text, const QVariantMap &details);
     void failed(int request, const QString &error);
     void connectionTested(const QString &provider, bool ok, const QString &detail);
@@ -133,6 +136,11 @@ private:
         const QString &model, bool stopped);
     // "Ask your library": search terms from the question (one short request), then the matching passages.
     void retrieveLibrary(int request, const QString &provider, QVariantMap spec, QVariantMap prepared);
+    // "Read each paper in full": a request per paper writes notes on it for the question (a few at a time), then
+    // the answer is written from those notes (readNext starts the next paper, or the answer once all are read).
+    struct Reading;
+    void readEach(int request, const QString &provider, const QVariantMap &spec, const QVariantMap &prepared);
+    void readNext(int request, const std::shared_ptr<Reading> &reading);
     // Shared by tab and paper organization: items are named <prefix>1…N in the prompt, and the
     // answer's groups list them under memberKey. reply(request, groups [{name, ids}], error).
     using GroupReply = void (AiService::*)(int, const QVariantList &, const QString &);
@@ -142,6 +150,8 @@ private:
     QNetworkAccessManager *m_network;
     CodexBridge *m_codex;
     QHash<int, QPointer<AiProvider>> m_running;
+    // The papers being read for a request (Read each paper in full), stopped with it.
+    QHash<int, QList<QPointer<AiProvider>>> m_readers;
     bool m_closing = false;
     int m_nextRequest = 0;
     QVariantMap m_codexAccount;

@@ -94,7 +94,13 @@ AiPrompt buildAiPrompt(
             + "; a paper whose text is not repeated was sent earlier in the conversation). When a statement draws on "
               "a paper, cite its place right after it as [P2 p. N: \"exact words\"], where P2 is that paper's marker, "
               "N is the page number marked in its text and the words are a short phrase (about 4 to 12 words) "
-              "copied exactly from that page. Say which paper each point comes from.";
+              "copied exactly from that page. Say which paper each point comes from."
+            + QString(materials.readNotes
+                    ? " Here each paper's text is notes made by reading the whole paper for this question; their "
+                      "[p. N: \"exact words\"] citations give that paper's pages and exact words, so carry them "
+                      "over as [P2 p. N: \"exact words\"]. Answer about every paper; a paper that could not be read "
+                      "is marked so."
+                    : "");
     else if ((!materials.pageText.isEmpty() || !materials.paperText.isEmpty()) && action != "translate")
         prompt.system += " When a statement draws on the paper, cite its place right after it as [p. N: \"exact "
                          "words\"], where N is the page number marked in the material and the words are a short phrase "

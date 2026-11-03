@@ -298,6 +298,11 @@ public:
     // conclusion from the index, sharing about `characters`; left: how many more there were.
     QVariantList paperOverviews(
         const QString &collection, const QStringList &documents, int characters, int *left = nullptr);
+    // The papers a question is about that are in the Library, as (document, file): these papers first, then the
+    // collection's (with its subcollections).
+    QList<QPair<QString, QUrl>> askedPapers(const QString &collection, const QStringList &documents) const;
+    // How many papers a question about these sources and the collection is about (for Read each paper in full).
+    Q_INVOKABLE int askedPaperCount(const QString &collection, const QVariantList &sources);
     Q_INVOKABLE QVariantMap paperExcerpt(const QUrl &source, int opening = 5000, int closing = 2500);
     // Encrypted PDFs: the viewer hands over a password that worked, so indexing, annotations,
     // printing and AI can open the file too. keep: also store it in the system keyring.

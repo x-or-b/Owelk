@@ -6,8 +6,8 @@ import QtQuick
 QtObject {
     id: root
     readonly property var ai: researchStore.ai
-    // By request: {threadId, question, answer, thinking, thinkingSeconds, askedAt, model, truncated, translatePage,
-    // restore}: restore is the turn a question asked again or edited took out, put back if nothing replaces it.
+    // By request: {threadId, question, answer, thinking, progress, thinkingSeconds, askedAt, model, truncated,
+    // translatePage, restore}: progress says what a long preparation is doing (reading each paper); restore is the turn a question asked again or edited took out, put back if nothing replaces it.
     // Text changes in place; the map is replaced only when one starts, ends or learns its conversation.
     property var running: ({})
     readonly property var answeringThreads: Object.keys(running).map(function(k) { return running[k].threadId }).filter(function(t) { return t.length })
@@ -20,6 +20,7 @@ QtObject {
     // After the views have taken the answer that ended.
     signal started(int id, string thread)
     signal thinking(int id, string text)
+    signal progress(int id, string text)
     signal delta(int id, string text)
     signal finished(int id, string thread, string text, var details)
     signal failed(int id, string thread, string message)
@@ -100,6 +101,11 @@ QtObject {
             const r = root.running[id]
             if (r) r.thinking += text
             root.thinking(id, text)
+        }
+        function onProgress(id, text) {
+            const r = root.running[id]
+            if (r) r.progress = text
+            root.progress(id, text)
         }
         function onDelta(id, text) {
             const r = root.running[id]

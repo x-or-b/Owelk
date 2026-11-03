@@ -14,6 +14,8 @@ struct AiMaterials {
     QString overviewText; // Each paper asked about: its beginning and conclusion, marked [n] like the passages.
     // Several papers in paperText, each opened by "=== P2: Title ===": "P1: Title", "P2: Title"…
     QStringList paperMarkers;
+    // paperText holds notes made by reading each paper in full for the question (Read each paper in full).
+    bool readNotes = false;
     // Notes the reader attached: their Markdown, with ids and titles so an answer can propose changes.
     QStringList notes, noteIds, noteTitles;
     int pageNumber = 0; // 1-based; 0 when unknown.

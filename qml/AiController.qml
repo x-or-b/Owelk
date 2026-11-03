@@ -51,6 +51,8 @@ Item {
     property bool streaming: false
     // The reasoning summary of the answer being prepared, and the seconds before the answer began.
     property string thinkingText: ""
+    // What a long preparation is doing ("Reading each paper in full · 2 of 5 done"), shown while it thinks.
+    property string progressText: ""
     property int thinkingSeconds: 0
     property double askedAt: 0
     property bool showThinking: researchStore.setting("ai.showThinking", "1") === "1"
@@ -295,6 +297,12 @@ Item {
         const reads = (s.scope === "paper" && s.source && s.source.toString().length ? 1 : 0) + (s.papers || []).length
         return s.scope !== "library" && (reads > 3 || (!!s.searchPapers && (s.papers || []).length > 0))
     }
+    // A collection or several papers can instead be read whole, one paper at a time, for the next question
+    // (AiService::readEach): slower, and up to 8 papers. It is asked again for each question.
+    readonly property bool readEachOffered: (spec.scope === "library" && !!spec.collection) || searchesPapers(spec)
+    readonly property int readEachCount: readEachOffered ? researchStore.askedPaperCount(spec.scope === "library" ? spec.collection || "" : "", [spec.source || ""].concat(spec.papers || [])) : 0
+    readonly property bool readsEach: !!spec.readEach && readEachOffered && readEachCount >= 2 && readEachCount <= 8
+    function setReadEach(on) { spec = Object.assign({}, spec, {readEach: on}) }
     // Papers chosen to go with the next question: open tabs, the Library, drops. The first becomes the chat's
     // own paper when it has none yet; the rest are P2, P3… for citations.
     function attachPapers(urls) {
@@ -356,7 +364,7 @@ Item {
     function reset() {
         request = -1; streaming = false
         answer = ""; error = ""; pendingQuestion = ""; usedModel = ""; truncated = false
-        thinkingText = ""; thinkingSeconds = 0; translatePage = -1
+        thinkingText = ""; progressText = ""; thinkingSeconds = 0; translatePage = -1
         editing = ""
     }
     // The last question asked again (the same, with what went with it) or edited replaces its turn; nothing is
@@ -386,7 +394,7 @@ Item {
         error = ""
         pendingQuestion = asked.display || "Ask"; translatePage = -1
         answer = ""; streaming = true
-        thinkingText = ""; thinkingSeconds = 0; askedAt = Date.now()
+        thinkingText = ""; progressText = ""; thinkingSeconds = 0; askedAt = Date.now()
         const choice = {provider: ai.provider, model: model, threadId: threadId, action: action, question: action === "ask" ? asked.display : "",
                         label: asked.display, resend: asked.content, resendContext: context, scope: "none",
                         source: thread.source || "", imageFiles: context.imageFiles || [], imageNames: context.images || [], imageLabels: []}
@@ -435,7 +443,7 @@ Item {
             const r = runs.running[key]
             if (r.threadId !== threadId) continue
             request = Number(key); streaming = true
-            pendingQuestion = r.question; answer = r.answer; thinkingText = r.thinking; thinkingSeconds = r.thinkingSeconds
+            pendingQuestion = r.question; answer = r.answer; thinkingText = r.thinking; progressText = r.progress || ""; thinkingSeconds = r.thinkingSeconds
             askedAt = r.askedAt; usedModel = r.model; truncated = r.truncated; translatePage = r.translatePage
             return
         }
@@ -556,11 +564,11 @@ Item {
         pendingQuestion = question.trim().length ? question.trim() : (spec.label || actions[spec.action] || "Ask")
         translatePage = !question.trim().length && spec.action === "translate" && spec.scope === "page" ? Number(spec.page) : -1
         answer = ""; streaming = true
-        thinkingText = ""; thinkingSeconds = 0; askedAt = Date.now()
+        thinkingText = ""; progressText = ""; thinkingSeconds = 0; askedAt = Date.now()
         const choice = {provider: provider, model: model, question: question, threadId: threadId, action: spec.action || "ask",
                         imageFiles: images.map(function(i) { return i.url }),
                         imageLabels: images.map(function(i) { return i.about || "" }),
-                        imageNames: images.map(function(i) { return i.name || "" })}
+                        imageNames: images.map(function(i) { return i.name || "" }), readEach: readsEach}
         if (efforts.length) choice.effort = effectiveEffort
         if (effectiveFast) choice.fast = true
         request = ai.ask(Object.assign({}, spec, choice))
@@ -632,6 +640,7 @@ Item {
             if (thread.length && thread === root.threadId && !root.streaming) root.showRunning()
         }
         function onThinking(id, text) { if (id === root.request) root.thinkingText += text }
+        function onProgress(id, text) { if (id === root.request) root.progressText = text }
         function onDelta(id, text) {
             if (id !== root.request) return
             if (!root.answer.length) root.thinkingSeconds = Math.max(1, Math.round((Date.now() - root.askedAt) / 1000))
@@ -641,7 +650,7 @@ Item {
             if (id !== root.request) return
             root.streaming = false; root.usedModel = details.model
             root.thread = researchStore.aiThread(root.threadId)
-            root.answer = ""; root.pendingQuestion = ""; root.thinkingText = ""
+            root.answer = ""; root.pendingQuestion = ""; root.thinkingText = ""; root.progressText = ""
             // The material went with this turn; follow-ups reuse it through the thread. What is searched (a
             // collection, the library, several papers) is searched again for each question.
             const sent = root.spec, searched = sent.scope === "library" || root.searchesPapers(sent)

@@ -363,7 +363,10 @@ int AiService::ask(const QVariantMap &input)
         for (qsizetype i = 0; i < material.images.size(); ++i)
             images.append(QVariantMap{{"data", material.images[i]}, {"path", material.paths.value(i)}});
         next.insert("images", images);
-        if (spec.value("scope").toString() == "library")
+        if (spec.value("scope").toString() == "library" && spec.value("readEach").toBool()
+            && !spec.value("wholeLibrary").toBool())
+            readEach(request, id, spec, next);
+        else if (spec.value("scope").toString() == "library")
             retrieveLibrary(request, id, spec, next);
         else
             run(request, id, spec, next);
@@ -518,6 +521,156 @@ void AiService::retrieveLibrary(int request, const QString &id, QVariantMap spec
     provider->start(call);
 }
 
+struct AiService::Reading {
+    struct Paper {
+        QString document, title, authors, year, text, notes, error;
+    };
+    QVariantMap spec, prepared;
+    QString provider, model, question;
+    QList<Paper> papers;
+    int next = 0, done = 0;
+};
+
+void AiService::readEach(int request, const QString &id, const QVariantMap &spec, const QVariantMap &prepared)
+{
+    const auto fail = [this, request](const QString &error) {
+        m_running.remove(request);
+        emit busyChanged();
+        emit failed(request, error);
+    };
+    const auto papers
+        = m_store->askedPapers(spec.value("collection").toString(), spec.value("searchDocuments").toStringList());
+    if (papers.size() < 2) return fail(ui("Read each paper in full needs two papers or more."));
+    if (papers.size() > 8)
+        return fail(
+            QString(ui("Read each paper in full works with up to 8 papers; this asks about %1.")).arg(papers.size()));
+    auto reading = std::make_shared<Reading>();
+    reading->spec = spec;
+    reading->prepared = prepared;
+    reading->provider = id;
+    reading->model = spec.value("model").toString().isEmpty() ? model(id) : spec.value("model").toString().left(120);
+    reading->question = spec.value("question").toString().trimmed();
+    if (reading->question.isEmpty()) return fail(ui("Type a question for these papers."));
+    QList<QUrl> files;
+    for (const auto &[document, source] : papers) {
+        const auto details = m_store->documentDetails(source);
+        reading->papers.append({document, m_store->displayName(source), details.value("authors").toString(),
+            details.value("year").toString()});
+        files << source;
+    }
+    // The conversation is known now, so a view that opens it meanwhile shows this question being answered.
+    emit started(request, spec.value("threadId").toString(), id, reading->model, false);
+    emit progress(request, QString(ui("Reading each paper in full · %1 of %2 done")).arg(0).arg(papers.size()));
+    // Each paper's leading pages up to 80,000 characters, as when one paper is read whole.
+    auto *watcher = new QFutureWatcher<QStringList>(this);
+    connect(watcher, &QFutureWatcher<QStringList>::finished, this, [this, watcher, request, reading, id] {
+        const auto texts = watcher->result();
+        watcher->deleteLater();
+        if (!m_running.contains(request)) return; // Stopped while reading.
+        for (qsizetype i = 0; i < texts.size() && i < reading->papers.size(); ++i) reading->papers[i].text = texts[i];
+        // A few at a time: a local model answers one by one anyway.
+        for (int i = 0, at = id == "ollama" ? 1 : 3; i < at; ++i) readNext(request, reading);
+    });
+    watcher->setFuture(QtConcurrent::run([files] {
+        QStringList texts;
+        for (const auto &url : files) {
+            QPdfDocument pdf;
+            QString text;
+            if (url.isLocalFile() && PdfAccess::load(pdf, url.toLocalFile()) == QPdfDocument::Error::None)
+                for (int i = 0; i < pdf.pageCount() && text.size() < 80000; ++i)
+                    text += QStringLiteral("[Page %1] ").arg(i + 1) + pdfText(pdf, i) + "\n";
+            texts << text;
+        }
+        return texts;
+    }));
+}
+
+void AiService::readNext(int request, const std::shared_ptr<Reading> &reading)
+{
+    if (!m_running.contains(request)) return; // Stopped.
+    auto &r = *reading;
+    if (r.next >= r.papers.size()) {
+        if (r.done < r.papers.size()) return; // Others are still being read.
+        m_readers.remove(request);
+        // The answer from the notes, each paper under its marker (P1 is the chat's own paper, first in the list).
+        QStringList blocks, markers, documents;
+        QString firstError;
+        int read = 0;
+        for (qsizetype i = 0; i < r.papers.size(); ++i) {
+            const auto &paper = r.papers[i];
+            markers << QStringLiteral("P%1: %2").arg(i + 1).arg(paper.title);
+            documents << paper.document;
+            if (!paper.notes.isEmpty())
+                ++read;
+            else if (firstError.isEmpty())
+                firstError = paper.error;
+            blocks << "=== " + markers.last() + " ===\n"
+                    + (paper.notes.isEmpty() ? "(This paper could not be read: " + paper.error + ")" : paper.notes);
+        }
+        if (!read) {
+            m_running.remove(request);
+            emit busyChanged();
+            emit failed(request, firstError);
+            return;
+        }
+        emit progress(request, QString(ui("Writing the answer from %1 papers")).arg(read));
+        auto spec = r.spec;
+        auto prepared = r.prepared;
+        // The question's own task with the papers' markers, not a library search's.
+        spec.insert("scope", "papers");
+        spec.insert("pageDocuments", documents);
+        prepared.insert("paperText", blocks.join("\n\n"));
+        prepared.insert("paperMarkers", markers);
+        prepared.insert("readNotes", true);
+        run(request, r.provider, spec, prepared);
+        return;
+    }
+    const int at = r.next++;
+    const auto read = [this, request, reading, at](const QString &notes, const QString &error) {
+        reading->papers[at].notes = notes.trimmed();
+        reading->papers[at].error = error.isEmpty() ? QStringLiteral("no notes came back") : error;
+        ++reading->done;
+        emit progress(request,
+            QString(ui("Reading each paper in full · %1 of %2 done")).arg(reading->done).arg(reading->papers.size()));
+        readNext(request, reading);
+    };
+    const auto &paper = r.papers[at];
+    if (paper.text.trimmed().isEmpty()) return read({}, QStringLiteral("its text could not be read"));
+    QString error;
+    auto *provider = createProvider(r.provider, &error);
+    if (!provider) return read({}, error);
+    m_readers[request] << provider;
+    AiRequest call;
+    call.system
+        = "You read one research paper in full for a reader who asked a question about several papers; another "
+          "step writes the answer from your notes on each paper. Write notes on this paper for that question: "
+          "first, in two or three sentences, what the paper is about and what it contributes; then everything in "
+          "it that bears on the question. When the question compares or judges the papers (which is easiest, "
+          "clearest, best to present), also note what reading it shows: how much background it assumes, how "
+          "clearly it explains its method, and its figures and examples. Be faithful to the paper and add no "
+          "outside knowledge. After each point cite its place as [p. N: \"exact words\"], where N is the page "
+          "number marked in the text and the words are a short phrase (about 4 to 12 words) copied exactly from "
+          "that page. Write in English, in at most about 400 words, with no preamble.";
+    QStringList details{"Title: " + paper.title};
+    if (!paper.authors.isEmpty()) details << "Authors: " + paper.authors;
+    if (!paper.year.isEmpty()) details << "Year: " + paper.year;
+    call.text = "<paper>\n" + details.join('\n') + "\n</paper>\n\n<paper_text>\n" + paper.text
+        + "\n</paper_text>\n\nQuestion: " + r.question;
+    call.model = r.model;
+    // Reading and noting, not the answer itself: little reasoning (providers ignore what a model lacks).
+    call.effort = QStringLiteral("low");
+    const auto finish = [this, request, provider, read](const QString &notes, const QString &error) {
+        provider->deleteLater();
+        if (!m_running.contains(request)) return; // Stopped: nothing more is read.
+        m_readers[request].removeAll(provider);
+        read(notes, error);
+    };
+    connect(provider, &AiProvider::finished, this,
+        [finish](const QString &notes, const QString &) { finish(notes, QString()); });
+    connect(provider, &AiProvider::failed, this, [finish](const QString &message) { finish(QString(), message); });
+    provider->start(call);
+}
+
 // "[2]" in a library answer becomes a link to that paper's page, and the sources are listed below it.
 // [p. 3: "exact words"] (or [p. 3], [pp. 3-4]) in an answer about a paper: a link that opens the paper at
 // that page and lights up the words (DocumentWorkspace.openLink, ResearchStore::revealPassage). With several
@@ -638,6 +791,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     materials.paperText = prepared.value("paperText").toString();
     if (!materials.paperText.isEmpty()) materials.paperMarkers = prepared.value("paperMarkers").toStringList();
     materials.overviewText = prepared.value("overviewText").toString();
+    materials.readNotes = prepared.value("readNotes").toBool();
     materials.libraryText = prepared.value("libraryText").toString();
     materials.notes = prepared.value("notes").toStringList();
     materials.noteIds = prepared.value("noteIds").toStringList();
@@ -741,10 +895,11 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         QStringList attachments;
         if (!attached.selection.isEmpty()) attachments << "selection";
         if (!attached.pageText.isEmpty()) attachments << QStringLiteral("page %1").arg(attached.pageNumber);
-        if (!attached.paperText.isEmpty()) attachments << "paper";
+        if (!attached.paperText.isEmpty() && !attached.readNotes) attachments << "paper";
         if (attached.hasImage) attachments << "image";
         if (!spec.value("paperNames").toStringList().isEmpty()) attachments << "papers";
-        if (!attached.libraryText.isEmpty() || !attached.overviewText.isEmpty()) attachments << "library";
+        if (!attached.libraryText.isEmpty() || !attached.overviewText.isEmpty() || attached.readNotes)
+            attachments << "library";
         if (!attached.quote.isEmpty()) attachments << "quote";
         if (!attached.notes.isEmpty()) attachments << "notes";
         // What went with it, enough to ask it again or edit it (an edit attaches the same again).
@@ -753,7 +908,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
             {"searched", spec.value("searchedNames")}, {"searchUrls", spec.value("searchUrls")},
             {"wholeLibrary", spec.value("wholeLibrary")}, {"collection", spec.value("collection")},
             {"collectionName", spec.value("collectionName")}, {"notes", attached.noteTitles},
-            {"noteIds", attached.noteIds}, {"action", spec.value("action")},
+            {"noteIds", attached.noteIds}, {"action", spec.value("action")}, {"readEach", attached.readNotes},
             {"images", spec.value("imageNames").toStringList().mid(0, sentImages.size())}, {"imageFiles", sentImages}};
         if (spec.contains("resendContext")) {
             context = spec.value("resendContext").toMap();
@@ -1022,6 +1177,9 @@ void AiService::cancel(int request)
         provider->cancel();
     else {
         m_running.remove(request);
+        // Papers still being read for it (Read each paper in full) stop too, after it ends, so none goes on.
+        for (const auto &reader : m_readers.take(request))
+            if (reader) reader->cancel();
         emit busyChanged();
         emit failed(request, "Stopped.");
     }

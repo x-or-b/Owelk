@@ -715,8 +715,7 @@ QStringList ResearchStore::askedDocuments(const QString &collection, const QStri
     return documents;
 }
 
-QVariantList ResearchStore::paperOverviews(
-    const QString &collection, const QStringList &papers, int characters, int *left)
+QList<QPair<QString, QUrl>> ResearchStore::askedPapers(const QString &collection, const QStringList &papers) const
 {
     QList<QPair<QString, QUrl>> asked;
     for (const auto &document : askedDocuments(collection, papers)) {
@@ -726,6 +725,23 @@ QVariantList ResearchStore::paperOverviews(
         query.addBindValue(document);
         if (query.exec() && query.next()) asked.append({document, QUrl(query.value(0).toString())});
     }
+    return asked;
+}
+
+int ResearchStore::askedPaperCount(const QString &collection, const QVariantList &sources)
+{
+    QStringList documents;
+    for (const auto &value : sources) {
+        const auto document = documentLinkId(QUrl(value.toString()));
+        if (!document.isEmpty() && !documents.contains(document)) documents << document;
+    }
+    return int(askedPapers(collection, documents).size());
+}
+
+QVariantList ResearchStore::paperOverviews(
+    const QString &collection, const QStringList &papers, int characters, int *left)
+{
+    auto asked = askedPapers(collection, papers);
     if (left) *left = std::max<int>(0, int(asked.size()) - 40);
     asked = asked.mid(0, 40);
     // The beginning holds the abstract and the problem; the conclusion what came of it.

@@ -646,6 +646,100 @@ private slots:
         QVERIFY(summarized.contains("covers every paper in the overviews"));
         QVERIFY(ai->clearApiKey("claude"));
     }
+    void readingEachPaperInFull()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QList<QUrl> papers;
+        for (const auto *name : {"Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta", "Iota"}) {
+            const auto pdf = directory.filePath(QString(name) + ".pdf");
+            writeFixture(pdf, QString(name) + " Paper", 2);
+            papers << QUrl::fromLocalFile(pdf);
+            QVERIFY(store.rememberDocument(papers.last()));
+        }
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        MockServer server;
+        // Every request gets this: as notes on a paper, then as the answer, which cites the second paper.
+        server.chunks = {MockServer::sse("content_block_delta",
+                             {{"type", "content_block_delta"},
+                                 {"delta",
+                                     QJsonObject{{"type", "text_delta"},
+                                         {"text", "Beta is clearest [P2 p. 1: \"Research finding 1.1\"]."}}}}),
+            MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        store.setSetting("ai.baseUrl.claude", server.base().toString());
+        ai->setProvider("claude");
+        QVERIFY(ai->setApiKey("claude", "sk-ant-read-each"));
+        ai->giveConsent("claude");
+        QSignalSpy finished(ai, &AiService::finished), failed(ai, &AiService::failed),
+            progress(ai, &AiService::progress);
+        const auto others = [&](int count) {
+            QVariantList list;
+            for (int i = 1; i <= count; ++i) list << papers[i].toString();
+            return list;
+        };
+        // Four papers: a request per paper with its whole text and the question, then the answer from the notes.
+        ai->ask({{"source", papers[0]}, {"scope", "paper"}, {"papers", others(3)}, {"readEach", true},
+            {"question", "Which is easiest to present?"}});
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size() + failed.size(), 1, 15000);
+        QVERIFY2(failed.isEmpty(), failed.isEmpty() ? "" : qPrintable(failed[0][1].toString()));
+        QCOMPARE(server.seen.size(), 5);
+        const auto textOf = [](const QJsonObject &body) {
+            QString text;
+            for (const auto &part : body["messages"].toArray().last().toObject()["content"].toArray())
+                text += part.toObject()["text"].toString();
+            return text;
+        };
+        QStringList read;
+        for (int i = 0; i < 4; ++i) {
+            const auto body = server.seen[i].body;
+            QVERIFY(body["system"].toString().contains("You read one research paper in full"));
+            const auto text = textOf(body);
+            QVERIFY(text.contains("[Page 2]") && text.contains("Question: Which is easiest to present?"));
+            read << text.section("Title: ", 1, 1).section('\n', 0, 0);
+        }
+        read.sort();
+        QCOMPARE(read, QStringList({"Alpha Paper", "Beta Paper", "Delta Paper", "Gamma Paper"}));
+        const auto last = server.seen.last().body;
+        QVERIFY(last["system"].toString().contains("notes made by reading the whole paper"));
+        const auto material = textOf(last);
+        for (const auto *marker : {"=== P1: Alpha Paper ===", "=== P2: Beta Paper ===", "=== P4: Delta Paper ==="})
+            QVERIFY2(material.contains(marker), marker);
+        QVERIFY(!material.contains("[Page 2]") && !material.contains("<library_passages>"));
+        // The answer's citation opens the second paper at its page; the question keeps that it read each in full.
+        const auto answer = finished[0][1].toString();
+        QVERIFY2(answer.contains("[P2 p. 1](owelk://document/" + store.documentLinkId(papers[1]) + "#page=1"),
+            qPrintable(answer));
+        QVERIFY(progress.size() >= 5);
+        QVERIFY(progress.last()[1].toString().contains("4"));
+        const auto thread = finished[0][2].toMap()["threadId"].toString();
+        const auto asked = store.aiThread(thread)["messages"].toList()[0].toMap()["context"].toMap();
+        QVERIFY(asked["readEach"].toBool());
+        QVERIFY(asked["attachments"].toStringList().contains("library"));
+        QVERIFY(!asked["attachments"].toStringList().contains("paper"));
+        // Nine papers: too many to read each.
+        ai->ask({{"source", papers[0]}, {"scope", "paper"}, {"papers", others(8)}, {"readEach", true},
+            {"question", "Which is easiest?"}});
+        QTRY_COMPARE_WITH_TIMEOUT(failed.size(), 1, 5000);
+        QVERIFY(failed[0][1].toString().contains("up to 8"));
+        QCOMPARE(server.seen.size(), 5);
+        // Three at a time; Stop ends them all and reads no more.
+        server.keepOpen = true;
+        server.chunks = {};
+        const int request = ai->ask({{"source", papers[0]}, {"scope", "paper"}, {"papers", others(4)},
+            {"readEach", true}, {"question", "Which is easiest?"}});
+        QTRY_COMPARE_WITH_TIMEOUT(server.seen.size(), 8, 5000);
+        QTest::qWait(200);
+        QCOMPARE(server.seen.size(), 8);
+        ai->cancel(request);
+        QTRY_COMPARE_WITH_TIMEOUT(failed.size(), 2, 5000);
+        QCOMPARE(failed[1][1].toString(), QString("Stopped."));
+        QTest::qWait(200);
+        QCOMPARE(server.seen.size(), 8);
+        QVERIFY(!ai->busy());
+        QVERIFY(ai->clearApiKey("claude"));
+    }
     void organizePapersSuggestsCollectionsWithoutApplying()
     {
         QTemporaryDir directory;

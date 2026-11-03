@@ -217,8 +217,16 @@
         <translation> 페이퍼스</translation>
     </message>
     <message>
+        <source> papers read in full</source>
+        <translation> 페이퍼스 리드 인 풀</translation>
+    </message>
+    <message>
         <source> text</source>
         <translation> 텍스트</translation>
+    </message>
+    <message>
+        <source> · read in full</source>
+        <translation> · 리드 인 풀</translation>
     </message>
     <message>
         <source>Add context</source>
@@ -425,6 +433,10 @@
         <translation>낫싱 뉴 투 어태치: 픽처스 앤드 피디에프스 온리, 이치 원스.</translation>
     </message>
     <message>
+        <source>One request per paper, then the answer from what each says. Slower, and uses more of your AI allowance.</source>
+        <translation>원 리퀘스트 퍼 페이퍼, 덴 더 앤서 프롬 왓 이치 세즈. 슬로워, 앤드 유지즈 모어 오브 유어 에이아이 얼라우언스.</translation>
+    </message>
+    <message>
         <source>Open</source>
         <translation>오픈</translation>
     </message>
@@ -467,6 +479,14 @@
     <message>
         <source>Quote · </source>
         <translation>쿼트 · </translation>
+    </message>
+    <message>
+        <source>Read each in full: up to 8 papers</source>
+        <translation>리드 이치 인 풀: 업 투 8 페이퍼스</translation>
+    </message>
+    <message>
+        <source>Read each paper in full</source>
+        <translation>리드 이치 페이퍼 인 풀</translation>
     </message>
     <message>
         <source>Reasoning effort</source>
@@ -3998,6 +4018,18 @@ Same file as another library entry</source>
         <translation>퍼플</translation>
     </message>
     <message>
+        <source>Read each paper in full needs two papers or more.</source>
+        <translation>리드 이치 페이퍼 인 풀 니즈 투 페이퍼스 오어 모어.</translation>
+    </message>
+    <message>
+        <source>Read each paper in full works with up to 8 papers; this asks about %1.</source>
+        <translation>리드 이치 페이퍼 인 풀 워크스 위드 업 투 8 페이퍼스; 디스 애스크스 어바웃 %1.</translation>
+    </message>
+    <message>
+        <source>Reading each paper in full · %1 of %2 done</source>
+        <translation>리딩 이치 페이퍼 인 풀 · %1 오브 %2 던</translation>
+    </message>
+    <message>
         <source>Redo </source>
         <translation>리두 </translation>
     </message>
@@ -4238,6 +4270,10 @@ Same file as another library entry</source>
         <translation>턴 온 익스플레인 위드 에이아이 인 세팅스 › 포 유 투 센드 디즈 페이퍼스 투 더 에이아이.</translation>
     </message>
     <message>
+        <source>Type a question for these papers.</source>
+        <translation>타입 어 퀘스천 포 디즈 페이퍼스.</translation>
+    </message>
+    <message>
         <source>Type a question for your library.</source>
         <translation>타입 어 퀘스천 포 유어 라이브러리.</translation>
     </message>
@@ -4272,6 +4308,10 @@ Same file as another library entry</source>
     <message>
         <source>Wait for the current source verification to finish.</source>
         <translation>웨이트 포 더 커런트 소스 베리피케이션 투 피니시.</translation>
+    </message>
+    <message>
+        <source>Writing the answer from %1 papers</source>
+        <translation>라이팅 더 앤서 프롬 %1 페이퍼스</translation>
     </message>
     <message>
         <source>Yellow</source>
