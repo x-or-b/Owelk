@@ -324,35 +324,75 @@ Item {
                 tint: root.threadsOpen ? Theme.accent : Theme.icon
                 onClicked: root.threadsToggled()
             }
+            // A click on the title renames the chat in place (Return or a click elsewhere keeps it, Escape
+            // does not).
             Label {
+                id: threadTitle
                 objectName: "aiThreadTitle"
+                visible: !titleField.visible
                 Layout.fillWidth: true; Layout.minimumWidth: 0
                 text: root.c && root.c.threadId.length ? (root.c.thread.title || qsTr("Chat")) : qsTr("New Chat")
                 elide: Text.ElideRight; textFormat: Text.PlainText
                 font.pixelSize: Theme.fontBody; font.weight: Font.DemiBold; color: Theme.text
+                Rectangle {
+                    z: -1
+                    visible: titleDrag.containsMouse && titleDrag.enabled
+                    x: -4; y: -2; width: Math.min(parent.width, parent.contentWidth) + 8; height: parent.height + 4
+                    radius: Theme.radiusSmall; color: Theme.hover
+                }
                 // Dragged into the document area, the conversation opens there in a tab of its own: beside a
                 // paper as a split, or among a strip's tabs, like a dragged tab.
                 MouseArea {
+                    id: titleDrag
                     objectName: "aiTitleDrag"
                     anchors.fill: parent
-                    enabled: !root.inTab && !!root.c && root.c.threadId.length > 0 && !!root.c.workspace
+                    enabled: !!root.c && root.c.threadId.length > 0
+                    readonly property bool canDrag: !root.inTab && !!root.c && !!root.c.workspace
+                    hoverEnabled: true
                     preventStealing: true
                     property point start
                     property bool moving: false
                     function follow(mouse) {
+                        if (!canDrag) return
                         const p = mapToItem(null, mouse.x, mouse.y)
                         if (!moving && Math.abs(p.x - start.x) + Math.abs(p.y - start.y) > 8) moving = true
                         if (moving) root.c.workspace.dragChat(root.c.threadId, parent.text, p.x, p.y)
                     }
                     onPressed: function(mouse) { start = mapToItem(null, mouse.x, mouse.y); moving = false }
-                    onPositionChanged: function(mouse) { follow(mouse) }
+                    onPositionChanged: function(mouse) { if (pressed) follow(mouse) }
                     onReleased: function(mouse) {
                         follow(mouse)
                         if (moving) root.c.workspace.finishDrag(false)
+                        else titleField.begin()
                         moving = false
                     }
                     onCanceled: { if (moving) root.c.workspace.finishDrag(true); moving = false }
                 }
+            }
+            TextField {
+                id: titleField
+                objectName: "aiThreadTitleField"
+                visible: false
+                Layout.fillWidth: true; Layout.minimumWidth: 0
+                implicitHeight: Theme.controlHeightSmall
+                font.pixelSize: Theme.fontBody; font.weight: Font.DemiBold
+                function begin() {
+                    text = root.c.thread.title || ""
+                    visible = true
+                    selectAll(); forceActiveFocus()
+                }
+                function finish(keep) {
+                    if (!visible) return
+                    visible = false
+                    if (keep && root.c && root.c.threadId.length && text.trim().length && text.trim() !== (root.c.thread.title || ""))
+                        root.c.renameThread(root.c.threadId, text)
+                }
+                onAccepted: finish(true)
+                onActiveFocusChanged: if (!activeFocus) finish(true)
+                Keys.onShortcutOverride: function(event) { if (event.key === Qt.Key_Escape) event.accepted = true }
+                Keys.onEscapePressed: finish(false)
+                // Another conversation shown meanwhile: nothing is renamed.
+                Connections { target: root.c; function onThreadIdChanged() { titleField.finish(false) } }
             }
             IconButton {
                 objectName: "aiSaveChat"

@@ -801,6 +801,30 @@ Item {
             Theme.answerNative = true
             d.closeActiveTab()
         }
+        function test_5k_aClickOnTheTitleRenamesTheChat() {
+            const ai = findChild(workspace, "aiController")
+            const id = researchStore.aiThreads("First of two")[0].id
+            verify(ai.openThread(id))
+            const p = panel(), title = findChild(p, "aiThreadTitle"), field = findChild(p, "aiThreadTitleField")
+            const before = ai.thread.title
+            // Return keeps the new name; Escape leaves the old one.
+            mouseClick(title, 10, title.height / 2)
+            tryCompare(field, "visible", true)
+            compare(field.text, before)
+            verify(field.activeFocus)
+            field.text = "Renamed in place"
+            keyClick(Qt.Key_Return)
+            tryCompare(field, "visible", false)
+            tryCompare(ai.thread, "title", "Renamed in place")
+            compare(researchStore.aiThread(id).title, "Renamed in place")
+            mouseClick(title, 10, title.height / 2)
+            tryCompare(field, "visible", true)
+            field.text = "Not kept"
+            keyClick(Qt.Key_Escape)
+            tryCompare(field, "visible", false)
+            compare(researchStore.aiThread(id).title, "Renamed in place")
+            verify(researchStore.renameAiThread(id, before))
+        }
         function test_5g_aPaperMarkedAsReadOffersThreeLines() {
             const d = workspace.documents, bar = findChild(workspace, "summaryBar")
             workspace.openDocument(fixtureSource)
