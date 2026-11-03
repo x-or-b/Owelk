@@ -270,9 +270,13 @@ Item {
             view.query = "reading time"
             tryVerify(function() { return view.rows.length === 1 })
             const id = view.rows[0].id
-            let meta = null
-            tryVerify(function() { meta = findChild(view, "libraryPaperMeta-" + id); return meta !== null })
-            verify(meta.text.indexOf("Read for 1 h 5 min") >= 0, meta.text)
+            let time = null
+            tryVerify(function() { time = findChild(view, "libraryReadTime-" + id); return time !== null && time.visible })
+            compare(time.text, "Read for 1 h 5 min")
+            // At the row's right, not in the line of authors and year.
+            const meta = findChild(view, "libraryPaperMeta-" + id)
+            verify(meta.text.indexOf("Read for") < 0, meta.text)
+            verify(time.mapToItem(view, 0, 0).x > meta.mapToItem(view, meta.width, 0).x)
             view.query = ""
         }
         function test_readingDotFollowsTheState() {

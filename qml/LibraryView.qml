@@ -1459,7 +1459,7 @@ Rectangle {
                                 Label {
                                     Layout.fillWidth: true; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                                     objectName: "libraryPaperMeta-" + paper.modelData.id
-                                    text: [paper.modelData.authors, paper.modelData.year, paper.modelData.citationCount === undefined ? "" : paper.modelData.citationCount === 1 ? qsTr("1 citation") : qsTr("%1 citations").arg(paper.modelData.citationCount), paper.modelData.readSeconds >= 60 ? qsTr("Read for %1").arg(Platform.duration(paper.modelData.readSeconds)) : "", paper.modelData.tags ? "# " + paper.modelData.tags : ""].filter(function(s) { return s && s.length }).join("  ·  ")
+                                    text: [paper.modelData.authors, paper.modelData.year, paper.modelData.citationCount === undefined ? "" : paper.modelData.citationCount === 1 ? qsTr("1 citation") : qsTr("%1 citations").arg(paper.modelData.citationCount), paper.modelData.tags ? "# " + paper.modelData.tags : ""].filter(function(s) { return s && s.length }).join("  ·  ")
                                 }
                                 Label {
                                     id: paperSummary
@@ -1470,6 +1470,13 @@ Rectangle {
                                     textFormat: Text.PlainText; elide: Text.ElideRight
                                     font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
                                 }
+                            }
+                            // The time read stands apart at the right, not among the paper's own details.
+                            Label {
+                                objectName: "libraryReadTime-" + paper.modelData.id
+                                visible: paper.modelData.readSeconds >= 60
+                                text: visible ? qsTr("Read for %1").arg(Platform.duration(paper.modelData.readSeconds)) : ""
+                                font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                             }
                             Label { visible: paper.modelData.duplicate; text: qsTr("duplicate"); font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
                             // A newer arXiv version (Settings › Library): asked about, then got as a paper of its own;
