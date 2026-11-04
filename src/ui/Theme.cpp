@@ -167,6 +167,8 @@ QImage keptPicture(const QString &path, bool *cutout)
 
 Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(store)
 {
+    // Which pointer came last (fingerInput), as the windows receive it.
+    if (auto *app = QCoreApplication::instance()) app->installEventFilter(this);
     const int font = QFontDatabase::addApplicationFont(":/owelk/icons/lucide.ttf");
     if (const auto families = QFontDatabase::applicationFontFamilies(font); !families.isEmpty())
         m_iconFont = families.first();
@@ -1004,6 +1006,36 @@ void Theme::cancelTouches() const
             QCoreApplication::sendEvent(window, &cancel);
         }
     }
+}
+
+bool Theme::eventFilter(QObject *watched, QEvent *event)
+{
+    if (!watched->isWindowType()) return false;
+    std::optional<bool> finger;
+    switch (event->type()) {
+    case QEvent::TouchBegin:
+    case QEvent::TabletPress:
+    case QEvent::TabletEnterProximity:
+        finger = true;
+        break;
+    case QEvent::MouseMove:
+    case QEvent::MouseButtonPress: {
+        // Mouse events a platform or Qt made from touches say so; a mouse's and a trackpad's do not.
+        const auto *mouse = static_cast<const QMouseEvent *>(event);
+        const auto type = mouse->device() ? mouse->device()->type() : QInputDevice::DeviceType::Mouse;
+        if (mouse->source() == Qt::MouseEventNotSynthesized
+            && (type == QInputDevice::DeviceType::Mouse || type == QInputDevice::DeviceType::TouchPad))
+            finger = false;
+        break;
+    }
+    default:
+        break;
+    }
+    if (finger && *finger != m_fingerInput) {
+        m_fingerInput = *finger;
+        emit fingerInputChanged();
+    }
+    return false;
 }
 
 QColor Theme::mix(const QColor &a, const QColor &b, qreal t) const

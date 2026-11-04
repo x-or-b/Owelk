@@ -206,6 +206,17 @@ Item {
             menu.close()
             tryCompare(menu, "visible", false)
         }
+        // A tap is not hover: after a finger, tooltips wait until a mouse moves again.
+        function test_fingerTapIsNotHover() {
+            const bar = findChild(workspace, "statusBar")
+            mouseMove(bar, 4, 4)
+            compare(Theme.fingerInput, false)
+            const touch = touchEvent(bar)
+            touch.press(0, bar, 6, 6).commit(); touch.release(0, bar, 6, 6).commit()
+            compare(Theme.fingerInput, true)
+            mouseMove(bar, 8, 8)
+            compare(Theme.fingerInput, false)
+        }
         // A finger held on a tab opens the tab's menu (as a right click) without switching to it.
         function test_fingerHeldOnATabOpensItsMenu() {
             const d = workspace.documents

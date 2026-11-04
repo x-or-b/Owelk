@@ -147,6 +147,9 @@ class Theme : public QObject {
     // A touch screen first (iPadOS, Android): fingers and a Pencil rather than a pointer. Long presses stand in for
     // right clicks and hover, and side panels cover the page in a tall window. Tests set it on the desktop.
     Q_PROPERTY(bool touch MEMBER m_touch NOTIFY touchChanged)
+    // The last pointer was a finger or a Pencil, not a mouse or a trackpad: a tap is not hover, so tooltips and
+    // hover tints wait for the pointer to move again.
+    Q_PROPERTY(bool fingerInput READ fingerInput NOTIFY fingerInputChanged)
     // Type scale, from the text size setting.
     Q_PROPERTY(int fontCaption READ fontCaption NOTIFY changed)
     Q_PROPERTY(int fontSmall READ fontSmall NOTIFY changed)
@@ -280,6 +283,8 @@ public:
     static constexpr int touchRoom = 0;
 #endif
     int controlHeight() const { return m_textSize * 2 + touchRoom; }
+    bool fingerInput() const { return m_fingerInput; }
+    bool eventFilter(QObject *watched, QEvent *event) override;
     int controlHeightSmall() const { return m_textSize + 9 + touchRoom / 2; }
     int iconButton() const { return m_textSize + 11 + touchRoom; }
     int iconSize() const { return m_textSize + 3 + touchRoom / 6; }
@@ -309,6 +314,7 @@ public:
 signals:
     void changed();
     void touchChanged();
+    void fingerInputChanged();
     // The kept pictures or the one in use (not on every theme change, so lists of them stay put).
     void picturesChanged();
     // How often the picture changes, or whether it may change now.
@@ -340,6 +346,7 @@ private:
     QString m_theme = "neutral", m_accentName = "blue";
     int m_textSize = 13;
     bool m_touch = touchRoom > 0;
+    bool m_fingerInput = touchRoom > 0;
     int m_answerOffset = 2; // answerSize() - m_textSize, -1..5
     QString m_answerSpacing = "comfortable";
     bool m_answerColumn = true, m_answerNative = true;

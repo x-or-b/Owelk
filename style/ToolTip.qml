@@ -12,6 +12,8 @@ T.ToolTip {
     padding: 5
     horizontalPadding: 8
     closePolicy: T.Popup.CloseOnEscape | T.Popup.CloseOnPressOutsideParent | T.Popup.CloseOnReleaseOutsideParent
+    // A tap is not hover: after a finger or a Pencil, nothing shows until a mouse or a trackpad moves.
+    opacity: Theme.fingerInput ? 0 : 1
     // "Name · ⌘T": the name, then its shortcut set apart in a lighter colour.
     readonly property var keyed: /^(.+) · ((?:[⌘⌥⇧⌃]+|(?:(?:Ctrl|Alt|Shift|Meta)\+)+)\S{1,8}|Esc|↩|Return|\[\[)$/.exec(text)
     function escaped(value) { return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") }

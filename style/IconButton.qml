@@ -25,7 +25,7 @@ ToolButton {
     background: Rectangle {
         radius: root.primary ? height / 2 : Theme.radiusSmall
         color: root.primary ? (!root.enabled ? Theme.control : root.down || root.hovered ? Theme.accentHover : Theme.accent)
-            : root.checked ? Theme.selected : root.down ? Theme.pressed : root.hovered ? Theme.hover : "transparent"
+            : root.checked ? Theme.selected : root.down ? Theme.pressed : root.hovered && !Theme.fingerInput ? Theme.hover : "transparent"
         border.width: root.visualFocus ? 2 : 0
         border.color: Theme.focus
     }
