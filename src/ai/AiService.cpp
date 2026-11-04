@@ -708,21 +708,44 @@ static QStringList takeFollowUps(QString *answer)
 
 static QString withPageLinks(const QString &answer, const QStringList &documents)
 {
+    // Several citations may share the brackets, separated by ";" or "," ([P1 p. 2: "…"; P1 p. 3: "…"]): each
+    // becomes a link of its own, and one without a paper marker is of the paper named before it.
+    static const QRegularExpression brackets(R"re(\[((?:P\d{1,2}[\s,]*)?pp?\.\s*\d[^\]]*)\](?!\())re");
     static const QRegularExpression cite(
-        R"re(\[(?:P(\d{1,2})[\s,]*)?pp?\.\s*(\d{1,4})(?:\s*[-\x{2013}]\s*\d{1,4})?(?:\s*[:,]\s*["\x{201c}]([^"\x{201d}\]]{3,240})["\x{201d}])?\](?!\())re");
+        R"re((?:P(\d{1,2})[\s,]*)?pp?\.\s*(\d{1,4})(?:\s*[-\x{2013}]\s*\d{1,4})?(?:\s*[:,]\s*["\x{201c}]([^"\x{201d}\]]{3,240})["\x{201d}])?)re");
+    static const QRegularExpression separator(R"(^[\s;,]*$)");
     QString linked;
     qsizetype last = 0;
-    for (auto it = cite.globalMatch(answer); it.hasNext();) {
-        const auto m = it.next();
-        const auto paper = m.captured(1).isEmpty() ? 1 : m.captured(1).toInt();
-        const auto document = documents.value(paper - 1);
-        if (document.isEmpty()) continue;
-        auto link = QStringLiteral("owelk://document/%1#page=%2").arg(document, m.captured(2));
-        if (!m.captured(3).isEmpty())
-            link += "&q=" + QString::fromLatin1(QUrl::toPercentEncoding(m.captured(3).simplified()));
-        const auto label = (m.captured(1).isEmpty() ? QString() : "P" + m.captured(1) + " ") + "p. " + m.captured(2);
-        linked += answer.mid(last, m.capturedStart() - last) + QStringLiteral("[%1](%2)").arg(label, link);
-        last = m.capturedEnd();
+    for (auto it = brackets.globalMatch(answer); it.hasNext();) {
+        const auto group = it.next();
+        const auto inner = group.captured(1);
+        QStringList links;
+        qsizetype end = 0;
+        int paper = 1;
+        bool whole = true;
+        for (auto c = cite.globalMatch(inner); whole && c.hasNext();) {
+            const auto m = c.next();
+            if (!separator.match(inner.mid(end, m.capturedStart() - end)).hasMatch()) {
+                whole = false; // Text that is not a citation: the brackets stay as written.
+                break;
+            }
+            end = m.capturedEnd();
+            if (!m.captured(1).isEmpty()) paper = m.captured(1).toInt();
+            const auto document = documents.value(paper - 1);
+            if (document.isEmpty()) {
+                whole = false;
+                break;
+            }
+            auto link = QStringLiteral("owelk://document/%1#page=%2").arg(document, m.captured(2));
+            if (!m.captured(3).isEmpty())
+                link += "&q=" + QString::fromLatin1(QUrl::toPercentEncoding(m.captured(3).simplified()));
+            const auto label
+                = (m.captured(1).isEmpty() ? QString() : "P" + m.captured(1) + " ") + "p. " + m.captured(2);
+            links << QStringLiteral("[%1](%2)").arg(label, link);
+        }
+        if (!whole || links.isEmpty() || !separator.match(inner.mid(end)).hasMatch()) continue;
+        linked += answer.mid(last, group.capturedStart() - last) + links.join("; ");
+        last = group.capturedEnd();
     }
     return linked + answer.mid(last);
 }

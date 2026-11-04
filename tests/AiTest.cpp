@@ -578,7 +578,8 @@ private slots:
                 .toString();
         };
         // Two papers: both read, each opened by its marker; a citation names the paper and links to it.
-        answer("Beta differs [P2 p. 1: \"Research finding 1.1\"] from Alpha [p. 2].");
+        answer("Beta differs [P2 p. 1: \"Research finding 1.1\"] from Alpha [p. 2]. Both say so [P1 p. 1: "
+               "\u201cResearch finding 1.1\u201d; P2 p. 2: \u201cResearch finding 2.1\u201d; p. 2].");
         ai->ask({{"source", papers[0]}, {"scope", "paper"}, {"papers", QVariantList{papers[1].toString()}},
             {"question", "How do they differ?"}});
         QTRY_COMPARE_WITH_TIMEOUT(finished.size() + failed.size(), 1, 10000);
@@ -590,6 +591,12 @@ private slots:
         QVERIFY2(linked.contains("[P2 p. 1](owelk://document/" + store.documentLinkId(papers[1]) + "#page=1"),
             qPrintable(linked));
         QVERIFY(linked.contains("[p. 2](owelk://document/" + store.documentLinkId(papers[0]) + "#page=2"));
+        // Citations sharing brackets each become a link; one without a marker is of the paper named before it.
+        QVERIFY2(linked.contains("Both say so [P1 p. 1](owelk://document/" + store.documentLinkId(papers[0])
+                     + "#page=1&q=Research%20finding%201.1); [P2 p. 2](owelk://document/"
+                     + store.documentLinkId(papers[1]) + "#page=2&q=Research%20finding%202.1); [p. 2](owelk://document/"
+                     + store.documentLinkId(papers[1]) + "#page=2)."),
+            qPrintable(linked));
         const auto thread = finished[0][2].toMap()["threadId"].toString();
         // The other paper finds the chat among its links; the question keeps what went with it.
         const auto links = store.backlinks("document", store.documentLinkId(papers[1]));
