@@ -74,6 +74,12 @@ C++20, Qt 6.11 (Quick, PDF, WebEngine), SQLite. macOS, Linux, Windows.
 - Newer arXiv versions stay unchecked until you turn them on; then only arXiv IDs go to arxiv.org, once a day.
 - Heavy work (indexing, OCR, backups) waits while you read.
 
+## License
+
+MIT ([LICENSE](LICENSE)). Owelk uses Qt under the LGPLv3. The code and fonts in `third_party/` and the
+Lucide icon font keep their own licenses ([third_party/README.md](third_party/README.md),
+[resources/icons/LICENSE](resources/icons/LICENSE)).
+
 ## More
 
 [Status](docs/STATUS.md) · [Next](docs/NEXT.md) · [Sync](docs/SYNC.md) · [Annotations](docs/HIGHLIGHTS.md) · [Search](docs/SEARCH.md) · [Relinking PDFs](docs/RELINK.md) · [Design](docs/DESIGN.md) · [Performance](docs/PERFORMANCE.md)
