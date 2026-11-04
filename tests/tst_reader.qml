@@ -245,12 +245,12 @@ Item {
             tryCompare(card, "visible", false, 3000)
             compare(canvas.currentPage, 0)
         }
-        // A finger held on the page opens its menu, as a right click; a tap does not.
-        function test_fingerHeldOnThePageOpensItsMenu() {
+        // A finger held on the page beside its text opens the page's menu, as a right click; a tap does not.
+        function test_fingerHeldBesideTheTextOpensThePageMenu() {
             contextSpy.target = canvas
             contextSpy.clear()
             const paper = findChild(canvas, "paperPage0"), bounds = fixtureTextBounds
-            const at = Qt.point((bounds.x + 8) * canvas.pageScale, (bounds.y + bounds.height / 2) * canvas.pageScale)
+            const at = Qt.point(Math.max(2, (bounds.x - 20) * canvas.pageScale), (bounds.y + bounds.height / 2) * canvas.pageScale)
             const touch = touchEvent(paper)
             touch.press(0, paper, at.x, at.y).commit(); touch.release(0, paper, at.x, at.y).commit()
             wait(700)
@@ -262,6 +262,39 @@ Item {
             compare(contextSpy.signalArguments[0][1], 0)
             compare(canvas.selectedText, "")
             contextSpy.target = null
+        }
+        // A finger held on text selects the word there; moved on before it lifts, it carries the selection while the
+        // pages stay put, and the selection's actions come when it lifts. The Pencil's highlighting does not take it.
+        function test_fingerHeldOnTextSelectsAndCarries() {
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            tryVerify(function() { return canvas.documentFingerprint.length === 64 }, 10000)
+            canvas.clearSelection()
+            canvas.tool = "highlight"
+            try {
+                const marks = canvas.savedHighlights.length
+                const paper = findChild(canvas, "paperPage0"), bounds = fixtureTextBounds, scale = canvas.pageScale
+                const y = (bounds.y + bounds.height / 2) * scale, x = (bounds.x + 15) * scale
+                const list = findChild(canvas, "pageList"), before = list.contentY
+                const touch = touchEvent(paper)
+                touch.press(0, paper, x, y).commit()
+                wait(800)
+                tryCompare(canvas, "selectedText", "Research")
+                verify(canvas.fingerSelection !== null)
+                for (let i = 1; i <= 5; ++i) { touch.move(0, paper, x + bounds.width * scale * .1 * i, y + i * 3).commit(); wait(30) }
+                tryVerify(function() { return canvas.selectedText.indexOf("finding") > 0 })
+                compare(list.contentY, before)
+                touch.release(0, paper, x + bounds.width * scale * .5, y + 15).commit()
+                tryCompare(canvas, "fingerSelection", null)
+                verify(canvas.selectedText.indexOf("Research finding") === 0)
+                verify(canvas.selectedAnchor !== null)
+                tryCompare(findChild(reader, "selectionToolbar"), "visible", true)
+                wait(300)
+                compare(canvas.savedHighlights.length, marks)
+            } finally {
+                canvas.tool = ""
+                canvas.clearSelection()
+            }
         }
         // On a touch screen the Pencil keeps its tool (highlighting first, then what was chosen, across papers), a
         // one-off tool goes back to it, a finger never draws, and the Pencil's squeeze and double tap answer.

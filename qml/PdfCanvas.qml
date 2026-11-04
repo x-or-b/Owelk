@@ -578,7 +578,9 @@ Item {
         // A click on empty page also lets go of a selected text box, picture or stroke. Two clicks take the word,
         // three the sentence, as in browsers and text editors.
         onTapped: function(eventPoint) {
+            if (root.fingerSelection) return
             root.activated()
+            root.spanByFinger = !!eventPoint.device && eventPoint.device.type === PointerDevice.TouchScreen
             if (tapCount >= 2 && root.selectUnitAt(eventPoint.position.x, eventPoint.position.y, tapCount === 2 ? "word" : "sentence")) return
             root.clearSelection(); if (!root.markPressed) root.selectedMarkId = ""
         }
@@ -597,7 +599,58 @@ Item {
         function onSpanFound(request, span) {
             if (request !== root.spanRequest || span.page === undefined) return
             const holder = pages.itemAtIndex(span.page)
-            if (holder) holder.selectSpan(span.from, span.to)
+            if (!holder) return
+            const finger = root.fingerSelection
+            if (finger && finger.page === span.page) {
+                root.fingerSelection = Object.assign({}, finger, {word: {from: span.from, to: span.to}})
+                holder.selectSpan(span.from, span.to)
+                if (finger.pointer) root.fingerSelectTo(holder, finger.pointer)
+                return
+            }
+            if (!finger) holder.selectSpan(span.from, span.to)
+        }
+    }
+    // A finger held on text selects the word there; moved on before it lifts, it carries the selection (within
+    // that page), and the selection's actions come when it lifts. Pages do not scroll meanwhile.
+    // {page, word: {from, to} in PDF points once found, pointer: the finger on the paper}
+    property var fingerSelection: null
+    // The word or sentence chosen came from a finger: the Pencil's highlighting does not take it.
+    property bool spanByFinger: false
+    function beginFingerSelection(page, viewPoint) {
+        stopSourceMotion(); pages.cancelFlick()
+        closeLinkPreview(); hoveredLink = null; leaveRest(true)
+        clearSelection()
+        fingerSelection = {page: page, word: null, pointer: null}
+        selecting = true
+        spanByFinger = true
+        if (!selectUnitAt(viewPoint.x, viewPoint.y, "word")) endFingerSelection()
+    }
+    // The finger at point (on the page's paper): the selection runs from the word to it, the word kept whole.
+    function fingerSelectTo(holder, point) {
+        const finger = fingerSelection
+        if (!finger || holder.index !== finger.page) return
+        if (!finger.word) { finger.pointer = point; return }
+        const scale = pageScale, word = finger.word
+        const at = holder.snapToText(Qt.point(point.x / scale, point.y / scale))
+        const start = holder.snapToText(word.from), end = holder.snapToText(word.to)
+        // Reading order on the page: a line above, or further left on the same line.
+        const before = function(a, b) { return a.y < b.y - .5 || (Math.abs(a.y - b.y) <= .5 && a.x < b.x) }
+        const from = before(at, start) ? word.to : before(end, at) ? word.from : null
+        holder.spanning = true
+        holder.span = null
+        holder.span = from ? {from: Qt.point(from.x * scale, from.y * scale), to: Qt.point(at.x * scale, at.y * scale)}
+                           : {from: Qt.point(word.from.x * scale, word.from.y * scale), to: Qt.point(word.to.x * scale, word.to.y * scale)}
+        holder.spanning = false
+    }
+    function endFingerSelection() {
+        const finger = fingerSelection
+        fingerSelection = null
+        selecting = false
+        spanByFinger = false
+        const holder = finger ? pages.itemAtIndex(finger.page) : null
+        if (holder && activeSelection === holder.pageSelection) {
+            selectedText = holder.pageSelection.text
+            rememberSelection(holder.pageSelection)
         }
     }
 
@@ -754,7 +807,7 @@ Item {
         objectName: "pageList"
         anchors.fill: parent
         clip: true
-        interactive: !root.overPreview && !root.pinching
+        interactive: !root.overPreview && !root.pinching && !root.fingerSelection
         spacing: 16
         topMargin: 16
         bottomMargin: 16
@@ -881,7 +934,7 @@ Item {
                 root.selectedText = selection.text
                 root.rememberSelection(selection)
                 selection.forceActiveFocus()
-                if (root.tool === "highlight") Qt.callLater(function() { root.highlightSelection() })
+                if (root.tool === "highlight" && !root.spanByFinger) Qt.callLater(function() { root.highlightSelection() })
             }
             function ensureMetrics() {
                 if (!metricsReady) {
@@ -1079,6 +1132,7 @@ Item {
                     acceptedDevices: PointerDevice.TouchScreen
                     enabled: !root.captureMode
                     onTapped: function(point) {
+                        if (root.fingerSelection) return
                         const p = point.position, x = p.x / root.pageScale, y = p.y / root.pageScale
                         if (pageHolder.linkAt(p)) return
                         if (root.linkPreview || root.pendingPreview || root.symbolHint) { root.closeLinkPreview(); root.hoveredLink = null; root.leaveRest(true); return }
@@ -1087,21 +1141,35 @@ Item {
                         else root.leaveRest(true)
                     }
                 }
-                // A finger held still: the page's menu, as a right click. A moment later than a mark's or a link's
-                // own hold, which let go of the finger first.
-                ContextTap {
+                // A finger held still: on text it selects the word (fingerSelection), elsewhere it opens the page's
+                // menu, as a right click. A moment later than a mark's or a link's own hold, which let go of the finger
+                // first.
+                TapHandler {
+                    id: pageHold
                     objectName: "pageHold" + pageHolder.index
                     acceptedDevices: PointerDevice.TouchScreen
                     longPressThreshold: 0.55
                     enabled: !root.captureMode
-                    onRequested: function(point) {
-                        const p = point.position, at = Qt.point(p.x / root.pageScale, p.y / root.pageScale), view = textHover.mapToItem(root, p.x, p.y)
+                    onLongPressed: {
+                        const p = pageHold.point.position, at = Qt.point(p.x / root.pageScale, p.y / root.pageScale)
+                        const view = textHover.mapToItem(root, p.x, p.y)
+                        if (highlightMenu.visible || root.linkPreview || root.pendingPreview) return
+                        pageHolder.ensureMetrics()
+                        if (pageHolder.overText(at.x, at.y)) { root.beginFingerSelection(pageHolder.index, view); return }
+                        // The menu opens under the finger: it is let go, so lifting it chooses nothing.
+                        Theme.cancelTouches()
                         Qt.callLater(function() {
-                            if (highlightMenu.visible || root.linkPreview || root.pendingPreview) return
                             root.contextPressed(pageHolder.index, at)
                             root.contextRequested(view, pageHolder.index, at)
                         })
                     }
+                }
+                // The finger that selects, followed wherever it goes until it lifts.
+                PointHandler {
+                    objectName: "fingerPoint" + pageHolder.index
+                    acceptedDevices: PointerDevice.TouchScreen
+                    onPointChanged: if (active && root.fingerSelection) root.fingerSelectTo(pageHolder, point.position)
+                    onActiveChanged: if (!active && root.fingerSelection) Qt.callLater(root.endFingerSelection)
                 }
                 Repeater {
                     model: root.savedHighlights.filter(function(h) { return h.page === pageHolder.index })

@@ -659,11 +659,18 @@ Rectangle {
                 visible: canvas.selectedText.length > 0 && !canvas.selecting && canvas.selectionEnd.y >= 0 && canvas.selectionEnd.y <= canvas.height && !annotationEditor.visible && !selectionMenu.visible
                 x: Math.max(4,Math.min(canvas.width-width-20,canvas.selectionEnd.x+8))
                 y: Math.max(4,canvas.selectionEnd.y+height+12>parent.height?canvas.selectionEnd.y-height-8:canvas.selectionEnd.y+8)
-                width: selectionActions.implicitWidth + 16; height: 34
+                width: selectionActions.implicitWidth + 16; height: Math.max(34, Theme.iconButton + 8)
                 color: Theme.raised; border.color: Theme.border; radius: Theme.radiusLarge
                 Row {
                     id: selectionActions
                     x: 8; y: 4; width: parent.width - 16; spacing: 4
+                    // A finger has no ⌘C.
+                    IconButton {
+                        objectName: "copySelectionButton"
+                        visible: Theme.touch
+                        icon.name: "copy"; description: qsTr("Copy")
+                        onClicked: { root.activated(); canvas.copySelection() }
+                    }
                     IconButton {
                         objectName: "highlightSelectionButton"
                         icon.name: "highlight"; description: qsTr("Highlight"); swatch:canvas.markColor
