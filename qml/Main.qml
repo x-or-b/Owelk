@@ -1221,6 +1221,11 @@ ApplicationWindow {
     }
     ColumnLayout {
         anchors.fill: parent
+        // On a touch screen the system's strips (status bar, rounded corners) stay clear; focus mode's pages run
+        // under them. (macOS's title bar is the top bar's, above.)
+        anchors.topMargin: Theme.touch && !window.focusMode ? parent.SafeArea.margins.top : 0
+        anchors.leftMargin: Theme.touch ? parent.SafeArea.margins.left : 0
+        anchors.rightMargin: Theme.touch ? parent.SafeArea.margins.right : 0
         spacing: 0
         // Focus Mode's bar pinned: room for it (and the strip above it), so it covers none of the page.
         Item {
@@ -1440,12 +1445,14 @@ ApplicationWindow {
         objectName: "statusBar"
         // Focus mode: only the pages (the side panels still open from their keys and the window's edges).
         visible: !window.focusMode
-        height: visible ? 29 : 0
+        // An iPad's home indicator keeps a strip below the bar free (the bar's colour runs under it).
+        height: visible ? Theme.statusBarHeight + SafeArea.margins.bottom : 0
         color: Theme.sidebar
         Rectangle { width: parent.width; height: 1; color: Theme.separator } // The edge above it.
         RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 4; anchors.rightMargin: 4
+            anchors.leftMargin: 4 + statusBar.SafeArea.margins.left; anchors.rightMargin: 4 + statusBar.SafeArea.margins.right
+            anchors.bottomMargin: statusBar.SafeArea.margins.bottom
             spacing: 2
             Repeater {
                 model: window.panelIcons("left")

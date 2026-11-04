@@ -143,6 +143,10 @@ class Theme : public QObject {
     Q_PROPERTY(int barHeight READ barHeight NOTIFY changed)
     Q_PROPERTY(int rowHeight READ rowHeight NOTIFY changed)
     Q_PROPERTY(int rowHeightTall READ rowHeightTall NOTIFY changed)
+    Q_PROPERTY(int statusBarHeight READ statusBarHeight NOTIFY changed)
+    // A touch screen first (iPadOS, Android): fingers and a Pencil rather than a pointer. Long presses stand in for
+    // right clicks and hover, and side panels cover the page in a tall window. Tests set it on the desktop.
+    Q_PROPERTY(bool touch MEMBER m_touch NOTIFY touchChanged)
     // Type scale, from the text size setting.
     Q_PROPERTY(int fontCaption READ fontCaption NOTIFY changed)
     Q_PROPERTY(int fontSmall READ fontSmall NOTIFY changed)
@@ -279,6 +283,7 @@ public:
     int barHeight() const { return m_textSize * 2 + 8 + touchRoom; }
     int rowHeight() const { return m_textSize * 2 + 2 + touchRoom; }
     int rowHeightTall() const { return m_textSize * 3 + 5 + touchRoom; }
+    int statusBarHeight() const { return 29 + touchRoom; }
     int fontCaption() const { return m_textSize - 2; }
     int fontSmall() const { return m_textSize - 1; }
     int fontBody() const { return m_textSize; }
@@ -300,6 +305,7 @@ public:
 
 signals:
     void changed();
+    void touchChanged();
     // The kept pictures or the one in use (not on every theme change, so lists of them stay put).
     void picturesChanged();
     // How often the picture changes, or whether it may change now.
@@ -330,6 +336,7 @@ private:
     ResearchStore *m_store = nullptr;
     QString m_theme = "neutral", m_accentName = "blue";
     int m_textSize = 13;
+    bool m_touch = touchRoom > 0;
     int m_answerOffset = 2; // answerSize() - m_textSize, -1..5
     QString m_answerSpacing = "comfortable";
     bool m_answerColumn = true, m_answerNative = true;
