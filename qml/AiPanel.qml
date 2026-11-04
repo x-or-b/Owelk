@@ -42,7 +42,7 @@ Item {
             color: Theme.onAccent; font.pixelSize: Theme.answerSize - 1
             renderType: Theme.answerNative ? TextEdit.NativeRendering : TextEdit.QtRendering
             selectionColor: Theme.onAccent; selectedTextColor: Theme.accent
-            TapHandler { acceptedButtons: Qt.RightButton; onTapped: function(point) { root.openTextMenu(bubbleText, point.position) } }
+            ContextTap { onRequested: function(point) { root.openTextMenu(bubbleText, point.position) } }
         }
     }
     // An attachment: what goes with a question (× removes it) or went with an earlier one. Images show a
@@ -271,7 +271,7 @@ Item {
         selectionColor: Theme.mix(Theme.accent, Theme.field, .65); selectedTextColor: Theme.text
         onLinkActivated: function(link) { root.linkActivated(link) }
         HoverHandler { cursorShape: parent.hoveredLink.length > 0 ? Qt.PointingHandCursor : Qt.IBeamCursor }
-        TapHandler { acceptedButtons: Qt.RightButton; onTapped: function(point) { root.openTextMenu(parent, point.position) } }
+        ContextTap { onRequested: function(point) { root.openTextMenu(parent, point.position) } }
         Keys.onPressed: function(event) {
             if (event.matches(StandardKey.Copy) && selectedText.length) { researchStore.copyText(root.selectionText(this)); event.accepted = true }
         }

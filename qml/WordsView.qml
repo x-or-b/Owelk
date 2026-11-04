@@ -76,7 +76,7 @@ ColumnLayout {
             height: column.implicitHeight + 16
             separator: index < list.count - 1
             onClicked: root.open(modelData)
-            TapHandler { acceptedButtons: Qt.RightButton; onTapped: { wordMenu.word = wordRow.modelData; wordMenu.popup() } }
+            ContextTap { onRequested: { wordMenu.word = wordRow.modelData; wordMenu.popup() } }
             ToolTip.visible: hovered && wordRow.modelData.sentence.length > 0
             ToolTip.delay: 700
             ToolTip.text: wordRow.modelData.sentence

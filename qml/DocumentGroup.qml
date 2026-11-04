@@ -221,7 +221,7 @@ Rectangle {
             model: root.strip
             ScrollBar.horizontal: ScrollBar { height: 4 }
             // Right-click on the bar's empty space: new tab, sorting, AI, layout.
-            TapHandler { acceptedButtons: Qt.RightButton; onTapped: stripMenu.show(root.groupId) }
+            ContextTap { onRequested: stripMenu.show(root.groupId) }
             delegate: Item {
                 id: tabItem
                 required property var modelData
@@ -284,7 +284,7 @@ Rectangle {
                         onTapped: { const label = tabItem.labelData.id, collapsed = !tabItem.labelData.collapsed; Qt.callLater(function() { root.controller.setTabGroupCollapsed(root.groupId, label, collapsed) }) }
                         onDoubleTapped: root.editingLabel = tabItem.labelData.id
                     }
-                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: { root.menuLabel = tabItem.labelData.id; groupMenu.popup() } }
+                    ContextTap { onRequested: { root.menuLabel = tabItem.labelData.id; groupMenu.popup() } }
                     ToolTip.visible: headerHover.hovered && !nameField.visible
                     ToolTip.delay: 500
                     ToolTip.text: tabItem.isHeader ? (tabItem.labelData.collapsed ? qsTr("Show ") : qsTr("Hide ")) + tabItem.modelData.size + qsTr(" tabs") : ""
@@ -365,6 +365,12 @@ Rectangle {
                         moving = false
                     }
                     onCanceled: { cancelled = true; moving = false; root.controller.finishDrag(true) }
+                    // A finger held still opens the menu, as a right click does (a mouse's long press stays a click).
+                    onPressAndHold: function(mouse) {
+                        if (moving || mouse.source === Qt.MouseEventNotSynthesized) return
+                        cancelled = true
+                        root.menuTab = tabItem.tabData.id; tabMenu.popup()
+                    }
                 }
                 Keys.onEscapePressed: { pointer.cancelled = true; pointer.moving = false; root.controller.finishDrag(true) }
                 IconButton {

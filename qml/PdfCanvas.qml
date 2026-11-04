@@ -320,6 +320,8 @@ Item {
         stopSourceMotion()
         spotlight.stop()
         if (pinching) cancelPinch()
+        // A finger's fling on the last paper does not carry into this one.
+        pages.cancelFlick()
         pendingPosition = position || {page: 0, y: 0, x: 0, zoom: 1}
         lastPosition = pendingPosition
         restoring = true
@@ -876,6 +878,14 @@ Item {
                     metricsReady = true
                 }
             }
+            // A link under p (in the page's view coordinates).
+            function linkAt(p) {
+                for (let i = 0; i < pageLinks.count; ++i) {
+                    const link = pageLinks.itemAt(i)
+                    if (link && p.x >= link.x && p.x <= link.x + link.width && p.y >= link.y && p.y <= link.y + link.height) return link
+                }
+                return null
+            }
             function overText(x, y) {
                 return lineMetrics.some(function(r) {
                     return x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height
@@ -1049,6 +1059,38 @@ Item {
                     onPressed: function(mouse) { root.contextPressed(pageHolder.index, Qt.point(mouse.x / root.pageScale, mouse.y / root.pageScale)) }
                     onClicked: function(mouse) { root.contextRequested(mapToItem(root, mouse.x, mouse.y), pageHolder.index, Qt.point(mouse.x / root.pageScale, mouse.y / root.pageScale)) }
                 }
+                // (Beside textHover, not in it: a handler inside a MouseArea makes it take every button.)
+                // A finger has no hover: a tap on text shows what the pointer resting there would (a reference's
+                // entry, a symbol's meaning), and the next tap puts it away. Links take their own taps.
+                TapHandler {
+                    objectName: "textTap" + pageHolder.index
+                    acceptedDevices: PointerDevice.TouchScreen
+                    enabled: !root.captureMode
+                    onTapped: function(point) {
+                        const p = point.position, x = p.x / root.pageScale, y = p.y / root.pageScale
+                        if (pageHolder.linkAt(p)) return
+                        if (root.linkPreview || root.pendingPreview || root.symbolHint) { root.closeLinkPreview(); root.hoveredLink = null; root.leaveRest(true); return }
+                        pageHolder.ensureMetrics()
+                        if (pageHolder.overText(x, y)) root.restOn(pageHolder.index, Qt.point(x, y), textHover.mapToItem(root, p.x, p.y), true)
+                        else root.leaveRest(true)
+                    }
+                }
+                // A finger held still: the page's menu, as a right click. A moment later than a mark's or a link's
+                // own hold, which let go of the finger first.
+                ContextTap {
+                    objectName: "pageHold" + pageHolder.index
+                    acceptedDevices: PointerDevice.TouchScreen
+                    longPressThreshold: 0.55
+                    enabled: !root.captureMode
+                    onRequested: function(point) {
+                        const p = point.position, at = Qt.point(p.x / root.pageScale, p.y / root.pageScale), view = textHover.mapToItem(root, p.x, p.y)
+                        Qt.callLater(function() {
+                            if (highlightMenu.visible || root.linkPreview || root.pendingPreview) return
+                            root.contextPressed(pageHolder.index, at)
+                            root.contextRequested(view, pageHolder.index, at)
+                        })
+                    }
+                }
                 Repeater {
                     model: root.savedHighlights.filter(function(h) { return h.page === pageHolder.index })
                     delegate: Item {
@@ -1118,6 +1160,7 @@ Item {
                                     }
                                 }
                                 MouseArea {
+                                    id: markArea
                                     objectName: "markArea-" + persistentMark.modelData.id
                                     readonly property bool selectable: root.adjustable(persistentMark.modelData) && !root.tool.length
                                     anchors.fill: persistentMark.modelData.kind === "draw" ? savedStroke : parent
@@ -1144,11 +1187,25 @@ Item {
                                     }
                                     onClicked: function(mouse) {
                                         if (mouse.button === Qt.LeftButton) { root.activated(); root.selectedMarkId = persistentMark.modelData.id; return }
+                                        openMenu(Qt.point(mouse.x, mouse.y))
+                                    }
+                                    function openMenu(p) {
                                         root.removingHighlight = persistentMark.modelData.id
                                         root.editingMark = persistentMark.modelData
-                                        root.markMenuPosition = mapToItem(root, mouse.x, mouse.y)
-                                        highlightMenu.popup(parent, mouse.x, mouse.y)
+                                        root.markMenuPosition = mapToItem(root, p.x, p.y)
+                                        highlightMenu.popup(parent, p.x, p.y)
                                     }
+                                    // A finger held on a mark: its menu, as a right click (markHold, below, which hears marks
+                                    // that let a press through too); a Pencil held on one, after a moment longer.
+                                    onPressAndHold: function(mouse) {
+                                        if (mouse.source !== Qt.MouseEventNotSynthesized && !highlightMenu.visible) openMenu(Qt.point(mouse.x, mouse.y))
+                                    }
+                                }
+                                ContextTap {
+                                    objectName: "markHold-" + persistentMark.modelData.id
+                                    acceptedDevices: PointerDevice.TouchScreen
+                                    longPressThreshold: 0.4
+                                    onRequested: function(point) { markArea.openMenu(markArea.mapFromItem(parent, point.position.x, point.position.y)) }
                                 }
                                 IconButton {
                                     objectName: "commentMarker-" + persistentMark.modelData.id + "-" + index
@@ -1294,6 +1351,7 @@ Item {
                 }
 
                 Repeater {
+                    id: pageLinks
                     model: PdfLinkModel {
                         document: pdfDocument
                         // Delegates can outlive the old page count briefly when switching tabs.
@@ -1316,6 +1374,27 @@ Item {
                                 root.externalLinkRequested(url)
                             }
                         }
+                        // A finger held on a reference shows where it points, as the pointer resting on it does
+                        // (a tap follows it); the card stays until the next tap or reading on.
+                        TapHandler {
+                            objectName: "linkHold"
+                            acceptedDevices: PointerDevice.TouchScreen
+                            enabled: parent.page >= 0 && !root.captureMode
+                            longPressThreshold: 0.4
+                            onLongPressed: {
+                                const linkItem = parent, p = point.position
+                                Theme.cancelTouches()
+                                root.fingerRest = false
+                                root.hoveredLink = {page: linkItem.page, location: linkItem.location}
+                                const size = pdfDocument.pagePointSize(linkItem.page)
+                                const at = linkItem.mapToItem(root, 0, 0)
+                                root.requestLinkPreview({page: linkItem.page, y: size.height > 0 ? linkItem.location.y / size.height : 0,
+                                                         x: at.x, top: at.y, bottom: at.y + linkItem.height})
+                                root.touchPreview = true
+                                root.restOn(pageHolder.index, Qt.point((linkItem.x + p.x) / root.pageScale, (linkItem.y + p.y) / root.pageScale),
+                                            linkItem.mapToItem(root, p.x, p.y), true)
+                            }
+                        }
                         // Hovering a reference ([12], Fig. 3, Eq. 2) shows where it points, in place.
                         // A link scrolled away or closed while under the pointer never reports leaving.
                         Component.onDestruction: if (workingLinkHover.hovered) root.hoveredLink = null
@@ -1323,6 +1402,7 @@ Item {
                             id: workingLinkHover
                             enabled: parent.page >= 0 && !root.captureMode && root.tool === ""
                             onHoveredChanged: {
+                                if (root.fingerRest) return
                                 const linkItem = parent
                                 // Its destination, for reading the reference entry there when the link's own
                                 // text is not a recognisable reference (an author name, say).
@@ -1500,8 +1580,10 @@ Item {
     // A working link waits for the text lookup: a reference shows its entries, figure or equation; only a
     // link that is none of these (a section, a page) shows the place it points to (onResolved).
     function requestLinkPreview(spec) { pendingPreview = spec; previewContentY = pages.contentY; previewHide.stop() }
-    function leaveLinkPreview() { pendingPreview = null; if (!previewHover.hovered) previewHide.restart() }
-    function closeLinkPreview() { previewHide.stop(); linkPreview = null; pendingPreview = null }
+    // A preview a finger asked for (held on a reference) stays until a tap or reading on: no hover leaves it.
+    property bool touchPreview: false
+    function leaveLinkPreview() { if (touchPreview) return; pendingPreview = null; if (!previewHover.hovered) previewHide.restart() }
+    function closeLinkPreview() { previewHide.stop(); linkPreview = null; pendingPreview = null; touchPreview = false; fingerRest = false }
     // --- Pinned cards ------------------------------------------------------------------------------
     // Figures, tables and equations pinned from their previews float over the pages, up to three per tab (a
     // fourth replaces the oldest). pinTab is the tab in front (set by its group); a tab's pins go when it closes.
@@ -1722,8 +1804,13 @@ Item {
     // A working link under the pointer: {page, location} of its destination.
     property var hoveredLink: null
     property bool referenceFallback: false
-    function restOn(page, point, viewPoint) {
-        if (!ready || captureMode || tool.length || selecting || pinching) { referenceRest.stop(); return }
+    // byFinger: a finger's tap or hold, which no tool takes (it only scrolls and asks). It is looked up at once,
+    // and what it shows stays until the next tap or reading on (fingerRest): lifting a finger reports the
+    // pointer leaving, which is no reason to let it go.
+    property bool fingerRest: false
+    function restOn(page, point, viewPoint, byFinger) {
+        if (fingerRest && !byFinger) return
+        if (!ready || captureMode || (tool.length && !byFinger) || selecting || pinching) { referenceRest.stop(); return }
         // The hint stays while the pointer is on its symbol.
         if (symbolHint) {
             const b = symbolHint.box, slack = 1.5
@@ -1733,9 +1820,12 @@ Item {
         // Moving off the reference that opened the card lets it go (unless the pointer goes into the card).
         if (linkPreview && linkPreview.fromText && Math.abs(viewPoint.x - linkPreview.anchorX) + Math.abs(viewPoint.y - linkPreview.anchorY) > 18) leaveLinkPreview()
         restSpot = {page: page, x: point.x, y: point.y, viewX: viewPoint.x, viewY: viewPoint.y}
+        if (byFinger) { fingerRest = true; referenceRest.stop(); resolveReference(restSpot); return }
         referenceRest.restart()
     }
-    function leaveRest() {
+    function leaveRest(byFinger) {
+        if (fingerRest && !byFinger) return
+        fingerRest = false
         referenceRest.stop()
         restSpot = null
         symbolHint = null
@@ -1824,7 +1914,8 @@ Item {
                                 fromText: true, anchorX: spot.viewX, anchorY: spot.viewY, float: target.float || null}
         }
     }
-    Timer { id: previewHide; interval: 250; onTriggered: if (!previewHover.hovered) root.linkPreview = null }
+    Timer { id: previewHide; interval: 250; onTriggered: if (!previewHover.hovered && !root.touchPreview) root.linkPreview = null }
+    onLinkPreviewChanged: if (!linkPreview && !pendingPreview) touchPreview = false
     Rectangle {
         id: symbolTip
         objectName: "symbolHint"
@@ -2048,7 +2139,8 @@ Item {
     // Mouse side buttons turn pages, like ← / →.
     // A handler, not a MouseArea, so text and link cursors underneath are unaffected.
     TapHandler {
+        acceptedDevices: PointerDevice.Mouse
         acceptedButtons: Qt.BackButton | Qt.ForwardButton
-        onTapped: function(point, button) { if (button === Qt.BackButton) root.previousPage(); else root.nextPage() }
+        onTapped: function(point, button) { if (button === Qt.BackButton) root.previousPage(); else if (button === Qt.ForwardButton) root.nextPage() }
     }
 }

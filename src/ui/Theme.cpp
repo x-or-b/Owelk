@@ -10,11 +10,15 @@
 #include <QGuiApplication>
 #include <QIcon>
 #include <QImageReader>
+#include <QInputDevice>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QPointingDevice>
 #include <QRandomGenerator>
 #include <QStyleHints>
+#include <QTouchEvent>
+#include <QWindow>
 #include <algorithm>
 #include <cmath>
 
@@ -988,6 +992,18 @@ void Theme::showPicture(const Picture &picture, bool dark, bool show)
     } else {
         clearCustomAccent();
         setAccentName("graphite");
+    }
+}
+
+void Theme::cancelTouches() const
+{
+    for (const QInputDevice *device : QInputDevice::devices()) {
+        if (device->type() != QInputDevice::DeviceType::TouchScreen)
+            continue;
+        for (QWindow *window : QGuiApplication::topLevelWindows()) {
+            QTouchEvent cancel(QEvent::TouchCancel, static_cast<const QPointingDevice *>(device));
+            QCoreApplication::sendEvent(window, &cancel);
+        }
     }
 }
 

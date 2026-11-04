@@ -436,14 +436,14 @@ Rectangle {
                         objectName:"drawTool";icon.name: "draw";swatch:canvas.drawColor;checked:canvas.tool==="draw"
                         description: qsTr("Draw")
                         onClicked: root.setTool("draw")
-                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.chooseInk(drawTool, "draw", false) }
+                        ContextTap { onRequested: root.chooseInk(drawTool, "draw", false) }
                     }
                     IconButton {
                         id: highlightTool
                         objectName:"highlightTool";icon.name: "highlight";swatch:canvas.markColor;checked:canvas.tool==="highlight"
                         description: qsTr("Highlight")
                         onClicked: root.useHighlight()
-                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.chooseInk(highlightTool, "highlight", !!canvas.selectedAnchor) }
+                        ContextTap { onRequested: root.chooseInk(highlightTool, "highlight", !!canvas.selectedAnchor) }
                     }
                     IconButton { objectName:"commentTool";icon.name: "comment";checked:canvas.tool==="comment";description: qsTr("Comment");onClicked:root.setTool("comment") }
                     IconButton { objectName:"textTool";icon.name: "text";checked:canvas.tool==="text";description: qsTr("Text box");onClicked:root.setTool("text") }

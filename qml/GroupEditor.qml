@@ -141,7 +141,7 @@ ColumnLayout {
                         Layout.fillWidth: true
                         elide: Text.ElideRight; font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
                         text: root.title(member.modelData)
-                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: root.showMoveMenu(member.modelData, group.index, moveButton) }
+                        ContextTap { onRequested: root.showMoveMenu(member.modelData, group.index, moveButton) }
                     }
                     IconButton {
                         id: moveButton

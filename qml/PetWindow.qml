@@ -501,7 +501,7 @@ Window {
         onPressedChanged: if (pressed) pet.moving = false
         onTapped: if (!pet.moving && Date.now() - pet.movedAt > 600) pet.poke()
     }
-    TapHandler { acceptedButtons: Qt.RightButton; onTapped: menu.popup() }
+    ContextTap { onRequested: menu.popup() }
     Menu {
         id: menu
         objectName: "petMenu"
@@ -702,6 +702,6 @@ Window {
             }
         }
         TapHandler { onTapped: pet.act() }
-        TapHandler { acceptedButtons: Qt.RightButton; onTapped: pet.message = null }
+        ContextTap { onRequested: pet.message = null }
     }
 }

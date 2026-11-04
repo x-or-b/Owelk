@@ -17,5 +17,5 @@ ItemDelegate {
     ToolTip.delay: 500
     ToolTip.text: modelData.name + "\n" + researchStore.localPath(modelData.url)
     signal menuRequested(var row)
-    MouseArea { anchors.fill: parent; acceptedButtons: Qt.RightButton; onClicked: root.menuRequested(root.modelData) }
+    ContextTap { onRequested: root.menuRequested(root.modelData) }
 }

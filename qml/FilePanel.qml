@@ -316,9 +316,8 @@ Item {
                         else researchStore.addDocuments(event.urls.filter(function(u) { return /\.pdf$/i.test(u.toString()) }), shelfRow.collectionId)
                     }
                 }
-                TapHandler {
-                    acceptedButtons: Qt.RightButton
-                    onTapped: {
+                ContextTap {
+                    onRequested: {
                         if (shelfRow.paper) { paperMenu.collectionId = shelfRow.modelData.collection; paperMenu.show({url: shelfRow.modelData.url, name: shelfRow.modelData.name}); return }
                         shelfMenu.collection = shelfRow.modelData; shelfMenu.popup()
                     }
@@ -407,7 +406,7 @@ Item {
                 leftPadding: 26 + depth * 14
                 text: name
                 onClicked: root.toggle(index)
-                MouseArea { anchors.fill: parent; acceptedButtons: Qt.RightButton; onClicked: { fileMenu.row = {url: fileRow.url, directory: fileRow.directory, index: fileRow.index}; fileMenu.popup() } }
+                ContextTap { onRequested: { fileMenu.row = {url: fileRow.url, directory: fileRow.directory, index: fileRow.index}; fileMenu.popup() } }
                 Icon {
                     x: 6 + fileRow.depth * 14; anchors.verticalCenter: parent.verticalCenter
                     name: fileRow.loading ? "reload" : fileRow.directory ? (fileRow.expanded ? "down" : "right") : "document"

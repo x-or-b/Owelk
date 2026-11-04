@@ -16,7 +16,7 @@ IconButton {
     checkable: false
     onClicked: triggered()
     Keys.onMenuPressed: if (dockSide.length) dockMenu.popup()
-    TapHandler { acceptedButtons: Qt.RightButton; enabled: root.dockSide.length > 0; onTapped: dockMenu.popup() }
+    ContextTap { enabled: root.dockSide.length > 0; onRequested: dockMenu.popup() }
     Menu {
         id: dockMenu
         objectName: "dockMenu-" + root.kind

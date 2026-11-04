@@ -238,7 +238,7 @@ Item {
                 border.color: card.editing ? Theme.accentBorder : hover.hovered ? Theme.border : Theme.separator
                 HoverHandler { id: hover }
                 TapHandler { enabled: !card.editing; onTapped: card.opened(); onDoubleTapped: card.editRequested() }
-                TapHandler { acceptedButtons: Qt.RightButton; enabled: card.noteId.length > 0; onTapped: noteMenu.popup() }
+                ContextTap { enabled: card.noteId.length > 0; onRequested: noteMenu.popup() }
                 Menu {
                     id: noteMenu
                     MenuItem { text: qsTr("Go to"); onTriggered: card.opened() }

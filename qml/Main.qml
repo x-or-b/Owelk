@@ -889,13 +889,19 @@ ApplicationWindow {
         readonly property real notch: Overlay.overlay ? Overlay.overlay.SafeArea.margins.top : 0
         readonly property real offset: Qt.platform.os === "osx" && window.visibility === Window.FullScreen ? Math.max(notch, 24) : notch
         width: parent ? parent.width : 0
-        height: window.focusBarShown ? offset + focusBar.height : offset + 4
+        // A finger has no hover: on a touch screen the strip is a tap target, and the bar goes a few seconds later.
+        height: window.focusBarShown ? offset + focusBar.height : offset + (Theme.touch ? 20 : 4)
         HoverHandler {
             id: focusTopHover
             onHoveredChanged: {
                 if (hovered) { focusLeave.stop(); window.focusPeek = true }
                 else if (!focusTabsPopup.opened) focusLeave.restart()
             }
+        }
+        TapHandler {
+            objectName: "focusTopTap"
+            acceptedDevices: PointerDevice.TouchScreen
+            onTapped: { window.focusPeek = true; if (!focusTabsPopup.opened) focusLeave.restart() }
         }
         // While the bar is down, the strip above it (where macOS's menu bar comes down) has its color, not the page's.
         Rectangle {
@@ -1024,7 +1030,7 @@ ApplicationWindow {
             }
         }
     }
-    Timer { id: focusLeave; interval: 600; onTriggered: window.focusPeek = false }
+    Timer { id: focusLeave; interval: Theme.touch ? 4000 : 600; onTriggered: if (!focusTabsPopup.opened) window.focusPeek = false }
     // An answer arrived while its thread is not in view: a card at the bottom right (Open / Dismiss),
     // and while another app is in front, the Dock icon bounces once (the taskbar flashes on Linux).
     AiNotice {

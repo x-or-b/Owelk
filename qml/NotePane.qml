@@ -107,7 +107,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             // Right-click the header for the note's actions (also in its tab's menu).
-            TapHandler { acceptedButtons: Qt.RightButton; onTapped: noteMenu.popup() }
+            ContextTap { onRequested: noteMenu.popup() }
             Menu {
                 id: noteMenu
                 MenuItem { objectName: "noteAskAi"; text: qsTr("Ask AI about This Note"); onTriggered: root.askAi() }

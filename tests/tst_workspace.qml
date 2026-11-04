@@ -186,6 +186,45 @@ Item {
             workspace.persist()
             compare(researchStore.session.panels.aiSide, "left")
         }
+        // A finger: a tap on a panel's icon opens the panel, not its menu; held, it opens the menu and nothing else.
+        function test_fingerTapAndHoldOnAPanelIcon() {
+            workspace.aiVisible = false
+            const icon = visualChild(findChild(workspace, "statusBar"), "dockIcon-ai")
+            const menu = findChild(icon, "dockMenu-ai")
+            const x = icon.width / 2, y = icon.height / 2
+            const touch = touchEvent(icon)
+            touch.press(0, icon, x, y).commit(); touch.release(0, icon, x, y).commit()
+            tryCompare(workspace, "aiVisible", true)
+            wait(100)
+            compare(menu.visible, false)
+            touch.press(0, icon, x, y).commit()
+            wait(700)
+            touch.release(0, icon, x, y).commit()
+            tryCompare(menu, "opened", true)
+            wait(100)
+            compare(workspace.aiVisible, true)
+            menu.close()
+            tryCompare(menu, "visible", false)
+        }
+        // A finger held on a tab opens the tab's menu (as a right click) without switching to it.
+        function test_fingerHeldOnATabOpensItsMenu() {
+            const d = workspace.documents
+            d.openDocument(fixtureSource, {page: 2, y: 0, x: 0, zoom: 1}, true); canvas()
+            const first = d.tree.activeTab
+            d.openDocument(fixtureSource, {page: 4, y: 0, x: 0, zoom: 1}, true); canvas()
+            verify(d.tree.activeTab !== first)
+            const view = d.groupView(d.activeGroup), tab = visualChild(view, "tab-" + first)
+            verify(tab !== null)
+            view.menuTab = ""
+            const touch = touchEvent(tab)
+            touch.press(0, tab, 20, 15).commit()
+            wait(1000)
+            touch.release(0, tab, 20, 15).commit()
+            tryCompare(view, "menuTab", first)
+            wait(100)
+            verify(d.tree.activeTab !== first)
+            keyClick(Qt.Key_Escape)
+        }
         function test_iconTogglesClosedPanel() {
             workspace.aiVisible = false
             const icon = visualChild(findChild(workspace, "statusBar"), "dockIcon-ai")

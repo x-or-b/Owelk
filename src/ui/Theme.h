@@ -268,6 +268,9 @@ public:
     Q_INVOKABLE void setPictureMoodMode(const QString &mood, const QString &mode);
     // a → b by t (0..1), for the rare place that needs an in-between color.
     Q_INVOKABLE QColor mix(const QColor &a, const QColor &b, qreal t) const;
+    // Fingers held on the screen are let go, as when iOS opens a menu under one: what holds them (a button, a row,
+    // a list) is cancelled instead of clicked when they lift.
+    Q_INVOKABLE void cancelTouches() const;
 
     // A finger needs larger targets than a pointer: on a touch screen (iPadOS, Android) controls, bars and rows get
     // this much more height around the same text, close to the 44 pt a fingertip wants.

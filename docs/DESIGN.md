@@ -41,6 +41,9 @@
 - 패널 머리: 패널이 하나면 이름, 여럿이면 아이콘 세그먼트입니다. Document 패널의 네 보기(Contents·Annotations·Symbols·Related)도 아이콘 세그먼트이고, 보기 안의 선택(Outline/Pages, Library/Cites/Cited by)은 글자 세그먼트입니다.
 - 검색 결과에서 페이지를 묶는 논문은 어두운 막대가 아니라 굵은 제목 행입니다. 결과 종류는 색이 아니라 오른쪽의 작은 글자(p. 3, highlight…)로 구분합니다.
 - 글자 크기는 모두 `Theme.font*` 단계(캡션·작게·본문·소제목·제목)를 씁니다. 높이는 `controlHeight`·`rowHeight`·`barHeight` 등 크기 토큰을 씁니다. 글자 크기 설정을 바꾸면 컨트롤과 행 높이도 함께 바뀝니다. 터치 화면(iPadOS·Android)에서는 손가락이 누르기 쉽게 같은 글자에 높이 여유(`Theme::touchRoom`, 12)를 더하고 기본 글자 크기를 15로 시작합니다. 마우스 전용 처리기(뒤로/앞으로 버튼 등)는 `acceptedDevices: PointerDevice.Mouse`로 두어 손가락 터치를 잡지 않게 합니다.
+- 터치에는 버튼이 없어서 `acceptedButtons`로 손가락을 거를 수 없습니다. 오른쪽 클릭 메뉴는 `TapHandler { acceptedButtons: Qt.RightButton }` 대신 `ContextTap`(`style/ContextTap.qml`)을 씁니다. 오른쪽 클릭이나 손가락 길게 누르기(0.45초)에 `requested(point)`를 보내고, 길게 누를 때는 `Theme.cancelTouches()`로 손가락을 놓아 아래 버튼·행이 클릭되지 않게 합니다. 끌어 옮기는 MouseArea(탭)는 `onPressAndHold`에서 합성된 마우스만 메뉴로 받습니다. 처리기(TapHandler 등)를 MouseArea **안에** 두지 않습니다. 그러면 Qt가 그 MouseArea가 모든 버튼을 받게 바꿔 왼쪽 클릭을 가로챕니다. 옆(같은 부모)에 둡니다.
+- 터치 화면의 PDF: 손가락은 도구와 상관없이 스크롤만 합니다. 글자를 탭하면 포인터를 올렸을 때처럼 참고문헌·기호 설명이 뜨고, 다음 탭에 닫힙니다. 링크를 길게 누르면 가리키는 곳을 미리 보여 주고(탭하면 이동), 표시를 길게 누르면 그 표시의 메뉴, 페이지를 길게 누르면 페이지 메뉴가 뜹니다. 표시·링크(0.4초)가 페이지(0.55초)보다 먼저 받습니다. 두 손가락 확대·축소는 그리는 동안 화면을 한 장의 그림으로 키우고(`pinchScale`, `pinchShift`), 손을 떼면 한 번만 다시 배치하고 그립니다.
+- 세로로 든 iPad(`Theme.touch`이고 창이 세로로 긺)에서는 옆 패널이 페이지를 줄이지 않고 위에 덮입니다(`panelLayer`). 옆을 누르거나 논문·Library 보기를 고르면 닫히고, 가로로 돌리면 전에 열려 있던 패널이 돌아옵니다. 상태 표시줄은 홈 막대 높이만큼 아래가 늘어나고, 창 내용은 위·옆 안전 영역을 비웁니다. 집중 모드의 위쪽 띠는 터치에서 20pt로 두껍고, 탭하면 막대가 나왔다가 4초 뒤 들어갑니다.
 
 ## 호버와 우클릭
 

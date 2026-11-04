@@ -608,10 +608,9 @@ Rectangle {
                                 visible: entry.modelData.count !== undefined; text: entry.modelData.count || 0
                                 font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
                             }
-                            TapHandler {
-                                acceptedButtons: Qt.RightButton
+                            ContextTap {
                                 enabled: entry.modelData.key === "collection"
-                                onTapped: { collectionMenu.row = entry.modelData.row; collectionMenu.popup() }
+                                onRequested: { collectionMenu.row = entry.modelData.row; collectionMenu.popup() }
                             }
                             // Drop a paper here to add it to this collection.
                             DropArea {
@@ -1205,9 +1204,8 @@ Rectangle {
                         highlighted: chosen
                         onClicked: root.noteClicked(index)
                         // Right-click on a chosen note acts on all chosen ones.
-                        TapHandler {
-                            acceptedButtons: Qt.RightButton
-                            onTapped: {
+                        ContextTap {
+                            onRequested: {
                                 if (noteItem.chosen && (root.selection.length > 1 || root.selecting)) { noteBatchMenu.ids = root.selection.slice(); noteBatchMenu.popup() }
                                 else { root.selection = []; noteMenu.noteId = noteItem.modelData.id; noteMenu.popup() }
                             }
@@ -1421,9 +1419,8 @@ Rectangle {
                             }
                             onCentroidChanged: if (active) dragGhost.follow(centroid.scenePosition)
                         }
-                        TapHandler {
-                            acceptedButtons: Qt.RightButton
-                            onTapped: {
+                        ContextTap {
+                            onRequested: {
                                 if (paper.paperUrls.length > 1 || root.selecting && root.isSelected(paper.modelData.url)) { batchMenu.urls = paper.paperUrls; batchMenu.popup() }
                                 else { root.selection = []; paperMenu.show(paper.modelData) }
                             }

@@ -196,7 +196,7 @@ ColumnLayout {
                         }
                         HoverHandler { id: thumbHover; cursorShape: Qt.PointingHandCursor }
                         TapHandler { onTapped: Theme.choosePicture(thumb.modelData.id) }
-                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: { pictureMenu.pictureId = thumb.modelData.id; pictureMenu.popup() } }
+                        ContextTap { onRequested: { pictureMenu.pictureId = thumb.modelData.id; pictureMenu.popup() } }
                         Accessible.role: Accessible.RadioButton
                         Accessible.name: qsTr("Picture") + " " + (index + 1)
                     }
@@ -368,7 +368,7 @@ ColumnLayout {
                             asynchronous: true
                         }
                         HoverHandler { id: tileHover }
-                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: { faceMenu.mood = moodRow.modelData.mood; faceMenu.index = faceTile.index; faceMenu.popup() } }
+                        ContextTap { onRequested: { faceMenu.mood = moodRow.modelData.mood; faceMenu.index = faceTile.index; faceMenu.popup() } }
                         Accessible.role: Accessible.Graphic
                         Accessible.name: moodRow.modelData.name + " " + (index + 1)
                     }

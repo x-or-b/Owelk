@@ -20,6 +20,7 @@ Item {
     SignalSpy { id: aiSpy; target: reader; signalName: "aiRequested" }
     SignalSpy { id: linkSpy; target: reader; signalName: "linkRequested" }
     SignalSpy { id: messageSpy; target: researchStore; signalName: "message" }
+    SignalSpy { id: contextSpy; signalName: "contextRequested" }
 
     TestCase {
         name: "PdfReader"
@@ -220,6 +221,46 @@ Item {
             tryCompare(card, "visible", true, 3000)
             findChild(canvas, "pageList").contentY += 200
             tryCompare(card, "visible", false)
+        }
+        // A finger has no hover: held on a reference, it previews it in place (a tap would follow it), and the
+        // next tap puts the card away.
+        function test_fingerHeldOnAReferencePreviewsIt() {
+            canvas.openFile(linkSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            const link = tryFindLink(), card = findChild(canvas, "linkPreview")
+            verify(!card.visible)
+            const touch = touchEvent(link)
+            touch.press(0, link, link.width / 2, link.height / 2).commit()
+            wait(700)
+            touch.release(0, link, link.width / 2, link.height / 2).commit()
+            tryCompare(card, "visible", true, 3000)
+            compare(findChild(card, "linkPreviewPage").currentFrame, 2)
+            wait(400)
+            compare(canvas.currentPage, 0)
+            verify(card.visible)
+            const paper = findChild(canvas, "paperPage0"), spot = paper.mapFromItem(canvas, canvas.width - 60, canvas.height - 40)
+            const tap = touchEvent(paper)
+            tap.press(0, paper, spot.x, spot.y).commit(); tap.release(0, paper, spot.x, spot.y).commit()
+            tryCompare(card, "visible", false, 3000)
+            compare(canvas.currentPage, 0)
+        }
+        // A finger held on the page opens its menu, as a right click; a tap does not.
+        function test_fingerHeldOnThePageOpensItsMenu() {
+            contextSpy.target = canvas
+            contextSpy.clear()
+            const paper = findChild(canvas, "paperPage0"), bounds = fixtureTextBounds
+            const at = Qt.point((bounds.x + 8) * canvas.pageScale, (bounds.y + bounds.height / 2) * canvas.pageScale)
+            const touch = touchEvent(paper)
+            touch.press(0, paper, at.x, at.y).commit(); touch.release(0, paper, at.x, at.y).commit()
+            wait(700)
+            compare(contextSpy.count, 0)
+            touch.press(0, paper, at.x, at.y).commit()
+            wait(700)
+            touch.release(0, paper, at.x, at.y).commit()
+            tryCompare(contextSpy, "count", 1)
+            compare(contextSpy.signalArguments[0][1], 0)
+            compare(canvas.selectedText, "")
+            contextSpy.target = null
         }
         function test_workingLinksToReferencesOfferFindPaper() {
             canvas.openFile(referenceLinkSource, {page: 0, y: 0, x: 0, zoom: 1})

@@ -149,7 +149,7 @@ Rectangle {
                 }
             }
             // Right-click on the list's empty space: the same menu as the tab bar, for the active split.
-            TapHandler { acceptedButtons: Qt.RightButton; onTapped: stripMenu.show(root.controller.activeGroup) }
+            ContextTap { onRequested: stripMenu.show(root.controller.activeGroup) }
             delegate: Item {
                 id: row
                 required property var modelData
@@ -247,7 +247,7 @@ Rectangle {
                         onTapped: { const strip = row.modelData.strip.id, label = row.label.id, folded = !row.label.collapsed; Qt.callLater(function() { root.controller.setTabGroupCollapsed(strip, label, folded) }) }
                         onDoubleTapped: root.editingLabel = row.label.id
                     }
-                    TapHandler { acceptedButtons: Qt.RightButton; enabled: row.type === "header"; onTapped: root.view(row.modelData.strip.id).showGroupMenu(row.label.id) }
+                    ContextTap { enabled: row.type === "header"; onRequested: root.view(row.modelData.strip.id).showGroupMenu(row.label.id) }
                     ToolTip.visible: groupHover.hovered && !root.open
                     ToolTip.text: row.label ? row.label.name : ""
                 }
@@ -346,6 +346,12 @@ Rectangle {
                             moving = false
                         }
                         onCanceled: { cancelled = true; moving = false; root.controller.finishDrag(true) }
+                        // A finger held still opens the menu, as a right click does.
+                        onPressAndHold: function(mouse) {
+                            if (moving || mouse.source === Qt.MouseEventNotSynthesized) return
+                            cancelled = true
+                            root.view(row.modelData.strip.id).showTabMenu(row.tab.id)
+                        }
                     }
                     IconButton {
                         id: closeButton

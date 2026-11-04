@@ -16,10 +16,12 @@ T.TextArea {
     placeholderTextColor: Theme.textTertiary
     selectByMouse: true
     Keys.onPressed: function(event) { if (!event.accepted && LineDelete.handle(control, event, true)) event.accepted = true }
-    // Right-click: Undo, Cut, Copy, Paste… (TextMenu.qml). Outside the selection it moves the caret first.
+    // Right-click: Undo, Cut, Copy, Paste… (TextMenu.qml). Outside the selection it moves the caret first. Only a
+    // mouse or trackpad: a finger has no buttons (it would take every tap), and iPadOS has its own text menu.
     TapHandler {
         property var menu: null
         acceptedButtons: Qt.RightButton
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         onTapped: function(point) {
             const at = control.positionAt(point.position.x, point.position.y)
             control.forceActiveFocus()

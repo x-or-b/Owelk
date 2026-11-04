@@ -256,9 +256,8 @@ Rectangle {
                     // Only notes the keys held; the click itself goes to the row.
                     onPressedChanged: if (pressed) list.clickModifiers = point.modifiers
                 }
-                TapHandler {
-                    acceptedButtons: Qt.RightButton
-                    onTapped: {
+                ContextTap {
+                    onRequested: {
                         if (row.isGroup) { groupMenu.group = row.modelData; groupMenu.popup(); return }
                         if (!row.chosen) root.selectedChats = [row.modelData.chat.id]
                         chatMenu.ids = root.selectedChats.slice()

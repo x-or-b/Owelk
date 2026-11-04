@@ -239,7 +239,7 @@ Item {
                     text: modelData.title
                     font.pixelSize: Theme.fontSmall
                     onClicked: root.linkActivated("owelk://note/" + modelData.id)
-                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: linkedNoteMenu.popup() }
+                    ContextTap { onRequested: linkedNoteMenu.popup() }
                     Menu {
                         id: linkedNoteMenu
                         MenuItem { text: qsTr("Open"); onTriggered: root.linkActivated("owelk://note/" + linkedNote.modelData.id) }
@@ -371,7 +371,7 @@ Item {
                     height: Theme.rowHeightTall
                     separator: index < citationList.count - 1
                     onClicked: root.openCitation(modelData)
-                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: { citationMenu.row = citation.modelData; citationMenu.popup() } }
+                    ContextTap { onRequested: { citationMenu.row = citation.modelData; citationMenu.popup() } }
                     ToolTip.visible: hovered; ToolTip.delay: 600
                     ToolTip.text: modelData.inLibrary ? qsTr("In your Library · click to open") : qsTr("Open ") + modelData.url
                     contentItem: ColumnLayout {
@@ -639,7 +639,7 @@ Item {
                 ToolTip.visible: hovered && (modelData.caption || "").length > 0
                 ToolTip.delay: 600
                 ToolTip.text: (modelData.caption || "").slice(0, 300)
-                TapHandler { acceptedButtons: Qt.RightButton; onTapped: { figureMenu.figure = figureCell.modelData; figureMenu.popup() } }
+                ContextTap { onRequested: { figureMenu.figure = figureCell.modelData; figureMenu.popup() } }
                 contentItem: Column {
                     spacing: 4
                     // The page drawn just large enough for the figure to fill the frame, the rest cut away.
