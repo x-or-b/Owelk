@@ -1005,40 +1005,79 @@ Item {
             compare(canvas.currentPage, 3)
             verify(Math.abs(canvas.position().y - saved.y) < .03)
         }
+        // Where a spot on a page shows in the view now, a pinch's picture included.
+        function shownAt(anchor) {
+            return findChild(canvas, "paperPage" + anchor.page).mapToItem(canvas, anchor.x * canvas.pageScale, anchor.y * canvas.pageScale)
+        }
         function test_continuousPinchAnchorsAndDefersRenders() {
             canvas.jump(2, .2, 0)
             tryCompare(canvas, "restoring", false)
             const point = Qt.point(canvas.width / 2, 220)
             const before = canvas.anchorAt(point)
             const image = findChild(canvas, "pageImage" + before.page)
+            const paper = findChild(canvas, "paperPage" + before.page)
             tryCompare(image, "status", Image.Ready, 10000)
-            const resolution = image.sourceSize.width
+            const resolution = image.sourceSize.width, scale = canvas.pageScale, height = paper.height
             verify(canvas.beginPinch(point))
+            let at = point
             for (let i = 1; i <= 12; ++i) {
-                canvas.updatePinch(1 + i * .04, point)
+                // The fingers spread and move together; the spot under them stays under them.
+                at = Qt.point(point.x + i * 3, point.y + i * 2)
+                canvas.updatePinch(1 + i * .04, at)
                 compare(image.sourceSize.width, resolution, "Pinching must not enqueue a raster per gesture update")
-                compare(canvas.zoomFactor, 1 + i * .04)
-                const current = canvas.anchorAt(point)
-                compare(current.page, before.page)
-                verify(Math.abs(current.x - before.x) < 1)
-                verify(Math.abs(current.y - before.y) < 1)
+                compare(canvas.pageScale, scale, "Pinching must not lay the pages out at every step")
+                compare(paper.height, height)
+                fuzzyCompare(canvas.shownZoom, 1 + i * .04, 1e-9)
+                const shown = shownAt(before)
+                verify(Math.abs(shown.y - at.y) < 1, "y " + shown.y + " under " + at.y)
             }
+            const lifted = shownAt(before)
             canvas.endPinch()
             verify(image.sourceSize.width > resolution)
             compare(canvas.pinching, false)
             compare(canvas.restoring, false)
+            fuzzyCompare(canvas.zoomFactor, 1.48, 1e-9)
+            // Laid out at the new zoom, the spot is where the picture showed it.
+            const laid = shownAt(before)
+            verify(Math.abs(laid.x - lifted.x) < 1.5 && Math.abs(laid.y - lifted.y) < 1.5,
+                   "(" + laid.x + ", " + laid.y + ") after lifting, (" + lifted.x + ", " + lifted.y + ") before")
+            verify(Math.abs(laid.y - at.y) < 1.5)
             const saved = canvas.position()
             canvas.openFile(fixtureSource, saved)
             tryCompare(canvas, "restoring", false)
-            compare(canvas.zoomFactor, 1.48)
+            fuzzyCompare(canvas.zoomFactor, 1.48, 1e-9)
+        }
+        // Pinching out at the document's top: the first page stops at the top edge, centred, and stays there.
+        function test_pinchOutAtTheTopKeepsThePicture() {
+            canvas.jump(0, 0, 0)
+            tryCompare(canvas, "restoring", false)
+            const point = Qt.point(canvas.width * .3, canvas.height / 2)
+            const spot = canvas.anchorAt(point)
+            verify(canvas.beginPinch(point))
+            canvas.updatePinch(.8, point)
+            canvas.updatePinch(.6, point)
+            const top = findChild(canvas, "paperPage0").mapToItem(canvas, 0, 0)
+            fuzzyCompare(top.y, findChild(canvas, "pageList").topMargin, 1)
+            const lifted = shownAt(spot)
+            canvas.endPinch()
+            fuzzyCompare(canvas.zoomFactor, .6, 1e-9)
+            const laid = shownAt(spot)
+            verify(Math.abs(laid.x - lifted.x) < 1.5 && Math.abs(laid.y - lifted.y) < 1.5,
+                   "(" + laid.x + ", " + laid.y + ") after lifting, (" + lifted.x + ", " + lifted.y + ") before")
+            canvas.fitWidth()
+            tryCompare(canvas, "restoring", false)
         }
         function test_pinchBoundsAndCancel() {
             const point = Qt.point(canvas.width / 2, 220)
+            const before = canvas.anchorAt(point)
             verify(canvas.beginPinch(point))
-            canvas.updatePinch(100, point); compare(canvas.zoomFactor, 4)
-            canvas.updatePinch(.01, point); compare(canvas.zoomFactor, .5)
+            canvas.updatePinch(100, point); compare(canvas.shownZoom, 4)
+            canvas.updatePinch(.01, point); compare(canvas.shownZoom, .5)
             canvas.cancelPinch(); compare(canvas.zoomFactor, 1)
             compare(canvas.pinching, false)
+            const after = canvas.anchorAt(point)
+            compare(after.page, before.page)
+            verify(Math.abs(after.y - before.y) < 1)
         }
         function test_nativeTrackpadGesture() {
             const point = Qt.point(canvas.width / 2, 220)
@@ -1046,7 +1085,7 @@ Item {
             testInput.nativePinch(canvas, 1, .1, point)
             testInput.nativePinch(canvas, 1, .1, point)
             verify(canvas.pinching)
-            verify(canvas.zoomFactor > 1)
+            verify(canvas.shownZoom > 1)
             testInput.nativePinch(canvas, 2, 0, point)
             compare(canvas.pinching, false)
             compare(canvas.restoring, false)

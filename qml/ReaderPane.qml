@@ -379,7 +379,7 @@ Rectangle {
                     id: zoomReadout
                     objectName: "zoomReadout"
                     height:Theme.controlHeightSmall; width:Math.max(implicitWidth, Theme.fontBody * 4.5); hoverEnabled:true
-                    text: canvas.fitMode === "page" ? qsTr("Page") : Math.round(canvas.zoomFactor * 100) + "%"
+                    text: canvas.fitMode === "page" && !canvas.pinching ? qsTr("Page") : Math.round(canvas.shownZoom * 100) + "%"
                     onClicked: { root.activated(); fitMenu.popup(zoomReadout, 0, zoomReadout.height) }
                     ToolTip.visible: hovered && !fitMenu.visible
                     ToolTip.text: qsTr("Zoom")

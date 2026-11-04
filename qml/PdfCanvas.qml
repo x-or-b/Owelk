@@ -30,7 +30,34 @@ Item {
     onInteractingChanged: researchStore.paperIndex.setReaderInteracting(root, interacting)
     property real pinchStartZoom: 1
     property var pinchAnchor: null
-    readonly property real rasterScale: Math.max(0.1, (layoutWidth - 56) / Math.max(1, firstPageWidth)) * (pinching ? pinchStartZoom : zoomFactor)
+    // A pinch scales the pages as they are laid out, as one picture (pinchScale, moved with the fingers by
+    // pinchShift); the zoom, the layout and the rasters change once, when the fingers lift. Laying out every
+    // page, mark and link at each step of the gesture made it stutter on an iPad.
+    property real pinchScale: 1
+    property point pinchPoint: Qt.point(0, 0)
+    // The zoom shown: during a pinch, the one the fingers are making.
+    readonly property real shownZoom: pinching ? pinchStartZoom * pinchScale : zoomFactor
+    // The picture's offset: the anchor under the fingers, held where placeAnchor will put it at the new zoom
+    // (across, the page centred or kept within the width; down, the document's ends at the view's edges), so
+    // lifting the fingers moves nothing. A point p of the pages' content shows at p * pinchScale + pinchShift
+    // - (contentX, contentY).
+    readonly property point pinchShift: {
+        const s = pinchScale, cx = pages.contentX, cy = pages.contentY
+        const item = pinching && pinchAnchor ? pages.itemAtIndex(pinchAnchor.page) : null
+        if (!item) return Qt.point(0, 0)
+        const scale = pageScale * s, pageWidth = item.pointSize.width
+        const widthThen = Math.max(pages.width, pdfDocument.maxPageWidth * scale + 40)
+        const leftNow = (pages.contentWidth - pageWidth * pageScale) / 2, leftThen = (widthThen - pageWidth * scale) / 2
+        const x = Math.max(0, Math.min(widthThen - pages.width, leftThen + pinchAnchor.x * scale - pinchPoint.x))
+        let dy = pinchPoint.y - s * (item.y + pinchAnchor.y * pageScale) + cy
+        // (The view's margins stay as they are; only the pages scale.)
+        const topAt = s * pages.originY + dy - cy - pages.topMargin
+        const bottomAt = s * (pages.originY + pages.contentHeight) + dy - cy + pages.bottomMargin
+        if (topAt > 0) dy -= topAt
+        else if (bottomAt < pages.height) dy += Math.min(pages.height - bottomAt, -topAt)
+        return Qt.point(leftThen - x - s * leftNow + cx, dy)
+    }
+    readonly property real rasterScale: Math.max(0.1, (layoutWidth - 56) / Math.max(1, firstPageWidth)) * zoomFactor
     // The width pages are drawn for. It catches up once a resize pauses, so dragging a panel edge or a
     // split scales the pages already drawn instead of redrawing every page at every step.
     property real rasterWidth: 0
@@ -108,8 +135,8 @@ Item {
     function viewPoint(page, x, y) {
         const item = pages.itemAtIndex(page), top = pages.contentY, left0 = pages.contentX
         if (!item) return Qt.point(-1, -1e6)
-        const left = (pages.contentWidth - item.pointSize.width * pageScale) / 2
-        return Qt.point(left + x * pageScale - left0, item.y + y * pageScale - top)
+        const left = (pages.contentWidth - item.pointSize.width * pageScale) / 2, s = pinchScale, shift = pinchShift
+        return Qt.point((left + x * pageScale) * s + shift.x - left0, (item.y + y * pageScale) * s + shift.y - top)
     }
     property string documentFingerprint: ""
     property var editingMark: null
@@ -124,7 +151,8 @@ Item {
     signal editRequested(var record, var selection)
     signal annotationPlaced(int page, var rectangle, var points)
     readonly property point selectionEnd: {
-        const cy = pages.contentY, cx = pages.contentX, scale = pageScale
+        // (mapToItem includes a pinch's picture; reading pinchShift follows it.)
+        const cy = pages.contentY, cx = pages.contentX, scale = pageScale, shift = pinchShift
         if (!selectedAnchor) return Qt.point(-100, -100)
         const page = pages.itemAtIndex(selectedAnchor.page)
         if (!page) return Qt.point(-100, -100)
@@ -410,30 +438,39 @@ Item {
         activated()
         positionTimer.stop()
         lastPosition = position()
+        pages.cancelFlick()
         pinchStartZoom = zoomFactor
+        pinchScale = 1
+        pinchPoint = point
         pinching = true
         restoring = true
         return true
     }
     function updatePinch(scale, point) {
         if (!pinching || !Number.isFinite(scale) || scale <= 0) return
-        zoomFactor = Math.max(.5, Math.min(4, pinchStartZoom * scale))
-        // Scale existing rasters while keeping selection, links and page geometry aligned.
-        // Rendering resolution stays frozen until the gesture ends.
-        placeAnchor(pinchAnchor, point)
+        pinchScale = Math.max(.5, Math.min(4, pinchStartZoom * scale)) / pinchStartZoom
+        pinchPoint = point
     }
+    // The new zoom is laid out and drawn once, with the anchor where the picture showed it.
     function endPinch() {
         if (!pinching) return
-        if (zoomFactor !== pinchStartZoom) { fitMode = ""; holdForRedraw() }
+        const zoom = pinchStartZoom * pinchScale, anchor = pinchAnchor, point = pinchPoint
         pinching = false
+        pinchScale = 1
         pinchAnchor = null
+        if (zoom !== zoomFactor) {
+            zoomFactor = zoom
+            fitMode = ""
+            holdForRedraw()
+        }
+        placeAnchor(anchor, point)
         restoring = false
         updatePosition()
     }
     function cancelPinch() {
         if (!pinching) return
-        zoomFactor = pinchStartZoom
-        placeAnchor(pinchAnchor, Qt.point(pinchAnchor.viewportX, pinchAnchor.viewportY))
+        pinchScale = 1
+        pinchPoint = Qt.point(pinchAnchor.viewportX, pinchAnchor.viewportY)
         endPinch()
     }
 
@@ -703,10 +740,17 @@ Item {
         objectName: "pageList"
         anchors.fill: parent
         clip: true
-        interactive: !root.overPreview
+        interactive: !root.overPreview && !root.pinching
         spacing: 16
         topMargin: 16
         bottomMargin: 16
+        // The pinch's picture (see pinchScale) is on the content, so the view's clip and scrolling stay.
+        Component.onCompleted: contentItem.transform = [pinchZoom, pinchMove]
+        Scale { id: pinchZoom; xScale: root.pinchScale; yScale: root.pinchScale }
+        Translate { id: pinchMove; x: root.pinchShift.x; y: root.pinchShift.y }
+        // Pinching out shows more than the view: the pages kept just beyond it are drawn meanwhile.
+        displayMarginBeginning: root.pinching ? height / 2 : 0
+        displayMarginEnd: root.pinching ? height / 2 : 0
         model: root.ready ? pdfDocument.pageCount : 0
         contentWidth: Math.max(width, pdfDocument.maxPageWidth * root.pageScale + 40)
         // Mouse dragging selects text; scrolling uses the wheel, trackpad or scrollbar.
