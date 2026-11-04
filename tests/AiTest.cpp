@@ -15,6 +15,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -367,6 +368,7 @@ private slots:
         // The sign-in page is not opened: its address comes here.
         BrowserCatcher browser;
         QDesktopServices::setUrlHandler("http", &browser, "open");
+        const auto restore = qScopeGuard([] { QDesktopServices::unsetUrlHandler("http"); });
         ai->chatGptSignIn();
         QTRY_COMPARE_WITH_TIMEOUT(browser.urls.size(), 1, 5000);
         const QUrlQuery authorize(browser.urls[0]);
@@ -500,11 +502,22 @@ private slots:
         // The next sign-in reuses the issued client and suggests the same account.
         ai->chatGptSignIn();
         QTRY_COMPARE_WITH_TIMEOUT(browser.urls.size(), 2, 5000);
-        QDesktopServices::unsetUrlHandler("http");
         const QUrlQuery again(browser.urls[1]);
         QCOMPARE(again.queryItemValue("client_id"), QString("oaiapp_test"));
         QVERIFY(!again.hasQueryItem("agent_name_hint"));
         QCOMPARE(again.queryItemValue("login_hint", QUrl::FullyDecoded), QString("reader@example.com"));
+        // A refused exchange stays in Settings with OpenAI's reason (the browser was in front when it came).
+        auth.status = 400;
+        auth.chunks = {R"({"error":"invalid_grant","error_description":"Workspace not allowed"})"};
+        auto url = QUrl(again.queryItemValue("redirect_uri", QUrl::FullyDecoded));
+        url.setQuery("code=refused&state=" + again.queryItemValue("state") + "&client_id=oaiapp_test");
+        auto *reply = network.get(QNetworkRequest(url));
+        QTRY_VERIFY_WITH_TIMEOUT(reply->isFinished(), 5000);
+        reply->deleteLater();
+        QTRY_VERIFY_WITH_TIMEOUT(
+            ai->chatGptAccount().value("error").toString().contains("Workspace not allowed"), 5000);
+        QVERIFY(ai->chatGptAccount().value("error").toString().contains("HTTP 400"));
+        QVERIFY(!ai->chatGptAccount().value("signedIn").toBool());
     }
     void codexAppServerSignInAndTurns()
     {

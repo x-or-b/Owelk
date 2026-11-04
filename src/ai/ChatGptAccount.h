@@ -28,7 +28,8 @@ public:
     ChatGptAccount(ResearchStore *store, QNetworkAccessManager *network, QObject *parent = nullptr);
     // Signed in with permission to use the plan: requests can be made.
     bool signedIn() const { return hasToken() && planUsage(); }
-    // signedIn, email, planUsage (false: signed in without the plan's permission), pending (the browser is open).
+    // signedIn, email, planUsage (false: signed in without the plan's permission), pending (the browser is open),
+    // error (why the last sign-in failed).
     QVariantMap state() const;
     // Opens the browser on OpenAI's sign-in page; changed() follows when it comes back, or fails.
     void signIn();
@@ -63,11 +64,13 @@ private:
     // Keeps a token response's access and refresh tokens; false (and a message) when the keyring refuses.
     bool keep(const QJsonObject &tokens);
     void forgetTokens();
+    // A sign-in failed: told now and kept for Settings until the next attempt.
+    void report(const QString &error);
     ResearchStore *m_store;
     QNetworkAccessManager *m_network;
     QPointer<QTcpServer> m_listener;
     std::optional<Pending> m_pending;
-    QString m_accessToken;
+    QString m_accessToken, m_error;
     QDateTime m_expires;
     mutable std::optional<bool> m_hasToken;
     bool m_refreshing = false;

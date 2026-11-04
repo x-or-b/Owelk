@@ -251,6 +251,7 @@ ColumnLayout {
                 : root.chatGptAccount.signedIn ? (root.chatGptAccount.email ? qsTr("%1 · answers use your ChatGPT plan").arg(root.chatGptAccount.email)
                                                                           : qsTr("Answers use your ChatGPT plan"))
                 : root.chatGptAccount.registered ? qsTr("Signed in without permission to use your ChatGPT plan")
+                : root.chatGptAccount.error ? root.chatGptAccount.error + " " + qsTr("A work or school account may need ChatGPT account (Codex).")
                 : qsTr("Not signed in")
             Button {
                 objectName: "chatGptSignIn"

@@ -3538,8 +3538,8 @@ Same file as another library entry</source>
         <translation>챗지피티 플랜 유시지 리밋 리치트. 리뷰 잇 앳 chatgpt.com/settings/usage.</translation>
     </message>
     <message>
-        <source>ChatGPT sign-in could not be verified. Try signing in again.</source>
-        <translation>챗지피티 사인-인 쿠드 낫 비 베리파이드. 트라이 사이닝 인 어게인.</translation>
+        <source>ChatGPT sign-in could not be verified (%1). Try signing in again.</source>
+        <translation>챗지피티 사인-인 쿠드 낫 비 베리파이드 (%1). 트라이 사이닝 인 어게인.</translation>
     </message>
     <message>
         <source>ChatGPT sign-in did not complete: </source>
@@ -5643,6 +5643,10 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>A short summary of the model's reasoning, folded above each answer</source>
         <translation>어 쇼트 서머리 오브 더 모델스 리즈닝, 폴디드 어보브 이치 앤서</translation>
+    </message>
+    <message>
+        <source>A work or school account may need ChatGPT account (Codex).</source>
+        <translation>어 워크 오어 스쿨 어카운트 메이 니드 챗지피티 어카운트 (코덱스).</translation>
     </message>
     <message>
         <source>API key</source>

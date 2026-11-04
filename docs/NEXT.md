@@ -23,7 +23,7 @@
 - OCR: Tesseract 설치 후 스캔 PDF 검색.
 - 백업 → 복원 → 재시작, 암호 PDF 열기·기억.
 - 실제 AI 키로 답변·추론 강도·Fast, 기관 PDF 다운로드, 트랙패드·마우스 버튼.
-- ChatGPT 계정(새 방식): Settings › AI에서 ChatGPT account → Continue with ChatGPT로 로그인, 모델 목록·답변·한 시간 뒤 다시 답변(토큰 갱신)·Sign Out이 되는지. 확인되면 Codex 방식(ChatGPT account (Codex))을 지웁니다.
+- ChatGPT 계정(새 방식): Settings › AI에서 ChatGPT account → Continue with ChatGPT로 개인 계정 로그인, 모델 목록·답변·한 시간 뒤 다시 답변(토큰 갱신)·Sign Out이 되는지. 실패하면 Account 줄에 이유가 남습니다. 조직(학교·회사) 계정은 이 방식을 쓸 수 없을 수 있어 ChatGPT account (Codex)는 계속 둡니다.
 - Match System: macOS·Windows·Linux에서 시스템의 밝은/어두운 모드를 바꿀 때 테마가 바로 따라가는지(Linux는 데스크톱에 따라 알려 주지 않을 수 있음).
 - 동기화: Mac(Google Drive for desktop)과 Ubuntu(rclone·Insync)에서 같은 폴더를 골라 논문·주석·노트가 오가는지, 같은 노트를 양쪽에서 고쳤을 때 나중 것이 남는지.
 
