@@ -2,10 +2,7 @@
 
 // Elsewhere than iPadOS there is no Pencil to listen to (PencilIos.mm).
 #if !defined(Q_OS_IOS)
-Pencil::Pencil(QObject *parent)
-    : QObject(parent)
-{
-}
+Pencil::Pencil(QObject *parent) : QObject(parent) { }
 
 Pencil::~Pencil() = default;
 

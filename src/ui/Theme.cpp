@@ -998,8 +998,7 @@ void Theme::showPicture(const Picture &picture, bool dark, bool show)
 void Theme::cancelTouches() const
 {
     for (const QInputDevice *device : QInputDevice::devices()) {
-        if (device->type() != QInputDevice::DeviceType::TouchScreen)
-            continue;
+        if (device->type() != QInputDevice::DeviceType::TouchScreen) continue;
         for (QWindow *window : QGuiApplication::topLevelWindows()) {
             QTouchEvent cancel(QEvent::TouchCancel, static_cast<const QPointingDevice *>(device));
             QCoreApplication::sendEvent(window, &cancel);
