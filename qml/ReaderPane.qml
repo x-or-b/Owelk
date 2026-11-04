@@ -624,6 +624,7 @@ Rectangle {
             Layout.leftMargin: 12
             Layout.bottomMargin: 6
             text: canvas.captureMode ? qsTr("Drag a region to show the AI · Esc to cancel") : canvas.tool === "highlight" ? qsTr("Drag over text to highlight · Esc to finish")
+                : canvas.tool === "erase" ? qsTr("Drag over strokes and highlights to erase · Esc to finish")
                 : canvas.tool === "area" ? qsTr("Drag around a figure, table or equation to mark it · Esc to cancel") : qsTr("Click or drag on a page to add ") + canvas.tool + qsTr(" · Esc to cancel")
             color: Theme.textSecondary
             font.pixelSize: Theme.fontCaption

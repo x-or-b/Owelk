@@ -728,7 +728,9 @@ Item {
     }
 
     function highlightSelection() {
-        if (!selectedAnchor || selectedAnchor.text !== selectedText || selecting || researchStore.busy) return
+        // Not held back while earlier marks are being kept: Pencil highlights come one after another (the store
+        // asks to wait only when several are still being kept).
+        if (!selectedAnchor || selectedAnchor.text !== selectedText || selecting) return
         pendingHighlightSelection = selectedAnchor
         if (selectedAnchor.segments) {
             // One highlight per page, each verified against its page.

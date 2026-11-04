@@ -5354,6 +5354,10 @@ Use Pages to navigate.</source>
         <translation>드래그 어라운드 어 피겨, 테이블 오어 이퀘이션 투 마크 잇 · 이에스씨 투 캔슬</translation>
     </message>
     <message>
+        <source>Drag over strokes and highlights to erase · Esc to finish</source>
+        <translation>드래그 오버 스트로크스 앤드 하이라이츠 투 이레이즈 · 이에스씨 투 피니시</translation>
+    </message>
+    <message>
         <source>Drag over text to highlight · Esc to finish</source>
         <translation>드래그 오버 텍스트 투 하이라이트 · 이에스씨 투 피니시</translation>
     </message>
