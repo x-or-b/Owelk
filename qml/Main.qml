@@ -218,6 +218,25 @@ ApplicationWindow {
         return (aiVisible && dock.activePanel === "ai" && aiController.conversationOpen && aiController.threadId === id)
             || (!homeVisible && documents.aiTabShown(id))
     }
+    // A tall touch screen (an iPad held upright): the side panels cover the pages instead of narrowing them
+    // (panelLayer), and a tap on the pages or a paper chosen puts them away. Held sideways again, the panels open
+    // before come back.
+    readonly property bool panelsOver: Theme.touch && height > width
+    property var panelsBeforeOver: null
+    readonly property bool panelsOverOpen: panelsOver && (filesVisible || documentVisible || aiVisible || threadsVisible)
+    function hideOverPanels() { ["files", "document", "ai", "threads"].forEach(function(p) { setPanelShown(p, false) }) }
+    onPanelsOverChanged: {
+        if (panelsOver) {
+            panelsBeforeOver = {files: filesVisible, document: documentVisible, ai: aiVisible, threads: threadsVisible}
+            hideOverPanels()
+        } else if (panelsBeforeOver) {
+            const before = panelsBeforeOver
+            panelsBeforeOver = null
+            for (const panel in before) setPanelShown(panel, before[panel])
+        }
+    }
+    // Shown, as the session keeps it: upright, the panels open before.
+    function keptShown(panel) { return panelsBeforeOver ? panelsBeforeOver[panel] : panelShown(panel) }
     function togglePanel(panel) {
         const shown = panelShown(panel)
         setPanelShown(panel, !shown)
@@ -411,9 +430,9 @@ ApplicationWindow {
     function persist() {
         if (!initialized || restoreFailed) return false
         const state = documents.snapshot()
-        Object.assign(state, {width: width, height: height, panels: {filesVisible: filesVisible, filesSide: filesSide,
-                documentVisible: documentVisible, documentSide: documentSide, aiVisible: aiVisible, aiSide: aiSide, navigationMode: navigationMode,
-                threadsVisible: threadsVisible, threadsSide: threadsSide, threadsWidth: threadsWidth,
+        Object.assign(state, {width: width, height: height, panels: {filesVisible: keptShown("files"), filesSide: filesSide,
+                documentVisible: keptShown("document"), documentSide: documentSide, aiVisible: keptShown("ai"), aiSide: aiSide, navigationMode: navigationMode,
+                threadsVisible: keptShown("threads"), threadsSide: threadsSide, threadsWidth: threadsWidth,
                 folder: paperFolder.toString(), leftActive: leftDock.activePanel, rightActive: rightDock.activePanel,
                 leftWidth: leftDockWidth, rightWidth: rightDockWidth}})
         return researchStore.saveSession(state)
@@ -1220,6 +1239,7 @@ ApplicationWindow {
         }
     }
     ColumnLayout {
+        id: column
         anchors.fill: parent
         // On a touch screen the system's strips (status bar, rounded corners) stay clear; focus mode's pages run
         // under them. (macOS's title bar is the top bar's, above.)
@@ -1261,6 +1281,7 @@ ApplicationWindow {
             onForward: window.goForward()
         }
     RowLayout {
+        id: panelRow
         Layout.fillWidth: true; Layout.fillHeight: true
         spacing: 0
         TabsPanel {
@@ -1284,7 +1305,7 @@ ApplicationWindow {
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
         }
         ResizeEdge {
-            visible: leftThreads.active
+            visible: leftThreads.active && !window.panelsOver
             area.objectName: "leftThreadsResize"
             onMoved: function(delta) {
                 if (delta === 0) initialWidth = leftThreads.width
@@ -1309,13 +1330,13 @@ ApplicationWindow {
             Layout.preferredWidth: window.dockWidth(window.leftDockWidth); Layout.fillHeight: true
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
             onFolderChosen: function(folder) { window.paperFolder = folder }
-            onDocumentChosen: function(source) { window.openDocument(source) }
+            onDocumentChosen: function(source) { window.openDocument(source); if (window.panelsOver) window.hideOverPanels() }
             documents: documents
-            onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary(filter) } }
+            onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary(filter); if (window.panelsOver) window.hideOverPanels() } }
             onActivePanelChanged: window.scheduleSave()
         }
         ResizeEdge {
-            visible: leftDock.visible
+            visible: leftDock.visible && !window.panelsOver
             area.objectName: "leftDockResize"
             onMoved: function(delta) {
                 if (delta === 0) initialWidth = leftDock.width
@@ -1380,7 +1401,7 @@ ApplicationWindow {
             onCompareRequested: function(groupId) { window.comparePapersIn(groupId) }
         }
         ResizeEdge {
-            visible: rightDock.visible
+            visible: rightDock.visible && !window.panelsOver
             area.objectName: "rightDockResize"
             onMoved: function(delta) {
                 if (delta === 0) initialWidth = rightDock.width
@@ -1405,13 +1426,13 @@ ApplicationWindow {
             Layout.preferredWidth: window.dockWidth(window.rightDockWidth); Layout.fillHeight: true
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
             onFolderChosen: function(folder) { window.paperFolder = folder }
-            onDocumentChosen: function(source) { window.openDocument(source) }
+            onDocumentChosen: function(source) { window.openDocument(source); if (window.panelsOver) window.hideOverPanels() }
             documents: documents
-            onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary(filter) } }
+            onLibraryFilterRequested: function(filter) { if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary(filter); if (window.panelsOver) window.hideOverPanels() } }
             onActivePanelChanged: window.scheduleSave()
         }
         ResizeEdge {
-            visible: rightThreads.active
+            visible: rightThreads.active && !window.panelsOver
             area.objectName: "rightThreadsResize"
             onMoved: function(delta) {
                 if (delta === 0) initialWidth = rightThreads.width
@@ -1439,6 +1460,56 @@ ApplicationWindow {
             onTrashRequested: if (!window.restoreFailed) { window.homeVisible = false; documents.openLibrary({view: "trash"}) }
         }
     }
+    }
+    // The side panels over the pages (panelsOver): lifted out of the row to the window's edges, above the pages; a
+    // press beside them puts them away (and does nothing else: the page under it stays as it is).
+    Item {
+        id: panelLayer
+        objectName: "panelLayer"
+        x: column.x + panelRow.x; y: column.y + panelRow.y
+        width: panelRow.width; height: panelRow.height
+        z: 5
+        visible: window.panelsOver
+        MouseArea {
+            objectName: "panelLayerDismiss"
+            anchors.fill: parent
+            enabled: window.panelsOverOpen
+            onPressed: window.hideOverPanels()
+        }
+        // The edges beside the pages.
+        Rectangle {
+            visible: leftDock.visible || leftThreads.active
+            x: leftDock.visible ? leftDock.x + leftDock.width : leftThreads.x + leftThreads.width
+            width: 1; height: parent.height; z: 1
+            color: Theme.separator
+        }
+        Rectangle {
+            visible: rightDock.visible || rightThreads.active
+            x: (rightDock.visible ? rightDock.x : rightThreads.x) - 1
+            width: 1; height: parent.height; z: 1
+            color: Theme.separator
+        }
+        states: State {
+            name: "over"
+            when: window.panelsOver
+            ParentChange {
+                target: leftThreads; parent: panelLayer
+                x: 0; y: 0; width: window.threadsPanelWidth(window.threadsWidth); height: panelLayer.height
+            }
+            ParentChange {
+                target: leftDock; parent: panelLayer
+                x: leftThreads.active ? leftThreads.width : 0; y: 0; width: window.dockWidth(window.leftDockWidth); height: panelLayer.height
+            }
+            ParentChange {
+                target: rightDock; parent: panelLayer
+                x: panelLayer.width - rightDock.width - (rightThreads.active ? rightThreads.width : 0); y: 0
+                width: window.dockWidth(window.rightDockWidth); height: panelLayer.height
+            }
+            ParentChange {
+                target: rightThreads; parent: panelLayer
+                x: panelLayer.width - rightThreads.width; y: 0; width: window.threadsPanelWidth(window.threadsWidth); height: panelLayer.height
+            }
+        }
     }
     footer: Rectangle {
         id: statusBar
