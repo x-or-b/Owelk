@@ -17,7 +17,8 @@ Item {
                 ++found
                 if (!item.description.length) problems.push("no description: " + (item.objectName || item.icon.name))
                 probe.name = item.icon.name
-                if (!probe.text.length) problems.push("unknown icon: " + item.icon.name)
+                // A glyph from the font, or one drawn (Icon.drawn).
+                if (!probe.text.length && !probe.path.length) problems.push("unknown icon: " + item.icon.name)
             }
             for (let i = 0; i < item.children.length; ++i) check(item.children[i], problems)
         }
