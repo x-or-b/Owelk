@@ -84,6 +84,8 @@ Rectangle {
     }
     // The AI panel with this note attached: questions about it, or changes it can apply.
     function askAi() { Qt.inputMethod.commit(); save(); controller.aiRequested({attach: true, note: noteId}) }
+    // To the Library's Trash, where it can be restored; its tabs close.
+    function moveToTrash() { Qt.inputMethod.commit(); save(); const id = noteId; if (researchStore.deleteNote(id)) controller.closeNoteTabs(id) }
     function openLink(link) {
         if (/^owelk:/.test(link) || /^https?:/.test(link)) controller.openLink(link)
     }
@@ -115,7 +117,7 @@ Rectangle {
                     objectName: "deleteNoteOption"
                     text: qsTr("Move Note to Trash")
                     palette.windowText: Theme.danger
-                    onTriggered: { root.save(); const id = root.noteId; if (researchStore.deleteNote(id)) root.controller.closeNoteTabs(id) }
+                    onTriggered: root.moveToTrash()
                 }
             }
             TextField {
@@ -134,6 +136,10 @@ Rectangle {
                 icon.name: root.preview ? "edit" : "preview"
                 description: root.preview ? qsTr("Edit") : qsTr("Preview")
                 onClicked: { root.save(); root.preview = !root.preview; if (!root.preview) body.forceActiveFocus() }
+            }
+            IconButton {
+                objectName: "noteTrashButton"; icon.name: "trash"; description: qsTr("Move Note to Trash")
+                onClicked: root.moveToTrash()
             }
             IconButton {
                 objectName: "noteInsertLink"; icon.name: "link"; description: qsTr("Insert link · [[")

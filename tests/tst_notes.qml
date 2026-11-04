@@ -55,7 +55,7 @@ Item {
             // The Document panel's Annotations view lists notes linking to the paper.
             workspace.navigationMode = 1
             workspace.togglePanel("document")
-            tryCompare(findChild(workspace, "leftDock"), "activePanel", "document")
+            tryCompare(findChild(workspace, workspace.panelSide("document") + "Dock"), "activePanel", "document")
             tryVerify(function() { const view = findChild(workspace, "annotationsView"); return view && visualChild(view, "linkedNote-0") !== null }, 5000)
             // A new note about the paper opens beside it, linking to it.
             const leaves = Tree.leaves(workspace.documents.tree).length
@@ -69,7 +69,7 @@ Item {
             workspace.togglePanel("document")
             // Trash closes its tab; restore and purge from the library.
             verify(workspace.documents.openNote(id))
-            findChild(pane(), "deleteNoteOption").triggered()
+            mouseClick(findChild(pane(), "noteTrashButton"))
             tryVerify(function() { return !Tree.leaves(workspace.documents.tree).some(function(g) { return g.tabs.some(function(t) { return t.noteId === id }) }) })
             compare(researchStore.notes(true).filter(function(n) { return n.id === id }).length, 1)
             workspace.documents.openLibrary({view: "trash"})
