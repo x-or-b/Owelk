@@ -49,7 +49,7 @@ const entries = [
     {page: "ai", anchor: "settingsRow-answerSpacing", text: QT_TR_NOOP("Line spacing"), words: "line height paragraph readable reading"},
     {page: "ai", anchor: "settingsRow-answerColumn", text: QT_TR_NOOP("Limit line length"), words: "width column wide readable reading"},
     {page: "ai", anchor: "settingsRow-answerNative", text: QT_TR_NOOP("Sharp text"), words: "blurry crisp font rendering native readable"},
-    {page: "ai", anchor: "settingsRow-provider", text: QT_TR_NOOP("AI provider"), words: "claude openai chatgpt codex ollama account api key sign in model"},
+    {page: "ai", anchor: "settingsRow-provider", text: QT_TR_NOOP("AI provider"), words: "claude openai chatgpt codex ollama account api key sign in continue plan usage model"},
     {page: "ai", anchor: "settingsRow-reasoning", text: QT_TR_NOOP("Reasoning"), words: "effort thinking"},
     {page: "ai", anchor: "settingsRow-glossModel", text: QT_TR_NOOP("Gloss model"), words: "gloss hover word meaning"},
     {page: "sync", anchor: "settingsGroup-sync", text: QT_TR_NOOP("Sync"), words: "google drive dropbox syncthing other computers share"},

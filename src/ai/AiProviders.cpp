@@ -1,4 +1,5 @@
 #include "AiProviders.h"
+#include "ChatGptAccount.h"
 #include "UiText.h"
 
 #include <QDir>
@@ -20,7 +21,22 @@ QString compactError(const QByteArray &body)
     const auto error = json.value("error");
     if (error.isObject()) return error.toObject().value("message").toString();
     if (error.isString()) return error.toString();
+    // ChatGPT plan requests can be turned away before they start, with only a detail.
+    if (json.value("detail").isString()) return json.value("detail").toString();
     return QString::fromUtf8(body.left(300)).simplified();
+}
+// What a ChatGPT plan error means for the reader (empty for the others).
+QString planError(const QString &code)
+{
+    if (code == "subscription_sharing_usage_limit_exceeded")
+        return ui("ChatGPT plan usage limit reached. Review it at chatgpt.com/settings/usage.");
+    if (code == "subscription_sharing_user_not_eligible")
+        return ui("This ChatGPT account cannot use its plan in other apps.");
+    if (code == "subscription_sharing_usage_unavailable" || code == "subscription_sharing_user_unavailable")
+        return ui("ChatGPT plan usage is unavailable right now. Try again shortly.");
+    if (code == "subscription_sharing_invalid_user")
+        return ui("ChatGPT did not accept the sign-in. Continue with ChatGPT again in Settings → AI.");
+    return {};
 }
 }
 
@@ -254,6 +270,12 @@ OpenAiProvider::OpenAiProvider(QNetworkAccessManager *network, const QUrl &base,
 {
 }
 
+OpenAiProvider::OpenAiProvider(
+    QNetworkAccessManager *network, const QUrl &base, ChatGptAccount *account, QObject *parent)
+    : HttpStreamProvider(network, base.resolved(QUrl("v1/responses")), parent), m_account(account), m_plan(true)
+{
+}
+
 void OpenAiProvider::start(const AiRequest &request)
 {
     m_model = request.model;
@@ -262,7 +284,6 @@ void OpenAiProvider::start(const AiRequest &request)
         content.append(QJsonObject{{"type", "input_image"},
             {"image_url", "data:" + image.mediaType + ";base64," + QString::fromLatin1(image.data.toBase64())}});
     QJsonObject body{{"model", request.model}, {"instructions", request.system}, {"stream", true},
-        {"max_output_tokens", request.maxTokens},
         {"input", [&] {
              QJsonArray input;
              for (const auto &turn : request.history)
@@ -274,14 +295,31 @@ void OpenAiProvider::start(const AiRequest &request)
     if (!request.effort.isEmpty()) reasoning.insert("effort", request.effort);
     if (request.thinkingSummary && openAiReasons(request.model)) reasoning.insert("summary", "auto");
     if (!reasoning.isEmpty()) body.insert("reasoning", reasoning);
-    // OpenAI's faster processing tier.
-    if (request.fast) body.insert("service_tier", "priority");
-    post({{"Authorization", "Bearer " + m_key.toUtf8()}}, body, true);
+    if (!m_plan) {
+        body.insert("max_output_tokens", request.maxTokens);
+        // OpenAI's faster processing tier.
+        if (request.fast) body.insert("service_tier", "priority");
+        post({{"Authorization", "Bearer " + m_key.toUtf8()}}, body, true);
+        return;
+    }
+    body.insert("store", false);
+    if (!m_account) {
+        fail(ui("Continue with ChatGPT in Settings → AI."));
+        return;
+    }
+    // The token may be refreshed first; a request stopped meanwhile is not sent.
+    m_account->withAccessToken(this, [this, body](const QString &token, const QString &error) {
+        if (m_done) return;
+        if (token.isEmpty())
+            fail(error);
+        else
+            post({{"Authorization", "Bearer " + token.toUtf8()}}, body, true);
+    });
 }
 
 bool openAiReasons(const QString &model)
 {
-    static const QRegularExpression reasoning("^(gpt-5|o\\d)");
+    static const QRegularExpression reasoning("^(gpt-[5-9]|o\\d)");
     return reasoning.match(model).hasMatch();
 }
 
@@ -307,10 +345,21 @@ bool OpenAiProvider::handle(const QString &event, const QJsonObject &data)
             finish(response.value("model").toString(m_model));
             return false;
         }
-        fail(ui("OpenAI: ") + (message.isEmpty() ? ui("The response could not be completed.") : message));
+        // The plan's usage limit can also end an answer already streaming.
+        if (const auto plan
+            = m_plan ? planError(response.value("error").toObject().value("code").toString()) : QString();
+            !plan.isEmpty())
+            fail(plan);
+        else
+            fail((m_plan ? ui("ChatGPT: ") : ui("OpenAI: "))
+                + (message.isEmpty() ? ui("The response could not be completed.") : message));
         return false;
     } else if (event == "error") {
-        fail(ui("OpenAI: ") + data.value("message").toString(ui("The service reported an error.")));
+        if (const auto plan = m_plan ? planError(data.value("code").toString()) : QString(); !plan.isEmpty())
+            fail(plan);
+        else
+            fail((m_plan ? ui("ChatGPT: ") : ui("OpenAI: "))
+                + data.value("message").toString(ui("The service reported an error.")));
         return false;
     }
     return true;
@@ -318,6 +367,16 @@ bool OpenAiProvider::handle(const QString &event, const QJsonObject &data)
 
 QString OpenAiProvider::errorFrom(int status, const QByteArray &body) const
 {
+    if (m_plan) {
+        const auto plan
+            = planError(QJsonDocument::fromJson(body).object().value("error").toObject().value("code").toString());
+        if (!plan.isEmpty()) return plan;
+        if (status == 401)
+            return ui("ChatGPT did not accept the sign-in. Continue with ChatGPT again in Settings → AI.");
+        if (status == 429) return ui("ChatGPT plan usage limit reached. Review it at chatgpt.com/settings/usage.");
+        if (status == 503) return ui("ChatGPT plan usage is unavailable right now. Try again shortly.");
+        return HttpStreamProvider::errorFrom(status, body);
+    }
     if (status == 401) return ui("OpenAI rejected the API key. Check it in Settings → AI.");
     if (status == 429) return ui("OpenAI rate limit or quota reached. ") + compactError(body);
     return HttpStreamProvider::errorFrom(status, body);

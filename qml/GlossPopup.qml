@@ -67,7 +67,7 @@ Popup {
     function start() {
         error = ""
         if (!providerInfo.configured && ai.provider !== "ollama") {
-            error = ai.provider === "codex" ? qsTr("Sign in with ChatGPT in Settings → AI.") : qsTr("Add an API key in Settings → AI.")
+            error = ai.provider === "codex" || ai.provider === "chatgpt" ? qsTr("Sign in with ChatGPT in Settings → AI.") : qsTr("Add an API key in Settings → AI.")
             return
         }
         if (needsConsent) return

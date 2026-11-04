@@ -3342,6 +3342,10 @@ Same file as another library entry</source>
         <translation>캔낫 오픈 디스 파일. 체크 잇츠 로케이션 앤드 퍼미션스.</translation>
     </message>
     <message>
+        <source>Cannot reach ChatGPT. Check the connection.</source>
+        <translation>캔낫 리치 챗지피티. 체크 더 커넥션.</translation>
+    </message>
+    <message>
         <source>Cannot reach Semantic Scholar: </source>
         <translation>캔낫 리치 시맨틱 스칼라: </translation>
     </message>
@@ -3470,6 +3474,10 @@ Same file as another library entry</source>
         <translation>캔낫 스토어 더 에이피아이 키 인 %1.</translation>
     </message>
     <message>
+        <source>Cannot store the ChatGPT sign-in in %1.</source>
+        <translation>캔낫 스토어 더 챗지피티 사인-인 인 %1.</translation>
+    </message>
+    <message>
         <source>Cannot store the key in %1.</source>
         <translation>캔낫 스토어 더 키 인 %1.</translation>
     </message>
@@ -3506,8 +3514,40 @@ Same file as another library entry</source>
         <translation>캔낫 라이트 투 더 싱크 폴더.</translation>
     </message>
     <message>
+        <source>ChatGPT answered for another registration. Try signing in again.</source>
+        <translation>챗지피티 앤서드 포 어나더 레지스트레이션. 트라이 사이닝 인 어게인.</translation>
+    </message>
+    <message>
+        <source>ChatGPT did not accept the sign-in. Continue with ChatGPT again in Settings → AI.</source>
+        <translation>챗지피티 디드 낫 억셉트 더 사인-인. 컨티뉴 위드 챗지피티 어게인 인 세팅스 → 에이아이.</translation>
+    </message>
+    <message>
+        <source>ChatGPT did not allow Owelk to stay signed in.</source>
+        <translation>챗지피티 디드 낫 얼라우 오웰크 투 스테이 사인드 인.</translation>
+    </message>
+    <message>
+        <source>ChatGPT did not finish registering Owelk. Try signing in again.</source>
+        <translation>챗지피티 디드 낫 피니시 레지스터링 오웰크. 트라이 사이닝 인 어게인.</translation>
+    </message>
+    <message>
+        <source>ChatGPT plan usage is unavailable right now. Try again shortly.</source>
+        <translation>챗지피티 플랜 유시지 이즈 언어베일러블 라이트 나우. 트라이 어게인 쇼틀리.</translation>
+    </message>
+    <message>
+        <source>ChatGPT plan usage limit reached. Review it at chatgpt.com/settings/usage.</source>
+        <translation>챗지피티 플랜 유시지 리밋 리치트. 리뷰 잇 앳 chatgpt.com/settings/usage.</translation>
+    </message>
+    <message>
+        <source>ChatGPT sign-in could not be verified. Try signing in again.</source>
+        <translation>챗지피티 사인-인 쿠드 낫 비 베리파이드. 트라이 사이닝 인 어게인.</translation>
+    </message>
+    <message>
         <source>ChatGPT sign-in did not complete: </source>
         <translation>챗지피티 사인-인 디드 낫 컴플리트: </translation>
+    </message>
+    <message>
+        <source>ChatGPT sign-in was cancelled.</source>
+        <translation>챗지피티 사인-인 워즈 캔슬드.</translation>
     </message>
     <message>
         <source>ChatGPT: </source>
@@ -3516,6 +3556,10 @@ Same file as another library entry</source>
     <message>
         <source>Check the details: title up to 300 characters, year as four digits.</source>
         <translation>체크 더 디테일스: 타이틀 업 투 300 캐릭터스, 이어 애즈 포 디지츠.</translation>
+    </message>
+    <message>
+        <source>Choose a ChatGPT model in Settings → AI.</source>
+        <translation>추즈 어 챗지피티 모델 인 세팅스 → 에이아이.</translation>
     </message>
     <message>
         <source>Choose a different file name to keep the original PDF unchanged.</source>
@@ -3612,6 +3656,10 @@ Same file as another library entry</source>
     <message>
         <source>Connected (%1): %2</source>
         <translation>커넥티드 (%1): %2</translation>
+    </message>
+    <message>
+        <source>Continue with ChatGPT in Settings → AI.</source>
+        <translation>컨티뉴 위드 챗지피티 인 세팅스 → 에이아이.</translation>
     </message>
     <message>
         <source>Copied %1 PDFs into the Library. The originals were left where they were.</source>
@@ -4110,6 +4158,26 @@ Same file as another library entry</source>
         <translation>쇼 올 %1 매칭 페이지스 인 '%2'</translation>
     </message>
     <message>
+        <source>Sign in with ChatGPT in Settings → AI.</source>
+        <translation>사인 인 위드 챗지피티 인 세팅스 → 에이아이.</translation>
+    </message>
+    <message>
+        <source>Sign-in did not complete. You can close this tab.</source>
+        <translation>사인-인 디드 낫 컴플리트. 유 캔 클로즈 디스 탭.</translation>
+    </message>
+    <message>
+        <source>Signed in, but ChatGPT plan use was not allowed. Continue with ChatGPT again and allow it, or use an API key.</source>
+        <translation>사인드 인, 벗 챗지피티 플랜 유즈 워즈 낫 얼라우드. 컨티뉴 위드 챗지피티 어게인 앤드 얼라우 잇, 오어 유즈 언 에이피아이 키.</translation>
+    </message>
+    <message>
+        <source>Signed in. You can close this tab and return to Owelk.</source>
+        <translation>사인드 인. 유 캔 클로즈 디스 탭 앤드 리턴 투 오웰크.</translation>
+    </message>
+    <message>
+        <source>Signed out here, but OpenAI did not confirm it. You can disconnect Owelk in ChatGPT settings.</source>
+        <translation>사인드 아웃 히어, 벗 오픈에이아이 디드 낫 컨펌 잇. 유 캔 디스커넥트 오웰크 인 챗지피티 세팅스.</translation>
+    </message>
+    <message>
         <source>Solarized Light</source>
         <translation>솔라라이즈드 라이트</translation>
     </message>
@@ -4130,8 +4198,20 @@ Same file as another library entry</source>
         <translation>틸</translation>
     </message>
     <message>
+        <source>That ChatGPT account is not the one signed in before. Continue with ChatGPT again to use it.</source>
+        <translation>댓 챗지피티 어카운트 이즈 낫 더 원 사인드 인 비포. 컨티뉴 위드 챗지피티 어게인 투 유즈 잇.</translation>
+    </message>
+    <message>
         <source>The AI did not rank the papers.</source>
         <translation>더 에이아이 디드 낫 랭크 더 페이퍼스.</translation>
+    </message>
+    <message>
+        <source>The ChatGPT sign-in could not start on this computer.</source>
+        <translation>더 챗지피티 사인-인 쿠드 낫 스타트 온 디스 컴퓨터.</translation>
+    </message>
+    <message>
+        <source>The ChatGPT sign-in has ended. Continue with ChatGPT again in Settings → AI.</source>
+        <translation>더 챗지피티 사인-인 해즈 엔디드. 컨티뉴 위드 챗지피티 어게인 인 세팅스 → 에이아이.</translation>
     </message>
     <message>
         <source>The PDF cannot be read.</source>
@@ -4222,6 +4302,10 @@ Same file as another library entry</source>
         <translation>더 싱크 폴더 이즈 낫 어베일러블. 체크 댓 잇츠 싱크 프로그램 (구글 드라이브, 드롭박스, …) 이즈 러닝.</translation>
     </message>
     <message>
+        <source>This ChatGPT account cannot use its plan in other apps.</source>
+        <translation>디스 챗지피티 어카운트 캔낫 유즈 잇츠 플랜 인 아더 앱스.</translation>
+    </message>
+    <message>
         <source>This annotation cannot be edited here.</source>
         <translation>디스 애노테이션 캔낫 비 에디티드 히어.</translation>
     </message>
@@ -4264,6 +4348,10 @@ Same file as another library entry</source>
     <message>
         <source>This selection has no highlight geometry.</source>
         <translation>디스 셀렉션 해즈 노 하이라이트 지오메트리.</translation>
+    </message>
+    <message>
+        <source>This sign-in is no longer waiting. Start it again in Owelk.</source>
+        <translation>디스 사인-인 이즈 노 롱거 웨이팅. 스타트 잇 어게인 인 오웰크.</translation>
     </message>
     <message>
         <source>Turn on Explain with AI in Settings › For You to send these papers to the AI.</source>
@@ -4316,6 +4404,10 @@ Same file as another library entry</source>
     <message>
         <source>Yellow</source>
         <translation>옐로</translation>
+    </message>
+    <message>
+        <source>You're using your ChatGPT plan. Manage its use at chatgpt.com/settings/usage.</source>
+        <translation>유어 유징 유어 챗지피티 플랜. 매니지 잇츠 유즈 앳 chatgpt.com/settings/usage.</translation>
     </message>
     <message>
         <source>arXiv did not answer for “%1”.</source>
@@ -5531,6 +5623,10 @@ You can open the same document twice.</source>
         <translation> 피티</translation>
     </message>
     <message>
+        <source>%1 · answers use your ChatGPT plan</source>
+        <translation>%1 · 앤서스 유즈 유어 챗지피티 플랜</translation>
+    </message>
+    <message>
         <source>**Attention** lets each word look at the others and weigh which matter here.
 
 - Each word asks a question.
@@ -5569,6 +5665,10 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>앤서스</translation>
     </message>
     <message>
+        <source>Answers use your ChatGPT plan</source>
+        <translation>앤서스 유즈 유어 챗지피티 플랜</translation>
+    </message>
+    <message>
         <source>Before the first request to a provider, Owelk shows what will be sent.</source>
         <translation>비포 더 퍼스트 리퀘스트 투 어 프로바이더, 오웰크 쇼즈 왓 윌 비 센트.</translation>
     </message>
@@ -5605,6 +5705,10 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>커넥션</translation>
     </message>
     <message>
+        <source>Continue with ChatGPT</source>
+        <translation>컨티뉴 위드 챗지피티</translation>
+    </message>
+    <message>
         <source>Default model</source>
         <translation>디폴트 모델</translation>
     </message>
@@ -5623,6 +5727,10 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Fast (automatic)</source>
         <translation>패스트 (오토매틱)</translation>
+    </message>
+    <message>
+        <source>Finish signing in in the browser</source>
+        <translation>피니시 사이닝 인 인 더 브라우저</translation>
     </message>
     <message>
         <source>French</source>
@@ -5695,6 +5803,10 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Loading…</source>
         <translation>로딩…</translation>
+    </message>
+    <message>
+        <source>Manage usage</source>
+        <translation>매니지 유시지</translation>
     </message>
     <message>
         <source>Model</source>
@@ -5783,6 +5895,10 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Signed in</source>
         <translation>사인드 인</translation>
+    </message>
+    <message>
+        <source>Signed in without permission to use your ChatGPT plan</source>
+        <translation>사인드 인 위다웃 퍼미션 투 유즈 유어 챗지피티 플랜</translation>
     </message>
     <message>
         <source>Spanish</source>

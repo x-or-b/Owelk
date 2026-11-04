@@ -112,7 +112,7 @@ Item {
     function findSymbols() {
         symbolsError = ""
         if (!aiProvider.configured && researchStore.ai.provider !== "ollama") {
-            symbolsError = researchStore.ai.provider === "codex" ? qsTr("Sign in with ChatGPT in Settings → AI.") : qsTr("Add an API key in Settings → AI.")
+            symbolsError = researchStore.ai.provider === "codex" || researchStore.ai.provider === "chatgpt" ? qsTr("Sign in with ChatGPT in Settings → AI.") : qsTr("Add an API key in Settings → AI.")
             return
         }
         // Pressing the button, under the note on what is sent, is the agreement.

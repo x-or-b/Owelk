@@ -7,6 +7,8 @@
 #include "ResearchStore.h"
 
 #include <QClipboard>
+#include <QCryptographicHash>
+#include <QDesktopServices>
 #include <QGuiApplication>
 #include <QImage>
 #include <QJsonArray>
@@ -17,8 +19,18 @@
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTemporaryDir>
+#include <QUrlQuery>
 #include <QUuid>
 #include <QtTest>
+
+// Takes the addresses Owelk would open in the browser (QDesktopServices::setUrlHandler).
+class BrowserCatcher : public QObject {
+    Q_OBJECT
+public:
+    QList<QUrl> urls;
+public slots:
+    void open(const QUrl &url) { urls.append(url); }
+};
 
 namespace {
 // A local HTTP server that records each request and answers with a canned (streamed) body.
@@ -28,6 +40,8 @@ public:
         QString requestLine;
         QHash<QString, QString> headers;
         QJsonObject body;
+        // The body as sent (forms are not JSON).
+        QByteArray raw;
     };
     QList<Seen> seen;
     int status = 200;
@@ -56,7 +70,8 @@ public:
                 }
                 length = request.headers.value("content-length").toInt();
                 if (buffer->size() < end + 4 + length) return;
-                request.body = QJsonDocument::fromJson(buffer->mid(end + 4, length)).object();
+                request.raw = buffer->mid(end + 4, length);
+                request.body = QJsonDocument::fromJson(request.raw).object();
                 seen.append(request);
                 QByteArray body;
                 for (const auto &chunk : chunks) body += chunk;
@@ -336,6 +351,160 @@ private slots:
         QCOMPARE(server.seen.last().body["options"].toObject()["num_ctx"].toInt(), 16384);
         QCOMPARE(server.seen.last().body["messages"].toArray()[1].toObject()["images"].toArray()[0].toString(),
             QString(QByteArray("img").toBase64()));
+    }
+    void chatGptSignInRefreshesAndAnswersOnThePlan()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        auto *ai = qobject_cast<AiService *>(store.ai());
+        QVERIFY(ai);
+        MockServer auth, api;
+        auth.contentType = api.contentType = "application/json";
+        store.setSetting("ai.authUrl.chatgpt", auth.base().toString());
+        store.setSetting("ai.baseUrl.chatgpt", api.base().toString());
+        // The sign-in page is not opened: its address comes here.
+        BrowserCatcher browser;
+        QDesktopServices::setUrlHandler("http", &browser, "open");
+        ai->chatGptSignIn();
+        QTRY_COMPARE_WITH_TIMEOUT(browser.urls.size(), 1, 5000);
+        const QUrlQuery authorize(browser.urls[0]);
+        const auto value = [&](const char *key) { return authorize.queryItemValue(key, QUrl::FullyDecoded); };
+        QCOMPARE(browser.urls[0].path(), QString("/api/accounts/authorize"));
+        QCOMPARE(value("client_id"), QString("dynamic_agent_client"));
+        QCOMPARE(value("agent_name_hint"), QString("Owelk"));
+        QVERIFY(value("ext_agent_host_id").startsWith("urn:uuid:"));
+        QCOMPARE(value("resource"), QString("https://api.openai.com/v1"));
+        QVERIFY(value("scope").split(' ').contains("chatgpt.tokens.use.direct"));
+        QCOMPARE(value("code_challenge_method"), QString("S256"));
+        const QUrl redirect(value("redirect_uri"));
+        QCOMPARE(redirect.host(), QString("127.0.0.1"));
+        QCOMPARE(redirect.path(), QString("/auth/callback"));
+        QVERIFY(ai->chatGptAccount().value("pending").toBool());
+        // OpenAI exchanges the code for tokens; the ID token names the account and this attempt.
+        const auto jwt = [](const QJsonObject &claims) {
+            return "e30."
+                + QJsonDocument(claims)
+                      .toJson(QJsonDocument::Compact)
+                      .toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals)
+                + ".signature";
+        };
+        const QString scope = "chatgpt.tokens.use.direct email offline_access openid profile resource.invoke";
+        auth.chunks = {
+            QJsonDocument(QJsonObject{{"access_token", "at-1"}, {"refresh_token", "rt-1"}, {"expires_in", 30},
+                              {"token_type", "Bearer"}, {"scope", scope},
+                              {"id_token",
+                                  QString::fromLatin1(jwt({{"iss", "https://auth.openai.com"}, {"aud", "oaiapp_test"},
+                                      {"sub", "user-1"}, {"email", "reader@example.com"}, {"nonce", value("nonce")},
+                                      {"exp", QDateTime::currentSecsSinceEpoch() + 3600}}))}})
+                .toJson()};
+        // The browser comes back to Owelk's listener.
+        QNetworkAccessManager network;
+        const auto back = [&](const QString &query) {
+            auto url = redirect;
+            url.setQuery(query);
+            auto *reply = network.get(QNetworkRequest(url));
+            const bool finished = QTest::qWaitFor([reply] { return reply->isFinished(); }, 5000);
+            const auto page = finished ? QString::fromUtf8(reply->readAll()) : QString();
+            reply->deleteLater();
+            return page;
+        };
+        // Another attempt's answer is turned away, and this one keeps waiting.
+        QVERIFY(back("code=forged&state=other&client_id=oaiapp_test").contains("no longer waiting"));
+        QVERIFY(ai->chatGptAccount().value("pending").toBool());
+        QVERIFY(auth.seen.isEmpty());
+        QVERIFY(back("code=abc&state=" + value("state") + "&client_id=oaiapp_test").contains("Signed in"));
+        QTRY_VERIFY_WITH_TIMEOUT(ai->chatGptAccount().value("signedIn").toBool(), 5000);
+        QCOMPARE(ai->chatGptAccount().value("email").toString(), QString("reader@example.com"));
+        QVERIFY(auth.seen[0].requestLine.startsWith("POST /api/accounts/oauth/token"));
+        QUrlQuery form(QString::fromLatin1(auth.seen[0].raw));
+        QCOMPARE(form.queryItemValue("grant_type"), QString("authorization_code"));
+        QCOMPARE(form.queryItemValue("client_id"), QString("oaiapp_test"));
+        QCOMPARE(form.queryItemValue("code"), QString("abc"));
+        QCOMPARE(QUrl(form.queryItemValue("redirect_uri", QUrl::FullyDecoded)), redirect);
+        QCOMPARE(form.queryItemValue("resource", QUrl::FullyDecoded), QString("https://api.openai.com/v1"));
+        // The verifier sent with the code is the one the challenge was made from.
+        QCOMPARE(QString::fromLatin1(QCryptographicHash::hash(
+                     form.queryItemValue("code_verifier").toLatin1(), QCryptographicHash::Sha256)
+                         .toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals)),
+            value("code_challenge"));
+        // Only the refresh token is kept, in the keyring.
+        QCOMPARE(Keychain::read("chatgpt-refresh-token", store.dataDirectory()), QString("rt-1"));
+        const auto providers = ai->providers();
+        QVERIFY(std::any_of(providers.cbegin(), providers.cend(), [](const QVariant &p) {
+            return p.toMap().value("id").toString() == "chatgpt" && p.toMap().value("configured").toBool();
+        }));
+        // The access token is about to expire: listing the models refreshes it first.
+        auth.chunks = {QJsonDocument(
+            QJsonObject{{"access_token", "at-2"}, {"refresh_token", "rt-2"}, {"expires_in", 3600}, {"scope", scope}})
+                .toJson()};
+        api.chunks = {QJsonDocument(QJsonObject{{"models",
+                                        QJsonArray{QJsonObject{{"slug", "gpt-6.1-sol"}, {"display_name", "GPT-6.1 Sol"},
+                                                       {"visibility", "list"}},
+                                            QJsonObject{{"slug", "internal"}, {"visibility", "hide"}}}}})
+                .toJson()};
+        QSignalSpy models(ai, &AiService::modelsLoaded);
+        ai->listModels("chatgpt");
+        QTRY_COMPARE_WITH_TIMEOUT(models.size(), 1, 5000);
+        const auto list = models[0][1].toList();
+        QCOMPARE(list.size(), 1);
+        QCOMPARE(list[0].toMap().value("name").toString(), QString("GPT-6.1 Sol"));
+        QVERIFY(!list[0].toMap().value("fast").toBool());
+        QCOMPARE(ai->model("chatgpt"), QString("gpt-6.1-sol"));
+        form = QUrlQuery(QString::fromLatin1(auth.seen[1].raw));
+        QCOMPARE(form.queryItemValue("grant_type"), QString("refresh_token"));
+        QCOMPARE(form.queryItemValue("refresh_token"), QString("rt-1"));
+        QCOMPARE(form.queryItemValue("client_id"), QString("oaiapp_test"));
+        QCOMPARE(Keychain::read("chatgpt-refresh-token", store.dataDirectory()), QString("rt-2"));
+        QCOMPARE(api.seen[0].headers.value("authorization"), QString("Bearer at-2"));
+        // An answer on the plan: nothing stored at OpenAI, no output limit or faster tier.
+        api.contentType = "text/event-stream";
+        api.chunks
+            = {MockServer::sse("response.output_text.delta", {{"type", "response.output_text.delta"}, {"delta", "ok"}}),
+                MockServer::sse("response.completed",
+                    {{"type", "response.completed"}, {"response", QJsonObject{{"model", "gpt-6.1-sol"}}}})};
+        QSignalSpy tested(ai, &AiService::connectionTested);
+        ai->testConnection("chatgpt");
+        QTRY_COMPARE_WITH_TIMEOUT(tested.size(), 1, 5000);
+        QVERIFY2(tested[0][1].toBool(), qPrintable(tested[0][2].toString()));
+        const auto body = api.seen.last().body;
+        QVERIFY(api.seen.last().requestLine.startsWith("POST /v1/responses"));
+        QCOMPARE(api.seen.last().headers.value("authorization"), QString("Bearer at-2"));
+        QCOMPARE(body["model"].toString(), QString("gpt-6.1-sol"));
+        QCOMPARE(body["store"], QJsonValue(false));
+        QCOMPARE(body["stream"], QJsonValue(true));
+        QVERIFY(!body.contains("max_output_tokens") && !body.contains("service_tier"));
+        QCOMPARE(auth.seen.size(), 2); // The new token is still good.
+        // The plan's limit says where to look.
+        api.status = 429;
+        api.contentType = "application/json";
+        api.chunks = {R"({"error":{"code":"subscription_sharing_usage_limit_exceeded","message":"limit"}})"};
+        ai->testConnection("chatgpt");
+        QTRY_COMPARE_WITH_TIMEOUT(tested.size(), 2, 5000);
+        QVERIFY(!tested[1][1].toBool());
+        QVERIFY(tested[1][2].toString().contains("chatgpt.com/settings/usage"));
+        // Signing out ends the session at OpenAI and keeps the registration for next time.
+        auth.chunks
+            = {QJsonDocument(QJsonObject{{"revocation_endpoint", auth.base().toString() + "oauth/revoke"}}).toJson()};
+        ai->chatGptSignOut();
+        QVERIFY(!ai->chatGptAccount().value("signedIn").toBool());
+        QVERIFY(Keychain::read("chatgpt-refresh-token", store.dataDirectory()).isEmpty());
+        QTRY_COMPARE_WITH_TIMEOUT(auth.seen.size(), 4, 5000);
+        QVERIFY(auth.seen[2].requestLine.startsWith("GET /.well-known/openid-configuration"));
+        QVERIFY(auth.seen[3].requestLine.startsWith("POST /oauth/revoke"));
+        form = QUrlQuery(QString::fromLatin1(auth.seen[3].raw));
+        QCOMPARE(form.queryItemValue("token"), QString("rt-2"));
+        QCOMPARE(form.queryItemValue("token_type_hint"), QString("refresh_token"));
+        QCOMPARE(form.queryItemValue("client_id"), QString("oaiapp_test"));
+        // The next sign-in reuses the issued client and suggests the same account.
+        ai->chatGptSignIn();
+        QTRY_COMPARE_WITH_TIMEOUT(browser.urls.size(), 2, 5000);
+        QDesktopServices::unsetUrlHandler("http");
+        const QUrlQuery again(browser.urls[1]);
+        QCOMPARE(again.queryItemValue("client_id"), QString("oaiapp_test"));
+        QVERIFY(!again.hasQueryItem("agent_name_hint"));
+        QCOMPARE(again.queryItemValue("login_hint", QUrl::FullyDecoded), QString("reader@example.com"));
     }
     void codexAppServerSignInAndTurns()
     {

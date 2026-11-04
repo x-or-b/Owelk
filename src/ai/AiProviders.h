@@ -10,6 +10,7 @@
 #include <QUrl>
 #include <functional>
 
+class ChatGptAccount;
 class QNetworkAccessManager;
 class QNetworkReply;
 
@@ -122,6 +123,10 @@ class OpenAiProvider final : public HttpStreamProvider {
     Q_OBJECT
 public:
     OpenAiProvider(QNetworkAccessManager *network, const QUrl &base, const QString &key, QObject *parent = nullptr);
+    // On the reader's ChatGPT plan (Sign in with ChatGPT): the same API with the account's token, nothing stored
+    // there, and no output limit or service tier (that route refuses them).
+    OpenAiProvider(
+        QNetworkAccessManager *network, const QUrl &base, ChatGptAccount *account, QObject *parent = nullptr);
     void start(const AiRequest &request) override;
 
 protected:
@@ -130,6 +135,8 @@ protected:
 
 private:
     QString m_key, m_model;
+    QPointer<ChatGptAccount> m_account;
+    bool m_plan = false;
 };
 
 class OllamaProvider final : public HttpStreamProvider {

@@ -8,6 +8,7 @@
 #include <memory>
 
 class AiProvider;
+class ChatGptAccount;
 class CodexBridge;
 class QNetworkAccessManager;
 class ResearchStore;
@@ -93,6 +94,11 @@ public:
     Q_INVOKABLE void refreshCodexAccount();
     Q_INVOKABLE void codexSignIn();
     Q_INVOKABLE void codexSignOut();
+    // Sign in with ChatGPT (the plan pays for answers): {signedIn, registered, planUsage, email, pending}; sign-in
+    // opens the browser, sign-out also ends the session at OpenAI.
+    Q_INVOKABLE QVariantMap chatGptAccount() const;
+    Q_INVOKABLE void chatGptSignIn();
+    Q_INVOKABLE void chatGptSignOut();
     // A pasted screenshot: saved under the data folder and returned as a file URL (empty if none).
     bool clipboardHasImage() const;
     Q_INVOKABLE QString saveClipboardImage();
@@ -120,6 +126,7 @@ signals:
     void papersCompared(int request, const QString &markdown, const QString &error);
     void papersRanked(int request, const QVariantList &ranking, const QString &error);
     void codexAccountChanged(const QVariantMap &account);
+    void chatGptAccountChanged(const QVariantMap &account);
     // models: [{id, name}]
     void modelsLoaded(const QString &provider, const QVariantList &models);
     void notationChanged(const QUrl &source);
@@ -149,6 +156,7 @@ private:
     ResearchStore *m_store;
     QNetworkAccessManager *m_network;
     CodexBridge *m_codex;
+    ChatGptAccount *m_chatgpt;
     QHash<int, QPointer<AiProvider>> m_running;
     // The papers being read for a request (Read each paper in full), stopped with it.
     QHash<int, QList<QPointer<AiProvider>>> m_readers;

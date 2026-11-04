@@ -17,6 +17,7 @@ ColumnLayout {
     property string testResult: ""
     property bool testOk: false
     property var codexAccount: ({})
+    property var chatGptAccount: ai.chatGptAccount()
     // The provider's models, as the AI panel offers them: [{id, name, efforts, defaultEffort}].
     property var models: []
     property bool modelsLoaded: false
@@ -31,6 +32,7 @@ ColumnLayout {
         target: root.ai
         function onConnectionTested(provider, ok, detail) { root.testOk = ok; root.testResult = detail }
         function onCodexAccountChanged(account) { root.codexAccount = account }
+        function onChatGptAccountChanged(account) { root.chatGptAccount = account }
         function onModelsLoaded(provider, list) {
             if (provider !== root.currentId) return
             root.models = list; root.modelsLoaded = true
@@ -238,6 +240,29 @@ ColumnLayout {
                 text: root.codexAccount.signedIn ? qsTr("Sign Out") : qsTr("Sign in with ChatGPT")
                 enabled: root.codexAccount.available !== false
                 onClicked: root.codexAccount.signedIn ? root.ai.codexSignOut() : root.ai.codexSignIn()
+            }
+        }
+        // Sign in with ChatGPT: the browser signs in at OpenAI, and answers use the reader's ChatGPT plan.
+        SettingsRow {
+            visible: root.current.id === "chatgpt"
+            objectName: "settingsRow-chatGptAccount"
+            label: qsTr("Account")
+            detail: root.chatGptAccount.pending ? qsTr("Finish signing in in the browser")
+                : root.chatGptAccount.signedIn ? (root.chatGptAccount.email ? qsTr("%1 · answers use your ChatGPT plan").arg(root.chatGptAccount.email)
+                                                                          : qsTr("Answers use your ChatGPT plan"))
+                : root.chatGptAccount.registered ? qsTr("Signed in without permission to use your ChatGPT plan")
+                : qsTr("Not signed in")
+            Button {
+                objectName: "chatGptSignIn"
+                text: root.chatGptAccount.registered ? qsTr("Sign Out") : qsTr("Continue with ChatGPT")
+                primary: !root.chatGptAccount.registered
+                onClicked: root.chatGptAccount.registered ? root.ai.chatGptSignOut() : root.ai.chatGptSignIn()
+            }
+            IconButton {
+                objectName: "chatGptUsage"
+                visible: root.chatGptAccount.registered
+                icon.name: "external"; description: qsTr("Manage usage")
+                onClicked: Qt.openUrlExternally("https://chatgpt.com/settings/usage")
             }
         }
         SettingsRow {

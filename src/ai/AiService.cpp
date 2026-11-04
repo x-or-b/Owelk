@@ -4,6 +4,7 @@
 #include "FileFingerprint.h"
 #include "AiContext.h"
 #include "AiProviders.h"
+#include "ChatGptAccount.h"
 #include "Keychain.h"
 #include "ResearchStore.h"
 
@@ -45,6 +46,8 @@ struct ProviderInfo {
 const ProviderInfo providerTable[] = {
     {"claude", "Claude API", "api", "Anthropic", "claude-opus-5-5", "https://api.anthropic.com/"},
     {"openai", "OpenAI API", "api", "OpenAI", "gpt-5", "https://api.openai.com/"},
+    // Sign in with ChatGPT: OpenAI's API on the reader's plan. Its model comes from the account's catalog.
+    {"chatgpt", "ChatGPT account", "account", "OpenAI via your ChatGPT account", "", "https://api.openai.com/"},
     {"codex", "ChatGPT account (Codex)", "account", "OpenAI via your ChatGPT account", "", ""},
     // Where Ollama sends depends on its host (providers() fills it in).
     {"ollama", "Ollama (local)", "local", "", "", "http://127.0.0.1:11434/"},
@@ -62,8 +65,13 @@ QString pdfText(QPdfDocument &pdf, int page)
 }
 
 AiService::AiService(ResearchStore *store, QObject *parent)
-    : QObject(parent), m_store(store), m_network(new QNetworkAccessManager(this)), m_codex(new CodexBridge(this))
+    : QObject(parent), m_store(store), m_network(new QNetworkAccessManager(this)), m_codex(new CodexBridge(this)),
+      m_chatgpt(new ChatGptAccount(store, m_network, this))
 {
+    connect(m_chatgpt, &ChatGptAccount::changed, this, [this] {
+        emit chatGptAccountChanged(m_chatgpt->state());
+        emit providersChanged();
+    });
     connect(m_codex, &CodexBridge::notification, this, [this](const QString &method, const QJsonObject &params) {
         if (method == "account/login/completed") {
             if (!params.value("success").toBool())
@@ -100,11 +108,13 @@ QVariantList AiService::providers() const
             configured = hasApiKey(id);
         else if (id == "codex")
             configured = m_codexAccount.value("signedIn").toBool();
+        else if (id == "chatgpt")
+            configured = m_chatgpt->signedIn();
         // Where it sends, for the consent and notice texts.
         const auto sends = id == "ollama"
             ? (ollamaIsLocal() ? ui("this computer only") : QString(ui("Ollama on %1")).arg(baseUrl(id).host()))
-            : id == "codex" ? ui("OpenAI via your ChatGPT account")
-                            : QString(entry.sends);
+            : QString(entry.kind) == "account" ? ui("OpenAI via your ChatGPT account")
+                                               : QString(entry.sends);
         rows.append(QVariantMap{{"id", id}, {"name", entry.name}, {"kind", entry.kind}, {"sends", sends},
             {"configured", configured}, {"model", model(id)}, {"defaultModel", entry.defaultModel},
             {"consented", consented(id)}});
@@ -175,6 +185,9 @@ bool AiService::consented(const QString &provider) const
 {
     // Ollama on this computer keeps everything here; one on another computer (its host can be changed) asks first.
     if (provider == "ollama" && ollamaIsLocal()) return true;
+    // Agreeing to send to OpenAI through the ChatGPT account (Codex) covers the same through Sign in with ChatGPT.
+    if (provider == "chatgpt" && m_store->setting("ai.consent.chatgpt").isEmpty())
+        return m_store->setting("ai.consent.codex") == "1";
     return m_store->setting("ai.consent." + provider) == "1";
 }
 
@@ -212,6 +225,13 @@ AiProvider *AiService::createProvider(const QString &provider, QString *error)
         return new OpenAiProvider(m_network, baseUrl(provider), key, this);
     }
     if (provider == "ollama") return new OllamaProvider(m_network, baseUrl(provider), this);
+    if (provider == "chatgpt") {
+        if (!m_chatgpt->signedIn()) {
+            *error = ui("Sign in with ChatGPT in Settings → AI.");
+            return nullptr;
+        }
+        return new OpenAiProvider(m_network, baseUrl(provider), m_chatgpt, this);
+    }
     if (provider == "codex") return new CodexProvider(m_codex, this);
     *error = ui("Choose an AI provider in Settings → AI.");
     return nullptr;
@@ -229,6 +249,7 @@ int AiService::ask(const QVariantMap &input)
     if (!info(id)) return fail(ui("Choose an AI provider in Settings → AI."));
     if (!consented(id)) return fail(ui("Review what is sent to this provider before the first request."));
     if ((id == "ollama") && model(id).isEmpty()) return fail(ui("Choose an Ollama model in Settings → AI."));
+    if (id == "chatgpt" && model(id).isEmpty()) return fail(ui("Choose a ChatGPT model in Settings → AI."));
     // A symbol list is kept for the Symbols tab, not as a conversation.
     if (!spec.value("symbols").toBool()
         && (spec.value("threadId").toString().isEmpty()
@@ -860,7 +881,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     call.fast = spec.value("fast").toBool();
     // Reasoning summaries, unless turned off (Settings → AI) or refused by this OpenAI account before.
     call.thinkingSummary = m_store->setting("ai.showThinking", "1") == "1"
-        && !(id == "openai" && m_store->setting("ai.reasoningSummary.openai") == "0");
+        && !((id == "openai" || id == "chatgpt") && m_store->setting("ai.reasoningSummary." + id) == "0");
     for (const auto &value : images) {
         const auto image = value.toMap();
         call.images.append({image.value("data").toByteArray(), "image/png", image.value("path").toString()});
@@ -981,10 +1002,10 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
             }
             done();
             // Some OpenAI accounts may not receive reasoning summaries: ask again without, and remember.
-            if (summary && id == "openai"
+            if (summary && (id == "openai" || id == "chatgpt")
                 && (message.contains("summar", Qt::CaseInsensitive)
                     || message.contains("verif", Qt::CaseInsensitive))) {
-                m_store->setSetting("ai.reasoningSummary.openai", "0");
+                m_store->setSetting("ai.reasoningSummary." + id, "0");
                 run(request, id, spec, prepared);
                 return;
             }
@@ -1327,6 +1348,7 @@ bool AiService::canSend() const
     if (!consented(id)) return false;
     const auto *about = info(id);
     if (about && QString(about->kind) == "api") return hasApiKey(id);
+    if (id == "chatgpt") return m_chatgpt->signedIn();
     return id != "codex" || m_codexAccount.value("signedIn").toBool();
 }
 
@@ -1543,6 +1565,21 @@ void AiService::codexSignOut()
     m_codex->call("account/logout", {}, [this](const QJsonValue &, const QString &) { refreshCodexAccount(); });
 }
 
+QVariantMap AiService::chatGptAccount() const
+{
+    return m_chatgpt->state();
+}
+
+void AiService::chatGptSignIn()
+{
+    m_chatgpt->signIn();
+}
+
+void AiService::chatGptSignOut()
+{
+    m_chatgpt->signOut();
+}
+
 void AiService::listModels(const QString &provider)
 {
     if (provider == "claude") {
@@ -1577,6 +1614,42 @@ void AiService::listModels(const QString &provider)
                     {"defaultEffort", entry.value("defaultReasoningEffort").toString()}, {"fast", fast}});
             }
             emit modelsLoaded(provider, models);
+        });
+        return;
+    }
+    if (provider == "chatgpt") {
+        m_chatgpt->withAccessToken(this, [this, provider](const QString &token, const QString &) {
+            if (token.isEmpty()) {
+                emit modelsLoaded(provider, {});
+                return;
+            }
+            QNetworkRequest request(baseUrl(provider).resolved(QUrl("v1/models")));
+            request.setRawHeader("Authorization", "Bearer " + token.toUtf8());
+            request.setTransferTimeout(10000);
+            auto *reply = m_network->get(request);
+            connect(reply, &QNetworkReply::finished, this, [this, reply, provider] {
+                reply->deleteLater();
+                // The account's own catalog in the service's order, only the models meant to be shown; no faster
+                // tier on the plan.
+                QVariantList models;
+                for (const auto &value : QJsonDocument::fromJson(reply->readAll()).object().value("models").toArray()) {
+                    const auto entry = value.toObject();
+                    const auto id = entry.value("slug").toString();
+                    if (id.isEmpty() || entry.value("visibility").toString() != "list") continue;
+                    const bool reasoning = openAiReasons(id);
+                    models.append(QVariantMap{{"id", id}, {"name", entry.value("display_name").toString(id)},
+                        {"isDefault", models.isEmpty()},
+                        {"efforts", reasoning ? QStringList{"low", "medium", "high"} : QStringList()},
+                        {"defaultEffort", reasoning ? "medium" : ""}, {"fast", false}});
+                }
+                emit modelsLoaded(provider, models);
+                // The first is the model until the reader picks another the account has.
+                const auto chosen = model(provider);
+                if (!models.isEmpty() && std::none_of(models.cbegin(), models.cend(), [&](const QVariant &m) {
+                        return m.toMap().value("id").toString() == chosen;
+                    }))
+                    setModel(provider, models.first().toMap().value("id").toString());
+            });
         });
         return;
     }

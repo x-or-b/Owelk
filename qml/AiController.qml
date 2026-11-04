@@ -109,7 +109,7 @@ Item {
     // to it, or the account would look signed out until Settings › AI is opened.
     function checkAccount() { if (ai.provider === "codex" && !providerInfo.configured) ai.refreshCodexAccount() }
     // Once the account is known, its models come too.
-    Connections { target: root.ai; function onProvidersChanged() { if (root.ai.provider === "codex" && root.providerInfo.configured && !root.models.codex) root.ai.listModels("codex") } }
+    Connections { target: root.ai; function onProvidersChanged() { const p = root.ai.provider; if ((p === "codex" || p === "chatgpt") && root.providerInfo.configured && !root.models[p]) root.ai.listModels(p) } }
     function loadSelection() {
         effort = researchStore.setting("ai.effort." + ai.provider, "")
         fast = researchStore.setting("ai.fast." + ai.provider, "") === "1"
@@ -118,7 +118,7 @@ Item {
     function setFast(on) { fast = on; researchStore.setSetting("ai.fast." + ai.provider, on ? "1" : "") }
     function effortName(value) { return AiNames.effortName(value) }
     function companyName(provider) {
-        return ({claude: qsTr("Anthropic"), openai: qsTr("OpenAI"), codex: qsTr("ChatGPT account"), ollama: qsTr("Ollama (this computer)")})[provider] || provider
+        return ({claude: qsTr("Anthropic"), openai: qsTr("OpenAI"), chatgpt: qsTr("ChatGPT account"), codex: qsTr("ChatGPT account"), ollama: qsTr("Ollama (this computer)")})[provider] || provider
     }
     function attachImage(url, name, about) {
         const value = url.toString()
@@ -583,7 +583,7 @@ Item {
     }
     // Where a provider that cannot answer yet is set up.
     function setupHint(provider) {
-        if (provider === "codex") return qsTr("Sign in with ChatGPT in Settings → AI.")
+        if (provider === "codex" || provider === "chatgpt") return qsTr("Sign in with ChatGPT in Settings → AI.")
         return qsTr("Add an API key in Settings → AI.")
     }
     function chooseModel(provider, model) {
