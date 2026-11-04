@@ -65,8 +65,10 @@ QString errorText(const QJsonObject &json)
     if (error.isObject()) return error.toObject().value("message").toString();
     return json.value("error_description").toString(error.toString());
 }
+// The browser's page (the tab may have been closed meanwhile).
 void respond(QTcpSocket *socket, int status, const QString &text)
 {
+    if (!socket || socket->state() != QAbstractSocket::ConnectedState) return;
     const auto body = text.isEmpty() ? QByteArray()
                                      : "<!doctype html><meta charset=\"utf-8\"><title>Owelk</title>"
                                        "<body style=\"font:15px -apple-system,system-ui,sans-serif;margin:48px\"><p>"
@@ -130,9 +132,14 @@ QString ChatGptAccount::hostId()
 
 void ChatGptAccount::signIn()
 {
+    m_error.clear();
+    start(m_store->setting("ai.chatgpt.clientId"), false);
+}
+
+void ChatGptAccount::start(const QString &clientId, bool retried)
+{
     stopListening();
     m_pending.reset();
-    m_error.clear();
     auto *listener = new QTcpServer(this);
     // The port Codex uses first, any free one otherwise: only the port may change between sign-ins.
     if (!listener->listen(QHostAddress::LocalHost, 1455) && !listener->listen(QHostAddress::LocalHost)) {
@@ -142,15 +149,15 @@ void ChatGptAccount::signIn()
     }
     m_listener = listener;
     Pending pending{randomToken(), randomToken(), randomToken(),
-        QStringLiteral("http://127.0.0.1:%1/auth/callback").arg(listener->serverPort()),
-        m_store->setting("ai.chatgpt.clientId")};
+        QStringLiteral("http://127.0.0.1:%1/auth/callback").arg(listener->serverPort()), clientId, retried};
     QList<std::pair<QString, QString>> query;
     // The first sign-in registers Owelk with the account; later ones reuse the client id it was given.
     if (pending.clientId.isEmpty())
         query << std::pair{"client_id", "dynamic_agent_client"} << std::pair{"agent_name_hint", "Owelk"};
     else {
         query << std::pair{"client_id", pending.clientId};
-        if (const auto email = m_store->setting("ai.chatgpt.email"); !email.isEmpty())
+        if (const auto email = m_store->setting("ai.chatgpt.email");
+            !email.isEmpty() && pending.clientId == m_store->setting("ai.chatgpt.clientId"))
             query << std::pair{"login_hint", email};
     }
     query << std::pair{"ext_agent_host_id", hostId()} << std::pair{"response_type", "code"}
@@ -187,7 +194,8 @@ void ChatGptAccount::accept()
         // Owned here, so closing the listener does not take an answer still being written.
         socket->setParent(this);
         connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
-        QTimer::singleShot(30000, socket, &QObject::deleteLater);
+        // Long enough for the sign-in to be finished before its page is answered.
+        QTimer::singleShot(60000, socket, &QObject::deleteLater);
         connect(socket, &QTcpSocket::readyRead, socket, [this, socket] {
             if (socket->property("answered").toBool() || !socket->canReadLine()) return;
             socket->setProperty("answered", true);
@@ -198,43 +206,50 @@ void ChatGptAccount::accept()
                 respond(socket, 404, {});
                 return;
             }
-            respond(socket, 200, callback(QUrlQuery(target)));
+            callback(QUrlQuery(target), socket);
         });
     }
 }
 
-QString ChatGptAccount::callback(const QUrlQuery &query)
+void ChatGptAccount::callback(const QUrlQuery &query, QTcpSocket *page)
 {
     // Only the answer to this attempt counts; anything else leaves it waiting.
-    if (!m_pending || query.queryItemValue("state") != m_pending->state)
-        return ui("This sign-in is no longer waiting. Start it again in Owelk.");
+    if (!m_pending || query.queryItemValue("state") != m_pending->state) {
+        respond(page, 200, ui("This sign-in is no longer waiting. Start it again in Owelk."));
+        return;
+    }
     const auto pending = *std::exchange(m_pending, std::nullopt);
     stopListening();
     emit changed();
+    const auto failed
+        = [page](const QString &reason) { respond(page, 200, reason + " " + ui("You can close this tab.")); };
     if (query.hasQueryItem("error")) {
         const auto description = query.queryItemValue("error_description", QUrl::FullyDecoded);
         report(query.queryItemValue("error") == "access_denied"
                 ? ui("ChatGPT sign-in was cancelled.") + (description.isEmpty() ? QString() : " " + description)
                 : ui("ChatGPT sign-in did not complete: ") + query.queryItemValue("error", QUrl::FullyDecoded)
                     + (description.isEmpty() ? QString() : " (" + description + ")"));
-        return ui("Sign-in did not complete. You can close this tab.");
+        failed(m_error);
+        return;
     }
     const auto issued = query.queryItemValue("client_id");
     if (pending.clientId.isEmpty() && issued.isEmpty()) {
         report(ui("ChatGPT did not finish registering Owelk. Try signing in again."));
-        return ui("Sign-in did not complete. You can close this tab.");
+        failed(m_error);
+        return;
     }
     // A later sign-in keeps the client it started with.
     if (!pending.clientId.isEmpty() && !issued.isEmpty() && issued != pending.clientId) {
         report(ui("ChatGPT answered for another registration. Try signing in again."));
-        return ui("Sign-in did not complete. You can close this tab.");
+        failed(m_error);
+        return;
     }
+    // The page waits for the outcome, so the browser does not say "signed in" before Owelk is.
     exchange(query.queryItemValue("code", QUrl::FullyDecoded), pending.clientId.isEmpty() ? issued : pending.clientId,
-        pending);
-    return ui("Signed in. You can close this tab and return to Owelk.");
+        pending, page);
 }
 
-void ChatGptAccount::exchange(const QString &code, const QString &clientId, const Pending &pending)
+void ChatGptAccount::exchange(const QString &code, const QString &clientId, const Pending &pending, QTcpSocket *page)
 {
     QNetworkRequest request(authBase().resolved(QUrl("api/accounts/oauth/token")));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
@@ -242,57 +257,82 @@ void ChatGptAccount::exchange(const QString &code, const QString &clientId, cons
     auto *reply = m_network->post(request,
         encoded({{"grant_type", "authorization_code"}, {"client_id", clientId}, {"code", code},
             {"code_verifier", pending.verifier}, {"redirect_uri", pending.redirect}, {"resource", resource}}));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, clientId, nonce = pending.nonce] {
-        reply->deleteLater();
-        const auto json = QJsonDocument::fromJson(reply->readAll()).object();
-        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (status != 200) {
-            const auto detail = errorText(json);
-            report(ui("ChatGPT sign-in did not complete: ")
-                + (status ? QStringLiteral("HTTP %1").arg(status) : reply->errorString())
-                + (detail.isEmpty() ? QString() : " · " + detail));
-            return;
-        }
-        // The ID token came straight from the token endpoint over TLS, so its signature need not be checked
-        // (OpenID Connect Core 3.1.3.7, item 6); its issuer, audience, expiry and nonce are.
-        const auto claims = jwtClaims(json.value("id_token").toString());
-        const auto audience = claims.value("aud");
-        const bool forUs = audience.isArray() ? audience.toArray().contains(clientId) : audience.toString() == clientId;
-        // Which check failed, so a report can say (claim names only, never a token).
-        const auto failedCheck = claims.isEmpty()       ? QStringLiteral("no ID token")
-            : claims.value("iss").toString() != issuer  ? "issuer " + claims.value("iss").toString()
-            : !forUs                                    ? QStringLiteral("audience")
-            : claims.value("nonce").toString() != nonce ? QStringLiteral("nonce")
-            : claims.value("exp").toInteger() <= QDateTime::currentSecsSinceEpoch() ? QStringLiteral("expiry")
-                                                                                    : QString();
-        if (!failedCheck.isEmpty()) {
-            report(QString(ui("ChatGPT sign-in could not be verified (%1). Try signing in again.")).arg(failedCheck));
-            return;
-        }
-        const auto subject = claims.value("sub").toString();
-        const auto known = m_store->setting("ai.chatgpt.subject");
-        if (!known.isEmpty() && known != subject && m_store->setting("ai.chatgpt.clientId") == clientId) {
-            // Another account came back for this registration: the next sign-in registers it anew.
-            m_store->setSetting("ai.chatgpt.clientId", QString());
-            report(ui("That ChatGPT account is not the one signed in before. Continue with ChatGPT again to use it."));
-            return;
-        }
-        if (!keep(json)) return;
-        const bool plan = json.value("scope").toString().split(' ').contains("chatgpt.tokens.use.direct");
-        m_store->setSetting("ai.chatgpt.clientId", clientId);
-        m_store->setSetting("ai.chatgpt.subject", subject);
-        m_store->setSetting("ai.chatgpt.email", claims.value("email").toString());
-        m_store->setSetting("ai.chatgpt.planUsage", plan ? "1" : "0");
-        m_error.clear();
-        if (!plan)
-            m_store->notify(ui("Signed in, but ChatGPT plan use was not allowed. Continue with ChatGPT again and "
-                               "allow it, or use an API key."));
-        else if (m_store->setting("ai.chatgpt.welcomed") != "1") {
-            m_store->setSetting("ai.chatgpt.welcomed", "1");
-            m_store->notify(ui("You're using your ChatGPT plan. Manage its use at chatgpt.com/settings/usage."));
-        }
-        emit changed();
-    });
+    connect(reply, &QNetworkReply::finished, this,
+        [this, reply, clientId, nonce = pending.nonce, retried = pending.retried, page = QPointer<QTcpSocket>(page)] {
+            reply->deleteLater();
+            const auto json = QJsonDocument::fromJson(reply->readAll()).object();
+            const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            const auto failed = [this, page](const QString &reason) {
+                report(reason);
+                respond(page, 200, reason + " " + ui("You can close this tab."));
+            };
+            if (status != 200) {
+                // OpenAI's id for the request, the one thing that makes a failure traceable on their side.
+                const auto request = reply->rawHeader("openai-request-id").isEmpty()
+                    ? reply->rawHeader("x-request-id")
+                    : reply->rawHeader("openai-request-id");
+                qWarning().noquote() << "ChatGPT token exchange:" << status << errorCode(json) << "request" << request;
+                // OpenAI's own recovery: a refused code is dropped and the sign-in starts again with the client it was
+                // issued (that time without registering), once.
+                if (errorCode(json) == "invalid_grant" && !retried) {
+                    respond(
+                        page, 200, ui("One more step: the sign-in opens again in a moment. You can close this tab."));
+                    start(clientId, true);
+                    return;
+                }
+                const auto detail = errorText(json);
+                failed(ui("ChatGPT sign-in did not complete: ")
+                    + (status ? QStringLiteral("HTTP %1").arg(status) : reply->errorString())
+                    + (detail.isEmpty() ? QString() : " · " + detail));
+                return;
+            }
+            // The ID token came straight from the token endpoint over TLS, so its signature need not be checked
+            // (OpenID Connect Core 3.1.3.7, item 6); its issuer, audience, expiry and nonce are.
+            const auto claims = jwtClaims(json.value("id_token").toString());
+            const auto audience = claims.value("aud");
+            const bool forUs
+                = audience.isArray() ? audience.toArray().contains(clientId) : audience.toString() == clientId;
+            // Which check failed, so a report can say (claim names only, never a token).
+            const auto failedCheck = claims.isEmpty()       ? QStringLiteral("no ID token")
+                : claims.value("iss").toString() != issuer  ? "issuer " + claims.value("iss").toString()
+                : !forUs                                    ? QStringLiteral("audience")
+                : claims.value("nonce").toString() != nonce ? QStringLiteral("nonce")
+                : claims.value("exp").toInteger() <= QDateTime::currentSecsSinceEpoch() ? QStringLiteral("expiry")
+                                                                                        : QString();
+            if (!failedCheck.isEmpty()) {
+                failed(
+                    QString(ui("ChatGPT sign-in could not be verified (%1). Try signing in again.")).arg(failedCheck));
+                return;
+            }
+            const auto subject = claims.value("sub").toString();
+            const auto known = m_store->setting("ai.chatgpt.subject");
+            if (!known.isEmpty() && known != subject && m_store->setting("ai.chatgpt.clientId") == clientId) {
+                // Another account came back for this registration: the next sign-in registers it anew.
+                m_store->setSetting("ai.chatgpt.clientId", QString());
+                failed(
+                    ui("That ChatGPT account is not the one signed in before. Continue with ChatGPT again to use it."));
+                return;
+            }
+            if (!keep(json)) {
+                respond(page, 200, m_error + " " + ui("You can close this tab."));
+                return;
+            }
+            const bool plan = json.value("scope").toString().split(' ').contains("chatgpt.tokens.use.direct");
+            m_store->setSetting("ai.chatgpt.clientId", clientId);
+            m_store->setSetting("ai.chatgpt.subject", subject);
+            m_store->setSetting("ai.chatgpt.email", claims.value("email").toString());
+            m_store->setSetting("ai.chatgpt.planUsage", plan ? "1" : "0");
+            m_error.clear();
+            if (!plan)
+                m_store->notify(ui("Signed in, but ChatGPT plan use was not allowed. Continue with ChatGPT again and "
+                                   "allow it, or use an API key."));
+            else if (m_store->setting("ai.chatgpt.welcomed") != "1") {
+                m_store->setSetting("ai.chatgpt.welcomed", "1");
+                m_store->notify(ui("You're using your ChatGPT plan. Manage its use at chatgpt.com/settings/usage."));
+            }
+            respond(page, 200, ui("Signed in. You can close this tab and return to Owelk."));
+            emit changed();
+        });
 }
 
 bool ChatGptAccount::keep(const QJsonObject &tokens)

@@ -46,19 +46,23 @@ signals:
 private:
     struct Pending {
         QString state, nonce, verifier, redirect;
-        // Empty on the first registration, when the callback brings the issued one.
+        // The client this attempt uses; empty on the first registration, when the callback brings the issued one.
         QString clientId;
+        // The second attempt after OpenAI refused the first code (there is only one).
+        bool retried = false;
     };
     bool planUsage() const;
     // A refresh token is kept (the keyring is read once, when first asked).
     bool hasToken() const;
     QUrl authBase() const;
     QString hostId();
+    // Opens the browser on the sign-in page for this client (empty: register Owelk first).
+    void start(const QString &clientId, bool retried);
     void stopListening();
     void accept();
-    // The browser came back: the text for its page.
-    QString callback(const QUrlQuery &query);
-    void exchange(const QString &code, const QString &clientId, const Pending &pending);
+    // The browser came back; its page is answered once the outcome is known.
+    void callback(const QUrlQuery &query, QTcpSocket *page);
+    void exchange(const QString &code, const QString &clientId, const Pending &pending, QTcpSocket *page);
     void refresh();
     void answer(const QString &token, const QString &error);
     // Keeps a token response's access and refresh tokens; false (and a message) when the keyring refuses.

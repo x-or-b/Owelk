@@ -3938,6 +3938,10 @@ Same file as another library entry</source>
         <translation>원 다크</translation>
     </message>
     <message>
+        <source>One more step: the sign-in opens again in a moment. You can close this tab.</source>
+        <translation>원 모어 스텝: 더 사인-인 오픈스 어게인 인 어 모먼트. 유 캔 클로즈 디스 탭.</translation>
+    </message>
+    <message>
         <source>Open a local PDF and choose where to save the copy.</source>
         <translation>오픈 어 로컬 피디에프 앤드 추즈 웨어 투 세이브 더 카피.</translation>
     </message>
@@ -4160,10 +4164,6 @@ Same file as another library entry</source>
     <message>
         <source>Sign in with ChatGPT in Settings → AI.</source>
         <translation>사인 인 위드 챗지피티 인 세팅스 → 에이아이.</translation>
-    </message>
-    <message>
-        <source>Sign-in did not complete. You can close this tab.</source>
-        <translation>사인-인 디드 낫 컴플리트. 유 캔 클로즈 디스 탭.</translation>
     </message>
     <message>
         <source>Signed in, but ChatGPT plan use was not allowed. Continue with ChatGPT again and allow it, or use an API key.</source>
@@ -4404,6 +4404,10 @@ Same file as another library entry</source>
     <message>
         <source>Yellow</source>
         <translation>옐로</translation>
+    </message>
+    <message>
+        <source>You can close this tab.</source>
+        <translation>유 캔 클로즈 디스 탭.</translation>
     </message>
     <message>
         <source>You're using your ChatGPT plan. Manage its use at chatgpt.com/settings/usage.</source>
