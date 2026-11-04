@@ -246,8 +246,8 @@ Rectangle {
     }
     AnnotationEditor { id: annotationEditor }
     // Apple Pencil (iPadOS): a squeeze, or a double tap set to show a palette, brings the Pencil's tools where it is;
-    // a double tap set to switch tools goes back to the last one (there is no eraser: that setting does the same).
-    // Only the reader in front answers.
+    // a double tap set to switch tools goes back to the last one, and one set to the eraser takes it up (and puts it
+    // down again). Only the reader in front answers.
     PencilPalette {
         id: pencilPalette
         parent: root
@@ -264,7 +264,8 @@ Rectangle {
     }
     function pencilGesture(action, position, hovering) {
         if (!canvas.ready) return
-        if (action === "previous" || action === "eraser") canvas.tool = canvas.previousPencilTool
+        if (action === "previous") canvas.tool = canvas.previousPencilTool
+        else if (action === "eraser") canvas.tool = canvas.tool === "erase" ? canvas.previousPencilTool : "erase"
         else if (action === "palette" || action === "colors" || action === "ink")
             pencilPalette.showAt(hovering ? root.mapFromItem(null, position.x, position.y) : Qt.point(root.width / 2, root.height / 3))
     }
@@ -456,6 +457,22 @@ Rectangle {
             Row {
                 anchors.right:parent.right;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter
                 spacing: 2
+                // A touch screen has no ⌘Z: undo and redo for this paper's marks (an eraser's swipe is one step).
+                IconButton {
+                    objectName: "undoButton"
+                    visible: Theme.touch
+                    icon.name: "undo"; description: qsTr("Undo")
+                    enabled: canvas.ready && (researchStore.historyRevision, researchStore.canUndo(root.source))
+                    onClicked: { root.activated(); researchStore.undo(root.source) }
+                }
+                IconButton {
+                    objectName: "redoButton"
+                    visible: Theme.touch
+                    icon.name: "redo"; description: qsTr("Redo")
+                    enabled: canvas.ready && (researchStore.historyRevision, researchStore.canRedo(root.source))
+                    onClicked: { root.activated(); researchStore.redo(root.source) }
+                }
+                Rectangle { visible: Theme.touch; width: 1; height: 16; anchors.verticalCenter: parent.verticalCenter; color: Theme.border }
                 Row {
                     objectName: "annotationTools"
                     visible: readerToolbar.width >= 600
@@ -475,6 +492,7 @@ Rectangle {
                         onClicked: root.useHighlight()
                         ContextTap { onRequested: root.chooseInk(highlightTool, "highlight", !!canvas.selectedAnchor) }
                     }
+                    IconButton { objectName:"eraseTool";icon.name: "erase";checked:canvas.tool==="erase";description: qsTr("Eraser");onClicked:root.setTool("erase") }
                     IconButton { objectName:"commentTool";icon.name: "comment";checked:canvas.tool==="comment";description: qsTr("Comment");onClicked:root.setTool("comment") }
                     IconButton { objectName:"textTool";icon.name: "text";checked:canvas.tool==="text";description: qsTr("Text box");onClicked:root.setTool("text") }
                     IconButton { objectName:"imageTool";icon.name: "image";checked:canvas.tool==="image";description: qsTr("Image");onClicked:root.setTool("image") }
@@ -499,6 +517,7 @@ Rectangle {
                         // Narrow panes: the annotation tools move here.
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Draw");onTriggered:root.setTool("draw") }
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Highlight");onTriggered:root.useHighlight() }
+                        MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Eraser");onTriggered:root.setTool("erase") }
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Comment");onTriggered:root.setTool("comment") }
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Text Box");onTriggered:root.setTool("text") }
                         MenuItem { visible:readerToolbar.width<600;height:visible?implicitHeight:0;text:qsTr("Image");onTriggered:root.setTool("image") }
@@ -631,7 +650,7 @@ Rectangle {
                     const kind=canvas.tool
                     const spec={kind:kind,page:page,rectangles:[rectangle],color:kind==="draw"?canvas.drawColor:kind==="text"?canvas.textColor:canvas.markColor,sha256:canvas.documentFingerprint,drawing:kind==="draw"?points:[]}
                     // A pen stroke and a marked region are kept at once (a region's comment is added later).
-                    if(kind==="draw")researchStore.saveAnnotation(canvas.source,page,spec)
+                    if(kind==="draw"){canvas.keepStroke(page,points,spec.color);researchStore.saveAnnotation(canvas.source,page,spec)}
                     else if(kind==="area"){canvas.endTool();researchStore.saveAnnotation(canvas.source,page,spec)}
                     else if(kind==="comment"&&root.annotationList){canvas.endTool();root.annotationList.beginDraft({page:page,rectangle:rectangle})}
                     else {canvas.endTool();annotationEditor.begin(canvas,spec,null)}

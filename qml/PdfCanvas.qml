@@ -78,11 +78,14 @@ Item {
     property var activeSelection: null
     property var selectedAnchor: null
     property string tool: ""
-    // A touch screen: the Pencil keeps a tool across papers, remembered: selecting (""), highlighting (the first) or
-    // drawing. One-off tools (a comment, a text box, an image, a region) go back to it when done. A finger never
-    // takes a tool: it scrolls and asks.
-    readonly property var lastingTools: ["", "highlight", "draw"]
-    function savedPencilTool() { const t = researchStore.setting("pencil.tool", "highlight"); return t === "select" ? "" : t === "draw" ? "draw" : "highlight" }
+    // A touch screen: the Pencil keeps a tool across papers, remembered: selecting (""), highlighting (the first),
+    // drawing or erasing. One-off tools (a comment, a text box, an image, a region) go back to it when done. A finger
+    // never takes a tool: it scrolls and asks.
+    readonly property var lastingTools: ["", "highlight", "draw", "erase"]
+    function savedPencilTool() {
+        const t = researchStore.setting("pencil.tool", "highlight")
+        return t === "select" ? "" : t === "draw" || t === "erase" ? t : "highlight"
+    }
     property string pencilTool: Theme.touch ? savedPencilTool() : ""
     // The one before it, for a Pencil's double tap.
     property string previousPencilTool: pencilTool === "highlight" ? "" : "highlight"
@@ -191,7 +194,7 @@ Item {
     onReadyChanged: { refreshHighlights(); loadSymbols() }
     onSourceChanged: {
         savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null; documentFingerprint = ""; tool = Theme.touch ? pencilTool : ""
-        backStack = []; forwardStack = []; selectedMarkId = ""; markEdit = null
+        backStack = []; forwardStack = []; selectedMarkId = ""; markEdit = null; erasing = ({}); eraserDown = false; pendingStrokes = []; strokesSaving = 0
         closeLinkPreview(); hoveredLink = null; restSpot = null
         // PdfDocument may become Ready synchronously before this handler resets the request.
         afterSource.restart()
@@ -1177,6 +1180,7 @@ Item {
                         id: persistentMark
                         required property var modelData
                         anchors.fill: parent
+                        visible: !root.erasing[modelData.id]
                         Repeater {
                             model: persistentMark.modelData.rectangles
                             delegate: Item {
@@ -1523,11 +1527,28 @@ Item {
                     border.width: 2
                 }
 
+                Canvas {
+                    objectName: "pendingStrokes" + pageHolder.index
+                    anchors.fill: parent
+                    readonly property var strokes: root.pendingStrokes.filter(function(s) { return s.page === pageHolder.index })
+                    visible: strokes.length > 0
+                    onStrokesChanged: requestPaint()
+                    onWidthChanged: requestPaint()
+                    onPaint: {
+                        const c = getContext("2d"); c.reset()
+                        c.lineWidth = 2 * root.pageScale; c.lineCap = "round"; c.lineJoin = "round"
+                        strokes.forEach(function(stroke) {
+                            c.strokeStyle = stroke.color; c.beginPath()
+                            Stroke.trace(c, stroke.points, function(p) { return p.x * width }, function(p) { return p.y * height })
+                            c.stroke()
+                        })
+                    }
+                }
                 MouseArea {
                     id: annotationArea
                     objectName: "annotationArea" + pageHolder.index
                     anchors.fill: parent
-                    enabled: ["comment", "text", "image", "draw", "area"].indexOf(root.tool) >= 0
+                    enabled: ["comment", "text", "image", "draw", "area", "erase"].indexOf(root.tool) >= 0
                     visible: enabled; cursorShape: Qt.CrossCursor; preventStealing: true
                     property point start
                     property point end
@@ -1538,10 +1559,13 @@ Item {
                     PointHandler { id: annotationFinger; acceptedDevices: PointerDevice.TouchScreen }
                     onPressed: function(mouse) {
                         if (annotationFinger.active || mouse.button !== Qt.LeftButton) { mouse.accepted = false; return }
-                        root.activated(); root.clearSelection(); start=Qt.point(mouse.x,mouse.y); end=start; lastSample=start; points=[{x:start.x/width,y:start.y/height}]; liveStroke.requestPaint() }
+                        root.activated(); root.clearSelection(); start=Qt.point(mouse.x,mouse.y); end=start; lastSample=start
+                        if (root.tool === "erase") { root.eraserDown = true; root.eraseAlong(pageHolder, start, start); return }
+                        points=[{x:start.x/width,y:start.y/height}]; liveStroke.requestPaint() }
                     onPositionChanged: function(mouse) {
                         if (!pressed) return
                         end=Qt.point(Math.max(0,Math.min(width,mouse.x)),Math.max(0,Math.min(height,mouse.y)))
+                        if (root.tool === "erase") { root.eraseAlong(pageHolder, lastSample, end); lastSample = end; return }
                         // Skip sub-pixel jitter; it only adds kinks to the smoothed curve.
                         if(root.tool==="draw" && points.length<5000 && Math.hypot(end.x-lastSample.x,end.y-lastSample.y)>=1.5) {
                             points.push({x:end.x/width,y:end.y/height}); lastSample=end
@@ -1549,6 +1573,7 @@ Item {
                         liveStroke.requestPaint()
                     }
                     onReleased: {
+                        if (root.tool === "erase") { root.finishErasing(); return }
                         let x=Math.min(start.x,end.x)/width,y=Math.min(start.y,end.y)/height,w=Math.abs(end.x-start.x)/width,h=Math.abs(end.y-start.y)/height
                         if(root.tool==="draw") {
                             if((end.x!==lastSample.x||end.y!==lastSample.y) && points.length<5000) points.push({x:end.x/width,y:end.y/height})
@@ -1560,7 +1585,15 @@ Item {
                         root.annotationPlaced(pageHolder.index,{x:x,y:y,width:Math.min(w,1-x),height:Math.min(h,1-y)},points)
                         liveStroke.requestPaint()
                     }
-                    Rectangle { visible: annotationArea.pressed && root.tool!=="draw"; x:Math.min(annotationArea.start.x,annotationArea.end.x);y:Math.min(annotationArea.start.y,annotationArea.end.y);width:Math.abs(annotationArea.end.x-annotationArea.start.x);height:Math.abs(annotationArea.end.y-annotationArea.start.y);color:"transparent";border.color:Theme.accent }
+                    onCanceled: if (root.tool === "erase") root.finishErasing()
+                    // Where the eraser is, while it is down.
+                    Rectangle {
+                        readonly property real reach: Math.max(8, 4 * root.pageScale)
+                        visible: annotationArea.pressed && root.tool === "erase"
+                        x: annotationArea.end.x - reach; y: annotationArea.end.y - reach; width: reach * 2; height: width; radius: reach
+                        color: "transparent"; border.width: 1.5; border.color: Theme.textSecondary
+                    }
+                    Rectangle { visible: annotationArea.pressed && root.tool!=="draw" && root.tool!=="erase"; x:Math.min(annotationArea.start.x,annotationArea.end.x);y:Math.min(annotationArea.start.y,annotationArea.end.y);width:Math.abs(annotationArea.end.x-annotationArea.start.x);height:Math.abs(annotationArea.end.y-annotationArea.start.y);color:"transparent";border.color:Theme.accent }
                     Canvas { id:liveStroke;anchors.fill:parent;visible:annotationArea.pressed&&root.tool==="draw";onPaint:{const c=getContext("2d");c.reset();c.strokeStyle=root.drawColor;c.lineWidth=2*root.pageScale;c.lineCap="round";c.lineJoin="round";c.beginPath();Stroke.trace(c,annotationArea.points,function(p){return p.x*width},function(p){return p.y*height});c.stroke()} }
                 }
 
@@ -1741,7 +1774,58 @@ Item {
     }
     onCaptureModeChanged: selectedMarkId = ""
     // Saving reloads the marks (briefly none): the selection stays, its frame returns with the mark.
-    onSavedHighlightsChanged: if (!pendingMarkSave) markEdit = null
+    // Pen strokes drawn and still being kept: shown where they were drawn until the marks come back with them.
+    property var pendingStrokes: []
+    property int strokesSaving: 0
+    function keepStroke(page, points, color) { strokesSaving++; pendingStrokes = pendingStrokes.concat([{page: page, points: points, color: color}]) }
+    Connections {
+        target: researchStore
+        function onAnnotationFinished(ok, id) {
+            if (root.strokesSaving > 0) root.strokesSaving--
+            // Refused: no marks come back to replace it.
+            if (!ok && root.strokesSaving === 0) root.pendingStrokes = []
+        }
+    }
+    onSavedHighlightsChanged: {
+        if (strokesSaving === 0 && pendingStrokes.length) pendingStrokes = []
+        if (!pendingMarkSave) markEdit = null
+        // What the eraser took is gone from the list now: nothing left to hide.
+        if (!eraserDown && Object.keys(erasing).length) erasing = ({})
+    }
+    // --- The eraser ---------------------------------------------------------------------------------------
+    // It takes the pen strokes and highlights it passes over (a highlight with a note stays: its menu removes it).
+    // What it takes hides at once and goes when it lifts, in one step that one undo brings back.
+    property var erasing: ({})
+    property bool eraserDown: false
+    function erasable(mark) { return mark.kind === "draw" || (mark.kind === "highlight" && !(mark.body || "").length) }
+    // The eraser moved from one point to another of a page's paper (pixels).
+    function eraseAlong(holder, from, to) {
+        const paperItem = holder.paperItem, w = paperItem.width, h = paperItem.height
+        const reach = Math.max(8, 4 * pageScale)
+        const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / (reach / 2)))
+        const samples = []
+        for (let i = 0; i <= steps; ++i) samples.push(Qt.point(from.x + (to.x - from.x) * i / steps, from.y + (to.y - from.y) * i / steps))
+        const near = function(r, pad) {
+            return samples.some(function(p) { return p.x >= r.x * w - pad && p.x <= (r.x + r.width) * w + pad && p.y >= r.y * h - pad && p.y <= (r.y + r.height) * h + pad })
+        }
+        const mapX = function(p) { return p.x * w }, mapY = function(p) { return p.y * h }
+        let taken = null
+        savedHighlights.forEach(function(mark) {
+            if (mark.page !== holder.index || erasing[mark.id] || !erasable(mark) || !mark.rectangles || !mark.rectangles.length) return
+            const hit = mark.kind === "draw"
+                ? near(mark.rectangles[0], reach) && samples.some(function(p) { return Stroke.distance(mark.drawing || [], p.x, p.y, mapX, mapY) <= reach })
+                : mark.rectangles.some(function(r) { return near(r, reach / 4) })
+            if (!hit) return
+            if (!taken) taken = Object.assign({}, erasing)
+            taken[mark.id] = true
+        })
+        if (taken) erasing = taken
+    }
+    function finishErasing() {
+        eraserDown = false
+        const ids = Object.keys(erasing)
+        if (ids.length && researchStore.eraseAnnotations(ids) === 0) erasing = ({})
+    }
     function adjustable(mark) {
         return mark.kind === "text" || mark.kind === "image" || mark.kind === "draw" || mark.kind === "area" || (mark.kind === "comment" && !mark.text)
     }

@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import Owelk.Ui
 
 // The Pencil's tools in one place, where the Pencil is (a squeeze of a Pencil Pro brings it): select, highlight,
-// draw, a text box or a comment, and the colours of the ink in use. A choice puts it away.
+// draw, erase, a text box or a comment, and the colours of the ink in use. A choice puts it away.
 Popup {
     id: root
     objectName: "pencilPalette"
@@ -36,7 +36,7 @@ Popup {
                 onClicked: { root.close(); root.toolChosen("") }
             }
             Repeater {
-                model: [{tool: "highlight", name: qsTr("Highlight")}, {tool: "draw", name: qsTr("Draw")},
+                model: [{tool: "highlight", name: qsTr("Highlight")}, {tool: "draw", name: qsTr("Draw")}, {tool: "erase", name: qsTr("Eraser")},
                         {tool: "text", name: qsTr("Text box")}, {tool: "comment", name: qsTr("Comment")}]
                 delegate: IconButton {
                     required property var modelData

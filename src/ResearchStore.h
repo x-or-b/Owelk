@@ -399,6 +399,9 @@ public:
     Q_INVOKABLE bool canExportAnnotatedPdf() const;
     Q_INVOKABLE int loadHighlights(const QUrl &source);
     Q_INVOKABLE bool removeHighlight(const QString &id);
+    // An eraser's swipe: these annotations go together, quietly, and one undo brings them all back. Returns how
+    // many went.
+    Q_INVOKABLE int eraseAnnotations(const QStringList &ids);
     // Undo/redo the last annotation change in this document (Cmd+Z, Cmd+Shift+Z).
     Q_INVOKABLE bool undo(const QUrl &source) { return replay(source, false); }
     Q_INVOKABLE bool redo(const QUrl &source) { return replay(source, true); }
@@ -586,6 +589,8 @@ private:
     struct HistoryStep {
         QString id, label;
         QVariantMap before, after;
+        // More annotations changed in the same step (an eraser's swipe): {id, before, after} each.
+        QVariantList more;
     };
     QHash<QString, QList<HistoryStep>> m_undo, m_redo;
     bool m_replaying = false;

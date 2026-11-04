@@ -5015,6 +5015,10 @@ Use Pages to navigate.</source>
         <translation>드로</translation>
     </message>
     <message>
+        <source>Eraser</source>
+        <translation>이레이저</translation>
+    </message>
+    <message>
         <source>Highlight</source>
         <translation>하이라이트</translation>
     </message>
@@ -5359,6 +5363,10 @@ Use Pages to navigate.</source>
         <translation>드롭 픽처스 온투 어 페이지 투 플레이스 뎀 데어.</translation>
     </message>
     <message>
+        <source>Eraser</source>
+        <translation>이레이저</translation>
+    </message>
+    <message>
         <source>Export Annotated PDF…</source>
         <translation>익스포트 애노테이티드 피디에프…</translation>
     </message>
@@ -5473,6 +5481,10 @@ You can open the same document twice.</source>
         <translation>프린트…</translation>
     </message>
     <message>
+        <source>Redo</source>
+        <translation>리두</translation>
+    </message>
+    <message>
         <source>Save a copy with annotations</source>
         <translation>세이브 어 카피 위드 애노테이션스</translation>
     </message>
@@ -5495,6 +5507,10 @@ You can open the same document twice.</source>
     <message>
         <source>Translate This Page with AI</source>
         <translation>트랜슬레이트 디스 페이지 위드 에이아이</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>언두</translation>
     </message>
     <message>
         <source>Zoom</source>

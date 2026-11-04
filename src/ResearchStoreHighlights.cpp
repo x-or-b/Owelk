@@ -168,7 +168,8 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
     };
     const auto kind = input.value("kind").toString(), body = input.value("body").toString();
     const auto color = input.value("color", defaultAnnotationColor()).toString();
-    if (m_relinking || busy() || !source.isLocalFile() || page < 0) {
+    // Pen strokes come one after another while the previous ones are still being kept: they wait for nothing.
+    if (m_relinking || (busy() && kind != "draw") || !source.isLocalFile() || page < 0) {
         fail(ui("Wait for the current operation and choose a PDF page."));
         return;
     }
@@ -328,6 +329,40 @@ void ResearchStore::saveAnnotation(const QUrl &source, int page, const QVariantM
         if (fingerprint(source) != expected) result.error = ui("The PDF changed while saving. Nothing was attached.");
         return result;
     }));
+}
+
+int ResearchStore::eraseAnnotations(const QStringList &ids)
+{
+    HistoryStep step;
+    QString document;
+    const auto now = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    for (const auto &id : ids) {
+        const auto before = annotationState(id);
+        if (before.isEmpty() || !before.value("deleted").toString().isEmpty()) continue;
+        // One paper's marks: the history is kept per paper.
+        if (!document.isEmpty() && before.value("document").toString() != document) continue;
+        QSqlQuery query(m_database);
+        query.prepare("UPDATE highlights SET deleted_at=? WHERE id=? AND deleted_at IS NULL");
+        query.addBindValue(now);
+        query.addBindValue(id);
+        if (!query.exec() || query.numRowsAffected() != 1) continue;
+        const auto after = annotationState(id);
+        document = before.value("document").toString();
+        if (step.id.isEmpty()) {
+            step.id = id;
+            step.before = before;
+            step.after = after;
+        } else {
+            step.more.append(QVariantMap{{"id", id}, {"before", before}, {"after", after}});
+        }
+    }
+    if (step.id.isEmpty()) return 0;
+    const int erased = int(step.more.size()) + 1;
+    step.label = "Erase";
+    pushHistory(document, step);
+    emit highlightsChanged();
+    emit homeChanged();
+    return erased;
 }
 
 bool ResearchStore::removeHighlight(const QString &id)

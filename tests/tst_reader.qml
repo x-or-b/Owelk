@@ -1098,6 +1098,54 @@ Item {
             tryVerify(function(){return canvas.savedHighlights.some(function(m){return m.kind==="image"})})
             for(const m of canvas.savedHighlights)verify(researchStore.removeHighlight(m.id))
         }
+        // The eraser takes the strokes and highlights it passes over at once (a highlight with a note stays), and one
+        // undo brings back the whole swipe.
+        function test_eraserTakesWhatItPasses() {
+            canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+            tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+            tryVerify(function() { return canvas.documentFingerprint.length === 64 }, 10000)
+            canvas.savedHighlights.forEach(function(m) { researchStore.removeHighlight(m.id) })
+            tryVerify(function() { return canvas.savedHighlights.length === 0 })
+            const area = findChild(canvas, "annotationArea0"), strokes = function() { return canvas.savedHighlights.filter(function(m) { return m.kind === "draw" }) }
+            const a = Qt.point(area.width * .3, area.height * .42), b = Qt.point(area.width * .3, area.height * .48)
+            reader.setTool("draw"); waitForPolish(reader)
+            for (const at of [a, b]) {
+                const from = area.mapToItem(canvas, at.x, at.y)
+                testInput.pointerDrag(canvas, from, Qt.point(from.x + 80, from.y), false)
+            }
+            tryVerify(function() { return strokes().length === 2 })
+            // Two highlighted words on the first line, the second with a note.
+            const paper = findChild(canvas, "paperPage0"), bounds = fixtureTextBounds, scale = canvas.pageScale
+            const y = (bounds.y + bounds.height / 2) * scale
+            const highlights = function() { return canvas.savedHighlights.filter(function(m) { return m.kind === "highlight" }) }
+            // (The tool's hint above the pages goes: they move up.)
+            canvas.tool = ""; waitForPolish(reader); wait(100)
+            for (const x of [bounds.x + 15, bounds.x + bounds.width * .6]) {
+                canvas.clearSelection()
+                testInput.clicks(canvas, paper.mapToItem(canvas, x * scale, y), 2)
+                tryVerify(function() { return canvas.selectedAnchor !== null })
+                const before = highlights().length
+                canvas.highlightSelection()
+                tryVerify(function() { return highlights().length === before + 1 })
+            }
+            const noted = highlights().reduce(function(a, b) { return a.rectangles[0].x > b.rectangles[0].x ? a : b })
+            researchStore.updateHighlight(noted.id, noted.color, "Kept")
+            tryVerify(function() { return highlights().some(function(m) { return m.body === "Kept" }) })
+            reader.setTool("erase"); waitForPolish(reader)
+            compare(canvas.tool, "erase")
+            // Down through both strokes, then along the line.
+            testInput.pointerDrag(canvas, area.mapToItem(canvas, a.x + 40, a.y - 20), area.mapToItem(canvas, a.x + 40, b.y + 20), false)
+            tryVerify(function() { return strokes().length === 0 })
+            testInput.pointerDrag(canvas, paper.mapToItem(canvas, (bounds.x - 4) * scale, y), paper.mapToItem(canvas, (bounds.x + bounds.width + 4) * scale, y), false)
+            tryVerify(function() { return highlights().length === 1 })
+            compare(highlights()[0].body, "Kept")
+            verify(researchStore.undo(canvas.source))
+            tryVerify(function() { return highlights().length === 2 })
+            verify(researchStore.undo(canvas.source))
+            tryVerify(function() { return strokes().length === 2 })
+            canvas.tool = ""
+            for (const m of canvas.savedHighlights) researchStore.removeHighlight(m.id)
+        }
         function test_pageRendering() {
             const page = findChild(canvas, "pageImage0")
             verify(page !== null)

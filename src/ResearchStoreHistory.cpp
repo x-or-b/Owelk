@@ -97,7 +97,11 @@ bool ResearchStore::replay(const QUrl &source, bool forward)
     const auto step = from.takeLast();
     const auto &state = forward ? step.after : step.before;
     m_replaying = true;
-    const bool ok = applyAnnotationState(step.id, state);
+    bool ok = applyAnnotationState(step.id, state);
+    for (const auto &value : step.more) {
+        const auto part = value.toMap();
+        ok = applyAnnotationState(part.value("id").toString(), part.value(forward ? "after" : "before").toMap()) && ok;
+    }
     m_replaying = false;
     if (ok) (forward ? m_undo : m_redo)[document].append(step);
     ++m_historyRevision;
