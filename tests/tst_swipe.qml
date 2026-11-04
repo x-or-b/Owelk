@@ -70,14 +70,41 @@ Item {
                 mouseClick(layer, 40, layer.height / 2)
                 tryCompare(app, "filesVisible", false)
                 compare(list.contentY, before)
-                // Opened while upright, AI chat goes when the window turns; the Library open before comes back.
+                // Upright, AI chat floats over the pages beside the Library and stays while the pages are tapped;
+                // its bar moves it.
+                const float = visualChild(app.contentItem.parent, "aiFloat"), leftDock = visualChild(app.contentItem.parent, "leftDock")
                 app.togglePanel("ai")
+                tryCompare(float, "visible", true)
+                verify(float.width >= 280 && float.height >= 240)
+                verify(float.x + float.width <= layer.width && float.y >= 0)
+                compare(leftDock.visible, false)
+                app.togglePanel("files")
+                tryCompare(app, "filesVisible", true)
+                compare(app.aiVisible, true)
+                mouseClick(layer, 40, layer.height * .8)
+                tryCompare(app, "filesVisible", false)
+                compare(app.aiVisible, true)
+                verify(float.visible)
+                const bar = findChild(float, "floatingPanelBar"), x0 = float.x
+                mouseDrag(bar, 20, bar.height / 2, -120, 0)
+                tryVerify(function() { return float.x < x0 - 60 })
+                verify(researchStore.setting("ai.floatPlace", "").split(" ").length === 4)
+                // Turned sideways, the chat goes back to its dock and the Library open before comes back beside it.
+                app.togglePanel("files"); app.togglePanel("files")
                 app.width = 1440; app.height = 930
                 tryCompare(app, "panelsOver", false)
-                compare(app.filesVisible, true)
-                compare(app.aiVisible, false)
+                compare(app.aiVisible, true)
+                compare(float.visible, false)
+                tryCompare(leftDock, "visible", true)
+                compare(leftDock.activePanel, "ai")
                 compare(dock.parent, row)
                 tryVerify(function() { return app.documents.width < 1440 - 150 })
+                // Upright again: it floats where it was left; its close button puts it away.
+                app.width = 820; app.height = 1180
+                tryCompare(float, "visible", true)
+                verify(float.x < x0 - 60)
+                mouseClick(findChild(float, "floatingPanelClose"))
+                tryCompare(app, "aiVisible", false)
             } finally {
                 Theme.touch = false
                 app.width = 1440; app.height = 930

@@ -1528,6 +1528,13 @@
     </message>
 </context>
 <context>
+    <name>FloatingPanel</name>
+    <message>
+        <source>Close</source>
+        <translation>클로즈</translation>
+    </message>
+</context>
+<context>
     <name>FollowAuthorDialog</name>
     <message>
         <source>Corresponding</source>

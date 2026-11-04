@@ -155,7 +155,7 @@ ApplicationWindow {
         const panels = []
         if (filesVisible && filesSide === side) panels.push("files")
         if (documentVisible && documentSide === side) panels.push("document")
-        if (aiVisible && aiSide === side) panels.push("ai")
+        if (aiVisible && aiSide === side && !aiFloats) panels.push("ai")
         return panels
     }
     readonly property var dockPanels: ["files", "document", "ai"]
@@ -176,9 +176,11 @@ ApplicationWindow {
     }
     // One panel per dock: opening one (or moving it into a dock) closes the other there.
     function closeOthers(panel) {
-        if (panel === "threads") return
+        if (panel === "threads" || (aiFloats && panel === "ai")) return
         const side = panelSide(panel)
-        dockPanels.forEach(function(other) { if (other !== panel && panelShown(other) && panelSide(other) === side) setPanelShown(other, false) })
+        dockPanels.forEach(function(other) {
+            if (other !== panel && panelShown(other) && panelSide(other) === side && !(aiFloats && other === "ai")) setPanelShown(other, false)
+        })
     }
     // Reader actions bring the AI panel forward and start a thread there.
     function showAi() { setPanelShown("ai", true); closeOthers("ai") }
@@ -196,7 +198,7 @@ ApplicationWindow {
         documents.openWeb(address, true, "", true)
     }
     Connections { target: researchStore.forYou; function onWebRequested(address) { window.openForYouPage(address) } }
-    function openAiThread(id) { if (aiController.openThread(id)) showAi() }
+    function openAiThread(id) { if (aiController.openThread(id)) { showAi(); if (panelsOver) setPanelShown("threads", false) } }
     // A new chat from the Threads panel, in the Thread it was asked for (spec.folder).
     function newAiChat(spec) {
         showAi()
@@ -215,28 +217,32 @@ ApplicationWindow {
     // The AI panel shows this thread right now (panel open and in front in its dock).
     function aiThreadInView(id) {
         const dock = aiSide === "left" ? leftDock : rightDock
-        return (aiVisible && dock.activePanel === "ai" && aiController.conversationOpen && aiController.threadId === id)
+        return (aiVisible && (aiFloats || dock.activePanel === "ai") && aiController.conversationOpen && aiController.threadId === id)
             || (!homeVisible && documents.aiTabShown(id))
     }
     // A tall touch screen (an iPad held upright): the side panels cover the pages instead of narrowing them
     // (panelLayer), and a tap on the pages or a paper chosen puts them away. Held sideways again, the panels open
-    // before come back.
+    // before come back. AI chat floats over the pages instead (aiFloat), moved and sized like a pinned figure, and
+    // stays while they are read; turned sideways it goes back to its dock.
     readonly property bool panelsOver: Theme.touch && height > width
+    readonly property bool aiFloats: panelsOver
     property var panelsBeforeOver: null
-    readonly property bool panelsOverOpen: panelsOver && (filesVisible || documentVisible || aiVisible || threadsVisible)
-    function hideOverPanels() { ["files", "document", "ai", "threads"].forEach(function(p) { setPanelShown(p, false) }) }
+    readonly property bool panelsOverOpen: panelsOver && (filesVisible || documentVisible || threadsVisible)
+    function hideOverPanels() { ["files", "document", "threads"].forEach(function(p) { setPanelShown(p, false) }) }
     onPanelsOverChanged: {
         if (panelsOver) {
-            panelsBeforeOver = {files: filesVisible, document: documentVisible, ai: aiVisible, threads: threadsVisible}
+            panelsBeforeOver = {files: filesVisible, document: documentVisible, threads: threadsVisible}
             hideOverPanels()
         } else if (panelsBeforeOver) {
             const before = panelsBeforeOver
             panelsBeforeOver = null
             for (const panel in before) setPanelShown(panel, before[panel])
+            // The chat in use keeps its place in its dock.
+            if (aiVisible) closeOthers("ai")
         }
     }
-    // Shown, as the session keeps it: upright, the panels open before.
-    function keptShown(panel) { return panelsBeforeOver ? panelsBeforeOver[panel] : panelShown(panel) }
+    // Shown, as the session keeps it: upright, the panels open before (and the chat as it is).
+    function keptShown(panel) { return panelsBeforeOver && panel !== "ai" ? panelsBeforeOver[panel] : panelShown(panel) }
     function togglePanel(panel) {
         const shown = panelShown(panel)
         setPanelShown(panel, !shown)
@@ -1481,6 +1487,39 @@ ApplicationWindow {
             anchors.fill: parent
             enabled: window.panelsOverOpen
             onPressed: window.hideOverPanels()
+        }
+        FloatingPanel {
+            id: aiFloat
+            objectName: "aiFloat"
+            visible: window.aiFloats && window.aiVisible
+            title: qsTr("AI chat")
+            areaWidth: panelLayer.width; areaHeight: panelLayer.height
+            property bool shownOnce: false
+            // Its place is kept (Settings); the first time, the upper right, room left for the keyboard below.
+            function place() {
+                const kept = researchStore.setting("ai.floatPlace", "").split(" ").map(Number)
+                if (kept.length === 4 && kept.every(function(v) { return isFinite(v) })) {
+                    x = kept[0]; y = kept[1]; resize(kept[2], kept[3])
+                } else {
+                    resize(Math.min(440, areaWidth - 32), Math.min(640, areaHeight * .55))
+                    x = areaWidth - width - 16; y = 16
+                    keepInside()
+                }
+            }
+            onVisibleChanged: if (visible && !shownOnce && areaWidth > 0) { shownOnce = true; place() }
+            onPlaced: researchStore.setSetting("ai.floatPlace", [x, y, width, height].map(Math.round).join(" "))
+            onCloseRequested: window.setPanelShown("ai", false)
+            Loader {
+                anchors.fill: parent
+                active: aiFloat.visible
+                sourceComponent: AiPanel {
+                    controller: aiController
+                    threadsOpen: window.threadsVisible
+                    onThreadsToggled: window.togglePanel("threads")
+                    onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
+                    onSettingsRequested: settingsDialog.openPage("ai")
+                }
+            }
         }
         // The edges beside the pages.
         Rectangle {
