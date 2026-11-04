@@ -172,7 +172,8 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
         m_customAccent = QColor(m_store->setting("appearance.customAccent"));
         const auto accent = m_store->setting("appearance.accent");
         m_accentName = accent == "custom" && m_customAccent.isValid() ? accent : QString(accentFor(accent).id);
-        m_textSize = qBound(11, m_store->setting("appearance.textSize", "13").toInt(), 17);
+        // Read at arm's length on a tablet, the text starts a little larger there.
+        m_textSize = qBound(11, m_store->setting("appearance.textSize", touchRoom ? "15" : "13").toInt(), 17);
         m_answerOffset = qBound(-1, m_store->setting("ai.answerSizeOffset", "2").toInt(), 5);
         if (const auto spacing = m_store->setting("ai.answerSpacing"); spacing == "compact" || spacing == "relaxed")
             m_answerSpacing = spacing;

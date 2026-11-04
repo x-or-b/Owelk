@@ -265,13 +265,20 @@ public:
     // a → b by t (0..1), for the rare place that needs an in-between color.
     Q_INVOKABLE QColor mix(const QColor &a, const QColor &b, qreal t) const;
 
-    int controlHeight() const { return m_textSize * 2; }
-    int controlHeightSmall() const { return m_textSize + 9; }
-    int iconButton() const { return m_textSize + 11; }
-    int iconSize() const { return m_textSize + 3; }
-    int barHeight() const { return m_textSize * 2 + 8; }
-    int rowHeight() const { return m_textSize * 2 + 2; }
-    int rowHeightTall() const { return m_textSize * 3 + 5; }
+    // A finger needs larger targets than a pointer: on a touch screen (iPadOS, Android) controls, bars and rows get
+    // this much more height around the same text, close to the 44 pt a fingertip wants.
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
+    static constexpr int touchRoom = 12;
+#else
+    static constexpr int touchRoom = 0;
+#endif
+    int controlHeight() const { return m_textSize * 2 + touchRoom; }
+    int controlHeightSmall() const { return m_textSize + 9 + touchRoom / 2; }
+    int iconButton() const { return m_textSize + 11 + touchRoom; }
+    int iconSize() const { return m_textSize + 3 + touchRoom / 6; }
+    int barHeight() const { return m_textSize * 2 + 8 + touchRoom; }
+    int rowHeight() const { return m_textSize * 2 + 2 + touchRoom; }
+    int rowHeightTall() const { return m_textSize * 3 + 5 + touchRoom; }
     int fontCaption() const { return m_textSize - 2; }
     int fontSmall() const { return m_textSize - 1; }
     int fontBody() const { return m_textSize; }

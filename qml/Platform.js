@@ -1,12 +1,13 @@
 .pragma library
 
-// Shortcut hints as each platform writes them: "Ctrl+Shift+L" reads "⇧⌘L" on macOS.
-function isMac() { return Qt.platform.os === "osx" }
+// Shortcut hints as each platform writes them: "Ctrl+Shift+L" reads "⇧⌘L" on macOS and on an iPad's keyboard,
+// where ⌘ is the key Qt calls Ctrl.
+function appleKeyboard() { return Qt.platform.os === "osx" || Qt.platform.os === "ios" }
 function keys(sequence) {
     const parts = sequence.split("+")
     let key = parts.pop()
     if (key === "Plus") key = "+"
-    if (!isMac()) return parts.concat([key]).join("+")
+    if (!appleKeyboard()) return parts.concat([key]).join("+")
     key = ({Left: "←", Right: "→", Up: "↑", Down: "↓", Return: "↩"})[key] || key
     const symbols = {Ctrl: "⌘", Meta: "⌃", Alt: "⌥", Shift: "⇧"}
     // macOS order: Control, Option, Shift, Command.

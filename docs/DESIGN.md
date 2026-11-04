@@ -40,7 +40,7 @@
 - Threads 패널은 독 밖의 독립 패널입니다. 혼자 열고 닫으며, 좌우 어느 쪽이든 같은 쪽 독보다 바깥에 있어 AI 패널과 함께 열면 AI 패널이 문서 쪽입니다. 상태 표시줄 왼쪽 묶음은 Threads·AI chat·Library·Document 아이콘 다음 끝에 검색이 고정이고, 오른쪽 패널 아이콘은 반대 순서라 Threads가 맨 오른쪽입니다. 처음 시작하면 왼쪽에 Threads·AI, 오른쪽에 Document·Library가 있습니다. Thread는 채팅 폴더이고 Collection과 별개입니다. 접히는 행(갈매기 표시와 개수, 호버 때 +)이고 맨 아래 Unfiled가 있으며, 사이드바 목록이라 구분선이 없습니다.
 - 패널 머리: 패널이 하나면 이름, 여럿이면 아이콘 세그먼트입니다. Document 패널의 네 보기(Contents·Annotations·Symbols·Related)도 아이콘 세그먼트이고, 보기 안의 선택(Outline/Pages, Library/Cites/Cited by)은 글자 세그먼트입니다.
 - 검색 결과에서 페이지를 묶는 논문은 어두운 막대가 아니라 굵은 제목 행입니다. 결과 종류는 색이 아니라 오른쪽의 작은 글자(p. 3, highlight…)로 구분합니다.
-- 글자 크기는 모두 `Theme.font*` 단계(캡션·작게·본문·소제목·제목)를 씁니다. 높이는 `controlHeight`·`rowHeight`·`barHeight` 등 크기 토큰을 씁니다. 글자 크기 설정을 바꾸면 컨트롤과 행 높이도 함께 바뀝니다.
+- 글자 크기는 모두 `Theme.font*` 단계(캡션·작게·본문·소제목·제목)를 씁니다. 높이는 `controlHeight`·`rowHeight`·`barHeight` 등 크기 토큰을 씁니다. 글자 크기 설정을 바꾸면 컨트롤과 행 높이도 함께 바뀝니다. 터치 화면(iPadOS·Android)에서는 손가락이 누르기 쉽게 같은 글자에 높이 여유(`Theme::touchRoom`, 12)를 더하고 기본 글자 크기를 15로 시작합니다. 마우스 전용 처리기(뒤로/앞으로 버튼 등)는 `acceptedDevices: PointerDevice.Mouse`로 두어 손가락 터치를 잡지 않게 합니다.
 
 ## 호버와 우클릭
 

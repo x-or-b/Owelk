@@ -34,6 +34,30 @@ Item {
             tryCompare(canvas, "restoring", false, 10000)
             wait(150)
         }
+        // On a touch screen (iPad, touch laptops) a finger scrolls the pages; it does not select text.
+        function test_fingerDragScrollsPages() {
+            const list = findChild(canvas, "pageList")
+            verify(list !== null)
+            const before = list.contentY
+            const x = canvas.width / 2, from = canvas.height * 0.75
+            const touch = touchEvent(canvas)
+            touch.press(0, canvas, x, from).commit()
+            for (let i = 1; i <= 12; ++i) {
+                touch.move(0, canvas, x, from - i * 30).commit()
+                wait(16)
+            }
+            touch.release(0, canvas, x, from - 360).commit()
+            tryVerify(function() { return list.contentY > before + 150 }, 3000, "contentY " + list.contentY + " from " + before)
+            compare(canvas.selectedText, "")
+            // A tap stays where it is: only a mouse's side buttons turn pages.
+            wait(600)
+            const page = canvas.currentPage, at = list.contentY
+            touch.press(0, canvas, x, canvas.height / 2).commit()
+            touch.release(0, canvas, x, canvas.height / 2).commit()
+            wait(300)
+            compare(canvas.currentPage, page)
+            verify(Math.abs(list.contentY - at) < 2, "contentY " + list.contentY + " from " + at)
+        }
         function test_selectionAcrossPagesExcerptAndHighlights() {
             canvas.zoom(0.6)
             tryCompare(canvas, "restoring", false)

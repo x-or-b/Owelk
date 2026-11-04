@@ -732,8 +732,10 @@ ApplicationWindow {
         }
         // A mouse's Back and Forward buttons (buttons 4 and 5), anywhere in the window: the same Back and
         // Forward as the arrows (a web tab's pages first). Taken here, so a web page does not go back twice.
+        // Mouse only: a touch has no buttons, and this handler would hold every finger (no scrolling).
         TapHandler {
             objectName: "mouseBackForward"
+            acceptedDevices: PointerDevice.Mouse
             acceptedButtons: Qt.BackButton | Qt.ForwardButton
             gesturePolicy: TapHandler.WithinBounds
             onTapped: function(eventPoint, button) { if (button === Qt.BackButton) window.goBack(); else window.goForward() }
