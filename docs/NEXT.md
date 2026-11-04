@@ -67,7 +67,7 @@
 
 - 변경 기록 정리(오래된 `devices/*.jsonl`을 한 파일로 합치기), 공유 폴더의 쓰이지 않는 PDF·이미지 정리.
 - 일부 설정(테마·AI 언어 등)도 옮길지 결정(사용자 결정 대기).
-- iPad 앱(`ipad` 브랜치): 시뮬레이터에서 실행해 동기화된 PDF 열기 → Syncthing(Synctrain) 폴더 접근 → PDF 끌어 놓기(Files·다른 앱·Mac Finder) → 터치·Pencil 화면. 1차에는 웹 탭·OCR·주석 PDF 내보내기·기기 안 Ollama·Codex를 뺍니다.
+- iPad 앱(`ipad` 브랜치): 실기기에서 터치·Pencil 화면 확인(확대·축소 체감, 세로 패널, 길게 누르기, Pencil Pro 쥐기·두 번 탭) → Syncthing(Synctrain) 폴더 접근 → PDF 끌어 놓기(Files·다른 앱·Mac Finder). 지우개가 없어 Pencil 두 번 탭의 "지우개로 바꾸기"는 직전 도구로 바꿉니다. 1차에는 웹 탭·OCR·주석 PDF 내보내기·기기 안 Ollama·Codex를 뺍니다.
 
 ## 4-2. AI 답변 다음 단계
 

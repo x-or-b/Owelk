@@ -5001,6 +5001,33 @@ Use Pages to navigate.</source>
     </message>
 </context>
 <context>
+    <name>PencilPalette</name>
+    <message>
+        <source> ink</source>
+        <translation> 잉크</translation>
+    </message>
+    <message>
+        <source>Comment</source>
+        <translation>코멘트</translation>
+    </message>
+    <message>
+        <source>Draw</source>
+        <translation>드로</translation>
+    </message>
+    <message>
+        <source>Highlight</source>
+        <translation>하이라이트</translation>
+    </message>
+    <message>
+        <source>Select</source>
+        <translation>셀렉트</translation>
+    </message>
+    <message>
+        <source>Text box</source>
+        <translation>텍스트 박스</translation>
+    </message>
+</context>
+<context>
     <name>PetWindow</name>
     <message>
         <source>  ·  %1 days in a row</source>

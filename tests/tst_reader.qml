@@ -21,6 +21,7 @@ Item {
     SignalSpy { id: linkSpy; target: reader; signalName: "linkRequested" }
     SignalSpy { id: messageSpy; target: researchStore; signalName: "message" }
     SignalSpy { id: contextSpy; signalName: "contextRequested" }
+    SignalSpy { id: placedSpy; signalName: "annotationPlaced" }
 
     TestCase {
         name: "PdfReader"
@@ -261,6 +262,59 @@ Item {
             compare(contextSpy.signalArguments[0][1], 0)
             compare(canvas.selectedText, "")
             contextSpy.target = null
+        }
+        // On a touch screen the Pencil keeps its tool (highlighting first, then what was chosen, across papers), a
+        // one-off tool goes back to it, a finger never draws, and the Pencil's squeeze and double tap answer.
+        function test_pencilKeepsItsTool() {
+            Theme.touch = true
+            researchStore.setSetting("pencil.tool", "")
+            try {
+                canvas.openFile(outlineSource, {page: 0, y: 0, x: 0, zoom: 1})
+                tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+                compare(canvas.tool, "highlight")
+                verify(canvas.toolResting)
+                reader.setTool("text"); compare(canvas.tool, "text")
+                reader.setTool("text"); compare(canvas.tool, "highlight")
+                canvas.tool = "draw"
+                compare(researchStore.setting("pencil.tool"), "draw")
+                compare(canvas.previousPencilTool, "highlight")
+                canvas.openFile(fixtureSource, {page: 0, y: 0, x: 0, zoom: 1})
+                tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
+                compare(canvas.tool, "draw")
+                // A finger drawn across the page scrolls it; it draws nothing.
+                placedSpy.target = canvas; placedSpy.clear()
+                const list = findChild(canvas, "pageList"), before = list.contentY
+                const x = canvas.width / 2, from = canvas.height * .75
+                const touch = touchEvent(canvas)
+                touch.press(0, canvas, x, from).commit()
+                for (let i = 1; i <= 10; ++i) { touch.move(0, canvas, x, from - i * 30).commit(); wait(16) }
+                touch.release(0, canvas, x, from - 300).commit()
+                tryVerify(function() { return list.contentY > before + 100 }, 3000)
+                compare(placedSpy.count, 0)
+                // A double tap set to switch tools: the last one; a squeeze: the palette, where the Pencil is.
+                reader.pencilGesture("previous", Qt.point(0, 0), false)
+                compare(canvas.tool, "highlight")
+                const palette = findChild(reader, "pencilPalette")
+                Pencil.squeezed(Qt.point(300, 300), true) // Not set to show a palette here: nothing.
+                wait(50)
+                verify(!palette.opened)
+                reader.pencilGesture("palette", reader.mapToItem(null, 300, 300), true)
+                tryCompare(palette, "opened", true)
+                verify(Math.abs(palette.x + palette.width / 2 - 300) < 2)
+                mouseClick(findChild(palette.contentItem, "pencil-draw"))
+                tryCompare(palette, "visible", false)
+                compare(canvas.tool, "draw")
+                reader.pencilGesture("palette", Qt.point(0, 0), false)
+                tryCompare(palette, "opened", true)
+                mouseClick(findChild(palette.contentItem, "pencilSelect"))
+                compare(canvas.tool, "")
+                compare(researchStore.setting("pencil.tool"), "select")
+            } finally {
+                placedSpy.target = null
+                Theme.touch = false
+                researchStore.setSetting("pencil.tool", "")
+                canvas.tool = ""
+            }
         }
         function test_workingLinksToReferencesOfferFindPaper() {
             canvas.openFile(referenceLinkSource, {page: 0, y: 0, x: 0, zoom: 1})

@@ -5,6 +5,7 @@
 #include "Theme.h"
 #include "DesktopPet.h"
 #include "SwipeNavigation.h"
+#include "Pencil.h"
 #include <QPainter>
 #include "AppInstance.h"
 #include <QFileOpenEvent>
@@ -191,6 +192,8 @@ public slots:
         qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "Theme", m_theme);
         m_pet = new DesktopPet(m_store, this);
         qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "DesktopPet", m_pet);
+        // No Pencil here: tests emit its signals themselves.
+        qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "Pencil", new Pencil(this));
     }
     void qmlEngineAvailable(QQmlEngine *engine)
     {

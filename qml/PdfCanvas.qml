@@ -78,6 +78,18 @@ Item {
     property var activeSelection: null
     property var selectedAnchor: null
     property string tool: ""
+    // A touch screen: the Pencil keeps a tool across papers, remembered: selecting (""), highlighting (the first) or
+    // drawing. One-off tools (a comment, a text box, an image, a region) go back to it when done. A finger never
+    // takes a tool: it scrolls and asks.
+    readonly property var lastingTools: ["", "highlight", "draw"]
+    function savedPencilTool() { const t = researchStore.setting("pencil.tool", "highlight"); return t === "select" ? "" : t === "draw" ? "draw" : "highlight" }
+    property string pencilTool: Theme.touch ? savedPencilTool() : ""
+    // The one before it, for a Pencil's double tap.
+    property string previousPencilTool: pencilTool === "highlight" ? "" : "highlight"
+    // The Pencil's own tool is in use: nothing to finish (no hint, Esc leaves it).
+    readonly property bool toolResting: Theme.touch && tool === pencilTool
+    // Done with a tool, or cancelled: back to the Pencil's from a one-off tool on a touch screen, else none.
+    function endTool() { tool = Theme.touch && lastingTools.indexOf(tool) < 0 ? pencilTool : "" }
     // Highlight (also comments), drawing and text-box inks are separate and remembered; text starts navy.
     readonly property bool invertPages: Theme.invertPages && Theme.canInvertPages
     // The pointer is on a reference preview or a pinned card: drags, pinches and Ctrl+wheel belong to the card,
@@ -178,7 +190,7 @@ Item {
     }
     onReadyChanged: { refreshHighlights(); loadSymbols() }
     onSourceChanged: {
-        savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null; documentFingerprint = ""; tool = ""
+        savedHighlights = []; highlightRequest = -1; highlightError = ""; pendingHighlightSelection = null; documentFingerprint = ""; tool = Theme.touch ? pencilTool : ""
         backStack = []; forwardStack = []; selectedMarkId = ""; markEdit = null
         closeLinkPreview(); hoveredLink = null; restSpot = null
         // PdfDocument may become Ready synchronously before this handler resets the request.
@@ -1453,7 +1465,12 @@ Item {
                     property point end
                     property var points: []
                     property point lastSample
-                    onPressed: function(mouse) { root.activated(); root.clearSelection(); start=Qt.point(mouse.x,mouse.y); end=start; lastSample=start; points=[{x:start.x/width,y:start.y/height}]; liveStroke.requestPaint() }
+                    // A finger scrolls past it: only a Pencil, a mouse or a trackpad places marks. (The handler
+                    // makes the area take every button, so the press says which.)
+                    PointHandler { id: annotationFinger; acceptedDevices: PointerDevice.TouchScreen }
+                    onPressed: function(mouse) {
+                        if (annotationFinger.active || mouse.button !== Qt.LeftButton) { mouse.accepted = false; return }
+                        root.activated(); root.clearSelection(); start=Qt.point(mouse.x,mouse.y); end=start; lastSample=start; points=[{x:start.x/width,y:start.y/height}]; liveStroke.requestPaint() }
                     onPositionChanged: function(mouse) {
                         if (!pressed) return
                         end=Qt.point(Math.max(0,Math.min(width,mouse.x)),Math.max(0,Math.min(height,mouse.y)))
@@ -1646,7 +1663,14 @@ Item {
     readonly property var selectedMark: selectedMarkId.length ? (savedHighlights.find(function(m) { return m.id === root.selectedMarkId }) || null) : null
     // While a frame is dragged: {id, kind, rect (shown), original (stored)}.
     property var markEdit: null
-    onToolChanged: selectedMarkId = ""
+    onToolChanged: {
+        selectedMarkId = ""
+        if (Theme.touch && lastingTools.indexOf(tool) >= 0 && tool !== pencilTool) {
+            previousPencilTool = pencilTool
+            pencilTool = tool
+            researchStore.setSetting("pencil.tool", tool.length ? tool : "select")
+        }
+    }
     onCaptureModeChanged: selectedMarkId = ""
     // Saving reloads the marks (briefly none): the selection stays, its frame returns with the mark.
     onSavedHighlightsChanged: if (!pendingMarkSave) markEdit = null

@@ -7,6 +7,7 @@
 #include "Theme.h"
 #include "TitleBar.h"
 #include "DesktopPet.h"
+#include "Pencil.h"
 #include "SwipeNavigation.h"
 #include <QCommandLineParser>
 #include <QDir>
@@ -94,6 +95,9 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "Theme", &theme);
     DesktopPet pet(&store);
     qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "DesktopPet", &pet);
+    // Apple Pencil's double tap and squeeze (iPadOS; quiet elsewhere).
+    Pencil pencil;
+    qmlRegisterSingletonInstance("Owelk.Ui", 1, 0, "Pencil", &pencil);
     UiLanguage language(&store);
     // Asks the system only when Settings shows it.
     LoginItem loginItem;
@@ -118,6 +122,7 @@ int main(int argc, char *argv[])
     engine.loadFromModule("Owelk", "Main");
     // The macOS title bar takes the theme's window colour and its light or dark look, now and on every change.
     if (auto *window = qobject_cast<QWindow *>(engine.rootObjects().value(0))) {
+        pencil.attach(window);
         const auto follow
             = [window, &theme] { TitleBar::follow(window, theme.property("window").value<QColor>(), theme.dark()); };
         follow();

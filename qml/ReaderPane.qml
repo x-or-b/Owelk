@@ -65,7 +65,8 @@ Rectangle {
     function setTool(tool) {
         activated(); canvas.captureMode = false
         if (tool === "comment" && canvas.selectedAnchor) { addComment(); return }
-        canvas.tool = canvas.tool === tool ? "" : tool
+        if (canvas.tool === tool) canvas.endTool()
+        else canvas.tool = tool
         canvas.clearSelection()
     }
     // One click highlights the selection, or turns the highlight tool on, in the current color.
@@ -190,7 +191,7 @@ Rectangle {
     function copySelection() { canvas.copySelection() }
     function highlightSelection() { canvas.highlightSelection() }
     // A region of the page for the AI: dragged out once, then attached as a picture (nothing is saved).
-    function startCapture() { if (canvas.ready) { activated(); canvas.tool = ""; canvas.captureMode = true } }
+    function startCapture() { if (canvas.ready) { activated(); if (!canvas.toolResting) canvas.endTool(); canvas.captureMode = true } }
     readonly property bool capturing: canvas.captureMode
     function reveal(url, page, region, passage) {
         cancelReveal()
@@ -244,6 +245,35 @@ Rectangle {
         }
     }
     AnnotationEditor { id: annotationEditor }
+    // Apple Pencil (iPadOS): a squeeze, or a double tap set to show a palette, brings the Pencil's tools where it is;
+    // a double tap set to switch tools goes back to the last one (there is no eraser: that setting does the same).
+    // Only the reader in front answers.
+    PencilPalette {
+        id: pencilPalette
+        parent: root
+        tool: canvas.tool
+        markColor: canvas.markColor
+        drawColor: canvas.drawColor
+        onToolChosen: function(tool) { root.activated(); canvas.captureMode = false; canvas.clearSelection(); canvas.tool = tool }
+        onInkChosen: function(tool, color) {
+            root.activated(); canvas.captureMode = false
+            if (tool === "draw") { canvas.drawColor = color; researchStore.setSetting("drawColor", color) }
+            else { canvas.markColor = color; researchStore.setSetting("highlightColor", color) }
+            canvas.clearSelection(); canvas.tool = tool
+        }
+    }
+    function pencilGesture(action, position, hovering) {
+        if (!canvas.ready) return
+        if (action === "previous" || action === "eraser") canvas.tool = canvas.previousPencilTool
+        else if (action === "palette" || action === "colors" || action === "ink")
+            pencilPalette.showAt(hovering ? root.mapFromItem(null, position.x, position.y) : Qt.point(root.width / 2, root.height / 3))
+    }
+    Connections {
+        target: Pencil
+        enabled: root.isActive && root.visible
+        function onSqueezed(position, hovering) { root.pencilGesture(Pencil.squeezeAction, position, hovering) }
+        function onTapped(position, hovering) { root.pencilGesture(Pencil.tapAction, position, hovering) }
+    }
     // Right-click: only what applies there. With a selection; on a figure, table, algorithm or equation
     // (found while the button is down, ReferenceFinder::objectAt); elsewhere on the page.
     property int contextPage: 0
@@ -570,7 +600,7 @@ Rectangle {
             IconButton { objectName: "dismissAnnotationNotice"; icon.name: "close"; description: qsTr("Close"); onClicked: canvas.highlightError = "" }
         }
         Label {
-            visible: canvas.captureMode || canvas.tool.length > 0
+            visible: canvas.captureMode || (canvas.tool.length > 0 && !canvas.toolResting)
             Layout.fillWidth: true
             Layout.leftMargin: 12
             Layout.bottomMargin: 6
@@ -602,9 +632,9 @@ Rectangle {
                     const spec={kind:kind,page:page,rectangles:[rectangle],color:kind==="draw"?canvas.drawColor:kind==="text"?canvas.textColor:canvas.markColor,sha256:canvas.documentFingerprint,drawing:kind==="draw"?points:[]}
                     // A pen stroke and a marked region are kept at once (a region's comment is added later).
                     if(kind==="draw")researchStore.saveAnnotation(canvas.source,page,spec)
-                    else if(kind==="area"){canvas.tool="";researchStore.saveAnnotation(canvas.source,page,spec)}
-                    else if(kind==="comment"&&root.annotationList){canvas.tool="";root.annotationList.beginDraft({page:page,rectangle:rectangle})}
-                    else {canvas.tool="";annotationEditor.begin(canvas,spec,null)}
+                    else if(kind==="area"){canvas.endTool();researchStore.saveAnnotation(canvas.source,page,spec)}
+                    else if(kind==="comment"&&root.annotationList){canvas.endTool();root.annotationList.beginDraft({page:page,rectangle:rectangle})}
+                    else {canvas.endTool();annotationEditor.begin(canvas,spec,null)}
                 }
                 onPositionChanged: root.changed()
                 onFigureAiRequested: function(page, rect, label) {
@@ -799,8 +829,8 @@ Rectangle {
     // Typing in the find field: Esc closes the search and Backspace edits it; tools and marks are left alone.
     Shortcut {
         sequence: "Escape"
-        enabled: root.isActive && !searchField.activeFocus && (canvas.captureMode || canvas.tool.length > 0 || canvas.selectedMarkId.length > 0)
-        onActivated: {canvas.captureMode = false;canvas.tool="";canvas.selectedMarkId=""}
+        enabled: root.isActive && !searchField.activeFocus && (canvas.captureMode || (canvas.tool.length > 0 && !canvas.toolResting) || canvas.selectedMarkId.length > 0)
+        onActivated: {canvas.captureMode = false;if(!canvas.toolResting)canvas.endTool();canvas.selectedMarkId=""}
     }
     // A selected text box, picture, stroke or spot comment is removed with Delete (undo brings it back).
     Shortcut {
