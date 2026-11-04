@@ -153,7 +153,8 @@ private:
 };
 
 // The OpenAI sign-in path: the Codex app server (JSON-RPC over stdio) runs requests on the user's
-// ChatGPT account. One process is shared; it is started on first use.
+// ChatGPT account. One process is shared; it is started on first use. Where no other program can run
+// (iPadOS), every call answers that it is unavailable, and the provider is not offered.
 class CodexBridge final : public QObject {
     Q_OBJECT
 public:
@@ -162,7 +163,11 @@ public:
     static QString executable();
     using Callback = std::function<void(const QJsonValue &result, const QString &error)>;
     void call(const QString &method, const QJsonObject &params, Callback callback);
+#if QT_CONFIG(process)
     bool running() const { return m_process.state() != QProcess::NotRunning; }
+#else
+    bool running() const { return false; }
+#endif
 signals:
     void notification(const QString &method, const QJsonObject &params);
     void stopped(const QString &error);
@@ -171,7 +176,9 @@ private:
     void ensureStarted();
     void send(const QJsonObject &message);
     void readLines();
+#if QT_CONFIG(process)
     QProcess m_process;
+#endif
     QByteArray m_buffer;
     int m_nextId = 1;
     bool m_ready = false;

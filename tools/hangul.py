@@ -31,7 +31,8 @@ def unescape(text):
 
 def sources():
     found = {}
-    for path in sorted(list((ROOT / "qml").glob("*.qml")) + list((ROOT / "qml").glob("*.js"))
+    # qml/mobile/ holds stand-ins for builds without a web engine; their context is the type they stand in for.
+    for path in sorted(list((ROOT / "qml").rglob("*.qml")) + list((ROOT / "qml").glob("*.js"))
                        + list((ROOT / "style").glob("*.qml"))):
         for literal in re.findall(r'(?:qsTr|QT_TR_NOOP)\(' + STRING + r'\)', path.read_text(encoding="utf-8")):
             found.setdefault(path.stem, set()).add(unescape(literal))

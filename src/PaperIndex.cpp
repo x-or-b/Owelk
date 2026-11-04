@@ -53,10 +53,18 @@ QString matchQuery(const QString &input)
     while (matches.hasNext() && parts.size() < 12) parts << '"' + matches.next().captured() + "\"*";
     return parts.join(" AND ");
 }
-// Text for a page without a text layer (a scan), read by the installed Tesseract. Empty on failure.
+// Text for a page without a text layer (a scan), read by the installed Tesseract. Empty on failure, and where no
+// other program can run (iPadOS).
 QString recognize(
     QPdfDocument &pdf, int page, const PaperIndex::Ocr &ocr, const std::shared_ptr<std::atomic_bool> &cancel)
 {
+#if !QT_CONFIG(process)
+    Q_UNUSED(pdf);
+    Q_UNUSED(page);
+    Q_UNUSED(ocr);
+    Q_UNUSED(cancel);
+    return {};
+#else
     const auto points = pdf.pagePointSize(page);
     // 300 dpi is what Tesseract reads best; very large pages are capped.
     const qreal scale = qMin(300.0 / 72.0, 4200.0 / qMax(points.width(), points.height()));
@@ -81,6 +89,7 @@ QString recognize(
             return {};
         }
     return process.exitCode() == 0 ? QString::fromUtf8(process.readAllStandardOutput()) : QString();
+#endif
 }
 struct IndexResult {
     QString error;

@@ -807,6 +807,8 @@ QVariantMap ResearchStore::paperExcerpt(const QUrl &source, int opening, int clo
 
 // --- OCR (Tesseract) -----------------------------------------------------------------------
 
+// Tesseract is another program, which iPadOS does not let an app start: there scanned pages stay unread.
+#if QT_CONFIG(process)
 namespace {
 QString findTesseract()
 {
@@ -820,16 +822,22 @@ QString findTesseract()
     return found;
 }
 }
+#endif
 
 void ResearchStore::configureOcr()
 {
+#if QT_CONFIG(process)
     m_ocrProgram = findTesseract();
+#else
+    m_ocrProgram.clear();
+#endif
     m_ocrInstalled.clear();
     emit ocrChanged();
     if (m_ocrProgram.isEmpty() || setting("ocr.enabled", "1") != "1") {
         m_index->setOcr({});
         return;
     }
+#if QT_CONFIG(process)
     // Which language data is installed decides the default (English, plus Korean when present).
     auto *process = new QProcess(this);
     connect(process, &QProcess::finished, this, [this, process] {
@@ -854,6 +862,7 @@ void ResearchStore::configureOcr()
             QStandardPaths::findExecutable("python3").isEmpty() ? "python" : "python3", {m_ocrProgram, "--list-langs"});
     else
         process->start(m_ocrProgram, {"--list-langs"});
+#endif
 }
 
 QVariantMap ResearchStore::ocrStatus() const

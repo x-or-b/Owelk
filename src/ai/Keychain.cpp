@@ -4,7 +4,7 @@
 #include <QFile>
 #include <QSaveFile>
 
-#ifdef Q_OS_MACOS
+#ifdef Q_OS_DARWIN
 #include <Security/Security.h>
 #elif defined(Q_OS_WIN)
 #include <string>
@@ -23,6 +23,8 @@ QString storageName()
 {
 #if defined(Q_OS_MACOS)
     return QStringLiteral("the macOS Keychain");
+#elif defined(Q_OS_DARWIN)
+    return QStringLiteral("the iPadOS Keychain");
 #elif defined(Q_OS_WIN)
     return QStringLiteral("Windows Credential Manager");
 #elif defined(OWELK_HAVE_LIBSECRET)
@@ -67,7 +69,8 @@ namespace {
     }
 }
 
-#ifdef Q_OS_MACOS
+// The same Keychain items on macOS and iPadOS.
+#ifdef Q_OS_DARWIN
 namespace {
     CFStringRef cf(const QString &text)
     {

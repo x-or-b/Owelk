@@ -48,7 +48,10 @@ const ProviderInfo providerTable[] = {
     {"openai", "OpenAI API", "api", "OpenAI", "gpt-5", "https://api.openai.com/"},
     // Sign in with ChatGPT: OpenAI's API on the reader's plan. Its model comes from the account's catalog.
     {"chatgpt", "ChatGPT account", "account", "OpenAI via your ChatGPT account", "", "https://api.openai.com/"},
+#if QT_CONFIG(process)
+    // Runs the Codex CLI, so not where no other program can run (iPadOS).
     {"codex", "ChatGPT account (Codex)", "account", "OpenAI via your ChatGPT account", "", ""},
+#endif
     // Where Ollama sends depends on its host (providers() fills it in).
     {"ollama", "Ollama (local)", "local", "", "", "http://127.0.0.1:11434/"},
 };

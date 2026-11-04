@@ -140,7 +140,8 @@
 
 ## 지난 단계 (2026-10-04): v0.5와 v1 마무리
 
-- 플랫폼: Linux·Windows 지원(키 저장소, 경로, Codex 실행, 글꼴, 단축키 기본값), CI 3종, 설치 규칙. 인쇄 수정(한 번 검증·300dpi·대화상자 앞에).
+- 플랫폼: Linux·Windows 지원(키 저장소, 경로, Codex 실행, 글꼴, 단축키 기본값), CI 3종, 설치 규칙.
+- iPadOS 준비: 웹 엔진(Qt WebEngine)·외부 프로그램(OCR·Codex)·macOS 전용 코드를 플랫폼별로 나눔. iOS 시뮬레이터용으로 컴파일·링크됨(`build-ios`, 실행 확인은 아직). iPad에서는 웹 탭이 시스템 브라우저로 열리고, ChatGPT 계정은 Sign in with ChatGPT만 씀. 인쇄 수정(한 번 검증·300dpi·대화상자 앞에).
 - v0.5: 검색 순위, 선택적 의미 검색, 관련 논문·노트, 이름 있는 탭 그룹, AI 탭 정리.
 - v1: 암호 PDF, OCR(Tesseract), 백업·복원·비정상 종료 복구·편집 초안, Markdown·BibTeX·주석 PDF 내보내기, 단축키 변경, DocumentAnchor.
 

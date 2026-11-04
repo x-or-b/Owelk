@@ -3514,6 +3514,10 @@ Same file as another library entry</source>
         <translation>캔낫 라이트 투 더 싱크 폴더.</translation>
     </message>
     <message>
+        <source>ChatGPT account (Codex) cannot run on this device.</source>
+        <translation>챗지피티 어카운트 (코덱스) 캔낫 런 온 디스 디바이스.</translation>
+    </message>
+    <message>
         <source>ChatGPT answered for another registration. Try signing in again.</source>
         <translation>챗지피티 앤서드 포 어나더 레지스트레이션. 트라이 사이닝 인 어게인.</translation>
     </message>
@@ -7880,6 +7884,10 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>오픈 피디에프</translation>
     </message>
     <message>
+        <source>Open in Browser</source>
+        <translation>오픈 인 브라우저</translation>
+    </message>
+    <message>
         <source>Open in Reader</source>
         <translation>오픈 인 리더</translation>
     </message>
@@ -7918,6 +7926,10 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>This page wants to save %1.</source>
         <translation>디스 페이지 원츠 투 세이브 %1.</translation>
+    </message>
+    <message>
+        <source>Web pages open in the browser on this device.</source>
+        <translation>웹 페이지스 오픈 인 더 브라우저 온 디스 디바이스.</translation>
     </message>
     <message>
         <source>Web · </source>

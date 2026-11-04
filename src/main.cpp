@@ -11,7 +11,6 @@
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
-#include <QApplication>
 #include <QQmlApplicationEngine>
 #include "UiLanguage.h"
 #include <QQmlContext>
@@ -21,16 +20,29 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <QWindow>
+#ifdef OWELK_HAVE_WEBENGINE
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
+#endif
+// Desktops start the widget application, which the print dialog needs; iPadOS and Android have no print
+// dialog and start the lighter one.
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
+#include <QGuiApplication>
+using Application = QGuiApplication;
+#else
+#include <QApplication>
+using Application = QApplication;
+#endif
 #include <cstdio>
 
 Q_IMPORT_QML_PLUGIN(OwelkStylePlugin)
 
 int main(int argc, char *argv[])
 {
+#ifdef OWELK_HAVE_WEBENGINE
     // Web tabs need WebEngine set up before the application object exists.
     QtWebEngineQuick::initialize();
-    QApplication app(argc, argv);
+#endif
+    Application app(argc, argv);
     app.setOrganizationName("Owelk");
     app.setApplicationName("Owelk");
     app.setApplicationVersion("0.1.0");

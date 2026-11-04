@@ -3,14 +3,24 @@ project(Owelk VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-find_package(Qt6 6.9 REQUIRED COMPONENTS Quick QuickControls2 Pdf PdfQuick Sql Concurrent PrintSupport Widgets Network WebEngineQuick)
+find_package(Qt6 6.9 REQUIRED COMPONENTS Quick QuickControls2 Pdf PdfQuick Sql Concurrent PrintSupport Widgets Network)
+# Web tabs run on Qt WebEngine, which every desktop has. iPadOS and Android have none: their builds leave the
+# web engine out (OWELK_HAVE_WEBENGINE unset), and qml/mobile/ stands in for the parts that use it.
+if(IOS OR ANDROID)
+    find_package(Qt6 QUIET COMPONENTS WebEngineQuick)
+else()
+    find_package(Qt6 REQUIRED COMPONENTS WebEngineQuick)
+endif()
 qt_standard_project_setup(REQUIRES 6.9)
 
 qt_add_library(owelk_core STATIC src/ResearchStore.cpp src/ResearchStoreHighlights.cpp src/ResearchStoreRelink.cpp src/ResearchStoreSearch.cpp src/ResearchStoreDocuments.cpp src/ResearchStoreLibrary.cpp src/ResearchStoreNotes.cpp src/ResearchStoreAi.cpp src/ResearchStoreBackup.cpp src/ResearchStoreExport.cpp src/ResearchStoreAnchors.cpp src/ResearchStoreHistory.cpp src/ResearchStoreCitations.cpp src/ResearchStoreReading.cpp src/ResearchStoreWords.cpp src/ReadingClock.cpp src/ReadingClock.h src/LibrarySync.cpp src/LibrarySync.h src/LibraryInsights.cpp src/LibraryInsights.h src/ArxivVersions.cpp src/ArxivVersions.h src/ForYou.cpp src/ForYou.h src/ResearchStorePapers.cpp src/ResearchStoreTrash.cpp src/MathRenderer.cpp src/MathRenderer.h src/PaperMetadata.cpp src/PaperMetadata.h src/MetadataLookup.cpp src/MetadataLookup.h src/ai/AiService.cpp src/ai/AiService.h src/ai/AiProviders.cpp src/ai/AiProviders.h src/ai/ChatGptAccount.cpp src/ai/ChatGptAccount.h src/ai/AiContext.cpp src/ai/AiContext.h src/ai/Keychain.cpp src/ai/Keychain.h src/ResearchStore.h src/SelectionGeometry.cpp src/SelectionGeometry.h src/PaperIndex.cpp src/PaperIndex.h src/ReferenceFinder.cpp src/ReferenceRepositories.cpp src/ReferenceFinder.h src/AppInstance.cpp src/AppInstance.h src/LoginItem.cpp src/LoginItem.h src/SemanticIndex.cpp src/SemanticIndex.h src/PdfPrinting.cpp src/PdfPrinting.h src/PdfAccess.cpp src/PdfAccess.h src/AnnotatedPdf.cpp src/AnnotatedPdf.h src/FileFingerprint.cpp src/FileFingerprint.h src/SchemaMigration.h src/WorkerConnection.h src/DocumentMerge.h src/FileNames.h src/ui/Theme.cpp src/ui/Theme.h src/ui/ImagePalette.cpp src/ui/ImagePalette.h src/ui/DesktopPet.cpp src/ui/DesktopPet.h src/ui/UiLanguage.cpp src/ui/UiLanguage.h src/UiText.h src/ui/AppIcon.cpp src/ui/AppIcon.h src/ui/TitleBar.h src/ui/TitleBar.cpp src/ui/SwipeNavigation.h src/ui/SwipeNavigation.cpp)
 target_link_libraries(owelk_core PUBLIC Qt6::Core Qt6::Qml Qt6::Gui Qt6::Pdf Qt6::Sql Qt6::Concurrent Qt6::PrintSupport Qt6::Widgets Qt6::Network)
 target_include_directories(owelk_core PUBLIC src src/ai src/ui)
-# Annotated PDF export writes real PDF annotations with qpdf (brew qpdf, apt libqpdf-dev, vcpkg qpdf).
-find_package(qpdf CONFIG QUIET)
+# Annotated PDF export writes real PDF annotations with qpdf (brew qpdf, apt libqpdf-dev, vcpkg qpdf); not looked for
+# on iPadOS and Android, where a desktop qpdf found on the prefix path would not link.
+if(NOT IOS AND NOT ANDROID)
+    find_package(qpdf CONFIG QUIET)
+endif()
 if(TARGET qpdf::libqpdf)
     target_link_libraries(owelk_core PUBLIC qpdf::libqpdf)
     # POINTERHOLDER_TRANSITION=4: use std::shared_ptr; silences qpdf 11's transition warning.
@@ -54,10 +64,13 @@ if(TARGET Qt6::ShaderTools)
 else()
     message(STATUS "Qt ShaderTools not found: the invert-pages option is hidden")
 endif()
-if(APPLE)
+if(APPLE AND NOT IOS)
     enable_language(OBJCXX)
     target_sources(owelk_core PRIVATE src/AppInstanceMac.mm src/LoginItemMac.mm src/ui/AppIconMac.mm src/ui/TitleBarMac.mm src/ui/DesktopPetMac.mm src/ui/SwipeNavigationMac.mm)
     target_link_libraries(owelk_core PUBLIC "-framework ImageIO" "-framework CoreGraphics" "-framework CoreFoundation" "-framework Security" "-framework AppKit" "-framework ServiceManagement")
+elseif(IOS)
+    # Keys in the iPadOS Keychain; the macOS window, Dock and login-item code has no counterpart there.
+    target_link_libraries(owelk_core PUBLIC "-framework CoreFoundation" "-framework Security")
 elseif(WIN32)
     target_sources(owelk_core PRIVATE src/ui/TitleBarWin.cpp)
     target_link_libraries(owelk_core PUBLIC Advapi32 Dwmapi)
@@ -77,28 +90,43 @@ add_subdirectory(style)
 
 # The app icon (tools/app_icon.cpp makes these from resources/app/owelk-mark.png).
 set(owelk_icon_sources)
-if(APPLE)
+if(APPLE AND NOT IOS)
     set(owelk_icon_sources resources/app/owelk.icns)
     set_source_files_properties(resources/app/owelk.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 elseif(WIN32)
     set(owelk_icon_sources resources/app/owelk.rc)
 endif()
 qt_add_executable(owelk MACOSX_BUNDLE src/main.cpp ${owelk_icon_sources})
+# The web tab and its shared profile: Qt WebEngine's, or stand-ins that open pages in the system browser.
+if(TARGET Qt6::WebEngineQuick)
+    set(owelk_web_qml qml/WebPane.qml qml/WebProfile.qml)
+else()
+    set(owelk_web_qml qml/mobile/WebPane.qml qml/mobile/WebProfile.qml)
+    set_source_files_properties(qml/mobile/WebPane.qml PROPERTIES QT_RESOURCE_ALIAS qml/WebPane.qml)
+    set_source_files_properties(qml/mobile/WebProfile.qml PROPERTIES QT_RESOURCE_ALIAS qml/WebProfile.qml)
+endif()
 qt_add_qml_module(owelk
     URI Owelk VERSION 1.0
     QML_FILES qml/SearchFilters.qml qml/AnnotationColors.qml qml/AnnotationEditor.qml
-    QML_FILES qml/Main.qml qml/ReaderPane.qml qml/PdfCanvas.qml qml/CommandPalette.qml qml/FilePanel.qml qml/DockSidebar.qml qml/HomeView.qml qml/StatusIcon.qml qml/DocumentWorkspace.qml qml/DocumentGroup.qml qml/WorkspaceTree.js qml/WebSearch.js qml/RecentPaperDelegate.qml qml/PaperMenu.qml qml/AnnotationList.qml qml/TabsPanel.qml qml/TabStripMenu.qml qml/ConfirmDialog.qml qml/PaletteMatch.js qml/StrokePath.js qml/SearchPalette.qml qml/PdfNavigationPanel.qml qml/ResearchSearch.qml qml/SearchResultDelegate.qml qml/IndexStatus.qml qml/RelinkDialog.qml qml/PaperDetailsDialog.qml qml/WebPane.qml qml/SettingsDialog.qml qml/SettingsGroup.qml qml/SettingsRow.qml qml/SettingsGeneral.qml qml/SettingsAppearance.qml qml/SettingsLibrary.qml qml/SettingsForYou.qml qml/SettingsWeb.qml qml/SettingsSearch.qml qml/SettingsAi.qml qml/SettingsShortcuts.qml qml/SettingsSync.qml qml/LibraryView.qml qml/NotePane.qml qml/LinkToNoteDialog.qml qml/AiController.qml qml/AiRuns.qml qml/AiTab.qml qml/AiPanel.qml qml/ThreadsPanel.qml qml/GlossPopup.qml qml/AiNames.js qml/Platform.js qml/Shortcuts.js qml/SettingsIndex.js qml/OrganizeTabsDialog.qml qml/OrganizePapersDialog.qml qml/GroupEditor.qml qml/ComparePapersDialog.qml qml/AiNotice.qml qml/WebSearchRow.qml qml/TopBar.qml qml/FollowAuthorDialog.qml qml/ForYouFollowing.qml qml/SearchBox.qml qml/PictureLayer.qml qml/PetWindow.qml qml/PreviewContent.qml qml/PinnedCard.qml qml/WordsView.qml qml/HomeLayout.js
+    QML_FILES qml/Main.qml qml/ReaderPane.qml qml/PdfCanvas.qml qml/CommandPalette.qml qml/FilePanel.qml qml/DockSidebar.qml qml/HomeView.qml qml/StatusIcon.qml qml/DocumentWorkspace.qml qml/DocumentGroup.qml qml/WorkspaceTree.js qml/WebSearch.js qml/RecentPaperDelegate.qml qml/PaperMenu.qml qml/AnnotationList.qml qml/TabsPanel.qml qml/TabStripMenu.qml qml/ConfirmDialog.qml qml/PaletteMatch.js qml/StrokePath.js qml/SearchPalette.qml qml/PdfNavigationPanel.qml qml/ResearchSearch.qml qml/SearchResultDelegate.qml qml/IndexStatus.qml qml/RelinkDialog.qml qml/PaperDetailsDialog.qml ${owelk_web_qml} qml/SettingsDialog.qml qml/SettingsGroup.qml qml/SettingsRow.qml qml/SettingsGeneral.qml qml/SettingsAppearance.qml qml/SettingsLibrary.qml qml/SettingsForYou.qml qml/SettingsWeb.qml qml/SettingsSearch.qml qml/SettingsAi.qml qml/SettingsShortcuts.qml qml/SettingsSync.qml qml/LibraryView.qml qml/NotePane.qml qml/LinkToNoteDialog.qml qml/AiController.qml qml/AiRuns.qml qml/AiTab.qml qml/AiPanel.qml qml/ThreadsPanel.qml qml/GlossPopup.qml qml/AiNames.js qml/Platform.js qml/Shortcuts.js qml/SettingsIndex.js qml/OrganizeTabsDialog.qml qml/OrganizePapersDialog.qml qml/GroupEditor.qml qml/ComparePapersDialog.qml qml/AiNotice.qml qml/WebSearchRow.qml qml/TopBar.qml qml/FollowAuthorDialog.qml qml/ForYouFollowing.qml qml/SearchBox.qml qml/PictureLayer.qml qml/PetWindow.qml qml/PreviewContent.qml qml/PinnedCard.qml qml/WordsView.qml qml/HomeLayout.js
 )
-target_link_libraries(owelk PRIVATE owelk_core owelk_styleplugin Qt6::Quick Qt6::QuickControls2 Qt6::PdfQuick Qt6::WebEngineQuick)
+target_link_libraries(owelk PRIVATE owelk_core owelk_styleplugin Qt6::Quick Qt6::QuickControls2 Qt6::PdfQuick)
+if(TARGET Qt6::WebEngineQuick)
+    target_link_libraries(owelk PRIVATE Qt6::WebEngineQuick)
+    target_compile_definitions(owelk PRIVATE OWELK_HAVE_WEBENGINE)
+endif()
 set_target_properties(owelk PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME Owelk
     MACOSX_BUNDLE_GUI_IDENTIFIER org.owelk.reader
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
-    MACOSX_BUNDLE_ICON_FILE owelk.icns
-    MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/resources/app/Info.plist.in
     WIN32_EXECUTABLE TRUE
 )
+# The Mac app's own Info.plist and icon; an iPadOS build uses Qt's until it has its own.
+if(APPLE AND NOT IOS)
+    set_target_properties(owelk PROPERTIES MACOSX_BUNDLE_ICON_FILE owelk.icns
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/resources/app/Info.plist.in)
+endif()
 
 # Install with the Qt runtime it needs (QML modules, Pdf, WebEngine): `cmake --install build`.
 include(GNUInstallDirs)
@@ -111,7 +139,8 @@ if(UNIX AND NOT APPLE)
 endif()
 
 include(CTest)
-if(BUILD_TESTING)
+# The tests run on the computer that builds them, so not in iPadOS and Android builds.
+if(BUILD_TESTING AND NOT IOS AND NOT ANDROID)
     # Each run also leaves its results in build/test-results/<test>.txt (CI prints them on failure).
     # Tests run without windows (offscreen); OWELK_TEST_PLATFORM=windows uses the desktop instead.
     set(OWELK_TEST_PLATFORM offscreen CACHE STRING "Qt platform the tests run on")

@@ -430,6 +430,7 @@ bool OllamaProvider::handle(const QString &, const QJsonObject &data)
 
 // --- OpenAI sign-in through the Codex app server -----------------------------------------
 
+#if QT_CONFIG(process)
 CodexBridge::CodexBridge(QObject *parent) : QObject(parent)
 {
     connect(&m_process, &QProcess::readyReadStandardOutput, this, &CodexBridge::readLines);
@@ -562,6 +563,29 @@ void CodexBridge::readLines()
             emit notification(json.value("method").toString(), json.value("params").toObject());
     }
 }
+#else
+CodexBridge::CodexBridge(QObject *parent) : QObject(parent) { }
+
+CodexBridge::~CodexBridge() = default;
+
+QString CodexBridge::executable()
+{
+    return {};
+}
+
+void CodexBridge::ensureStarted() { }
+
+void CodexBridge::send(const QJsonObject &) { }
+
+void CodexBridge::readLines() { }
+
+void CodexBridge::call(const QString &, const QJsonObject &, Callback callback)
+{
+    QMetaObject::invokeMethod(
+        this, [callback] { callback({}, ui("ChatGPT account (Codex) cannot run on this device.")); },
+        Qt::QueuedConnection);
+}
+#endif
 
 CodexProvider::CodexProvider(CodexBridge *bridge, QObject *parent) : AiProvider(parent), m_bridge(bridge)
 {

@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtWebEngine
 import "WorkspaceTree.js" as Tree
 import Owelk.Ui
 
@@ -209,19 +208,7 @@ Flickable {
         return true
     }
     // All web tabs share one persistent profile in the data folder (cookies, logins, cache).
-    // Qt 6.11 suggests WebEngineProfilePrototype, but instance() hung page loads in offscreen tests;
-    // revisit when the plain profile type is actually deprecated.
-    readonly property WebEngineProfile webProfile: WebEngineProfile {
-        storageName: "owelk"
-        offTheRecord: false
-        persistentStoragePath: researchStore.dataDirectory + "/web"
-        cachePath: researchStore.dataDirectory + "/web/cache"
-        httpCacheType: WebEngineProfile.DiskHttpCache
-        persistentCookiesPolicy: WebEngineProfile.AllowPersistentCookies
-        // Present as plain Chrome: publisher sites (IEEE and the like) slow down or challenge browsers
-        // whose name carries "QtWebEngine".
-        Component.onCompleted: httpUserAgent = httpUserAgent.replace(/\s*QtWebEngine\/[\d.]+/, "")
-    }
+    readonly property QtObject webProfile: WebProfile {}
     signal webTabUpdated()
     // Route an address to the right surface: local PDFs open in the reader, web addresses in a web tab
     // (a PDF on the web downloads there and then opens in the reader).
