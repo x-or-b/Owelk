@@ -24,8 +24,10 @@ Item {
         function onFocusRequested() { root.focusQuestion() }
         function onDraftRequested(text) { question.text = text; question.cursorPosition = text.length }
     }
-    // Opened to ask about something just attached (or a new thread): the question box is ready.
-    Component.onCompleted: if (c && c.conversationOpen && !c.streaming) question.forceActiveFocus()
+    // Opened to ask about something just attached (or a new thread): the question box is ready. Not on a touch
+    // screen, where it would raise the keyboard each time the panel comes back (an iPad turned upright); asking
+    // still focuses it (focusRequested).
+    Component.onCompleted: if (!Theme.touch && c && c.conversationOpen && !c.streaming) question.forceActiveFocus()
     // The reader's turn: an accent bubble that hugs its text, with room on the left like a messenger.
     component Bubble: Rectangle {
         property alias text: bubbleText.text
