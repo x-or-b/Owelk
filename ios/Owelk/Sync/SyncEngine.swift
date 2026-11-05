@@ -154,9 +154,15 @@ actor SyncEngine {
         guard folder.library() == expected else {
             return .failed("The sync folder is not available. Check that Synctrain is running.")
         }
-        if let listed = library.papers.first(where: { $0.id == paper.sha256 }) {
+        if var listed = library.papers.first(where: { $0.id == paper.sha256 }) {
+            // Its PDF gone from the folder (or not there yet): this copy puts it back.
+            if !listed.hasFile, (try? folder.savePaper(paper.data, sha256: paper.sha256)) != nil {
+                files = (files ?? folder.paperFiles()).union([paper.sha256])
+                library = Library.build(state, files: files ?? [])
+                listed = library.papers.first { $0.id == paper.sha256 } ?? listed
+            }
             file(listed, collection: collection, tag: tag)
-            return .already(listed)
+            return .already(library.papers.first { $0.id == paper.sha256 } ?? listed)
         }
         do {
             try folder.savePaper(paper.data, sha256: paper.sha256)

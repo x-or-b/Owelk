@@ -412,6 +412,28 @@ final class AddPaperTests: XCTestCase {
         XCTAssertGreaterThan(back.version.time, ConformanceTests.clock)
     }
 
+    /// A listed paper whose PDF left the folder: adding the same PDF puts the file back, and adds no paper.
+    func testAddingAPaperWhosePdfIsGonePutsItBack() async throws {
+        let library = try XCTUnwrap(folder.library())
+        let engine = SyncEngine(storage: temporary.appendingPathComponent("app"), device: ConformanceTests.ipad)
+        _ = await engine.pass(folder, library: library, about: [:])
+        let listed = await engine.current().papers
+        let paper = try XCTUnwrap(listed.first)
+        let file = try XCTUnwrap(folder.paper(paper.sha256))
+        let pdf = try Data(contentsOf: file)
+        try FileManager.default.removeItem(at: file)
+        _ = await engine.pass(folder, library: library, about: [:])
+        let waiting = await engine.current().papers
+        XCTAssertEqual(waiting.first?.hasFile, false)
+        guard case let .already(back) = await engine.add(try XCTUnwrap(NewPaper(data: pdf, name: "copy.pdf")), to: folder,
+                                                         library: library)
+        else { return XCTFail("the paper is there already") }
+        XCTAssertTrue(back.hasFile)
+        XCTAssertEqual(try Data(contentsOf: file), pdf)
+        let papers = await engine.current().papers
+        XCTAssertEqual(papers.count, 1)
+    }
+
     func testNothingIsAddedWhileTheFolderIsAway() async throws {
         let engine = SyncEngine(storage: temporary.appendingPathComponent("app"), device: ConformanceTests.ipad)
         let pdf = try XCTUnwrap(NewPaper(data: try Data(contentsOf: ConformanceTests.addedPdf), name: "a.pdf"))
