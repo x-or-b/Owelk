@@ -476,16 +476,8 @@ int ResearchStore::purgePapers(const QVariantList &sources)
     int purged = 0;
     QStringList annotationImages;
     QList<QUrl> files;
-    for (const auto &value : sources) {
-        const auto url = resolvedSource(value.toUrl());
-        const auto document = findDocument(url);
-        if (document.isEmpty()) continue;
-        // Only a paper in the Trash: one restored since the Trash was shown (opened, or through sync) stays.
-        QSqlQuery trashed(m_database);
-        trashed.prepare("SELECT 1 FROM documents WHERE id=? AND trashed_at IS NOT NULL");
-        trashed.addBindValue(document);
-        if (!trashed.exec() || !trashed.next()) continue;
-        trashed.finish();
+    // One entry with everything of its own; false when it could not be removed.
+    const auto purge = [&](const QString &document, const QUrl &url) {
         const auto rows = [&](const QString &sql) {
             QStringList values;
             QSqlQuery query(m_database);
@@ -496,8 +488,8 @@ int ResearchStore::purgePapers(const QVariantList &sources)
             return values;
         };
         const auto highlights = rows("SELECT id FROM highlights WHERE document_id=?");
-        annotationImages += rows("SELECT image FROM highlights WHERE document_id=? AND image<>''");
-        if (!m_database.transaction()) continue;
+        const auto images = rows("SELECT image FROM highlights WHERE document_id=? AND image<>''");
+        if (!m_database.transaction()) return false;
         bool ok = true;
         const auto run = [&](const QString &sql, const QVariantList &args) {
             QSqlQuery query(m_database);
@@ -516,12 +508,41 @@ int ResearchStore::purgePapers(const QVariantList &sources)
         run("DELETE FROM documents WHERE id=?", {document});
         if (!ok || !m_database.commit()) {
             m_database.rollback();
-            continue;
+            return false;
         }
         m_index->remove(url);
         forgetRelinksTo(url);
         files << url;
+        annotationImages += images;
+        return true;
+    };
+    for (const auto &value : sources) {
+        const auto url = resolvedSource(value.toUrl());
+        const auto document = findDocument(url);
+        if (document.isEmpty()) continue;
+        // Only a paper in the Trash: one restored since the Trash was shown (opened, or through sync) stays.
+        QSqlQuery trashed(m_database);
+        trashed.prepare("SELECT sha256 FROM documents WHERE id=? AND trashed_at IS NOT NULL");
+        trashed.addBindValue(document);
+        if (!trashed.exec() || !trashed.next()) continue;
+        const auto sha = trashed.value(0).toString();
+        trashed.finish();
+        // Hidden entries for the same PDF (a duplicate folded into another, a missing file taken out of the Library)
+        // are in neither the Library nor the Trash; left behind, they would bring the paper's old state back when
+        // the PDF is added again. They go with it, so the PDF starts afresh.
+        QList<QPair<QString, QUrl>> hidden;
+        if (sha.size() == 64) {
+            QSqlQuery copies(m_database);
+            copies.prepare("SELECT id,url FROM documents WHERE sha256=? AND id<>? AND removed_at IS NOT NULL AND "
+                           "trashed_at IS NULL");
+            copies.addBindValue(sha);
+            copies.addBindValue(document);
+            if (copies.exec())
+                while (copies.next()) hidden.append({copies.value(0).toString(), QUrl(copies.value(1).toString())});
+        }
+        if (!purge(document, url)) continue;
         ++purged;
+        for (const auto &[id, copy] : std::as_const(hidden)) purge(id, copy);
     }
     if (!purged) return 0;
     // Files go only after the rows: at worst an unused file stays behind, never a paper without its file.

@@ -412,6 +412,34 @@ final class AddPaperTests: XCTestCase {
         XCTAssertGreaterThan(back.version.time, ConformanceTests.clock)
     }
 
+    /// A paper deleted for good on a computer: the same PDF added here is a new paper, not the old one back.
+    func testAPaperDeletedForGoodComesBackNew() async throws {
+        let library = try XCTUnwrap(folder.library())
+        var state = SyncState()
+        _ = folder.read(into: &state)
+        let row = try XCTUnwrap(state.entries("documents").values.compactMap(\.row).first)
+        let file = try XCTUnwrap(folder.paper(row.string("sha256")))
+        let pdf = try Data(contentsOf: file)
+        let gone = Change(table: "documents", key: [row.string("id")],
+                          version: Version(time: ConformanceTests.clock, device: "ffffffff-0000-4000-8000-000000000000"),
+                          row: nil)
+        try folder.append(gone.line(), device: "ffffffff-0000-4000-8000-000000000000", about: ["name": "Ubuntu"])
+        try FileManager.default.removeItem(at: file)
+        let engine = SyncEngine(storage: temporary.appendingPathComponent("app"), device: ConformanceTests.ipad,
+                                clock: { ConformanceTests.clock + 5 }, newId: { ConformanceTests.addedId })
+        _ = await engine.pass(folder, library: library, about: [:])
+        let before = await engine.current().papers
+        XCTAssertTrue(before.isEmpty, "deleted for good")
+
+        guard case let .added(paper) = await engine.add(try XCTUnwrap(NewPaper(data: pdf, name: "Again.pdf")), to: folder,
+                                                        library: library)
+        else { return XCTFail("the PDF is added") }
+        XCTAssertEqual(paper.documentId, ConformanceTests.addedId)
+        XCTAssertEqual(paper.readingState, "unread")
+        XCTAssertTrue(paper.hasFile)
+        XCTAssertEqual(try Data(contentsOf: file), pdf)
+    }
+
     /// A listed paper whose PDF left the folder: adding the same PDF puts the file back, and adds no paper.
     func testAddingAPaperWhosePdfIsGonePutsItBack() async throws {
         let library = try XCTUnwrap(folder.library())

@@ -3844,6 +3844,50 @@ private slots:
         QCOMPARE(store.trashCount(), 0);
         QVERIFY(QFileInfo::exists(b.toLocalFile()));
     }
+    void deletingForGoodStartsThePdfAfresh()
+    {
+        // Deleting a paper for good takes the PDF's hidden entries with it (a duplicate folded into another, a missing
+        // file taken out of the Library): the same PDF added again is a new paper, with nothing of the old one.
+        QTemporaryDir directory;
+        ResearchStore store(directory.filePath("data"));
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        QVERIFY(store.setSetting("library.keepPdfs", "0")); // Files outside Owelk's folder are never touched.
+        const auto scalar = [&](const QString &sql) {
+            WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3", true);
+            QSqlQuery query(db.db);
+            return query.exec(sql) && query.next() ? query.value(0) : QVariant();
+        };
+        const auto paper = QUrl::fromLocalFile(directory.filePath("paper.pdf")),
+                   copy = QUrl::fromLocalFile(directory.filePath("copy.pdf")),
+                   other = QUrl::fromLocalFile(directory.filePath("other.pdf"));
+        writeFixture(paper.toLocalFile(), "Fresh Paper");
+        QVERIFY(QFile::copy(paper.toLocalFile(), copy.toLocalFile()));
+        writeFixture(other.toLocalFile(), "Other Paper");
+        QCOMPARE(store.addDocuments({paper, copy, other}), 3);
+        QTRY_COMPARE_WITH_TIMEOUT(scalar("SELECT count(*) FROM documents WHERE sha256=''").toInt(), 0, 10000);
+        // The copy marked and then hidden; the paper marked and read.
+        QVERIFY(!markRegion(store, copy).isEmpty());
+        QCOMPARE(store.removeFromLibrary({copy}), 1);
+        QVERIFY(!markRegion(store, paper).isEmpty());
+        QVERIFY(store.setReadingState(paper, "read"));
+        const auto old = store.documentLinkId(paper);
+        // A hidden entry for another PDF is not this paper's.
+        QCOMPARE(store.removeFromLibrary({other}), 1);
+        QCOMPARE(store.deletePapers({paper}), 1);
+        QCOMPARE(store.purgePapers({paper}), 1);
+        QCOMPARE(scalar("SELECT count(*) FROM documents").toInt(), 1);
+        QCOMPARE(QUrl(scalar("SELECT url FROM documents").toString()), other);
+        QCOMPARE(scalar("SELECT count(*) FROM highlights").toInt(), 0);
+        QVERIFY(QFileInfo::exists(paper.toLocalFile()) && QFileInfo::exists(copy.toLocalFile()));
+        // Opened again: a new paper, unread and unmarked.
+        QVERIFY(store.rememberDocument(copy));
+        const auto fresh = store.documentLinkId(copy);
+        QVERIFY(!fresh.isEmpty() && fresh != old);
+        QCOMPARE(scalar("SELECT reading_state FROM documents WHERE id='" + fresh + "'").toString(), QString("unread"));
+        QCOMPARE(scalar("SELECT count(*) FROM highlights").toInt(), 0);
+        QCOMPARE(store.libraryDocuments().size(), 1);
+    }
     void addRemoveAndRestoreLibraryPapers()
     {
         QTemporaryDir directory;
