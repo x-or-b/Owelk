@@ -1,3 +1,4 @@
+import Network
 import PDFKit
 import XCTest
 @testable import Owelk
@@ -435,4 +436,121 @@ final class AddPaperTests: XCTestCase {
         }
         XCTAssertFalse(NewPaper.usableTitle("Long Halls", fileName: "Long Halls.pdf"), "the file's own name")
     }
+}
+
+/// Finding papers on the web.
+@MainActor
+final class WebSearchTests: XCTestCase {
+    func testTheAddressFieldSearchesOrOpens() {
+        let scholar = SearchEngine.scholar
+        XCTAssertEqual(scholar.address("attention is all you need")?.absoluteString,
+                       "https://scholar.google.com/scholar?q=attention%20is%20all%20you%20need")
+        XCTAssertEqual(SearchEngine.arxiv.address("c++ & graphs")?.absoluteString,
+                       "https://arxiv.org/search/?query=c%2B%2B%20%26%20graphs&searchtype=all")
+        XCTAssertEqual(scholar.address("arxiv.org/abs/1706.03762")?.absoluteString, "https://arxiv.org/abs/1706.03762")
+        XCTAssertEqual(scholar.address("https://example.org/a.pdf")?.absoluteString, "https://example.org/a.pdf")
+        XCTAssertEqual(scholar.address("10.1145/3292500.3330701")?.absoluteString, "https://doi.org/10.1145/3292500.3330701")
+        XCTAssertEqual(scholar.address("1706.03762v7")?.absoluteString, "https://arxiv.org/abs/1706.03762v7")
+        XCTAssertEqual(scholar.address("e.g.")?.absoluteString, "https://scholar.google.com/scholar?q=e.g.")
+        XCTAssertNil(scholar.address("  "))
+    }
+
+    func testAnArxivAbstractLeadsToItsPdf() {
+        XCTAssertEqual(SearchEngine.arxivPdf(URL(string: "https://arxiv.org/abs/1706.03762v7?context=cs"))?.absoluteString,
+                       "https://arxiv.org/pdf/1706.03762v7")
+        XCTAssertEqual(SearchEngine.arxivPdf(URL(string: "https://www.arxiv.org/abs/hep-th/9901001"))?.absoluteString,
+                       "https://arxiv.org/pdf/hep-th/9901001")
+        XCTAssertNil(SearchEngine.arxivPdf(URL(string: "https://arxiv.org/pdf/1706.03762")))
+        XCTAssertNil(SearchEngine.arxivPdf(nil))
+    }
+
+    /// A page that is a PDF offers to add it, and adding fetches it again and hands its bytes over.
+    func testAPageThatIsAPdfCanBeAdded() async throws {
+        let bytes = try Data(contentsOf: ConformanceTests.addedPdf)
+        let server = try await PdfServer.start(serving: bytes)
+        defer { server.stop() }
+        let page = WebPage()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
+        window.addSubview(page.webView)
+        page.webView.frame = window.bounds
+        let address = try XCTUnwrap(URL(string: "http://127.0.0.1:\(server.port)/Long%20Halls.pdf"))
+        page.load(address)
+        for _ in 0..<200 where page.pdf == nil { try await Task.sleep(for: .milliseconds(50)) }
+        XCTAssertEqual(page.pdf, address)
+
+        let added = expectation(description: "the PDF is handed over")
+        var received: LibraryStore.Incoming?
+        page.received = { received = $0; added.fulfill() }
+        page.problem = { XCTFail($0); added.fulfill() }
+        page.addShownPdf()
+        await fulfillment(of: [added], timeout: 10)
+        XCTAssertEqual(received?.data, bytes)
+        XCTAssertEqual(received?.name, "Long Halls.pdf")
+        XCTAssertEqual(page.downloads, 0)
+    }
+
+    /// A link that hands over a PDF as a file adds it straight away, as the desktop's web tab does.
+    func testAPdfALinkDownloadsIsAddedAtOnce() async throws {
+        let bytes = try Data(contentsOf: ConformanceTests.addedPdf)
+        let server = try await PdfServer.start(serving: bytes, attachment: true)
+        defer { server.stop() }
+        let page = WebPage()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
+        window.addSubview(page.webView)
+        page.webView.frame = window.bounds
+        let added = expectation(description: "the PDF is handed over")
+        var received: LibraryStore.Incoming?
+        page.received = { received = $0; added.fulfill() }
+        page.problem = { XCTFail($0); added.fulfill() }
+        page.load(try XCTUnwrap(URL(string: "http://127.0.0.1:\(server.port)/download")))
+        await fulfillment(of: [added], timeout: 15)
+        XCTAssertEqual(received?.data, bytes)
+        XCTAssertEqual(received?.name, "Long Halls.pdf")
+        XCTAssertNil(page.pdf)
+    }
+}
+
+/// A web server on this device that answers every request with one PDF.
+private final class PdfServer: @unchecked Sendable {
+    private let listener: NWListener
+    private let body: Data
+    private(set) var port: UInt16 = 0
+
+    private init(body: Data) throws {
+        self.body = body
+        let parameters = NWParameters.tcp
+        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
+        listener = try NWListener(using: parameters)
+    }
+
+    /// `attachment`: handed over as a file to save rather than a page to show.
+    static func start(serving body: Data, attachment: Bool = false) async throws -> PdfServer {
+        let server = try PdfServer(body: body)
+        let queue = DispatchQueue(label: "pdf server")
+        server.listener.newConnectionHandler = { connection in
+            connection.start(queue: queue)
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { _, _, _, _ in
+                let head = "HTTP/1.1 200 OK\r\nContent-Type: application/pdf\r\nContent-Length: \(body.count)\r\n" + (attachment ? "Content-Disposition: attachment; filename=\"Long Halls.pdf\"\r\n" : "") + "Connection: close\r\n\r\n"
+                var reply = Data(head.utf8)
+                reply.append(body)
+                connection.send(content: reply, completion: .contentProcessed { _ in connection.cancel() })
+            }
+        }
+        try await withCheckedThrowingContinuation { (done: CheckedContinuation<Void, Error>) in
+            var finished = false
+            server.listener.stateUpdateHandler = { state in
+                guard !finished else { return }
+                switch state {
+                case .ready: finished = true; done.resume()
+                case let .failed(error): finished = true; done.resume(throwing: error)
+                default: break
+                }
+            }
+            server.listener.start(queue: queue)
+        }
+        server.port = server.listener.port?.rawValue ?? 0
+        return server
+    }
+
+    func stop() { listener.cancel() }
 }

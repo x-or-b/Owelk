@@ -21,6 +21,9 @@ struct LibraryView: View {
     @State private var order = PaperOrder.lastOpened
     @State private var opened: Paper?
     @State private var addingFiles = false
+    @State private var searching = false
+    /// A paper to open once the web search has closed.
+    @State private var openAfterSearch: Paper?
     @State private var dropping = false
 
     var body: some View {
@@ -42,7 +45,7 @@ struct LibraryView: View {
                             .allowsHitTesting(false)
                     }
                 }
-                .overlay(alignment: .bottom) { NoticeBar(opened: $opened) }
+                .overlay(alignment: .bottom) { NoticeBar { opened = $0 } }
                 .fileImporter(isPresented: $addingFiles, allowedContentTypes: [.pdf], allowsMultipleSelection: true) { result in
                     let (collection, tag) = destination
                     switch result {
@@ -57,6 +60,11 @@ struct LibraryView: View {
                                 addingFiles = true
                             } label: {
                                 Label("Add PDFs from Files…", systemImage: "folder")
+                            }
+                            Button {
+                                searching = true
+                            } label: {
+                                Label("Search the Web…", systemImage: "globe")
                             }
                         } label: {
                             Label("Add", systemImage: "plus")
@@ -75,6 +83,15 @@ struct LibraryView: View {
                         .tint(.primary)
                     }
                 }
+        }
+        .fullScreenCover(isPresented: $searching, onDismiss: {
+            if let paper = openAfterSearch {
+                openAfterSearch = nil
+                opened = paper
+            }
+        }) {
+            let (collection, tag) = destination
+            WebSearchScreen(collection: collection, tag: tag, openAfter: $openAfterSearch).environmentObject(store)
         }
         .fullScreenCover(item: $opened) { paper in
             ReaderScreen(paper: paper).environmentObject(store)
@@ -104,11 +121,14 @@ struct LibraryView: View {
         var items: [LibraryStore.Incoming] = []
         for provider in providers {
             let name = provider.suggestedName ?? "Paper"
-            let data = await withCheckedContinuation { (done: CheckedContinuation<Data?, Never>) in
-                provider.loadFileRepresentation(forTypeIdentifier: UTType.pdf.identifier) { url, _ in
-                    if let url, let data = try? Data(contentsOf: url) { return done.resume(returning: data) }
-                    // Some apps offer the bytes only.
-                    provider.loadDataRepresentation(forTypeIdentifier: UTType.pdf.identifier) { data, _ in
+            var data = await withCheckedContinuation { (done: CheckedContinuation<Data?, Never>) in
+                _ = provider.loadFileRepresentation(forTypeIdentifier: UTType.pdf.identifier) { url, _ in
+                    done.resume(returning: url.flatMap { try? Data(contentsOf: $0) })
+                }
+            }
+            if data == nil { // Some apps offer the bytes only.
+                data = await withCheckedContinuation { (done: CheckedContinuation<Data?, Never>) in
+                    _ = provider.loadDataRepresentation(forTypeIdentifier: UTType.pdf.identifier) { data, _ in
                         done.resume(returning: data)
                     }
                 }
@@ -263,9 +283,9 @@ private struct PaperRow: View {
 }
 
 /// What adding papers came to, for a few seconds at the foot of the list; the paper can be opened from it.
-private struct NoticeBar: View {
+struct NoticeBar: View {
     @EnvironmentObject private var store: LibraryStore
-    @Binding var opened: Paper?
+    let open: (Paper) -> Void
 
     var body: some View {
         if let notice = store.notice {
@@ -276,7 +296,7 @@ private struct NoticeBar: View {
                 if let paper = notice.paper, paper.hasFile {
                     Button("Open") {
                         store.notice = nil
-                        opened = paper
+                        open(paper)
                     }
                     .buttonStyle(.bordered)
                     .tint(.primary)

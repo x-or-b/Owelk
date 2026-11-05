@@ -27,7 +27,7 @@
 - Match System: macOS·Windows·Linux에서 시스템의 밝은/어두운 모드를 바꿀 때 테마가 바로 따라가는지(Linux는 데스크톱에 따라 알려 주지 않을 수 있음).
 - 동기화: Mac(Google Drive for desktop)과 Ubuntu(rclone·Insync)에서 같은 폴더를 골라 논문·주석·노트가 오가는지, 같은 노트를 양쪽에서 고쳤을 때 나중 것이 남는지.
 
-- iPad 앱 v1(사용자): Mac의 Syncthing 폴더를 Synctrain으로 iPad와 공유(Send & Receive) → 앱에서 그 `Owelk` 폴더 고르기 → 라이브러리·Collection·Tag·Recent가 Mac과 같은지, PDF 스크롤·확대·썸네일·목차·찾기·글자 선택 복사가 부드러운지, Mac의 하이라이트·펜·코멘트가 같은 자리에 보이고 누르면 노트가 뜨는지 → iPad에서 몇 쪽 읽고 닫은 뒤 Mac에서 그 논문을 열어 같은 쪽으로 가는지, Settings › Sync에 iPad가 보이는지.
+- iPad 앱(사용자): 보기·주석·다시 열면 읽던 쪽은 기기에서 확인됨(2026-11-05). 남은 것: iPad가 쓴 파일이 Mac에 오는지(Synctrain 폴더가 Send & Receive인지, 안 오면 Synctrain에서 Rescan) → Mac에서 Sync Now 후 iPad에서 읽던 쪽으로 가는지, Settings › Sync에 iPad가 보이는지. 논문 추가: + › Add PDFs from Files…, 파일 앱에서 끌어다 놓기, + › Search the Web…(Google Scholar·arXiv에서 Add to Library, 학교 로그인으로 출판사 PDF) → Mac Library에 원래 파일 이름으로 들어오는지, 저자·연도가 Mac을 다시 켜거나 그 논문을 열면 채워지는지, Collection을 보던 중 추가하면 그 Collection에 들어가는지.
 
 ## 1-0. For You 후속
 
@@ -69,7 +69,7 @@
 
 - 변경 기록 정리(오래된 `devices/*.jsonl`을 한 파일로 합치기), 공유 폴더의 쓰이지 않는 PDF·이미지 정리.
 - 일부 설정(테마·AI 언어 등)도 옮길지 결정(사용자 결정 대기).
-- iPad 앱(네이티브, `ios/`) 다음 단계: ① PencilKit으로 펜·하이라이트 쓰기(`PKStroke` → Owelk `drawing` JSON, 시스템 지우개·실행 취소, `highlights` 행을 받은 그대로 두고 아는 열만 바꿔 씀) ② 노트 읽기·쓰기 ③ 글자 하이라이트·코멘트 ④ AI·Gloss·인용. Qt iPad 빌드(`ipad` 브랜치)는 네이티브 앱이 기기에서 자리 잡을 때까지 예비로 둡니다.
+- iPad 앱(네이티브, `ios/`) 다음 단계: ① PencilKit으로 펜·하이라이트 쓰기(`PKStroke` → Owelk `drawing` JSON, 시스템 지우개·실행 취소, `highlights` 행을 받은 그대로 두고 아는 열만 바꿔 씀) ② 노트 읽기·쓰기 ③ 글자 하이라이트·코멘트 ④ AI·Gloss·인용 ⑤ 다른 앱 공유 시트의 "Owelk에서 열기"(`CFBundleDocumentTypes`, 지금은 끌어다 놓기·파일 앱으로 추가). Qt iPad 빌드(`ipad` 브랜치)는 네이티브 앱이 기기에서 자리 잡을 때까지 예비로 둡니다.
 
 ## 4-2. AI 답변 다음 단계
 

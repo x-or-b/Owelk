@@ -24,9 +24,10 @@
 
 Qt로 옮긴 iPad 빌드는 스크롤·확대·Pencil·글자 선택·키보드를 QML로 다시 만들어야 해서 기기에서 느리고 어긋났습니다. 그래서 iPad는 SwiftUI + PDFKit 앱(`ios/`, bundle ID `org.owelk.pad`)으로 새로 시작해 단계별로 기능을 붙입니다. 데스크톱은 Qt 그대로이고, Qt iPad 빌드는 `ipad` 브랜치에 예비로 남겨 둡니다.
 
-- v1은 동기화 중심 뷰어입니다. Synctrain이 맞추는 `Owelk` 폴더를 파일 앱에서 고르면 라이브러리(제목·저자·읽기 상태·Collection·Tag·Recent·검색)와 PDF(PDFKit 스크롤·확대·썸네일·목차·찾기·글자 선택 복사)를 보여 주고, 컴퓨터에서 단 주석을 같은 자리에 그립니다(누르면 노트). iPad는 읽던 위치와 연 시각만 자기 `devices/<iPad ID>/`에 써서 Mac이 이어 읽게 합니다. 사용법과 구조: [ios/README.md](../ios/README.md), 동기화: [SYNC.md](SYNC.md#ipad).
+- v1은 동기화 중심 뷰어입니다. Synctrain이 맞추는 `Owelk` 폴더를 파일 앱에서 고르면 라이브러리(제목·저자·읽기 상태·Collection·Tag·Recent·검색)와 PDF(PDFKit 스크롤·확대·썸네일·목차·찾기·글자 선택 복사)를 보여 주고, 컴퓨터에서 단 주석을 같은 자리에 그립니다(누르면 노트). iPad는 읽던 위치와 연 시각을 자기 `devices/<iPad ID>/`에 써서 Mac이 이어 읽게 합니다. 사용법과 구조: [ios/README.md](../ios/README.md), 동기화: [SYNC.md](SYNC.md#ipad).
+- 논문 추가: 파일 앱에서 고르기, 다른 앱에서 끌어다 놓기, 웹 검색(데스크톱 웹 탭과 같은 Google Scholar·arXiv·Google·DuckDuckGo, PDF 쪽의 Add to Library, 내려받는 PDF는 바로). PDF는 동기화 폴더 `Papers/`로, 논문 행(데스크톱이 보내는 열 모두, 정보 읽기는 컴퓨터에 맡김)은 iPad 변경 파일로 가며 보고 있던 Collection·Tag에 들어갑니다. 같은 PDF는 다시 넣지 않고, Library에서 뺀 것은 되살립니다.
 - 외부 패키지 없이 시스템 프레임워크만 씁니다. `project.pbxproj`는 손으로 쓴 파일(폴더 동기화 그룹)이고 `xcodebuild`로 빌드합니다.
-- 두 구현이 어긋나지 않게: 데스크톱 코드가 만든 동기화 폴더(`tests/data/sync/mac`)를 iPad XCTest가 읽고, iPad 코드가 쓴 변경 파일(`tests/data/sync/ipad`)을 데스크톱 테스트 `sync_conformance`가 읽습니다. iPad XCTest(iOS 27 시뮬레이터)는 그 밖에 나중 변경 우선·256KB 파일 나누기·끝나지 않은 줄·회전한 쪽의 좌표·주석이 그려지는 자리·읽던 위치로 돌아가기를 확인합니다.
+- 두 구현이 어긋나지 않게: 데스크톱 코드가 만든 동기화 폴더(`tests/data/sync/mac`)를 iPad XCTest가 읽고, iPad 코드가 쓴 변경 파일(`tests/data/sync/ipad`)을 데스크톱 테스트 `sync_conformance`가 읽습니다. iPad XCTest(iOS 27 시뮬레이터)는 그 밖에 나중 변경 우선·256KB 파일 나누기·끝나지 않은 줄·회전한 쪽의 좌표·주석이 그려지는 자리·읽던 위치로 돌아가기, 논문 추가(같은 PDF·되살리기·폴더가 없을 때)와 웹에서 PDF 받기(이 기기의 작은 웹 서버로)를 확인합니다. 데스크톱 테스트는 iPad에서 추가한 논문이 원래 파일 이름·PDF·Collection·Tag와 함께 들어오는지 봅니다.
 
 ## 지난 단계 (2026-10-18): 읽기 편의
 

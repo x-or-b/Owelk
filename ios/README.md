@@ -8,7 +8,7 @@
 - 라이브러리: 제목·저자·연도·읽기 상태·태그, Collections(중첩)와 Tags, Recent(어느 컴퓨터에서 열었든), 제목·저자 검색, 정렬(Last Opened·Title·Date Added). PDF가 아직 도착하지 않은 논문은 흐리게 "Waiting for the PDF".
 - 읽기: PDFKit의 스크롤·확대·글자 선택과 복사, 쪽 썸네일, 목차, 논문 안 찾기(⌘F).
 - 주석 보기(읽기 전용): 컴퓨터에서 단 하이라이트·코멘트·텍스트 상자·그림·펜·영역을 같은 자리·같은 모양으로 그립니다. 노트가 있는 표시를 누르면 노트를 보여 줍니다. 원본 PDF에는 아무것도 쓰지 않습니다(메모리에서만 그림).
-- 논문 추가: 목록 위 **+ › Add PDFs from Files…**(여러 개 한 번에) 또는 다른 앱(파일, Safari 등)에서 PDF를 목록으로 끌어다 놓습니다. 보고 있던 Collection·Tag에 함께 들어갑니다. PDF는 동기화 폴더 `Papers/<SHA-256>.pdf`로, 논문 행은 iPad 자기 변경 파일로 가고, 컴퓨터는 그 PDF를 원래 파일 이름으로 자기 Library에 복사합니다. 같은 PDF(바이트가 같음)가 이미 있으면 다시 넣지 않고, Library에서 뺐거나 Trash에 있던 것이면 되살립니다. 제목은 PDF가 밝힌 제목(파일 이름·기본값이 아니면) 또는 파일 이름이고, 저자·연도·DOI·arXiv는 컴퓨터가 PDF를 읽어 채웁니다(다음 실행 때나 그 논문을 열 때).
+- 논문 추가: 목록 위 **+ › Add PDFs from Files…**(여러 개 한 번에), 다른 앱(파일, Safari 등)에서 PDF를 목록으로 끌어다 놓기, 또는 **+ › Search the Web…**. 웹 검색은 데스크톱 웹 탭과 같은 엔진(Google Scholar 기본, arXiv·Google·DuckDuckGo)을 쓰고, 주소 칸에 단어·주소·DOI(`10.…`)·arXiv ID(`1706.03762`)를 넣을 수 있습니다. PDF를 보여 주는 쪽에서는 아래 막대의 **Add to Library**, arXiv 초록 쪽에서는 **Open PDF**가 나오고, PDF를 내려받는 링크는 바로 추가됩니다. 학교 로그인 같은 웹 로그인은 앱을 다시 켜도 남습니다. Google Scholar가 사람인지 확인하는 쪽을 보이면 직접 풀면 됩니다. 보고 있던 Collection·Tag에 함께 들어갑니다. PDF는 동기화 폴더 `Papers/<SHA-256>.pdf`로, 논문 행은 iPad 자기 변경 파일로 가고, 컴퓨터는 그 PDF를 원래 파일 이름으로 자기 Library에 복사합니다. 같은 PDF(바이트가 같음)가 이미 있으면 다시 넣지 않고, Library에서 뺐거나 Trash에 있던 것이면 되살립니다. 제목은 PDF가 밝힌 제목(파일 이름·기본값이 아니면) 또는 파일 이름이고, 저자·연도·DOI·arXiv는 컴퓨터가 PDF를 읽어 채웁니다(다음 실행 때나 그 논문을 열 때).
 - 써 보내는 것: 읽던 위치(`reading_positions`), 연 시각(`recent_documents`), 추가한 논문(`documents`와 그 PDF, Collection·Tag 소속). iPad 자기 폴더 `devices/<iPad ID>/`와 `Papers/`에만 씁니다. Mac에서 그 논문을 열면 iPad에서 읽던 쪽으로 갑니다.
 
 다음 단계(PencilKit 펜·하이라이트 쓰기, 지우개·실행 취소, 노트, AI)는 [docs/NEXT.md](../docs/NEXT.md)에 있습니다.
@@ -21,9 +21,9 @@
 | `Owelk/Sync/SyncState.swift` | 모든 컴퓨터의 변경을 합친 행들(나중 것 우선)과 파일별로 읽은 위치, 시작을 빠르게 하는 스냅숏 |
 | `Owelk/Sync/SyncFolder.swift` | 폴더 읽기(파일은 늘기만 하므로 읽은 곳부터, 끝나지 않은 줄은 기다림)와 쓰기(256KB에서 다음 파일, 줄 단위) |
 | `Owelk/Sync/SyncEngine.swift` | 동기화 한 번(읽기 → 쓰기 → 도착한 PDF), iPad가 쓰는 행 만들기 |
-| `Owelk/Library/` | 논문(같은 SHA-256의 `documents` 행은 한 논문), Collections·Tags·Recent·읽던 위치, UI가 보는 저장소 |
+| `Owelk/Library/` | 논문(같은 SHA-256의 `documents` 행은 한 논문), Collections·Tags·Recent·읽던 위치, UI가 보는 저장소, 추가하는 PDF(`NewPaper.swift`) |
 | `Owelk/Reader/` | PDF 화면, 주석 그리기와 쪽 좌표 변환, 목차·찾기 |
-| `Owelk/Views/` | 라이브러리 화면 |
+| `Owelk/Views/` | 라이브러리 화면(논문 추가·끌어다 놓기), 웹 검색(`WebSearch.swift`) |
 
 데스크톱과 맞춘 규칙(`src/LibrarySync.cpp`):
 
