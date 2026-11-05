@@ -298,4 +298,27 @@ final class ReaderPositionTests: XCTestCase {
         XCTAssertEqual(position.page, 1)
         XCTAssertEqual(position.y, 0.3, accuracy: 0.02)
     }
+
+    /// As the app opens a paper: the reader is on screen first, and the PDF arrives once it has been read.
+    func testComesBackWhenThePdfArrivesAfterTheViewIsShown() throws {
+        let folder = SyncFolder(root: ConformanceTests.mac)
+        var state = SyncState()
+        _ = folder.read(into: &state)
+        let paper = try XCTUnwrap(Library.build(state, files: folder.paperFiles()).papers.first)
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 1024, height: 1366)
+        let controller = ReaderViewController()
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        controller.start = ReadingPosition(page: 2, y: 0.1)
+        controller.document = PDFDocument(url: try XCTUnwrap(folder.paper(paper.sha256)))
+        RunLoop.main.run(until: Date().addingTimeInterval(1))
+        let position = try XCTUnwrap(controller.position())
+        XCTAssertEqual(position.page, 2)
+        // The last page cannot scroll its top quite that far up.
+        XCTAssertEqual(position.y, 0.1, accuracy: 0.03)
+    }
 }

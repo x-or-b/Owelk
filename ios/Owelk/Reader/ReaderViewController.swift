@@ -9,6 +9,10 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate 
     private let thumbnails = PDFThumbnailView()
     private let thumbnailColumn = UIView()
     private var restored = false
+    /// Where the paper was left, held while PDFKit is still fitting its pages (it moves to a page's top when it
+    /// rescales), until the reader touches the page or a moment has passed.
+    private var holding: (page: PDFPage, y: Double, until: Date)?
+    private var placing = false
     private lazy var tap = UITapGestureRecognizer(target: self, action: #selector(tapped(_:)))
     var start: ReadingPosition?
     var onPageChange: ((Int) -> Void)?
@@ -18,8 +22,11 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate 
         set {
             pdfView.document = newValue
             restored = false
+            holding = nil
             waitForDoubleTaps()
             view.setNeedsLayout()
+            // A view already on screen keeps its size, so it is not laid out again: the place is set from here.
+            DispatchQueue.main.async { [weak self] in self?.pagesLaidOut() }
         }
     }
 
@@ -74,11 +81,13 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate 
         pdfView.laidOut = { [weak self] in self?.pagesLaidOut() }
         NotificationCenter.default.addObserver(self, selector: #selector(pageChanged), name: .PDFViewPageChanged,
                                                object: pdfView)
+        NotificationCenter.default.addObserver(self, selector: #selector(hold), name: .PDFViewScaleChanged, object: pdfView)
     }
 
     /// Once the pages have a size: they are fitted, and the paper opens where it was left.
     private func pagesLaidOut() {
-        guard !restored, pdfView.bounds.height > 0, let document = pdfView.document else { return }
+        guard !restored else { return hold() }
+        guard pdfView.bounds.height > 0, let document = pdfView.document else { return }
         restored = true
         // The pages laid out at their fitted size first, so the place is found on them.
         pdfView.layoutDocumentView()
@@ -87,9 +96,28 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate 
         pdfView.autoScales = true
         guard let start, start.page > 0 || start.y > 0,
               let page = document.page(at: min(start.page, document.pageCount - 1)) else { return }
-        go(to: page, y: start.y)
-        // PDFKit settles its scroll view after this pass; the place is set again once it has.
-        DispatchQueue.main.async { [weak self] in self?.go(to: page, y: start.y) }
+        holding = (page, start.y, Date().addingTimeInterval(1.5))
+        hold()
+        for delay in [0.05, 0.2, 0.5, 1.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.hold() }
+        }
+    }
+
+    /// Puts the paper back where it was left, while that is still wanted.
+    @objc private func hold() {
+        guard let target = holding, !placing else { return }
+        let scroll = Self.scrollView(in: pdfView)
+        let touched = scroll.map { $0.isTracking || $0.isDragging || $0.isDecelerating || $0.isZooming } ?? false
+        if Date() > target.until || touched || pdfView.document == nil {
+            holding = nil
+            return
+        }
+        if let now = position(), pdfView.document?.index(for: target.page) == now.page, abs(now.y - target.y) < 0.003 {
+            return
+        }
+        placing = true
+        go(to: target.page, y: target.y)
+        placing = false
     }
 
     /// Puts the place `y` down the page at the top of the visible area (below the bar), where `position()` reads it.
