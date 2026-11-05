@@ -34,6 +34,16 @@ struct SyncFolder {
         SyncProtocol.isSha256(sha256) ? root.appendingPathComponent("Papers/\(sha256).pdf") : nil
     }
 
+    /// Puts a paper's PDF where every computer looks for it, unless it is there already. It is written whole under
+    /// another name first, so the sync program never sends half of it.
+    func savePaper(_ data: Data, sha256: String) throws {
+        guard let url = paper(sha256) else { throw CocoaError(.fileWriteInvalidFileName) }
+        let manager = FileManager.default
+        if manager.fileExists(atPath: url.path) { return }
+        try manager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try coordinatedWrite(url) { try data.write(to: $0, options: .atomic) }
+    }
+
     func annotationImage(_ name: String) -> URL? {
         SyncProtocol.isPlainName(name) ? root.appendingPathComponent("Files/annotations/\(name)") : nil
     }

@@ -8,7 +8,8 @@
 - 라이브러리: 제목·저자·연도·읽기 상태·태그, Collections(중첩)와 Tags, Recent(어느 컴퓨터에서 열었든), 제목·저자 검색, 정렬(Last Opened·Title·Date Added). PDF가 아직 도착하지 않은 논문은 흐리게 "Waiting for the PDF".
 - 읽기: PDFKit의 스크롤·확대·글자 선택과 복사, 쪽 썸네일, 목차, 논문 안 찾기(⌘F).
 - 주석 보기(읽기 전용): 컴퓨터에서 단 하이라이트·코멘트·텍스트 상자·그림·펜·영역을 같은 자리·같은 모양으로 그립니다. 노트가 있는 표시를 누르면 노트를 보여 줍니다. 원본 PDF에는 아무것도 쓰지 않습니다(메모리에서만 그림).
-- 써 보내는 것은 둘뿐: 읽던 위치(`reading_positions`)와 연 시각(`recent_documents`). iPad 자기 폴더 `devices/<iPad ID>/`에만 씁니다. Mac에서 그 논문을 열면 iPad에서 읽던 쪽으로 갑니다.
+- 논문 추가: 목록 위 **+ › Add PDFs from Files…**(여러 개 한 번에) 또는 다른 앱(파일, Safari 등)에서 PDF를 목록으로 끌어다 놓습니다. 보고 있던 Collection·Tag에 함께 들어갑니다. PDF는 동기화 폴더 `Papers/<SHA-256>.pdf`로, 논문 행은 iPad 자기 변경 파일로 가고, 컴퓨터는 그 PDF를 원래 파일 이름으로 자기 Library에 복사합니다. 같은 PDF(바이트가 같음)가 이미 있으면 다시 넣지 않고, Library에서 뺐거나 Trash에 있던 것이면 되살립니다. 제목은 PDF가 밝힌 제목(파일 이름·기본값이 아니면) 또는 파일 이름이고, 저자·연도·DOI·arXiv는 컴퓨터가 PDF를 읽어 채웁니다(다음 실행 때나 그 논문을 열 때).
+- 써 보내는 것: 읽던 위치(`reading_positions`), 연 시각(`recent_documents`), 추가한 논문(`documents`와 그 PDF, Collection·Tag 소속). iPad 자기 폴더 `devices/<iPad ID>/`와 `Papers/`에만 씁니다. Mac에서 그 논문을 열면 iPad에서 읽던 쪽으로 갑니다.
 
 다음 단계(PencilKit 펜·하이라이트 쓰기, 지우개·실행 취소, 노트, AI)는 [docs/NEXT.md](../docs/NEXT.md)에 있습니다.
 
@@ -28,6 +29,7 @@
 
 - iPad에는 데이터베이스가 없습니다. 모든 컴퓨터의 변경 파일을 합친 것이 곧 상태라서, **자기 폴더도 함께 읽습니다**(다시 켜도 자기가 쓴 위치를 기억).
 - `SyncState.schema`를 올리면 스냅숏을 버리고 모든 기록을 처음부터 다시 읽습니다(데스크톱의 "업데이트 후 첫 동기화는 다시 읽기"와 같음). 읽는 표나 열을 늘리면 올립니다.
+- 새로 추가한 논문의 행은 데스크톱이 보내는 `documents` 열을 모두 담습니다. `url`은 파일 이름만 뜻이 있고(`file:///<이름>.pdf`, 각 컴퓨터가 자기 보관 위치로 바꿈), `metadata_origin`을 비워 두어 컴퓨터가 PDF에서 정보를 읽게 합니다. PDF는 다른 이름으로 다 쓴 뒤 `Papers/<SHA-256>.pdf`로 바꾸므로 Synctrain이 반쯤 쓴 파일을 보내지 않습니다.
 - iPad가 쓰는 행은 **받은 행을 그대로 두고 아는 열만 바꿉니다.** 위치 JSON도 `page`·`y`만 바꾸고 Mac의 `zoom`·`fit`·`x`는 그대로 둡니다. 데스크톱은 받은 행에 있는 열만 고치므로 모르는 열은 지워지지 않습니다.
 - 쓰는 시각은 그 행의 지금 버전보다 항상 뒤(`max(지금, 이전 + 1)`)라서, iPad 시계가 조금 늦어도 바뀐 위치가 지지 않습니다.
 - 문서 ID는 그 SHA-256의 행 중 가장 작은 ID입니다. 컴퓨터들이 같은 PDF를 합칠 때 남기는 ID라서, 다른 ID로 알고 있는 컴퓨터도 별칭으로 맞춥니다. 재키(rekey)는 하지 않습니다.
@@ -54,7 +56,8 @@ xcodebuild test -project ios/Owelk.xcodeproj -scheme Owelk -destination 'platfor
 두 구현이 어긋나지 않도록 `tests/data/sync`를 함께 씁니다.
 
 - `mac/Owelk/`, `mac/expected.json`: 데스크톱 코드가 만든 동기화 폴더와 그 라이브러리 내용. iPad 테스트(`OwelkTests/ConformanceTests.swift`)가 읽어 같은지 봅니다. 데스크톱 테스트(`sync_conformance`)도 이 폴더를 새 컴퓨터로 다시 읽어 봅니다.
-- `ipad/<ID>/`: iPad 코드가 쓴 변경 파일(고정 기기 ID·시각). iPad 테스트는 지금 코드가 같은 파일을 쓰는지, 데스크톱 테스트는 그 파일을 받아 읽던 위치·연 시각이 맞는지 봅니다.
+- `ipad/<ID>/`: iPad 코드가 쓴 변경 파일(고정 기기 ID·시각·새 논문 ID). iPad 테스트는 지금 코드가 같은 파일을 쓰는지, 데스크톱 테스트는 그 파일을 받아 읽던 위치·연 시각, iPad에서 추가한 논문(제목·파일 이름·복사된 PDF·Collection·Tag)이 맞는지 봅니다.
+- `ipad/Papers/`: iPad 테스트가 추가하는 PDF(스스로 밝힌 제목이 있는 한 쪽짜리).
 
 다시 만들기(형식을 일부러 바꿨을 때):
 

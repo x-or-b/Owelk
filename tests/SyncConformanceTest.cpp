@@ -20,6 +20,7 @@
 //   tests/data/sync/mac/Owelk/       a sync folder written by this code (OWELK_WRITE_SYNC_FIXTURE=1 writes it anew)
 //   tests/data/sync/mac/expected.json what that library holds, for the iPad's tests to compare with
 //   tests/data/sync/ipad/<id>/       change files written by the iPad app's code (its tests write them anew)
+//   tests/data/sync/ipad/Papers/     the PDF the iPad adds there
 namespace {
 const QString fixture = QStringLiteral(TEST_SOURCE_DIR "/data/sync");
 // The iPad's device ID and clock in its conformance test (2030-01-01), so its files are always the same.
@@ -200,6 +201,7 @@ private slots:
         QVERIFY2(QFileInfo::exists(fixture + "/ipad/" + ipadDevice + "/00000001.jsonl"),
             "Run the iPad app's tests with OWELK_WRITE_FIXTURES=1 (see ios/README.md).");
         QVERIFY(copyFolder(fixture + "/ipad/" + ipadDevice, drive + "/Owelk/devices/" + ipadDevice));
+        QVERIFY(copyFolder(fixture + "/ipad/Papers", drive + "/Owelk/Papers"));
         QString error;
         ResearchStore mac(directory.filePath("mac"));
         QVERIFY2(mac.initialize(&error), qPrintable(error));
@@ -207,7 +209,9 @@ private slots:
         const auto outcome = mac.librarySync()->syncBlocking();
         QVERIFY2(outcome.error.isEmpty(), qPrintable(outcome.error));
         QCOMPARE(outcome.skipped, 0);
-        const auto paper = QUrl(scalar(mac, "SELECT url FROM documents").toString());
+        const auto paper
+            = QUrl(scalar(mac, "SELECT url FROM documents WHERE id='ec0dbb6f-06b8-4012-b0b2-eb317af23825'").toString());
+        QVERIFY(paper.isLocalFile());
         const auto position = mac.readingPosition(paper);
         QCOMPARE(position["page"].toInt(), 2);
         QCOMPARE(position["y"].toDouble(), .5);
@@ -217,6 +221,37 @@ private slots:
         QCOMPARE(scalar(mac, "SELECT opened_at FROM recent_documents").toString(), QString("2030-01-01T00:00:00.000Z"));
         QCOMPARE(mac.recentDocuments().value(0).toMap()["url"].toUrl(), paper);
         QVERIFY(mac.librarySync()->computers().contains("iPad"));
+
+        // The paper added on the iPad: in the Library under its file's name, with the PDF copied in, in the
+        // collection and tag it was added to, and its details left for this computer to read.
+        const auto added = rows(mac,
+            "SELECT url,title,sha256,kind,reading_state,metadata_origin,removed_at FROM documents WHERE "
+            "id='0a11ce00-0000-4000-8000-00000000a001'");
+        QCOMPARE(added.size(), 1);
+        const auto row = added[0].toMap();
+        const auto sha = QStringLiteral("e549b32af3d995d3d7d8b61f5c7b8f3af29ca1df65a1618884a400c14a19a263");
+        QCOMPARE(row["title"].toString(), QString("Echoes in Long Halls"));
+        QCOMPARE(row["sha256"].toString(), sha);
+        QCOMPARE(row["kind"].toString(), QString("pdf"));
+        QCOMPARE(row["reading_state"].toString(), QString("unread"));
+        QCOMPARE(row["metadata_origin"].toString(), QString());
+        QVERIFY(row["removed_at"].isNull());
+        const auto file = QUrl(row["url"].toString()).toLocalFile();
+        QCOMPARE(QFileInfo(file).fileName(), QString("Long Halls.pdf"));
+        QVERIFY2(file.startsWith(mac.dataDirectory()), qPrintable(file));
+        QFile copy(file), original(fixture + "/ipad/Papers/" + sha + ".pdf");
+        QVERIFY(copy.open(QIODevice::ReadOnly) && original.open(QIODevice::ReadOnly));
+        QCOMPARE(copy.readAll(), original.readAll());
+        QCOMPARE(scalar(mac,
+                     "SELECT c.name FROM collection_documents m JOIN collections c ON c.id=m.collection_id WHERE "
+                     "m.document_id='0a11ce00-0000-4000-8000-00000000a001'")
+                     .toString(),
+            QString("Mapping"));
+        QCOMPARE(scalar(mac,
+                     "SELECT t.name FROM document_tags m JOIN tags t ON t.id=m.tag_id WHERE "
+                     "m.document_id='0a11ce00-0000-4000-8000-00000000a001'")
+                     .toString(),
+            QString("radar"));
     }
 };
 

@@ -16,6 +16,11 @@ final class ConformanceTests: XCTestCase {
     /// The iPad's ID and clock (2030-01-01) here, so the files it writes are always the same.
     static let ipad = "0a11ce00-0000-4000-8000-000000000001"
     static let clock: Int64 = 1_893_456_000_000
+    /// The ID of the paper this iPad adds.
+    static let addedId = "0a11ce00-0000-4000-8000-00000000a001"
+    /// The PDF it adds (tests/data/sync/ipad/Papers), with a title of its own.
+    static let addedPdf = sync.appendingPathComponent(
+        "ipad/Papers/e549b32af3d995d3d7d8b61f5c7b8f3af29ca1df65a1618884a400c14a19a263.pdf")
 
     private func expected() throws -> [String: [Row]] {
         let data = try Data(contentsOf: Self.sync.appendingPathComponent("mac/expected.json"))
@@ -75,8 +80,9 @@ final class ConformanceTests: XCTestCase {
         XCTAssertEqual(Library.build(restored, files: folder.paperFiles()).papers, library.papers)
     }
 
-    /// The rows this iPad writes, as the desktop's test reads them back: where the paper was left, and when it was
-    /// opened. A row keeps what it had and only the known columns change (the Mac's zoom and fit stay).
+    /// The rows this iPad writes, as the desktop's test reads them back: where the paper was left, when it was
+    /// opened, and a paper added here into the Mac's collection and tag. A row keeps what it had and only the known
+    /// columns change (the Mac's zoom and fit stay).
     func testWritesWhatTheDesktopReads() async throws {
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: temporary) }
@@ -85,7 +91,8 @@ final class ConformanceTests: XCTestCase {
         try FileManager.default.copyItem(at: Self.mac, to: drive)
         let folder = SyncFolder(root: drive)
         let library = try XCTUnwrap(folder.library())
-        let engine = SyncEngine(storage: temporary.appendingPathComponent("app"), device: Self.ipad, clock: { Self.clock })
+        let engine = SyncEngine(storage: temporary.appendingPathComponent("app"), device: Self.ipad, clock: { Self.clock },
+                                newId: { Self.addedId })
         let about = ["name": "iPad", "system": "iPadOS"]
         _ = await engine.pass(folder, library: library, about: about)
         let cached = await engine.cachedLibrary()
@@ -95,6 +102,30 @@ final class ConformanceTests: XCTestCase {
         XCTAssertTrue(moved)
         let again = await engine.savePosition(ReadingPosition(page: 2, y: 0.5), of: paper)
         XCTAssertFalse(again, "the same place is not written twice")
+
+        let pdf = try Data(contentsOf: Self.addedPdf)
+        let newPaper = try XCTUnwrap(NewPaper(data: pdf, name: "Long Halls.pdf"))
+        let mapping = try XCTUnwrap(cached.collections.first { $0.name == "Mapping" }?.id)
+        let radar = try XCTUnwrap(cached.tags.first { $0.name == "radar" }?.id)
+        guard case let .added(added) = await engine.add(newPaper, to: folder, library: library, collection: mapping, tag: radar)
+        else { return XCTFail("the PDF is added") }
+        XCTAssertEqual(added.title, "Echoes in Long Halls")
+        XCTAssertEqual(added.documentId, Self.addedId)
+        XCTAssertTrue(added.hasFile)
+        XCTAssertEqual(added.collections, [mapping])
+        XCTAssertEqual(added.tags, ["radar"])
+        XCTAssertEqual(try Data(contentsOf: try XCTUnwrap(folder.paper(newPaper.sha256))), pdf)
+        guard case .already = await engine.add(newPaper, to: folder, library: library, collection: mapping, tag: radar)
+        else { return XCTFail("the same PDF is not added twice") }
+        // The Mac's own paper, from another copy of its PDF: already there, nothing written.
+        let macPdf = try Data(contentsOf: try XCTUnwrap(folder.paper(paper.sha256)))
+        guard case let .already(same) = await engine.add(try XCTUnwrap(NewPaper(data: macPdf, name: "copy.pdf")),
+                                                         to: folder, library: library)
+        else { return XCTFail("a PDF the Mac has is not added again") }
+        XCTAssertEqual(same.documentId, paper.documentId)
+        let papers = await engine.current().papers
+        XCTAssertEqual(papers.count, 2)
+
         let failure = await engine.flush(folder, library: library, about: about)
         XCTAssertNil(failure)
         let position = await engine.position(of: paper)
@@ -107,10 +138,20 @@ final class ConformanceTests: XCTestCase {
             try FileManager.default.createDirectory(at: committed.deletingLastPathComponent(), withIntermediateDirectories: true)
             try FileManager.default.copyItem(at: written, to: committed)
         }
-        let lines = try Self.lines(written.appendingPathComponent("00000001.jsonl"))
+        var lines = try Self.lines(written.appendingPathComponent("00000001.jsonl"))
         XCTAssertEqual(lines, try Self.lines(committed.appendingPathComponent("00000001.jsonl")),
                        "the iPad's change file differs from tests/data/sync/ipad: run with OWELK_WRITE_FIXTURES=1 and check the desktop's sync_conformance test")
-        XCTAssertEqual(lines.map { $0["t"] as? String }, ["recent_documents", "reading_positions"])
+        XCTAssertEqual(lines.map { $0["t"] as? String },
+                       ["documents", "recent_documents", "reading_positions", "collection_documents", "document_tags"])
+        let document = try XCTUnwrap(lines[0]["r"] as? Row)
+        // Every column the desktop sends for a paper, so a computer that inserts it has them all.
+        let macRow = try XCTUnwrap(try expected()["documents"]?.first)
+        XCTAssertEqual(Set(document.keys), Set(macRow.keys))
+        XCTAssertEqual(document.string("url"), "file:///Long%20Halls.pdf")
+        XCTAssertEqual(document.string("sha256"), newPaper.sha256)
+        XCTAssertEqual(document.string("metadata_origin"), "", "the computers read the rest of the details")
+        XCTAssertEqual(document.string("added_at"), "2030-01-01T00:00:00.000Z")
+        lines.removeFirst()
         let row = try XCTUnwrap(lines[1]["r"] as? Row)
         XCTAssertEqual(Set(row.keys), ["document_id", "position"])
         XCTAssertEqual(row.string("document_id"), paper.documentId)
@@ -320,5 +361,78 @@ final class ReaderPositionTests: XCTestCase {
         XCTAssertEqual(position.page, 2)
         // The last page cannot scroll its top quite that far up.
         XCTAssertEqual(position.y, 0.1, accuracy: 0.03)
+    }
+}
+
+/// Adding a PDF on the iPad, as the desktop does it.
+final class AddPaperTests: XCTestCase {
+    private var temporary: URL!
+
+    override func setUpWithError() throws {
+        temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+        try FileManager.default.copyItem(at: ConformanceTests.mac, to: temporary.appendingPathComponent("Owelk"))
+    }
+
+    override func tearDown() { try? FileManager.default.removeItem(at: temporary) }
+
+    private var folder: SyncFolder { SyncFolder(root: temporary.appendingPathComponent("Owelk")) }
+
+    /// A paper taken out of the Library comes back under its own row, everything else as it was.
+    func testAPaperTakenOutComesBack() async throws {
+        let library = try XCTUnwrap(folder.library())
+        var state = SyncState()
+        _ = folder.read(into: &state)
+        var row = try XCTUnwrap(state.entries("documents").values.compactMap(\.row).first)
+        row["removed_at"] = "2030-01-01T00:00:00.000Z"
+        let removal = Change(table: "documents", key: [row.string("id")],
+                             version: Version(time: ConformanceTests.clock, device: "ffffffff-0000-4000-8000-000000000000"),
+                             row: row)
+        try folder.append(removal.line(), device: "ffffffff-0000-4000-8000-000000000000", about: ["name": "Ubuntu"])
+        let engine = SyncEngine(storage: temporary.appendingPathComponent("app"), device: ConformanceTests.ipad,
+                                clock: { ConformanceTests.clock + 5 })
+        _ = await engine.pass(folder, library: library, about: [:])
+        let before = await engine.current().papers
+        XCTAssertTrue(before.isEmpty, "taken out of the Library")
+
+        let pdf = try Data(contentsOf: try XCTUnwrap(folder.paper(row.string("sha256"))))
+        guard case let .added(paper) = await engine.add(try XCTUnwrap(NewPaper(data: pdf, name: "Again.pdf")), to: folder,
+                                                        library: library)
+        else { return XCTFail("the paper comes back") }
+        XCTAssertEqual(paper.documentId, row.string("id"))
+        XCTAssertEqual(paper.title, "Occlusion in Small Rooms", "its details stay")
+        let failure = await engine.flush(folder, library: library, about: [:])
+        XCTAssertNil(failure)
+        let written = try Data(contentsOf: folder.devices.appendingPathComponent("\(ConformanceTests.ipad)/00000001.jsonl"))
+        let back = try XCTUnwrap(Change(line: written.dropLast()))
+        XCTAssertEqual(back.table, "documents")
+        XCTAssertTrue(isNull(back.row?["removed_at"]))
+        XCTAssertEqual(back.row?.string("authors"), row.string("authors"))
+        XCTAssertGreaterThan(back.version.time, ConformanceTests.clock)
+    }
+
+    func testNothingIsAddedWhileTheFolderIsAway() async throws {
+        let engine = SyncEngine(storage: temporary.appendingPathComponent("app"), device: ConformanceTests.ipad)
+        let pdf = try XCTUnwrap(NewPaper(data: try Data(contentsOf: ConformanceTests.addedPdf), name: "a.pdf"))
+        guard case .failed = await engine.add(pdf, to: folder, library: "another library") else {
+            return XCTFail("a folder that is not the library's is left alone")
+        }
+        XCTAssertNil(folder.paper(pdf.sha256).flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil })
+    }
+
+    func testOnlyPdfsAreAdded() throws {
+        XCTAssertNil(NewPaper(data: Data("not a pdf".utf8), name: "notes.pdf"))
+        let pdf = try XCTUnwrap(NewPaper(data: try Data(contentsOf: ConformanceTests.addedPdf), name: ""))
+        XCTAssertEqual(pdf.name, String(pdf.sha256.prefix(16)) + ".pdf")
+        XCTAssertEqual(NewPaper.fileName("Notes", sha256: pdf.sha256), "Notes.pdf")
+        XCTAssertEqual(NewPaper.fileName("../a/Paper.PDF", sha256: pdf.sha256), "Paper.PDF")
+    }
+
+    func testTitlesThatAreNotTitlesAreLeftOut() {
+        XCTAssertTrue(NewPaper.usableTitle("Echoes in Long Halls", fileName: "x.pdf"))
+        for title in ["Microsoft Word - draft.docx", "untitled", "main", "Draft 2", "paper.pdf", "abc", "/Users/a/b", "x"] {
+            XCTAssertFalse(NewPaper.usableTitle(title, fileName: "x.pdf"), title)
+        }
+        XCTAssertFalse(NewPaper.usableTitle("Long Halls", fileName: "Long Halls.pdf"), "the file's own name")
     }
 }

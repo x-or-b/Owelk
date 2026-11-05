@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Which papers the list shows.
 enum Shelf: Hashable {
@@ -19,6 +20,8 @@ struct LibraryView: View {
     @State private var query = ""
     @State private var order = PaperOrder.lastOpened
     @State private var opened: Paper?
+    @State private var addingFiles = false
+    @State private var dropping = false
 
     var body: some View {
         NavigationSplitView {
@@ -28,7 +31,39 @@ struct LibraryView: View {
                 .navigationTitle(title)
                 .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search Titles")
                 .refreshable { await store.refresh() }
+                .onDrop(of: [.pdf], isTargeted: $dropping) { providers in
+                    let (collection, tag) = destination
+                    Task { await store.add(await Self.incoming(providers), collection: collection, tag: tag) }
+                    return true
+                }
+                .overlay {
+                    if dropping {
+                        RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.accent, lineWidth: 2).padding(8)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .overlay(alignment: .bottom) { NoticeBar(opened: $opened) }
+                .fileImporter(isPresented: $addingFiles, allowedContentTypes: [.pdf], allowsMultipleSelection: true) { result in
+                    let (collection, tag) = destination
+                    switch result {
+                    case let .success(urls): Task { await store.addFiles(urls, collection: collection, tag: tag) }
+                    case let .failure(error): store.notice = .init(text: error.localizedDescription, failed: true)
+                    }
+                }
                 .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button {
+                                addingFiles = true
+                            } label: {
+                                Label("Add PDFs from Files…", systemImage: "folder")
+                            }
+                        } label: {
+                            Label("Add", systemImage: "plus")
+                        }
+                        .tint(.primary)
+                        .disabled(!store.hasFolder)
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         Menu {
                             Picker("Sort By", selection: $order) {
@@ -55,9 +90,39 @@ struct LibraryView: View {
         }
     }
 
+    /// The collection or tag (IDs) a paper added now goes into: the one shown.
+    private var destination: (collection: String?, tag: String?) {
+        switch shelf ?? .all {
+        case let .collection(id): (id, nil)
+        case let .tag(name): (nil, store.library.tags.first { $0.name == name }?.id)
+        default: (nil, nil)
+        }
+    }
+
+    /// The PDFs dropped on the list. A dropped file's copy lasts only while it is being read, so it is read there.
+    private static func incoming(_ providers: [NSItemProvider]) async -> [LibraryStore.Incoming] {
+        var items: [LibraryStore.Incoming] = []
+        for provider in providers {
+            let name = provider.suggestedName ?? "Paper"
+            let data = await withCheckedContinuation { (done: CheckedContinuation<Data?, Never>) in
+                provider.loadFileRepresentation(forTypeIdentifier: UTType.pdf.identifier) { url, _ in
+                    if let url, let data = try? Data(contentsOf: url) { return done.resume(returning: data) }
+                    // Some apps offer the bytes only.
+                    provider.loadDataRepresentation(forTypeIdentifier: UTType.pdf.identifier) { data, _ in
+                        done.resume(returning: data)
+                    }
+                }
+            }
+            items.append(LibraryStore.Incoming(name: name, data: data))
+        }
+        return items
+    }
+
     private var emptyText: String {
         if !query.isEmpty { return "No papers match “\(query)”." }
-        if store.library.papers.isEmpty { return store.syncing ? "Reading the sync folder…" : "No papers yet." }
+        if store.library.papers.isEmpty {
+            return store.syncing ? "Reading the sync folder…" : "No papers yet. Add PDFs with + or drop them here."
+        }
         return shelf == .recent ? "Papers opened on any computer appear here." : "No papers here."
     }
 
@@ -194,5 +259,47 @@ private struct PaperRow: View {
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
+    }
+}
+
+/// What adding papers came to, for a few seconds at the foot of the list; the paper can be opened from it.
+private struct NoticeBar: View {
+    @EnvironmentObject private var store: LibraryStore
+    @Binding var opened: Paper?
+
+    var body: some View {
+        if let notice = store.notice {
+            HStack(spacing: 12) {
+                Text(notice.text)
+                    .foregroundStyle(notice.failed ? Color.red : Color.primary)
+                    .lineLimit(3)
+                if let paper = notice.paper, paper.hasFile {
+                    Button("Open") {
+                        store.notice = nil
+                        opened = paper
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.primary)
+                }
+                Button {
+                    store.notice = nil
+                } label: {
+                    Image(systemName: "xmark").imageScale(.small)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Close")
+            }
+            .font(.callout)
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
+            .padding(16)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .task(id: notice.id) {
+                try? await Task.sleep(for: .seconds(6))
+                if store.notice?.id == notice.id { withAnimation { store.notice = nil } }
+            }
+        }
     }
 }

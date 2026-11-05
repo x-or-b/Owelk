@@ -14,6 +14,22 @@ final class LibraryStore: ObservableObject {
     @Published private(set) var computers: [String] = []
     @Published private(set) var folderName: String?
     @Published private(set) var syncing = false
+    /// What adding papers came to, shown for a moment over the list.
+    @Published var notice: Notice?
+
+    struct Notice: Identifiable, Equatable {
+        let id = UUID()
+        let text: String
+        /// The paper to open from the notice, when one was added.
+        var paper: Paper?
+        var failed = false
+    }
+
+    /// A file to add: its name, and its bytes when they could be read.
+    struct Incoming {
+        let name: String
+        let data: Data?
+    }
 
     private enum Saved {
         static let bookmark = "sync.bookmark", library = "sync.library", device = "sync.device", inside = "sync.inside"
@@ -150,6 +166,55 @@ final class LibraryStore: ObservableObject {
               let picture = UIImage(data: data) else { return nil }
         pictures[name] = picture
         return picture
+    }
+
+    /// Adds PDFs picked in Files (each read with the access Files gave for it).
+    func addFiles(_ urls: [URL], collection: String? = nil, tag: String? = nil) async {
+        let incoming = await Task.detached {
+            urls.map { url in
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                return Incoming(name: url.lastPathComponent, data: try? coordinatedRead(url) { try Data(contentsOf: $0) })
+            }
+        }.value
+        await add(incoming, collection: collection, tag: tag)
+    }
+
+    /// Adds PDFs to the library and the sync folder, into the collection or tag shown when one is.
+    func add(_ incoming: [Incoming], collection: String? = nil, tag: String? = nil) async {
+        guard let engine, let folder, !incoming.isEmpty else { return }
+        let about = about, id = libraryId
+        let task = UIApplication.shared.beginBackgroundTask(withName: "Owelk add")
+        defer { UIApplication.shared.endBackgroundTask(task) }
+        var added: [Paper] = [], already: [Paper] = [], problems: [String] = []
+        for item in incoming {
+            guard let data = item.data else {
+                problems.append("Cannot read “\(item.name)”.")
+                continue
+            }
+            guard let paper = await Task.detached(operation: { NewPaper(data: data, name: item.name) }).value else {
+                problems.append("“\(item.name)” is not a PDF.")
+                continue
+            }
+            switch await engine.add(paper, to: folder, library: id, collection: collection, tag: tag) {
+            case let .added(paper): added.append(paper)
+            case let .already(paper): already.append(paper)
+            case let .failed(problem): problems.append(problem)
+            }
+        }
+        if !added.isEmpty || !already.isEmpty {
+            library = await engine.current()
+            if let problem = await engine.flush(folder, library: id, about: about) { problems.append(problem) }
+        }
+        var parts: [String] = []
+        if added.count == 1 { parts.append("Added “\(added[0].title)”.") }
+        if added.count > 1 { parts.append("Added \(added.count) papers.") }
+        if already.count == 1 { parts.append("“\(already[0].title)” is already in the Library.") }
+        if already.count > 1 { parts.append("\(already.count) were already in the Library.") }
+        parts += problems.prefix(2)
+        if problems.count > 2 { parts.append("\(problems.count - 2) more could not be added.") }
+        let single = added.count + already.count == 1 ? (added.first ?? already.first) : nil
+        notice = Notice(text: parts.joined(separator: " "), paper: single, failed: added.isEmpty && already.isEmpty)
     }
 
     func position(of paper: Paper) async -> ReadingPosition? { await engine?.position(of: paper) }

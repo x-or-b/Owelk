@@ -3,9 +3,17 @@ import Foundation
 /// Runs sync passes off the main thread: reads what the computers wrote, writes what this iPad changed, and keeps the
 /// merged rows between launches.
 ///
-/// This app writes only `reading_positions` and `recent_documents`. A row it writes keeps every column it received
-/// and changes only the ones it knows, so nothing a newer desktop added is lost.
+/// This app writes where papers were left and when they were opened (`reading_positions`, `recent_documents`), and
+/// papers added here (`documents` with the PDF in `Papers/`, and their place in a collection or tag). A row it writes
+/// keeps every column it received and changes only the ones it knows, so nothing a newer desktop added is lost.
 actor SyncEngine {
+    enum Added {
+        case added(Paper)
+        /// The same PDF is in the Library already.
+        case already(Paper)
+        case failed(String)
+    }
+
     struct Outcome {
         var error: String?
         var received = 0
@@ -18,6 +26,7 @@ actor SyncEngine {
     let device: String
     private let storage: URL
     private let clock: () -> Int64
+    private let newId: () -> String
     private var state: SyncState
     private var library = Library.empty
     private var files: Set<String>?
@@ -27,10 +36,12 @@ actor SyncEngine {
     private var lastSnapshot = Date.distantPast
 
     /// `storage` is this library's folder in Application Support.
-    init(storage: URL, device: String, clock: @escaping () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) }) {
+    init(storage: URL, device: String, clock: @escaping () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) },
+         newId: @escaping () -> String = { UUID().uuidString.lowercased() }) {
         self.storage = storage
         self.device = device
         self.clock = clock
+        self.newId = newId
         try? FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
         state = (try? Data(contentsOf: storage.appendingPathComponent("state.json"))).flatMap(SyncState.init(snapshot:))
             ?? SyncState()
@@ -91,6 +102,9 @@ actor SyncEngine {
         return nil
     }
 
+    /// The library as it is now, with this iPad's changes in it.
+    func current() -> Library { library }
+
     func position(of paper: Paper) -> ReadingPosition? { library.position(of: paper, in: state) }
 
     func marks(of paper: Paper) -> [Mark] {
@@ -129,6 +143,62 @@ actor SyncEngine {
         row["opened_at"] = Self.timestamp(date)
         stage("recent_documents", key: [paper.documentId], row: row)
         return library
+    }
+
+    /// Adds a PDF to the library: the file goes to `Papers/` and a row for it to the computers, which copy it into
+    /// their own Library and read its details. A PDF the library has already (the same bytes) is not added again; one
+    /// that was taken out of the Library or put in its Trash comes back, as it does when the desktop opens it again.
+    /// The paper also goes into `collection` and `tag` (IDs) when they are given.
+    func add(_ paper: NewPaper, to folder: SyncFolder, library expected: String, collection: String? = nil,
+             tag: String? = nil) -> Added {
+        guard folder.library() == expected else {
+            return .failed("The sync folder is not available. Check that Synctrain is running.")
+        }
+        if let listed = library.papers.first(where: { $0.id == paper.sha256 }) {
+            file(listed, collection: collection, tag: tag)
+            return .already(listed)
+        }
+        do {
+            try folder.savePaper(paper.data, sha256: paper.sha256)
+        } catch {
+            return .failed("Cannot write “\(paper.name)” to the sync folder.")
+        }
+        files = (files ?? folder.paperFiles()).union([paper.sha256])
+        let known = state.entries("documents").values.compactMap(\.row)
+            .filter { $0.string("kind") != "web" && $0.string("sha256") == paper.sha256 && !$0.string("id").isEmpty }
+        if var row = known.min(by: { $0.string("id") < $1.string("id") }) {
+            row["removed_at"] = NSNull()
+            row["trashed_at"] = NSNull()
+            stage("documents", key: [row.string("id")], row: row)
+        } else {
+            let id = newId()
+            let row: Row = [
+                "id": id, "kind": "pdf", "sha256": paper.sha256,
+                // Only the name counts: each computer keeps the file where it keeps its papers.
+                "url": URL(fileURLWithPath: "/" + paper.name).absoluteString,
+                "added_at": Self.timestamp(Date(timeIntervalSince1970: TimeInterval(clock()) / 1000)),
+                "title": paper.title, "authors": "", "year": "", "doi": "", "arxiv": "",
+                "metadata_origin": "", "metadata_sha256": "", "reading_state": "unread", "favorite": 0,
+                "duplicate_ack": "", "excluded_from_index": 0, "removed_at": NSNull(), "trashed_at": NSNull(),
+            ]
+            stage("documents", key: [id], row: row)
+        }
+        guard let added = library.papers.first(where: { $0.id == paper.sha256 }) else {
+            return .failed("Cannot add “\(paper.name)”.")
+        }
+        file(added, collection: collection, tag: tag)
+        return .added(library.papers.first { $0.id == paper.sha256 } ?? added)
+    }
+
+    /// Puts a paper into a collection and a tag it is not in yet.
+    private func file(_ paper: Paper, collection: String?, tag: String?) {
+        if let collection, !collection.isEmpty, !paper.collections.contains(collection) {
+            stage("collection_documents", key: [collection, paper.documentId],
+                  row: ["collection_id": collection, "document_id": paper.documentId])
+        }
+        if let tag, !tag.isEmpty, let name = library.tags.first(where: { $0.id == tag })?.name, !paper.tags.contains(name) {
+            stage("document_tags", key: [paper.documentId, tag], row: ["document_id": paper.documentId, "tag_id": tag])
+        }
     }
 
     /// As Qt's `Qt::ISODateWithMs` writes UTC: 2026-11-05T03:04:05.123Z.
