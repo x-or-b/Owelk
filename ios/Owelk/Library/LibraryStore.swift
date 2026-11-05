@@ -16,7 +16,7 @@ final class LibraryStore: ObservableObject {
     @Published private(set) var syncing = false
 
     private enum Saved {
-        static let bookmark = "sync.bookmark", library = "sync.library", device = "sync.device"
+        static let bookmark = "sync.bookmark", library = "sync.library", device = "sync.device", inside = "sync.inside"
     }
 
     private let defaults = UserDefaults.standard
@@ -62,6 +62,8 @@ final class LibraryStore: ObservableObject {
         chosen?.stopAccessingSecurityScopedResource()
         defaults.set(bookmark, forKey: Saved.bookmark)
         defaults.set(id, forKey: Saved.library)
+        // The chosen folder itself or its "Owelk": remembered, so a folder not there yet at launch is still found.
+        defaults.set(root.standardizedFileURL.path != url.standardizedFileURL.path, forKey: Saved.inside)
         start(chosen: url, root: root, library: id)
         return nil
     }
@@ -76,8 +78,8 @@ final class LibraryStore: ObservableObject {
         }
         _ = url.startAccessingSecurityScopedResource()
         if stale, let fresh = try? url.bookmarkData() { defaults.set(fresh, forKey: Saved.bookmark) }
-        // While the sync program has not mounted the folder, its marker is missing: keep the place and say so.
-        let root = SyncFolder.locate(in: url) ?? url.appendingPathComponent("Owelk", isDirectory: true)
+        // While the sync program has not brought the folder, its marker is missing: keep the place and say so.
+        let root = defaults.bool(forKey: Saved.inside) ? url.appendingPathComponent("Owelk", isDirectory: true) : url
         start(chosen: url, root: root, library: id)
     }
 
