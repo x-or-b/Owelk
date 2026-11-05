@@ -14,13 +14,21 @@
 | 12–16. 검색·커맨드 | FTS5 본문(+OCR), 단어 순서 무관·점수 순위, 범위 칩·검색어 조건, 선택적 의미 검색(Ollama·OpenAI), 명령 팔레트 | — |
 | 17–21. 주석·연결 | 5색 주석·코멘트, 영역 표시(캡션 함께), 노트 링크·역링크, 주석 포함 PDF 내보내기(표준 주석). 이전 Captures는 주석·노트로 통합(스키마 15) | Figure 자동 인식 |
 | 22–27. 노트·AI | Markdown 노트, AI 5종(Claude API, OpenAI API, ChatGPT 계정(공식 Sign in with ChatGPT: 브라우저 로그인, 답은 ChatGPT 플랜 사용, 갱신 토큰만 키 저장소에), ChatGPT 계정(Codex), Ollama), 모델·추론 강도·Fast, 이미지·PDF/웹 영역 첨부(저장 안 함), Threads 패널(채팅 폴더: 논문별 자동 생성·직접 만들기·끌어 옮기기, 최근·이름 정렬, 검색), 채팅에 여러 논문(3편까지 전문, 그 이상과 Collection은 논문마다 개요(색인에서 첫 부분(초록·서론)과 결론, 논문당 최대 4,000자 + 2,000자, 40편까지)와 질문에 맞는 구절. 그래서 "전부 요약해줘"처럼 주제어가 없는 질문도 모든 논문에 닿음. 답의 Sources에는 인용한 것만. 칩 옆 Read each paper in full(2~8편)을 켜면 그 질문 하나만 논문마다 따로 요청해 본문(편당 8만 자까지)을 읽고 질문에 맞춘 메모(쪽 인용 포함)를 받은 뒤 그 메모로 답함: 동시에 3편(Ollama는 1편), 진행 표시 "Reading each paper in full · 2 of 5 done", Stop은 읽는 중인 것까지 모두 멈춤, 답의 인용은 각 논문의 그 쪽으로 이동)·Collection·라이브러리 전체 첨부, 노트 첨부와 AI 노트 제안(고친 노트·새 노트를 카드로 보여 주고 Apply/Create를 눌러야 저장, Undo), 선호 언어, 논문 비교표, 쪽별 번역·논문 요약, 탭·Collection AI 정리 | 라이브러리 전체에 묻기(v0.6) |
-| 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, 공유 폴더를 통한 컴퓨터 간 동기화(Google Drive·Dropbox·Syncthing, 항목별 나중 변경 우선), SQLite(라이브러리 스키마 21, 색인 5, 업그레이드 전 백업), 백업·복원, Markdown·BibTeX 내보내기, 단축키 변경, macOS·Linux·Windows 키 저장소, 로컬 설치 스크립트(macOS·Linux `install-local.sh`, Windows `install-local.ps1`, 모두 `tools/qt.txt`의 Qt 6.11.3 하나로 고정), Docker 빌드·테스트, 자동 테스트 7묶음 | Linux/Windows 실기기, 배포 패키지 |
+| 28–32. 데이터·기술 | C++20 + Qt Quick/PDF/WebEngine, 공유 폴더를 통한 컴퓨터 간 동기화(Google Drive·Dropbox·Syncthing, 항목별 나중 변경 우선), SQLite(라이브러리 스키마 21, 색인 5, 업그레이드 전 백업), 백업·복원, Markdown·BibTeX 내보내기, 단축키 변경, macOS·Linux·Windows 키 저장소, 로컬 설치 스크립트(macOS·Linux `install-local.sh`, Windows `install-local.ps1`, 모두 `tools/qt.txt`의 Qt 6.11.3 하나로 고정), Docker 빌드·테스트, 자동 테스트 9묶음(동기화 호환 포함)과 iPad XCTest | Linux/Windows 실기기, 배포 패키지 |
 
 ## 우선순위
 
 가볍고 빠름을 먼저 지키고, 기획서 순서보다 실제 사용 중 불편한 부분을 먼저 고칩니다. 기능별 사용법은 [README](../README.md)와 각 문서에, 변경 이력은 git 로그에 있습니다.
 
-## 이번 단계 (2026-10-18): 읽기 편의
+## 이번 단계 (2026-11-05): iPad 앱을 새로(네이티브)
+
+Qt로 옮긴 iPad 빌드는 스크롤·확대·Pencil·글자 선택·키보드를 QML로 다시 만들어야 해서 기기에서 느리고 어긋났습니다. 그래서 iPad는 SwiftUI + PDFKit 앱(`ios/`, bundle ID `org.owelk.pad`)으로 새로 시작해 단계별로 기능을 붙입니다. 데스크톱은 Qt 그대로이고, Qt iPad 빌드는 `ipad` 브랜치에 예비로 남겨 둡니다.
+
+- v1은 동기화 중심 뷰어입니다. Synctrain이 맞추는 `Owelk` 폴더를 파일 앱에서 고르면 라이브러리(제목·저자·읽기 상태·Collection·Tag·Recent·검색)와 PDF(PDFKit 스크롤·확대·썸네일·목차·찾기·글자 선택 복사)를 보여 주고, 컴퓨터에서 단 주석을 같은 자리에 그립니다(누르면 노트). iPad는 읽던 위치와 연 시각만 자기 `devices/<iPad ID>/`에 써서 Mac이 이어 읽게 합니다. 사용법과 구조: [ios/README.md](../ios/README.md), 동기화: [SYNC.md](SYNC.md#ipad).
+- 외부 패키지 없이 시스템 프레임워크만 씁니다. `project.pbxproj`는 손으로 쓴 파일(폴더 동기화 그룹)이고 `xcodebuild`로 빌드합니다.
+- 두 구현이 어긋나지 않게: 데스크톱 코드가 만든 동기화 폴더(`tests/data/sync/mac`)를 iPad XCTest가 읽고, iPad 코드가 쓴 변경 파일(`tests/data/sync/ipad`)을 데스크톱 테스트 `sync_conformance`가 읽습니다. iPad XCTest(iOS 27 시뮬레이터)는 그 밖에 나중 변경 우선·256KB 파일 나누기·끝나지 않은 줄·회전한 쪽의 좌표·주석이 그려지는 자리·읽던 위치로 돌아가기를 확인합니다.
+
+## 지난 단계 (2026-10-18): 읽기 편의
 
 - 1단계 구현 완료: macOS 스와이프, 코드 링크, 선택적 Library 요약·인용 수. 실제 트랙패드와 외부 서비스의 결과 확인은 NEXT에 남겼습니다.
 - Settings › Library › Summaries and citation counts(기본 끔): 켠 경우에만 DOI/arXiv ID를 Semantic Scholar batch API로 최대 500편씩 보냅니다. PDF·노트는 보내지 않습니다. 하루 한 번 확인하고(실행 직후 창이 열리는 동안은 기다림) 받은 결과는 30일 동안 재사용하며, 데이터 폴더의 `library-insights.json`에 원자적으로 저장합니다(DB 스키마 변경 없음). 설정을 끄면 진행 중 조회와 표시가 중지됩니다. Library 메타 줄에는 인용 수, 셋째 줄에는 TL;DR을 표시하고 요약이 있는 행만 높아집니다. 주소는 인용 목록과 같은 `citations.baseUrl` 설정을 씁니다.
@@ -152,4 +160,4 @@ C++ 테스트(저장·마이그레이션·색인·재연결·주석·인쇄·주
 
 ## 다음 단계
 
-**실사용 확인(Mac↔Ubuntu 동기화, Linux·Windows CI 결과, 의미 검색·OCR 실제 엔진, 백업 복원) → iPad 검토.** 세부 항목은 [NEXT.md](NEXT.md)에 있습니다.
+**iPad 앱 v1 기기 확인(Synctrain 폴더, Mac의 주석, Mac이 iPad 위치 이어 읽기) → iPad 펜 쓰기(PencilKit) → 실사용 확인(Mac↔Ubuntu 동기화, Linux·Windows CI 결과, 의미 검색·OCR 실제 엔진, 백업 복원).** 세부 항목은 [NEXT.md](NEXT.md)에 있습니다.
