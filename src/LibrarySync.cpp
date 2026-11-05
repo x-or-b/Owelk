@@ -16,6 +16,7 @@
 #include <QJsonObject>
 #include <QLocale>
 #include <QRegularExpression>
+#include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QSqlRecord>
@@ -156,7 +157,12 @@ bool installTracking(QSqlDatabase &db, QString *error)
         "PRIMARY KEY(kind,from_id))",
         "CREATE TABLE IF NOT EXISTS sync_pause(paused INTEGER)",
         "CREATE TABLE IF NOT EXISTS sync_files(local TEXT NOT NULL, remote TEXT NOT NULL, outgoing INTEGER NOT NULL, "
-        "PRIMARY KEY(local,remote,outgoing))"};
+        "PRIMARY KEY(local,remote,outgoing))",
+        // PDFs whose paper was deleted for good: the folder's copy goes once no paper uses it (see removeUnusedPapers).
+        "CREATE TABLE IF NOT EXISTS sync_gone(sha256 TEXT PRIMARY KEY)",
+        "CREATE TRIGGER IF NOT EXISTS sync_documents_gone AFTER DELETE ON documents WHEN NOT EXISTS(SELECT 1 FROM "
+        "sync_pause) AND OLD.kind='pdf' AND length(OLD.sha256)=64 BEGIN INSERT OR IGNORE INTO sync_gone(sha256) "
+        "VALUES(OLD.sha256); END"};
     const QString mark = "INSERT OR REPLACE INTO sync_dirty(tbl,key,time,device) VALUES('%1',json_array(%2),%3,NULL);";
     // A table added in a later version: its rows (written before it was tracked) travel once.
     QStringList untracked;
@@ -233,6 +239,8 @@ public:
     bool readAgainAfterUpdate();
     bool importChanges();
     bool exportChanges();
+    void removeUnusedPapers();
+    void sendMissingPapers();
     void moveFiles();
 
 private:
@@ -474,9 +482,15 @@ bool Pass::applyChange(const QJsonObject &change)
         if (table == "documents") {
             // A paper deleted for good elsewhere: the copy Owelk keeps here goes to the system Trash too.
             QSqlQuery url(m_db);
-            if (run(url, "SELECT url FROM documents WHERE id=?", keyValues) && url.next()) {
+            if (run(url, "SELECT url,sha256,kind FROM documents WHERE id=?", keyValues) && url.next()) {
                 const auto path = QUrl(url.value(0).toString()).toLocalFile();
                 if (path.startsWith(m_papers + "/")) m_removedPapers << path;
+                // The folder's copy of its PDF is looked at too: the computer that deleted it may have found it
+                // still in use, or a copy may have come back before this computer heard.
+                const auto sha = url.value(1).toString();
+                if (url.value(2).toString() == "pdf" && isSha256(sha)
+                    && !run("INSERT OR IGNORE INTO sync_gone(sha256) VALUES(?)", {sha}))
+                    return false;
             }
         }
         if (!run("DELETE FROM " + table + " WHERE " + where(keys), keyValues)) return false;
@@ -784,6 +798,59 @@ bool Pass::writeSegments(const QByteArray &lines)
     return true;
 }
 
+// A paper deleted for good (here, or on another computer and heard of here) whose PDF no paper here uses any more,
+// in the Library or its Trash: the folder's copy goes, and the sync program takes it off the other computers. Each
+// computer keeps its own copy until it deletes the paper itself (then to the system Trash). Only the PDFs of deleted
+// papers are looked at, so a PDF that arrives before its paper's row is left alone.
+void Pass::removeUnusedPapers()
+{
+    QStringList gone;
+    {
+        QSqlQuery query(m_db);
+        if (!run(query, "SELECT sha256 FROM sync_gone")) return;
+        while (query.next()) gone << query.value(0).toString();
+    }
+    for (const auto &sha : std::as_const(gone)) {
+        if (m_cancel->load()) return;
+        QSqlQuery used(m_db);
+        if (!run(used,
+                "SELECT 1 FROM documents WHERE sha256=? AND kind='pdf' AND (removed_at IS NULL OR trashed_at IS NOT "
+                "NULL) LIMIT 1",
+                {sha}))
+            return;
+        if (!used.next()) {
+            const auto remote = "Papers/" + sha + ".pdf";
+            const auto path = m_folder + "/" + remote;
+            if (QFileInfo::exists(path) && !QFile::remove(path)) continue; // Tried again on the next pass.
+            if (!run("DELETE FROM sync_files WHERE remote=?", {remote})) return;
+        }
+        if (!run("DELETE FROM sync_gone WHERE sha256=?", {sha})) return;
+    }
+}
+
+// A Library paper's PDF missing from the folder goes there again from the copy here: one computer may have taken it
+// away (its last paper deleted there) before this computer's change for the same PDF arrived.
+void Pass::sendMissingPapers()
+{
+    const auto names = QDir(m_folder + "/Papers").entryList({"*.pdf"}, QDir::Files);
+    const QSet<QString> present(names.cbegin(), names.cend());
+    QList<QPair<QString, QString>> missing;
+    {
+        QSqlQuery query(m_db);
+        if (!run(query,
+                "SELECT url,sha256 FROM documents WHERE kind='pdf' AND removed_at IS NULL AND length(sha256)=64"))
+            return;
+        while (query.next()) {
+            const auto sha = query.value(1).toString();
+            if (!isSha256(sha) || present.contains(sha + ".pdf")) continue;
+            const auto local = QUrl(query.value(0).toString()).toLocalFile();
+            if (!local.isEmpty() && QFileInfo::exists(local)) missing.append({local, "Papers/" + sha + ".pdf"});
+        }
+    }
+    for (const auto &[local, remote] : std::as_const(missing))
+        if (!run("INSERT OR IGNORE INTO sync_files(local,remote,outgoing) VALUES(?,?,1)", {local, remote})) return;
+}
+
 void Pass::moveFiles()
 {
     struct Item {
@@ -863,7 +930,11 @@ LibrarySync::Outcome runPass(const QString &data, const QString &papers, const Q
     // Changes made here still go out when those from elsewhere cannot all be read in (the error is shown).
     if (!exportOnly && pass.readAgainAfterUpdate()) pass.importChanges();
     if (!pass.exportChanges()) return pass.outcome;
-    if (!exportOnly) pass.moveFiles();
+    if (!exportOnly) {
+        pass.removeUnusedPapers();
+        pass.sendMissingPapers();
+        pass.moveFiles();
+    }
     return pass.outcome;
 }
 } // namespace

@@ -1326,6 +1326,75 @@ private slots:
         QCOMPARE(restored.note(note)["title"].toString(), QString("After"));
         QVERIFY(!device().isEmpty() && device() != before);
     }
+    void syncTakesADeletedPapersPdfOutOfTheFolder()
+    {
+        // A paper deleted for good takes its PDF out of the shared folder once no paper uses it (the Trash keeps it,
+        // for Restore); a Library paper's PDF missing there goes back from a computer that has it.
+        QTemporaryDir directory;
+        const auto drive = directory.filePath("Drive");
+        QVERIFY(QDir().mkpath(drive));
+        const auto scalar = [](const ResearchStore &store, const QString &sql) {
+            WorkerConnection db(store.dataDirectory() + "/owelk.sqlite3", true);
+            QSqlQuery query(db.db);
+            return query.exec(sql) && query.next() ? query.value(0) : QVariant();
+        };
+        QString error;
+        ResearchStore mac(directory.filePath("mac")), ubuntu(directory.filePath("ubuntu"));
+        QVERIFY2(mac.initialize(&error) && ubuntu.initialize(&error), qPrintable(error));
+        // Read from where they are, so deleting sends nothing on this computer to the system Trash.
+        QVERIFY(mac.setSetting("library.keepPdfs", "0"));
+        const auto paper = QUrl::fromLocalFile(directory.filePath("paper.pdf")),
+                   copy = QUrl::fromLocalFile(directory.filePath("same bytes.pdf"));
+        writeFixture(paper.toLocalFile(), "Deleted Paper");
+        QVERIFY(QFile::copy(paper.toLocalFile(), copy.toLocalFile()));
+        QCOMPARE(mac.addDocuments({paper, copy}), 2);
+        QTRY_COMPARE_WITH_TIMEOUT(scalar(mac, "SELECT count(DISTINCT sha256) FROM documents WHERE sha256<>''").toInt(),
+            1, 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(scalar(mac, "SELECT count(*) FROM documents WHERE sha256=''").toInt(), 0, 10000);
+        const auto sha = scalar(mac, "SELECT sha256 FROM documents").toString();
+        const auto shared = drive + "/Owelk/Papers/" + sha + ".pdf";
+        const auto sync = [](ResearchStore &store) {
+            const auto outcome = store.librarySync()->syncBlocking();
+            return outcome.error.isEmpty() ? QString() : outcome.error;
+        };
+        QCOMPARE(mac.librarySync()->setFolder(QUrl::fromLocalFile(drive)), QString());
+        QCOMPARE(sync(mac), QString());
+        QVERIFY(QFileInfo::exists(shared));
+        QCOMPARE(ubuntu.librarySync()->setFolder(QUrl::fromLocalFile(drive)), QString());
+        QCOMPARE(sync(ubuntu), QString());
+        const auto ubuntuCopy = QUrl(scalar(ubuntu, "SELECT url FROM documents").toString()).toLocalFile();
+        QVERIFY(QFileInfo::exists(ubuntuCopy));
+
+        // Gone from the folder (lost, or taken away by a computer that had not heard of this paper): back from here.
+        QVERIFY(QFile::remove(shared));
+        QCOMPARE(sync(mac), QString());
+        QVERIFY(QFileInfo::exists(shared));
+
+        // In the Trash, and one copy deleted for good while the other still uses the PDF: it stays.
+        QCOMPARE(mac.deletePapers({paper}), 1);
+        QCOMPARE(sync(mac), QString());
+        QVERIFY(QFileInfo::exists(shared));
+        QCOMPARE(mac.purgePapers({paper}), 1);
+        QCOMPARE(sync(mac), QString());
+        QVERIFY(QFileInfo::exists(shared));
+
+        // The last paper that uses it deleted for good: the folder's copy goes; the original file stays.
+        QCOMPARE(mac.deletePapers({copy}), 1);
+        QCOMPARE(mac.purgePapers({copy}), 1);
+        QCOMPARE(sync(mac), QString());
+        QVERIFY(!QFileInfo::exists(shared));
+        QVERIFY(QFileInfo::exists(paper.toLocalFile()) && QFileInfo::exists(copy.toLocalFile()));
+
+        // Put back meanwhile (another computer sending it before it heard): the computer that hears of the deletion
+        // takes it away again. (Its own copy goes to the system Trash, so the test removes it first.)
+        QVERIFY(QFile::copy(paper.toLocalFile(), shared));
+        QVERIFY(QFile::remove(ubuntuCopy));
+        QCOMPARE(sync(ubuntu), QString());
+        QCOMPARE(scalar(ubuntu, "SELECT count(*) FROM documents").toInt(), 0);
+        QVERIFY(!QFileInfo::exists(shared));
+        QCOMPARE(scalar(ubuntu, "SELECT count(*) FROM sync_gone").toInt(), 0);
+        QCOMPARE(scalar(mac, "SELECT count(*) FROM sync_gone").toInt(), 0);
+    }
     void syncKeepsFileNamesFromTheFolderInPlace()
     {
         QTemporaryDir directory;
