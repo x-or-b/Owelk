@@ -7,6 +7,7 @@
 //    -I/opt/homebrew/lib/QtCore.framework/Headers -I/opt/homebrew/lib/QtGui.framework/Headers)
 //   QT_QPA_PLATFORM=offscreen /tmp/app_icon resources/app
 //   QT_QPA_PLATFORM=offscreen /tmp/app_icon resources/app --sheet /tmp/options.png   (colour options only)
+//   QT_QPA_PLATFORM=offscreen /tmp/app_icon resources/app --ios ios/Owelk/Assets.xcassets/AppIcon.appiconset/icon-1024.png
 //   iconutil -c icns resources/app/owelk.iconset -o resources/app/owelk.icns && rm -r resources/app/owelk.iconset
 //
 // Writes owelk.iconset/ (macOS), owelk.ico (Windows, PNG entries), owelk.png (512 px, Linux and the
@@ -133,6 +134,24 @@ static QImage render(const QImage &mark, int size, const Palette &palette)
     return icon;
 }
 
+// iPadOS's icon: the paper fills the square (the system rounds the corners), opaque, the mark a little larger.
+static QImage renderIos(const QImage &mark, int size, const Palette &palette)
+{
+    QImage icon(size, size, QImage::Format_RGB32);
+    QPainter p(&icon);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setRenderHint(QPainter::SmoothPixmapTransform);
+    QLinearGradient paper(0, 0, 0, size);
+    paper.setColorAt(0, palette.top);
+    paper.setColorAt(1, palette.bottom);
+    p.fillRect(QRectF(0, 0, size, size), paper);
+    // The mark's ink (~87% of its square) spans ~64% of the icon.
+    const qreal markSize = size * .64 / .87;
+    const QImage scaled = mark.scaled(qCeil(markSize), qCeil(markSize), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    p.drawImage(QPointF((size - scaled.width()) / 2.0, (size - scaled.height()) / 2.0), scaled);
+    return icon;
+}
+
 static QByteArray png(const QImage &image)
 {
     QByteArray bytes;
@@ -156,6 +175,9 @@ int main(int argc, char **argv)
         return 1;
     }
     if (argc > 3 && QString(argv[2]) == "--mark") return prepare(source, palettes[0].stroke).save(argv[3]) ? 0 : 1;
+    // The iPad's: app_icon resources/app --ios ios/Owelk/Assets.xcassets/AppIcon.appiconset/icon-1024.png
+    if (argc > 3 && QString(argv[2]) == "--ios")
+        return renderIos(prepare(source, palettes[0].stroke), 1024, palettes[0]).save(argv[3]) ? 0 : 1;
     if (argc > 3 && QString(argv[2]) == "--sheet") {
         // Every palette at 256 px and 32 px, side by side, for choosing.
         QImage sheet(palettes.size() * 300 + 20, 340, QImage::Format_ARGB32_Premultiplied);
