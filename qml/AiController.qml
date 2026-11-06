@@ -91,6 +91,10 @@ Item {
     readonly property string effectiveEffort: efforts.indexOf(effort) >= 0 ? effort : (modelInfo.defaultEffort || (efforts.length ? efforts[0] : ""))
     readonly property bool fastAvailable: !!modelInfo.fast
     readonly property bool effectiveFast: fast && fastAvailable
+    // The provider's own web search for the questions asked (off unless turned on, then remembered); Ollama has none.
+    property bool webSearch: false
+    readonly property bool webSearchAvailable: !!providerInfo.webSearch
+    readonly property bool searchesWeb: webSearch && webSearchAvailable
     // Images attached to the next question: [{url, name}].
     property var images: []
     // A region of the PDF dragged out from the AI panel: its picture joins the next question (nothing is
@@ -113,9 +117,11 @@ Item {
     function loadSelection() {
         effort = researchStore.setting("ai.effort." + ai.provider, "")
         fast = researchStore.setting("ai.fast." + ai.provider, "") === "1"
+        webSearch = researchStore.setting("ai.webSearch", "") === "1"
     }
     function setEffort(value) { effort = value; researchStore.setSetting("ai.effort." + ai.provider, value) }
     function setFast(on) { fast = on; researchStore.setSetting("ai.fast." + ai.provider, on ? "1" : "") }
+    function setWebSearch(on) { webSearch = on; researchStore.setSetting("ai.webSearch", on ? "1" : "") }
     function effortName(value) { return AiNames.effortName(value) }
     function companyName(provider) {
         return ({claude: qsTr("Anthropic"), openai: qsTr("OpenAI"), chatgpt: qsTr("ChatGPT account"), codex: qsTr("ChatGPT account"), ollama: qsTr("Ollama (this computer)")})[provider] || provider
@@ -339,7 +345,8 @@ Item {
     function queue(question) {
         const text = question.trim()
         if (!text.length || !runs) return false
-        const item = {question: text, provider: ai.provider, model: model, effort: efforts.length ? effectiveEffort : "", fast: effectiveFast}
+        const item = {question: text, provider: ai.provider, model: model, effort: efforts.length ? effectiveEffort : "", fast: effectiveFast,
+                      webSearch: searchesWeb}
         runs.setQueued(threadId, queuedHere.concat([item]))
         return true
     }
@@ -400,6 +407,7 @@ Item {
                         source: thread.source || "", imageFiles: context.imageFiles || [], imageNames: context.images || [], imageLabels: []}
         if (efforts.length) choice.effort = effectiveEffort
         if (effectiveFast) choice.fast = true
+        if (searchesWeb) choice.webSearch = true
         request = ai.ask(choice)
         runs.asked(request, {threadId: threadId, question: pendingQuestion, answer: "", thinking: "", thinkingSeconds: 0,
                              askedAt: askedAt, model: "", truncated: false, translatePage: -1, restore: turn})
@@ -568,7 +576,7 @@ Item {
         const choice = {provider: provider, model: model, question: question, threadId: threadId, action: spec.action || "ask",
                         imageFiles: images.map(function(i) { return i.url }),
                         imageLabels: images.map(function(i) { return i.about || "" }),
-                        imageNames: images.map(function(i) { return i.name || "" }), readEach: readsEach}
+                        imageNames: images.map(function(i) { return i.name || "" }), readEach: readsEach, webSearch: searchesWeb}
         if (efforts.length) choice.effort = effectiveEffort
         if (effectiveFast) choice.fast = true
         request = ai.ask(Object.assign({}, spec, choice))
@@ -639,7 +647,7 @@ Item {
             // Asked in another view of this conversation, or its next waiting question: shown here too.
             if (thread.length && thread === root.threadId && !root.streaming) root.showRunning()
         }
-        function onThinking(id, text) { if (id === root.request) root.thinkingText += text }
+        function onThinking(id, text) { if (id === root.request) { root.thinkingText += text; if (text.trim().length) root.progressText = "" } }
         function onProgress(id, text) { if (id === root.request) root.progressText = text }
         function onDelta(id, text) {
             if (id !== root.request) return

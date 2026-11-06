@@ -529,6 +529,10 @@
         <translation>서치 페이퍼스</translation>
     </message>
     <message>
+        <source>Search the web</source>
+        <translation>서치 더 웹</translation>
+    </message>
+    <message>
         <source>Select All</source>
         <translation>셀렉트 올</translation>
     </message>
@@ -611,6 +615,14 @@
     <message>
         <source>Waiting</source>
         <translation>웨이팅</translation>
+    </message>
+    <message>
+        <source>Web search</source>
+        <translation>웹 서치</translation>
+    </message>
+    <message>
+        <source>Web search on: the AI may search the web through %1</source>
+        <translation>웹 서치 온: 더 에이아이 메이 서치 더 웹 스루 %1</translation>
     </message>
     <message>
         <source>Whole Library</source>
@@ -3641,6 +3653,10 @@ Same file as another library entry</source>
         <translation>클로드 이즈 템퍼레럴리 오버로디드. 트라이 어게인 쇼틀리.</translation>
     </message>
     <message>
+        <source>Claude paused while searching the web. Ask again.</source>
+        <translation>클로드 포즈드 와일 서칭 더 웹. 애스크 어게인.</translation>
+    </message>
+    <message>
         <source>Claude rate limit reached. Try again shortly.</source>
         <translation>클로드 레이트 리밋 리치트. 트라이 어게인 쇼틀리.</translation>
     </message>
@@ -4143,6 +4159,14 @@ Same file as another library entry</source>
     <message>
         <source>Search index: </source>
         <translation>서치 인덱스: </translation>
+    </message>
+    <message>
+        <source>Searching the web: %1</source>
+        <translation>서칭 더 웹: %1</translation>
+    </message>
+    <message>
+        <source>Searching the web…</source>
+        <translation>서칭 더 웹…</translation>
     </message>
     <message>
         <source>Select a word or a passage.</source>

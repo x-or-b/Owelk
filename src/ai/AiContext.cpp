@@ -105,6 +105,14 @@ AiPrompt buildAiPrompt(
         prompt.system += " When a statement draws on the paper, cite its place right after it as [p. N: \"exact "
                          "words\"], where N is the page number marked in the material and the words are a short phrase "
                          "(about 4 to 12 words) copied exactly from that page.";
+    // Web search, turned on by the reader: for recent work and facts the material lacks, each source linked.
+    if (materials.webSearch)
+        prompt.system += QStringLiteral(
+            "\n\nYou can search the web. Search when the question asks about recent or current work (the state of "
+            "the art, newer methods, what came after the paper) or about facts the material does not hold; "
+            "otherwise answer from the material. Say which statements come from the web, and cite each web source "
+            "right after the statement as a Markdown link [site or title](https://...). Never cite web sources "
+            "with numbers such as [1] or with page markers.");
     QStringList parts, context;
     QStringList paper;
     if (!materials.title.isEmpty()) paper << "Title: " + materials.title;

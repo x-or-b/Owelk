@@ -137,6 +137,7 @@ Item {
                     list.push({kind: "image", label: names[i] || qsTr("Image"), url: files[i] || ""})
             }
         })
+        if (context.webSearch) list.push({kind: "web", label: qsTr("Web search")})
         return list
     }
     // The model's reasoning summary above an answer. While it thinks: "Thinking · <latest step>" in a
@@ -154,8 +155,9 @@ Item {
             objectName: "aiThinkingNow"
             visible: fold.live
             Layout.fillWidth: true
-            text: fold.shown ? qsTr("Thinking · ") + root.c.thinkingHeadline(fold.summary)
-                : root.c && root.c.progressText.length ? root.c.progressText : qsTr("Thinking…")
+            // The latest step: a status (a web search, papers being read) until new thinking comes.
+            text: root.c && root.c.progressText.length ? root.c.progressText
+                : fold.shown ? qsTr("Thinking · ") + root.c.thinkingHeadline(fold.summary) : qsTr("Thinking…")
             elide: Text.ElideRight; textFormat: Text.PlainText
             color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
         }
@@ -958,6 +960,17 @@ Item {
                 checked: root.c && root.c.effectiveFast
                 description: qsTr("Fast mode")
                 onClicked: root.c.setFast(checked)
+            }
+            // The provider's own web search, for recent work and what the paper does not say.
+            IconButton {
+                objectName: "aiWebSearchButton"
+                visible: root.c && root.c.webSearchAvailable
+                icon.name: "globe"
+                checkable: true
+                checked: root.c && root.c.searchesWeb
+                description: checked ? qsTr("Web search on: the AI may search the web through %1").arg(root.c ? root.c.providerInfo.sends || "" : "")
+                                     : qsTr("Search the web")
+                onClicked: root.c.setWebSearch(checked)
             }
             Item { Layout.fillWidth: true; Layout.minimumWidth: 0 }
             IconButton {

@@ -40,6 +40,28 @@ QString planError(const QString &code)
 }
 }
 
+void AiProvider::cite(const QString &url, const QString &title)
+{
+    if (!url.startsWith("https://") && !url.startsWith("http://")) return;
+    for (const auto &seen : std::as_const(m_cited))
+        if (seen.first == url) return;
+    m_cited.append({url, title.simplified()});
+}
+
+QString AiProvider::webSources(const QString &answer) const
+{
+    QStringList lines;
+    for (const auto &[url, title] : m_cited) {
+        if (answer.contains(url) || lines.size() >= 8) continue;
+        auto name = title.isEmpty() ? QUrl(url).host() : title.left(120);
+        name.replace('[', '(').replace(']', ')');
+        auto target = url;
+        target.replace('(', "%28").replace(')', "%29").replace(' ', "%20");
+        lines << "- [" + name + "](" + target + ")";
+    }
+    return lines.isEmpty() ? QString() : "\n\nSources:\n" + lines.join('\n');
+}
+
 HttpStreamProvider::HttpStreamProvider(QNetworkAccessManager *network, QUrl endpoint, QObject *parent)
     : AiProvider(parent), m_network(network), m_endpoint(std::move(endpoint))
 {
@@ -125,6 +147,11 @@ void HttpStreamProvider::finish(const QString &model)
 {
     if (m_done) return;
     m_done = true;
+    // Web pages the answer cites without linking them (Claude's citations): listed after it.
+    if (const auto more = webSources(m_text); !more.isEmpty()) {
+        m_text += more;
+        emit delta(more);
+    }
     emit finished(m_text, model);
 }
 
@@ -175,6 +202,14 @@ bool anthropicFast(const QString &model)
     return model.startsWith("claude-opus-5");
 }
 
+// Web search that filters its results before reading them; older models take the basic version.
+static bool anthropicFiltersSearch(const QString &model)
+{
+    return model.startsWith("claude-opus-5") || model.startsWith("claude-sonnet-5")
+        || model.startsWith("claude-opus-4-6") || model.startsWith("claude-opus-4-7")
+        || model.startsWith("claude-opus-4-8") || model.startsWith("claude-sonnet-4-6");
+}
+
 void AnthropicProvider::start(const AiRequest &request)
 {
     m_model = request.model;
@@ -210,6 +245,12 @@ void AnthropicProvider::start(const AiRequest &request)
     // These models think anyway; "summarized" makes the reasoning readable instead of empty.
     if (request.thinkingSummary && anthropicThinks(request.model))
         body.insert("thinking", QJsonObject{{"type", "adaptive"}, {"display", "summarized"}});
+    // Anthropic's own web search, a few searches per answer.
+    if (request.webSearch)
+        body.insert("tools",
+            QJsonArray{QJsonObject{
+                {"type", anthropicFiltersSearch(request.model) ? "web_search_20260209" : "web_search_20250305"},
+                {"name", "web_search"}, {"max_uses", 5}}});
     QHash<QByteArray, QByteArray> headers{{"x-api-key", m_key.toUtf8()}, {"anthropic-version", "2023-06-01"}};
     QStringList betas;
     if (fallbacks) betas << "server-side-fallback-2026-07-01";
@@ -224,7 +265,13 @@ bool AnthropicProvider::handle(const QString &event, const QJsonObject &data)
         m_model = data.value("message").toObject().value("model").toString(m_model);
     } else if (event == "content_block_start") {
         // Each thinking block is a paragraph of the summary.
-        if (data.value("content_block").toObject().value("type").toString() == "thinking") think({}, true);
+        const auto block = data.value("content_block").toObject();
+        if (block.value("type").toString() == "thinking") think({}, true);
+        if (block.value("type").toString() == "server_tool_use" && block.value("name").toString() == "web_search") {
+            m_searchBlock = data.value("index").toInt();
+            m_searchInput.clear();
+            emit status(ui("Searching the web…"));
+        }
     } else if (event == "content_block_delta") {
         // Text is the answer, thinking the summarized reasoning; signatures and other blocks are not shown.
         const auto delta = data.value("delta").toObject();
@@ -235,11 +282,32 @@ bool AnthropicProvider::handle(const QString &event, const QJsonObject &data)
             emit this->delta(text);
         } else if (type == "thinking_delta")
             think(delta.value("thinking").toString());
+        else if (type == "input_json_delta" && data.value("index").toInt() == m_searchBlock)
+            m_searchInput += delta.value("partial_json").toString();
+        else if (type == "citations_delta") {
+            const auto citation = delta.value("citation").toObject();
+            if (citation.value("type").toString() == "web_search_result_location")
+                cite(citation.value("url").toString(), citation.value("title").toString());
+        }
+    } else if (event == "content_block_stop") {
+        if (data.value("index").toInt() == m_searchBlock) {
+            m_searchBlock = -1;
+            const auto query = QJsonDocument::fromJson(m_searchInput.toUtf8()).object().value("query").toString();
+            if (!query.trimmed().isEmpty()) emit status(QString(ui("Searching the web: %1")).arg(query.simplified()));
+        }
     } else if (event == "message_delta") {
         const auto reason = data.value("delta").toObject().value("stop_reason").toString();
         if (!reason.isEmpty()) m_stopReason = reason;
     } else if (event == "message_stop") {
         m_cutOff = m_stopReason == "max_tokens";
+        // Paused during a long web search: kept as far as it got, marked as ending early.
+        if (m_stopReason == "pause_turn") {
+            if (m_text.isEmpty()) {
+                fail(ui("Claude paused while searching the web. Ask again."));
+                return false;
+            }
+            m_interrupted = true;
+        }
         if (m_stopReason == "refusal") {
             // A declined answer is discarded, even if part of it streamed.
             fail(ui("Claude declined this request. Rephrase it or try another provider."));
@@ -295,8 +363,11 @@ void OpenAiProvider::start(const AiRequest &request)
     if (!request.effort.isEmpty()) reasoning.insert("effort", request.effort);
     if (request.thinkingSummary && openAiReasons(request.model)) reasoning.insert("summary", "auto");
     if (!reasoning.isEmpty()) body.insert("reasoning", reasoning);
+    // OpenAI's own web search.
+    if (request.webSearch) body.insert("tools", QJsonArray{QJsonObject{{"type", "web_search"}}});
     if (!m_plan) {
         body.insert("max_output_tokens", request.maxTokens);
+        if (request.webSearch) body.insert("max_tool_calls", 5);
         // OpenAI's faster processing tier.
         if (request.fast) body.insert("service_tier", "priority");
         post({{"Authorization", "Bearer " + m_key.toUtf8()}}, body, true);
@@ -333,6 +404,17 @@ bool OpenAiProvider::handle(const QString &event, const QJsonObject &data)
         const auto text = data.value("delta").toString();
         m_text += text;
         emit delta(text);
+    } else if (event == "response.output_item.added" || event == "response.output_item.done") {
+        // A web search: its words once known.
+        const auto item = data.value("item").toObject();
+        if (item.value("type").toString() == "web_search_call") {
+            const auto query = item.value("action").toObject().value("query").toString().simplified();
+            emit status(query.isEmpty() ? ui("Searching the web…") : QString(ui("Searching the web: %1")).arg(query));
+        }
+    } else if (event == "response.output_text.annotation.added") {
+        const auto annotation = data.value("annotation").toObject();
+        if (annotation.value("type").toString() == "url_citation")
+            cite(annotation.value("url").toString(), annotation.value("title").toString());
     } else if (event == "response.completed") {
         finish(data.value("response").toObject().value("model").toString(m_model));
         return false;
@@ -592,9 +674,34 @@ CodexProvider::CodexProvider(CodexBridge *bridge, QObject *parent) : AiProvider(
     connect(m_bridge, &CodexBridge::notification, this, [this](const QString &method, const QJsonObject &params) {
         if (m_done || params.value("threadId").toString() != m_threadId || m_threadId.isEmpty()) return;
         if (method == "item/agentMessage/delta") {
-            const auto text = params.value("delta").toString();
+            const auto item = params.value("itemId").toString();
+            auto text = params.value("delta").toString();
+            if (m_commentary.contains(item)) {
+                if (!text.isEmpty()) {
+                    m_thought = true;
+                    emit thinkingDelta(text);
+                }
+                return;
+            }
+            if (item != m_textItem && !m_text.isEmpty() && !text.isEmpty() && !m_text.endsWith("\n\n"))
+                text.prepend(m_text.endsWith('\n') ? "\n" : "\n\n");
+            m_textItem = item;
             m_text += text;
             emit delta(text);
+        } else if (method == "item/started" || method == "item/completed") {
+            const auto item = params.value("item").toObject();
+            const auto type = item.value("type").toString();
+            if (type == "webSearch") {
+                const auto query = item.value("query").toString().simplified();
+                if (!query.isEmpty())
+                    emit status(QString(ui("Searching the web: %1")).arg(query));
+                else if (method == "item/started")
+                    emit status(ui("Searching the web…"));
+            } else if (type == "agentMessage" && method == "item/started"
+                && item.value("phase").toString() == "commentary") {
+                m_commentary << item.value("id").toString();
+                if (m_thought) emit thinkingDelta("\n\n");
+            }
         } else if (method == "item/reasoning/summaryPartAdded") {
             if (m_thought) emit thinkingDelta("\n\n");
         } else if (method == "item/reasoning/summaryTextDelta") {
@@ -631,8 +738,10 @@ void CodexProvider::start(const AiRequest &request)
     m_effort = request.effort;
     m_fast = request.fast;
     m_summary = request.thinkingSummary;
+    // Codex's own web search, live, only when the reader turned it on (its default may search a cache).
     QJsonObject thread{{"ephemeral", true}, {"sandbox", "read-only"}, {"approvalPolicy", "never"},
-        {"developerInstructions", request.system}};
+        {"developerInstructions", request.system},
+        {"config", QJsonObject{{"web_search", request.webSearch ? "live" : "disabled"}}}};
     if (!request.model.isEmpty()) thread.insert("model", request.model);
     // Each Owelk request is a fresh read-only thread, so earlier turns travel inside the text.
     QString text = request.fullText();

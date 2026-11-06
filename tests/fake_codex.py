@@ -5,6 +5,7 @@ import os
 import sys
 
 signed_in = False
+web_search = None
 
 
 def send(message):
@@ -37,8 +38,10 @@ for line in sys.stdin:
             {"id": "m1", "model": "gpt-test", "displayName": "GPT Test", "hidden": False, "isDefault": True},
             {"id": "m2", "model": "gpt-hidden", "displayName": "Hidden", "hidden": True, "isDefault": False}]}})
     elif method == "thread/start":
-        # Owelk must ask for a throwaway, read-only thread that never runs commands.
-        ok = params.get("ephemeral") is True and params.get("sandbox") == "read-only" and params.get("approvalPolicy") == "never"
+        # Owelk must ask for a throwaway, read-only thread that never runs commands, and say whether it may search.
+        web_search = (params.get("config") or {}).get("web_search")
+        ok = params.get("ephemeral") is True and params.get("sandbox") == "read-only" and params.get("approvalPolicy") == "never" \
+            and web_search in ("live", "disabled")
         send({"id": request_id, "result": {"thread": {"id": "t1" if ok else "unsafe"}, "model": "gpt-test"}})
     elif method == "turn/start":
         thread = params["threadId"]
@@ -47,6 +50,12 @@ for line in sys.stdin:
         # A server request Owelk must decline without hanging.
         send({"id": 900, "method": "item/commandExecution/requestApproval", "params": {"threadId": thread}})
         extra = " [%s, %s]" % (params["effort"], params["serviceTier"]) if "effort" in params else ""
+        if web_search == "live":  # A search, and a word about it before the answer.
+            send({"method": "item/started", "params": {"threadId": thread, "item": {"type": "webSearch", "id": "w1", "query": ""}}})
+            send({"method": "item/completed", "params": {"threadId": thread, "item": {"type": "webSearch", "id": "w1", "query": "recent SLAM"}}})
+            send({"method": "item/started", "params": {"threadId": thread, "item": {"type": "agentMessage", "id": "c1", "text": "", "phase": "commentary"}}})
+            send({"method": "item/agentMessage/delta", "params": {"threadId": thread, "turnId": "u1", "itemId": "c1", "delta": "Looking it up."}})
+            extra += " [web]"
         for piece in ["Codex ", "answer" + extra]:
             send({"method": "item/agentMessage/delta", "params": {"threadId": thread, "turnId": "u1", "itemId": "i1", "delta": piece}})
         status = "completed" if thread == "t1" and "selection" in text else "failed"

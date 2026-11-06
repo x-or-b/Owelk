@@ -42,6 +42,8 @@ struct AiRequest {
     int maxTokens = 64000;
     // Ask for a readable summary of the model's reasoning, streamed through thinkingDelta.
     bool thinkingSummary = false;
+    // The model may search the web (the provider's own search) before answering.
+    bool webSearch = false;
 };
 
 // One streamed answer. A provider object handles a single request and is deleted afterwards.
@@ -62,9 +64,15 @@ signals:
     void thinkingDelta(const QString &text);
     void finished(const QString &text, const QString &model);
     void failed(const QString &error);
+    // What the model is doing before it answers (a web search and its words), for the thinking line.
+    void status(const QString &text);
 
 protected:
+    // A web page the answer cites. Those not linked in the answer itself are listed after it (webSources).
+    void cite(const QString &url, const QString &title);
+    QString webSources(const QString &answer) const;
     bool m_cutOff = false, m_interrupted = false;
+    QList<QPair<QString, QString>> m_cited;
 };
 
 // Server-sent events (Claude, OpenAI) or newline-delimited JSON (Ollama) over one HTTP POST.
@@ -117,6 +125,9 @@ protected:
 
 private:
     QString m_key, m_model, m_stopReason;
+    // The web search being written (its block index and input), for its words in the thinking line.
+    int m_searchBlock = -1;
+    QString m_searchInput;
 };
 
 class OpenAiProvider final : public HttpStreamProvider {
@@ -198,5 +209,8 @@ private:
     CodexBridge *m_bridge;
     QString m_threadId, m_turnId, m_text, m_model, m_effort;
     bool m_fast = false, m_summary = false, m_thought = false;
+    // Narration between searches ("commentary") goes with the thinking; separate answer messages get a break.
+    QStringList m_commentary;
+    QString m_textItem;
     bool m_done = false;
 };

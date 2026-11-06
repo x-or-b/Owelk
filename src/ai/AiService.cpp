@@ -120,7 +120,7 @@ QVariantList AiService::providers() const
                                                : QString(entry.sends);
         rows.append(QVariantMap{{"id", id}, {"name", entry.name}, {"kind", entry.kind}, {"sends", sends},
             {"configured", configured}, {"model", model(id)}, {"defaultModel", entry.defaultModel},
-            {"consented", consented(id)}});
+            {"consented", consented(id)}, {"webSearch", id != "ollama"}});
     }
     return rows;
 }
@@ -856,6 +856,9 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     materials.followUps = (action.isEmpty() || action == "ask" || action == "library") && !spec.value("fresh").toBool()
         && !spec.value("symbols").toBool() && m_store->setting("ai.followUps", "1") == "1";
     materials.nameChat = history.isEmpty() && spec.contains("autoTitle");
+    // The web, when the reader turned it on: for questions, with the provider's own search (Ollama has none).
+    materials.webSearch = spec.value("webSearch").toBool() && id != "ollama" && !spec.value("symbols").toBool()
+        && (action.isEmpty() || action == "ask" || action == "library");
     auto prompt = buildAiPrompt(action.isEmpty() ? QStringLiteral("ask") : action, m_store->setting("aiLanguage", "ko"),
         spec.value("question").toString(), materials);
     // Asked again: exactly what was sent then (its material included), after the turns before it.
@@ -882,6 +885,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
     const auto effort = spec.value("effort").toString();
     if (level.match(effort).hasMatch()) call.effort = effort;
     call.fast = spec.value("fast").toBool();
+    call.webSearch = materials.webSearch;
     // Reasoning summaries, unless turned off (Settings → AI) or refused by this OpenAI account before.
     call.thinkingSummary = m_store->setting("ai.showThinking", "1") == "1"
         && !((id == "openai" || id == "chatgpt") && m_store->setting("ai.reasoningSummary." + id) == "0");
@@ -911,6 +915,9 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
         if (thought->untilAnswer < 0) thought->untilAnswer = thought->clock.elapsed();
         emit delta(request, text);
     });
+    // A web search under way, with its words: shown where the thinking is.
+    connect(
+        provider, &AiProvider::status, this, [this, request](const QString &text) { emit progress(request, text); });
     // Stores the turn: a whole answer, or what had arrived when the reader stopped it.
     // What the reader attached, kept with the question so the thread shows it: image names and the copies
     // that were sent (thumbnails).
@@ -956,6 +963,7 @@ void AiService::run(int request, const QString &id, const QVariantMap &spec, con
             {"wholeLibrary", spec.value("wholeLibrary")}, {"collection", spec.value("collection")},
             {"collectionName", spec.value("collectionName")}, {"notes", attached.noteTitles},
             {"noteIds", attached.noteIds}, {"action", spec.value("action")}, {"readEach", attached.readNotes},
+            {"webSearch", attached.webSearch},
             {"images", spec.value("imageNames").toStringList().mid(0, sentImages.size())}, {"imageFiles", sentImages}};
         if (spec.contains("resendContext")) {
             context = spec.value("resendContext").toMap();

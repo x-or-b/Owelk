@@ -29,6 +29,8 @@ struct AiMaterials {
     bool followUps = false;
     // A chat's first answer also names the chat, in a <chat_title> block Owelk takes out.
     bool nameChat = false;
+    // The provider may search the web for this answer (AiRequest::webSearch).
+    bool webSearch = false;
 };
 
 struct AiPrompt {

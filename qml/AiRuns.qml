@@ -78,6 +78,7 @@ QtObject {
                         imageFiles: [], imageLabels: [], imageNames: []}
         if (item.effort) choice.effort = item.effort
         if (item.fast) choice.fast = true
+        if (item.webSearch) choice.webSearch = true
         const id = ai.ask(Object.assign({}, continuing(saved), choice))
         setRunning(id, {threadId: thread, question: item.question, answer: "", thinking: "", thinkingSeconds: 0,
                         askedAt: Date.now(), model: "", truncated: false, translatePage: -1})
@@ -99,7 +100,8 @@ QtObject {
         }
         function onThinking(id, text) {
             const r = root.running[id]
-            if (r) r.thinking += text
+            // The latest step shows: new thinking replaces a status such as a web search.
+            if (r) { r.thinking += text; if (text.trim().length) r.progress = "" }
             root.thinking(id, text)
         }
         function onProgress(id, text) {

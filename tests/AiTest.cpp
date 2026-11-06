@@ -99,13 +99,14 @@ private:
 
 struct Outcome {
     QString text, error, thinking;
-    QStringList deltas;
+    QStringList deltas, statuses;
 };
 Outcome run(AiProvider *provider, const AiRequest &request)
 {
     Outcome outcome;
     QObject::connect(provider, &AiProvider::delta, [&](const QString &text) { outcome.deltas << text; });
     QObject::connect(provider, &AiProvider::thinkingDelta, [&](const QString &text) { outcome.thinking += text; });
+    QObject::connect(provider, &AiProvider::status, [&](const QString &text) { outcome.statuses << text; });
     QSignalSpy finished(provider, &AiProvider::finished), failed(provider, &AiProvider::failed);
     provider->start(request);
     if (!QTest::qWaitFor([&] { return finished.size() + failed.size() > 0; }, 10000)) outcome.error = "timeout";
@@ -291,6 +292,78 @@ private slots:
         server.contentType = "application/json";
         server.chunks = {R"({"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}})"};
         QVERIFY(run(new AnthropicProvider(&network, server.base(), "k", this), request).error.contains("API key"));
+    }
+    void webSearchGoesWithTheQuestion()
+    {
+        AiMaterials materials;
+        QVERIFY(!buildAiPrompt("ask", "en", "q", materials).system.contains("search the web"));
+        materials.webSearch = true;
+        QVERIFY(buildAiPrompt("ask", "en", "q", materials).system.contains("You can search the web"));
+        MockServer server;
+        QNetworkAccessManager network;
+        AiRequest request;
+        request.text = "What came after this paper?";
+        request.model = "claude-opus-5-5";
+        // Claude: its search tool, the words searched shown as they are known, cited pages listed after the answer.
+        const QJsonObject citation{
+            {"type", "web_search_result_location"}, {"url", "https://example.org/a"}, {"title", "A [survey]"}};
+        server.chunks = {
+            MockServer::sse("content_block_start",
+                {{"type", "content_block_start"}, {"index", 0},
+                    {"content_block", QJsonObject{{"type", "server_tool_use"}, {"id", "s1"}, {"name", "web_search"}}}}),
+            MockServer::sse("content_block_delta",
+                {{"type", "content_block_delta"}, {"index", 0},
+                    {"delta", QJsonObject{{"type", "input_json_delta"}, {"partial_json", R"({"query": "SLAM )"}}}}),
+            MockServer::sse("content_block_delta",
+                {{"type", "content_block_delta"}, {"index", 0},
+                    {"delta", QJsonObject{{"type", "input_json_delta"}, {"partial_json", R"(2026"})"}}}}),
+            MockServer::sse("content_block_stop", {{"type", "content_block_stop"}, {"index", 0}}),
+            MockServer::sse("content_block_delta",
+                {{"type", "content_block_delta"}, {"index", 2},
+                    {"delta", QJsonObject{{"type", "text_delta"}, {"text", "Newer work exists."}}}}),
+            MockServer::sse("content_block_delta",
+                {{"type", "content_block_delta"}, {"index", 2},
+                    {"delta", QJsonObject{{"type", "citations_delta"}, {"citation", citation}}}}),
+            MockServer::sse("message_stop", {{"type", "message_stop"}})};
+        request.webSearch = true;
+        auto outcome = run(new AnthropicProvider(&network, server.base(), "k", this), request);
+        QCOMPARE(outcome.error, QString());
+        QCOMPARE(outcome.text, QString("Newer work exists.\n\nSources:\n- [A (survey)](https://example.org/a)"));
+        QCOMPARE(outcome.statuses, QStringList({"Searching the web…", "Searching the web: SLAM 2026"}));
+        const auto tool = server.seen.last().body["tools"].toArray()[0].toObject();
+        QCOMPARE(tool["type"].toString(), QString("web_search_20260209"));
+        QCOMPARE(tool["max_uses"].toInt(), 5);
+        request.model = "claude-haiku-4-5";
+        run(new AnthropicProvider(&network, server.base(), "k", this), request);
+        QCOMPARE(server.seen.last().body["tools"].toArray()[0].toObject()["type"].toString(),
+            QString("web_search_20250305"));
+        request.webSearch = false;
+        run(new AnthropicProvider(&network, server.base(), "k", this), request);
+        QVERIFY(!server.seen.last().body.contains("tools"));
+        // OpenAI: its search tool; a page the answer already links is not listed again.
+        server.chunks = {MockServer::sse("response.output_item.added",
+                             {{"type", "response.output_item.added"},
+                                 {"item", QJsonObject{{"type", "web_search_call"}, {"id", "ws1"}}}}),
+            MockServer::sse("response.output_item.done",
+                {{"type", "response.output_item.done"},
+                    {"item",
+                        QJsonObject{{"type", "web_search_call"}, {"id", "ws1"},
+                            {"action", QJsonObject{{"type", "search"}, {"query", "SLAM 2026"}}}}}}),
+            MockServer::sse("response.output_text.delta",
+                {{"type", "response.output_text.delta"}, {"delta", "See [B](https://example.org/b)."}}),
+            MockServer::sse("response.output_text.annotation.added",
+                {{"type", "response.output_text.annotation.added"},
+                    {"annotation",
+                        QJsonObject{{"type", "url_citation"}, {"url", "https://example.org/b"}, {"title", "B"}}}}),
+            MockServer::sse(
+                "response.completed", {{"type", "response.completed"}, {"response", QJsonObject{{"model", "gpt-5"}}}})};
+        request.model = "gpt-5";
+        request.webSearch = true;
+        outcome = run(new OpenAiProvider(&network, server.base(), "k", this), request);
+        QCOMPARE(outcome.text, QString("See [B](https://example.org/b)."));
+        QCOMPARE(outcome.statuses, QStringList({"Searching the web…", "Searching the web: SLAM 2026"}));
+        QCOMPARE(server.seen.last().body["tools"].toArray()[0].toObject()["type"].toString(), QString("web_search"));
+        QCOMPARE(server.seen.last().body["max_tool_calls"].toInt(), 5);
     }
     void openAiAndOllamaStream()
     {
@@ -578,6 +651,14 @@ private slots:
         QCOMPARE(run(new CodexProvider(&bridge, this), request).text, QString("Codex answer [high, priority]"));
         request.effort.clear();
         request.fast = false;
+        // Web search is asked for live when turned on (and turned off otherwise); a word before the answer is
+        // thinking, not answer.
+        request.webSearch = true;
+        outcome = run(new CodexProvider(&bridge, this), request);
+        QCOMPARE(outcome.text, QString("Codex answer [web]"));
+        QCOMPARE(outcome.thinking, QString("Looking it up."));
+        QCOMPARE(outcome.statuses, QStringList({"Searching the web…", "Searching the web: recent SLAM"}));
+        request.webSearch = false;
         // Earlier turns travel inside the text for the stateless Codex threads.
         request.history = {{"user", "first question"}, {"assistant", "first answer"}};
         outcome = run(new CodexProvider(&bridge, this), request);
