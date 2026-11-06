@@ -91,7 +91,8 @@ Item {
     readonly property string effectiveEffort: efforts.indexOf(effort) >= 0 ? effort : (modelInfo.defaultEffort || (efforts.length ? efforts[0] : ""))
     readonly property bool fastAvailable: !!modelInfo.fast
     readonly property bool effectiveFast: fast && fastAvailable
-    // The provider's own web search for the questions asked (off unless turned on, then remembered); Ollama has none.
+    // The provider's own web search for the questions asked, remembered for each provider: on at first with a
+    // ChatGPT account (the plan's allowance), off with an API key (each search is billed); Ollama has none.
     property bool webSearch: false
     readonly property bool webSearchAvailable: !!providerInfo.webSearch
     readonly property bool searchesWeb: webSearch && webSearchAvailable
@@ -117,11 +118,11 @@ Item {
     function loadSelection() {
         effort = researchStore.setting("ai.effort." + ai.provider, "")
         fast = researchStore.setting("ai.fast." + ai.provider, "") === "1"
-        webSearch = researchStore.setting("ai.webSearch", "") === "1"
+        webSearch = researchStore.setting("ai.webSearch." + ai.provider, providerInfo.kind === "account" ? "1" : "0") === "1"
     }
     function setEffort(value) { effort = value; researchStore.setSetting("ai.effort." + ai.provider, value) }
     function setFast(on) { fast = on; researchStore.setSetting("ai.fast." + ai.provider, on ? "1" : "") }
-    function setWebSearch(on) { webSearch = on; researchStore.setSetting("ai.webSearch", on ? "1" : "") }
+    function setWebSearch(on) { webSearch = on; researchStore.setSetting("ai.webSearch." + ai.provider, on ? "1" : "0") }
     function effortName(value) { return AiNames.effortName(value) }
     function companyName(provider) {
         return ({claude: qsTr("Anthropic"), openai: qsTr("OpenAI"), chatgpt: qsTr("ChatGPT account"), codex: qsTr("ChatGPT account"), ollama: qsTr("Ollama (this computer)")})[provider] || provider

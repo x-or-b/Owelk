@@ -429,19 +429,24 @@ Item {
             workspace.showAi()
             const p = panel()
             ai.newThread()
-            // Off until turned on, then remembered; the question goes with it and shows that it did.
+            // With an API key it is off until turned on, then remembered for that provider; the question goes
+            // with it and shows that it did. A ChatGPT account starts with it on.
             const web = findChild(p, "aiWebSearchButton")
             verify(web.visible && !web.checked && !ai.searchesWeb)
+            researchStore.ai.provider = "chatgpt"
+            tryVerify(function() { return ai.webSearch })
+            researchStore.ai.provider = "claude"
+            tryVerify(function() { return !ai.webSearch })
             mouseClick(web)
             verify(ai.searchesWeb && web.checked)
-            compare(researchStore.setting("ai.webSearch", ""), "1")
+            compare(researchStore.setting("ai.webSearch.claude", ""), "1")
             verify(ai.send("What came after this paper?"))
             tryVerify(function() { return !ai.streaming && ai.messages.length === 2 }, 10000)
             verify(ai.messages[0].context.webSearch)
             verify(p.sentAttachments(ai.messages[0]).some(function(a) { return a.kind === "web" }))
             mouseClick(web)
             verify(!ai.searchesWeb)
-            compare(researchStore.setting("ai.webSearch", ""), "")
+            compare(researchStore.setting("ai.webSearch.claude", ""), "0")
             ai.openThread(original)
         }
         function test_3_modelPickerOffersEffortAndFastWhereTheModelHasThem() {
