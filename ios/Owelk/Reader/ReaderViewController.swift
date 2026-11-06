@@ -3,9 +3,17 @@ import SwiftUI
 import UIKit
 
 /// The page view: PDFKit's own scrolling, zoom and text selection, page thumbnails at the side, and the computers'
-/// marks drawn over the pages. A tap on a mark with a note shows the note.
-final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate {
+/// marks drawn over the pages. A tap on a mark with a note shows the note. While drawing, Apple Pencil draws and
+/// erases (`pen`) and fingers still scroll and zoom; a two-finger tap undoes.
+final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate, UIPencilInteractionDelegate {
     let pdfView = PageView()
+    let pen = PenLayer()
+    /// The reader's own undo history, which the canvases use.
+    private let history = UndoManager()
+    private lazy var undoTap = UITapGestureRecognizer(target: self, action: #selector(undoTapped))
+    /// Apple Pencil's double tap and squeeze, with the action the reader chose in Settings and where the tip hovers.
+    var onPencil: ((UIPencilPreferredAction, CGPoint?) -> Void)?
+    var onUndo: (() -> Void)?
     private let thumbnails = PDFThumbnailView()
     private let thumbnailColumn = UIView()
     private var restored = false
@@ -33,6 +41,19 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate 
     var showsThumbnails = false {
         didSet { thumbnailColumn.isHidden = !showsThumbnails }
     }
+
+    var drawing = false {
+        didSet {
+            pen.drawing = drawing
+            pdfView.isInMarkupMode = drawing
+            undoTap.isEnabled = drawing
+            // Pencil taps make dots while drawing; fingers still open notes.
+            tap.allowedTouchTypes = drawing ? [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+                : [UITouch.TouchType.direct, .pencil, .indirectPointer].map { NSNumber(value: $0.rawValue) }
+        }
+    }
+
+    override var undoManager: UndoManager? { history }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -77,6 +98,15 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate 
 
         tap.delegate = self
         pdfView.addGestureRecognizer(tap)
+        pdfView.pageOverlayViewProvider = pen
+        undoTap.numberOfTouchesRequired = 2
+        undoTap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+        undoTap.isEnabled = false
+        undoTap.delegate = self
+        pdfView.addGestureRecognizer(undoTap)
+        let pencil = UIPencilInteraction()
+        pencil.delegate = self
+        view.addInteraction(pencil)
         waitForDoubleTaps()
         pdfView.laidOut = { [weak self] in self?.pagesLaidOut() }
         NotificationCenter.default.addObserver(self, selector: #selector(pageChanged), name: .PDFViewPageChanged,
@@ -159,7 +189,9 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate 
 
     func show(_ marks: [Mark], pictures: (String) -> UIImage?) {
         guard let document = pdfView.document else { return }
-        for mark in marks where mark.page < document.pageCount {
+        pen.show(marks)
+        // Pen strokes live on the canvases, where they can be erased.
+        for mark in marks where mark.page < document.pageCount && mark.kind != "draw" {
             guard let page = document.page(at: mark.page) else { continue }
             let picture = mark.kind == "image" ? pictures(mark.image) : nil
             page.addAnnotation(MarkAnnotation(mark: mark, geometry: PageGeometry(page), picture: picture))
@@ -185,6 +217,32 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate 
 
     func gestureRecognizer(_ gesture: UIGestureRecognizer,
                            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+
+    @objc private func undoTapped() { onUndo?() }
+
+    // MARK: Apple Pencil
+
+    func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveTap tap: UIPencilInteraction.Tap) {
+        onPencil?(UIPencilInteraction.preferredTapAction, tap.hoverPose.map { interaction.view?.convert($0.location, to: view) ?? $0.location })
+    }
+
+    func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveSqueeze squeeze: UIPencilInteraction.Squeeze) {
+        guard squeeze.phase == .ended else { return }
+        onPencil?(UIPencilInteraction.preferredSqueezeAction, squeeze.hoverPose.map {
+            interaction.view?.convert($0.location, to: view) ?? $0.location
+        })
+    }
+
+    /// A small palette beside the Pencil's tip (or below the bar when it is not hovering).
+    func presentPalette(_ palette: UIViewController, at point: CGPoint?) {
+        guard presentedViewController == nil else { return }
+        palette.modalPresentationStyle = .popover
+        let place = point ?? CGPoint(x: view.bounds.midX, y: view.safeAreaInsets.top + 8)
+        palette.popoverPresentationController?.sourceView = view
+        palette.popoverPresentationController?.sourceRect = CGRect(origin: place, size: .zero).insetBy(dx: -12, dy: -12)
+        palette.popoverPresentationController?.permittedArrowDirections = [.up, .down, .left, .right]
+        present(palette, animated: true)
+    }
 
     /// A double tap zooms: a tap on a mark waits until it is clear that it was one tap. PDFKit makes its recognizers
     /// with the document, so this runs again then.

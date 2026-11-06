@@ -7,11 +7,12 @@
 - 동기화 폴더 고르기: 파일 앱에서 Synctrain이 맞추는 `Owelk` 폴더(또는 그 위 폴더)를 고릅니다. 접근 권한은 북마크로 기억합니다. iPadOS는 다른 앱의 폴더가 바뀌어도 알려 주지 않으므로, 앱이 앞으로 올 때, 앞에 있는 동안 30초마다, 목록을 당겨 새로 고칠 때 다시 읽습니다.
 - 라이브러리: 제목·저자·연도·읽기 상태·태그, Collections(중첩)와 Tags, Recent(어느 컴퓨터에서 열었든), 제목·저자 검색, 정렬(Last Opened·Title·Date Added). PDF가 아직 도착하지 않은 논문은 흐리게 "Waiting for the PDF".
 - 읽기: PDFKit의 스크롤·확대·글자 선택과 복사, 쪽 썸네일, 목차, 논문 안 찾기(⌘F).
-- 주석 보기(읽기 전용): 컴퓨터에서 단 하이라이트·코멘트·텍스트 상자·그림·펜·영역을 같은 자리·같은 모양으로 그립니다. 노트가 있는 표시를 누르면 노트를 보여 줍니다. 원본 PDF에는 아무것도 쓰지 않습니다(메모리에서만 그림).
+- 주석 보기: 컴퓨터에서 단 하이라이트·코멘트·텍스트 상자·그림·펜·영역을 같은 자리·같은 모양으로 그립니다. 노트가 있는 표시를 누르면 노트를 보여 줍니다. 원본 PDF에는 아무것도 쓰지 않습니다(메모리에서만 그림).
+- 펜(Apple Pencil): 막대의 **Draw**를 켜면 Pencil로 그리고 지우며, 손가락은 그대로 스크롤·확대합니다(끄면 Pencil도 손가락처럼). 아래 막대에서 데스크톱과 같은 여섯 가지 표시 색, 지우개(획 하나씩, Mac에서 그린 획도), 실행 취소·다시 실행을 고르고, 두 손가락으로 탭해도 실행 취소됩니다. Pencil 두 번 탭과 Pencil Pro 쥐기는 설정 › Apple Pencil에서 고른 대로(지우개 전환, 직전 도구, 펜 끝 옆 팔레트) 합니다. 획은 데스크톱처럼 2pt 한 굵기이고, 한 획이 데스크톱의 Pen 표시 하나(`highlights`, `kind` draw)가 됩니다. 지우면 `deleted_at`만 적습니다. 획은 쪽마다 PencilKit 캔버스에 있어 쪽 썸네일에는 보이지 않습니다.
 - 논문 추가: 목록 위 **+ › Add PDFs from Files…**(여러 개 한 번에), 다른 앱(파일, Safari 등)에서 PDF를 목록으로 끌어다 놓기, 또는 **+ › Search the Web…**. 웹 검색은 데스크톱 웹 탭과 같은 엔진(Google Scholar 기본, arXiv·Google·DuckDuckGo)을 쓰고, 주소 칸에 단어·주소·DOI(`10.…`)·arXiv ID(`1706.03762`)를 넣을 수 있습니다. PDF를 보여 주는 쪽에서는 아래 막대의 **Add to Library**, arXiv 초록 쪽에서는 **Open PDF**가 나오고, PDF를 내려받는 링크는 바로 추가됩니다. 학교 로그인 같은 웹 로그인은 앱을 다시 켜도 남습니다. Google Scholar가 사람인지 확인하는 쪽을 보이면 직접 풀면 됩니다. 보고 있던 Collection·Tag에 함께 들어갑니다. PDF는 동기화 폴더 `Papers/<SHA-256>.pdf`로, 논문 행은 iPad 자기 변경 파일로 가고, 컴퓨터는 그 PDF를 원래 파일 이름으로 자기 Library에 복사합니다. 같은 PDF(바이트가 같음)가 이미 있으면 다시 넣지 않고, Library에서 뺐거나 Trash에 있던 것이면 되살립니다. 제목은 PDF가 밝힌 제목(파일 이름·기본값이 아니면) 또는 파일 이름이고, 저자·연도·DOI·arXiv는 컴퓨터가 PDF를 읽어 채웁니다(다음 실행 때나 그 논문을 열 때).
-- 써 보내는 것: 읽던 위치(`reading_positions`), 연 시각(`recent_documents`), 추가한 논문(`documents`와 그 PDF, Collection·Tag 소속). iPad 자기 폴더 `devices/<iPad ID>/`와 `Papers/`에만 씁니다. Mac에서 그 논문을 열면 iPad에서 읽던 쪽으로 갑니다.
+- 써 보내는 것: 읽던 위치(`reading_positions`), 연 시각(`recent_documents`), 추가한 논문(`documents`와 그 PDF, Collection·Tag 소속), 펜 획과 지운 표시(`highlights`). iPad 자기 폴더 `devices/<iPad ID>/`와 `Papers/`에만 씁니다. Mac에서 그 논문을 열면 iPad에서 읽던 쪽으로 갑니다.
 
-다음 단계(PencilKit 펜·하이라이트 쓰기, 지우개·실행 취소, 노트, AI)는 [docs/NEXT.md](../docs/NEXT.md)에 있습니다.
+다음 단계(Pencil로 글자 하이라이트, 영역·코멘트, 노트, AI)는 [docs/NEXT.md](../docs/NEXT.md)에 있습니다.
 
 ## 구조
 
@@ -22,7 +23,7 @@
 | `Owelk/Sync/SyncFolder.swift` | 폴더 읽기(파일은 늘기만 하므로 읽은 곳부터, 끝나지 않은 줄은 기다림)와 쓰기(256KB에서 다음 파일, 줄 단위) |
 | `Owelk/Sync/SyncEngine.swift` | 동기화 한 번(읽기 → 쓰기 → 도착한 PDF), iPad가 쓰는 행 만들기 |
 | `Owelk/Library/` | 논문(같은 SHA-256의 `documents` 행은 한 논문), Collections·Tags·Recent·읽던 위치, UI가 보는 저장소, 추가하는 PDF(`NewPaper.swift`) |
-| `Owelk/Reader/` | PDF 화면, 주석 그리기와 쪽 좌표 변환, 목차·찾기 |
+| `Owelk/Reader/` | PDF 화면, 주석 그리기와 쪽 좌표 변환, 목차·찾기, Pencil 펜·지우개(`PenLayer.swift`: 쪽마다 PencilKit 캔버스, 획 ↔ 표시) |
 | `Owelk/Views/` | 라이브러리 화면(논문 추가·끌어다 놓기), 웹 검색(`WebSearch.swift`) |
 
 데스크톱과 맞춘 규칙(`src/LibrarySync.cpp`):
@@ -33,7 +34,7 @@
 - iPad가 쓰는 행은 **받은 행을 그대로 두고 아는 열만 바꿉니다.** 위치 JSON도 `page`·`y`만 바꾸고 Mac의 `zoom`·`fit`·`x`는 그대로 둡니다. 데스크톱은 받은 행에 있는 열만 고치므로 모르는 열은 지워지지 않습니다.
 - 쓰는 시각은 그 행의 지금 버전보다 항상 뒤(`max(지금, 이전 + 1)`)라서, iPad 시계가 조금 늦어도 바뀐 위치가 지지 않습니다.
 - 문서 ID는 그 SHA-256의 행 중 가장 작은 ID입니다. 컴퓨터들이 같은 PDF를 합칠 때 남기는 ID라서, 다른 ID로 알고 있는 컴퓨터도 별칭으로 맞춥니다. 재키(rekey)는 하지 않습니다.
-- 주석 좌표는 "보이는 쪽(크롭 박스, /Rotate 적용)의 왼쪽 위에서의 비율"이고, `PageGeometry`는 `src/AnnotatedPdf.cpp`의 `Page::point`와 같은 식으로 PDF 좌표로 바꿉니다.
+- 주석 좌표는 "보이는 쪽(크롭 박스, /Rotate 적용)의 왼쪽 위에서의 비율"이고, `PageGeometry`는 `src/AnnotatedPdf.cpp`의 `Page::point`와 같은 식으로 PDF 좌표로 바꿉니다. PDFKit이 쪽 위에 얹는 캔버스는 돌리기 전 크롭 박스의 왼쪽 위에서 잰 point라서(돌리기는 PDFKit이 뷰째 함), `OverlayGeometry`가 그 사이를 바꿉니다(`PenTests`가 PDFKit 자체 변환과 맞춰 봄).
 
 ## 빌드와 테스트
 

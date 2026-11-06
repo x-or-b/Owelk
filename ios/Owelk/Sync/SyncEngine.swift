@@ -3,9 +3,10 @@ import Foundation
 /// Runs sync passes off the main thread: reads what the computers wrote, writes what this iPad changed, and keeps the
 /// merged rows between launches.
 ///
-/// This app writes where papers were left and when they were opened (`reading_positions`, `recent_documents`), and
-/// papers added here (`documents` with the PDF in `Papers/`, and their place in a collection or tag). A row it writes
-/// keeps every column it received and changes only the ones it knows, so nothing a newer desktop added is lost.
+/// This app writes where papers were left and when they were opened (`reading_positions`, `recent_documents`),
+/// papers added here (`documents` with the PDF in `Papers/`, and their place in a collection or tag), and Apple
+/// Pencil's pen strokes and erasures (`highlights`). A row it writes keeps every column it received and changes only
+/// the ones it knows, so nothing a newer desktop added is lost.
 actor SyncEngine {
     enum Added {
         case added(Paper)
@@ -88,9 +89,10 @@ actor SyncEngine {
         guard !pending.isEmpty else { return nil }
         // Only into the library it came from, and only while its folder is there.
         guard folder.library() == expected else { return "The sync folder is not available. Check that Synctrain is running." }
-        // Parents first, then oldest first, as the desktop sends them.
+        // Parents first, then oldest first, as the desktop sends them (and by key, so a file is the same each time).
         let changes = pending.values.sorted {
-            (SyncProtocol.order(of: $0.table), $0.version.time) < (SyncProtocol.order(of: $1.table), $1.version.time)
+            (SyncProtocol.order(of: $0.table), $0.version.time, SyncState.keyText($0.key))
+                < (SyncProtocol.order(of: $1.table), $1.version.time, SyncState.keyText($1.key))
         }
         do {
             try folder.append(changes.reduce(into: Data()) { $0.append($1.line()) }, device: device, about: about)
@@ -143,6 +145,55 @@ actor SyncEngine {
         row["opened_at"] = Self.timestamp(date)
         stage("recent_documents", key: [paper.documentId], row: row)
         return library
+    }
+
+    // MARK: Pen
+
+    /// A pen stroke drawn here, saved as the desktop saves one (a `draw` mark); `points` are shown-page fractions.
+    /// Returns false for a paper without a known PDF or a stroke with too few points.
+    @discardableResult
+    func addStroke(id: String, to paper: Paper, page: Int, points: [CGPoint], color: String) -> Bool {
+        let created = Self.timestamp(Date(timeIntervalSince1970: TimeInterval(clock()) / 1000))
+        guard SyncProtocol.isSha256(paper.sha256), page >= 0,
+              let row = Self.strokeRow(id: id, document: paper.documentId, sha256: paper.sha256, page: page,
+                                       points: points, color: color, createdAt: created)
+        else { return false }
+        stage("highlights", key: [id], row: row)
+        return true
+    }
+
+    /// Erases marks, or brings erased ones back (Undo): only `deleted_at` changes, as the desktop's eraser does.
+    func setErased(_ ids: [String], _ erased: Bool) {
+        let now = Self.timestamp(Date(timeIntervalSince1970: TimeInterval(clock()) / 1000))
+        for id in ids {
+            guard var row = state.entry("highlights", key: [id])?.row, erased == isNull(row["deleted_at"]) else { continue }
+            row["deleted_at"] = erased ? now : NSNull()
+            stage("highlights", key: [id], row: row)
+        }
+    }
+
+    /// A pen mark with every column the desktop writes (`saveAnnotation` in src/ResearchStoreHighlights.cpp): its
+    /// points and their box as fractions of the page, 2 to 5,000 of them.
+    static func strokeRow(id: String, document: String, sha256: String, page: Int, points: [CGPoint], color: String,
+                          createdAt: String) -> Row? {
+        let inside = points.filter { $0.x.isFinite && $0.y.isFinite }
+            .map { CGPoint(x: min(1, max(0, $0.x)), y: min(1, max(0, $0.y))) }
+        guard inside.count >= 2 else { return nil }
+        let kept = inside.count <= 5000 ? inside
+            : (0..<5000).map { inside[$0 * (inside.count - 1) / 4999] }
+        let round = { (value: CGFloat) in Double((value * 100_000).rounded() / 100_000) }
+        var box = kept.reduce(CGRect.null) { $0.union(CGRect(origin: $1, size: .zero)) }
+        // A straight line still has a box with some size, as the desktop wants one.
+        box = box.insetBy(dx: min(0, box.width - 0.001) / 2, dy: min(0, box.height - 0.001) / 2)
+        box.origin = CGPoint(x: max(0, min(box.minX, 1 - box.width)), y: max(0, min(box.minY, 1 - box.height)))
+        return [
+            "id": id, "document_id": document, "sha256": sha256, "page": page, "kind": "draw", "color": color,
+            "text": "", "body": "", "image": "", "font_size": 0, "start_index": -1, "end_index": -1,
+            "created_at": createdAt, "deleted_at": NSNull(),
+            "rectangles": JSON.text([["x": round(box.minX), "y": round(box.minY), "width": round(box.width),
+                                      "height": round(box.height)]]),
+            "drawing": JSON.text(kept.map { ["x": round($0.x), "y": round($0.y)] }),
+        ]
     }
 
     /// Adds a PDF to the library: the file goes to `Papers/` and a row for it to the computers, which copy it into

@@ -32,13 +32,36 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
     @Published var showsThumbnails = false {
         didSet { controller.showsThumbnails = showsThumbnails }
     }
+    /// Apple Pencil draws and erases (fingers still scroll).
+    @Published var drawing = false {
+        didSet { controller.drawing = drawing }
+    }
+    @Published private(set) var tool: PenTool
+    @Published private(set) var canUndo = false
+    @Published private(set) var canRedo = false
+    /// The pen's color, kept for the next paper.
+    private var color: String
+    private var previous = PenTool.eraser
     private var lastSaved: ReadingPosition?
 
     init(paper: Paper) {
         self.paper = paper
+        let saved = UserDefaults.standard.string(forKey: "pen.color") ?? ""
+        color = PenTool.colors.contains(saved) ? saved : PenTool.colors[0]
+        tool = .pen(color)
         super.init()
+        controller.pen.tool = tool
         controller.onPageChange = { [weak self] page in self?.page = page }
+        controller.onUndo = { [weak self] in self?.undo() }
+        controller.onPencil = { [weak self] action, point in self?.pencil(action, at: point) }
+        controller.pen.changed = { [weak self] in
+            // PencilKit notes the step in the history after telling of the change.
+            DispatchQueue.main.async { self?.refreshHistory() }
+        }
     }
+
+    /// Marks can be made on a paper whose PDF is known (its SHA-256), as on the desktop.
+    var canDraw: Bool { loaded && SyncProtocol.isSha256(paper.sha256) }
 
     func load(from store: LibraryStore) async {
         guard !loaded, failure == nil else { return }
@@ -63,6 +86,11 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         let start = await position
         lastSaved = start
         controller.start = start
+        controller.pen.drawn = { [weak self, weak store] page, id, points, color in
+            guard let self, let store else { return }
+            store.addStroke(id: id, to: self.paper, page: page, points: points, color: color)
+        }
+        controller.pen.erased = { [weak store] ids, erased in store?.setErased(ids, erased) }
         controller.document = document
         controller.show(await marks) { name in
             store.annotationImage(name)
@@ -79,6 +107,51 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         guard loaded, let position = controller.position(), position != lastSaved else { return }
         lastSaved = position
         store.save(position, of: paper)
+    }
+
+    // MARK: Pen
+
+    func choose(_ tool: PenTool) {
+        if tool != self.tool { previous = self.tool }
+        self.tool = tool
+        controller.pen.tool = tool
+        if case let .pen(hex) = tool {
+            color = hex
+            UserDefaults.standard.set(hex, forKey: "pen.color")
+        }
+    }
+
+    func undo() {
+        controller.pen.undoManager?.undo()
+        refreshHistory()
+    }
+
+    func redo() {
+        controller.pen.undoManager?.redo()
+        refreshHistory()
+    }
+
+    private func refreshHistory() {
+        canUndo = controller.pen.undoManager?.canUndo ?? false
+        canRedo = controller.pen.undoManager?.canRedo ?? false
+    }
+
+    /// Apple Pencil's double tap or squeeze, doing what the reader chose for it in Settings › Apple Pencil.
+    private func pencil(_ action: UIPencilPreferredAction, at point: CGPoint?) {
+        guard canDraw else { return }
+        switch action {
+        case .switchEraser:
+            if !drawing { drawing = true } else { choose(tool == .eraser ? .pen(color) : .eraser) }
+        case .switchPrevious:
+            if !drawing { drawing = true } else { choose(previous) }
+        case .showColorPalette, .showInkAttributes, .showContextualPalette:
+            drawing = true
+            let palette = UIHostingController(rootView: PenPalette(model: self).padding(12))
+            palette.sizingOptions = .preferredContentSize
+            controller.presentPalette(palette, at: point)
+        default:
+            break
+        }
     }
 
     func go(to item: OutlineItem) {
@@ -185,8 +258,17 @@ struct ReaderScreen: View {
                     ProgressView()
                 }
             }
+            .overlay(alignment: .bottom) {
+                if model.drawing {
+                    PenPalette(model: model)
+                        .padding(.horizontal, 16).padding(.vertical, 8)
+                        .background(.regularMaterial, in: Capsule())
+                        .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
+                        .padding(.bottom, 16)
+                }
+            }
             .overlay(alignment: .bottomTrailing) {
-                if model.loaded {
+                if model.loaded && !model.drawing {
                     Text("\(model.page + 1) / \(model.pageCount)")
                         .font(.footnote.monospacedDigit())
                         .foregroundStyle(.secondary)
@@ -207,6 +289,13 @@ struct ReaderScreen: View {
                     }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        model.drawing.toggle()
+                    } label: {
+                        Label("Draw", systemImage: "pencil.tip.crop.circle")
+                    }
+                    .foregroundStyle(model.drawing ? Theme.accent : Color.primary)
+                    .disabled(!model.canDraw)
                     Button {
                         model.showsThumbnails.toggle()
                     } label: {
@@ -315,5 +404,56 @@ private struct SearchPanel: View {
         .onChange(of: text) { _, value in
             if value.isEmpty { model.search("") }
         }
+    }
+}
+
+/// The pen's colors (the desktop's mark colors), the eraser, and Undo and Redo.
+struct PenPalette: View {
+    @ObservedObject var model: ReaderModel
+    private static let names = ["Blue", "Yellow", "Green", "Pink", "Purple", "Navy"]
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(Array(PenTool.colors.enumerated()), id: \.element) { index, hex in
+                Button {
+                    model.choose(.pen(hex))
+                } label: {
+                    Circle()
+                        .fill(Color(uiColor: UIColor(hex: hex) ?? .black))
+                        .frame(width: 22, height: 22)
+                        .padding(4)
+                        .overlay(Circle().strokeBorder(model.tool == .pen(hex) ? Theme.accent : .clear, lineWidth: 2))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Self.names[index])
+                .accessibilityAddTraits(model.tool == .pen(hex) ? .isSelected : [])
+            }
+            Divider().frame(height: 24)
+            Button {
+                model.choose(.eraser)
+            } label: {
+                Image(systemName: "eraser").frame(width: 30, height: 30)
+            }
+            .foregroundStyle(model.tool == .eraser ? Theme.accent : Color.primary)
+            .accessibilityLabel("Eraser")
+            .accessibilityAddTraits(model.tool == .eraser ? .isSelected : [])
+            Divider().frame(height: 24)
+            Button {
+                model.undo()
+            } label: {
+                Image(systemName: "arrow.uturn.backward").frame(width: 30, height: 30)
+            }
+            .accessibilityLabel("Undo")
+            .disabled(!model.canUndo)
+            Button {
+                model.redo()
+            } label: {
+                Image(systemName: "arrow.uturn.forward").frame(width: 30, height: 30)
+            }
+            .accessibilityLabel("Redo")
+            .disabled(!model.canRedo)
+        }
+        .tint(.primary)
+        .font(.body)
     }
 }

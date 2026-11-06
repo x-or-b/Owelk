@@ -217,6 +217,31 @@ final class LibraryStore: ObservableObject {
         notice = Notice(text: parts.joined(separator: " "), paper: single, failed: added.isEmpty && already.isEmpty)
     }
 
+    /// Pen work, one change after another: a stroke drawn and at once undone is written in that order.
+    private var penWork: Task<Void, Never>?
+
+    func addStroke(id: String, to paper: Paper, page: Int, points: [CGPoint], color: String) {
+        pen { engine in await engine.addStroke(id: id, to: paper, page: page, points: points, color: color) }
+    }
+
+    func setErased(_ ids: [String], _ erased: Bool) {
+        pen { engine in
+            await engine.setErased(ids, erased)
+            return true
+        }
+    }
+
+    private func pen(_ change: @escaping (SyncEngine) async -> Bool) {
+        guard let engine, let folder else { return }
+        let about = about, id = libraryId, before = penWork
+        let task = UIApplication.shared.beginBackgroundTask(withName: "Owelk pen")
+        penWork = Task {
+            await before?.value
+            if await change(engine) { await engine.flush(folder, library: id, about: about) }
+            UIApplication.shared.endBackgroundTask(task)
+        }
+    }
+
     func position(of paper: Paper) async -> ReadingPosition? { await engine?.position(of: paper) }
     func marks(of paper: Paper) async -> [Mark] { await engine?.marks(of: paper) ?? [] }
 

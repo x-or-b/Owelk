@@ -19,6 +19,10 @@ final class ConformanceTests: XCTestCase {
     static let clock: Int64 = 1_893_456_000_000
     /// The ID of the paper this iPad adds.
     static let addedId = "0a11ce00-0000-4000-8000-00000000a001"
+    /// The pen stroke this iPad draws on the Mac's paper, and the Mac's own pen mark it erases.
+    static let strokeId = "0a11ce00-0000-4000-8000-00000000b001"
+    static let macStroke = "4c08b2b3-27fd-40fe-9175-8f82166b1ed0"
+    static let strokePoints = [CGPoint(x: 0.1, y: 0.1), CGPoint(x: 0.2, y: 0.15), CGPoint(x: 0.3, y: 0.2)]
     /// The PDF it adds (tests/data/sync/ipad/Papers), with a title of its own.
     static let addedPdf = sync.appendingPathComponent(
         "ipad/Papers/e549b32af3d995d3d7d8b61f5c7b8f3af29ca1df65a1618884a400c14a19a263.pdf")
@@ -103,6 +107,14 @@ final class ConformanceTests: XCTestCase {
         XCTAssertTrue(moved)
         let again = await engine.savePosition(ReadingPosition(page: 2, y: 0.5), of: paper)
         XCTAssertFalse(again, "the same place is not written twice")
+        let drawn = await engine.addStroke(id: Self.strokeId, to: paper, page: 1, points: Self.strokePoints,
+                                           color: "#54a878")
+        XCTAssertTrue(drawn)
+        await engine.setErased([Self.macStroke], true)
+        await engine.setErased([Self.macStroke], true)
+        let marks = await engine.marks(of: paper).map(\.id)
+        XCTAssertTrue(marks.contains(Self.strokeId))
+        XCTAssertFalse(marks.contains(Self.macStroke), "erased")
 
         let pdf = try Data(contentsOf: Self.addedPdf)
         let newPaper = try XCTUnwrap(NewPaper(data: pdf, name: "Long Halls.pdf"))
@@ -143,7 +155,35 @@ final class ConformanceTests: XCTestCase {
         XCTAssertEqual(lines, try Self.lines(committed.appendingPathComponent("00000001.jsonl")),
                        "the iPad's change file differs from tests/data/sync/ipad: run with OWELK_WRITE_FIXTURES=1 and check the desktop's sync_conformance test")
         XCTAssertEqual(lines.map { $0["t"] as? String },
-                       ["documents", "recent_documents", "reading_positions", "collection_documents", "document_tags"])
+                       ["documents", "highlights", "highlights", "recent_documents", "reading_positions",
+                        "collection_documents", "document_tags"])
+        // The stroke with every column the desktop writes for one, the Mac's mark with only `deleted_at` changed.
+        let macMark = try XCTUnwrap(try expected()["highlights"]?.first { $0.string("id") == Self.macStroke })
+        let marksWritten = lines.filter { $0["t"] as? String == "highlights" }.compactMap { $0["r"] as? Row }
+        let stroke = try XCTUnwrap(marksWritten.first { $0.string("id") == Self.strokeId })
+        XCTAssertEqual(Set(stroke.keys), Set(macMark.keys))
+        XCTAssertEqual(stroke.string("kind"), "draw")
+        XCTAssertEqual(stroke.string("color"), "#54a878")
+        XCTAssertEqual(stroke.int("page"), 1)
+        XCTAssertEqual(stroke.string("document_id"), paper.documentId)
+        XCTAssertEqual(stroke.string("sha256"), paper.sha256)
+        XCTAssertEqual(stroke.int("start_index"), -1)
+        XCTAssertEqual(stroke.string("created_at"), "2030-01-01T00:00:00.000Z")
+        XCTAssertTrue(isNull(stroke["deleted_at"]))
+        let points = try XCTUnwrap(JSON.value(stroke.string("drawing")) as? [Row]).map {
+            CGPoint(x: $0.double("x"), y: $0.double("y"))
+        }
+        XCTAssertEqual(points, Self.strokePoints)
+        let box = try XCTUnwrap((JSON.value(stroke.string("rectangles")) as? [Row])?.first)
+        XCTAssertEqual(box.double("x"), 0.1)
+        XCTAssertEqual(box.double("width"), 0.2)
+        XCTAssertEqual(box.double("height"), 0.1)
+        let erased = try XCTUnwrap(marksWritten.first { $0.string("id") == Self.macStroke })
+        XCTAssertEqual(erased.string("deleted_at"), "2030-01-01T00:00:00.000Z")
+        for key in macMark.keys where key != "deleted_at" {
+            XCTAssertEqual(erased[key] as? NSObject, macMark[key] as? NSObject, key)
+        }
+        lines.removeAll { $0["t"] as? String == "highlights" }
         let document = try XCTUnwrap(lines[0]["r"] as? Row)
         // Every column the desktop sends for a paper, so a computer that inserts it has them all.
         let macRow = try XCTUnwrap(try expected()["documents"]?.first)

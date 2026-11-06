@@ -222,6 +222,30 @@ private slots:
         QCOMPARE(mac.recentDocuments().value(0).toMap()["url"].toUrl(), paper);
         QVERIFY(mac.librarySync()->computers().contains("iPad"));
 
+        // A pen stroke drawn with Apple Pencil: a pen mark of this paper's PDF, as one drawn here would be. The Mac's
+        // own pen mark, erased on the iPad, is erased here too.
+        const auto stroke = rows(mac,
+            "SELECT document_id,sha256,page,kind,color,drawing,rectangles,start_index,deleted_at FROM highlights WHERE "
+            "id='0a11ce00-0000-4000-8000-00000000b001'");
+        QCOMPARE(stroke.size(), 1);
+        const auto pen = stroke[0].toMap();
+        QCOMPARE(pen["document_id"].toString(), QString("ec0dbb6f-06b8-4012-b0b2-eb317af23825"));
+        QCOMPARE(pen["sha256"].toString(),
+            scalar(mac, "SELECT sha256 FROM documents WHERE id='ec0dbb6f-06b8-4012-b0b2-eb317af23825'").toString());
+        QCOMPARE(pen["page"].toInt(), 1);
+        QCOMPARE(pen["kind"].toString(), QString("draw"));
+        QCOMPARE(pen["color"].toString(), QString("#54a878"));
+        QCOMPARE(pen["start_index"].toInt(), -1);
+        QVERIFY(pen["deleted_at"].isNull());
+        const auto points = QJsonDocument::fromJson(pen["drawing"].toByteArray()).array();
+        QCOMPARE(points.size(), 3);
+        QCOMPARE(points[1].toObject()["x"].toDouble(), .2);
+        QCOMPARE(points[1].toObject()["y"].toDouble(), .15);
+        QCOMPARE(QJsonDocument::fromJson(pen["rectangles"].toByteArray()).array().size(), 1);
+        QVERIFY(!scalar(mac, "SELECT deleted_at FROM highlights WHERE id='4c08b2b3-27fd-40fe-9175-8f82166b1ed0'")
+                     .toString()
+                     .isEmpty());
+
         // The paper added on the iPad: in the Library under its file's name, with the PDF copied in, in the
         // collection and tag it was added to, and its details left for this computer to read.
         const auto added = rows(mac,
