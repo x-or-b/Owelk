@@ -115,8 +115,9 @@ struct PageGeometry {
     func rect(_ fraction: CGRect) -> CGRect { shown(fraction).applying(transform) }
 }
 
-/// A mark drawn on a page in memory, never saved into the PDF. Drawing happens in shown points, so rotated pages, zoom
-/// and the desktop's look all match: highlights tint at 28%, comments and regions are outlined, the pen is 2 pt wide.
+/// A mark on a page in memory, never saved into the PDF: where it is, for taps and the eraser. The reader's page
+/// overlay draws highlights, outlines and pen strokes (`MarkShape`), sharp at any zoom; PDFKit draws text boxes and
+/// pictures, in shown points, so rotated pages match.
 final class MarkAnnotation: PDFAnnotation {
     let mark: Mark
     let geometry: PageGeometry
@@ -130,43 +131,24 @@ final class MarkAnnotation: PDFAnnotation {
         super.init(bounds: geometry.rect(mark.extent).insetBy(dx: -pad, dy: -pad), forType: .square, withProperties: nil)
         isReadOnly = true
         shouldPrint = false
+        shouldDisplay = !MarkShape.draws(mark.kind)
     }
 
     required init?(coder: NSCoder) { nil }
 
     override func draw(with box: PDFDisplayBox, in context: CGContext) {
+        guard let rect = mark.rectangles.first else { return }
         UIGraphicsPushContext(context)
         context.saveGState()
         context.concatenate(geometry.transform)
-        let color = mark.color
-        switch mark.kind {
-        case "comment", "area":
-            context.setStrokeColor(color.cgColor)
-            context.setLineWidth(1.5)
-            for rect in mark.rectangles {
-                context.addPath(UIBezierPath(roundedRect: geometry.shown(rect), cornerRadius: 2).cgPath)
-            }
-            context.strokePath()
-        case "text":
-            if let rect = mark.rectangles.first {
-                let style = NSMutableParagraphStyle()
-                style.lineBreakMode = .byWordWrapping
-                (mark.body as NSString).draw(in: geometry.shown(rect), withAttributes: [
-                    .font: UIFont.systemFont(ofSize: mark.fontSize), .foregroundColor: color, .paragraphStyle: style,
-                ])
-            }
-        case "image":
-            if let picture, let rect = mark.rectangles.first { picture.draw(in: geometry.shown(rect)) }
-        case "draw":
-            context.setStrokeColor(color.cgColor)
-            context.setLineWidth(2)
-            context.setLineCap(.round)
-            context.setLineJoin(.round)
-            context.addPath(Self.stroke(mark.drawing.map(geometry.shown)))
-            context.strokePath()
-        default:
-            context.setFillColor(color.withAlphaComponent(0.28).cgColor)
-            for rect in mark.rectangles { context.fill(geometry.shown(rect)) }
+        if mark.kind == "text" {
+            let style = NSMutableParagraphStyle()
+            style.lineBreakMode = .byWordWrapping
+            (mark.body as NSString).draw(in: geometry.shown(rect), withAttributes: [
+                .font: UIFont.systemFont(ofSize: mark.fontSize), .foregroundColor: mark.color, .paragraphStyle: style,
+            ])
+        } else if mark.kind == "image", let picture {
+            picture.draw(in: geometry.shown(rect))
         }
         context.restoreGState()
         UIGraphicsPopContext()

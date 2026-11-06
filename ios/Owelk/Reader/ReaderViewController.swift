@@ -1,4 +1,5 @@
 import PDFKit
+import PencilKit
 import SwiftUI
 import UIKit
 
@@ -46,22 +47,30 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
 
     var drawing = false {
         didSet {
+            guard drawing != oldValue else { return }
             pen.drawing = drawing
             pdfView.isInMarkupMode = drawing
             undoTap.isEnabled = drawing
             eraser.isEnabled = drawing
-            // The Pencil draws and erases then; only fingers move the pages.
-            let touches = drawing ? [NSNumber(value: UITouch.TouchType.direct.rawValue)]
-                : [UITouch.TouchType.direct, .pencil, .indirectPointer].map { NSNumber(value: $0.rawValue) }
-            if let scroll = Self.scrollView(in: pdfView) {
-                scroll.panGestureRecognizer.allowedTouchTypes = touches
-                scroll.pinchGestureRecognizer?.allowedTouchTypes = touches
+            // The Pencil draws and erases then; only fingers scroll, zoom, select and open notes. PDFKit's own double
+            // tap took the Pencil too, and zoomed the page away when a stroke began with a quick touch.
+            if drawing {
+                fingersOnly = Self.recognizers(in: pdfView, outside: PKCanvasView.self).filter {
+                    $0 !== eraser && $0 !== undoTap && !($0 is UIHoverGestureRecognizer)
+                }.map { ($0, $0.allowedTouchTypes) }
+                let finger = UITouch.TouchType.direct.rawValue
+                for (recognizer, touches) in fingersOnly {
+                    recognizer.allowedTouchTypes = touches.filter { $0.intValue == finger }
+                }
+            } else {
+                for (recognizer, touches) in fingersOnly { recognizer.allowedTouchTypes = touches }
+                fingersOnly = []
             }
-            // Pencil taps make dots while drawing; fingers still open notes.
-            tap.allowedTouchTypes = drawing ? [NSNumber(value: UITouch.TouchType.direct.rawValue)]
-                : [UITouch.TouchType.direct, .pencil, .indirectPointer].map { NSNumber(value: $0.rawValue) }
         }
     }
+
+    /// PDFKit's recognizers (and the note tap) held to fingers while drawing, with the touches they took before.
+    private var fingersOnly: [(UIGestureRecognizer, [NSNumber])] = []
 
     override var undoManager: UndoManager? { history }
 
@@ -210,6 +219,8 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
             let picture = mark.kind == "image" ? pictures(mark.image) : nil
             page.addAnnotation(MarkAnnotation(mark: mark, geometry: PageGeometry(page), picture: picture))
         }
+        // Pages already shown have their overlays.
+        pen.refreshAll()
     }
 
     @objc private func tapped(_ gesture: UITapGestureRecognizer) {
@@ -288,8 +299,9 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
         }
     }
 
-    private static func recognizers(in view: UIView) -> [UIGestureRecognizer] {
-        (view.gestureRecognizers ?? []) + view.subviews.flatMap { recognizers(in: $0) }
+    private static func recognizers(in view: UIView, outside skipped: UIView.Type? = nil) -> [UIGestureRecognizer] {
+        if let skipped, view.isKind(of: skipped) { return [] }
+        return (view.gestureRecognizers ?? []) + view.subviews.flatMap { recognizers(in: $0, outside: skipped) }
     }
 }
 

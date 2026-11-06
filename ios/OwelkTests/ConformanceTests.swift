@@ -308,7 +308,9 @@ final class MarkGeometryTests: XCTestCase {
         }
     }
 
-    /// The desktop's highlight tints the page where its rectangle is; the pen draws where its points are.
+    /// The desktop's highlight tints the page where its rectangle is; the pen draws where its points are (drawn by the
+    /// reader's page overlay, over the page).
+    @MainActor
     func testMarksAreDrawnOnTheirPlaces() throws {
         let folder = SyncFolder(root: ConformanceTests.mac)
         var state = SyncState()
@@ -325,16 +327,17 @@ final class MarkGeometryTests: XCTestCase {
                 ? CGPoint(x: (mark.drawing[1].x + mark.drawing[2].x) / 2, y: (mark.drawing[1].y + mark.drawing[2].y) / 2)
                 : CGPoint(x: mark.rectangles[0].midX, y: mark.rectangles[0].midY)
             let before = Self.color(of: page, at: geometry.point(spot))
-            page.addAnnotation(MarkAnnotation(mark: mark, geometry: geometry, picture: nil))
-            let after = Self.color(of: page, at: geometry.point(spot))
+            let shape = try XCTUnwrap(MarkShape.layer(mark, on: OverlayGeometry(page)))
+            let after = Self.color(of: page, at: geometry.point(spot), under: shape)
             // Yellow over the page takes blue away; the pink pen takes green away.
             if kind == "highlight" { XCTAssertLessThan(after.blue, before.blue - 20, "\(before) → \(after)") }
             else { XCTAssertLessThan(after.green, before.green - 40, "\(before) → \(after)") }
         }
     }
 
-    /// The average color of a 5-point square of the page around a point in page space.
-    private static func color(of page: PDFPage, at point: CGPoint) -> (red: Double, green: Double, blue: Double) {
+    /// The average color of a 5-point square of the page around a point in page space, with an overlay's layer over it.
+    private static func color(of page: PDFPage, at point: CGPoint,
+                              under overlay: CALayer? = nil) -> (red: Double, green: Double, blue: Double) {
         let box = page.bounds(for: .cropBox)
         let width = Int(box.width), height = Int(box.height)
         var pixels = [UInt8](repeating: 255, count: width * height * 4)
@@ -344,6 +347,10 @@ final class MarkGeometryTests: XCTestCase {
                                     bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
             context.translateBy(x: -box.minX, y: -box.minY)
             page.draw(with: .cropBox, to: context)
+            // The overlay is the unturned crop box from its top left, y down.
+            context.translateBy(x: box.minX, y: box.maxY)
+            context.scaleBy(x: 1, y: -1)
+            overlay?.render(in: context)
         }
         var sum = (0.0, 0.0, 0.0), count = 0.0
         let cx = Int(point.x - box.minX), cy = height - 1 - Int(point.y - box.minY)

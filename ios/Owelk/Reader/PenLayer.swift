@@ -45,6 +45,48 @@ struct OverlayGeometry {
         let page = shown.point(fraction)
         return CGPoint(x: page.x - crop.minX, y: crop.maxY - page.y)
     }
+
+    /// Shown-page fractions → overlay points (turned with the page, so corners swap sides).
+    func rect(_ fraction: CGRect) -> CGRect {
+        let a = point(CGPoint(x: fraction.minX, y: fraction.minY)), b = point(CGPoint(x: fraction.maxX, y: fraction.maxY))
+        return CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(b.x - a.x), height: abs(b.y - a.y))
+    }
+}
+
+/// The marks the overlay draws as shapes, which Core Animation keeps sharp at any zoom. PDFKit draws annotations at the
+/// page's own resolution (one pixel per point, however far it is zoomed in), so a 2 pt pen line came out in blocks.
+/// Text boxes and pictures PDFKit still draws (`MarkAnnotation`). The look is the desktop's: highlights tint at 28%,
+/// comments and regions are outlined, the pen is 2 pt wide.
+enum MarkShape {
+    static func draws(_ kind: String) -> Bool { kind != "text" && kind != "image" }
+
+    static func layer(_ mark: Mark, on geometry: OverlayGeometry) -> CAShapeLayer? {
+        guard draws(mark.kind) else { return nil }
+        let layer = CAShapeLayer()
+        layer.name = mark.id
+        let path = CGMutablePath()
+        switch mark.kind {
+        case "draw":
+            path.addPath(MarkAnnotation.stroke(mark.drawing.map(geometry.point)))
+            layer.strokeColor = mark.color.cgColor
+            layer.fillColor = nil
+            layer.lineWidth = 2
+            layer.lineCap = .round
+            layer.lineJoin = .round
+        case "comment", "area":
+            for rect in mark.rectangles {
+                path.addPath(UIBezierPath(roundedRect: geometry.rect(rect), cornerRadius: 2).cgPath)
+            }
+            layer.strokeColor = mark.color.cgColor
+            layer.fillColor = nil
+            layer.lineWidth = 1.5
+        default:
+            for rect in mark.rectangles { path.addRect(geometry.rect(rect)) }
+            layer.fillColor = mark.color.withAlphaComponent(0.28).cgColor
+        }
+        layer.path = path
+        return layer
+    }
 }
 
 /// PencilKit's monoline ink: a stroke point of size `s` is drawn about `2s − 3.5` pt wide (measured, and checked by
@@ -74,24 +116,85 @@ private final class InkCanvas: PKCanvasView {
     override var undoManager: UndoManager? { ignored }
 }
 
-/// Apple Pencil over the pages. A PencilKit canvas on each page takes the stroke while it is drawn (Pencil only;
-/// fingers scroll); lifted, it becomes a pen mark drawn by PDFKit like every other mark, so it looks as on the
-/// desktop and stays sharp at any zoom. The eraser takes pen marks under the Pencil. Drawing, erasing and their Undo
-/// and Redo go into the reader's history, and each is reported: drawn, or erased (true) and back (false).
+/// A page's overlay: its marks' shapes, and while drawing the Pencil's canvas over them. Touches the canvas does not
+/// take go through to the page.
+private final class SheetView: UIView {
+    let marks = CALayer()
+    var canvas: PKCanvasView? {
+        didSet {
+            oldValue?.removeFromSuperview()
+            if let canvas {
+                canvas.frame = bounds
+                addSubview(canvas)
+            }
+        }
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        isOpaque = false
+        layer.addSublayer(marks)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        marks.frame = bounds
+        CATransaction.commit()
+        canvas?.frame = bounds
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let hit = super.hitTest(point, with: event)
+        return hit === self ? nil : hit
+    }
+}
+
+/// Apple Pencil and the marks over the pages. Each shown page's overlay draws the page's marks as shapes (`MarkShape`),
+/// sharp at any zoom, from the `MarkAnnotation`s on the page, which stay there for taps and the eraser. While drawing, a
+/// PencilKit canvas on each shown page takes the stroke while it is drawn (Pencil only; fingers scroll); lifted, it
+/// becomes a pen mark like every other mark, so it looks as on the desktop. Canvases are made only for drawing and
+/// overlays only for pages on screen, so reading scrolls as lightly as without them. The eraser takes pen marks under
+/// the Pencil. Drawing, erasing and their Undo and Redo go into the reader's history, and each is reported: drawn, or
+/// erased (true) and back (false).
 @MainActor
 final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCanvasViewDelegate {
     @MainActor
     private final class Sheet {
-        let canvas: PKCanvasView = InkCanvas()
+        let view = SheetView()
+        var canvas: PKCanvasView? { view.canvas }
         let page: PDFPage
         let index: Int
         let geometry: OverlayGeometry
         var clearing = false
+        private var shapes: [ObjectIdentifier: CALayer] = [:]
 
         init(page: PDFPage, index: Int) {
             self.page = page
             self.index = index
             geometry = OverlayGeometry(page)
+        }
+
+        /// The shapes of the marks now on the page.
+        func sync() {
+            let marks = page.annotations.compactMap { $0 as? MarkAnnotation }.filter { MarkShape.draws($0.mark.kind) }
+            let present = Set(marks.map(ObjectIdentifier.init))
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            for (key, shape) in shapes where !present.contains(key) {
+                shape.removeFromSuperlayer()
+                shapes[key] = nil
+            }
+            for annotation in marks where shapes[ObjectIdentifier(annotation)] == nil {
+                guard let shape = MarkShape.layer(annotation.mark, on: geometry) else { continue }
+                view.marks.addSublayer(shape)
+                shapes[ObjectIdentifier(annotation)] = shape
+            }
+            CATransaction.commit()
         }
     }
 
@@ -124,10 +227,23 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
     }
 
     func pdfView(_ view: PDFView, overlayViewFor page: PDFPage) -> UIView? {
-        if let sheet = sheets[ObjectIdentifier(page)] { return sheet.canvas }
+        if let sheet = sheets[ObjectIdentifier(page)] { return sheet.view }
         guard let document = view.document else { return nil }
         let sheet = Sheet(page: page, index: document.index(for: page))
-        let canvas = sheet.canvas
+        sheets[ObjectIdentifier(page)] = sheet
+        apply(sheet)
+        sheet.sync()
+        return sheet.view
+    }
+
+    /// A page off screen lets its overlay go; PDFKit asks for a new one when the page comes back.
+    func pdfView(_ pdfView: PDFView, willEndDisplayingOverlayView overlayView: UIView, for page: PDFPage) {
+        guard let sheet = sheets[ObjectIdentifier(page)], sheet.view === overlayView else { return }
+        sheets[ObjectIdentifier(page)] = nil
+    }
+
+    private func makeCanvas() -> PKCanvasView {
+        let canvas = InkCanvas()
         canvas.backgroundColor = .clear
         canvas.isOpaque = false
         canvas.drawingPolicy = .pencilOnly
@@ -135,18 +251,35 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
         // Pages are paper-white in dark mode too, so ink keeps its own colors.
         canvas.overrideUserInterfaceStyle = .light
         canvas.delegate = self
-        sheets[ObjectIdentifier(page)] = sheet
-        apply(sheet)
         return canvas
     }
 
+    /// Draws the marks now on a page (after marks were added to it or taken off).
+    func refresh(_ page: PDFPage) { sheets[ObjectIdentifier(page)]?.sync() }
+
+    func refreshAll() { sheets.values.forEach { $0.sync() } }
+
+    /// The canvas over a page while drawing, once PDFKit has shown it.
+    func canvas(on page: PDFPage) -> PKCanvasView? { sheets[ObjectIdentifier(page)]?.canvas }
+
+    /// The marks drawn over a page, by ID.
+    func shapes(on page: PDFPage) -> [String] {
+        (sheets[ObjectIdentifier(page)]?.view.marks.sublayers ?? []).compactMap(\.name).sorted()
+    }
+
     private func apply(_ sheet: Sheet) {
+        guard drawing else {
+            sheet.view.canvas = nil
+            return
+        }
+        let canvas = sheet.canvas ?? makeCanvas()
+        sheet.view.canvas = canvas
         if case let .pen(hex) = tool {
-            sheet.canvas.tool = PKInkingTool(.monoline, color: UIColor(hex: hex) ?? .black, width: width)
-            sheet.canvas.isUserInteractionEnabled = drawing
+            canvas.tool = PKInkingTool(.monoline, color: UIColor(hex: hex) ?? .black, width: width)
+            canvas.isUserInteractionEnabled = true
         } else {
             // The eraser is the reader's own (`erase(along:in:)`): the canvas lets the Pencil through.
-            sheet.canvas.isUserInteractionEnabled = false
+            canvas.isUserInteractionEnabled = false
         }
     }
 
@@ -177,6 +310,7 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
         else { return }
         let annotation = MarkAnnotation(mark: mark, geometry: PageGeometry(sheet.page), picture: nil)
         sheet.page.addAnnotation(annotation)
+        sheet.sync()
         drawn?(sheet.index, id, points, color)
         undoManager?.registerUndo(withTarget: self) { $0.take([(annotation, sheet.page)]) }
         undoManager?.setActionName("Pen")
@@ -196,6 +330,7 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
                 samples.append(CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t))
             }
         }
+        var touched: [PDFPage] = []
         for sample in samples {
             guard let page = view.page(for: sample, nearest: false) else { continue }
             let point = view.convert(sample, to: page)
@@ -203,8 +338,10 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
                 where mark.mark.kind == "draw" && mark.touches(point, reach: reach) {
                 page.removeAnnotation(mark)
                 erasing.append((mark, page))
+                if !touched.contains(page) { touched.append(page) }
             }
         }
+        touched.forEach(refresh)
     }
 
     /// The eraser lifted: what it took is erased, as one step.
@@ -220,6 +357,7 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
 
     private func take(_ marks: [(MarkAnnotation, PDFPage)]) {
         for (annotation, page) in marks { page.removeAnnotation(annotation) }
+        Set(marks.map { ObjectIdentifier($0.1) }).forEach { sheets[$0]?.sync() }
         erased?(marks.map(\.0.mark.id), true)
         undoManager?.registerUndo(withTarget: self) { $0.give(marks) }
         changed?()
@@ -227,6 +365,7 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
 
     private func give(_ marks: [(MarkAnnotation, PDFPage)]) {
         for (annotation, page) in marks { page.addAnnotation(annotation) }
+        Set(marks.map { ObjectIdentifier($0.1) }).forEach { sheets[$0]?.sync() }
         erased?(marks.map(\.0.mark.id), false)
         undoManager?.registerUndo(withTarget: self) { $0.take(marks) }
         changed?()

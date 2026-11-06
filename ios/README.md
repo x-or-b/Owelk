@@ -23,7 +23,7 @@
 | `Owelk/Sync/SyncFolder.swift` | 폴더 읽기(파일은 늘기만 하므로 읽은 곳부터, 끝나지 않은 줄은 기다림)와 쓰기(256KB에서 다음 파일, 줄 단위) |
 | `Owelk/Sync/SyncEngine.swift` | 동기화 한 번(읽기 → 쓰기 → 도착한 PDF), iPad가 쓰는 행 만들기 |
 | `Owelk/Library/` | 논문(같은 SHA-256의 `documents` 행은 한 논문), Collections·Tags·Recent·읽던 위치, UI가 보는 저장소, 추가하는 PDF(`NewPaper.swift`) |
-| `Owelk/Reader/` | PDF 화면, 주석 그리기와 쪽 좌표 변환, 목차·찾기, Pencil 펜·지우개(`PenLayer.swift`: 쪽마다 그리는 동안의 PencilKit 캔버스, 끝난 획은 표시로, 지우개와 실행 취소) |
+| `Owelk/Reader/` | PDF 화면, 주석 그리기와 쪽 좌표 변환, 목차·찾기, Pencil 펜·지우개(`PenLayer.swift`: 화면에 보이는 쪽마다 얹는 층. 표시를 벡터 도형으로 그리고, Draw 중에만 PencilKit 캔버스를 두며, 지우개와 실행 취소를 맡음) |
 | `Owelk/Views/` | 라이브러리 화면(논문 추가·끌어다 놓기), 웹 검색(`WebSearch.swift`) |
 
 데스크톱과 맞춘 규칙(`src/LibrarySync.cpp`):
@@ -35,6 +35,8 @@
 - 쓰는 시각은 그 행의 지금 버전보다 항상 뒤(`max(지금, 이전 + 1)`)라서, iPad 시계가 조금 늦어도 바뀐 위치가 지지 않습니다.
 - 문서 ID는 그 SHA-256의 행 중 가장 작은 ID입니다. 컴퓨터들이 같은 PDF를 합칠 때 남기는 ID라서, 다른 ID로 알고 있는 컴퓨터도 별칭으로 맞춥니다. 재키(rekey)는 하지 않습니다.
 - 주석 좌표는 "보이는 쪽(크롭 박스, /Rotate 적용)의 왼쪽 위에서의 비율"이고, `PageGeometry`는 `src/AnnotatedPdf.cpp`의 `Page::point`와 같은 식으로 PDF 좌표로 바꿉니다. PDFKit이 쪽 위에 얹는 캔버스는 돌리기 전 크롭 박스의 왼쪽 위에서 잰 point라서(돌리기는 PDFKit이 뷰째 함), `OverlayGeometry`가 그 사이를 바꿉니다(`PenTests`가 PDFKit 자체 변환과 맞춰 봄).
+- 하이라이트·코멘트·영역·펜 표시는 PDFKit 주석으로 그리지 않고 그 층에 `CAShapeLayer`로 그립니다. PDFKit은 주석을 확대와 상관없이 쪽 1 point당 1 pixel로 그린 뒤 늘려서, 2 pt 펜 선이 확대하면 8 pixel 계단이 됐습니다(`PenTests`의 4배 확대 테스트가 확인). 글상자와 그림은 아직 PDFKit이 그립니다. `MarkAnnotation`은 쪽에 남아 탭·지우개가 찾는 자리입니다.
+- Draw 중에는 PDFKit의 제스처(두 번 탭 확대·글자 선택·끌기)를 손가락만 받게 합니다. Pencil로 빠르게 두 번 찍으면 확대되어 화면이 튀었습니다.
 
 ## 빌드와 테스트
 
