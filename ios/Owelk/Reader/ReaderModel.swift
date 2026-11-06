@@ -289,12 +289,23 @@ struct ReaderScreen: View {
                     }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    // While drawing the pen fills in the accent: the bar's buttons take their color from the tint
+                    // (a foreground style is ignored there).
                     Button {
                         model.drawing.toggle()
                     } label: {
-                        Label("Draw", systemImage: "pencil.tip.crop.circle")
+                        Label {
+                            Text("Draw")
+                        } icon: {
+                            if model.drawing {
+                                Image(systemName: "pencil.tip.crop.circle.fill").foregroundStyle(Theme.accent)
+                            } else {
+                                Image(systemName: "pencil.tip.crop.circle")
+                            }
+                        }
                     }
-                    .foregroundStyle(model.drawing ? Theme.accent : Color.primary)
+                    .tint(model.drawing ? Theme.accent : Color.primary)
+                    .accessibilityAddTraits(model.drawing ? .isSelected : [])
                     .disabled(!model.canDraw)
                     Button {
                         model.showsThumbnails.toggle()
