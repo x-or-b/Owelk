@@ -3,9 +3,9 @@ import PencilKit
 import SwiftUI
 import UIKit
 
-/// The page view: PDFKit's own scrolling, zoom and text selection, page thumbnails at the side, and the computers'
-/// marks drawn over the pages. A tap on a mark with a note shows the note. While drawing, Apple Pencil draws and
-/// erases (`pen`) and fingers still scroll and zoom; a two-finger tap undoes.
+/// The page view: PDFKit's own scrolling, zoom and text selection, page pictures at the side (`PageList`), and the
+/// computers' marks drawn over the pages. A tap on a mark with a note shows the note. While drawing, Apple Pencil
+/// draws and erases (`pen`) and fingers still scroll and zoom; a two-finger tap undoes.
 final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate, UIPencilInteractionDelegate {
     let pdfView = PageView()
     let pen = PenLayer()
@@ -17,7 +17,7 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
     /// Apple Pencil's double tap and squeeze, with the action the reader chose in Settings and where the tip hovers.
     var onPencil: ((UIPencilPreferredAction, CGPoint?) -> Void)?
     var onUndo: (() -> Void)?
-    private let thumbnails = PDFThumbnailView()
+    private let thumbnails = PageList()
     private let thumbnailColumn = UIView()
     private var restored = false
     /// Where the paper was left, held while PDFKit is still fitting its pages (it moves to a page's top when it
@@ -32,6 +32,7 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
         get { pdfView.document }
         set {
             pdfView.document = newValue
+            thumbnails.document = newValue
             restored = false
             holding = nil
             waitForDoubleTaps()
@@ -42,7 +43,13 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
     }
 
     var showsThumbnails = false {
-        didSet { thumbnailColumn.isHidden = !showsThumbnails }
+        didSet {
+            thumbnailColumn.isHidden = !showsThumbnails
+            if showsThumbnails {
+                view.layoutIfNeeded()
+                thumbnails.reveal(animated: false)
+            }
+        }
     }
 
     var drawing = false {
@@ -85,10 +92,11 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
         pdfView.backgroundColor = .secondarySystemBackground
         pdfView.interpolationQuality = .high
 
-        thumbnails.pdfView = pdfView
-        thumbnails.layoutMode = .vertical
-        thumbnails.thumbnailSize = CGSize(width: 96, height: 128)
         thumbnails.backgroundColor = .systemBackground
+        thumbnails.chosen = { [weak self] index in
+            guard let self, let page = self.pdfView.document?.page(at: index) else { return }
+            self.go(to: page, y: 0)
+        }
         thumbnailColumn.isHidden = true
         thumbnailColumn.addSubview(thumbnails)
         let line = UIView()
@@ -207,6 +215,7 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
 
     @objc private func pageChanged() {
         guard let page = pdfView.currentPage, let document = pdfView.document else { return }
+        thumbnails.current = document.index(for: page)
         onPageChange?(document.index(for: page))
     }
 

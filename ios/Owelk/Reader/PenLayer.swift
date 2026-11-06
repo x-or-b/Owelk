@@ -253,6 +253,8 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
         // Pages are paper-white in dark mode too, so ink keeps its own colors.
         canvas.overrideUserInterfaceStyle = .light
         canvas.delegate = self
+        // A canvas is a scroll view under the bar: it must not move its ink to keep clear of the bar.
+        canvas.contentInsetAdjustmentBehavior = .never
         return canvas
     }
 
