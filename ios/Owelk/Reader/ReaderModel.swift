@@ -162,6 +162,12 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         }
     }
 
+    /// Puts a page's top at the top of the view.
+    func go(toPage index: Int) {
+        guard let page = controller.document?.page(at: min(max(0, index), pageCount - 1)) else { return }
+        controller.go(to: page, y: 0)
+    }
+
     func go(to result: SearchResult) {
         controller.pdfView.setCurrentSelection(result.selection, animate: false)
         controller.pdfView.go(to: result.selection)
@@ -236,7 +242,8 @@ struct ReaderPages: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: ReaderViewController, context: Context) {}
 }
 
-/// A paper filling the screen, with its contents, search and page thumbnails in the bar.
+/// A paper filling the screen, with its contents, search and page pictures in the bar, and the page number in the
+/// corner (a tap goes to a page).
 struct ReaderScreen: View {
     @EnvironmentObject private var store: LibraryStore
     @StateObject private var model: ReaderModel
@@ -244,6 +251,7 @@ struct ReaderScreen: View {
     @Environment(\.scenePhase) private var phase
     @State private var showsOutline = false
     @State private var showsSearch = false
+    @State private var choosesPage = false
     private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     init(paper: Paper) { _model = StateObject(wrappedValue: ReaderModel(paper: paper)) }
@@ -268,14 +276,24 @@ struct ReaderScreen: View {
                 }
             }
             .overlay(alignment: .bottomTrailing) {
-                if model.loaded && !model.drawing {
-                    Text("\(model.page + 1) / \(model.pageCount)")
-                        .font(.footnote.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(.regularMaterial, in: Capsule())
-                        .padding(16)
-                        .allowsHitTesting(false)
+                // The page being read, also while drawing; a tap goes to another page.
+                if model.loaded {
+                    Button {
+                        choosesPage = true
+                    } label: {
+                        Text("\(model.page + 1) / \(model.pageCount)")
+                            .font(.footnote.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .background(.regularMaterial, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Page \(model.page + 1) of \(model.pageCount)")
+                    .accessibilityHint("Go to Page")
+                    .popover(isPresented: $choosesPage) {
+                        PagePicker(model: model) { choosesPage = false }
+                    }
+                    .padding(16)
                 }
             }
             .navigationTitle(model.paper.title)
@@ -346,6 +364,46 @@ struct ReaderScreen: View {
     private func close() {
         model.savePosition(to: store)
         dismiss()
+    }
+}
+
+/// Go to Page: a page number, gone to with Return or Go.
+private struct PagePicker: View {
+    @ObservedObject var model: ReaderModel
+    let done: () -> Void
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    private var target: Int? {
+        Int(text.trimmingCharacters(in: .whitespaces)).flatMap { (1...max(1, model.pageCount)).contains($0) ? $0 : nil }
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("Page")
+            TextField("\(model.page + 1)", text: $text)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 72)
+                .focused($focused)
+                .onSubmit(go)
+            Text("of \(model.pageCount)").foregroundStyle(.secondary).monospacedDigit()
+            Button("Go", action: go)
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.accent)
+                .disabled(target == nil)
+                .keyboardShortcut(.defaultAction)
+        }
+        .padding(16)
+        .onAppear { focused = true }
+    }
+
+    private func go() {
+        guard let target else { return }
+        model.go(toPage: target - 1)
+        done()
     }
 }
 
