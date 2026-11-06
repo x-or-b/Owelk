@@ -11,6 +11,8 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
     /// The reader's own undo history, which the canvases use.
     private let history = UndoManager()
     private lazy var undoTap = UITapGestureRecognizer(target: self, action: #selector(undoTapped))
+    private lazy var eraser = UIPanGestureRecognizer(target: self, action: #selector(erasing(_:)))
+    private var erasedTo: CGPoint?
     /// Apple Pencil's double tap and squeeze, with the action the reader chose in Settings and where the tip hovers.
     var onPencil: ((UIPencilPreferredAction, CGPoint?) -> Void)?
     var onUndo: (() -> Void)?
@@ -47,6 +49,14 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
             pen.drawing = drawing
             pdfView.isInMarkupMode = drawing
             undoTap.isEnabled = drawing
+            eraser.isEnabled = drawing
+            // The Pencil draws and erases then; only fingers move the pages.
+            let touches = drawing ? [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+                : [UITouch.TouchType.direct, .pencil, .indirectPointer].map { NSNumber(value: $0.rawValue) }
+            if let scroll = Self.scrollView(in: pdfView) {
+                scroll.panGestureRecognizer.allowedTouchTypes = touches
+                scroll.pinchGestureRecognizer?.allowedTouchTypes = touches
+            }
             // Pencil taps make dots while drawing; fingers still open notes.
             tap.allowedTouchTypes = drawing ? [NSNumber(value: UITouch.TouchType.direct.rawValue)]
                 : [UITouch.TouchType.direct, .pencil, .indirectPointer].map { NSNumber(value: $0.rawValue) }
@@ -104,6 +114,12 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
         undoTap.isEnabled = false
         undoTap.delegate = self
         pdfView.addGestureRecognizer(undoTap)
+        pen.undoManager = history
+        eraser.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.pencil.rawValue)]
+        eraser.maximumNumberOfTouches = 1
+        eraser.isEnabled = false
+        eraser.delegate = self
+        pdfView.addGestureRecognizer(eraser)
         let pencil = UIPencilInteraction()
         pencil.delegate = self
         view.addInteraction(pencil)
@@ -189,9 +205,7 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
 
     func show(_ marks: [Mark], pictures: (String) -> UIImage?) {
         guard let document = pdfView.document else { return }
-        pen.show(marks)
-        // Pen strokes live on the canvases, where they can be erased.
-        for mark in marks where mark.page < document.pageCount && mark.kind != "draw" {
+        for mark in marks where mark.page < document.pageCount {
             guard let page = document.page(at: mark.page) else { continue }
             let picture = mark.kind == "image" ? pictures(mark.image) : nil
             page.addAnnotation(MarkAnnotation(mark: mark, geometry: PageGeometry(page), picture: picture))
@@ -219,6 +233,27 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
                            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
 
     @objc private func undoTapped() { onUndo?() }
+
+    func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
+        gesture === eraser ? pen.tool == .eraser : true
+    }
+
+    @objc private func erasing(_ gesture: UIPanGestureRecognizer) {
+        let location = gesture.location(in: pdfView)
+        switch gesture.state {
+        case .began:
+            pen.erase(along: [location], in: pdfView)
+            erasedTo = location
+        case .changed:
+            pen.erase(along: [erasedTo ?? location, location], in: pdfView)
+            erasedTo = location
+        case .ended, .cancelled, .failed:
+            pen.finishErasing()
+            erasedTo = nil
+        default:
+            break
+        }
+    }
 
     // MARK: Apple Pencil
 
