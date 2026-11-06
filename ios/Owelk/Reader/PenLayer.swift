@@ -122,6 +122,8 @@ private final class SheetView: UIView {
     let marks = CALayer()
     var canvas: PKCanvasView? {
         didSet {
+            // The same canvas stays where it is: taking it off mid-use would end what PencilKit is doing.
+            guard oldValue !== canvas else { return }
             oldValue?.removeFromSuperview()
             if let canvas {
                 canvas.frame = bounds
