@@ -359,6 +359,24 @@ Item {
         unqueue(index)
         return send(item.question)
     }
+    // A waiting one sent while an answer is coming: that answer stops (kept as far as it got, as with Stop), and
+    // this one goes first once it has. The others still wait their turn.
+    property string sendingNow: ""
+    function sendNow(index) {
+        if (index < 0 || index >= queuedHere.length) return false
+        if (!streaming) return sendQueued(index)
+        const item = queuedHere[index]
+        runs.setQueued(threadId, [item].concat(queuedHere.filter(function(_, i) { return i !== index })))
+        sendingNow = threadId
+        stop()
+        return true
+    }
+    // Run once the stopped answer is settled (a finished answer instead sends the first waiting one by itself).
+    function sendNowAfter(thread, stopped) {
+        if (sendingNow !== thread) return
+        sendingNow = ""
+        if (stopped) Qt.callLater(function() { if (root.threadId === thread) root.sendQueued(0) })
+    }
     // Stop is for the answer shown; moving to another conversation leaves it writing.
     function stop() { if (streaming) ai.cancel(request) }
     function reread() {
@@ -670,6 +688,7 @@ Item {
             root.spec = next
             // Another answer for this conversation already coming (asked in another view).
             root.showRunning()
+            root.sendNowAfter(thread, !!details.stopped)
         }
         function onFailed(id, thread, message) {
             if (id !== root.request) return
@@ -677,6 +696,7 @@ Item {
             if (message !== "Stopped.") { root.error = message; root.runs.consumeFailure(thread) }
             // A turn taken out to be replaced may have come back meanwhile.
             root.reread()
+            root.sendNowAfter(thread, message === "Stopped.")
         }
         function onAnswered(threadId, title, preview) { root.answered(threadId, title, preview) }
     }

@@ -595,6 +595,17 @@ Item {
             tryVerify(function() { return !ai.streaming && ai.messages.length === 6 }, 15000)
             wait(200)
             compare(ai.messages.length, 6)
+            // Send now: the answer coming stops, the chosen one goes first, the other still waits its turn.
+            verify(ai.send("Fourth"))
+            verify(ai.queue("After it"))
+            verify(ai.queue("Asked now"))
+            tryVerify(function() { return visualChild(p, "aiQueuedSend-1") !== null })
+            compare(visualChild(p, "aiQueuedSend-1").text, "Send now")
+            mouseClick(visualChild(p, "aiQueuedSend-1"))
+            tryVerify(function() { return ai.streaming && ai.pendingQuestion === "Asked now" }, 10000)
+            compare(ai.queuedHere.length, 1)
+            tryVerify(function() { return !ai.streaming && !ai.queuedHere.length && ai.messages[ai.messages.length - 2].display === "After it" }, 20000)
+            compare(ai.messages[ai.messages.length - 4].display, "Asked now")
         }
         function test_5c_aChatInATabFollowsThePanel() {
             const ai = findChild(workspace, "aiController")

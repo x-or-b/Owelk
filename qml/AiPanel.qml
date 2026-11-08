@@ -688,8 +688,8 @@ Item {
                     markdown: visible ? parts.text : ""
                     onTextChanged: conversation.follow()
                 }
-                // Asked while the answer above was coming: each goes next, in order (× takes one back). After a
-                // Stop or a failure they wait for Send.
+                // Asked while the answer above was coming: each goes next, in order (× takes one back); Send now
+                // stops that answer and sends this one first. After a Stop or a failure they wait for Send.
                 Repeater {
                     model: root.c ? root.c.queuedHere : []
                     onCountChanged: conversation.follow()
@@ -713,10 +713,13 @@ Item {
                         }
                         Button {
                             objectName: "aiQueuedSend-" + waiting.index
-                            visible: root.c && !root.c.streaming
+                            readonly property bool now: root.c && root.c.streaming
+                            enabled: root.c && !root.c.sendingNow.length
                             flat: true; font.pixelSize: Theme.fontSmall; implicitHeight: Theme.controlHeightSmall
-                            text: qsTr("Send")
-                            onClicked: root.c.sendQueued(waiting.index)
+                            text: now ? qsTr("Send now") : qsTr("Send")
+                            ToolTip.visible: now && hovered; ToolTip.delay: 450
+                            ToolTip.text: qsTr("Stop the answer above and send this now")
+                            onClicked: root.c.sendNow(waiting.index)
                         }
                         IconButton {
                             objectName: "aiQueuedRemove-" + waiting.index

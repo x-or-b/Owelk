@@ -545,6 +545,10 @@
         <translation>센드</translation>
     </message>
     <message>
+        <source>Send now</source>
+        <translation>센드 나우</translation>
+    </message>
+    <message>
         <source>Send · </source>
         <translation>센드 · </translation>
     </message>
@@ -563,6 +567,10 @@
     <message>
         <source>Stop</source>
         <translation>스톱</translation>
+    </message>
+    <message>
+        <source>Stop the answer above and send this now</source>
+        <translation>스톱 더 앤서 어보브 앤드 센드 디스 나우</translation>
     </message>
     <message>
         <source>Stopped at the length limit.</source>
