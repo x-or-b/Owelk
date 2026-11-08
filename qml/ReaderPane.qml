@@ -405,21 +405,15 @@ Rectangle {
             Row {
                 anchors.left: parent.left; anchors.leftMargin: 4; anchors.verticalCenter: parent.verticalCenter
                 IconButton { icon.name: "minus"; description: qsTr("Zoom out · ") + Platform.keys("Ctrl+-"); onClicked:{root.activated();canvas.zoom(1/1.2)} }
-                // The zoom readout chooses how pages fit: the whole width or a whole page.
+                // The zoom readout fits a whole page (Fit Width stays in the View menu and the command palette).
                 ToolButton {
                     id: zoomReadout
                     objectName: "zoomReadout"
                     height:Theme.controlHeightSmall; width:Math.max(implicitWidth, Theme.fontBody * 4.5); hoverEnabled:true
                     text: canvas.fitMode === "page" && !canvas.pinching ? qsTr("Page") : Math.round(canvas.shownZoom * 100) + "%"
-                    onClicked: { root.activated(); fitMenu.popup(zoomReadout, 0, zoomReadout.height) }
-                    ToolTip.visible: hovered && !fitMenu.visible
-                    ToolTip.text: qsTr("Zoom")
-                    Menu {
-                        id: fitMenu
-                        objectName: "fitMenu"
-                        MenuItem { objectName: "fitWidthItem"; text: qsTr("Fit Width"); checkable: true; checked: canvas.fitMode === "width"; onTriggered: canvas.fitWidth() }
-                        MenuItem { objectName: "fitPageItem"; text: qsTr("Fit Page"); checkable: true; checked: canvas.fitMode === "page"; onTriggered: canvas.fitPage() }
-                    }
+                    onClicked: { root.activated(); canvas.fitPage() }
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("Fit Page")
                 }
                 IconButton { icon.name: "add"; description: qsTr("Zoom in · ") + Platform.keys("Ctrl+Plus"); onClicked:{root.activated();canvas.zoom(1.2)} }
             }

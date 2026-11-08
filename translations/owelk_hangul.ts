@@ -5426,10 +5426,6 @@ Use Pages to navigate.</source>
         <translation>핏 페이지</translation>
     </message>
     <message>
-        <source>Fit Width</source>
-        <translation>핏 위드스</translation>
-    </message>
-    <message>
         <source>Follow Author…</source>
         <translation>팔로 오서…</translation>
     </message>
@@ -5546,10 +5542,6 @@ You can open the same document twice.</source>
     <message>
         <source>Undo</source>
         <translation>언두</translation>
-    </message>
-    <message>
-        <source>Zoom</source>
-        <translation>줌</translation>
     </message>
     <message>
         <source>Zoom in · </source>

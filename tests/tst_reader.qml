@@ -131,11 +131,8 @@ Item {
             canvas.openFile(longSource, {page: 1, y: 0, x: 0, zoom: 1})
             tryCompare(canvas, "ready", true, 10000); tryCompare(canvas, "restoring", false, 10000)
             compare(canvas.fitMode, "width")
-            // The zoom readout offers both fits; Fit Page shows the whole page.
+            // The zoom readout fits the whole page at once.
             mouseClick(findChild(reader, "zoomReadout"))
-            const menu = findChild(reader, "fitMenu")
-            tryCompare(menu, "opened", true)
-            mouseClick(findChild(menu, "fitPageItem"))
             tryCompare(canvas, "fitMode", "page"); tryCompare(canvas, "restoring", false)
             compare(canvas.currentPage, 1)
             const page = findChild(canvas, "paperPage1")
