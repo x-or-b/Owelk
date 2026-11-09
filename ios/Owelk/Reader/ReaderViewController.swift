@@ -307,6 +307,7 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
             } delete: { [weak self, weak hit] in
                 guard let self, let hit else { return }
                 self.pen.remove([(hit, page)])
+                self.dismiss(animated: true)
             }
             popover(editor, from: pdfView.convert(hit.bounds, from: page), width: 380)
         } else if let hit = marks.first(where: { $0.mark.hasNote && $0.touches(point, reach: reach) }) {
