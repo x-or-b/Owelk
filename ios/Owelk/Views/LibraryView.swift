@@ -178,6 +178,9 @@ private struct Sidebar: View {
     @EnvironmentObject private var store: LibraryStore
     @Binding var shelf: Shelf?
     @Binding var choosingFolder: Bool
+    @State private var showsSettings = false
+    /// Change Folder was chosen in Settings: Files opens once Settings has closed.
+    @State private var changesFolder = false
 
     var body: some View {
         List(selection: $shelf) {
@@ -203,33 +206,79 @@ private struct Sidebar: View {
             }
         }
         .navigationTitle("Owelk")
+        // Sync is set up once, so it lives in Settings; the foot of the list speaks only while syncing or when a sync
+        // failed.
         .safeAreaInset(edge: .bottom) {
-            VStack(alignment: .leading, spacing: 4) {
+            if store.syncing || store.failed {
                 HStack(spacing: 6) {
                     if store.syncing { ProgressView().controlSize(.mini) }
-                    Text(store.status.isEmpty ? " " : store.status)
+                    Text(store.failed ? store.status : "Syncing…")
                         .foregroundStyle(store.failed ? Color.red : Color.secondary)
                         .lineLimit(3)
                 }
-                if let name = store.folderName {
-                    Text("Folder: \(name)").foregroundStyle(.tertiary).lineLimit(1)
-                }
+                .font(.footnote)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20).padding(.vertical, 12)
+                .background(.bar)
             }
-            .font(.footnote)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20).padding(.vertical, 12)
-            .background(.bar)
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    choosingFolder = true
+                    showsSettings = true
                 } label: {
-                    Label("Sync Folder", systemImage: "folder.badge.gearshape")
+                    Label("Settings", systemImage: "gearshape")
                 }
                 .tint(.primary)
             }
         }
+        .sheet(isPresented: $showsSettings, onDismiss: {
+            if changesFolder {
+                changesFolder = false
+                choosingFolder = true
+            }
+        }) {
+            SettingsSheet {
+                changesFolder = true
+                showsSettings = false
+            }
+        }
+    }
+}
+
+/// Settings: the sync folder, how the last sync went, Sync Now and Change Folder.
+private struct SettingsSheet: View {
+    @EnvironmentObject private var store: LibraryStore
+    @Environment(\.dismiss) private var dismiss
+    let changeFolder: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Sync") {
+                    LabeledContent("Folder", value: store.folderName ?? "None")
+                    LabeledContent("Last Sync") {
+                        HStack(spacing: 6) {
+                            if store.syncing { ProgressView().controlSize(.mini) }
+                            Text(store.syncing ? "Syncing…" : store.status)
+                                .foregroundStyle(store.failed ? Color.red : Color.secondary)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                    Button("Sync Now") { Task { await store.refresh() } }
+                        .disabled(store.syncing)
+                    Button("Change Folder…", action: changeFolder)
+                }
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .tint(Theme.accent)
     }
 }
 
