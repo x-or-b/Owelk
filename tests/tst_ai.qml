@@ -961,10 +961,24 @@ Item {
                 messages.push({role: "user", display: "Question " + i, content: "q"})
                 messages.push({role: "assistant", content: ("Paragraph " + i + " " + "word ".repeat(60) + "\n\n").repeat(4 + (i % 3) * 4)})
             }
-            ai.thread = {id: ai.threadId, title: "Long", messages: messages}
             const p = panel()
             const conversation = findChild(p, "aiConversation")
-            tryVerify(function() { return conversation.count === messages.length })
+            // It opens with its last screen; the turns above it are laid out after that.
+            ai.thread = {id: ai.threadId, title: "Long", messages: messages}
+            compare(conversation.count, messages.length)
+            verify(!conversation.laidOut)
+            verify(conversation.itemAtIndex(0) === null)
+            verify(conversation.itemAtIndex(messages.length - 1) !== null)
+            tryCompare(conversation, "laidOut", true)
+            verify(conversation.itemAtIndex(0) !== null)
+            // A new turn leaves the others as they are.
+            const first = conversation.itemAtIndex(0), firstAnswer = findChild(conversation, "aiMessage-1")
+            const more = messages.concat([{role: "user", display: "One more", content: "q"}, {role: "assistant", content: "Short."}])
+            ai.thread = {id: ai.threadId, title: "Long", messages: more}
+            compare(conversation.count, more.length)
+            verify(conversation.laidOut)
+            verify(conversation.itemAtIndex(0) === first)
+            verify(findChild(conversation, "aiMessage-1") === firstAnswer)
             waitForPolish(conversation)
             conversation.positionViewAtBeginning()
             const bar = findChild(conversation, "aiConversationScrollBar")

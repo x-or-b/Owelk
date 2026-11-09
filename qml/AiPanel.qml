@@ -441,19 +441,29 @@ Item {
             acceptedButtons: Qt.NoButton
             // Every turn is laid out, not only those on screen: a view guesses the height of turns it has not
             // made, and a short question beside a long answer made that guess swing while the scroll bar was
-            // dragged, so the conversation jumped under the pointer. Chats are a few turns long.
+            // dragged, so the conversation jumped under the pointer. A conversation opens with its last screen;
+            // the turns above it are laid out a few at a time after that (layOut), and then all of them stay.
             displayMarginBeginning: 1000000; displayMarginEnd: 1000000
+            property bool laidOut: true
             ScrollBar.vertical: ScrollBar { objectName: "aiConversationScrollBar" }
-            // The turns are set by reload(), not bound: a new list starts a view at the top, which would make it stop
-            // following. It stays where it was (at the end while following); another conversation opens at its end.
-            model: []
+            // The turns, each as its JSON. reload() keeps the turns that did not change, so a question or an answer
+            // adds only its own turn and nothing else is laid out again. The view stays where it was (at the end
+            // while following); another conversation opens at its end.
+            model: ListModel { id: turns }
+            property var shownTurns: []
             property string shownThread: ""
             function reload() {
                 const c = root.c
                 const other = !c || c.threadId !== shownThread || (count > 0 && c.messages.length === 0)
                 const wasFollowing = following || other, y = contentY
+                const list = (c ? c.messages : []).map(function(message) { return JSON.stringify(message) })
+                let same = 0
+                if (!other) while (same < list.length && same < shownTurns.length && list[same] === shownTurns[same]) ++same
                 settling = true
-                model = c ? c.messages : []
+                if (same === 0 && list.length) { laidOut = false; displayMarginBeginning = 0; displayMarginEnd = 0 }
+                if (turns.count > same) turns.remove(same, turns.count - same)
+                if (list.length > same) turns.append(list.slice(same).map(function(json) { return {json: json} }))
+                shownTurns = list
                 shownThread = c ? c.threadId : ""
                 forceLayout()
                 if (wasFollowing) positionViewAtEnd()
@@ -461,6 +471,26 @@ Item {
                 settling = false
                 following = wasFollowing
                 if (wasFollowing) Qt.callLater(toEnd)
+                if (!laidOut) layOut.restart()
+            }
+            // About 8 ms of each frame: the margins grow a screen at a time until the first and the last turn are
+            // made; the turns already on screen stay where they are.
+            Timer {
+                id: layOut
+                interval: 16; repeat: true
+                onTriggered: {
+                    const view = conversation, started = Date.now(), step = Math.max(view.height, 400)
+                    while (Date.now() - started < 8) {
+                        if (view.count === 0 || (view.itemAtIndex(0) && view.itemAtIndex(view.count - 1))) {
+                            view.displayMarginBeginning = 1000000; view.displayMarginEnd = 1000000
+                            view.laidOut = true
+                            stop()
+                            return
+                        }
+                        view.displayMarginBeginning += step; view.displayMarginEnd += step
+                        view.forceLayout()
+                    }
+                }
             }
             Connections { target: root.c; function onMessagesChanged() { conversation.reload() } }
             Component.onCompleted: reload()
@@ -488,8 +518,9 @@ Item {
             readonly property real inset: (width - column) / 2
             delegate: Item {
                 id: turn
-                required property var modelData
+                required property string json
                 required property int index
+                readonly property var modelData: JSON.parse(json)
                 width: ListView.view.width
                 height: message.height
                 ColumnLayout {
