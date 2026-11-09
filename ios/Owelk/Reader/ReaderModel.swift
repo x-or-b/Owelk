@@ -91,6 +91,11 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
             store.addStroke(id: id, to: self.paper, page: page, points: points, color: color)
         }
         controller.pen.erased = { [weak store] ids, erased in store?.setErased(ids, erased) }
+        controller.pen.placed = { [weak self, weak store] rows in
+            guard let self, let store else { return }
+            store.addMarks(rows, to: self.paper)
+        }
+        controller.onMarkChanged = { [weak store] id, color, body in store?.updateMark(id, color: color, body: body) }
         controller.document = document
         controller.show(await marks) { name in
             store.annotationImage(name)
@@ -99,6 +104,7 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         page = start?.page ?? 0
         outline = Self.flatten(document)
         loaded = true
+        controller.marksAllowed = canDraw
         store.opened(paper)
     }
 
@@ -167,6 +173,13 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         guard let page = controller.document?.page(at: min(max(0, index), pageCount - 1)) else { return }
         controller.go(to: page, y: 0)
     }
+
+    /// The paper's marks, page by page.
+    func annotations() -> [Mark] { controller.allMarks() }
+
+    func go(to mark: Mark) { controller.go(to: mark) }
+
+    func delete(_ mark: Mark) { controller.delete(mark) }
 
     func go(to result: SearchResult) {
         controller.pdfView.setCurrentSelection(result.selection, animate: false)
@@ -252,6 +265,7 @@ struct ReaderScreen: View {
     @State private var showsOutline = false
     @State private var showsSearch = false
     @State private var choosesPage = false
+    @State private var showsMarks = false
     private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     init(paper: Paper) { _model = StateObject(wrappedValue: ReaderModel(paper: paper)) }
@@ -324,6 +338,15 @@ struct ReaderScreen: View {
                 }
                 if #available(iOS 26, *) { ToolbarSpacer(.fixed, placement: .topBarTrailing) }
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        showsMarks = true
+                    } label: {
+                        Label("Annotations", systemImage: "highlighter")
+                    }
+                    .disabled(!model.loaded)
+                    .popover(isPresented: $showsMarks) {
+                        AnnotationList(model: model) { showsMarks = false }
+                    }
                     Button {
                         showsOutline = true
                     } label: {
@@ -419,6 +442,63 @@ private struct PagePicker: View {
         guard let target else { return }
         model.go(toPage: target - 1)
         done()
+    }
+}
+
+/// The paper's marks, page by page: a tap goes to one, a swipe deletes one (Undo brings it back).
+private struct AnnotationList: View {
+    @ObservedObject var model: ReaderModel
+    let done: () -> Void
+    @State private var marks: [Mark] = []
+
+    var body: some View {
+        Group {
+            if marks.isEmpty {
+                Text("No annotations yet. Select text to highlight or comment on it, or draw with Apple Pencil.")
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(24)
+            } else {
+                List {
+                    ForEach(marks) { mark in
+                        Button {
+                            model.go(to: mark)
+                            done()
+                        } label: {
+                            AnnotationRow(mark: mark)
+                        }
+                        .foregroundStyle(.primary)
+                    }
+                    .onDelete { offsets in
+                        for index in offsets { model.delete(marks[index]) }
+                        marks.remove(atOffsets: offsets)
+                    }
+                }
+                .listStyle(.plain)
+            }
+        }
+        .frame(minWidth: 380, minHeight: marks.isEmpty ? 120 : 460)
+        .onAppear { marks = model.annotations() }
+    }
+}
+
+private struct AnnotationRow: View {
+    let mark: Mark
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            RoundedRectangle(cornerRadius: 1).fill(Color(uiColor: mark.color)).frame(width: 3)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text(mark.name).font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Text("p. \(mark.page + 1)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
+                if !mark.text.isEmpty { Text(mark.text).font(.callout).lineLimit(3) }
+                if !mark.body.isEmpty { Text(mark.body).font(.callout).foregroundStyle(.secondary).lineLimit(3) }
+            }
+        }
+        .padding(.vertical, 2)
     }
 }
 

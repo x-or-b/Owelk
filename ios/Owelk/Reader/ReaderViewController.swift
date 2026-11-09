@@ -146,6 +146,7 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
 
         tap.delegate = self
         pdfView.addGestureRecognizer(tap)
+        pdfView.selectionActions = { [weak self] in self?.selectionActions() ?? [] }
         pdfView.pageOverlayViewProvider = pen
         undoTap.numberOfTouchesRequired = 2
         undoTap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
@@ -297,16 +298,116 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
         guard let page = pdfView.page(for: location, nearest: false) else { return }
         let point = pdfView.convert(location, to: page)
         let reach = 10 / max(0.1, pdfView.scaleFactor)
-        guard let hit = page.annotations.reversed().compactMap({ $0 as? MarkAnnotation })
-            .first(where: { $0.mark.hasNote && $0.touches(point, reach: reach) }) else { return }
-        let note = UIHostingController(rootView: MarkNote(mark: hit.mark))
-        note.modalPresentationStyle = .popover
-        let size = note.sizeThatFits(in: CGSize(width: 380, height: 520))
-        note.preferredContentSize = CGSize(width: 380, height: min(520, max(80, size.height)))
-        note.popoverPresentationController?.sourceView = pdfView
-        note.popoverPresentationController?.sourceRect = pdfView.convert(hit.bounds, from: page)
-        note.popoverPresentationController?.permittedArrowDirections = [.up, .down, .left, .right]
-        present(note, animated: true)
+        let marks = page.annotations.reversed().compactMap { $0 as? MarkAnnotation }
+        // Marks made where the paper's PDF is known can be changed; others only show their note.
+        if marksAllowed, let hit = marks.first(where: { $0.mark.editable && $0.touches(point, reach: reach) }) {
+            let editor = MarkEditor(mark: hit.mark) { [weak self, weak hit] color, body in
+                guard let self, let hit else { return }
+                self.change(hit, on: page, color: color, body: body)
+            } delete: { [weak self, weak hit] in
+                guard let self, let hit else { return }
+                self.pen.remove([(hit, page)])
+            }
+            popover(editor, from: pdfView.convert(hit.bounds, from: page), width: 380)
+        } else if let hit = marks.first(where: { $0.mark.hasNote && $0.touches(point, reach: reach) }) {
+            popover(MarkNote(mark: hit.mark), from: pdfView.convert(hit.bounds, from: page), width: 380)
+        }
+    }
+
+    private func popover<Content: View>(_ content: Content, from rect: CGRect, width: CGFloat) {
+        guard presentedViewController == nil else { return }
+        let host = UIHostingController(rootView: content)
+        host.modalPresentationStyle = .popover
+        let size = host.sizeThatFits(in: CGSize(width: width, height: 560))
+        host.preferredContentSize = CGSize(width: width, height: min(560, max(80, size.height)))
+        host.popoverPresentationController?.sourceView = pdfView
+        host.popoverPresentationController?.sourceRect = rect
+        host.popoverPresentationController?.permittedArrowDirections = [.up, .down, .left, .right]
+        present(host, animated: true)
+    }
+
+    // MARK: Highlights and comments
+
+    /// Highlights and comments can be made (the paper's PDF is known, as for drawing).
+    var marksAllowed = false
+    /// A mark's color or note changed here.
+    var onMarkChanged: ((String, String, String) -> Void)?
+
+    /// Highlight and Comment… beside Copy, for selected text.
+    fileprivate func selectionActions() -> [UIMenuElement] {
+        guard marksAllowed, let selection = pdfView.currentSelection,
+              !(selection.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+        return [
+            UIAction(title: "Highlight", image: UIImage(systemName: "highlighter")) { [weak self] _ in
+                self?.highlightSelection()
+            },
+            UIAction(title: "Comment…", image: UIImage(systemName: "text.bubble")) { [weak self] _ in
+                self?.commentOnSelection()
+            },
+        ]
+    }
+
+    func highlightSelection() {
+        guard let selection = pdfView.currentSelection, let document = pdfView.document else { return }
+        let rows = TextMarks.rows(for: selection, in: document, kind: "highlight", color: TextMarks.color)
+        pen.place(rows, named: "Highlight")
+        if !rows.isEmpty { pdfView.clearSelection() }
+    }
+
+    func commentOnSelection() {
+        guard let selection = pdfView.currentSelection, let page = selection.pages.first else { return }
+        let quote = (selection.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let anchor = pdfView.convert(selection.bounds(for: page), from: page)
+        let composer = CommentComposer(quote: quote) { [weak self] body, color in
+            guard let self, let document = self.pdfView.document else { return }
+            TextMarks.color = color
+            let rows = TextMarks.rows(for: selection, in: document, kind: "comment", color: color, body: body)
+            self.pen.place(rows, named: "Comment")
+            if !rows.isEmpty { self.pdfView.clearSelection() }
+            self.dismiss(animated: true)
+        } cancel: { [weak self] in
+            self?.dismiss(animated: true)
+        }
+        popover(composer, from: anchor, width: 400)
+    }
+
+    /// A mark's color and note as changed in its editor: the mark is drawn again with them and reported.
+    func change(_ annotation: MarkAnnotation, on page: PDFPage, color: String, body: String) {
+        let old = annotation.mark
+        guard page.annotations.contains(where: { $0 === annotation }),
+              PenTool.hex(nearest: old.color) != color || old.body != body else { return }
+        TextMarks.color = color
+        page.removeAnnotation(annotation)
+        page.addAnnotation(MarkAnnotation(mark: old.with(color: color, body: body), geometry: annotation.geometry,
+                                          picture: nil))
+        pen.refresh(page)
+        onMarkChanged?(old.id, color, body)
+    }
+
+    // MARK: The paper's marks
+
+    /// Every mark on the paper, page by page from the top of each.
+    func allMarks() -> [Mark] {
+        guard let document = pdfView.document else { return [] }
+        return (0..<document.pageCount).flatMap { index -> [Mark] in
+            guard let page = document.page(at: index) else { return [] }
+            return page.annotations.compactMap { ($0 as? MarkAnnotation)?.mark }
+                .sorted { ($0.extent.minY, $0.extent.minX) < ($1.extent.minY, $1.extent.minX) }
+        }
+    }
+
+    /// Shows a mark a little below the top of the view.
+    func go(to mark: Mark) {
+        guard let page = pdfView.document?.page(at: mark.page) else { return }
+        go(to: page, y: max(0, mark.extent.minY - 0.04))
+    }
+
+    /// Deletes a mark (one step in the history).
+    func delete(_ mark: Mark) {
+        guard let page = pdfView.document?.page(at: mark.page),
+              let annotation = page.annotations.compactMap({ $0 as? MarkAnnotation }).first(where: { $0.mark.id == mark.id })
+        else { return }
+        pen.remove([(annotation, page)])
     }
 
     func gestureRecognizer(_ gesture: UIGestureRecognizer,
@@ -378,10 +479,18 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
 /// own layout pass).
 final class PageView: PDFView {
     var laidOut: (() -> Void)?
+    /// Items beside Copy in the menu of selected text.
+    var selectionActions: (() -> [UIMenuElement])?
 
     override func layoutSubviews() {
         super.layoutSubviews()
         laidOut?()
+    }
+
+    override func buildMenu(with builder: UIMenuBuilder) {
+        super.buildMenu(with: builder)
+        guard builder.system == .context, let items = selectionActions?(), !items.isEmpty else { return }
+        builder.insertSibling(UIMenu(options: .displayInline, children: items), afterMenu: .standardEdit)
     }
 }
 

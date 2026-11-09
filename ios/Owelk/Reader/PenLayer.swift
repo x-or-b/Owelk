@@ -213,6 +213,8 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
     var erased: (([String], Bool) -> Void)?
     /// After any change, for the Undo and Redo buttons.
     var changed: (() -> Void)?
+    /// Highlights and comments made here on the text (rows from `TextMarks`).
+    var placed: (([Row]) -> Void)?
 
     var tool = PenTool.pen(PenTool.colors[0]) {
         didSet { sheets.values.forEach(apply) }
@@ -357,6 +359,29 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
         undoManager?.registerUndo(withTarget: self) { $0.give(taken) }
         undoManager?.setActionName("Erase")
         changed?()
+    }
+
+    // MARK: Marks from the reader
+
+    /// Highlights or comments made on the text: on their pages at once, reported, and one step in the history.
+    func place(_ rows: [(Row, PDFPage)], named name: String) {
+        let marks = rows.compactMap { row, page in
+            Mark(row: row).map { (MarkAnnotation(mark: $0, geometry: PageGeometry(page), picture: nil), page) }
+        }
+        guard !marks.isEmpty else { return }
+        for (annotation, page) in marks { page.addAnnotation(annotation) }
+        Set(marks.map { ObjectIdentifier($0.1) }).forEach { sheets[$0]?.sync() }
+        placed?(rows.map(\.0))
+        undoManager?.registerUndo(withTarget: self) { $0.take(marks) }
+        undoManager?.setActionName(name)
+        changed?()
+    }
+
+    /// Marks deleted from the reader (any computer's): erased, as one step in the history.
+    func remove(_ marks: [(MarkAnnotation, PDFPage)]) {
+        guard !marks.isEmpty else { return }
+        take(marks)
+        undoManager?.setActionName("Delete")
     }
 
     private func take(_ marks: [(MarkAnnotation, PDFPage)]) {

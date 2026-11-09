@@ -7,10 +7,10 @@ struct Mark: Identifiable {
     let id: String
     let page: Int
     let kind: String
-    let color: UIColor
+    var color: UIColor
     /// The quoted text (highlights and comments) or a region's caption.
     let text: String
-    let body: String
+    var body: String
     let rectangles: [CGRect]
     let drawing: [CGPoint]
     let image: String
@@ -33,6 +33,24 @@ struct Mark: Identifiable {
         fontSize = row.double("font_size") > 0 ? row.double("font_size") : 14
         createdAt = row.string("created_at")
         if rectangles.isEmpty && drawing.isEmpty { return nil }
+    }
+
+    /// The same mark with another color and note (as changed here).
+    func with(color hex: String, body: String) -> Mark {
+        var mark = self
+        mark.color = UIColor(hex: hex) ?? color
+        mark.body = body
+        return mark
+    }
+
+    /// Whether a tap on it opens its note and color to change: highlights, comments and regions, and a pen mark
+    /// with a note.
+    var editable: Bool {
+        switch kind {
+        case "text", "image": false
+        case "draw": !body.isEmpty
+        default: true
+        }
     }
 
     /// Whether a tap shows something more than the page does.
