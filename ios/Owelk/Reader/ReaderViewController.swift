@@ -147,23 +147,48 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
         NotificationCenter.default.addObserver(self, selector: #selector(hold), name: .PDFViewScaleChanged, object: pdfView)
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        pagesUnderTheBar()
+    }
+
+    /// The pages run under the bar (the SwiftUI screen ignores the safe area; PDFKit insets its pages by it), and the
+    /// bar blurs what passes under it, as Preview's does: the navigation controller is told which scroll view holds
+    /// the pages, so Liquid Glass's edge effect follows them.
+    private func pagesUnderTheBar() {
+        guard let scroll = Self.scrollView(in: pdfView) else { return }
+        if #available(iOS 26, *) { scroll.topEdgeEffect.style = .soft }
+        var holder: UIViewController = self
+        while let parent = holder.parent, !(parent is UINavigationController) { holder = parent }
+        if holder.contentScrollView(for: .top) !== scroll { holder.setContentScrollView(scroll, for: .top) }
+    }
+
     /// Once the pages have a size: they are fitted, and the paper opens where it was left.
     private func pagesLaidOut() {
         guard !restored else { return hold() }
         guard pdfView.bounds.height > 0, let document = pdfView.document else { return }
         restored = true
+        pagesUnderTheBar()
         // The pages laid out at their fitted size first, so the place is found on them.
         pdfView.layoutDocumentView()
         pdfView.minScaleFactor = pdfView.scaleFactorForSizeToFit * 0.5
         pdfView.maxScaleFactor = pdfView.scaleFactorForSizeToFit * 6
         pdfView.autoScales = true
         guard let start, start.page > 0 || start.y > 0,
-              let page = document.page(at: min(start.page, document.pageCount - 1)) else { return }
+              let page = document.page(at: min(start.page, document.pageCount - 1)) else { return toTop() }
         holding = (page, start.y, Date().addingTimeInterval(1.5))
         hold()
         for delay in [0.05, 0.2, 0.5, 1.0] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.hold() }
         }
+    }
+
+    /// The first page just below the bar. PDFKit first places it as far again below, past the top of the scroll range
+    /// (it counts the bar's inset twice), where it stays until touched.
+    private func toTop() {
+        guard let scroll = Self.scrollView(in: pdfView), scroll.contentOffset.y < -scroll.adjustedContentInset.top
+        else { return }
+        scroll.contentOffset.y = -scroll.adjustedContentInset.top
     }
 
     /// Puts the paper back where it was left, while that is still wanted.

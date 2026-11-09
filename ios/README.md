@@ -37,6 +37,7 @@
 - 주석 좌표는 "보이는 쪽(크롭 박스, /Rotate 적용)의 왼쪽 위에서의 비율"이고, `PageGeometry`는 `src/AnnotatedPdf.cpp`의 `Page::point`와 같은 식으로 PDF 좌표로 바꿉니다. PDFKit이 쪽 위에 얹는 캔버스는 돌리기 전 크롭 박스의 왼쪽 위에서 잰 point라서(돌리기는 PDFKit이 뷰째 함), `OverlayGeometry`가 그 사이를 바꿉니다(`PenTests`가 PDFKit 자체 변환과 맞춰 봄).
 - 하이라이트·코멘트·영역·펜 표시는 PDFKit 주석으로 그리지 않고 그 층에 `CAShapeLayer`로 그립니다. PDFKit은 주석을 확대와 상관없이 쪽 1 point당 1 pixel로 그린 뒤 늘려서, 2 pt 펜 선이 확대하면 8 pixel 계단이 됐습니다(`PenTests`의 4배 확대 테스트가 확인). 글상자와 그림은 아직 PDFKit이 그립니다. `MarkAnnotation`은 쪽에 남아 탭·지우개가 찾는 자리입니다.
 - Draw 중에는 PDFKit의 제스처(두 번 탭 확대·글자 선택·끌기)를 손가락만 받게 합니다. Pencil로 빠르게 두 번 찍으면 확대되어 화면이 튀었습니다.
+- 쪽은 위쪽 바 아래까지 이어지고(SwiftUI 화면이 안전 영역을 무시, PDFKit이 그만큼 안쪽에서 시작), 바는 내비게이션 컨트롤러에 알린 PDF 스크롤 뷰를 따라 지나가는 쪽을 흐리게 비춥니다(iOS 26의 Liquid Glass 가장자리 효과). PDFKit은 처음에 첫 쪽을 바 높이만큼 한 번 더 내려 두어서, 저장된 위치가 없으면 스크롤 범위 맨 위로 맞춥니다(`ReaderBarTests`).
 - 옆의 쪽 그림은 PDFKit의 `PDFThumbnailView`를 쓰지 않습니다. 그 안의 `PDFIconsView`가 레이아웃할 때마다(획을 그은 뒤, 쪽이 바뀐 뒤, 확대한 뒤, 숨겨 둔 동안에도) `goToPage`를 불러 화면을 현재 쪽 맨 위로 옮겼습니다(2026-11-06 기기 진단 기록의 호출 스택으로 확인). `PageList`는 탭할 때만 쪽을 옮깁니다.
 
 ## 빌드와 테스트
@@ -93,6 +94,6 @@ xcrun devicectl device install app --device 00008112-0005591C2123601E build-nati
 
 1. Mac의 Syncthing에서 Owelk 동기화 폴더를 iPad(Synctrain)와 공유합니다. Synctrain에서는 **Send & Receive**로 받고, PDF까지 모두 받도록 둡니다.
 2. 앱을 처음 켜면 **Choose Sync Folder…** → 파일 앱의 나의 iPad › Synctrain 아래 그 폴더를 고릅니다. 고른 폴더에 `owelk-sync.json`이 있거나 그 안의 `Owelk` 폴더에 있으면 됩니다. Qt 앱이 보여 주는 나의 iPad › Owelk는 다른 폴더입니다.
-3. 폴더를 바꾸려면 왼쪽 열 위의 폴더 버튼을 누릅니다. 왼쪽 열 아래에 마지막 동기화 시각과 함께 쓰는 컴퓨터 이름이 보입니다.
+3. 폴더를 바꾸거나 바로 동기화하려면 왼쪽 열 위의 Settings(톱니바퀴)를 누릅니다. 마지막 동기화 시각과 함께 쓰는 컴퓨터 이름도 거기 있습니다. 왼쪽 열 아래에는 동기화하는 동안과 실패했을 때만 알림이 보입니다.
 
 인터페이스 글자는 영어만 있습니다(데스크톱의 한글 표기 도구 `tools/hangul.py`는 아직 적용하지 않음).

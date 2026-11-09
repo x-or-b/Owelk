@@ -259,7 +259,8 @@ struct ReaderScreen: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                ReaderPages(model: model).ignoresSafeArea(edges: [.bottom, .horizontal])
+                // The pages run under the bar, which blurs them (see `ReaderViewController.pagesUnderTheBar`).
+                ReaderPages(model: model).ignoresSafeArea()
                 if let failure = model.failure {
                     ContentUnavailableView(failure, systemImage: "doc")
                 } else if !model.loaded {
@@ -299,6 +300,16 @@ struct ReaderScreen: View {
             .navigationTitle(model.paper.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // Pages first, then back to the library, as Preview has them.
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        model.showsThumbnails.toggle()
+                    } label: {
+                        Label("Pages", systemImage: "sidebar.left")
+                    }
+                    .accessibilityAddTraits(model.showsThumbnails ? .isSelected : [])
+                    .disabled(!model.loaded)
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         close()
@@ -325,12 +336,6 @@ struct ReaderScreen: View {
                     .tint(model.drawing ? Theme.accent : Color.primary)
                     .accessibilityAddTraits(model.drawing ? .isSelected : [])
                     .disabled(!model.canDraw)
-                    Button {
-                        model.showsThumbnails.toggle()
-                    } label: {
-                        Label("Pages", systemImage: "sidebar.left")
-                    }
-                    .disabled(!model.loaded)
                     Button {
                         showsOutline = true
                     } label: {
