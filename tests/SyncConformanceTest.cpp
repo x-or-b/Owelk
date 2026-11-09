@@ -246,6 +246,38 @@ private slots:
                      .toString()
                      .isEmpty());
 
+        // A highlight and a comment made on the text on the iPad, as ones made here would be: the text, a rectangle
+        // per line and the character range. The Mac's own highlight has the color and note the iPad gave it.
+        const auto marked = rows(mac,
+            "SELECT id,document_id,sha256,page,kind,color,text,body,rectangles,start_index,end_index,deleted_at FROM "
+            "highlights WHERE id IN ('0a11ce00-0000-4000-8000-00000000c001','0a11ce00-0000-4000-8000-00000000c002') "
+            "ORDER BY id");
+        QCOMPARE(marked.size(), 2);
+        const auto highlight = marked[0].toMap(), comment = marked[1].toMap();
+        QCOMPARE(highlight["document_id"].toString(), QString("ec0dbb6f-06b8-4012-b0b2-eb317af23825"));
+        QCOMPARE(highlight["sha256"].toString(), pen["sha256"].toString());
+        QCOMPARE(highlight["page"].toInt(), 0);
+        QCOMPARE(highlight["kind"].toString(), QString("highlight"));
+        QCOMPARE(highlight["color"].toString(), QString("#e0b83f"));
+        QCOMPARE(highlight["text"].toString(), QString("Words the iPad marked"));
+        QCOMPARE(highlight["start_index"].toInt(), 10);
+        QCOMPARE(highlight["end_index"].toInt(), 31);
+        QVERIFY(highlight["deleted_at"].isNull());
+        const auto lines = QJsonDocument::fromJson(highlight["rectangles"].toByteArray()).array();
+        QCOMPARE(lines.size(), 2);
+        QCOMPARE(lines[1].toObject()["y"].toDouble(), .325);
+        QCOMPARE(lines[1].toObject()["width"].toDouble(), .3);
+        QCOMPARE(comment["kind"].toString(), QString("comment"));
+        QCOMPARE(comment["page"].toInt(), 1);
+        QCOMPARE(comment["body"].toString(), QString("Why this bound?"));
+        QCOMPARE(comment["text"].toString(), QString("The bound"));
+        const auto edited
+            = rows(mac, "SELECT color,body,text FROM highlights WHERE id='1474cf62-bae3-4649-ac90-d077a1513e14'");
+        QCOMPARE(edited.size(), 1);
+        QCOMPARE(edited[0].toMap()["color"].toString(), QString("#54a878"));
+        QCOMPARE(edited[0].toMap()["body"].toString(), QString("Checked on the iPad"));
+        QVERIFY(edited[0].toMap()["text"].toString().startsWith("Research finding 1.1"));
+
         // The paper added on the iPad: in the Library under its file's name, with the PDF copied in, in the
         // collection and tag it was added to, and its details left for this computer to read.
         const auto added = rows(mac,

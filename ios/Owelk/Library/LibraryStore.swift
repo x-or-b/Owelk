@@ -224,6 +224,17 @@ final class LibraryStore: ObservableObject {
         pen { engine in await engine.addStroke(id: id, to: paper, page: page, points: points, color: color) }
     }
 
+    func addMarks(_ rows: [Row], to paper: Paper) {
+        pen { engine in await engine.addMarks(rows, to: paper) }
+    }
+
+    func updateMark(_ id: String, color: String, body: String) {
+        pen { engine in
+            await engine.updateMark(id, color: color, body: body)
+            return true
+        }
+    }
+
     func setErased(_ ids: [String], _ erased: Bool) {
         pen { engine in
             await engine.setErased(ids, erased)

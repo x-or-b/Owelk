@@ -23,6 +23,13 @@ final class ConformanceTests: XCTestCase {
     static let strokeId = "0a11ce00-0000-4000-8000-00000000b001"
     static let macStroke = "4c08b2b3-27fd-40fe-9175-8f82166b1ed0"
     static let strokePoints = [CGPoint(x: 0.1, y: 0.1), CGPoint(x: 0.2, y: 0.15), CGPoint(x: 0.3, y: 0.2)]
+    /// The highlight and comment this iPad makes on the Mac's paper's text, and the Mac's highlight whose color and
+    /// note it changes.
+    static let highlightId = "0a11ce00-0000-4000-8000-00000000c001"
+    static let commentId = "0a11ce00-0000-4000-8000-00000000c002"
+    static let macHighlight = "1474cf62-bae3-4649-ac90-d077a1513e14"
+    static let highlightLines = [CGRect(x: 0.1, y: 0.3, width: 0.5, height: 0.02),
+                                 CGRect(x: 0.1, y: 0.325, width: 0.3, height: 0.02)]
     /// The PDF it adds (tests/data/sync/ipad/Papers), with a title of its own.
     static let addedPdf = sync.appendingPathComponent(
         "ipad/Papers/e549b32af3d995d3d7d8b61f5c7b8f3af29ca1df65a1618884a400c14a19a263.pdf")
@@ -112,9 +119,23 @@ final class ConformanceTests: XCTestCase {
         XCTAssertTrue(drawn)
         await engine.setErased([Self.macStroke], true)
         await engine.setErased([Self.macStroke], true)
-        let marks = await engine.marks(of: paper).map(\.id)
-        XCTAssertTrue(marks.contains(Self.strokeId))
-        XCTAssertFalse(marks.contains(Self.macStroke), "erased")
+        let highlight = try XCTUnwrap(SyncEngine.textMarkRow(
+            id: Self.highlightId, document: "", sha256: "", page: 0, kind: "highlight", color: "#e0b83f",
+            text: " Words the iPad marked\n", lines: Self.highlightLines, range: NSRange(location: 10, length: 21),
+            body: "", createdAt: ""))
+        let comment = try XCTUnwrap(SyncEngine.textMarkRow(
+            id: Self.commentId, document: "", sha256: "", page: 1, kind: "comment", color: "#426b9a", text: "The bound",
+            lines: [CGRect(x: 0.2, y: 0.5, width: 0.15, height: 0.02)], range: NSRange(location: 40, length: 9),
+            body: "Why this bound?", createdAt: ""))
+        let marked = await engine.addMarks([highlight, comment], to: paper)
+        XCTAssertTrue(marked)
+        await engine.updateMark(Self.macHighlight, color: "#54a878", body: "Checked on the iPad")
+        await engine.updateMark(Self.macHighlight, color: "#54a878", body: "Checked on the iPad")
+        let marks = await engine.marks(of: paper)
+        XCTAssertTrue(marks.map(\.id).contains(Self.strokeId))
+        XCTAssertFalse(marks.map(\.id).contains(Self.macStroke), "erased")
+        XCTAssertEqual(marks.first { $0.id == Self.highlightId }?.rectangles.count, 2)
+        XCTAssertEqual(marks.first { $0.id == Self.macHighlight }?.body, "Checked on the iPad")
 
         let pdf = try Data(contentsOf: Self.addedPdf)
         let newPaper = try XCTUnwrap(NewPaper(data: pdf, name: "Long Halls.pdf"))
@@ -155,8 +176,8 @@ final class ConformanceTests: XCTestCase {
         XCTAssertEqual(lines, try Self.lines(committed.appendingPathComponent("00000001.jsonl")),
                        "the iPad's change file differs from tests/data/sync/ipad: run with OWELK_WRITE_FIXTURES=1 and check the desktop's sync_conformance test")
         XCTAssertEqual(lines.map { $0["t"] as? String },
-                       ["documents", "highlights", "highlights", "recent_documents", "reading_positions",
-                        "collection_documents", "document_tags"])
+                       ["documents", "highlights", "highlights", "highlights", "highlights", "highlights",
+                        "recent_documents", "reading_positions", "collection_documents", "document_tags"])
         // The stroke with every column the desktop writes for one, the Mac's mark with only `deleted_at` changed.
         let macMark = try XCTUnwrap(try expected()["highlights"]?.first { $0.string("id") == Self.macStroke })
         let marksWritten = lines.filter { $0["t"] as? String == "highlights" }.compactMap { $0["r"] as? Row }
@@ -182,6 +203,30 @@ final class ConformanceTests: XCTestCase {
         XCTAssertEqual(erased.string("deleted_at"), "2030-01-01T00:00:00.000Z")
         for key in macMark.keys where key != "deleted_at" {
             XCTAssertEqual(erased[key] as? NSObject, macMark[key] as? NSObject, key)
+        }
+        // A highlight and a comment on the text with every column the desktop writes for one, and the Mac's highlight
+        // with only its color and note changed.
+        let textMark = try XCTUnwrap(marksWritten.first { $0.string("id") == Self.highlightId })
+        XCTAssertEqual(Set(textMark.keys), Set(macMark.keys))
+        XCTAssertEqual(textMark.string("kind"), "highlight")
+        XCTAssertEqual(textMark.string("text"), "Words the iPad marked")
+        XCTAssertEqual(textMark.int("start_index"), 10)
+        XCTAssertEqual(textMark.int("end_index"), 31)
+        XCTAssertEqual(textMark.string("drawing"), "[]")
+        XCTAssertEqual(textMark.string("created_at"), "2030-01-01T00:00:00.000Z")
+        let boxes = try XCTUnwrap(JSON.value(textMark.string("rectangles")) as? [Row])
+        XCTAssertEqual(boxes.map { CGRect(x: $0.double("x"), y: $0.double("y"), width: $0.double("width"),
+                                          height: $0.double("height")) }, Self.highlightLines)
+        let commented = try XCTUnwrap(marksWritten.first { $0.string("id") == Self.commentId })
+        XCTAssertEqual(commented.string("kind"), "comment")
+        XCTAssertEqual(commented.string("body"), "Why this bound?")
+        let macHighlight = try XCTUnwrap(try expected()["highlights"]?.first { $0.string("id") == Self.macHighlight })
+        let edited = try XCTUnwrap(marksWritten.first { $0.string("id") == Self.macHighlight })
+        XCTAssertEqual(edited.string("color"), "#54a878")
+        XCTAssertEqual(edited.string("body"), "Checked on the iPad")
+        XCTAssertTrue(isNull(edited["deleted_at"]))
+        for key in macHighlight.keys where !["color", "body", "deleted_at"].contains(key) {
+            XCTAssertEqual(edited[key] as? NSObject, macHighlight[key] as? NSObject, key)
         }
         lines.removeAll { $0["t"] as? String == "highlights" }
         let document = try XCTUnwrap(lines[0]["r"] as? Row)

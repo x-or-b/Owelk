@@ -172,6 +172,63 @@ actor SyncEngine {
         }
     }
 
+    // MARK: Text marks
+
+    /// Highlights and comments made here on a page's text (rows from `textMarkRow`), saved for the computers. Returns
+    /// false for a paper without a known PDF.
+    @discardableResult
+    func addMarks(_ rows: [Row], to paper: Paper) -> Bool {
+        guard SyncProtocol.isSha256(paper.sha256) else { return false }
+        let created = Self.timestamp(Date(timeIntervalSince1970: TimeInterval(clock()) / 1000))
+        for var row in rows where !row.string("id").isEmpty {
+            row["document_id"] = paper.documentId
+            row["sha256"] = paper.sha256
+            row["created_at"] = created
+            stage("highlights", key: [row.string("id")], row: row)
+        }
+        return true
+    }
+
+    /// A mark's color and note changed here (any computer's mark): only those two columns change, as the desktop's
+    /// `updateHighlight` does.
+    func updateMark(_ id: String, color: String, body: String) {
+        guard var row = state.entry("highlights", key: [id])?.row, isNull(row["deleted_at"]),
+              PenTool.colors.contains(color), body.count <= 10000,
+              row.string("color") != color || row.string("body") != body
+        else { return }
+        row["color"] = color
+        row["body"] = body
+        stage("highlights", key: [id], row: row)
+    }
+
+    /// A highlight or comment on a page's text, with every column the desktop writes (`saveTextSelection` in
+    /// src/ResearchStore.cpp): the text, one rectangle per line as fractions of the page as shown, and the selection's
+    /// character range on the page (the desktop only compares it, to find the same highlight made again). A comment
+    /// needs its note, as on the desktop.
+    static func textMarkRow(id: String, document: String, sha256: String, page: Int, kind: String, color: String,
+                            text: String, lines: [CGRect], range: NSRange, body: String, createdAt: String) -> Row? {
+        let round = { (value: CGFloat) in Double((value * 100_000).rounded() / 100_000) }
+        let clamp = { (value: CGFloat) in min(1, max(0, value)) }
+        let boxes: [Row] = lines.compactMap { line in
+            guard line.minX.isFinite, line.minY.isFinite, line.maxX.isFinite, line.maxY.isFinite else { return nil }
+            let x0 = clamp(line.minX), y0 = clamp(line.minY), x1 = clamp(line.maxX), y1 = clamp(line.maxY)
+            guard x1 > x0, y1 > y0 else { return nil }
+            return ["x": round(x0), "y": round(y0), "width": round(x1 - x0), "height": round(y1 - y0)]
+        }
+        let quoted = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard page >= 0, !boxes.isEmpty, !quoted.isEmpty, quoted.count <= 100_000, PenTool.colors.contains(color),
+              kind == "highlight" || (kind == "comment" && !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty),
+              body.count <= 10000, range.location != NSNotFound
+        else { return nil }
+        return [
+            "id": id, "document_id": document, "sha256": sha256, "page": page, "kind": kind, "color": color,
+            "text": quoted, "body": body, "image": "", "font_size": 0, "drawing": "[]",
+            // The desktop's end is past the last character (its fixture: 86 to 194 for 108 characters).
+            "start_index": range.location, "end_index": NSMaxRange(range),
+            "created_at": createdAt, "deleted_at": NSNull(), "rectangles": JSON.text(boxes),
+        ]
+    }
+
     /// A pen mark with every column the desktop writes (`saveAnnotation` in src/ResearchStoreHighlights.cpp): its
     /// points and their box as fractions of the page, 2 to 5,000 of them.
     static func strokeRow(id: String, document: String, sha256: String, page: Int, points: [CGPoint], color: String,
