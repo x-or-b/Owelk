@@ -19,6 +19,11 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
     var onUndo: (() -> Void)?
     private let thumbnails = PageList()
     private let thumbnailColumn = UIView()
+    /// The strip under the bar (status bar and bar), over the pages. On iOS 26 it holds Liquid Glass's hard edge effect
+    /// for the pages: they pass under it shaded into a band that sets the bar apart and still shows them faintly, as in
+    /// Preview. Earlier systems get a blurred band with a hairline.
+    private let barBand = UIView()
+    private var bandAttached = false
     private var restored = false
     /// Where the paper was left, held while PDFKit is still fitting its pages (it moves to a page's top when it
     /// rescales), until the reader touches the page or a moment has passed.
@@ -122,6 +127,19 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
             line.bottomAnchor.constraint(equalTo: thumbnailColumn.bottomAnchor),
             line.widthAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
         ])
+        barBand.isUserInteractionEnabled = false
+        view.addSubview(barBand)
+        if #unavailable(iOS 26) {
+            let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
+            blur.frame = barBand.bounds
+            blur.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            barBand.addSubview(blur)
+            let hairline = UIView()
+            hairline.backgroundColor = .separator
+            hairline.frame = CGRect(x: 0, y: barBand.bounds.height - 0.5, width: barBand.bounds.width, height: 0.5)
+            hairline.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
+            barBand.addSubview(hairline)
+        }
 
         tap.delegate = self
         pdfView.addGestureRecognizer(tap)
@@ -147,6 +165,12 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
         NotificationCenter.default.addObserver(self, selector: #selector(hold), name: .PDFViewScaleChanged, object: pdfView)
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        view.bringSubviewToFront(barBand)
+        barBand.frame = CGRect(x: 0, y: 0, width: view.bounds.width, height: view.safeAreaInsets.top)
+    }
+
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         pagesUnderTheBar()
@@ -157,7 +181,15 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
     /// the pages, so Liquid Glass's edge effect follows them.
     private func pagesUnderTheBar() {
         guard let scroll = Self.scrollView(in: pdfView) else { return }
-        if #available(iOS 26, *) { scroll.topEdgeEffect.style = .soft }
+        if #available(iOS 26, *), !bandAttached {
+            // SwiftUI's bar shades only SwiftUI's own scroll views, so the band asks for the pages' edge effect itself.
+            bandAttached = true
+            scroll.topEdgeEffect.style = .hard
+            let band = UIScrollEdgeElementContainerInteraction()
+            band.scrollView = scroll
+            band.edge = .top
+            barBand.addInteraction(band)
+        }
         var holder: UIViewController = self
         while let parent = holder.parent, !(parent is UINavigationController) { holder = parent }
         if holder.contentScrollView(for: .top) !== scroll { holder.setContentScrollView(scroll, for: .top) }
