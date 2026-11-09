@@ -952,6 +952,38 @@ Item {
             verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
             workspace.rightDockWidth = 224
         }
+        function test_6a_theScrollBarMovesTheChatEvenly() {
+            const ai = findChild(workspace, "aiController")
+            // Short questions between long answers: a view that guessed the height of turns it had not made
+            // jumped back and forth while its scroll bar was dragged.
+            const messages = []
+            for (let i = 0; i < 6; ++i) {
+                messages.push({role: "user", display: "Question " + i, content: "q"})
+                messages.push({role: "assistant", content: ("Paragraph " + i + " " + "word ".repeat(60) + "\n\n").repeat(4 + (i % 3) * 4)})
+            }
+            ai.thread = {id: ai.threadId, title: "Long", messages: messages}
+            const p = panel()
+            const conversation = findChild(p, "aiConversation")
+            tryVerify(function() { return conversation.count === messages.length })
+            waitForPolish(conversation)
+            conversation.positionViewAtBeginning()
+            const bar = findChild(conversation, "aiConversationScrollBar")
+            const height = conversation.contentHeight
+            verify(height > conversation.height * 5)
+            const from = bar.position * bar.height + 4
+            mousePress(bar, bar.width / 2, from)
+            let last = conversation.contentY - conversation.originY
+            for (let y = from + 6; y < bar.height; y += 6) {
+                mouseMove(bar, bar.width / 2, y)
+                const now = conversation.contentY - conversation.originY
+                compare(conversation.contentHeight, height)
+                verify(now >= last, "never back: " + now + " after " + last)
+                verify(now - last <= 2 * 6 / bar.height * height, "an even step: " + (now - last))
+                last = now
+            }
+            mouseRelease(bar, bar.width / 2, bar.height - 2)
+            verify(conversation.atYEnd)
+        }
         function test_8_imagesAttachToTheNextQuestion() {
             const ai = findChild(workspace, "aiController")
             const p = panel()

@@ -439,7 +439,11 @@ Item {
             clip: true
             spacing: 10
             acceptedButtons: Qt.NoButton
-            ScrollBar.vertical: ScrollBar {}
+            // Every turn is laid out, not only those on screen: a view guesses the height of turns it has not
+            // made, and a short question beside a long answer made that guess swing while the scroll bar was
+            // dragged, so the conversation jumped under the pointer. Chats are a few turns long.
+            displayMarginBeginning: 1000000; displayMarginEnd: 1000000
+            ScrollBar.vertical: ScrollBar { objectName: "aiConversationScrollBar" }
             // The turns are set by reload(), not bound: a new list starts a view at the top, which would make it stop
             // following. It stays where it was (at the end while following); another conversation opens at its end.
             model: []
