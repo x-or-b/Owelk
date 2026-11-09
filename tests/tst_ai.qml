@@ -699,6 +699,24 @@ Item {
             workspace.threadsVisible = false
             d.closeActiveTab(); d.closeActiveTab()
         }
+        function test_5dd_aChatOpenedInANewTabLeavesThePanel() {
+            const ai = findChild(workspace, "aiController"), d = workspace.documents
+            const id = researchStore.aiThreads("First of two")[0].id
+            verify(ai.openThread(id))
+            const button = findChild(panel(), "aiOpenInTab")
+            tryCompare(button, "visible", true)
+            workspace.homeVisible = true
+            mouseClick(button)
+            let view = null
+            tryVerify(function() { view = d.groupView(d.activeGroup); return !!view && !!view.aiTab && view.aiTab.controller.threadId === id })
+            compare(workspace.homeVisible, false)
+            // The tab shows it now; the panel closes rather than show it twice.
+            compare(workspace.panelShown("ai"), false)
+            verify(!findChild(view.aiTab, "aiOpenInTab").visible)
+            d.closeActiveTab()
+            workspace.showAi()
+            panel()
+        }
         function test_5e_aChatTabTakesThePaperBesideIt() {
             const ai = findChild(workspace, "aiController"), d = workspace.documents
             const id = researchStore.aiThreads("First of two")[0].id

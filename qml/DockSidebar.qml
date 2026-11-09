@@ -23,6 +23,7 @@ Rectangle {
     signal newNoteRequested(url source)
     signal aiRequested(var spec)
     signal settingsRequested()
+    signal aiTabRequested(string threadId)
     // The document area (tabs dragged onto a collection) and the Library opened with a filter.
     property var documents: null
     signal libraryFilterRequested(var filter)
@@ -58,6 +59,7 @@ Rectangle {
             threadsOpen: root.threadsOpen
             onThreadsToggled: root.threadsToggled()
             onLinkActivated: function(link) { root.linkActivated(link) }
+            onOpenInTabRequested: function(threadId) { root.aiTabRequested(threadId) }
             onSettingsRequested: root.settingsRequested()
         }
     }

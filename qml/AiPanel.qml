@@ -18,6 +18,8 @@ Item {
     signal threadsToggled()
     signal linkActivated(string link)
     signal settingsRequested()
+    // The conversation in a tab of its own (Main.qml opens it and closes the panel).
+    signal openInTabRequested(string threadId)
     function focusQuestion() { question.forceActiveFocus() }
     Connections {
         target: root.c
@@ -401,6 +403,13 @@ Item {
                 Keys.onEscapePressed: finish(false)
                 // Another conversation shown meanwhile: nothing is renamed.
                 Connections { target: root.c; function onThreadIdChanged() { titleField.finish(false) } }
+            }
+            // The tab shows the conversation from then on, so the panel closes rather than show it twice.
+            IconButton {
+                objectName: "aiOpenInTab"
+                visible: !root.inTab && !!root.c && root.c.threadId.length > 0
+                icon.name: "external"; description: qsTr("Open in New Tab")
+                onClicked: root.openInTabRequested(root.c.threadId)
             }
             IconButton {
                 objectName: "aiSaveChat"

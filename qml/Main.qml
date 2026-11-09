@@ -199,6 +199,8 @@ ApplicationWindow {
     }
     Connections { target: researchStore.forYou; function onWebRequested(address) { window.openForYouPage(address) } }
     function openAiThread(id) { if (aiController.openThread(id)) { showAi(); if (panelsOver) setPanelShown("threads", false) } }
+    // The panel's conversation in a tab of its own: the tab shows it from then on, so the panel closes.
+    function openAiInTab(id) { if (!restoreFailed && documents.openAiThread(id, true)) { homeVisible = false; setPanelShown("ai", false) } }
     // A new chat from the Threads panel, in the Thread it was asked for (spec.folder).
     function newAiChat(spec) {
         showAi()
@@ -1338,6 +1340,7 @@ ApplicationWindow {
             onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
             onNewNoteRequested: function(source) { if (!window.restoreFailed) { if (source.toString().length) documents.newNoteFor(source); else documents.newNote() } }
             onAiRequested: function(spec) { window.askAi(spec) }
+            onAiTabRequested: function(id) { window.openAiInTab(id) }
             visible: panels.length > 0
             Layout.preferredWidth: window.dockWidth(window.leftDockWidth); Layout.fillHeight: true
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
@@ -1434,6 +1437,7 @@ ApplicationWindow {
             onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
             onNewNoteRequested: function(source) { if (!window.restoreFailed) { if (source.toString().length) documents.newNoteFor(source); else documents.newNote() } }
             onAiRequested: function(spec) { window.askAi(spec) }
+            onAiTabRequested: function(id) { window.openAiInTab(id) }
             visible: panels.length > 0
             Layout.preferredWidth: window.dockWidth(window.rightDockWidth); Layout.fillHeight: true
             Layout.minimumWidth: Layout.preferredWidth; Layout.maximumWidth: Layout.preferredWidth
@@ -1518,6 +1522,7 @@ ApplicationWindow {
                     onThreadsToggled: window.togglePanel("threads")
                     onLinkActivated: function(link) { if (!window.restoreFailed) documents.openLink(link) }
                     onSettingsRequested: settingsDialog.openPage("ai")
+                    onOpenInTabRequested: function(id) { window.openAiInTab(id) }
                 }
             }
         }
