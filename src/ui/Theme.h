@@ -274,6 +274,11 @@ public:
     // Fingers held on the screen are let go, as when iOS opens a menu under one: what holds them (a button, a row,
     // a list) is cancelled instead of clicked when they lift.
     Q_INVOKABLE void cancelTouches() const;
+    // A TextEdit's whole text drawn again, for its selection handlers. When a selection moves, Qt draws again only
+    // the part of the text it covers, and also draws the cells of a table a second time over the cells left in place,
+    // so their letters thicken while a drag goes on (Qt 6.11, with either text drawing). Text without a table keeps
+    // Qt's partial drawing.
+    Q_INVOKABLE void redrawText(QObject *textEdit) const;
 
     // A finger needs larger targets than a pointer: on a touch screen (iPadOS, Android) controls, bars and rows get
     // this much more height around the same text, close to the 44 pt a fingertip wants.

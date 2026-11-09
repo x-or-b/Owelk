@@ -136,6 +136,9 @@ Popup {
                 text: visible ? researchStore.markdownHtml(root.answer, Theme.accent, Theme.text, Theme.fontBody) : ""
                 color: Theme.text; font.pixelSize: Theme.fontBody
                 selectionColor: Theme.mix(Theme.accent, Theme.field, .65); selectedTextColor: Theme.text
+                // A drag over an answer with a table would thicken the table's letters (Theme.redrawText).
+                onSelectionStartChanged: Theme.redrawText(this)
+                onSelectionEndChanged: Theme.redrawText(this)
             }
             Label {
                 objectName: "glossError"

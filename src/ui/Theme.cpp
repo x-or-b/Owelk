@@ -17,6 +17,8 @@
 #include <QPointingDevice>
 #include <QRandomGenerator>
 #include <QStyleHints>
+#include <QTextDocument>
+#include <QTextFrame>
 #include <QTouchEvent>
 #include <QWindow>
 #include <algorithm>
@@ -1041,6 +1043,17 @@ bool Theme::eventFilter(QObject *watched, QEvent *event)
 QColor Theme::mix(const QColor &a, const QColor &b, qreal t) const
 {
     return blend(a, b, qBound<qreal>(0, t, 1));
+}
+
+void Theme::redrawText(QObject *textEdit) const
+{
+    if (!textEdit) return;
+    // A table is a frame of its own in the TextEdit's document (its child); a document not found is drawn whole too.
+    const auto document = textEdit->findChild<QTextDocument *>(QString(), Qt::FindDirectChildrenOnly);
+    if (document && document->rootFrame()->childFrames().isEmpty()) return;
+    // QQuickTextEdit's own whole drawing, as after a change of color: a private slot, so asked for by name.
+    if (textEdit->metaObject()->indexOfMethod("updateWholeDocument()") >= 0)
+        QMetaObject::invokeMethod(textEdit, "updateWholeDocument");
 }
 
 QVariantList Theme::annotationInks() const

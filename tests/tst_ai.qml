@@ -1029,6 +1029,45 @@ Item {
             workspace.rightDockWidth = 224
             tryCompare(conversation, "laidOut", true)
         }
+        function test_6b_aDragOverATableDrawsItsLettersOnce() {
+            const ai = findChild(workspace, "aiController")
+            // Qt drew the cells of a table again over themselves when a moving selection redrew part of the answer,
+            // so their letters thickened while a drag went on, with sharp text or without.
+            const content = "Before the table, words to select.\n\n| Name | Value |\n| --- | --- |\n| alpha | first cell |\n"
+                + "| beta | second cell |\n\nAfter the table, more words to select."
+            ai.thread = {id: ai.threadId, title: "Table", messages: [{role: "user", display: "Q", content: "q"}, {role: "assistant", content: content}]}
+            const conversation = findChild(panel(), "aiConversation")
+            let answer = null
+            tryVerify(function() { answer = findChild(conversation, "aiMessage-1"); return !!answer && answer.visible && answer.length > 100 })
+            waitForPolish(conversation)
+            // grabImage cuts an item's rectangle in its parent out of the window: an empty item over the answer, in the
+            // window's top item, gives the answer's own pixels.
+            const place = answer.mapToItem(null, 0, 0, answer.width, answer.height)
+            verify(place.y + place.height <= workspace.height && place.height > 40)
+            let top = answer
+            while (top.parent) top = top.parent
+            const frame = Qt.createQmlObject("import QtQuick; Item {}", top)
+            frame.x = place.x; frame.y = place.y; frame.width = place.width; frame.height = place.height
+            const color = String(answer.selectedTextColor) // A copy: the property itself follows a change.
+            for (const native of [true, false]) {
+                Theme.answerNative = native
+                // From before the table and from after it; each step is drawn, as in a drag.
+                for (const from of [2, answer.length - 20]) {
+                    for (let to = from + 1; to <= answer.length; to += 7) {
+                        answer.select(from, to)
+                        grabImage(frame)
+                    }
+                    const dragged = grabImage(frame)
+                    // A change of color draws the whole answer again.
+                    answer.selectedTextColor = "red"
+                    answer.selectedTextColor = color
+                    verify(grabImage(frame).equals(dragged), (native ? "sharp" : "Qt") + " text, from " + from)
+                }
+            }
+            answer.deselect()
+            frame.destroy()
+            Theme.answerNative = true
+        }
         function test_8_imagesAttachToTheNextQuestion() {
             const ai = findChild(workspace, "aiController")
             const p = panel()
