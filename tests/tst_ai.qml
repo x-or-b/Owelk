@@ -997,6 +997,14 @@ Item {
             }
             mouseRelease(bar, bar.width / 2, bar.height - 2)
             verify(conversation.atYEnd)
+            // A wider chat wraps the turns on screen as it changes, and the others once it has stopped.
+            workspace.rightDockWidth = 300
+            tryCompare(conversation, "laidOut", false)
+            tryCompare(conversation, "laidOut", true)
+            tryVerify(function() { const answer = findChild(conversation, "aiMessage-1"); return !!answer && Math.abs(answer.width - conversation.column) < 1 })
+            fuzzyCompare(conversation.turnWidth, conversation.width, 1)
+            workspace.rightDockWidth = 224
+            tryCompare(conversation, "laidOut", true)
         }
         function test_8_imagesAttachToTheNextQuestion() {
             const ai = findChild(workspace, "aiController")

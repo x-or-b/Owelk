@@ -471,8 +471,26 @@ Item {
                 settling = false
                 following = wasFollowing
                 if (wasFollowing) Qt.callLater(toEnd)
-                if (!laidOut) layOut.restart()
+                if (!laidOut && !resized.running) layOut.restart()
             }
+            // A narrower or wider chat wraps every turn again: while it changes only those on screen, and the
+            // others once it has stopped. The turns follow turnWidth, set here after the others are let go.
+            property real turnWidth: 0
+            function resizing() {
+                if (count && laidOut) {
+                    laidOut = false
+                    settling = true
+                    displayMarginBeginning = 0; displayMarginEnd = 0
+                    forceLayout()
+                    settling = false
+                }
+                turnWidth = width
+                if (!count) return
+                layOut.stop()
+                resized.restart()
+            }
+            onWidthChanged: resizing()
+            Timer { id: resized; interval: 150; onTriggered: layOut.start() }
             // About 8 ms of each frame: the margins grow a screen at a time until the first and the last turn are
             // made; the turns already on screen stay where they are.
             Timer {
@@ -480,6 +498,7 @@ Item {
                 interval: 16; repeat: true
                 onTriggered: {
                     const view = conversation, started = Date.now(), step = Math.max(view.height, 400)
+                    if (view.width < 50) return
                     while (Date.now() - started < 8) {
                         if (view.count === 0 || (view.itemAtIndex(0) && view.itemAtIndex(view.count - 1))) {
                             view.displayMarginBeginning = 1000000; view.displayMarginEnd = 1000000
@@ -493,7 +512,7 @@ Item {
                 }
             }
             Connections { target: root.c; function onMessagesChanged() { conversation.reload() } }
-            Component.onCompleted: reload()
+            Component.onCompleted: { turnWidth = width; reload() }
             property bool following: true
             property bool settling: false
             readonly property bool nearEnd: contentHeight <= height || contentY + height >= contentHeight + originY - 24
@@ -514,14 +533,14 @@ Item {
             onCountChanged: follow()
             // The turns' column: in a wide chat, about 48 characters of answer wide and centred (Settings ›
             // AI › Answer text); the view itself stays full width, so it scrolls anywhere.
-            readonly property real column: Theme.answerWidth > 0 ? Math.min(width, Theme.answerWidth) : width
-            readonly property real inset: (width - column) / 2
+            readonly property real column: Theme.answerWidth > 0 ? Math.min(turnWidth, Theme.answerWidth) : turnWidth
+            readonly property real inset: (turnWidth - column) / 2
             delegate: Item {
                 id: turn
                 required property string json
                 required property int index
                 readonly property var modelData: JSON.parse(json)
-                width: ListView.view.width
+                width: conversation.turnWidth
                 height: message.height
                 ColumnLayout {
                     id: message
