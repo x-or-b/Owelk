@@ -12,8 +12,8 @@ private struct Pages: UIViewControllerRepresentable {
 /// The reader's pages and the bar above them.
 @MainActor
 final class ReaderBarTests: XCTestCase {
-    /// The pages run under the bar, which is told their scroll view (so Liquid Glass blurs what passes under it), and
-    /// a paper opened at its start shows its first page just below the bar.
+    /// The pages run under the bar, which is told their scroll view (so Liquid Glass blurs what passes under it), a
+    /// paper opened at its start shows its first page just below the bar, and text is selected in the accent.
     func testPagesRunUnderTheBar() async throws {
         let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 612, height: 792))
         let document = try XCTUnwrap(PDFDocument(data: renderer.pdfData { context in
@@ -24,6 +24,7 @@ final class ReaderBarTests: XCTestCase {
         window.rootViewController = UIHostingController(rootView: NavigationStack {
             Pages(controller: controller).ignoresSafeArea()
                 .navigationTitle("Paper").navigationBarTitleDisplayMode(.inline)
+                .tint(.primary)
         })
         window.makeKeyAndVisible()
         defer { window.isHidden = true }
@@ -45,5 +46,7 @@ final class ReaderBarTests: XCTestCase {
         var holder: UIViewController = controller
         while let parent = holder.parent, !(parent is UINavigationController) { holder = parent }
         XCTAssertTrue(holder.contentScrollView(for: .top) === scroll)
+        // Selected text in the accent, whatever the screen's tint (the label color is white in dark mode).
+        XCTAssertEqual(view.tintColor, Theme.accentUI)
     }
 }

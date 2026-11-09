@@ -310,6 +310,8 @@ struct ReaderScreen: View {
                     .accessibilityAddTraits(model.showsThumbnails ? .isSelected : [])
                     .disabled(!model.loaded)
                 }
+                // Each in its own glass, as in Preview.
+                if #available(iOS 26, *) { ToolbarSpacer(.fixed, placement: .topBarLeading) }
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         close()
@@ -317,25 +319,11 @@ struct ReaderScreen: View {
                         Label("Library", systemImage: "chevron.backward")
                     }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    DrawButton(model: model)
+                }
+                if #available(iOS 26, *) { ToolbarSpacer(.fixed, placement: .topBarTrailing) }
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    // While drawing the pen fills in the accent: the bar's buttons take their color from the tint
-                    // (a foreground style is ignored there).
-                    Button {
-                        model.drawing.toggle()
-                    } label: {
-                        Label {
-                            Text("Draw")
-                        } icon: {
-                            if model.drawing {
-                                Image(systemName: "pencil.tip.crop.circle.fill").foregroundStyle(Theme.accent)
-                            } else {
-                                Image(systemName: "pencil.tip.crop.circle")
-                            }
-                        }
-                    }
-                    .tint(model.drawing ? Theme.accent : Color.primary)
-                    .accessibilityAddTraits(model.drawing ? .isSelected : [])
-                    .disabled(!model.canDraw)
                     Button {
                         showsOutline = true
                     } label: {
@@ -369,6 +357,28 @@ struct ReaderScreen: View {
     private func close() {
         model.savePosition(to: store)
         dismiss()
+    }
+}
+
+/// Draw: while drawing, a filled accent circle, as Preview's Markup button.
+private struct DrawButton: View {
+    @ObservedObject var model: ReaderModel
+
+    var body: some View {
+        let button = Button {
+            model.drawing.toggle()
+        } label: {
+            Label("Draw", systemImage: "pencil.tip.crop.circle")
+        }
+        .accessibilityAddTraits(model.drawing ? .isSelected : [])
+        .disabled(!model.canDraw)
+        if !model.drawing {
+            button
+        } else if #available(iOS 26, *) {
+            button.buttonStyle(.glassProminent).buttonBorderShape(.circle).tint(Theme.accent)
+        } else {
+            button.buttonStyle(.borderedProminent).buttonBorderShape(.circle).tint(Theme.accent)
+        }
     }
 }
 

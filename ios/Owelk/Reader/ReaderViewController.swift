@@ -96,6 +96,9 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
         pdfView.pageBreakMargins = UIEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
         pdfView.backgroundColor = .secondarySystemBackground
         pdfView.interpolationQuality = .high
+        // Selected text in the accent: the screen's tint (the label color) would select white on the white page in
+        // dark mode.
+        pdfView.tintColor = Theme.accentUI
 
         thumbnails.backgroundColor = .systemBackground
         thumbnails.chosen = { [weak self] index in
