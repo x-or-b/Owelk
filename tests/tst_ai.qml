@@ -936,6 +936,11 @@ Item {
             // Fast mode, when the model has it, is never pushed out of the panel.
             const fast = findChild(p, "aiFastButton")
             if (fast.visible) verify(fast.mapToItem(p, fast.width, 0).x <= p.width + 1, "Fast is inside the panel")
+            // With the largest text too, Send stays inside (the gaps go, then each control is narrower).
+            const send = findChild(p, "aiSend"), textSize = Theme.textSize
+            Theme.textSize = 17
+            tryVerify(function() { return send.width > 20 && send.mapToItem(p, send.width, 0).x <= p.width - 7 })
+            Theme.textSize = textSize
             // A provider without a key is offered for set-up instead of its models.
             verify(researchStore.ai.clearApiKey("claude"))
             mouseClick(findChild(p, "aiModelButton"))

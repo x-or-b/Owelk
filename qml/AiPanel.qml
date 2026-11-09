@@ -944,16 +944,23 @@ Item {
                 onClicked: { composer.expanded = !composer.expanded; question.forceActiveFocus() }
             }
         }
-        // Composer bar, one row: context, model, reasoning effort, fast mode, Send. When the panel is
-        // narrow the model name is shortened first; every control stays visible.
+        // Composer bar, one row: context, model, reasoning effort, fast mode, web search, Send. When the panel
+        // is narrow the model name is shortened first, then the gaps, then every control is a little narrower;
+        // every control stays visible.
         RowLayout {
             id: bar
             Layout.fillWidth: true; Layout.minimumWidth: 0
             Layout.leftMargin: conversation.inset; Layout.rightMargin: conversation.inset
-            spacing: width < Theme.fontBody * 16 ? 2 : 4
+            readonly property int controls: 3 + (effortButton.visible ? 1 : 0) + (fastButton.visible ? 1 : 0) + (webSearchButton.visible ? 1 : 0)
+            // Its width from the column around it, which is set before the bar's own (no second layout pass).
+            readonly property real room: parent.width - conversation.inset * 2
+            readonly property real controlWidth: Math.min(Theme.iconButton, Math.floor(room / controls))
+            // A gap after each control (the last before the space that pushes Send to the right).
+            spacing: Math.max(0, Math.min(room < Theme.fontBody * 16 ? 2 : 4, Math.floor((room - controls * Theme.iconButton) / controls)))
             IconButton {
                 id: attachButton
                 objectName: "aiAttachButton"
+                Layout.maximumWidth: bar.controlWidth
                 icon.name: "attach"
                 description: qsTr("Add context")
                 onClicked: attachMenu.popup(attachButton, 0, -attachMenu.implicitHeight)
@@ -973,7 +980,7 @@ Item {
                 id: modelButton
                 trailingIcon: "down"
                 Layout.fillWidth: true
-                Layout.minimumWidth: Theme.iconButton
+                Layout.minimumWidth: bar.controlWidth
                 Layout.maximumWidth: implicitWidth
                 objectName: "aiModelButton"
                 text: root.c ? root.c.modelLabel : ""
@@ -984,7 +991,7 @@ Item {
                 id: effortButton
                 trailingIcon: "down"
                 objectName: "aiEffortButton"
-                Layout.maximumWidth: Theme.fontBody * 7
+                Layout.maximumWidth: compact ? bar.controlWidth : Theme.fontBody * 7
                 visible: root.c && root.c.efforts.length > 0
                 // A narrow panel shows a gauge instead of the effort's name.
                 compact: bar.width < Theme.fontBody * 22
@@ -1010,7 +1017,9 @@ Item {
                 }
             }
             IconButton {
+                id: fastButton
                 objectName: "aiFastButton"
+                Layout.maximumWidth: bar.controlWidth
                 visible: root.c && root.c.fastAvailable
                 icon.name: "fast"
                 checkable: true
@@ -1020,7 +1029,9 @@ Item {
             }
             // The provider's own web search, for recent work and what the paper does not say.
             IconButton {
+                id: webSearchButton
                 objectName: "aiWebSearchButton"
+                Layout.maximumWidth: bar.controlWidth
                 visible: root.c && root.c.webSearchAvailable
                 icon.name: "globe"
                 checkable: true
@@ -1034,6 +1045,7 @@ Item {
                 id: sendButton
                 objectName: "aiSend"
                 Layout.alignment: Qt.AlignBottom
+                Layout.maximumWidth: bar.controlWidth; Layout.maximumHeight: bar.controlWidth
                 primary: true
                 // While an answer comes: Stop, or with a question typed, send it to go next.
                 readonly property bool typed: question.text.trim().length > 0
