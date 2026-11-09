@@ -137,7 +137,7 @@ actor SyncEngine {
         return true
     }
 
-    /// Notes that the paper was opened now; returns the library with it at the top of Recent.
+    /// Notes that the paper was opened now (the computers' Recent); returns the library with it opened last.
     @discardableResult
     func saveOpened(_ paper: Paper, at date: Date = Date()) -> Library {
         var row = library.newest("recent_documents", for: paper, in: state)?.row ?? [:]

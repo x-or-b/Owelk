@@ -5,7 +5,7 @@
 ## v1에서 되는 것
 
 - 동기화 폴더 고르기: 파일 앱에서 Synctrain이 맞추는 `Owelk` 폴더(또는 그 위 폴더)를 고릅니다. 접근 권한은 북마크로 기억합니다. iPadOS는 다른 앱의 폴더가 바뀌어도 알려 주지 않으므로, 앱이 앞으로 올 때, 앞에 있는 동안 30초마다, 목록을 당겨 새로 고칠 때 다시 읽습니다.
-- 라이브러리: 제목·저자·연도·읽기 상태·태그, Collections(중첩)와 Tags, Recent(어느 컴퓨터에서 열었든), 제목·저자 검색, 정렬(Last Opened·Title·Date Added). PDF가 아직 도착하지 않은 논문은 흐리게 "Waiting for the PDF".
+- 라이브러리: 제목·저자·연도·읽기 상태·태그, Collections(중첩)와 Tags, 제목·저자 검색, 정렬(Last Opened(어느 컴퓨터에서 열었든, 기본)·Title·Date Added). Recent 목록은 기본 정렬과 같아서 두지 않습니다(연 기록은 그대로 동기화). PDF가 아직 도착하지 않은 논문은 흐리게 "Waiting for the PDF".
 - 읽기: PDFKit의 스크롤·확대·글자 선택과 복사, 쪽 썸네일, 목차, 논문 안 찾기(⌘F).
 - 주석 보기: 컴퓨터에서 단 하이라이트·코멘트·텍스트 상자·그림·펜·영역을 같은 자리·같은 모양으로 그립니다. 노트가 있는 표시를 누르면 노트를 보여 줍니다. 원본 PDF에는 아무것도 쓰지 않습니다(메모리에서만 그림).
 - 펜(Apple Pencil): 막대의 **Draw**를 켜면 Pencil로 그리고 지우며, 손가락은 그대로 스크롤·확대합니다(끄면 Pencil도 손가락처럼). 아래 막대에서 데스크톱과 같은 여섯 가지 표시 색, 지우개(획 하나씩, Mac에서 그린 획도), 실행 취소·다시 실행을 고르고, 두 손가락으로 탭해도 실행 취소됩니다. Pencil 두 번 탭과 Pencil Pro 쥐기는 설정 › Apple Pencil에서 고른 대로(지우개 전환, 직전 도구, 펜 끝 옆 팔레트) 합니다. 획은 데스크톱처럼 2pt 한 굵기이고, 한 획이 데스크톱의 Pen 표시 하나(`highlights`, `kind` draw)가 됩니다. 지우면 `deleted_at`만 적습니다. PencilKit은 그리는 동안의 획만 보여 주고, 펜을 떼면 그 획은 다른 표시처럼 PDFKit이 그립니다(Mac과 같은 굵기, 확대해도 선명). PencilKit의 한 굵기 잉크는 점 크기 s를 약 2s − 3.5pt로 그리므로, 그리는 동안의 굵기는 그린 획마다 맞춰 2pt가 되게 합니다(`InkWidth`). Draw를 켜 둔 동안 Pencil은 쪽을 움직이지 않습니다.
@@ -22,7 +22,7 @@
 | `Owelk/Sync/SyncState.swift` | 모든 컴퓨터의 변경을 합친 행들(나중 것 우선)과 파일별로 읽은 위치, 시작을 빠르게 하는 스냅숏 |
 | `Owelk/Sync/SyncFolder.swift` | 폴더 읽기(파일은 늘기만 하므로 읽은 곳부터, 끝나지 않은 줄은 기다림)와 쓰기(256KB에서 다음 파일, 줄 단위) |
 | `Owelk/Sync/SyncEngine.swift` | 동기화 한 번(읽기 → 쓰기 → 도착한 PDF), iPad가 쓰는 행 만들기 |
-| `Owelk/Library/` | 논문(같은 SHA-256의 `documents` 행은 한 논문), Collections·Tags·Recent·읽던 위치, UI가 보는 저장소, 추가하는 PDF(`NewPaper.swift`) |
+| `Owelk/Library/` | 논문(같은 SHA-256의 `documents` 행은 한 논문), Collections·Tags·연 기록·읽던 위치, UI가 보는 저장소, 추가하는 PDF(`NewPaper.swift`) |
 | `Owelk/Reader/` | PDF 화면, 옆의 쪽 그림(`PageList.swift`), 주석 그리기와 쪽 좌표 변환, 목차·찾기, Pencil 펜·지우개(`PenLayer.swift`: 화면에 보이는 쪽마다 얹는 층. 표시를 벡터 도형으로 그리고, Draw 중에만 PencilKit 캔버스를 두며, 지우개와 실행 취소를 맡음) |
 | `Owelk/Views/` | 라이브러리 화면(논문 추가·끌어다 놓기), 웹 검색(`WebSearch.swift`) |
 
@@ -94,6 +94,6 @@ xcrun devicectl device install app --device 00008112-0005591C2123601E build-nati
 
 1. Mac의 Syncthing에서 Owelk 동기화 폴더를 iPad(Synctrain)와 공유합니다. Synctrain에서는 **Send & Receive**로 받고, PDF까지 모두 받도록 둡니다.
 2. 앱을 처음 켜면 **Choose Sync Folder…** → 파일 앱의 나의 iPad › Synctrain 아래 그 폴더를 고릅니다. 고른 폴더에 `owelk-sync.json`이 있거나 그 안의 `Owelk` 폴더에 있으면 됩니다. Qt 앱이 보여 주는 나의 iPad › Owelk는 다른 폴더입니다.
-3. 폴더를 바꾸거나 바로 동기화하려면 왼쪽 열 위의 Settings(톱니바퀴)를 누릅니다. 마지막 동기화 시각과 함께 쓰는 컴퓨터 이름도 거기 있습니다. 왼쪽 열 아래에는 동기화하는 동안과 실패했을 때만 알림이 보입니다.
+3. 폴더를 바꾸거나 바로 동기화하려면 왼쪽 열 왼쪽 위의 Settings(톱니바퀴)를 누릅니다. 마지막 동기화 시각과 함께 쓰는 컴퓨터 이름도 거기 있습니다. 왼쪽 열 아래에는 동기화하는 동안과 실패했을 때만 알림이 보입니다.
 
 인터페이스 글자는 영어만 있습니다(데스크톱의 한글 표기 도구 `tools/hangul.py`는 아직 적용하지 않음).

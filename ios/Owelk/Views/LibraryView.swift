@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 /// Which papers the list shows.
 enum Shelf: Hashable {
-    case all, recent
+    case all
     case collection(String)
     case tag(String)
 }
@@ -101,7 +101,6 @@ struct LibraryView: View {
     private var title: String {
         switch shelf ?? .all {
         case .all: "All Papers"
-        case .recent: "Recent"
         case let .collection(id): store.library.collections.first { $0.id == id }?.name ?? "Collection"
         case let .tag(name): name
         }
@@ -143,14 +142,13 @@ struct LibraryView: View {
         if store.library.papers.isEmpty {
             return store.syncing ? "Reading the sync folder…" : "No papers yet. Add PDFs with + or drop them here."
         }
-        return shelf == .recent ? "Papers opened on any computer appear here." : "No papers here."
+        return "No papers here."
     }
 
     private var papers: [Paper] {
         var list = store.library.papers
         switch shelf ?? .all {
         case .all: break
-        case .recent: list = list.filter { !$0.openedAt.isEmpty }
         case let .collection(id): list = list.filter { $0.collections.contains(id) }
         case let .tag(name): list = list.filter { $0.tags.contains(name) }
         }
@@ -159,9 +157,6 @@ struct LibraryView: View {
             list = list.filter { paper in
                 words.allSatisfy { paper.title.localizedStandardContains($0) || paper.authors.localizedStandardContains($0) }
             }
-        }
-        if shelf == .recent {
-            return Array(list.sorted { $0.openedAt > $1.openedAt }.prefix(30))
         }
         switch order {
         case .lastOpened:
@@ -186,7 +181,6 @@ private struct Sidebar: View {
         List(selection: $shelf) {
             Section {
                 Label("All Papers", systemImage: "books.vertical").tag(Shelf.all)
-                Label("Recent", systemImage: "clock").tag(Shelf.recent)
             }
             if !store.library.collections.isEmpty {
                 Section("Collections") {
@@ -223,7 +217,7 @@ private struct Sidebar: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .topBarLeading) {
                 Button {
                     showsSettings = true
                 } label: {
