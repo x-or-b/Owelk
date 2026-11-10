@@ -1032,9 +1032,11 @@ Item {
         function test_6b_aDragOverATableDrawsItsLettersOnce() {
             const ai = findChild(workspace, "aiController")
             // Qt drew the cells of a table again over themselves when a moving selection redrew part of the answer,
-            // so their letters thickened while a drag went on, with sharp text or without.
-            const content = "Before the table, words to select.\n\n| Name | Value |\n| --- | --- |\n| alpha | first cell |\n"
-                + "| beta | second cell |\n\nAfter the table, more words to select."
+            // so their letters thickened while a drag went on, with sharp text or without. A drag redraws the selection
+            // on every move of the pointer, also when the selection stays the same.
+            const content = "Before the tables, words to select.\n\n| Name | Value |\n| --- | --- |\n| alpha | first cell |\n"
+                + "| beta | second cell |\n\nBetween the tables, more words.\n\n| Step | What to do |\n| --- | --- |\n"
+                + "| one | read the figures |\n| two | read the method |\n\nAfter the tables, more words to select."
             ai.thread = {id: ai.threadId, title: "Table", messages: [{role: "user", display: "Q", content: "q"}, {role: "assistant", content: content}]}
             const conversation = findChild(panel(), "aiConversation")
             let answer = null
@@ -1049,22 +1051,33 @@ Item {
             const frame = Qt.createQmlObject("import QtQuick; Item {}", top)
             frame.x = place.x; frame.y = place.y; frame.width = place.width; frame.height = place.height
             const color = String(answer.selectedTextColor) // A copy: the property itself follows a change.
+            const first = answer.positionToRectangle(3), last = answer.positionToRectangle(answer.length - 4)
+            const ends = [Qt.point(first.x, first.y + first.height / 2), Qt.point(last.x, last.y + last.height / 2)]
             for (const native of [true, false]) {
                 Theme.answerNative = native
-                // From before the table and from after it; each step is drawn, as in a drag.
-                for (const from of [2, answer.length - 20]) {
-                    for (let to = from + 1; to <= answer.length; to += 7) {
-                        answer.select(from, to)
-                        grabImage(frame)
+                waitForRendering(answer)
+                const clean = grabImage(frame)
+                // Down from the first words and up from the last, a few pixels a move; each move is drawn.
+                for (const down of [true, false]) {
+                    const from = ends[down ? 0 : 1], to = ends[down ? 1 : 0], moves = Math.ceil(Math.abs(to.y - from.y) / 4)
+                    let thick = 0
+                    mousePress(answer, from.x, from.y)
+                    for (let i = 1; i <= moves; ++i) {
+                        mouseMove(answer, from.x + (to.x - from.x) * i / moves, from.y + (to.y - from.y) * i / moves, -1, Qt.LeftButton)
+                        const moved = grabImage(frame)
+                        // A change of color draws the whole answer again.
+                        answer.selectedTextColor = "red"
+                        answer.selectedTextColor = color
+                        if (!grabImage(frame).equals(moved)) ++thick
                     }
-                    const dragged = grabImage(frame)
-                    // A change of color draws the whole answer again.
-                    answer.selectedTextColor = "red"
-                    answer.selectedTextColor = color
-                    verify(grabImage(frame).equals(dragged), (native ? "sharp" : "Qt") + " text, from " + from)
+                    mouseRelease(answer, to.x, to.y)
+                    verify(answer.selectedText.length > 100)
+                    compare(thick, 0, (native ? "sharp" : "Qt") + " text, " + (down ? "down" : "up") + ": moves drawn unlike the whole answer")
+                    // Let go, the answer is as before the drag.
+                    answer.deselect()
+                    verify(grabImage(frame).equals(clean), (native ? "sharp" : "Qt") + " text, " + (down ? "down" : "up") + ": after the drag")
                 }
             }
-            answer.deselect()
             frame.destroy()
             Theme.answerNative = true
         }

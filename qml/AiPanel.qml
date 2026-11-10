@@ -275,9 +275,10 @@ Item {
         renderType: Theme.answerNative ? TextEdit.NativeRendering : TextEdit.QtRendering
         color: Theme.text; font.pixelSize: Theme.answerSize
         selectionColor: Theme.mix(Theme.accent, Theme.field, .65); selectedTextColor: Theme.text
-        // A drag over an answer with a table would thicken the table's letters (Theme.redrawText).
-        onSelectionStartChanged: Theme.redrawText(this)
-        onSelectionEndChanged: Theme.redrawText(this)
+        // A drag over an answer with a table would thicken the table's letters (Theme.redrawText): the whole answer
+        // is drawn whenever the TextEdit draws its selection again, which is on each of these.
+        onSelectedTextChanged: Theme.redrawText(this)
+        onCursorPositionChanged: Theme.redrawText(this)
         onLinkActivated: function(link) { root.linkActivated(link) }
         HoverHandler { cursorShape: parent.hoveredLink.length > 0 ? Qt.PointingHandCursor : Qt.IBeamCursor }
         ContextTap { onRequested: function(point) { root.openTextMenu(parent, point.position) } }
