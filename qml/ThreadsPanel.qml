@@ -22,20 +22,12 @@ Rectangle {
     signal trashRequested()
     color: Theme.sidebar
 
-    // Latest first, or Manual: in the order the chats and Threads were dragged to (kept on this computer, like
-    // the sort itself). A Thread or chat not placed yet (a new one) goes first, latest first, and then stays.
+    // Latest first, or Manual: in the order the chats and Threads were dragged to. Each keeps its place in the
+    // library (`position`), so the order syncs with the rest; the sort itself is this computer's. One not placed
+    // yet (a new one) goes first, latest first, and is placed there.
     property string sort: researchStore.setting("threads.sort", "recent")
     readonly property bool manual: sort === "manual"
     function setSort(value) { sort = value; researchStore.setSetting("threads.sort", value); placeNew() }
-    // {threads: [Thread ID], chats: {Thread key: [chat ID]}}
-    property var order: {
-        try { return JSON.parse(researchStore.setting("threads.order", "{}")) || ({}) } catch (e) { return ({}) }
-    }
-    function saveOrder(next) {
-        if (JSON.stringify(next) === JSON.stringify(order)) return
-        order = next
-        researchStore.setSetting("threads.order", JSON.stringify(next))
-    }
     // Threads unfolded (by folder ID; "unfiled" for the chats in none), remembered between sessions.
     property var openGroups: {
         try { return JSON.parse(researchStore.setting("threads.open", "{}")) || ({}) } catch (e) { return ({}) }
@@ -57,12 +49,12 @@ Rectangle {
     function refresh() {
         chats = researchStore.aiThreads()
         folders = researchStore.aiFolders()
+        placeNew()
         if (!needle.length) { matched = null; return }
         const found = {}
         researchStore.aiThreads(needle).forEach(function(chat) { found[chat.id] = true })
         matched = found
     }
-    onFoldersChanged: placeNew()
     Timer { id: refreshTimer; interval: 150; onTriggered: root.refresh() }
     onNeedleChanged: refreshTimer.restart()
     Connections {
@@ -81,44 +73,86 @@ Rectangle {
         const ids = chats.map(function(c) { return c.id })
         selectedChats = selectedChats.filter(function(id) { return ids.indexOf(id) >= 0 })
         revealCurrent()
-        placeNew()
     }
     Component.onCompleted: refresh()
 
-    // Sorted in place: latest first, or in Manual as placed (`placed`: IDs in order), those not placed first.
-    function ordered(list, placed, latestOf) {
-        const at = {}
-        if (manual) (placed || []).forEach(function(id, i) { at[id] = i })
+    function placed(item) { return typeof item.position === "number" }
+    // Sorted in place: latest first, or in Manual by place, those not placed yet first (latest first).
+    function ordered(list, latestOf) {
         return list.sort(function(a, b) {
-            const x = at[a.id], y = at[b.id]
-            if (x !== undefined && y !== undefined) return x - y
-            if (x !== undefined) return 1
-            if (y !== undefined) return -1
+            const x = manual && placed(a), y = manual && placed(b)
+            if (x && y) return a.position - b.position
+            if (x) return 1
+            if (y) return -1
             const p = latestOf(a), q = latestOf(b)
             return p < q ? 1 : p > q ? -1 : 0
         })
     }
     function chatsIn(folder) {
-        return ordered(chats.filter(function(c) { return c.folder === folder }), (order.chats || {})[groupKey(folder)], function(c) { return c.openedAt })
+        return ordered(chats.filter(function(c) { return c.folder === folder }), function(c) { return c.openedAt })
     }
     // Every Thread (not Unfiled) as shown; a Thread is as recent as its latest chat.
     function threadsInOrder() {
         const latest = {}
         chats.forEach(function(c) { if (!latest[c.folder] || c.openedAt > latest[c.folder]) latest[c.folder] = c.openedAt })
-        const list = folders.map(function(f) { const own = f.updatedAt || ""; return {id: f.id, latest: latest[f.id] > own ? latest[f.id] : own} })
-        return ordered(list, order.threads, function(g) { return g.latest })
+        const list = folders.map(function(f) { const own = f.updatedAt || ""; return {id: f.id, position: f.position, latest: latest[f.id] > own ? latest[f.id] : own} })
+        return ordered(list, function(g) { return g.latest })
     }
-    // In Manual, what is shown becomes the order, so new chats and Threads keep their place from then on.
+    // Places for `ids` put at `at` in `list` (as shown): between their neighbours; at an end, past it; with no room
+    // left between them, or none placed, the whole list is numbered again.
+    function between(list, at, ids) {
+        const before = at > 0 ? list[at - 1].position : undefined, next = at < list.length ? list[at].position : undefined
+        const places = {}
+        const number = function(value) { return typeof value === "number" }
+        if (number(before) && number(next) && next - before > 1e-9 * (ids.length + 1))
+            ids.forEach(function(id, i) { places[id] = before + (next - before) * (i + 1) / (ids.length + 1) })
+        else if (number(before) && at === list.length) ids.forEach(function(id, i) { places[id] = before + i + 1 })
+        else if (at === 0 && number(next)) ids.forEach(function(id, i) { places[id] = next - ids.length + i })
+        else {
+            const all = list.map(function(item) { return item.id })
+            all.splice(at, 0, ...ids)
+            all.forEach(function(id, i) { places[id] = i + 1 })
+        }
+        return places
+    }
+    // In Manual, chats and Threads not placed yet (new ones, or all of them the first time) are placed where they
+    // show: above the placed ones, latest first. The order this computer kept before places synced is taken once.
     function placeNew() {
-        if (!manual) return
-        const next = {threads: threadsInOrder().map(function(g) { return g.id }), chats: {}}
-        const seen = {}
+        if (!manual || adoptKept()) return
+        const ahead = function(list, places) {
+            const fresh = list.filter(function(item) { return !placed(item) })
+            if (!fresh.length) return
+            const first = list.find(placed)
+            const top = first ? first.position : 0
+            fresh.forEach(function(item, i) { places[item.id] = top - fresh.length + i })
+        }
+        const threads = {}, chatPlaces = {}, seen = {}
+        ahead(threadsInOrder(), threads)
         chats.forEach(function(c) {
             if (seen[c.folder]) return
             seen[c.folder] = true
-            next.chats[groupKey(c.folder)] = chatsIn(c.folder).map(function(chat) { return chat.id })
+            ahead(chatsIn(c.folder), chatPlaces)
         })
-        saveOrder(next)
+        if (Object.keys(threads).length) researchStore.placeAiFolders(threads)
+        if (Object.keys(chatPlaces).length) researchStore.placeAiThreads(chatPlaces)
+    }
+    // The order kept in this computer's settings before it moved into the library: {threads: [ID], chats: {key: [ID]}}.
+    // True when it placed something (the rest is placed once the lists are read again).
+    function adoptKept() {
+        const text = researchStore.setting("threads.order")
+        if (!text.length) return false
+        researchStore.setSetting("threads.order", "")
+        let kept = null
+        try { kept = JSON.parse(text) } catch (e) { return false }
+        const threads = {}, chatPlaces = {}
+        ;(kept.threads || []).forEach(function(id, i) { if (folders.some(function(f) { return f.id === id && !placed(f) })) threads[id] = i + 1 })
+        Object.keys(kept.chats || {}).forEach(function(key) {
+            ;(kept.chats[key] || []).forEach(function(id, i) { if (chats.some(function(c) { return c.id === id && !placed(c) })) chatPlaces[id] = i + 1 })
+        })
+        if (!Object.keys(threads).length && !Object.keys(chatPlaces).length) return false
+        researchStore.placeAiFolders(threads)
+        researchStore.placeAiThreads(chatPlaces)
+        return true
     }
     // Manual: chats dropped before or after another chat, in its Thread (they move there if they were elsewhere).
     function placeChats(ids, target, after) {
@@ -130,20 +164,15 @@ Rectangle {
         moving.sort(function(a, b) { return shown.indexOf(a) - shown.indexOf(b) })
         const elsewhere = moving.filter(function(id) { const c = chats.find(function(x) { return x.id === id }); return c && c.folder !== goal.folder })
         if (elsewhere.length) researchStore.moveAiThreads(elsewhere, goal.folder)
-        const list = chatsIn(goal.folder).map(function(c) { return c.id }).filter(function(id) { return moving.indexOf(id) < 0 })
-        list.splice(list.indexOf(target) + (after ? 1 : 0), 0, ...moving)
-        const next = {threads: (order.threads || []).slice(), chats: Object.assign({}, order.chats || {})}
-        next.chats[groupKey(goal.folder)] = list
-        saveOrder(next)
+        const list = chatsIn(goal.folder).filter(function(c) { return moving.indexOf(c.id) < 0 })
+        researchStore.placeAiThreads(between(list, list.findIndex(function(c) { return c.id === target }) + (after ? 1 : 0), moving))
     }
     // Manual: a Thread dropped before or after another (Unfiled stays last; dropped on it, the Thread goes last).
     function placeThread(id, target, after) {
         if (id === target) return
-        const list = threadsInOrder().map(function(g) { return g.id }).filter(function(t) { return t !== id })
-        const at = target.length ? list.indexOf(target) : -1
-        if (at < 0) list.push(id)
-        else list.splice(at + (after ? 1 : 0), 0, id)
-        saveOrder({threads: list, chats: Object.assign({}, order.chats || {})})
+        const list = threadsInOrder().filter(function(g) { return g.id !== id })
+        const at = target.length ? list.findIndex(function(g) { return g.id === target }) : -1
+        researchStore.placeAiFolders(between(list, at < 0 ? list.length : at + (after ? 1 : 0), [id]))
     }
     // Threads by name, for the Move To menu.
     readonly property var foldersByName: folders.slice().sort(function(a, b) { return a.name.localeCompare(b.name) })
@@ -153,16 +182,16 @@ Rectangle {
         const hit = function(chat) { return !found || !!found[chat.id] }
         const members = {}
         chats.forEach(function(chat) { (members[chat.folder] = members[chat.folder] || []).push(chat) })
-        const group = function(id, name, updatedAt) {
+        const group = function(id, name, updatedAt, position) {
             const all = members[id] || []
             const named = words.length > 0 && name.toLowerCase().indexOf(words) >= 0
-            const list = ordered(named ? all.slice() : all.filter(hit), (root.order.chats || {})[groupKey(id)], function(c) { return c.openedAt })
+            const list = ordered(named ? all.slice() : all.filter(hit), function(c) { return c.openedAt })
             const latest = list.reduce(function(m, c) { return c.openedAt > m ? c.openedAt : m }, updatedAt || "")
-            return {type: "group", id: id, key: groupKey(id), name: name, chats: list, latest: latest, count: all.length, named: named}
+            return {type: "group", id: id, key: groupKey(id), name: name, chats: list, latest: latest, count: all.length, named: named, position: position}
         }
-        const groups = folders.map(function(f) { return group(f.id, f.name, f.updatedAt) })
+        const groups = folders.map(function(f) { return group(f.id, f.name, f.updatedAt, f.position) })
             .filter(function(g) { return !words.length || g.named || g.chats.length })
-        ordered(groups, root.order.threads, function(g) { return g.latest })
+        ordered(groups, function(g) { return g.latest })
         const unfiled = group("", qsTr("Unfiled"), "")
         if ((!words.length && (groups.length || unfiled.count)) || unfiled.chats.length) groups.push(unfiled)
         const list = []

@@ -103,7 +103,7 @@ QVariantList ResearchStore::aiThreads(const QString &words) const
     query.prepare("SELECT t.id,t.title,t.provider,t.model,t.source,t.updated_at,(SELECT count(*) FROM ai_messages m "
                   "WHERE m.thread_id=t.id),max(coalesce(r.opened_at,''),t.updated_at) AS last,(SELECT l.to_id FROM "
                   "links l WHERE l.from_kind='ai' AND l.from_id=t.id AND l.to_kind='document' LIMIT 1),(SELECT f.id "
-                  "FROM ai_folders f WHERE f.id=t.folder_id) FROM ai_threads t LEFT JOIN recent_items r ON "
+                  "FROM ai_folders f WHERE f.id=t.folder_id),t.position FROM ai_threads t LEFT JOIN recent_items r ON "
                   "r.kind='ai' AND r.id=t.id WHERE t.trashed_at IS NULL"
         + filter + " ORDER BY last DESC LIMIT 2000");
     if (!needle.isEmpty()) {
@@ -117,7 +117,8 @@ QVariantList ResearchStore::aiThreads(const QString &words) const
         rows.append(QVariantMap{{"id", query.value(0)}, {"title", query.value(1)}, {"provider", query.value(2)},
             {"model", query.value(3)}, {"source", source}, {"updatedAt", query.value(5)}, {"messages", query.value(6)},
             {"openedAt", query.value(7)}, {"document", query.value(8).toString()},
-            {"paper", source.isLocalFile() ? displayName(source) : QString()}, {"folder", query.value(9).toString()}});
+            {"paper", source.isLocalFile() ? displayName(source) : QString()}, {"folder", query.value(9).toString()},
+            {"position", query.isNull(10) ? QVariant() : query.value(10)}});
     }
     return rows;
 }
@@ -130,7 +131,7 @@ QVariantList ResearchStore::aiFolders() const
     if (!query.exec("SELECT f.id,f.name,f.created_at,f.updated_at,coalesce((SELECT d.url FROM documents d WHERE f.id "
                     "LIKE 'document:%' AND d.id=substr(f.id,10)),(SELECT t.source FROM ai_threads t WHERE f.id LIKE "
                     "'document:%' AND t.folder_id=f.id AND t.source<>'' LIMIT 1)),(SELECT c.name FROM collections c "
-                    "WHERE f.id LIKE 'collection:%' AND c.id=substr(f.id,12)) FROM ai_folders f"))
+                    "WHERE f.id LIKE 'collection:%' AND c.id=substr(f.id,12)),f.position FROM ai_folders f"))
         return rows;
     while (query.next()) {
         const QUrl paper(query.value(4).toString());
@@ -138,7 +139,7 @@ QVariantList ResearchStore::aiFolders() const
         if (name.isEmpty()) name = paper.isEmpty() ? query.value(5).toString() : displayName(paper);
         if (name.isEmpty()) name = ui("Untitled thread");
         rows.append(QVariantMap{{"id", query.value(0)}, {"name", name}, {"paper", paper}, {"createdAt", query.value(2)},
-            {"updatedAt", query.value(3)}});
+            {"updatedAt", query.value(3)}, {"position", query.isNull(6) ? QVariant() : query.value(6)}});
     }
     return rows;
 }
@@ -206,6 +207,41 @@ int ResearchStore::moveAiThreads(const QStringList &ids, const QString &folderId
     if (!moved) return 0;
     emit aiThreadsChanged();
     return moved;
+}
+
+// Threads › Manual: each chat's or Thread's place (a number; lower comes first), all at once. Like moving, placing
+// leaves a chat's or Thread's place among the recent ones as it was.
+bool ResearchStore::placeAi(const QString &table, const QVariantMap &positions)
+{
+    if (positions.isEmpty()) return true;
+    if (!m_database.transaction()) return false;
+    for (auto it = positions.begin(); it != positions.end(); ++it) {
+        QSqlQuery query(m_database);
+        query.prepare("UPDATE " + table + " SET position=? WHERE id=? AND position IS NOT ?");
+        query.addBindValue(it.value().toDouble());
+        query.addBindValue(it.key());
+        query.addBindValue(it.value().toDouble());
+        if (!query.exec()) {
+            m_database.rollback();
+            return false;
+        }
+    }
+    if (!m_database.commit()) {
+        m_database.rollback();
+        return false;
+    }
+    emit aiThreadsChanged();
+    return true;
+}
+
+bool ResearchStore::placeAiThreads(const QVariantMap &positions)
+{
+    return placeAi("ai_threads", positions);
+}
+
+bool ResearchStore::placeAiFolders(const QVariantMap &positions)
+{
+    return placeAi("ai_folders", positions);
 }
 
 QVariantMap ResearchStore::aiThread(const QString &id) const

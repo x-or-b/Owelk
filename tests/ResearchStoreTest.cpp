@@ -1053,6 +1053,14 @@ private slots:
         const auto folderOf = [&](const ResearchStore &store, const QString &id) {
             return scalar(store, "SELECT folder_id FROM ai_threads WHERE id='" + id + "'").toString();
         };
+        // Threads › Manual: where chats and Threads were put travels too, the paper's own Thread included.
+        QVERIFY(mac.placeAiThreads({{macChat, 2.0}, {looseChat, 1.0}}));
+        QVERIFY(mac.placeAiFolders({{thesis, 2.0}, {folderOf(mac, macChat), 1.0}}));
+        const auto placeOf = [](const QVariantList &rows, const QString &id) {
+            for (const auto &row : rows)
+                if (row.toMap()["id"].toString() == id) return row.toMap()["position"];
+            return QVariant();
+        };
         auto *macSync = mac.librarySync();
         QCOMPARE(macSync->setFolder(QUrl::fromLocalFile(drive)), QString());
         QVERIFY2(macSync->syncBlocking().error.isEmpty(), qPrintable(macSync->status()));
@@ -1082,6 +1090,10 @@ private slots:
         QCOMPARE(folderOf(ubuntu, macChat), "document:" + scalar(ubuntu, "SELECT id FROM documents").toString());
         QCOMPARE(folderOf(ubuntu, looseChat), thesis);
         QCOMPARE(scalar(ubuntu, "SELECT name FROM ai_folders WHERE id='" + thesis + "'").toString(), QString("Thesis"));
+        QCOMPARE(placeOf(ubuntu.aiThreads(), macChat).toDouble(), 2.0);
+        QCOMPARE(placeOf(ubuntu.aiThreads(), looseChat).toDouble(), 1.0);
+        QCOMPARE(placeOf(ubuntu.aiFolders(), thesis).toDouble(), 2.0);
+        QCOMPARE(placeOf(ubuntu.aiFolders(), folderOf(ubuntu, macChat)).toDouble(), 1.0);
 
         // Edits travel back, and of two edits to the same note the later one wins on both. Time read on the
         // same day on two computers adds up.

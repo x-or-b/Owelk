@@ -310,26 +310,32 @@ Item {
             // Latest first, or Manual: what shows keeps its place, even as a chat is opened; a drag puts a chat
             // among the chats, or a Thread among the Threads.
             threads.setGroupOpen("unfiled", true)
+            const lower = chatAt(thread) > chatAt(asked) ? thread : asked, upper = lower === thread ? asked : thread
+            // The order this computer kept before places synced is taken once; then every chat and Thread has a place.
+            researchStore.setSetting("threads.order", JSON.stringify({chats: {unfiled: [lower, upper]}}))
             threads.setSort("manual")
             compare(researchStore.setting("threads.sort"), "manual")
+            tryVerify(function() { return chatAt(lower) >= 0 && chatAt(lower) < chatAt(upper) })
+            compare(researchStore.setting("threads.order"), "")
+            tryVerify(function() { return researchStore.aiThreads().concat(researchStore.aiFolders()).every(function(x) { return typeof x.position === "number" }) })
             const shown = function() { return list.model.map(function(r) { return r.type === "chat" ? r.chat.id : r.key }) }
             const placed = shown()
-            const lower = chatAt(thread) > chatAt(asked) ? thread : asked, upper = lower === thread ? asked : thread
-            verify(ai.openThread(lower))
+            verify(ai.openThread(upper))
             wait(300)
             compare(shown(), placed)
             const rowOf = function(index) { tryVerify(function() { return list.itemAtIndex(index) !== null }); return list.itemAtIndex(index) }
             waitForPolish(list)
-            let a = rowOf(chatAt(upper)), b = rowOf(chatAt(lower))
+            let a = rowOf(chatAt(lower)), b = rowOf(chatAt(upper))
             testInput.pointerDrag(threads, a.mapToItem(threads, 40, a.height / 2), b.mapToItem(threads, 40, b.height * 0.8), false)
-            tryVerify(function() { return chatAt(upper) > chatAt(lower) })
+            tryVerify(function() { return chatAt(lower) > chatAt(upper) })
             const extra = researchStore.createAiFolder("Extra " + Date.now())
             tryVerify(function() { return groupAt(extra) >= 0 && groupAt(extra) < groupAt(paperThread) }) // New: first.
             waitForPolish(list)
             a = rowOf(groupAt(extra)); b = rowOf(groupAt(paperThread))
             testInput.pointerDrag(threads, a.mapToItem(threads, 40, a.height / 2), b.mapToItem(threads, 40, b.height * 0.8), false)
             tryVerify(function() { return groupAt(extra) > groupAt(paperThread) })
-            compare(JSON.parse(researchStore.setting("threads.order")).threads.indexOf(extra), JSON.parse(researchStore.setting("threads.order")).threads.indexOf(paperThread) + 1)
+            const place = function(id) { return researchStore.aiFolders().find(function(f) { return f.id === id }).position }
+            verify(place(extra) > place(paperThread))
             verify(researchStore.deleteAiFolder(extra))
             threads.setSort("recent")
             // The search keeps chats whose words match.

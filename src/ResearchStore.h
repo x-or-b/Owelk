@@ -362,6 +362,9 @@ public:
     Q_INVOKABLE bool deleteAiFolder(const QString &id);
     // Into a folder ("" takes them out of any); answers how many moved.
     Q_INVOKABLE int moveAiThreads(const QStringList &ids, const QString &folderId);
+    // Threads › Manual: chat or Thread ID → its place (lower first); the places sync with the rest.
+    Q_INVOKABLE bool placeAiThreads(const QVariantMap &positions);
+    Q_INVOKABLE bool placeAiFolders(const QVariantMap &positions);
     // Conversations to the Trash (trashed true) or back (false), and deleted for good.
     Q_INVOKABLE int trashAiThreads(const QStringList &ids, bool trashed = true);
     Q_INVOKABLE int purgeAiThreads(const QStringList &ids);
@@ -517,6 +520,7 @@ signals:
     void relinkFinished(bool success, const QString &detail);
 
 private:
+    bool placeAi(const QString &table, const QVariantMap &positions);
     friend class ForYou; // Its tables live in the library.
     void saveTextSelection(const QUrl &source, int page, const QPointF &from, const QPointF &to,
         const QString &expectedText, const QString &color, const QString &kind = "highlight",

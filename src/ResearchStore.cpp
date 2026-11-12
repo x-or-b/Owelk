@@ -513,6 +513,27 @@ bool ResearchStore::initialize(QString *error)
              "TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL, removed_at TEXT)",
                 "CREATE INDEX IF NOT EXISTS vocabulary_document ON vocabulary(document_id)"},
             {}, true},
+        // Threads › Manual: where each chat and Thread was put (NULL until placed), so the order syncs too. Added only
+        // where it is missing, so a library that went through this step once goes through it again unharmed.
+        {22, {},
+            [](QSqlDatabase &db, QString *error) {
+                for (const QString table : {"ai_threads", "ai_folders"}) {
+                    QSqlQuery columns(db);
+                    if (!columns.exec("PRAGMA table_info(" + table + ")")) {
+                        *error = columns.lastError().text();
+                        return false;
+                    }
+                    bool present = false;
+                    while (columns.next()) present = present || columns.value(1).toString() == "position";
+                    columns.finish();
+                    QSqlQuery change(db);
+                    if (!present && !change.exec("ALTER TABLE " + table + " ADD COLUMN position REAL")) {
+                        *error = change.lastError().text();
+                        return false;
+                    }
+                }
+                return true;
+            }},
     };
     if (!migrateSchema(m_database, steps, error, m_directory + "/backups")) return false;
     // Set aside only once step 18 is committed, so a failed upgrade still finds it next time.
