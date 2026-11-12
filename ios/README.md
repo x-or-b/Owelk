@@ -6,7 +6,7 @@
 
 - 동기화 폴더 고르기: 파일 앱에서 Synctrain이 맞추는 `Owelk` 폴더(또는 그 위 폴더)를 고릅니다. 접근 권한은 북마크로 기억합니다. iPadOS는 다른 앱의 폴더가 바뀌어도 알려 주지 않으므로, 앱이 앞으로 올 때, 앞에 있는 동안 30초마다, 목록을 당겨 새로 고칠 때 다시 읽습니다.
 - 라이브러리: 제목·저자·연도·읽기 상태·태그, 왼쪽 열의 All Papers·Favorites·Reading·Annotated(표시가 있는 논문)·Collections(중첩)·Tags, 제목·저자 검색, 정렬(Last Opened(어느 컴퓨터에서 열었든, 기본)·Title·Date Added). Recent 목록은 기본 정렬과 같아서 두지 않습니다(연 기록은 그대로 동기화). 논문을 오른쪽으로 밀면 Favorites에 넣고 빼며, 길게 누르면 Favorites·읽기 상태(Unread·Reading·Read)·Tags…·Collections…(체크해서 넣고 빼기, 새 Tag·맨 위 Collection 만들기)가 나옵니다. 처음 연 논문은 데스크톱처럼 Reading이 됩니다. PDF가 아직 도착하지 않은 논문은 흐리게 "Waiting for the PDF".
-- 읽기: PDFKit의 스크롤·확대·글자 선택과 복사, 쪽 썸네일, 목차, 논문 안 찾기(⌘F).
+- 읽기: PDFKit의 스크롤·확대·글자 선택과 복사, 쪽 썸네일, 논문 안 찾기(⌘F), 쪽 번호로 이동. 목차(Contents) 버튼은 쓰지 않아 뺐습니다(2026-11-12).
 - 주석 보기: 컴퓨터에서 단 하이라이트·코멘트·텍스트 상자·그림·펜·영역을 같은 자리·같은 모양으로 그립니다. 원본 PDF에는 아무것도 쓰지 않습니다(메모리에서만 그림).
 - 하이라이트·코멘트: 글자를 고르면 메뉴의 Copy 옆에 **Highlight**·**Comment…**가 나옵니다(`PageView.buildMenu`). 데스크톱의 `saveTextSelection`과 같은 행(쪽마다 하나, 줄마다 사각형, 글자 위치)을 씁니다(`TextMarks.swift`). 하이라이트·코멘트·영역(그리고 노트가 있는 펜 표시)을 누르면 노트(타이핑 또는 Pencil 손글씨 Scribble)와 여섯 색을 바꾸고 지울 수 있고, 바뀐 것은 색·노트 열만 보냅니다. 막대의 **Annotations**는 이 논문의 표시를 쪽 순서로 보여 주고, 누르면 그 자리로, 밀면 지웁니다(실행 취소로 되돌림). PDF를 모르는 논문(SHA-256 없음)은 노트만 봅니다.
 - 펜(Apple Pencil): 막대의 **Draw**를 켜면 Pencil로 그리고 지우며, 손가락은 그대로 스크롤·확대합니다(끄면 Pencil도 손가락처럼). 아래 막대에서 펜과 형광펜, 데스크톱과 같은 여섯 가지 표시 색(펜·형광펜이 각자 기억), 지우개(획 하나씩, Mac에서 그린 획도), 실행 취소·다시 실행을 고르고, 두 손가락으로 탭해도 실행 취소됩니다. Pencil 두 번 탭과 Pencil Pro 쥐기는 설정 › Apple Pencil에서 고른 대로(지우개 전환, 직전 도구, 펜 끝 옆 팔레트) 합니다. 획은 데스크톱처럼 2pt 한 굵기이고, 한 획이 데스크톱의 Pen 표시 하나(`highlights`, `kind` draw)가 됩니다. 지우면 `deleted_at`만 적습니다. 그리는 동안의 획도 다 그린 표시와 같은 벡터 도형(2 pt, 둥근 끝)으로 그려, 확대해도 그리는 내내 선명하고 펜을 떼도 굵기가 그대로입니다. Pencil이 화면 갱신 사이에 준 모든 점(coalesced)과 곧 갈 곳(predicted)을 받는 리더 자체의 제스처(`InkRecognizer`)가 그리며, PencilKit은 쓰지 않습니다(PencilKit은 PDFKit의 확대와 상관없이 쪽 1 pt당 2픽셀 타일에 그려 확대하면 흐렸고, 캔버스 해상도를 올려도 바뀌지 않았음). 탭하면 점이 남습니다. Draw를 켜 둔 동안 Pencil은 쪽을 움직이지 않고, 손가락은 그대로 쪽을 끌고 확대하고 글자를 고릅니다(쪽 위 층은 터치를 받지 않음). 형광펜은 Pencil로 글줄을 따라가면 지나간 글자를 고르고, 떼면 그 글자를 데스크톱과 같은 글자 하이라이트로 남깁니다(Highlight 메뉴와 같은 행).
@@ -26,7 +26,7 @@
 | `Owelk/Sync/SyncFolder.swift` | 폴더 읽기(파일은 늘기만 하므로 읽은 곳부터, 끝나지 않은 줄은 기다림)와 쓰기(256KB에서 다음 파일, 줄 단위) |
 | `Owelk/Sync/SyncEngine.swift` | 동기화 한 번(읽기 → 쓰기 → 도착한 PDF), iPad가 쓰는 행 만들기 |
 | `Owelk/Library/` | 논문(같은 SHA-256의 `documents` 행은 한 논문), Collections·Tags·연 기록·읽던 위치, UI가 보는 저장소, 추가하는 PDF(`NewPaper.swift`) |
-| `Owelk/Reader/` | PDF 화면, 옆의 쪽 그림(`PageList.swift`), 주석 그리기와 쪽 좌표 변환, 목차·찾기, Pencil 펜·지우개(`PenLayer.swift`: 화면에 보이는 쪽마다 얹는 층. 표시와 그리는 중인 획을 벡터 도형으로 그리고, 지우개와 실행 취소를 맡음) |
+| `Owelk/Reader/` | PDF 화면, 옆의 쪽 그림(`PageList.swift`), 주석 그리기와 쪽 좌표 변환, 찾기, Pencil 펜·지우개(`PenLayer.swift`: 화면에 보이는 쪽마다 얹는 층. 표시와 그리는 중인 획을 벡터 도형으로 그리고, 지우개와 실행 취소를 맡음) |
 | `Owelk/Views/` | 라이브러리 화면(논문 추가·끌어다 놓기), 웹 검색(`WebSearch.swift`) |
 
 데스크톱과 맞춘 규칙(`src/LibrarySync.cpp`):

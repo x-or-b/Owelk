@@ -2,17 +2,9 @@ import Combine
 import PDFKit
 import SwiftUI
 
-/// One open paper: its PDF, outline, search, and where the reader is.
+/// One open paper: its PDF, search, and where the reader is.
 @MainActor
 final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
-    struct OutlineItem: Identifiable {
-        let id: Int
-        let title: String
-        let depth: Int
-        let page: Int
-        let destination: PDFDestination?
-    }
-
     struct SearchResult: Identifiable {
         let id: Int
         let selection: PDFSelection
@@ -24,7 +16,6 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
     let controller = ReaderViewController()
     @Published private(set) var loaded = false
     @Published private(set) var failure: String?
-    @Published private(set) var outline: [OutlineItem] = []
     @Published private(set) var results: [SearchResult] = []
     @Published private(set) var searching = false
     @Published private(set) var page = 0
@@ -116,7 +107,6 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         }
         pageCount = document.pageCount
         page = start?.page ?? 0
-        outline = Self.flatten(document)
         loaded = true
         controller.marksAllowed = canDraw
         store.opened(paper)
@@ -197,14 +187,6 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         }
     }
 
-    func go(to item: OutlineItem) {
-        if let destination = item.destination {
-            controller.pdfView.go(to: destination)
-        } else if let page = controller.document?.page(at: item.page) {
-            controller.pdfView.go(to: page)
-        }
-    }
-
     /// Puts a page's top at the top of the view.
     func go(toPage index: Int) {
         guard let page = controller.document?.page(at: min(max(0, index), pageCount - 1)) else { return }
@@ -266,23 +248,6 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         controller.pdfView.highlightedSelections = results.map(\.selection)
     }
 
-    // MARK: Outline
-
-    private static func flatten(_ document: PDFDocument) -> [OutlineItem] {
-        var items: [OutlineItem] = []
-        func walk(_ node: PDFOutline, _ depth: Int) {
-            for index in 0..<node.numberOfChildren {
-                guard let child = node.child(at: index) else { continue }
-                let destination = child.destination ?? (child.action as? PDFActionGoTo)?.destination
-                let page = destination?.page.map { document.index(for: $0) } ?? 0
-                items.append(OutlineItem(id: items.count, title: child.label ?? "", depth: depth, page: page,
-                                         destination: destination))
-                walk(child, depth + 1)
-            }
-        }
-        if let root = document.outlineRoot { walk(root, 0) }
-        return items
-    }
 }
 
 struct ReaderPages: UIViewControllerRepresentable {
@@ -292,14 +257,13 @@ struct ReaderPages: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: ReaderViewController, context: Context) {}
 }
 
-/// A paper filling the screen, with its contents, search and page pictures in the bar, and the page number in the
+/// A paper filling the screen, with search and page pictures in the bar, and the page number in the
 /// corner (a tap goes to a page).
 struct ReaderScreen: View {
     @EnvironmentObject private var store: LibraryStore
     @StateObject private var model: ReaderModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var phase
-    @State private var showsOutline = false
     @State private var showsSearch = false
     @State private var choosesPage = false
     @State private var showsMarks = false
@@ -406,15 +370,6 @@ struct ReaderScreen: View {
                     .disabled(!model.loaded)
                     .sheet(isPresented: $showsNotes) {
                         PaperNotes(paper: model.paper).environmentObject(store).presentationSizing(.page)
-                    }
-                    Button {
-                        showsOutline = true
-                    } label: {
-                        Label("Contents", systemImage: "list.bullet.indent")
-                    }
-                    .disabled(model.outline.isEmpty)
-                    .popover(isPresented: $showsOutline) {
-                        OutlineList(model: model) { showsOutline = false }
                     }
                     Button {
                         showsSearch = true
@@ -559,30 +514,6 @@ private struct AnnotationRow: View {
             }
         }
         .padding(.vertical, 2)
-    }
-}
-
-private struct OutlineList: View {
-    @ObservedObject var model: ReaderModel
-    let done: () -> Void
-
-    var body: some View {
-        List(model.outline) { item in
-            Button {
-                model.go(to: item)
-                done()
-            } label: {
-                HStack {
-                    Text(item.title).lineLimit(2)
-                    Spacer()
-                    Text("\(item.page + 1)").font(.footnote.monospacedDigit()).foregroundStyle(.secondary)
-                }
-                .padding(.leading, CGFloat(item.depth) * 14)
-            }
-            .foregroundStyle(.primary)
-        }
-        .listStyle(.plain)
-        .frame(minWidth: 340, minHeight: 420)
     }
 }
 
