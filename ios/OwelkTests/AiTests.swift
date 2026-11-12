@@ -116,4 +116,26 @@ final class AiTests: XCTestCase {
         let huge = FloatingAiPanel.frame(in: area, at: .zero, width: 5000, height: 5000)
         XCTAssertEqual(huge.size, CGSize(width: area.width - 16, height: area.height - 16))
     }
+
+    /// Moving the window follows the drag inside the reader; sizing it from a corner keeps its top and other side
+    /// where they are, so the window at the right edge grows wider from its left corner and never slides away.
+    func testTheWindowMovesAndSizesInside() {
+        let area = CGSize(width: 1366, height: 938)
+        let first = FloatingAiPanel.frame(in: area, at: nil, width: 400, height: 560)
+        XCTAssertEqual(FloatingAiPanel.moved(first, by: CGSize(width: -300, height: 100), in: area),
+                       CGRect(x: 650, y: 116, width: 400, height: 560))
+        XCTAssertEqual(FloatingAiPanel.moved(first, by: CGSize(width: 500, height: -100), in: area).origin,
+                       CGPoint(x: 958, y: 8))
+
+        let wider = FloatingAiPanel.sized(first, by: CGSize(width: -200, height: 100), from: .left, in: area)
+        XCTAssertEqual(wider, CGRect(x: 750, y: 16, width: 600, height: 660))
+        XCTAssertEqual(wider.maxX, first.maxX)
+        let stuck = FloatingAiPanel.sized(first, by: CGSize(width: 300, height: 2000), from: .right, in: area)
+        XCTAssertEqual(stuck, CGRect(x: 950, y: 16, width: 408, height: 914))
+        let small = FloatingAiPanel.sized(first, by: CGSize(width: 900, height: -900), from: .left, in: area)
+        XCTAssertEqual(small, CGRect(x: 1050, y: 16, width: 300, height: 260))
+        let widest = FloatingAiPanel.sized(first, by: CGSize(width: -3000, height: 0), from: .left, in: area)
+        XCTAssertEqual(widest.minX, 8)
+        XCTAssertEqual(widest.maxX, first.maxX)
+    }
 }

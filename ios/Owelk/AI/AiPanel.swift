@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// The AI over the paper, in a small window of its own: moved by its bar, sized from its corner, and as see-through
-/// as the reader likes (the paper shows under it). Where it was, its size and its opacity are kept.
+/// The AI over the paper, in a small window of its own: moved by its bar, sized from either bottom corner, and its
+/// conversation as see-through as the reader likes (the paper shows under it; the bar stays solid, so it can always be
+/// found, moved and closed). Where it was, its size and its opacity are kept.
 struct FloatingAiPanel: View {
     @EnvironmentObject private var store: LibraryStore
     @ObservedObject var model: ReaderModel
@@ -12,26 +13,42 @@ struct FloatingAiPanel: View {
     @AppStorage("ai.window.width") private var width = 400.0
     @AppStorage("ai.window.height") private var height = 560.0
     @AppStorage("ai.window.opacity") private var opacity = 1.0
-    @State private var moving: CGPoint?
-    @State private var sizing: CGSize?
+    /// A drag under way, measured on the screen (the window moving under the finger would otherwise feed back into
+    /// the drag), and kept only when the finger lifts.
+    @GestureState private var moving = CGSize.zero
+    @GestureState private var sizing: Sizing?
 
     static let smallest = CGSize(width: 300, height: 260)
 
+    /// A bottom corner the window is sized from; the other side stays where it is.
+    enum Corner { case left, right }
+
+    struct Sizing {
+        let corner: Corner
+        let drag: CGSize
+    }
+
     var body: some View {
         GeometryReader { space in
-            let frame = Self.frame(in: space.size, at: placed ? CGPoint(x: x, y: y) : nil, width: width, height: height)
+            let area = space.size
+            let rest = Self.frame(in: area, at: placed ? CGPoint(x: x, y: y) : nil, width: width, height: height)
+            let frame = sizing.map { Self.sized(rest, by: $0.drag, from: $0.corner, in: area) }
+                ?? Self.moved(rest, by: moving, in: area)
             VStack(spacing: 0) {
-                bar(frame)
+                bar(rest, in: area)
                 Divider()
-                AiPanel(chat: model.ai) { model.go(toPage: $0) }
+                FloatingConversation(model: model)
+                    .background(Color(uiColor: .systemBackground))
+                    .compositingGroup()
+                    .opacity(opacity)
             }
             .frame(width: frame.width, height: frame.height)
-            .background(Color(uiColor: .systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
+            .contentShape(RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(uiColor: .separator)))
-            .overlay(alignment: .bottomTrailing) { grip(frame) }
+            .overlay(alignment: .bottomLeading) { grip(.left, rest, in: area) }
+            .overlay(alignment: .bottomTrailing) { grip(.right, rest, in: area) }
             .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
-            .opacity(opacity)
             .offset(x: frame.minX, y: frame.minY)
         }
     }
@@ -46,12 +63,49 @@ struct FloatingAiPanel: View {
                       width: size.width, height: size.height)
     }
 
-    private func bar(_ frame: CGRect) -> some View {
+    /// The window moved by a drag, kept inside the area.
+    static func moved(_ frame: CGRect, by drag: CGSize, in area: CGSize) -> CGRect {
+        Self.frame(in: area, at: CGPoint(x: frame.minX + drag.width, y: frame.minY + drag.height),
+                   width: frame.width, height: frame.height)
+    }
+
+    /// The window sized from a bottom corner: its top and its other side stay put, and it grows only into the room
+    /// there is (a window at the right edge grows wider from its left corner).
+    static func sized(_ frame: CGRect, by drag: CGSize, from corner: Corner, in area: CGSize) -> CGRect {
+        let height = max(smallest.height, min(frame.height + drag.height, area.height - 8 - frame.minY))
+        switch corner {
+        case .right:
+            let width = max(smallest.width, min(frame.width + drag.width, area.width - 8 - frame.minX))
+            return CGRect(x: frame.minX, y: frame.minY, width: width, height: height)
+        case .left:
+            let width = max(smallest.width, min(frame.width - drag.width, frame.maxX - 8))
+            return CGRect(x: frame.maxX - width, y: frame.minY, width: width, height: height)
+        }
+    }
+
+    private func keep(_ frame: CGRect) {
+        placed = true
+        x = frame.minX
+        y = frame.minY
+        width = frame.width
+        height = frame.height
+    }
+
+    private func bar(_ rest: CGRect, in area: CGSize) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).accessibilityHidden(true)
-            Text("AI").font(.headline)
-            Text(AiSettings.model(for: AiSettings.service)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            Spacer(minLength: 8)
+            // The handle: the window moves from here, not from the controls beside it.
+            HStack(spacing: 10) {
+                Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).accessibilityHidden(true)
+                Text("AI").font(.headline)
+                Text(AiSettings.model(for: AiSettings.service)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Spacer(minLength: 8)
+            }
+            .padding(.leading, 14).padding(.vertical, 10)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .global)
+                .updating($moving) { drag, moving, _ in moving = drag.translation }
+                .onEnded { drag in keep(Self.moved(rest, by: drag.translation, in: area)) })
             Image(systemName: "circle.lefthalf.filled").foregroundStyle(.secondary).accessibilityHidden(true)
             Slider(value: $opacity, in: 0.35...1).frame(width: 90).accessibilityLabel("Opacity")
             // This paper's conversations, the Mac's among them.
@@ -86,36 +140,33 @@ struct FloatingAiPanel: View {
                 Label("Close", systemImage: "xmark")
             }
             .labelStyle(.iconOnly)
+            .padding(.trailing, 14)
         }
-        .padding(.horizontal, 14).padding(.vertical, 10)
-        .contentShape(Rectangle())
-        .gesture(DragGesture(minimumDistance: 2).onChanged { drag in
-            let start = moving ?? frame.origin
-            moving = start
-            placed = true
-            x = start.x + drag.translation.width
-            y = start.y + drag.translation.height
-        }.onEnded { _ in moving = nil })
+        .fixedSize(horizontal: false, vertical: true)
+        .background(Color(uiColor: .systemBackground))
         .tint(.primary)
     }
 
-    private func grip(_ frame: CGRect) -> some View {
-        Image(systemName: "arrow.down.right")
+    private func grip(_ corner: Corner, _ rest: CGRect, in area: CGSize) -> some View {
+        Image(systemName: corner == .left ? "arrow.down.left" : "arrow.down.right")
             .font(.caption.weight(.semibold))
             .foregroundStyle(.tertiary)
             .frame(width: 28, height: 28)
             .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 1).onChanged { drag in
-                let start = sizing ?? frame.size
-                sizing = start
-                // Sized from where it is now (a window placed at first keeps its place).
-                placed = true
-                x = frame.minX
-                y = frame.minY
-                width = max(Self.smallest.width, start.width + drag.translation.width)
-                height = max(Self.smallest.height, start.height + drag.translation.height)
-            }.onEnded { _ in sizing = nil })
+            .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .updating($sizing) { drag, sizing, _ in sizing = Sizing(corner: corner, drag: drag.translation) }
+                .onEnded { drag in keep(Self.sized(rest, by: drag.translation, from: corner, in: area)) })
             .accessibilityLabel("Resize")
+    }
+}
+
+/// The window's conversation, apart from the window: moving or sizing the window, or turning pages, doesn't redraw
+/// the answers (the chat redraws them as they change).
+private struct FloatingConversation: View {
+    let model: ReaderModel
+
+    var body: some View {
+        AiPanel(chat: model.ai) { model.go(toPage: $0) }
     }
 }
 
