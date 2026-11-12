@@ -65,8 +65,10 @@ final class TextMarksTests: XCTestCase {
         let selection = try XCTUnwrap(document.findString("second paper", withOptions: []).first)
         controller.pdfView.setCurrentSelection(selection, animate: false)
         XCTAssertEqual(offered(), ["Highlight", "Comment…"])
+        controller.onExplain = { _ in }
+        XCTAssertEqual(offered(), ["Highlight", "Comment…", "Explain", "Ask AI…"], "and the AI's")
         controller.marksAllowed = false
-        XCTAssertEqual(offered(), [], "not where the paper's PDF is unknown")
+        XCTAssertEqual(offered(), ["Explain", "Ask AI…"], "no marks where the paper's PDF is unknown")
     }
 
     /// With the highlighter, the Pencil going along a line selects the text it passes over, and lifting it highlights

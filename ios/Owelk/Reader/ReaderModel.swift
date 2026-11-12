@@ -29,6 +29,9 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
     @Published private(set) var searching = false
     @Published private(set) var page = 0
     @Published private(set) var pageCount = 0
+    /// The AI beside the paper, and its conversation about it (kept while the paper is open).
+    @Published var showsAI = false
+    private(set) lazy var ai = AiChat(title: paper.title) { [weak self] in self?.controller.document }
     @Published var showsThumbnails = false {
         didSet { controller.showsThumbnails = showsThumbnails }
     }
@@ -57,6 +60,14 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         controller.onPageChange = { [weak self] page in self?.page = page }
         controller.onUndo = { [weak self] in self?.undo() }
         controller.onPencil = { [weak self] action, point in self?.pencil(action, at: point) }
+        controller.onExplain = { [weak self] text in
+            self?.showsAI = true
+            self?.ai.explain(text)
+        }
+        controller.onAskAbout = { [weak self] text in
+            self?.ai.attached = text
+            self?.showsAI = true
+        }
         controller.pen.changed = { [weak self] in
             // PencilKit notes the step in the history after telling of the change.
             DispatchQueue.main.async { self?.refreshHistory() }
@@ -337,6 +348,10 @@ struct ReaderScreen: View {
                     .padding(16)
                 }
             }
+            .inspector(isPresented: $model.showsAI) {
+                AiPanel(chat: model.ai) { model.go(toPage: $0) }
+                    .inspectorColumnWidth(min: 320, ideal: 400, max: 560)
+            }
             .navigationTitle(model.paper.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -361,6 +376,15 @@ struct ReaderScreen: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     DrawButton(model: model)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        model.showsAI.toggle()
+                    } label: {
+                        Label("AI", systemImage: "sparkles")
+                    }
+                    .accessibilityAddTraits(model.showsAI ? .isSelected : [])
+                    .disabled(!model.loaded)
                 }
                 if #available(iOS 26, *) { ToolbarSpacer(.fixed, placement: .topBarTrailing) }
                 ToolbarItemGroup(placement: .topBarTrailing) {

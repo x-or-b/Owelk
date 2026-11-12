@@ -344,17 +344,36 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
     var onMarkChanged: ((String, String, String) -> Void)?
 
     /// Highlight and Comment… beside Copy, for selected text.
+    /// The selected text explained by the AI, or attached to a question for it.
+    var onExplain: ((String) -> Void)?
+    var onAskAbout: ((String) -> Void)?
+
     fileprivate func selectionActions() -> [UIMenuElement] {
-        guard marksAllowed, let selection = pdfView.currentSelection,
-              !(selection.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
-        return [
-            UIAction(title: "Highlight", image: UIImage(systemName: "highlighter")) { [weak self] _ in
-                self?.highlightSelection()
-            },
-            UIAction(title: "Comment…", image: UIImage(systemName: "text.bubble")) { [weak self] _ in
-                self?.commentOnSelection()
-            },
-        ]
+        guard let selection = pdfView.currentSelection,
+              case let text = (selection.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty
+        else { return [] }
+        var actions: [UIMenuElement] = []
+        if marksAllowed {
+            actions += [
+                UIAction(title: "Highlight", image: UIImage(systemName: "highlighter")) { [weak self] _ in
+                    self?.highlightSelection()
+                },
+                UIAction(title: "Comment…", image: UIImage(systemName: "text.bubble")) { [weak self] _ in
+                    self?.commentOnSelection()
+                },
+            ]
+        }
+        if onExplain != nil {
+            actions += [
+                UIAction(title: "Explain", image: UIImage(systemName: "sparkles")) { [weak self] _ in
+                    self?.onExplain?(text)
+                },
+                UIAction(title: "Ask AI…", image: UIImage(systemName: "bubble.left.and.text.bubble.right")) { [weak self] _ in
+                    self?.onAskAbout?(text)
+                },
+            ]
+        }
+        return actions
     }
 
     func highlightSelection() {

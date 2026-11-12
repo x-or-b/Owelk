@@ -277,6 +277,7 @@ private struct SettingsSheet: View {
                         .disabled(store.syncing)
                     Button("Change Folder…", action: changeFolder)
                 }
+                AiSection()
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -399,6 +400,59 @@ private struct PaperRow: View {
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
+    }
+}
+
+/// The AI: the service and its API key (kept in this iPad's Keychain), the model, and how answers are written.
+private struct AiSection: View {
+    @State private var service = AiSettings.service
+    @State private var key = AiSettings.key(for: AiSettings.service)
+    @State private var model = AiSettings.model(for: AiSettings.service)
+    @State private var language = AiSettings.language
+    @State private var level = AiSettings.level
+
+    var body: some View {
+        Section {
+            Picker("Service", selection: $service) {
+                ForEach(AiService.allCases) { Text($0.name).tag($0) }
+            }
+            SecureField("API Key", text: $key)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .onSubmit { AiSettings.setKey(key, for: service) }
+            if service == .claude {
+                Picker("Model", selection: $model) {
+                    ForEach(service.models, id: \.id) { Text($0.name).tag($0.id) }
+                }
+            } else {
+                TextField("Model", text: $model)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+            Picker("Answer Language", selection: $language) {
+                ForEach(AiSettings.languages, id: \.id) { Text($0.name).tag($0.id) }
+            }
+            Picker("Explanations", selection: $level) {
+                Text("Easy").tag("easy")
+                Text("Brief").tag("brief")
+            }
+        } header: {
+            Text("AI")
+        } footer: {
+            Text("When you ask, the paper's text and your question go to this service with your key. The key stays on this iPad.")
+        }
+        .onChange(of: service) { old, new in
+            AiSettings.setKey(key, for: old)
+            AiSettings.setModel(model, for: old)
+            AiSettings.service = new
+            key = AiSettings.key(for: new)
+            model = AiSettings.model(for: new)
+        }
+        .onChange(of: key) { _, key in AiSettings.setKey(key, for: service) }
+        .onChange(of: model) { _, model in AiSettings.setModel(model, for: service) }
+        .onChange(of: language) { _, language in AiSettings.language = language }
+        .onChange(of: level) { _, level in AiSettings.level = level }
+        .onDisappear { AiSettings.setKey(key, for: service) }
     }
 }
 
