@@ -318,6 +318,29 @@ Item {
             compare(Theme.myThemes.length, 1)
             compare(Theme.theme, Theme.myThemes[0].id)
         }
+        // A photo's colors, the one chosen showing as much as asked, in a light and a dark version added as one's own.
+        function test_aThemeFromAPhoto() {
+            settings.openPage("appearance"); tryCompare(settings, "opened", true)
+            tryVerify(function() { return findChild(page(), "themeMaker") !== null })
+            const maker = findChild(page(), "themeMaker")
+            maker.fromPhoto(testInput.pictureFile(400, 300, false, "#4f8fd9"))
+            tryCompare(maker, "opened", true)
+            verify(maker.colors.length >= 1)
+            compare(maker.chosen.toString(), maker.colors[0])
+            // Stronger, the light version's window holds more of the color.
+            const subtle = Theme.tintedSeeds(maker.chosen, false, 1).window
+            maker.strength = 3
+            verify(maker.lightSeeds.window !== subtle)
+            verify(maker.darkSeeds.dark && !maker.lightSeeds.dark)
+            findChild(maker.contentItem, "makerName").text = "Sky"
+            const wasDark = Theme.dark
+            findChild(maker.footer, "makerAddBoth").clicked()
+            tryCompare(maker, "opened", false)
+            compare(Theme.myThemes.map(function(t) { return t.name }), ["Sky", "Sky Dark"])
+            compare(Theme.dark, wasDark)
+            compare(Theme.accentName, "custom")
+            compare(Theme.customAccent.toString(), maker.chosen.toString())
+        }
         function test_fiveTapsOnTheThemeHeadingChooseAPicture() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
             tryVerify(function() { return visualChild(settings.contentItem, "settingsGroup-theme") !== null })

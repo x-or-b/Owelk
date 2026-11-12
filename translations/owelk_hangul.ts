@@ -5990,6 +5990,10 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>체인지스 더 아이콘 인 더 태스크바 앤드 타이틀 바스.</translation>
     </message>
     <message>
+        <source>Choose a Photo</source>
+        <translation>추즈 어 포토</translation>
+    </message>
+    <message>
         <source>Choose a Picture</source>
         <translation>추즈 어 픽처</translation>
     </message>
@@ -6032,6 +6036,14 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Documents and lists</source>
         <translation>다큐먼츠 앤드 리스츠</translation>
+    </message>
+    <message>
+        <source>From a Color…</source>
+        <translation>프롬 어 컬러…</translation>
+    </message>
+    <message>
+        <source>From a Photo…</source>
+        <translation>프롬 어 포토…</translation>
     </message>
     <message>
         <source>From the Gallery…</source>
@@ -8132,6 +8144,81 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Theme Gallery</source>
         <translation>테마 갤러리</translation>
+    </message>
+</context>
+<context>
+    <name>ThemeMakerDialog</name>
+    <message>
+        <source>%1 Dark</source>
+        <translation>%1 다크</translation>
+    </message>
+    <message>
+        <source>Add Both</source>
+        <translation>애드 보스</translation>
+    </message>
+    <message>
+        <source>Add Dark</source>
+        <translation>애드 다크</translation>
+    </message>
+    <message>
+        <source>Add Light</source>
+        <translation>애드 라이트</translation>
+    </message>
+    <message>
+        <source>Another color…</source>
+        <translation>어나더 컬러…</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>캔슬</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>컬러</translation>
+    </message>
+    <message>
+        <source>Color strength</source>
+        <translation>컬러 스트렝스</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>다크</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>라이트</translation>
+    </message>
+    <message>
+        <source>My color</source>
+        <translation>마이 컬러</translation>
+    </message>
+    <message>
+        <source>My theme</source>
+        <translation>마이 테마</translation>
+    </message>
+    <message>
+        <source>New Theme</source>
+        <translation>뉴 테마</translation>
+    </message>
+    <message>
+        <source>Subtle</source>
+        <translation>서틀</translation>
+    </message>
+    <message>
+        <source>Theme color</source>
+        <translation>테마 컬러</translation>
+    </message>
+    <message>
+        <source>Theme name</source>
+        <translation>테마 네임</translation>
+    </message>
+    <message>
+        <source>This photo has no colors to take; choose one with +.</source>
+        <translation>디스 포토 해즈 노 컬러스 투 테이크; 추즈 원 위드 +.</translation>
+    </message>
+    <message>
+        <source>Vivid</source>
+        <translation>비비드</translation>
     </message>
 </context>
 <context>

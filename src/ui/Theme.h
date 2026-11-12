@@ -256,8 +256,11 @@ public:
     // Saves a custom theme from seeds and switches to it. Invalid colors are rejected.
     Q_INVOKABLE bool setCustomSeeds(const QVariantMap &seeds);
     // The seeds of Neutral (or Dark) tinted toward a color's hue at the same lightness: the picture
-    // theme's surfaces. An invalid color gives the untinted seeds.
-    Q_INVOKABLE QVariantMap tintedSeeds(const QVariant &color, bool dark) const;
+    // theme's surfaces. An invalid color gives the untinted seeds. `strength` scales how much (1: the picture
+    // theme's barely tinted surfaces; a theme made from a photo or a color shows more), the text staying readable.
+    Q_INVOKABLE QVariantMap tintedSeeds(const QVariant &color, bool dark, qreal strength = 1) const;
+    // A photo's distinct colors (#rrggbb), most prominent first, to make a theme from; empty when it has none.
+    Q_INVOKABLE QStringList photoColors(const QUrl &file) const;
     // Saves a custom accent and switches to it. The color keeps its hue and saturation; only its
     // lightness moves, as far as white labels on it need. Invalid colors are rejected.
     Q_INVOKABLE bool setCustomAccent(const QVariant &color);

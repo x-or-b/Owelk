@@ -18,7 +18,7 @@ Item {
     width: 104; height: 92
     Rectangle {
         id: preview
-        width: parent.width; height: 64
+        width: parent.width; height: parent.height - 28
         radius: Theme.radius
         color: tile.adding ? (hover.hovered ? Theme.hover : "transparent") : tile.seeds.window || "transparent"
         border.width: tile.current ? 2 : 1

@@ -341,10 +341,20 @@ ColumnLayout {
         id: addMenu
         objectName: "addThemeMenu"
         MenuItem { objectName: "galleryTheme"; text: qsTr("From the Gallery…"); onTriggered: gallery.open() }
+        MenuItem { objectName: "photoTheme"; text: qsTr("From a Photo…"); onTriggered: photoDialog.open() }
+        MenuItem { objectName: "colorTheme"; text: qsTr("From a Color…"); onTriggered: maker.fromColor() }
         MenuSeparator {}
         MenuItem { objectName: "copyTheme"; text: qsTr("Copy This Theme"); onTriggered: root.copyTheme() }
     }
     ThemeGalleryDialog { id: gallery }
+    ThemeMakerDialog { id: maker }
+    Native.FileDialog {
+        id: photoDialog
+        objectName: "themePhotoDialog"
+        title: qsTr("Choose a Photo")
+        nameFilters: [qsTr("Pictures") + " (" + Theme.pictureFilter + ")"]
+        onAccepted: maker.fromPhoto(selectedFile)
+    }
     Menu {
         id: themeMenu
         objectName: "themeMenu"

@@ -641,7 +641,7 @@ QVariantMap Theme::seeds(const QString &id) const
     return map;
 }
 
-QVariantMap Theme::tintedSeeds(const QVariant &color, bool dark) const
+QVariantMap Theme::tintedSeeds(const QVariant &color, bool dark, qreal strength) const
 {
     const auto s = preset(dark ? "dark" : "neutral");
     const auto hue = color.value<QColor>();
@@ -651,11 +651,31 @@ QVariantMap Theme::tintedSeeds(const QVariant &color, bool dark) const
     constexpr qreal darkChroma[] = {.02, .02, .018, .022, .012, .025, .018};
     const QColor *fields[] = {&s.window, &s.sidebar, &s.content, &s.raised, &s.text, &s.separator, &s.backdrop};
     QVariantMap map{{"dark", dark}};
-    for (int i = 0; i < 7; ++i)
-        map.insert(seedKeys[i],
-            (hue.isValid() ? ImagePalette::tint(*fields[i], hue, (dark ? darkChroma : lightChroma)[i]) : *fields[i])
-                .name());
+    const qreal scale = std::clamp(strength, 0.0, 3.0);
+    // Light surfaces near white hold little color, so a stronger light theme also has them a little less light (as
+    // much as this at 3).
+    constexpr qreal deepen[] = {.05, .04, .025, .01, 0, .05, .06};
+    for (int i = 0; i < 7; ++i) {
+        auto gray = *fields[i];
+        if (!dark && scale > 1) gray = QColor::fromHslF(0, 0, gray.lightnessF() - deepen[i] * (scale - 1) / 2);
+        auto chroma = (dark ? darkChroma : lightChroma)[i] * scale;
+        // Text keeps its gray enough to read on any of them.
+        if (i == 4) chroma = std::min(chroma, dark ? .03 : .05);
+        map.insert(seedKeys[i], (hue.isValid() ? ImagePalette::tint(gray, hue, chroma) : gray).name());
+    }
     return map;
+}
+
+QStringList Theme::photoColors(const QUrl &file) const
+{
+    QImageReader reader(file.toLocalFile());
+    reader.setAutoTransform(true);
+    // A thumbnail is plenty for colors, and a large photo decodes in a moment at this size.
+    if (const auto size = reader.size(); size.isValid() && (size.width() > 256 || size.height() > 256))
+        reader.setScaledSize(size.scaled(256, 256, Qt::KeepAspectRatio));
+    QStringList list;
+    for (const auto &color : ImagePalette::extract(reader.read()).swatches) list.append(color.name());
+    return list;
 }
 
 bool Theme::writeCustomSeeds(const QVariantMap &seeds)
