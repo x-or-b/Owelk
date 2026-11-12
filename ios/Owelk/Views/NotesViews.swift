@@ -116,12 +116,14 @@ struct NoteEditor: View {
         .navigationTitle(title.isEmpty ? "Note" : title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // One button between writing and reading the Markdown (a segmented control was squeezed by long titles).
             ToolbarItem(placement: .topBarTrailing) {
-                Picker("View", selection: $previewing) {
-                    Text("Edit").tag(false)
-                    Text("Preview").tag(true)
+                Button {
+                    previewing.toggle()
+                } label: {
+                    Label(previewing ? "Edit" : "Preview", systemImage: previewing ? "pencil" : "eye")
                 }
-                .pickerStyle(.segmented)
+                .tint(.primary)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(role: .destructive) {

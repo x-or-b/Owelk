@@ -17,6 +17,8 @@ struct FloatingAiPanel: View {
     /// the drag), and kept only when the finger lifts.
     @GestureState private var moving = CGSize.zero
     @GestureState private var sizing: Sizing?
+    /// The list of chats is open over the conversation.
+    @State private var listing = false
 
     static let smallest = CGSize(width: 300, height: 260)
 
@@ -41,6 +43,15 @@ struct FloatingAiPanel: View {
                     .background(Color(uiColor: .systemBackground))
                     .compositingGroup()
                     .opacity(opacity)
+                    .overlay {
+                        if listing {
+                            WindowChats(chat: model.ai, paper: model.paper) { id in
+                                listing = false
+                                Task { await model.ai.open(id) }
+                            }
+                            .background(Color(uiColor: .systemBackground))
+                        }
+                    }
             }
             .frame(width: frame.width, height: frame.height)
             .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -93,14 +104,26 @@ struct FloatingAiPanel: View {
 
     private func bar(_ rest: CGRect, in area: CGSize) -> some View {
         HStack(spacing: 10) {
+            // Every chat, this paper's first.
+            Button {
+                listing.toggle()
+            } label: {
+                Image(systemName: "line.3.horizontal")
+                    .foregroundStyle(listing ? Theme.accent : Color.primary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Chats")
+            .accessibilityAddTraits(listing ? .isSelected : [])
+            .padding(.leading, 10)
             // The handle: the window moves from here, not from the controls beside it.
             HStack(spacing: 10) {
-                Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).accessibilityHidden(true)
                 Text("AI").font(.headline)
                 Text(AiSettings.model(for: AiSettings.service)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 Spacer(minLength: 8)
             }
-            .padding(.leading, 14).padding(.vertical, 10)
+            .padding(.vertical, 10)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .global)
@@ -108,32 +131,14 @@ struct FloatingAiPanel: View {
                 .onEnded { drag in keep(Self.moved(rest, by: drag.translation, in: area)) })
             Image(systemName: "circle.lefthalf.filled").foregroundStyle(.secondary).accessibilityHidden(true)
             Slider(value: $opacity, in: 0.35...1).frame(width: 90).accessibilityLabel("Opacity")
-            // This paper's conversations, the Mac's among them.
-            let chats = store.library.threads.filter { $0.paper == model.paper.id }
-            Menu {
-                ForEach(chats) { chat in
-                    Button {
-                        Task { await model.ai.open(chat.id) }
-                    } label: {
-                        if chat.id == model.ai.thread {
-                            Label(chat.title.isEmpty ? "Chat" : chat.title, systemImage: "checkmark")
-                        } else {
-                            Text(chat.title.isEmpty ? "Chat" : chat.title)
-                        }
-                    }
-                }
-            } label: {
-                Label("Chats", systemImage: "clock.arrow.circlepath")
-            }
-            .labelStyle(.iconOnly)
-            .disabled(chats.isEmpty || model.ai.running)
             Button {
+                listing = false
                 model.ai.clear()
             } label: {
                 Label("New Chat", systemImage: "square.and.pencil")
             }
             .labelStyle(.iconOnly)
-            .disabled(model.ai.turns.isEmpty)
+            .disabled(model.ai.turns.isEmpty || model.ai.running)
             Button {
                 model.showsAI = false
             } label: {
@@ -156,6 +161,59 @@ struct FloatingAiPanel: View {
                 .updating($sizing) { drag, sizing, _ in sizing = Sizing(corner: corner, drag: drag.translation) }
                 .onEnded { drag in keep(Self.sized(rest, by: drag.translation, from: corner, in: area)) })
             .accessibilityLabel("Resize")
+    }
+}
+
+/// The chats the window can show: this paper's, those of the collections it is in, then every other one (the Mac's
+/// among them). Those about something else are read in the window.
+private struct WindowChats: View {
+    @EnvironmentObject private var store: LibraryStore
+    @ObservedObject var chat: AiChat
+    let paper: Paper
+    let open: (String) -> Void
+
+    var body: some View {
+        let library = store.library
+        let collections = Set(paper.collections.map { "collection:" + $0 })
+        let here = library.threads.filter { $0.paper == paper.id }
+        let near = library.threads.filter { $0.paper != paper.id && collections.contains($0.folder) }
+        let rest = library.threads.filter { $0.paper != paper.id && !collections.contains($0.folder) }
+        List {
+            group("This Paper", here, places: false)
+            group("This Paper's Collections", near, places: true)
+            group("Other Chats", rest, places: true)
+        }
+        .listStyle(.plain)
+        .overlay {
+            if library.threads.isEmpty {
+                Text("No chats yet.").foregroundStyle(.secondary)
+            }
+        }
+        .disabled(chat.running)
+    }
+
+    @ViewBuilder
+    private func group(_ title: String, _ chats: [AiThread], places: Bool) -> some View {
+        if !chats.isEmpty {
+            Section(title) {
+                ForEach(chats) { item in
+                    Button {
+                        open(item.id)
+                    } label: {
+                        HStack {
+                            ChatRow(chat: item, place: places ? store.library.place(of: item) : "")
+                            Spacer(minLength: 8)
+                            if item.id == chat.thread {
+                                Image(systemName: "checkmark").foregroundStyle(Theme.accent)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(item.id == chat.thread ? .isSelected : [])
+                }
+            }
+        }
     }
 }
 
@@ -218,14 +276,30 @@ struct AiPanel: View {
                 .buttonStyle(.bordered)
             } else {
                 Text("Add your Claude or OpenAI API key in Settings (the gear in the library). The paper's text and "
-                     + "your question go to that service when you ask. Past chats, the Mac's among them, are in the "
-                     + "library's Chats.")
+                     + "your question go to that service when you ask. Past chats, the Mac's among them, are under "
+                     + "the menu button at the top left.")
                     .foregroundStyle(.secondary)
             }
         }
     }
 
+    @ViewBuilder
     private var composer: some View {
+        if let elsewhere = chat.elsewhere, chat.attached == nil {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(elsewhere.isEmpty ? "This chat isn't about this paper." : "This chat is about “\(elsewhere)”.")
+                    .font(.callout).foregroundStyle(.secondary).lineLimit(2)
+                Button("New Chat About This Paper") { chat.clear() }
+                    .buttonStyle(.bordered)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+        } else {
+            questionField
+        }
+    }
+
+    private var questionField: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let attached = chat.attached {
                 HStack(alignment: .top, spacing: 8) {
@@ -272,6 +346,7 @@ struct AiPanel: View {
         }
         .padding(12)
         .onChange(of: chat.attached) { _, attached in if attached != nil { typing = true } }
+        .onAppear { if chat.attached != nil { typing = true } }
     }
 }
 

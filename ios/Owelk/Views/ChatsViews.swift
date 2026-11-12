@@ -34,22 +34,12 @@ struct ChatsScreen: View {
         }
     }
 
-    private func paper(of chat: AiThread) -> Paper? {
-        chat.paper.isEmpty ? nil : store.library.papers.first { $0.id == chat.paper }
-    }
+    private func paper(of chat: AiThread) -> Paper? { store.library.paper(of: chat) }
 
-    /// What a conversation is about: its paper, its collection, or the desktop folder it is kept in.
-    private func place(of chat: AiThread) -> String {
-        if let paper = paper(of: chat) { return paper.title }
-        if chat.folder.hasPrefix("collection:"),
-           let collection = store.library.collections.first(where: { $0.id == String(chat.folder.dropFirst(11)) }) {
-            return collection.name
-        }
-        return store.library.chatFolders[chat.folder] ?? ""
-    }
+    private func place(of chat: AiThread) -> String { store.library.place(of: chat) }
 }
 
-private struct ChatRow: View {
+struct ChatRow: View {
     let chat: AiThread
     let place: String
 

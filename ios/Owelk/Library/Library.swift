@@ -55,6 +55,23 @@ struct AiThread: Identifiable, Hashable {
     let folder: String
 }
 
+extension Library {
+    /// The paper a conversation is about, if the iPad has it.
+    func paper(of chat: AiThread) -> Paper? {
+        chat.paper.isEmpty ? nil : papers.first { $0.id == chat.paper }
+    }
+
+    /// What a conversation is about: its paper, its collection, or the desktop folder it is kept in ("" for none).
+    func place(of chat: AiThread) -> String {
+        if let paper = paper(of: chat) { return paper.title }
+        if chat.folder.hasPrefix("collection:"),
+           let collection = collections.first(where: { $0.id == String(chat.folder.dropFirst(11)) }) {
+            return collection.name
+        }
+        return chatFolders[chat.folder] ?? ""
+    }
+}
+
 /// One turn of a conversation (the desktop's `ai_messages`): `content` is exactly what was sent or answered, `display`
 /// what the reader typed.
 struct AiMessage: Hashable {

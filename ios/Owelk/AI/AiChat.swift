@@ -25,6 +25,9 @@ final class AiChat: ObservableObject {
     @Published private(set) var running = false
     /// The conversation shown (nil: a new one, made with its first answer).
     @Published private(set) var thread: String?
+    /// The conversation shown is about something else (another paper, a collection, nothing in particular): what it
+    /// is about ("" when nothing), to be read here. A question about this paper starts a new one.
+    @Published private(set) var elsewhere: String?
     private var task: Task<Void, Never>?
     private var paperText: String?
     private let paper: Paper
@@ -52,6 +55,8 @@ final class AiChat: ObservableObject {
         guard !running, let store else { return }
         let turns = Self.turns(of: await store.messages(of: id))
         thread = id
+        let chat = store.library.threads.first { $0.id == id }
+        elsewhere = chat.flatMap { $0.paper == paper.id ? nil : store.library.place(of: $0) }
         self.turns = turns
     }
 
@@ -94,10 +99,17 @@ final class AiChat: ObservableObject {
         task?.cancel()
         turns = []
         thread = nil
+        elsewhere = nil
     }
 
     private func run(_ action: AiPrompt.Action, label: String, selection: String = "", effort: String = "medium") {
         guard !running else { return }
+        // A question about this paper isn't added to a conversation about something else.
+        if elsewhere != nil {
+            turns = []
+            thread = nil
+            elsewhere = nil
+        }
         let service = AiSettings.service
         let earlier = turns.filter { !$0.running && $0.error == nil && !$0.answer.isEmpty }.suffix(6)
         let history = earlier.flatMap { [("user", $0.sent.isEmpty ? $0.asked : $0.sent), ("assistant", $0.answer)] }

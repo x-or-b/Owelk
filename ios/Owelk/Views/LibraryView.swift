@@ -8,6 +8,62 @@ enum Shelf: Hashable {
     case tag(String)
 }
 
+/// The shelves under All Papers in the library's left column, in the order and with the visibility the reader set
+/// in Settings › Sidebar.
+enum SidebarItem: String, CaseIterable, Identifiable {
+    case favorites, reading, annotated, notes, chats
+
+    var id: String { rawValue }
+
+    var shelf: Shelf {
+        switch self {
+        case .favorites: .favorites
+        case .reading: .reading
+        case .annotated: .annotated
+        case .notes: .notes
+        case .chats: .chats
+        }
+    }
+
+    var name: String {
+        switch self {
+        case .favorites: "Favorites"
+        case .reading: "Reading"
+        case .annotated: "Annotated"
+        case .notes: "Notes"
+        case .chats: "Chats"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .favorites: "star"
+        case .reading: "book"
+        case .annotated: "highlighter"
+        case .notes: "note.text"
+        case .chats: "bubble.left.and.bubble.right"
+        }
+    }
+
+    /// Kept as `@AppStorage` text: the order, then the hidden ones.
+    static let orderKey = "sidebar.order"
+    static let hiddenKey = "sidebar.hidden"
+
+    /// The order kept (names), with any shelf it doesn't name after it in the usual order.
+    static func order(_ kept: String) -> [SidebarItem] {
+        let named = kept.split(separator: ",").compactMap { SidebarItem(rawValue: String($0)) }
+        var seen = Set<SidebarItem>()
+        let ordered = named.filter { seen.insert($0).inserted }
+        return ordered + allCases.filter { !seen.contains($0) }
+    }
+
+    static func hidden(_ kept: String) -> Set<SidebarItem> {
+        Set(kept.split(separator: ",").compactMap { SidebarItem(rawValue: String($0)) })
+    }
+
+    static func keep(_ items: [SidebarItem]) -> String { items.map(\.rawValue).joined(separator: ",") }
+}
+
 enum PaperOrder: String, CaseIterable, Identifiable {
     case lastOpened = "Last Opened", title = "Title", added = "Date Added"
     var id: String { rawValue }
@@ -206,16 +262,23 @@ private struct Sidebar: View {
     /// Change Folder was chosen in Settings: Files opens once Settings has closed.
     @State private var changesFolder = false
 
+    @AppStorage(SidebarItem.orderKey) private var order = ""
+    @AppStorage(SidebarItem.hiddenKey) private var hidden = ""
+    @AppStorage("sidebar.collections.open") private var collectionsOpen = true
+    @AppStorage("sidebar.tags.open") private var tagsOpen = true
+
     var body: some View {
         List(selection: $shelf) {
             Section {
                 Label("All Papers", systemImage: "books.vertical").tag(Shelf.all)
-                Label("Favorites", systemImage: "star").tag(Shelf.favorites)
-                Label("Reading", systemImage: "book").tag(Shelf.reading)
-                Label("Annotated", systemImage: "highlighter").tag(Shelf.annotated)
+                let off = SidebarItem.hidden(hidden)
+                ForEach(SidebarItem.order(order).filter { !off.contains($0) }) { item in
+                    Label(item.name, systemImage: item.icon).tag(item.shelf)
+                }
             }
+            // Folded and unfolded from their headings; kept as they were left.
             if !store.library.collections.isEmpty {
-                Section("Collections") {
+                Section("Collections", isExpanded: $collectionsOpen) {
                     ForEach(store.library.collections) { collection in
                         Label(collection.name, systemImage: "folder")
                             .padding(.leading, CGFloat(collection.depth) * 16)
@@ -224,18 +287,18 @@ private struct Sidebar: View {
                 }
             }
             if !store.library.tags.isEmpty {
-                Section("Tags") {
+                Section("Tags", isExpanded: $tagsOpen) {
                     ForEach(store.library.tags) { tag in
                         Label(tag.name, systemImage: "tag").tag(Shelf.tag(tag.name))
                     }
                 }
             }
-            Section {
-                Label("Notes", systemImage: "note.text").tag(Shelf.notes)
-                Label("Chats", systemImage: "bubble.left.and.bubble.right").tag(Shelf.chats)
-            }
         }
         .navigationTitle("Owelk")
+        // A shelf hidden in Settings while it is shown gives way to All Papers.
+        .onChange(of: hidden) { _, kept in
+            if SidebarItem.hidden(kept).contains(where: { $0.shelf == shelf }) { shelf = .all }
+        }
         // Sync is set up once, so it lives in Settings; the foot of the list speaks only while syncing or when a sync
         // failed.
         .safeAreaInset(edge: .bottom) {
@@ -276,7 +339,7 @@ private struct Sidebar: View {
     }
 }
 
-/// Settings: the sync folder, how the last sync went, Sync Now and Change Folder.
+/// Settings, a page for each part of the app: the left column's shelves, syncing with the computers, and the AI.
 private struct SettingsSheet: View {
     @EnvironmentObject private var store: LibraryStore
     @Environment(\.dismiss) private var dismiss
@@ -285,21 +348,23 @@ private struct SettingsSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Sync") {
-                    LabeledContent("Folder", value: store.folderName ?? "None")
-                    LabeledContent("Last Sync") {
-                        HStack(spacing: 6) {
-                            if store.syncing { ProgressView().controlSize(.mini) }
-                            Text(store.syncing ? "Syncing…" : store.status)
-                                .foregroundStyle(store.failed ? Color.red : Color.secondary)
-                                .multilineTextAlignment(.trailing)
-                        }
+                Section {
+                    NavigationLink {
+                        SidebarSettings()
+                    } label: {
+                        SettingsRow("Sidebar", icon: "sidebar.left", value: "")
                     }
-                    Button("Sync Now") { Task { await store.refresh() } }
-                        .disabled(store.syncing)
-                    Button("Change Folder…", action: changeFolder)
+                    NavigationLink {
+                        SyncSettings(changeFolder: changeFolder)
+                    } label: {
+                        SettingsRow("Sync", icon: "arrow.triangle.2.circlepath", value: store.folderName ?? "None")
+                    }
+                    NavigationLink {
+                        AiSettingsPage()
+                    } label: {
+                        SettingsRow("AI", icon: "sparkles", value: AiSettings.service.name)
+                    }
                 }
-                AiSection()
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -310,6 +375,102 @@ private struct SettingsSheet: View {
             }
         }
         .tint(Theme.accent)
+    }
+}
+
+private struct SettingsRow: View {
+    let title: String
+    let icon: String
+    let value: String
+
+    init(_ title: String, icon: String, value: String) {
+        self.title = title
+        self.icon = icon
+        self.value = value
+    }
+
+    var body: some View {
+        LabeledContent {
+            Text(value).lineLimit(1)
+        } label: {
+            Label {
+                Text(title)
+            } icon: {
+                Image(systemName: icon).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+/// The shelves under All Papers: dragged into order, each shown or hidden.
+private struct SidebarSettings: View {
+    @AppStorage(SidebarItem.orderKey) private var order = ""
+    @AppStorage(SidebarItem.hiddenKey) private var hidden = ""
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(SidebarItem.order(order)) { item in
+                    Toggle(isOn: shown(item)) {
+                        Label {
+                            Text(item.name)
+                        } icon: {
+                            Image(systemName: item.icon).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .onMove { from, to in
+                    var items = SidebarItem.order(order)
+                    items.move(fromOffsets: from, toOffset: to)
+                    order = SidebarItem.keep(items)
+                }
+            } footer: {
+                Text("Drag to change the order; switch off what you don't use. All Papers stays at the top, and "
+                     + "Collections and Tags follow.")
+            }
+        }
+        .environment(\.editMode, .constant(.active))
+        .navigationTitle("Sidebar")
+    }
+
+    private func shown(_ item: SidebarItem) -> Binding<Bool> {
+        Binding {
+            !SidebarItem.hidden(hidden).contains(item)
+        } set: { shown in
+            var off = SidebarItem.hidden(hidden)
+            if shown { off.remove(item) } else { off.insert(item) }
+            hidden = SidebarItem.keep(SidebarItem.allCases.filter(off.contains))
+        }
+    }
+}
+
+/// Syncing with the computers: the folder Synctrain keeps, how the last sync went, Sync Now and Change Folder.
+private struct SyncSettings: View {
+    @EnvironmentObject private var store: LibraryStore
+    let changeFolder: () -> Void
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent("Folder", value: store.folderName ?? "None")
+                Button("Change Folder…", action: changeFolder)
+            } footer: {
+                Text("The Owelk folder Synctrain keeps in step with your computers.")
+            }
+            Section {
+                LabeledContent("Last Sync") {
+                    HStack(spacing: 6) {
+                        if store.syncing { ProgressView().controlSize(.mini) }
+                        Text(store.syncing ? "Syncing…" : store.status)
+                            .foregroundStyle(store.failed ? Color.red : Color.secondary)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
+                Button("Sync Now") { Task { await store.refresh() } }
+                    .disabled(store.syncing)
+            }
+        }
+        .navigationTitle("Sync")
     }
 }
 
@@ -426,7 +587,7 @@ private struct PaperRow: View {
 }
 
 /// The AI: the service and its API key (kept in this iPad's Keychain), the model, and how answers are written.
-private struct AiSection: View {
+private struct AiSettingsPage: View {
     @State private var service = AiSettings.service
     @State private var key = AiSettings.key(for: AiSettings.service)
     @State private var model = AiSettings.model(for: AiSettings.service)
@@ -434,35 +595,41 @@ private struct AiSection: View {
     @State private var level = AiSettings.level
 
     var body: some View {
-        Section {
-            Picker("Service", selection: $service) {
-                ForEach(AiService.allCases) { Text($0.name).tag($0) }
-            }
-            SecureField("API Key", text: $key)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .onSubmit { AiSettings.setKey(key, for: service) }
-            if service == .claude {
-                Picker("Model", selection: $model) {
-                    ForEach(service.models, id: \.id) { Text($0.name).tag($0.id) }
+        Form {
+            Section {
+                Picker("Service", selection: $service) {
+                    ForEach(AiService.allCases) { Text($0.name).tag($0) }
                 }
-            } else {
-                TextField("Model", text: $model)
+                SecureField("API Key", text: $key)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .onSubmit { AiSettings.setKey(key, for: service) }
+                if service == .claude {
+                    Picker("Model", selection: $model) {
+                        ForEach(service.models, id: \.id) { Text($0.name).tag($0.id) }
+                    }
+                } else {
+                    TextField("Model", text: $model)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                }
+            } header: {
+                Text("Service")
+            } footer: {
+                Text("When you ask, the paper's text and your question go to this service with your key. The key stays "
+                     + "on this iPad. Past chats can be read without a key.")
             }
-            Picker("Answer Language", selection: $language) {
-                ForEach(AiSettings.languages, id: \.id) { Text($0.name).tag($0.id) }
+            Section("Answers") {
+                Picker("Answer Language", selection: $language) {
+                    ForEach(AiSettings.languages, id: \.id) { Text($0.name).tag($0.id) }
+                }
+                Picker("Explanations", selection: $level) {
+                    Text("Easy").tag("easy")
+                    Text("Brief").tag("brief")
+                }
             }
-            Picker("Explanations", selection: $level) {
-                Text("Easy").tag("easy")
-                Text("Brief").tag("brief")
-            }
-        } header: {
-            Text("AI")
-        } footer: {
-            Text("When you ask, the paper's text and your question go to this service with your key. The key stays on this iPad.")
         }
+        .navigationTitle("AI")
         .onChange(of: service) { old, new in
             AiSettings.setKey(key, for: old)
             AiSettings.setModel(model, for: old)
