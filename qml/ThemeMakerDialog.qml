@@ -35,13 +35,17 @@ Dialog {
         open()
         colorDialog.open()
     }
-    // The light version, the dark one or both; with both, the one like the theme in use is used.
+    // The light version, the dark one or both; with both, the one like the theme in use is used, and with Match System
+    // each is the theme for its appearance.
     function add(light, dark) {
         const name = nameField.text.trim().length ? nameField.text.trim() : qsTr("My theme")
         const wasDark = Theme.dark
         const lightId = light ? Theme.addTheme(name, lightSeeds, chosen.toString()) : ""
         const darkId = dark ? Theme.addTheme(light ? qsTr("%1 Dark").arg(name) : name, darkSeeds, chosen.toString()) : ""
-        if (light && dark) Theme.theme = wasDark ? darkId : lightId
+        if (light && dark) {
+            if (Theme.matchSystem) { Theme.lightTheme = lightId; Theme.darkTheme = darkId }
+            Theme.theme = wasDark ? darkId : lightId
+        }
         close()
     }
     contentItem: ColumnLayout {

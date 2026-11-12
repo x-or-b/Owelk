@@ -350,6 +350,16 @@ Item {
             compare(Theme.dark, wasDark)
             compare(Theme.accentName, "custom")
             compare(Theme.customAccent.toString(), maker.chosen.toString())
+            // With Match System, each version is the theme for its appearance.
+            Theme.matchSystem = true
+            maker.fromPhoto(testInput.pictureFile(400, 300, false, "#d98f4f"))
+            tryCompare(maker, "opened", true)
+            findChild(maker.contentItem, "makerName").text = "Dusk"
+            findChild(maker.footer, "makerAddBoth").clicked()
+            tryCompare(maker, "opened", false)
+            const named = function(name) { return Theme.myThemes.find(function(t) { return t.name === name }).id }
+            compare(Theme.lightTheme, named("Dusk"))
+            compare(Theme.darkTheme, named("Dusk Dark"))
         }
         function test_fiveTapsOnTheThemeHeadingChooseAPicture() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
