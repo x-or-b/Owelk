@@ -225,15 +225,14 @@ private struct FloatingConversation: View {
     let model: ReaderModel
 
     var body: some View {
-        AiPanel(chat: model.ai) { model.go(toPage: $0) }
+        AiPanel(chat: model.ai)
     }
 }
 
 /// The AI's conversation about the paper: answers about it, a three-line summary, and explanations of selected text.
-/// Places the answers cite ([p. 3: "…"]) open their page.
+/// Places the answers cite ([p. 3: "…"]) are links the reader follows (`PaperLinks`).
 struct AiPanel: View {
     @ObservedObject var chat: AiChat
-    let goToPage: (Int) -> Void
     @FocusState private var typing: Bool
 
     var body: some View {
@@ -256,13 +255,6 @@ struct AiPanel: View {
             composer
         }
         .tint(.primary)
-        .environment(\.openURL, OpenURLAction { url in
-            guard url.scheme == "owelk-page", let page = Int(url.absoluteString.dropFirst("owelk-page:".count)) else {
-                return .systemAction
-            }
-            goToPage(page - 1)
-            return .handled
-        })
     }
 
     private var start: some View {

@@ -5,7 +5,8 @@ import SwiftUI
 /// it in the AI window, to go on with it there.
 struct ChatsScreen: View {
     @EnvironmentObject private var store: LibraryStore
-    let openPaper: (Paper, String) -> Void
+    /// A paper opened with a chat beside it, at a place an answer links to.
+    let openPaper: (Paper, String?, PaperLink?) -> Void
     @State private var query = ""
 
     var body: some View {
@@ -64,10 +65,11 @@ struct ChatRow: View {
 /// A conversation to read: each question with its answer, as the AI window shows them.
 private struct ChatView: View {
     @EnvironmentObject private var store: LibraryStore
+    @Environment(\.openURL) private var openElsewhere
     let chat: AiThread
     let place: String
     let paper: Paper?
-    let openPaper: (Paper, String) -> Void
+    let openPaper: (Paper, String?, PaperLink?) -> Void
     @State private var turns: [AiChat.Turn]?
 
     var body: some View {
@@ -96,14 +98,19 @@ private struct ChatView: View {
         .toolbar {
             if let paper {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Open Paper") { openPaper(paper, chat.id) }
+                    Button("Open Paper") { openPaper(paper, chat.id, nil) }
                 }
             }
         }
-        // A page an answer cites opens its paper, with this conversation beside it.
+        // A place in this chat's paper an answer cites opens the paper there, with this chat beside it; other links
+        // are followed as the library follows them.
         .environment(\.openURL, OpenURLAction { url in
-            guard url.scheme == "owelk-page" else { return .systemAction }
-            if let paper { openPaper(paper, chat.id) }
+            if let paper, let link = PaperLink(url),
+               link.document.isEmpty || store.library.paperOf[link.document] == paper.id {
+                openPaper(paper, chat.id, link)
+            } else {
+                openElsewhere(url)
+            }
             return .handled
         })
         .task(id: chat.id) { turns = AiChat.turns(of: await store.messages(of: chat.id)) }

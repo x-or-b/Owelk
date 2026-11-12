@@ -64,6 +64,14 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     static func keep(_ items: [SidebarItem]) -> String { items.map(\.rawValue).joined(separator: ",") }
 }
 
+/// A paper being read, as it was opened: from the list, from a chat (shown beside it), or from a link (at its place).
+private struct Opening: Identifiable {
+    let id = UUID()
+    let paper: Paper
+    var chat: String?
+    var link: PaperLink?
+}
+
 enum PaperOrder: String, CaseIterable, Identifiable {
     case lastOpened = "Last Opened", title = "Title", added = "Date Added"
     var id: String { rawValue }
@@ -75,9 +83,10 @@ struct LibraryView: View {
     @State private var shelf: Shelf? = .all
     @State private var query = ""
     @State private var order = PaperOrder.lastOpened
+    /// A paper to open (from the list, the notice, the web search).
     @State private var opened: Paper?
-    /// The conversation to show in the paper opened from Chats.
-    @State private var openedChat: String?
+    /// The paper being read, as it was opened.
+    @State private var opening: Opening?
     @State private var addingFiles = false
     @State private var searching = false
     /// A paper to open once the web search has closed.
@@ -88,16 +97,24 @@ struct LibraryView: View {
         NavigationSplitView {
             Sidebar(shelf: $shelf, choosingFolder: $choosingFolder)
         } detail: {
-            if shelf == .notes {
-                NotesScreen()
-            } else if shelf == .chats {
-                ChatsScreen { paper, chat in
-                    openedChat = chat
-                    opened = paper
+            Group {
+                if shelf == .notes {
+                    NotesScreen()
+                } else if shelf == .chats {
+                    ChatsScreen { paper, chat, link in opening = Opening(paper: paper, chat: chat, link: link) }
+                } else {
+                    papersPane
                 }
-            } else {
-                papersPane
             }
+            // A note's or an answer's link to a paper opens it at the place.
+            .modifier(PaperLinks(reading: nil) { _ in } open: { paper, link in
+                opening = Opening(paper: paper, link: link)
+            })
+        }
+        .onChange(of: opened) { _, paper in
+            guard let paper else { return }
+            opening = Opening(paper: paper)
+            opened = nil
         }
         .fullScreenCover(isPresented: $searching, onDismiss: {
             if let paper = openAfterSearch {
@@ -108,8 +125,12 @@ struct LibraryView: View {
             let (collection, tag) = destination
             WebSearchScreen(collection: collection, tag: tag, openAfter: $openAfterSearch).environmentObject(store)
         }
-        .fullScreenCover(item: $opened, onDismiss: { openedChat = nil }) { paper in
-            ReaderScreen(paper: paper, chat: openedChat).environmentObject(store)
+        // A link in the paper to another paper opens that one in its place.
+        .fullScreenCover(item: $opening) { opening in
+            ReaderScreen(paper: opening.paper, chat: opening.chat, link: opening.link) { paper, link in
+                self.opening = Opening(paper: paper, link: link)
+            }
+            .environmentObject(store)
         }
     }
 

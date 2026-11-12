@@ -106,7 +106,8 @@ struct AiPrompt {
 
     /// An answer's citations of the paper, [p. 3: "exact words"], [p. 3] or [pp. 3-4], as links to their page.
     static func linkingPages(_ answer: String) -> String {
-        let pattern = #"\[(pp?)\. (\d+)(?:[-–]\d+)?(?::\s*"[^"\]]*")?\]"#
+        // Not one the desktop has linked already ([p. 3](owelk://document/…)).
+        let pattern = #"\[(pp?)\. (\d+)(?:[-–]\d+)?(?::\s*"[^"\]]*")?\](?!\()"#
         guard let expression = try? NSRegularExpression(pattern: pattern) else { return answer }
         var result = answer
         for match in expression.matches(in: answer, range: NSRange(answer.startIndex..., in: answer)).reversed() {

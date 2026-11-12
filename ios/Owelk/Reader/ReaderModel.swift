@@ -25,6 +25,8 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
     private(set) lazy var ai = AiChat(paper: paper) { [weak self] in self?.controller.document }
     /// A conversation chosen in the library's Chats, shown when the paper opens.
     private let chat: String?
+    /// A place a link led to, shown when the paper opens.
+    private let link: PaperLink?
     @Published var showsThumbnails = false {
         didSet { controller.showsThumbnails = showsThumbnails }
     }
@@ -42,9 +44,10 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
     private var lastInk: PenTool
     private var lastSaved: ReadingPosition?
 
-    init(paper: Paper, chat: String? = nil) {
+    init(paper: Paper, chat: String? = nil, link: PaperLink? = nil) {
         self.paper = paper
         self.chat = chat
+        self.link = link
         let saved = UserDefaults.standard.string(forKey: "pen.color") ?? ""
         color = PenTool.colors.contains(saved) ? saved : PenTool.colors[0]
         tool = .pen(color)
@@ -93,7 +96,9 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         }
         let start = await position
         lastSaved = start
-        controller.start = start
+        // Opened from a link: at its place (kept there as the pages are laid out), not where it was left.
+        let target = link.map { place(of: $0, in: document) }
+        controller.start = target?.position ?? start
         controller.pen.drawn = { [weak self, weak store] page, id, points, color in
             guard let self, let store else { return }
             store.addStroke(id: id, to: self.paper, page: page, points: points, color: color)
@@ -105,6 +110,7 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         }
         controller.onMarkChanged = { [weak store] id, color, body in store?.updateMark(id, color: color, body: body) }
         controller.document = document
+        if let words = target?.words { controller.pdfView.highlightedSelections = [words] }
         controller.show(await marks) { name in
             store.annotationImage(name)
         }
@@ -198,6 +204,28 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         controller.go(to: page, y: 0)
     }
 
+    /// A place in this paper a link leads to: its page, with the words it quotes picked out when they are found there.
+    func show(_ link: PaperLink) {
+        guard let document = controller.document, document.pageCount > 0 else { return }
+        let place = place(of: link, in: document)
+        controller.pdfView.highlightedSelections = place.words.map { [$0] }
+        if let page = document.page(at: place.position.page) { controller.go(to: page, y: place.position.y) }
+    }
+
+    /// Where a link leads in a paper: its page, from the top or with the quoted words a little below the top (picked
+    /// out in the accent) when they are found there.
+    private func place(of link: PaperLink, in document: PDFDocument) -> (position: ReadingPosition, words: PDFSelection?) {
+        let index = min(max(0, (link.page ?? 1) - 1), document.pageCount - 1)
+        guard let quote = link.quote, let page = document.page(at: index),
+              let found = PaperLink.find(quote, onPage: index, of: document) else {
+            return (ReadingPosition(page: index, y: 0), nil)
+        }
+        let bounds = found.bounds(for: page)
+        let top = PageGeometry(page).fraction(CGPoint(x: bounds.minX, y: bounds.maxY)).y
+        found.color = Theme.accentUI.withAlphaComponent(0.35)
+        return (ReadingPosition(page: index, y: min(1, max(0, top - 0.04))), found)
+    }
+
     /// The paper's marks, page by page.
     func annotations() -> [Mark] { controller.allMarks() }
 
@@ -275,8 +303,13 @@ struct ReaderScreen: View {
     @State private var showsNotes = false
     private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
-    init(paper: Paper, chat: String? = nil) {
-        _model = StateObject(wrappedValue: ReaderModel(paper: paper, chat: chat))
+    /// Another paper a link leads to, opened in place of this one.
+    private let openOther: (Paper, PaperLink) -> Void
+
+    init(paper: Paper, chat: String? = nil, link: PaperLink? = nil,
+         openOther: @escaping (Paper, PaperLink) -> Void = { _, _ in }) {
+        _model = StateObject(wrappedValue: ReaderModel(paper: paper, chat: chat, link: link))
+        self.openOther = openOther
     }
 
     var body: some View {
@@ -376,7 +409,10 @@ struct ReaderScreen: View {
                     }
                     .disabled(!model.loaded)
                     .sheet(isPresented: $showsNotes) {
-                        PaperNotes(paper: model.paper).environmentObject(store).presentationSizing(.page)
+                        PaperNotes(paper: model.paper)
+                            .modifier(links)
+                            .environmentObject(store)
+                            .presentationSizing(.page)
                     }
                     Button {
                         showsSearch = true
@@ -392,6 +428,8 @@ struct ReaderScreen: View {
             }
             .tint(.primary)
         }
+        // Links in the AI's answers and in notes: to a place in this paper, or (after asking) to another paper.
+        .modifier(links)
         .task { await model.load(from: store) }
         .onReceive(timer) { _ in model.savePosition(to: store) }
         .onChange(of: phase) { _, phase in
@@ -402,6 +440,17 @@ struct ReaderScreen: View {
     private func close() {
         model.savePosition(to: store)
         dismiss()
+    }
+
+    private var links: PaperLinks {
+        PaperLinks(reading: model.paper) { link in
+            showsNotes = false
+            model.show(link)
+        } open: { paper, link in
+            showsNotes = false
+            model.savePosition(to: store)
+            openOther(paper, link)
+        }
     }
 }
 

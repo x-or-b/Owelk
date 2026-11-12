@@ -34,6 +34,33 @@ final class AiTests: XCTestCase {
         XCTAssertEqual(AiPrompt.linkingPages("See [pp. 4-5] and [p. 7]."),
                        "See [pp. 4-5](owelk-page:4) and [p. 7](owelk-page:7).")
         XCTAssertEqual(AiPrompt.linkingPages("[1] stays"), "[1] stays")
+        // The desktop's answers come linked already: the link stays as it is.
+        let linked = "See [p. 3](owelk://document/d1#page=3&q=the%20walls)."
+        XCTAssertEqual(AiPrompt.linkingPages(linked), linked)
+        let runs = AnswerText.inline(linked).runs.compactMap(\.link)
+        XCTAssertEqual(runs.map(\.absoluteString), ["owelk://document/d1#page=3&q=the%20walls"])
+        XCTAssertEqual(String(AnswerText.inline(linked).characters), "See p. 3.")
+    }
+
+    /// The places answers and notes link to: the desktop's (paper, page, quoted words) and the iPad's page citations.
+    func testPaperLinks() throws {
+        let desktop = try XCTUnwrap(URL(string: "owelk://document/06e20db6-035d#page=3&q=define%203D%20points%20w.r.t."))
+        XCTAssertEqual(PaperLink(desktop), PaperLink(document: "06e20db6-035d", page: 3, quote: "define 3D points w.r.t."))
+        let paper = try XCTUnwrap(URL(string: "owelk://document/7496cf2a"))
+        XCTAssertEqual(PaperLink(paper), PaperLink(document: "7496cf2a", page: nil, quote: nil))
+        XCTAssertEqual(PaperLink(try XCTUnwrap(URL(string: "owelk-page:12"))), PaperLink(document: "", page: 12, quote: nil))
+        XCTAssertNil(PaperLink(try XCTUnwrap(URL(string: "https://www.youtube.com/watch?v=x"))))
+        XCTAssertNil(PaperLink(try XCTUnwrap(URL(string: "owelk://note/n1"))))
+
+        // The quoted words are picked out on their page, or their first words where the page breaks them otherwise.
+        let document = try XCTUnwrap(PDFDocument(url: ConformanceTests.addedPdf))
+        let text = try XCTUnwrap(document.page(at: 0)?.string)
+        let first = text.split(whereSeparator: \.isWhitespace).prefix(4).joined(separator: " ")
+        let whole = try XCTUnwrap(PaperLink.find(first, onPage: 0, of: document))
+        XCTAssertEqual(whole.string?.split(whereSeparator: \.isWhitespace).joined(separator: " "), first)
+        let broken = try XCTUnwrap(PaperLink.find(first + " zzqx never written here", onPage: 0, of: document))
+        XCTAssertEqual(broken.pages.first, document.page(at: 0))
+        XCTAssertNil(PaperLink.find("zzqx never written here", onPage: 0, of: document))
     }
 
     func testRequestsAreTheDesktops() throws {

@@ -140,7 +140,6 @@ struct NoteEditor: View {
                 .disabled(id == nil)
             }
         }
-        .environment(\.openURL, OpenURLAction { url in url.scheme == "owelk" ? .handled : .systemAction })
         .onAppear(perform: start)
         .onChange(of: title) { _, _ in later() }
         .onChange(of: text) { _, _ in later() }
