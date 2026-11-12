@@ -307,11 +307,32 @@ Item {
             compare(researchStore.aiThread(thread).folder, "")
             compare(researchStore.aiThread(asked).folder, "")
             verify(groupAt("") >= 0) // Unfiled
-            // Sorted by name or by the latest; the search keeps chats whose words match.
-            threads.setSort("name")
-            const names = list.model.filter(function(r) { return r.type === "group" && r.id.length }).map(function(r) { return r.name })
-            compare(names, names.slice().sort(function(a, b) { return a.localeCompare(b) }))
+            // Latest first, or Manual: what shows keeps its place, even as a chat is opened; a drag puts a chat
+            // among the chats, or a Thread among the Threads.
+            threads.setGroupOpen("unfiled", true)
+            threads.setSort("manual")
+            compare(researchStore.setting("threads.sort"), "manual")
+            const shown = function() { return list.model.map(function(r) { return r.type === "chat" ? r.chat.id : r.key }) }
+            const placed = shown()
+            const lower = chatAt(thread) > chatAt(asked) ? thread : asked, upper = lower === thread ? asked : thread
+            verify(ai.openThread(lower))
+            wait(300)
+            compare(shown(), placed)
+            const rowOf = function(index) { tryVerify(function() { return list.itemAtIndex(index) !== null }); return list.itemAtIndex(index) }
+            waitForPolish(list)
+            let a = rowOf(chatAt(upper)), b = rowOf(chatAt(lower))
+            testInput.pointerDrag(threads, a.mapToItem(threads, 40, a.height / 2), b.mapToItem(threads, 40, b.height * 0.8), false)
+            tryVerify(function() { return chatAt(upper) > chatAt(lower) })
+            const extra = researchStore.createAiFolder("Extra " + Date.now())
+            tryVerify(function() { return groupAt(extra) >= 0 && groupAt(extra) < groupAt(paperThread) }) // New: first.
+            waitForPolish(list)
+            a = rowOf(groupAt(extra)); b = rowOf(groupAt(paperThread))
+            testInput.pointerDrag(threads, a.mapToItem(threads, 40, a.height / 2), b.mapToItem(threads, 40, b.height * 0.8), false)
+            tryVerify(function() { return groupAt(extra) > groupAt(paperThread) })
+            compare(JSON.parse(researchStore.setting("threads.order")).threads.indexOf(extra), JSON.parse(researchStore.setting("threads.order")).threads.indexOf(paperThread) + 1)
+            verify(researchStore.deleteAiFolder(extra))
             threads.setSort("recent")
+            // The search keeps chats whose words match.
             const search = findChild(threads, "threadsSearch")
             search.text = "Where does this belong"
             tryVerify(function() { const chats = list.model.filter(function(r) { return r.type === "chat" }); return chats.length === 1 && chats[0].chat.id === asked })

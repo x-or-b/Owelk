@@ -7808,16 +7808,16 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation> 투 트래시</translation>
     </message>
     <message>
-        <source>By Name</source>
-        <translation>바이 네임</translation>
-    </message>
-    <message>
         <source>Chats about a paper gather in its Thread. Make your own Threads with +.</source>
         <translation>챗스 어바웃 어 페이퍼 개더 인 잇츠 스레드. 메이크 유어 오운 스레즈 위드 +.</translation>
     </message>
     <message>
         <source>Delete Thread</source>
         <translation>딜리트 스레드</translation>
+    </message>
+    <message>
+        <source>Manual</source>
+        <translation>매뉴얼</translation>
     </message>
     <message>
         <source>Move </source>

@@ -6,7 +6,7 @@ import Owelk.Ui
 // Threads: folders of AI chats, in a panel of their own beside the AI panel (Main.qml keeps it on the
 // outer side). A chat about a paper starts in its paper's Thread; others start in the Thread they were
 // begun in, or unfiled. Threads can be made, renamed and deleted (their chats stay, unfiled); chats move
-// by dragging or from their menu.
+// by dragging or from their menu. Sorted latest first, or by hand (Manual).
 Rectangle {
     id: root
     objectName: "threadsPanel"
@@ -22,8 +22,20 @@ Rectangle {
     signal trashRequested()
     color: Theme.sidebar
 
+    // Latest first, or Manual: in the order the chats and Threads were dragged to (kept on this computer, like
+    // the sort itself). A Thread or chat not placed yet (a new one) goes first, latest first, and then stays.
     property string sort: researchStore.setting("threads.sort", "recent")
-    function setSort(value) { sort = value; researchStore.setSetting("threads.sort", value) }
+    readonly property bool manual: sort === "manual"
+    function setSort(value) { sort = value; researchStore.setSetting("threads.sort", value); placeNew() }
+    // {threads: [Thread ID], chats: {Thread key: [chat ID]}}
+    property var order: {
+        try { return JSON.parse(researchStore.setting("threads.order", "{}")) || ({}) } catch (e) { return ({}) }
+    }
+    function saveOrder(next) {
+        if (JSON.stringify(next) === JSON.stringify(order)) return
+        order = next
+        researchStore.setSetting("threads.order", JSON.stringify(next))
+    }
     // Threads unfolded (by folder ID; "unfiled" for the chats in none), remembered between sessions.
     property var openGroups: {
         try { return JSON.parse(researchStore.setting("threads.open", "{}")) || ({}) } catch (e) { return ({}) }
@@ -50,6 +62,7 @@ Rectangle {
         researchStore.aiThreads(needle).forEach(function(chat) { found[chat.id] = true })
         matched = found
     }
+    onFoldersChanged: placeNew()
     Timer { id: refreshTimer; interval: 150; onTriggered: root.refresh() }
     onNeedleChanged: refreshTimer.restart()
     Connections {
@@ -68,16 +81,69 @@ Rectangle {
         const ids = chats.map(function(c) { return c.id })
         selectedChats = selectedChats.filter(function(id) { return ids.indexOf(id) >= 0 })
         revealCurrent()
+        placeNew()
     }
     Component.onCompleted: refresh()
 
-    function byChat(a, b) {
-        if (sort === "name") return a.title.localeCompare(b.title)
-        return a.openedAt < b.openedAt ? 1 : a.openedAt > b.openedAt ? -1 : 0
+    // Sorted in place: latest first, or in Manual as placed (`placed`: IDs in order), those not placed first.
+    function ordered(list, placed, latestOf) {
+        const at = {}
+        if (manual) (placed || []).forEach(function(id, i) { at[id] = i })
+        return list.sort(function(a, b) {
+            const x = at[a.id], y = at[b.id]
+            if (x !== undefined && y !== undefined) return x - y
+            if (x !== undefined) return 1
+            if (y !== undefined) return -1
+            const p = latestOf(a), q = latestOf(b)
+            return p < q ? 1 : p > q ? -1 : 0
+        })
     }
-    function byGroup(a, b) {
-        if (sort === "name") return a.name.localeCompare(b.name)
-        return a.latest < b.latest ? 1 : a.latest > b.latest ? -1 : 0
+    function chatsIn(folder) {
+        return ordered(chats.filter(function(c) { return c.folder === folder }), (order.chats || {})[groupKey(folder)], function(c) { return c.openedAt })
+    }
+    // Every Thread (not Unfiled) as shown; a Thread is as recent as its latest chat.
+    function threadsInOrder() {
+        const latest = {}
+        chats.forEach(function(c) { if (!latest[c.folder] || c.openedAt > latest[c.folder]) latest[c.folder] = c.openedAt })
+        const list = folders.map(function(f) { const own = f.updatedAt || ""; return {id: f.id, latest: latest[f.id] > own ? latest[f.id] : own} })
+        return ordered(list, order.threads, function(g) { return g.latest })
+    }
+    // In Manual, what is shown becomes the order, so new chats and Threads keep their place from then on.
+    function placeNew() {
+        if (!manual) return
+        const next = {threads: threadsInOrder().map(function(g) { return g.id }), chats: {}}
+        const seen = {}
+        chats.forEach(function(c) {
+            if (seen[c.folder]) return
+            seen[c.folder] = true
+            next.chats[groupKey(c.folder)] = chatsIn(c.folder).map(function(chat) { return chat.id })
+        })
+        saveOrder(next)
+    }
+    // Manual: chats dropped before or after another chat, in its Thread (they move there if they were elsewhere).
+    function placeChats(ids, target, after) {
+        const goal = chats.find(function(c) { return c.id === target })
+        if (!goal) return
+        const moving = ids.filter(function(id) { return id !== target })
+        if (!moving.length) return
+        const shown = rows.filter(function(r) { return r.type === "chat" }).map(function(r) { return r.chat.id })
+        moving.sort(function(a, b) { return shown.indexOf(a) - shown.indexOf(b) })
+        const elsewhere = moving.filter(function(id) { const c = chats.find(function(x) { return x.id === id }); return c && c.folder !== goal.folder })
+        if (elsewhere.length) researchStore.moveAiThreads(elsewhere, goal.folder)
+        const list = chatsIn(goal.folder).map(function(c) { return c.id }).filter(function(id) { return moving.indexOf(id) < 0 })
+        list.splice(list.indexOf(target) + (after ? 1 : 0), 0, ...moving)
+        const next = {threads: (order.threads || []).slice(), chats: Object.assign({}, order.chats || {})}
+        next.chats[groupKey(goal.folder)] = list
+        saveOrder(next)
+    }
+    // Manual: a Thread dropped before or after another (Unfiled stays last; dropped on it, the Thread goes last).
+    function placeThread(id, target, after) {
+        if (id === target) return
+        const list = threadsInOrder().map(function(g) { return g.id }).filter(function(t) { return t !== id })
+        const at = target.length ? list.indexOf(target) : -1
+        if (at < 0) list.push(id)
+        else list.splice(at + (after ? 1 : 0), 0, id)
+        saveOrder({threads: list, chats: Object.assign({}, order.chats || {})})
     }
     // Threads by name, for the Move To menu.
     readonly property var foldersByName: folders.slice().sort(function(a, b) { return a.name.localeCompare(b.name) })
@@ -90,13 +156,13 @@ Rectangle {
         const group = function(id, name, updatedAt) {
             const all = members[id] || []
             const named = words.length > 0 && name.toLowerCase().indexOf(words) >= 0
-            const list = named ? all.slice() : all.filter(hit)
-            list.sort(byChat)
+            const list = ordered(named ? all.slice() : all.filter(hit), (root.order.chats || {})[groupKey(id)], function(c) { return c.openedAt })
             const latest = list.reduce(function(m, c) { return c.openedAt > m ? c.openedAt : m }, updatedAt || "")
             return {type: "group", id: id, key: groupKey(id), name: name, chats: list, latest: latest, count: all.length, named: named}
         }
         const groups = folders.map(function(f) { return group(f.id, f.name, f.updatedAt) })
-            .filter(function(g) { return !words.length || g.named || g.chats.length }).sort(byGroup)
+            .filter(function(g) { return !words.length || g.named || g.chats.length })
+        ordered(groups, root.order.threads, function(g) { return g.latest })
         const unfiled = group("", qsTr("Unfiled"), "")
         if ((!words.length && (groups.length || unfiled.count)) || unfiled.chats.length) groups.push(unfiled)
         const list = []
@@ -159,8 +225,8 @@ Rectangle {
                 Menu {
                     id: sortMenu
                     objectName: "threadsSortMenu"
-                    MenuItem { objectName: "threadsSortRecent"; text: qsTr("Recent First"); checkable: true; checked: root.sort !== "name"; onTriggered: root.setSort("recent") }
-                    MenuItem { objectName: "threadsSortName"; text: qsTr("By Name"); checkable: true; checked: root.sort === "name"; onTriggered: root.setSort("name") }
+                    MenuItem { objectName: "threadsSortRecent"; text: qsTr("Recent First"); checkable: true; checked: !root.manual; onTriggered: root.setSort("recent") }
+                    MenuItem { objectName: "threadsSortManual"; text: qsTr("Manual"); checkable: true; checked: root.manual; onTriggered: root.setSort("manual") }
                 }
             }
             IconButton { objectName: "threadsTrash"; icon.name: "trash"; description: qsTr("Trash (in the Library)"); onClicked: root.trashRequested() }
@@ -176,7 +242,8 @@ Rectangle {
             Keys.onEscapePressed: text = ""
         }
         // Click opens a chat or folds a Thread; Cmd/Ctrl-click and Shift-click choose several chats; a drag
-        // moves them to another Thread; Delete or the right-click menu moves them to the Trash.
+        // moves them to another Thread (in Manual, to a place among the chats too); Delete or the right-click
+        // menu moves them to the Trash.
         ListView {
             id: list
             objectName: "threadsList"
@@ -265,13 +332,15 @@ Rectangle {
                         chatMenu.popup()
                     }
                 }
-                // Dragging a chosen chat moves every chosen one.
+                // Dragging a chosen chat moves every chosen one. In Manual, a Thread is dragged to another place too.
                 DragHandler {
                     id: dragHandler
-                    enabled: !row.isGroup
+                    enabled: !row.isGroup || (root.manual && row.modelData.id.length > 0)
                     target: null
                     onActiveChanged: {
                         if (active) {
+                            if (row.isGroup) { dragProxy.kind = "thread"; dragProxy.title = row.modelData.name; dragProxy.ids = [row.modelData.id]; return }
+                            dragProxy.kind = "chats"
                             const id = row.modelData.chat.id
                             dragProxy.ids = root.selectedChats.indexOf(id) >= 0 ? root.selectedChats.slice() : [id]
                             dragProxy.title = dragProxy.ids.length > 1 ? dragProxy.ids.length + qsTr(" chats") : row.modelData.chat.title
@@ -289,7 +358,7 @@ Rectangle {
                         const at = row.mapToItem(root, centroid.position.x, centroid.position.y)
                         dragProxy.x = at.x + 8; dragProxy.y = at.y - dragProxy.height / 2
                         // Out of the list, one chat goes where a dragged tab would.
-                        const out = !!root.workspace && dragProxy.ids.length === 1 && (at.x < 0 || at.y < 0 || at.x > root.width || at.y > root.height)
+                        const out = dragProxy.kind === "chats" && !!root.workspace && dragProxy.ids.length === 1 && (at.x < 0 || at.y < 0 || at.x > root.width || at.y > root.height)
                         if (out) {
                             const p = row.mapToItem(null, centroid.position.x, centroid.position.y)
                             root.workspace.dragChat(dragProxy.ids[0], dragProxy.title, p.x, p.y)
@@ -297,12 +366,41 @@ Rectangle {
                         root.draggingOut = out
                     }
                 }
+                // Chats onto a Thread go into it; in Manual, chats onto a chat and a Thread onto a Thread go before or
+                // after it (the line shows where).
                 DropArea {
+                    id: drop
                     anchors.fill: parent
-                    enabled: row.isGroup
                     keys: ["owelk/chats"]
-                    onDropped: function(drop) { root.moveChats(drop.source.ids, row.modelData.id) }
-                    Rectangle { anchors.fill: parent; color: "transparent"; border.color: Theme.accent; radius: Theme.radius; visible: parent.containsDrag }
+                    property string act: ""
+                    function actFor(source, y) {
+                        if (!source) return ""
+                        if (source.kind === "thread") return root.manual && row.isGroup ? (y > height / 2 && row.modelData.id.length ? "after" : "before") : ""
+                        if (row.isGroup) return "into"
+                        return root.manual ? (y > height / 2 ? "after" : "before") : ""
+                    }
+                    onEntered: function(drag) { act = actFor(drag.source, drag.y); drag.accepted = act.length > 0 }
+                    onPositionChanged: function(drag) { act = actFor(drag.source, drag.y) }
+                    onExited: act = ""
+                    // After the drop: the list is laid out again, which would take this row (and the drag) with it.
+                    onDropped: function(event) {
+                        const how = actFor(event.source, event.y), ids = event.source.ids.slice(), thread = event.source.kind === "thread"
+                        const target = row.isGroup ? row.modelData.id : row.modelData.chat.id
+                        act = ""
+                        Qt.callLater(function() {
+                            if (how === "into") root.moveChats(ids, target)
+                            else if (thread) root.placeThread(ids[0], target, how === "after")
+                            else if (how.length) root.placeChats(ids, target, how === "after")
+                        })
+                    }
+                    Rectangle { anchors.fill: parent; color: "transparent"; border.color: Theme.accent; radius: Theme.radius; visible: drop.containsDrag && drop.act === "into" }
+                    Rectangle {
+                        objectName: "threadsDropLine"
+                        visible: drop.containsDrag && (drop.act === "before" || drop.act === "after")
+                        x: row.isGroup ? 4 : 24; width: parent.width - x - 4; height: 2; radius: 1
+                        y: drop.act === "after" ? parent.height - 1 : -1
+                        color: Theme.accent
+                    }
                 }
             }
             Label {
@@ -315,11 +413,13 @@ Rectangle {
             }
         }
     }
-    // What follows the pointer while chats are dragged to another Thread.
+    // What follows the pointer while chats are dragged to another Thread or place (or a Thread, in Manual).
     Rectangle {
         id: dragProxy
         objectName: "threadsDragProxy"
         property var ids: []
+        // "chats", or "thread" (a Thread moved in Manual)
+        property string kind: "chats"
         property string title
         visible: ids.length > 0 && !root.draggingOut
         width: Math.min(root.width - 16, proxyLabel.implicitWidth + 16); height: Theme.rowHeight
