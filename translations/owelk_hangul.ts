@@ -6034,6 +6034,10 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>다큐먼츠 앤드 리스츠</translation>
     </message>
     <message>
+        <source>From the Gallery…</source>
+        <translation>프롬 더 갤러리…</translation>
+    </message>
+    <message>
         <source>Hover, selection and secondary text are worked out from these colors, so the theme stays consistent.</source>
         <translation>호버, 셀렉션 앤드 세컨더리 텍스트 아 워크트 아웃 프롬 디즈 컬러스, 소 더 테마 스테이즈 컨시스턴트.</translation>
     </message>
@@ -8101,6 +8105,33 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Undo</source>
         <translation>언두</translation>
+    </message>
+</context>
+<context>
+    <name>ThemeGalleryDialog</name>
+    <message>
+        <source>Close</source>
+        <translation>클로즈</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>다크</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>라이트</translation>
+    </message>
+    <message>
+        <source>No theme matches.</source>
+        <translation>노 테마 매치스.</translation>
+    </message>
+    <message>
+        <source>Search themes: a name, light or dark, warm, blue…</source>
+        <translation>서치 테마즈: 어 네임, 라이트 오어 다크, 웜, 블루…</translation>
+    </message>
+    <message>
+        <source>Theme Gallery</source>
+        <translation>테마 갤러리</translation>
     </message>
 </context>
 <context>

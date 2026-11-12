@@ -23,7 +23,7 @@ const entries = [
     {page: "general", anchor: "settingsGroup-language", text: QT_TR_NOOP("Language"), words: "english korean hangul"},
     {page: "general", anchor: "settingsRow-language", group: QT_TR_NOOP("Language"), text: QT_TR_NOOP("Interface language"), words: "english korean hangul interface menus"},
     {page: "general", anchor: "settingsRow-aiLanguage", group: QT_TR_NOOP("Language"), text: QT_TR_NOOP("AI answer language"), words: "preferred answer language korean english japanese chinese translate"},
-    {page: "appearance", anchor: "settingsGroup-theme", text: QT_TR_NOOP("Theme"), words: "dark light mode colors add own new copy gallery photo"},
+    {page: "appearance", anchor: "settingsGroup-theme", text: QT_TR_NOOP("Theme"), words: "dark light mode colors add own new copy gallery photo catppuccin gruvbox tokyo night rose pine everforest kanagawa github ayu monokai solarized nord dracula"},
     {page: "appearance", anchor: "settingsRow-matchSystem", group: QT_TR_NOOP("Theme"), text: QT_TR_NOOP("Match System"), words: "dark light mode automatic system appearance night"},
     {page: "appearance", anchor: "settingsGroup-themeColors", text: QT_TR_NOOP("Theme colors"), words: "custom own colors window sidebar documents menus text lines edit"},
     {page: "appearance", anchor: "settingsRow-themeName", group: QT_TR_NOOP("Theme colors"), text: QT_TR_NOOP("Theme name"), words: "rename delete own theme"},

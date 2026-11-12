@@ -4,6 +4,7 @@ import QtTest
 import Owelk.Ui
 import "../qml" as App
 import "../qml/SettingsIndex.js" as SettingsIndex
+import "../qml/ThemeGallery.js" as Gallery
 
 Item {
     id: scene
@@ -283,6 +284,39 @@ Item {
             visualChild(settings.contentItem, "deleteTheme").clicked()
             compare(Theme.myThemes.length, 0)
             compare(Theme.theme, "neutral")
+        }
+        // Well-known themes, pictured: narrowed by what is typed, added as one's own with their accent, once.
+        function test_galleryAddsAWellKnownTheme() {
+            settings.openPage("appearance"); tryCompare(settings, "opened", true)
+            tryVerify(function() { return findChild(page(), "addThemeMenu") !== null })
+            findChild(page(), "galleryTheme").triggered()
+            const gallery = findChild(page(), "themeGallery")
+            tryCompare(gallery, "opened", true)
+            compare(gallery.shown.length, 25)
+            compare(gallery.shown.filter(function(t) { return t.dark }).length, 15)
+            const search = findChild(gallery.contentItem, "themeGallerySearch")
+            search.text = "mocha"; search.textEdited()
+            compare(gallery.shown.map(function(t) { return t.name }), ["Catppuccin Mocha"])
+            search.text = "warm light"; search.textEdited()
+            verify(gallery.shown.length >= 2 && gallery.shown.every(function(t) { return !t.dark }))
+            search.text = "one dark"; search.textEdited()
+            compare(gallery.shown[0].seeds.content, Theme.seeds("onedark").content, "One Dark keeps its built-in colors")
+            search.text = "mocha"; search.textEdited()
+            let tile = null
+            tryVerify(function() { tile = visualChild(gallery.contentItem, "galleryTheme-Catppuccin Mocha"); return tile !== null && tile.visible })
+            waitForPolish(gallery.contentItem); wait(50)
+            mouseClick(tile, 40, 30)
+            tryCompare(gallery, "opened", false)
+            verify(Theme.isMine(Theme.theme))
+            compare(Theme.myThemes.map(function(t) { return t.name }), ["Catppuccin Mocha"])
+            verify(Theme.dark)
+            compare(Theme.accentName, "custom")
+            compare(Theme.customAccent.toString(), "#cba6f7")
+            // Chosen again: the same theme, not a second copy.
+            Theme.theme = "neutral"
+            gallery.choose(Gallery.find("mocha", function(id) { return Theme.seeds(id) })[0])
+            compare(Theme.myThemes.length, 1)
+            compare(Theme.theme, Theme.myThemes[0].id)
         }
         function test_fiveTapsOnTheThemeHeadingChooseAPicture() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)

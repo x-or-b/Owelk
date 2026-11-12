@@ -340,8 +340,11 @@ ColumnLayout {
     Menu {
         id: addMenu
         objectName: "addThemeMenu"
+        MenuItem { objectName: "galleryTheme"; text: qsTr("From the Gallery…"); onTriggered: gallery.open() }
+        MenuSeparator {}
         MenuItem { objectName: "copyTheme"; text: qsTr("Copy This Theme"); onTriggered: root.copyTheme() }
     }
+    ThemeGalleryDialog { id: gallery }
     Menu {
         id: themeMenu
         objectName: "themeMenu"
