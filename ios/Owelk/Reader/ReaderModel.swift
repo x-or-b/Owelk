@@ -69,7 +69,7 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
             self?.showsAI = true
         }
         controller.pen.changed = { [weak self] in
-            // PencilKit notes the step in the history after telling of the change.
+            // The step is in the history only once the change has been told.
             DispatchQueue.main.async { self?.refreshHistory() }
         }
     }

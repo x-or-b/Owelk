@@ -1,5 +1,4 @@
 import PDFKit
-import PencilKit
 import SwiftUI
 import UIKit
 
@@ -14,6 +13,7 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
     private lazy var undoTap = UITapGestureRecognizer(target: self, action: #selector(undoTapped))
     private lazy var eraser = UIPanGestureRecognizer(target: self, action: #selector(erasing(_:)))
     private lazy var marker = UIPanGestureRecognizer(target: self, action: #selector(marking(_:)))
+    private lazy var ink = InkRecognizer(target: self, action: #selector(inking(_:)))
     /// Where the highlighter went down.
     private var markedFrom: (page: PDFPage, point: CGPoint)?
     private var erasedTo: CGPoint?
@@ -68,11 +68,12 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
             undoTap.isEnabled = drawing
             eraser.isEnabled = drawing
             marker.isEnabled = drawing
+            ink.isEnabled = drawing
             // The Pencil draws and erases then; only fingers scroll, zoom, select and open notes. PDFKit's own double
             // tap took the Pencil too, and zoomed the page away when a stroke began with a quick touch.
             if drawing {
-                fingersOnly = Self.recognizers(in: pdfView, outside: PKCanvasView.self).filter {
-                    $0 !== eraser && $0 !== marker && $0 !== undoTap && !($0 is UIHoverGestureRecognizer)
+                fingersOnly = Self.recognizers(in: pdfView).filter {
+                    $0 !== eraser && $0 !== marker && $0 !== ink && $0 !== undoTap && !($0 is UIHoverGestureRecognizer)
                 }.map { ($0, $0.allowedTouchTypes) }
                 let finger = UITouch.TouchType.direct.rawValue
                 for (recognizer, touches) in fingersOnly {
@@ -168,6 +169,9 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
         marker.isEnabled = false
         marker.delegate = self
         pdfView.addGestureRecognizer(marker)
+        ink.isEnabled = false
+        ink.delegate = self
+        pdfView.addGestureRecognizer(ink)
         let pencil = UIPencilInteraction()
         pencil.delegate = self
         view.addInteraction(pencil)
@@ -447,6 +451,8 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
     func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
         if gesture === eraser { return pen.tool == .eraser }
         if gesture === marker, case .highlighter = pen.tool { return marksAllowed }
+        if gesture === ink, case .pen = pen.tool { return true }
+        if gesture === ink { return false }
         return gesture !== marker
     }
 
@@ -464,6 +470,26 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
             erasedTo = nil
         default:
             break
+        }
+    }
+
+    // MARK: The pen
+
+    /// The Pencil draws with the pen: the stroke is drawn as it goes, from every sample the Pencil gives (and where
+    /// it is about to be), and becomes a pen mark when it lifts.
+    @objc private func inking(_ gesture: InkRecognizer) {
+        switch gesture.state {
+        case .began:
+            guard let start = gesture.samples.first, let page = pdfView.page(for: start, nearest: true),
+                  pen.beginStroke(on: page) else { return }
+            pen.extendStroke(gesture.samples, predicted: gesture.predicted, in: pdfView)
+        case .changed:
+            pen.extendStroke(gesture.samples, predicted: gesture.predicted, in: pdfView)
+        case .ended:
+            pen.extendStroke(gesture.samples, in: pdfView)
+            pen.endStroke()
+        default:
+            pen.cancelStroke()
         }
     }
 
@@ -549,6 +575,61 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
     private static func recognizers(in view: UIView, outside skipped: UIView.Type? = nil) -> [UIGestureRecognizer] {
         if let skipped, view.isKind(of: skipped) { return [] }
         return (view.gestureRecognizers ?? []) + view.subviews.flatMap { recognizers(in: $0, outside: skipped) }
+    }
+}
+
+/// The Pencil on the page, from the moment it touches: every sample it gave since the last update (iPadOS gathers
+/// them between frames) and where it is likely to go next, in the view's coordinates.
+final class InkRecognizer: UIGestureRecognizer {
+    private(set) var samples: [CGPoint] = []
+    private(set) var predicted: [CGPoint] = []
+    private weak var touch: UITouch?
+
+    override init(target: Any?, action: Selector?) {
+        super.init(target: target, action: action)
+        allowedTouchTypes = [NSNumber(value: UITouch.TouchType.pencil.rawValue)]
+        cancelsTouchesInView = false
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard touch == nil, touches.count == 1, let first = touches.first else {
+            touches.forEach { ignore($0, for: event) }
+            return
+        }
+        touch = first
+        take(first, event)
+        state = .began
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let touch, touches.contains(touch) else { return }
+        take(touch, event)
+        state = .changed
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let touch, touches.contains(touch) else { return }
+        take(touch, event)
+        predicted = []
+        state = .ended
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let touch, touches.contains(touch) else { return }
+        state = .cancelled
+    }
+
+    override func reset() {
+        super.reset()
+        touch = nil
+        samples = []
+        predicted = []
+    }
+
+    private func take(_ touch: UITouch, _ event: UIEvent) {
+        let gathered = event.coalescedTouches(for: touch) ?? [touch]
+        samples = gathered.map { $0.preciseLocation(in: view) }
+        predicted = (event.predictedTouches(for: touch) ?? []).map { $0.preciseLocation(in: view) }
     }
 }
 

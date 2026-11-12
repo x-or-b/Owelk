@@ -1,5 +1,4 @@
 import PDFKit
-import PencilKit
 import UIKit
 
 /// What Apple Pencil does on a page: draw in one of the desktop's mark colors, highlight the text it passes over
@@ -108,73 +107,16 @@ enum MarkShape {
     }
 }
 
-/// PencilKit's monoline ink: a stroke point of size `s` is drawn about `2s − 3.5` pt wide (measured, and checked by
-/// `PenTests`), and a tool's width becomes point sizes its own way. So the tool's width is corrected from each stroke
-/// drawn, until the ink comes out 2 pt wide, as the desktop draws the pen.
-enum InkWidth {
-    static let pointSize: CGFloat = 2.75
-    static let key = "pen.inkWidth"
-    /// Width 2 drew points of about 3.4 on an iPad Air.
-    static let first: CGFloat = 1.63
-
-    static func corrected(_ width: CGFloat, drew size: CGFloat) -> CGFloat {
-        guard size.isFinite, size > 0 else { return width }
-        let factor = min(2, max(0.5, pointSize / size))
-        return min(4, max(0.5, width * factor))
-    }
-}
-
-/// A canvas that keeps no undo history of its own: strokes leave it at once, and the reader's history has them.
-/// It takes only the Pencil: PencilKit's own selection gestures took fingers too, so a finger could not drag the
-/// pages while drawing. Fingers pass to the page (scroll, zoom, select).
-final class InkCanvas: PKCanvasView {
-    private let ignored: UndoManager = {
-        let manager = UndoManager()
-        manager.disableUndoRegistration()
-        return manager
-    }()
-
-    override var undoManager: UndoManager? { ignored }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        Self.pencilOnly(self)
-    }
-
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        Self.pencilOnly(self)
-    }
-
-    private static func pencilOnly(_ view: UIView) {
-        let finger = UITouch.TouchType.direct.rawValue
-        for recognizer in view.gestureRecognizers ?? [] where recognizer.allowedTouchTypes.contains(where: { $0.intValue == finger }) {
-            recognizer.allowedTouchTypes = recognizer.allowedTouchTypes.filter { $0.intValue != finger }
-        }
-        view.subviews.forEach(pencilOnly)
-    }
-}
-
-/// A page's overlay: its marks' shapes, and while drawing the Pencil's canvas over them. Touches the canvas does not
-/// take go through to the page.
+/// A page's overlay: its marks' shapes, and the stroke being drawn over them. It takes no touches: the reader's
+/// Pencil gestures and the page's own do.
 private final class SheetView: UIView {
     let marks = CALayer()
-    var canvas: PKCanvasView? {
-        didSet {
-            // The same canvas stays where it is: taking it off mid-use would end what PencilKit is doing.
-            guard oldValue !== canvas else { return }
-            oldValue?.removeFromSuperview()
-            if let canvas {
-                canvas.frame = bounds
-                addSubview(canvas)
-            }
-        }
-    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .clear
         isOpaque = false
+        isUserInteractionEnabled = false
         layer.addSublayer(marks)
     }
 
@@ -186,32 +128,24 @@ private final class SheetView: UIView {
         CATransaction.setDisableActions(true)
         marks.frame = bounds
         CATransaction.commit()
-        canvas?.frame = bounds
-    }
-
-    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        let hit = super.hitTest(point, with: event)
-        return hit === self ? nil : hit
     }
 }
 
 /// Apple Pencil and the marks over the pages. Each shown page's overlay draws the page's marks as shapes (`MarkShape`),
-/// sharp at any zoom, from the `MarkAnnotation`s on the page, which stay there for taps and the eraser. While drawing, a
-/// PencilKit canvas on each shown page takes the stroke while it is drawn (Pencil only; fingers scroll); lifted, it
-/// becomes a pen mark like every other mark, so it looks as on the desktop. Canvases are made only for drawing and
-/// overlays only for pages on screen, so reading scrolls as lightly as without them. The eraser takes pen marks under
-/// the Pencil. Drawing, erasing and their Undo and Redo go into the reader's history, and each is reported: drawn, or
+/// sharp at any zoom, from the `MarkAnnotation`s on the page, which stay there for taps and the eraser. A stroke is
+/// drawn as it goes by the same kind of shape, 2 pt wide as the desktop's pen (PencilKit drew it into tiles two pixels
+/// to a point, so it blurred under PDFKit's zoom until it was lifted); lifted, it becomes a pen mark like every other
+/// mark. Overlays are made only for pages on screen, so reading scrolls lightly. The eraser takes pen marks under the
+/// Pencil. Drawing, erasing and their Undo and Redo go into the reader's history, and each is reported: drawn, or
 /// erased (true) and back (false).
 @MainActor
-final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCanvasViewDelegate {
+final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider {
     @MainActor
     private final class Sheet {
         let view = SheetView()
-        var canvas: PKCanvasView? { view.canvas }
         let page: PDFPage
         let index: Int
         let geometry: OverlayGeometry
-        var clearing = false
         private var shapes: [ObjectIdentifier: CALayer] = [:]
 
         init(page: PDFPage, index: Int) {
@@ -239,8 +173,16 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
         }
     }
 
+    /// The stroke being drawn: its page, its points in the page's overlay, and the shape showing them.
+    private struct Stroke {
+        let sheet: Sheet
+        let color: String
+        let shape: CAShapeLayer
+        var points: [CGPoint] = []
+    }
+
     private var sheets: [ObjectIdentifier: Sheet] = [:]
-    private var width: CGFloat
+    private var stroke: Stroke?
     /// Marks taken by the eraser stroke under way.
     private var erasing: [(MarkAnnotation, PDFPage)] = []
 
@@ -255,18 +197,10 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
     /// Highlights and comments made here on the text (rows from `TextMarks`).
     var placed: (([Row]) -> Void)?
 
-    var tool = PenTool.pen(PenTool.colors[0]) {
-        didSet { sheets.values.forEach(apply) }
-    }
+    var tool = PenTool.pen(PenTool.colors[0])
 
     var drawing = false {
-        didSet { sheets.values.forEach(apply) }
-    }
-
-    override init() {
-        let saved = CGFloat(UserDefaults.standard.double(forKey: InkWidth.key))
-        width = (0.5...4).contains(saved) ? saved : InkWidth.first
-        super.init()
+        didSet { if !drawing { cancelStroke() } }
     }
 
     func pdfView(_ view: PDFView, overlayViewFor page: PDFPage) -> UIView? {
@@ -274,7 +208,6 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
         guard let document = view.document else { return nil }
         let sheet = Sheet(page: page, index: document.index(for: page))
         sheets[ObjectIdentifier(page)] = sheet
-        apply(sheet)
         sheet.sync()
         return sheet.view
     }
@@ -282,21 +215,8 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
     /// A page off screen lets its overlay go; PDFKit asks for a new one when the page comes back.
     func pdfView(_ pdfView: PDFView, willEndDisplayingOverlayView overlayView: UIView, for page: PDFPage) {
         guard let sheet = sheets[ObjectIdentifier(page)], sheet.view === overlayView else { return }
+        if stroke?.sheet === sheet { cancelStroke() }
         sheets[ObjectIdentifier(page)] = nil
-    }
-
-    private func makeCanvas() -> PKCanvasView {
-        let canvas = InkCanvas()
-        canvas.backgroundColor = .clear
-        canvas.isOpaque = false
-        canvas.drawingPolicy = .pencilOnly
-        canvas.isScrollEnabled = false
-        // Pages are paper-white in dark mode too, so ink keeps its own colors.
-        canvas.overrideUserInterfaceStyle = .light
-        canvas.delegate = self
-        // A canvas is a scroll view under the bar: it must not move its ink to keep clear of the bar.
-        canvas.contentInsetAdjustmentBehavior = .never
-        return canvas
     }
 
     /// Draws the marks now on a page (after marks were added to it or taken off).
@@ -304,63 +224,93 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
 
     func refreshAll() { sheets.values.forEach { $0.sync() } }
 
-    /// The canvas over a page while drawing, once PDFKit has shown it.
-    func canvas(on page: PDFPage) -> PKCanvasView? { sheets[ObjectIdentifier(page)]?.canvas }
+    /// The overlay over a page, once PDFKit has shown it.
+    func overlay(on page: PDFPage) -> UIView? { sheets[ObjectIdentifier(page)]?.view }
 
     /// The marks drawn over a page, by ID.
     func shapes(on page: PDFPage) -> [String] {
         (sheets[ObjectIdentifier(page)]?.view.marks.sublayers ?? []).compactMap(\.name).sorted()
     }
 
-    private func apply(_ sheet: Sheet) {
-        guard drawing else {
-            sheet.view.canvas = nil
-            return
-        }
-        let canvas = sheet.canvas ?? makeCanvas()
-        sheet.view.canvas = canvas
-        if case let .pen(hex) = tool {
-            canvas.tool = PKInkingTool(.monoline, color: UIColor(hex: hex) ?? .black, width: width)
-            canvas.isUserInteractionEnabled = true
-        } else {
-            // The eraser and the highlighter are the reader's own: the canvas lets the Pencil through.
-            canvas.isUserInteractionEnabled = false
-        }
-    }
-
     // MARK: Drawing
 
-    func canvasViewDrawingDidChange(_ canvas: PKCanvasView) {
-        guard let sheet = sheets.values.first(where: { $0.canvas === canvas }), !sheet.clearing,
-              let stroke = canvas.drawing.strokes.last
-        else { return }
-        let sizes = stroke.path.map(\.size.width).sorted()
-        // Every 2 pt: as fine as the 2 pt line the desktop draws through them.
-        let points = stroke.path.interpolatedPoints(by: .distance(2)).map {
-            sheet.geometry.fraction($0.location.applying(stroke.transform))
+    /// The pen goes down on a page (false when the page is not shown or the pen is not in hand).
+    @discardableResult
+    func beginStroke(on page: PDFPage) -> Bool {
+        cancelStroke()
+        guard drawing, case let .pen(color) = tool, let sheet = sheets[ObjectIdentifier(page)] else { return false }
+        let shape = CAShapeLayer()
+        shape.strokeColor = (UIColor(hex: color) ?? .black).cgColor
+        shape.fillColor = nil
+        shape.lineWidth = 2
+        shape.lineCap = .round
+        shape.lineJoin = .round
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        sheet.view.layer.addSublayer(shape)
+        CATransaction.commit()
+        stroke = Stroke(sheet: sheet, color: color, shape: shape)
+        return true
+    }
+
+    /// The pen moves through `points` (in `view`, the Pencil's samples since the last time), and is likely to go on
+    /// through `predicted`, which is shown but not kept.
+    func extendStroke(_ points: [CGPoint], predicted: [CGPoint] = [], in view: UIView) {
+        guard var stroke else { return }
+        for point in points.map({ stroke.sheet.view.convert($0, from: view) }) {
+            // Samples closer than a quarter point add nothing to a 2 pt line.
+            if let last = stroke.points.last, hypot(point.x - last.x, point.y - last.y) < 0.25 { continue }
+            stroke.points.append(point)
         }
-        sheet.clearing = true
-        canvas.drawing = PKDrawing()
-        sheet.clearing = false
-        if !sizes.isEmpty {
-            width = InkWidth.corrected(width, drew: sizes[sizes.count / 2])
-            UserDefaults.standard.set(Double(width), forKey: InkWidth.key)
-            sheets.values.forEach(apply)
-        }
-        let id = UUID().uuidString.lowercased(), color = PenTool.hex(nearest: stroke.ink.color)
+        self.stroke = stroke
+        let shown = stroke.points + predicted.map { stroke.sheet.view.convert($0, from: view) }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        stroke.shape.path = MarkAnnotation.stroke(shown.count == 1 ? shown + [Self.dot(shown[0])] : shown)
+        CATransaction.commit()
+    }
+
+    /// The pen lifts: the stroke becomes a pen mark (a tap leaves a dot).
+    func endStroke() {
+        guard let stroke else { return }
+        self.stroke = nil
+        var points = stroke.points
+        if points.count == 1 { points.append(Self.dot(points[0])) }
+        let fractions = points.map(stroke.sheet.geometry.fraction)
+        let id = UUID().uuidString.lowercased(), sheet = stroke.sheet
         // Drawn as it is written: the same rounded points the computers get.
-        guard let row = SyncEngine.strokeRow(id: id, document: "", sha256: "", page: sheet.index, points: points,
-                                             color: color, createdAt: ""),
+        guard let row = SyncEngine.strokeRow(id: id, document: "", sha256: "", page: sheet.index, points: fractions,
+                                             color: stroke.color, createdAt: ""),
               let mark = Mark(row: row)
-        else { return }
+        else { return remove(stroke) }
         let annotation = MarkAnnotation(mark: mark, geometry: PageGeometry(sheet.page), picture: nil)
         sheet.page.addAnnotation(annotation)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         sheet.sync()
-        drawn?(sheet.index, id, points, color)
+        stroke.shape.removeFromSuperlayer()
+        CATransaction.commit()
+        drawn?(sheet.index, id, fractions, stroke.color)
         undoManager?.registerUndo(withTarget: self) { $0.take([(annotation, sheet.page)]) }
         undoManager?.setActionName("Pen")
         changed?()
     }
+
+    func cancelStroke() {
+        guard let stroke else { return }
+        self.stroke = nil
+        remove(stroke)
+    }
+
+    private func remove(_ stroke: Stroke) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        stroke.shape.removeFromSuperlayer()
+        CATransaction.commit()
+    }
+
+    /// The second point of a dot, so it has length (the desktop wants two points).
+    private static func dot(_ point: CGPoint) -> CGPoint { CGPoint(x: point.x + 0.3, y: point.y) }
 
     // MARK: Erasing
 
