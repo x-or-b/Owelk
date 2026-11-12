@@ -295,6 +295,21 @@ private slots:
                      .toString(),
             QString("Reading list"));
 
+        // A note written on the iPad about the paper: its text, and the link its text makes, as one made here.
+        const auto note = rows(mac,
+            "SELECT title,body,deleted_at FROM notes WHERE id='0a11ce00-0000-4000-8000-00000000a004'");
+        QCOMPARE(note.size(), 1);
+        QCOMPARE(note[0].toMap()["title"].toString(), QString("From the iPad"));
+        QVERIFY(note[0].toMap()["body"].toString().endsWith("The walls echo."));
+        QVERIFY(note[0].toMap()["deleted_at"].isNull());
+        QCOMPARE(mac.note("0a11ce00-0000-4000-8000-00000000a004")["title"].toString(), QString("From the iPad"));
+        QCOMPARE(scalar(mac,
+                     "SELECT count(*) FROM links WHERE from_kind='note' AND "
+                     "from_id='0a11ce00-0000-4000-8000-00000000a004' AND to_kind='document' AND "
+                     "to_id='ec0dbb6f-06b8-4012-b0b2-eb317af23825'")
+                     .toInt(),
+            1);
+
         // The paper added on the iPad: in the Library under its file's name, with the PDF copied in, in the
         // collection and tag it was added to, and its details left for this computer to read.
         const auto added = rows(mac,

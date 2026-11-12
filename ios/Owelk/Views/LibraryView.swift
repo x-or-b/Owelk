@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 /// Which papers the list shows.
 enum Shelf: Hashable {
-    case all, favorites, reading, annotated
+    case all, favorites, reading, annotated, notes
     case collection(String)
     case tag(String)
 }
@@ -30,6 +30,27 @@ struct LibraryView: View {
         NavigationSplitView {
             Sidebar(shelf: $shelf, choosingFolder: $choosingFolder)
         } detail: {
+            if shelf == .notes {
+                NotesScreen()
+            } else {
+                papersPane
+            }
+        }
+        .fullScreenCover(isPresented: $searching, onDismiss: {
+            if let paper = openAfterSearch {
+                openAfterSearch = nil
+                opened = paper
+            }
+        }) {
+            let (collection, tag) = destination
+            WebSearchScreen(collection: collection, tag: tag, openAfter: $openAfterSearch).environmentObject(store)
+        }
+        .fullScreenCover(item: $opened) { paper in
+            ReaderScreen(paper: paper).environmentObject(store)
+        }
+    }
+
+    private var papersPane: some View {
             PaperList(papers: papers, empty: emptyText, opened: $opened)
                 .navigationTitle(title)
                 .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search Titles")
@@ -83,19 +104,6 @@ struct LibraryView: View {
                         .tint(.primary)
                     }
                 }
-        }
-        .fullScreenCover(isPresented: $searching, onDismiss: {
-            if let paper = openAfterSearch {
-                openAfterSearch = nil
-                opened = paper
-            }
-        }) {
-            let (collection, tag) = destination
-            WebSearchScreen(collection: collection, tag: tag, openAfter: $openAfterSearch).environmentObject(store)
-        }
-        .fullScreenCover(item: $opened) { paper in
-            ReaderScreen(paper: paper).environmentObject(store)
-        }
     }
 
     private var title: String {
@@ -104,6 +112,7 @@ struct LibraryView: View {
         case .favorites: "Favorites"
         case .reading: "Reading"
         case .annotated: "Annotated"
+        case .notes: "Notes"
         case let .collection(id): store.library.collections.first { $0.id == id }?.name ?? "Collection"
         case let .tag(name): name
         }
@@ -160,6 +169,7 @@ struct LibraryView: View {
         case .favorites: list = list.filter(\.favorite)
         case .reading: list = list.filter { $0.readingState == "reading" }
         case .annotated: list = list.filter(\.annotated)
+        case .notes: break
         case let .collection(id): list = list.filter { $0.collections.contains(id) }
         case let .tag(name): list = list.filter { $0.tags.contains(name) }
         }
@@ -211,6 +221,9 @@ private struct Sidebar: View {
                         Label(tag.name, systemImage: "tag").tag(Shelf.tag(tag.name))
                     }
                 }
+            }
+            Section {
+                Label("Notes", systemImage: "note.text").tag(Shelf.notes)
             }
         }
         .navigationTitle("Owelk")

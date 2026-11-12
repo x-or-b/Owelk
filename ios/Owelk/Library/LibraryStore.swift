@@ -261,6 +261,17 @@ final class LibraryStore: ObservableObject {
         }
     }
 
+    /// A new note (shown at once); returns its ID.
+    func createNote(title: String, body: String) async -> String? {
+        guard let engine else { return nil }
+        let id = await engine.createNote(title: title, body: body)
+        edit { _ in }
+        return id
+    }
+
+    func saveNote(_ id: String, title: String, body: String) { edit { await $0.saveNote(id, title: title, body: body) } }
+    func trashNote(_ id: String, _ trashed: Bool = true) { edit { await $0.trashNote(id, trashed) } }
+
     /// A change to the library made here: shown at once, then written (in order with the pen's changes).
     private func edit(_ change: @escaping (SyncEngine) async -> Void) {
         guard let engine, let folder else { return }

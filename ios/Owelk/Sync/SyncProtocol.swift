@@ -10,9 +10,10 @@ enum SyncProtocol {
     /// The tables this app keeps, with their primary keys (as in the desktop's `tables()`), parents first. Adding a
     /// table here must bump `SyncState.schema`, so every log is read again for it.
     static let tables: [(name: String, keys: [String])] = [
-        ("documents", ["id"]), ("tags", ["id"]), ("collections", ["id"]), ("highlights", ["id"]),
+        ("documents", ["id"]), ("tags", ["id"]), ("collections", ["id"]), ("notes", ["id"]), ("highlights", ["id"]),
         ("recent_documents", ["document_id"]), ("reading_positions", ["document_id"]),
         ("collection_documents", ["collection_id", "document_id"]), ("document_tags", ["document_id", "tag_id"]),
+        ("links", ["from_kind", "from_id", "to_kind", "to_id"]),
     ]
     static func keys(of table: String) -> [String]? { tables.first { $0.name == table }?.keys }
     static func order(of table: String) -> Int { tables.firstIndex { $0.name == table } ?? tables.count }

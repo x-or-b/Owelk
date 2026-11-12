@@ -303,6 +303,7 @@ struct ReaderScreen: View {
     @State private var showsSearch = false
     @State private var choosesPage = false
     @State private var showsMarks = false
+    @State private var showsNotes = false
     private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     init(paper: Paper) { _model = StateObject(wrappedValue: ReaderModel(paper: paper)) }
@@ -396,6 +397,15 @@ struct ReaderScreen: View {
                     .disabled(!model.loaded)
                     .popover(isPresented: $showsMarks) {
                         AnnotationList(model: model) { showsMarks = false }
+                    }
+                    Button {
+                        showsNotes = true
+                    } label: {
+                        Label("Notes", systemImage: "note.text")
+                    }
+                    .disabled(!model.loaded)
+                    .sheet(isPresented: $showsNotes) {
+                        PaperNotes(paper: model.paper).environmentObject(store).presentationSizing(.page)
                     }
                     Button {
                         showsOutline = true

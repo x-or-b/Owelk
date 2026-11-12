@@ -7,7 +7,8 @@ import Foundation
 /// or column this app reads is added) the snapshot is dropped and every log is read again, as the desktop does after
 /// an update.
 struct SyncState {
-    static let schema = 1
+    /// 2: notes and links are read too.
+    static let schema = 2
 
     struct Entry {
         var version: Version

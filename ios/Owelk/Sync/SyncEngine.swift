@@ -247,6 +247,70 @@ actor SyncEngine {
         return id
     }
 
+    // MARK: Notes
+
+    /// A new note, as the desktop's `createNote` saves one (and the links in its body). Returns its ID.
+    @discardableResult
+    func createNote(title: String, body: String) -> String {
+        let id = newId(), now = Self.timestamp(Date(timeIntervalSince1970: TimeInterval(clock()) / 1000))
+        stage("notes", key: [id], row: [
+            "id": id, "title": Self.noteTitle(title), "body": String(body.prefix(200_000)), "created_at": now,
+            "updated_at": now, "deleted_at": NSNull(),
+        ])
+        linkNote(id, body: body, at: now)
+        return id
+    }
+
+    /// A note's title and body changed here (any computer's note): `updated_at` with them, and its links.
+    func saveNote(_ id: String, title: String, body: String) {
+        guard var row = state.entry("notes", key: [id])?.row, isNull(row["deleted_at"]), body.count <= 200_000 else { return }
+        let title = Self.noteTitle(title)
+        guard row.string("title") != title || row.string("body") != body else { return }
+        let now = Self.timestamp(Date(timeIntervalSince1970: TimeInterval(clock()) / 1000))
+        row["title"] = title
+        row["body"] = body
+        row["updated_at"] = now
+        stage("notes", key: [id], row: row)
+        linkNote(id, body: body, at: now)
+    }
+
+    /// Moves a note to the Trash (as the desktop's `deleteNote`), or brings it back.
+    func trashNote(_ id: String, _ trashed: Bool) {
+        guard var row = state.entry("notes", key: [id])?.row, trashed == isNull(row["deleted_at"]) else { return }
+        row["deleted_at"] = trashed ? Self.timestamp(Date(timeIntervalSince1970: TimeInterval(clock()) / 1000)) : NSNull()
+        stage("notes", key: [id], row: row)
+    }
+
+    private static func noteTitle(_ title: String) -> String {
+        String(title.split(whereSeparator: \.isWhitespace).joined(separator: " ").prefix(200))
+    }
+
+    /// The links a note's body makes (owelk://note|highlight|document|ai/<id>), as the desktop's `syncNoteLinks`:
+    /// only links that came or went change.
+    private func linkNote(_ id: String, body: String, at now: String) {
+        let pattern = #"owelk://(note|highlight|document|ai)/([A-Za-z0-9\-]+)"#
+        guard let expression = try? NSRegularExpression(pattern: pattern) else { return }
+        var targets = Set<[String]>()
+        for match in expression.matches(in: body, range: NSRange(body.startIndex..., in: body)) {
+            guard let kind = Range(match.range(at: 1), in: body), let target = Range(match.range(at: 2), in: body)
+            else { continue }
+            let link = [String(body[kind]), String(body[target])]
+            if link != ["note", id] { targets.insert(link) }
+        }
+        var present = Set<[String]>()
+        for entry in state.entries("links").values {
+            guard let row = entry.row, row.string("from_kind") == "note", row.string("from_id") == id else { continue }
+            present.insert([row.string("to_kind"), row.string("to_id")])
+        }
+        for gone in present.subtracting(targets) {
+            stage("links", key: ["note", id, gone[0], gone[1]], row: nil)
+        }
+        for added in targets.subtracting(present) {
+            stage("links", key: ["note", id, added[0], added[1]],
+                  row: ["from_kind": "note", "from_id": id, "to_kind": added[0], "to_id": added[1], "created_at": now])
+        }
+    }
+
     // MARK: Text marks
 
     /// Highlights and comments made here on a page's text (rows from `textMarkRow`), saved for the computers. Returns

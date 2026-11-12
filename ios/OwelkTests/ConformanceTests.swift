@@ -32,6 +32,8 @@ final class ConformanceTests: XCTestCase {
     static let newTag = "0a11ce00-0000-4000-8000-00000000a002"
     static let newCollection = "0a11ce00-0000-4000-8000-00000000a003"
     static let toRead = "ae1dea02-3284-46c6-b55f-102e159aa883"
+    /// The note this iPad writes about the Mac's paper.
+    static let noteId = "0a11ce00-0000-4000-8000-00000000a004"
     static let highlightLines = [CGRect(x: 0.1, y: 0.3, width: 0.5, height: 0.02),
                                  CGRect(x: 0.1, y: 0.325, width: 0.3, height: 0.02)]
     /// The PDF it adds (tests/data/sync/ipad/Papers), with a title of its own.
@@ -107,7 +109,7 @@ final class ConformanceTests: XCTestCase {
         try FileManager.default.copyItem(at: Self.mac, to: drive)
         let folder = SyncFolder(root: drive)
         let library = try XCTUnwrap(folder.library())
-        var ids = [Self.addedId, Self.newTag, Self.newCollection]
+        var ids = [Self.addedId, Self.newTag, Self.newCollection, Self.noteId]
         let engine = SyncEngine(storage: temporary.appendingPathComponent("app"), device: Self.ipad, clock: { Self.clock },
                                 newId: { ids.isEmpty ? UUID().uuidString.lowercased() : ids.removeFirst() })
         let about = ["name": "iPad", "system": "iPadOS"]
@@ -186,6 +188,16 @@ final class ConformanceTests: XCTestCase {
         XCTAssertEqual(Set(changed.collections), Set([mapping, Self.newCollection]))
         XCTAssertTrue(changed.annotated)
 
+        // A note about the paper, written twice (one row), with the link its text makes.
+        let link = "[Kinship](owelk://document/\(paper.documentId))"
+        let note = await engine.createNote(title: "  From the   iPad ", body: "About \(link)\n")
+        XCTAssertEqual(note, Self.noteId)
+        await engine.saveNote(note, title: "From the iPad", body: "About \(link)\n\nThe walls echo.")
+        let notes = await engine.current().notes
+        XCTAssertEqual(notes.map(\.id), [Self.noteId])
+        XCTAssertEqual(notes.first?.title, "From the iPad")
+        XCTAssertEqual(notes.first?.papers, [paper.id], "linked to the paper")
+
         let failure = await engine.flush(folder, library: library, about: about)
         XCTAssertNil(failure)
         let position = await engine.position(of: paper)
@@ -202,10 +214,10 @@ final class ConformanceTests: XCTestCase {
         XCTAssertEqual(lines, try Self.lines(committed.appendingPathComponent("00000001.jsonl")),
                        "the iPad's change file differs from tests/data/sync/ipad: run with OWELK_WRITE_FIXTURES=1 and check the desktop's sync_conformance test")
         XCTAssertEqual(lines.map { $0["t"] as? String },
-                       ["documents", "documents", "tags", "collections",
+                       ["documents", "documents", "tags", "collections", "notes",
                         "highlights", "highlights", "highlights", "highlights", "highlights",
                         "recent_documents", "reading_positions", "collection_documents", "collection_documents",
-                        "document_tags", "document_tags", "document_tags"])
+                        "document_tags", "document_tags", "document_tags", "links"])
         // The stroke with every column the desktop writes for one, the Mac's mark with only `deleted_at` changed.
         let macMark = try XCTUnwrap(try expected()["highlights"]?.first { $0.string("id") == Self.macStroke })
         let marksWritten = lines.filter { $0["t"] as? String == "highlights" }.compactMap { $0["r"] as? Row }
@@ -284,6 +296,15 @@ final class ConformanceTests: XCTestCase {
         XCTAssertTrue(rows("collection_documents").contains {
             ($0["r"] as? Row)?.string("collection_id") == Self.newCollection
         })
+        let notedRow = try XCTUnwrap(rows("notes").first?["r"] as? Row)
+        XCTAssertEqual(Set(notedRow.keys), ["id", "title", "body", "created_at", "updated_at", "deleted_at"])
+        XCTAssertEqual(notedRow.string("body"), "About [Kinship](owelk://document/\(paper.documentId))\n\nThe walls echo.")
+        XCTAssertEqual(notedRow.string("updated_at"), "2030-01-01T00:00:00.000Z")
+        XCTAssertTrue(isNull(notedRow["deleted_at"]))
+        XCTAssertEqual(rows("links").first?["r"] as? NSDictionary, [
+            "from_kind": "note", "from_id": Self.noteId, "to_kind": "document", "to_id": paper.documentId,
+            "created_at": "2030-01-01T00:00:00.000Z",
+        ])
         let left = try XCTUnwrap(rows("reading_positions").first?["r"] as? Row)
         XCTAssertEqual(Set(left.keys), ["document_id", "position"])
         XCTAssertEqual(left.string("document_id"), paper.documentId)
@@ -321,7 +342,7 @@ final class SyncRuleTests: XCTestCase {
         XCTAssertEqual(state.entry("tags", key: ["a"])?.row?.string("title"), "same time, larger device")
         XCTAssertTrue(state.apply(change("tags", "a", 11, "b")))
         XCTAssertNil(state.entry("tags", key: ["a"])?.row, "a removal travels as a row without contents")
-        XCTAssertFalse(state.apply(change("notes", "a", 99, "z", row("a table this app does not keep"))))
+        XCTAssertFalse(state.apply(change("vocabulary", "a", 99, "z", row("a table this app does not keep"))))
     }
 
     func testAnUnfinishedLineWaitsForTheRestOfTheFile() throws {

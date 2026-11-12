@@ -31,6 +31,19 @@ struct Paper: Identifiable, Hashable {
     }
 }
 
+/// A note (the desktop's `notes`: Markdown, up to 200,000 characters), with the papers it links to.
+struct Note: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let body: String
+    /// When it last changed (ISO 8601).
+    let updatedAt: String
+    /// The papers (`Paper.id`) its body links to (owelk://document/…).
+    let papers: [String]
+
+    var displayTitle: String { title.isEmpty ? "Untitled note" : title }
+}
+
 struct PaperCollection: Identifiable, Hashable {
     let id: String
     let name: String
@@ -54,6 +67,8 @@ struct Library {
     var papers: [Paper] = []
     var collections: [PaperCollection] = []
     var tags: [PaperTag] = []
+    /// Notes not in the Trash, the latest changed first.
+    var notes: [Note] = []
     /// documents.id → paper id, for every row ever seen (removed papers too), so annotations and positions saved
     /// under any of a paper's IDs find it.
     var paperOf: [String: String] = [:]
@@ -107,6 +122,20 @@ struct Library {
             else { continue }
             annotated.insert(paper)
         }
+
+        // Which papers each note links to (the desktop keeps the links of a note's body in `links`).
+        var linked: [String: [String]] = [:]
+        for entry in state.entries("links").values {
+            guard let row = entry.row, row.string("from_kind") == "note", row.string("to_kind") == "document",
+                  let paper = library.paperOf[row.string("to_id")] else { continue }
+            linked[row.string("from_id"), default: []].append(paper)
+        }
+        library.notes = state.entries("notes").values.compactMap { entry -> Note? in
+            guard let row = entry.row, !row.string("id").isEmpty, isNull(row["deleted_at"]) else { return nil }
+            return Note(id: row.string("id"), title: row.string("title"), body: row.string("body"),
+                        updatedAt: row.string("updated_at"),
+                        papers: Array(Set(linked[row.string("id")] ?? [])).sorted())
+        }.sorted { ($0.updatedAt, $0.id) > ($1.updatedAt, $1.id) }
 
         library.papers = groups.map { key, rows in
             // The latest edit of the paper's details; the smallest ID to write under.

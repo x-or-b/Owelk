@@ -27,6 +27,7 @@ Qt로 옮긴 iPad 빌드는 스크롤·확대·Pencil·글자 선택·키보드�
 - v1은 동기화 중심 뷰어입니다. Synctrain이 맞추는 `Owelk` 폴더를 파일 앱에서 고르면 라이브러리(제목·저자·읽기 상태·Collection·Tag·검색, 기본 정렬은 어느 컴퓨터에서든 마지막으로 연 순서)와 PDF(PDFKit 스크롤·확대·썸네일·목차·찾기·글자 선택 복사)를 보여 주고, 컴퓨터에서 단 주석을 같은 자리에 그립니다(누르면 노트). iPad는 읽던 위치와 연 시각을 자기 `devices/<iPad ID>/`에 써서 Mac이 이어 읽게 합니다. 사용법과 구조: [ios/README.md](../ios/README.md), 동기화: [SYNC.md](SYNC.md#ipad).
 - 논문 추가: 파일 앱에서 고르기, 다른 앱에서 끌어다 놓기, 웹 검색(데스크톱 웹 탭과 같은 Google Scholar·arXiv·Google·DuckDuckGo, PDF 쪽의 Add to Library, 내려받는 PDF는 바로). PDF는 동기화 폴더 `Papers/`로, 논문 행(데스크톱이 보내는 열 모두, 정보 읽기는 컴퓨터에 맡김)은 iPad 변경 파일로 가며 보고 있던 Collection·Tag에 들어갑니다. 같은 PDF는 다시 넣지 않고, Library에서 뺀 것은 되살립니다.
 - 하이라이트·코멘트: 고른 글자를 메뉴의 Highlight·Comment…로 표시하고(데스크톱과 같은 행, Mac의 sync_conformance가 읽어 봄), 표시를 누르면 노트(Scribble)·색을 바꾸거나 지웁니다. Annotations 목록은 이 논문의 표시를 쪽 순서로 보여 주고 누르면 그 자리로, 밀면 지웁니다(실행 취소 가능). 기기에서 써 보기는 아직.
+- 노트: 왼쪽 열 Notes(찾기·새 노트·Trash)와 리더의 이 논문 노트. 데스크톱이 이미 동기화하던 `notes`·`links` 표를 iPad도 읽고 씁니다(iPad 동기화 스키마 2: 처음 켤 때 기록을 다시 읽음). Mac의 sync_conformance가 iPad의 노트와 링크를 읽어 봅니다.
 - AI: 리더 막대의 AI 패널에서 논문에 묻기·세 줄 요약, 고른 글자 Explain·Ask AI…. 데스크톱과 같은 프롬프트(언어·수준·쪽 인용)이고 인용을 누르면 그 쪽으로. Claude API·OpenAI API 키(iPad 키체인). 기기에서 써 보기는 아직(키가 있어야 함).
 - 라이브러리 정리: 왼쪽 열에 Favorites·Reading·Annotated, 논문을 밀어 Favorites, 길게 눌러 읽기 상태·Tags·Collections(새로 만들기 포함). 바뀐 것은 데스크톱이 쓰는 열·표로 보내고 Mac의 sync_conformance가 읽어 봅니다.
 - 형광펜: Draw의 아래 막대에서 펜과 형광펜을 고르고, 형광펜으로 글줄을 따라가면 지나간 글자가 하이라이트됩니다(데스크톱과 같은 글자 하이라이트). Draw 중에도 손가락으로 쪽을 끌 수 있습니다.
