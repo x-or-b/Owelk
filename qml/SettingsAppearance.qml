@@ -11,22 +11,28 @@ ColumnLayout {
     spacing: 22
     // Another page to show (the Picture page, once five taps have chosen a picture).
     signal pageRequested(string page)
+    // A setting on this page to scroll to and light up (the colors of a theme just made).
+    signal revealRequested(string anchor)
     // The colors of the theme in use, edited one at a time when it is Custom or one's own; read again whenever the
     // theme changes (choosing, adding or removing a picture changes them too).
     readonly property var custom: (Theme.window, Theme.seeds(Theme.theme))
     readonly property bool editable: Theme.theme === "custom" || Theme.isMine(Theme.theme)
     readonly property var mine: Theme.myThemes.find(function(t) { return t.id === Theme.theme }) || null
-    // Every theme for Match System's lists: the built-in ones, Custom while kept, then one's own.
+    // The picture theme (the Custom slot) is listed only while a picture is in use.
+    readonly property bool pictureListed: Theme.picture.toString().length > 0 || Theme.theme === "custom"
+    // Every theme for Match System's lists: the built-in ones, the picture's, then one's own.
     readonly property var allThemes: Theme.themes.map(function(t) { return {id: t.id, name: qsTranslate("Owelk", t.name)} })
-        .concat(Theme.customKept ? [{id: "custom", name: qsTr("Custom")}] : []).concat(Theme.myThemes)
+        .concat(root.pictureListed ? [{id: "custom", name: qsTr("Picture")}] : []).concat(Theme.myThemes)
     function accentOf(dark) {
         const a = Theme.accents.find(function(x) { return x.id === Theme.accentName })
         return a ? (dark ? a.dark : a.light) : Theme.accent
     }
-    // The theme in use as a theme of one's own, to change from there.
-    function copyTheme() {
-        const current = root.allThemes.find(function(t) { return t.id === Theme.theme })
-        Theme.addTheme(qsTr("%1 copy").arg(current ? current.name : qsTr("Theme")), Theme.seeds(Theme.theme), "")
+    // A Custom theme of one's own, starting from the colors in use, with its colors shown to change one by one.
+    function newCustom() {
+        const names = Theme.myThemes.map(function(t) { return t.name })
+        let name = qsTr("Custom")
+        for (let n = 2; names.indexOf(name) >= 0; ++n) name = qsTr("Custom %1").arg(n)
+        if (Theme.addTheme(name, Theme.seeds(Theme.theme), "").length) Qt.callLater(function() { root.revealRequested("settingsGroup-themeColors") })
     }
     readonly property var seedNames: [{key: "window", name: qsTr("Window and toolbars")}, {key: "sidebar", name: qsTr("Sidebars")},
         {key: "content", name: qsTr("Documents and lists")}, {key: "raised", name: qsTr("Menus and popovers")},
@@ -36,13 +42,8 @@ ColumnLayout {
     // system, so no theme for each appearance applies. With Match System on, Custom's Dark is the system's to set
     // (the picture's colors are tinted for it); turning Match System off leaves it to the reader.
     readonly property bool pictureTheme: Theme.picture.toString().length > 0 && Theme.usePictureColors && Theme.theme === "custom"
-    function startCustom() {
-        if (Theme.theme === "custom") return
-        // With a picture, Custom is the picture's theme; otherwise it starts as a copy of the theme in use.
-        if (Theme.picture.toString().length && Theme.usePictureColors) { Theme.theme = "custom"; return }
-        Theme.setCustomSeeds(Theme.seeds(Theme.theme))
-    }
-    // A theme in Settings: the built-in ones, Custom and one's own.
+    function startCustom() { Theme.theme = "custom" }
+    // A theme in Settings: the built-in ones, the picture's and one's own.
     component ThemeTile: ThemePreview {
         required property string themeId
         // Read again whenever the theme changes (the Custom colors can change under it).
@@ -100,7 +101,7 @@ ColumnLayout {
                     objectName: "yourThemes"
                     width: themes.width
                     spacing: 12
-                    ThemeTile { visible: Theme.customKept; themeId: "custom"; name: qsTr("Custom") }
+                    ThemeTile { visible: root.pictureListed; themeId: "custom"; name: qsTr("Picture") }
                     Repeater {
                         model: Theme.myThemes
                         delegate: ThemeTile { required property var modelData; themeId: modelData.id; name: modelData.name }
@@ -149,7 +150,7 @@ ColumnLayout {
     SettingsGroup {
         visible: root.editable
         objectName: "settingsGroup-themeColors"
-        title: root.mine ? root.mine.name : qsTr("Custom theme")
+        title: root.mine ? root.mine.name : qsTr("Picture")
         note: qsTr("Hover, selection and secondary text are worked out from these colors, so the theme stays consistent.")
         SettingsRow {
             objectName: "settingsRow-themeName"
@@ -188,19 +189,22 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            id: darkRow
             objectName: "settingsRow-customDark"
-            visible: Theme.theme === "custom"
+            // The picture's follows Match System; one's own is light or dark as made.
+            readonly property bool bySystem: Theme.theme === "custom" && Theme.matchSystem
             label: qsTr("Dark")
-            detail: Theme.matchSystem ? qsTr("Set by Match System. Turn it off to change this.") : qsTr("Use light text and dark controls")
+            detail: bySystem ? qsTr("Set by Match System. Turn it off to change this.") : qsTr("Use light text and dark controls")
             Switch {
                 objectName: "customDarkSwitch"
-                enabled: !Theme.matchSystem
+                enabled: !darkRow.bySystem
                 checked: !!root.custom.dark
                 onToggled: {
-                    // A picture's theme is tinted again for the other brightness; other custom colors are kept.
-                    const next = Theme.picture.toString().length ? Theme.tintedSeeds(Theme.pictureColors.length ? Theme.pictureColors[0] : "", checked)
-                                                                 : Object.assign({}, root.custom, {dark: checked})
-                    Theme.setCustomSeeds(next)
+                    // A picture's theme is tinted again for the other brightness; other colors are kept.
+                    const next = Theme.theme === "custom" && Theme.picture.toString().length
+                        ? Theme.tintedSeeds(Theme.pictureColors.length ? Theme.pictureColors[0] : "", checked)
+                        : Object.assign({}, root.custom, {dark: checked})
+                    Theme.setThemeSeeds(Theme.theme, next)
                 }
             }
         }
@@ -350,7 +354,7 @@ ColumnLayout {
         MenuItem { objectName: "photoTheme"; text: qsTr("From a Photo…"); onTriggered: photoDialog.open() }
         MenuItem { objectName: "colorTheme"; text: qsTr("From a Color…"); onTriggered: maker.fromColor() }
         MenuSeparator {}
-        MenuItem { objectName: "copyTheme"; text: qsTr("Copy This Theme"); onTriggered: root.copyTheme() }
+        MenuItem { objectName: "customTheme"; text: qsTr("Custom Theme"); onTriggered: root.newCustom() }
     }
     ThemeGalleryDialog { id: gallery }
     ThemeMakerDialog { id: maker }

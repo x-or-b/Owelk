@@ -5940,10 +5940,6 @@ You can open the same document twice.</source>
         <translation> 피티</translation>
     </message>
     <message>
-        <source>%1 copy</source>
-        <translation>%1 카피</translation>
-    </message>
-    <message>
         <source>**Attention** lets each word look at the others and weigh which matter here.
 
 - Each word asks a question.
@@ -6010,15 +6006,15 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>컴팩트</translation>
     </message>
     <message>
-        <source>Copy This Theme</source>
-        <translation>카피 디스 테마</translation>
-    </message>
-    <message>
         <source>Custom</source>
         <translation>커스텀</translation>
     </message>
     <message>
-        <source>Custom theme</source>
+        <source>Custom %1</source>
+        <translation>커스텀 %1</translation>
+    </message>
+    <message>
+        <source>Custom Theme</source>
         <translation>커스텀 테마</translation>
     </message>
     <message>
@@ -6104,6 +6100,10 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Name</source>
         <translation>네임</translation>
+    </message>
+    <message>
+        <source>Picture</source>
+        <translation>픽처</translation>
     </message>
     <message>
         <source>Pictures</source>

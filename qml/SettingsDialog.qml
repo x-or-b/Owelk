@@ -205,6 +205,7 @@ Dialog {
                         target: pageLoader.item
                         ignoreUnknownSignals: true
                         function onPageRequested(id) { if (root.listed(id)) root.page = id }
+                        function onRevealRequested(anchor) { root.reveal({page: root.page, anchor: anchor}) }
                     }
                     Loader {
                         id: pageLoader

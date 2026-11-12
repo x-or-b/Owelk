@@ -188,7 +188,6 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
             m_store->setSetting(key, "my-onedark");
         }
         saveMine();
-        m_customStored = !m_store->setting("appearance.custom").isEmpty();
         const auto theme = m_store->setting("appearance.theme");
         if (known(theme)) m_theme = theme;
         m_customAccent = QColor(m_store->setting("appearance.customAccent"));
@@ -244,6 +243,24 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
         if (const int interval = m_store->setting("appearance.pictureInterval", "0").toInt(); knownInterval(interval))
             m_pictureInterval = interval;
         m_pictureNext = QDateTime::fromString(m_store->setting("appearance.pictureNext"), Qt::ISODate);
+        // Custom is the picture theme's alone: Settings lists it only while a picture is in use. Colors made in it
+        // before there were themes of one's own, with no picture, become one named Custom; without a picture in
+        // use, Custom is chosen nowhere.
+        if (m_pictures.isEmpty() && !m_store->setting("appearance.custom").isEmpty()) {
+            if (!mine("my-custom")) m_mine.append({"my-custom", "Custom", custom(), QColor()});
+            saveMine();
+            for (auto *slot : {&m_theme, &m_lightTheme, &m_darkTheme})
+                if (*slot == "custom") *slot = "my-custom";
+            save("appearance.custom", QString());
+        }
+        if (!m_pictureOn || m_pictures.isEmpty()) {
+            if (m_theme == "custom") m_theme = custom().dark ? "dark" : "neutral";
+            if (m_lightTheme == "custom") m_lightTheme = "neutral";
+            if (m_darkTheme == "custom") m_darkTheme = "dark";
+        }
+        for (const auto &[key, value] : {std::pair{"appearance.theme", m_theme},
+                 std::pair{"appearance.lightTheme", m_lightTheme}, std::pair{"appearance.darkTheme", m_darkTheme}})
+            if (const auto stored = m_store->setting(key); !stored.isEmpty() && stored != value) save(key, value);
     }
     if (const auto *app = qobject_cast<QGuiApplication *>(QCoreApplication::instance())) {
         if (const auto scheme = app->styleHints()->colorScheme(); scheme != Qt::ColorScheme::Unknown)
@@ -687,7 +704,6 @@ bool Theme::writeCustomSeeds(const QVariantMap &seeds)
         json.insert(key, c.name());
     }
     save("appearance.custom", QString::fromUtf8(QJsonDocument(json).toJson(QJsonDocument::Compact)));
-    m_customStored = true;
     return true;
 }
 

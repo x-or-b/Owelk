@@ -207,6 +207,46 @@ private slots:
         QCOMPARE(again.theme(), added);
         QCOMPARE(again.darkTheme(), QString("my-onedark"));
     }
+    // Custom is the picture theme's alone. Colors made in it with no picture become a theme of one's own named Custom;
+    // with a picture that is off, Custom is chosen nowhere.
+    void customColorsBecomeAThemeOfOnesOwn()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.path());
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        {
+            Theme theme(&store);
+            QVERIFY(theme.setCustomSeeds(theme.seeds("paper")));
+        }
+        store.setSetting("appearance.lightTheme", "custom");
+        {
+            Theme theme(&store);
+            QCOMPARE(theme.theme(), QString("my-custom"));
+            QCOMPARE(theme.lightTheme(), QString("my-custom"));
+            QCOMPARE(theme.myThemes()[0].toMap()["name"].toString(), QString("Custom"));
+            QCOMPARE(theme.seeds("my-custom")["window"], theme.seeds("paper")["window"]);
+            QCOMPARE(store.setting("appearance.custom"), QString());
+        }
+        QTemporaryDir other;
+        ResearchStore pictured(other.path());
+        QVERIFY2(pictured.initialize(&error), qPrintable(error));
+        QImage picture(20, 30, QImage::Format_RGB32);
+        picture.fill(Qt::blue);
+        const auto file = other.filePath("picture.png");
+        QVERIFY(picture.save(file));
+        {
+            Theme theme(&pictured);
+            QVERIFY(theme.usePicture(QUrl::fromLocalFile(file)));
+            QCOMPARE(theme.theme(), QString("custom"));
+            theme.setPictureOn(false);
+        }
+        pictured.setSetting("appearance.lightTheme", "custom");
+        Theme theme(&pictured);
+        QVERIFY(theme.theme() != "custom");
+        QCOMPARE(theme.lightTheme(), QString("neutral"));
+        QVERIFY(theme.myThemes().isEmpty());
+    }
     void picturesRotateOnlyWhenReadingAllowsIt()
     {
         QTemporaryDir directory;

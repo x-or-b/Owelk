@@ -269,31 +269,44 @@ Item {
             Theme.appIcon = "unknown"
             compare(Theme.appIcon, "paper")
         }
-        function test_copyThisThemeMakesOneOfYourOwn() {
+        // + › Custom Theme: one of one's own from the colors in use, its colors shown to change; light or dark as made.
+        function test_customThemeMadeWithPlus() {
             Theme.theme = "paper"
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
             tryVerify(function() { return visualChild(settings.contentItem, "addTheme") !== null })
+            verify(!visualChild(settings.contentItem, "themeTile-custom").visible, "no Custom tile without a picture")
             waitForPolish(settings.contentItem); wait(50)
             mouseClick(visualChild(settings.contentItem, "addTheme"), 40, 30)
             const menu = findChild(page(), "addThemeMenu")
             tryCompare(menu, "opened", true)
-            findChild(menu, "copyTheme").triggered()
+            verify(findChild(menu, "copyTheme") === null)
+            findChild(menu, "customTheme").triggered()
             menu.close()
             verify(Theme.isMine(Theme.theme))
             compare(Theme.seeds(Theme.theme).window, Theme.seeds("paper").window)
-            compare(Theme.myThemes[0].name, "Paper copy")
-            // Its colors, its name and Delete below; Match System offers it.
+            compare(Theme.myThemes[0].name, "Custom")
+            // Its colors, scrolled to and lit; its name, Dark and Delete below; Match System offers it.
+            const flash = findChild(settings, "settingsFlash")
+            tryVerify(function() { return flash.opacity > 0 })
             const name = visualChild(settings.contentItem, "themeNameField")
             tryVerify(function() { return name.visible })
             name.text = "Evening paper"; name.editingFinished()
             compare(Theme.myThemes[0].name, "Evening paper")
             verify(visualChild(settings.contentItem, "seed-window") !== null)
-            verify(!visualChild(settings.contentItem, "customDarkSwitch").visible)
+            const dark = visualChild(settings.contentItem, "customDarkSwitch")
+            verify(dark.visible && dark.enabled)
+            dark.toggle(); dark.toggled()
+            verify(Theme.dark)
+            verify(Theme.seeds(Theme.theme).dark)
             verify(visualChild(settings.contentItem, "matchSystem-light").ids.indexOf(Theme.theme) >= 0)
             verify(visualChild(settings.contentItem, "themeTile-" + Theme.theme).current)
+            // Another one is Custom 2.
+            page().newCustom()
+            compare(Theme.myThemes.map(function(t) { return t.name }), ["Evening paper", "Custom"])
+            page().newCustom()
+            compare(Theme.myThemes[2].name, "Custom 2")
             visualChild(settings.contentItem, "deleteTheme").clicked()
-            compare(Theme.myThemes.length, 0)
-            compare(Theme.theme, "neutral")
+            compare(Theme.myThemes.length, 2)
         }
         // Well-known themes, pictured: narrowed by what is typed, added as one's own with their accent, once.
         function test_galleryAddsAWellKnownTheme() {

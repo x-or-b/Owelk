@@ -43,8 +43,6 @@ class Theme : public QObject {
     // Themes of the reader's own, added with + (from a copy, the gallery, a photo or a color): [{id, name, dark,
     // accent}], kept on this computer like the other appearance settings.
     Q_PROPERTY(QVariantList myThemes READ myThemes NOTIFY changed)
-    // The Custom theme has colors of its own (made before themes of one's own existed) or is the picture's.
-    Q_PROPERTY(bool customKept READ customKept NOTIFY changed)
     // The custom accent as it was given (before its lightness is fitted); invalid when there is none.
     Q_PROPERTY(QColor customAccent READ customAccent NOTIFY changed)
     // The named accents, then "custom" once a custom accent color is stored.
@@ -239,7 +237,6 @@ public:
     QVariantList themes() const;
     QVariantList accents() const;
     QVariantList myThemes() const;
-    bool customKept() const { return m_customStored || !m_pictures.isEmpty() || m_theme == "custom"; }
 
     // A theme of one's own from seeds (as seeds() gives them) and, if valid, an accent it brings; switched to at
     // once. Returns its ID ("my-…"), or "" when a color is invalid.
@@ -379,7 +376,6 @@ private:
     ResearchStore *m_store = nullptr;
     QString m_theme = "neutral", m_accentName = "blue";
     QList<Mine> m_mine;
-    bool m_customStored = false;
     int m_textSize = 13;
     bool m_touch = touchRoom > 0;
     bool m_fingerInput = touchRoom > 0;
