@@ -2,10 +2,29 @@ import PDFKit
 import PencilKit
 import UIKit
 
-/// What Apple Pencil does on a page: draw in one of the desktop's mark colors, or erase whole strokes.
+/// What Apple Pencil does on a page: draw in one of the desktop's mark colors, highlight the text it passes over
+/// (a highlight on the text, as the desktop's), or erase whole strokes.
 enum PenTool: Equatable {
     case pen(String)
+    case highlighter(String)
     case eraser
+
+    /// The color of the pen or highlighter.
+    var ink: String? {
+        switch self {
+        case let .pen(hex), let .highlighter(hex): hex
+        case .eraser: nil
+        }
+    }
+
+    /// The same tool with another color (the eraser stays the eraser).
+    func with(_ hex: String) -> PenTool {
+        switch self {
+        case .pen: .pen(hex)
+        case .highlighter: .highlighter(hex)
+        case .eraser: .eraser
+        }
+    }
 
     /// The desktop's mark colors (`ResearchStore::annotationColors`), the default first.
     static let colors = ["#426b9a", "#e0b83f", "#54a878", "#d87797", "#9274c3", "#1d3a5c"]
@@ -304,7 +323,7 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider, PKCa
             canvas.tool = PKInkingTool(.monoline, color: UIColor(hex: hex) ?? .black, width: width)
             canvas.isUserInteractionEnabled = true
         } else {
-            // The eraser is the reader's own (`erase(along:in:)`): the canvas lets the Pencil through.
+            // The eraser and the highlighter are the reader's own: the canvas lets the Pencil through.
             canvas.isUserInteractionEnabled = false
         }
     }

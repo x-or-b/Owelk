@@ -39,9 +39,11 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
     @Published private(set) var tool: PenTool
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
-    /// The pen's color, kept for the next paper.
+    /// The pen's color, kept for the next paper (the highlighter's is `TextMarks.color`).
     private var color: String
     private var previous = PenTool.eraser
+    /// The pen or highlighter last chosen, which the eraser gives way to.
+    private var lastInk: PenTool
     private var lastSaved: ReadingPosition?
 
     init(paper: Paper) {
@@ -49,6 +51,7 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         let saved = UserDefaults.standard.string(forKey: "pen.color") ?? ""
         color = PenTool.colors.contains(saved) ? saved : PenTool.colors[0]
         tool = .pen(color)
+        lastInk = .pen(color)
         super.init()
         controller.pen.tool = tool
         controller.onPageChange = { [weak self] page in self?.page = page }
@@ -121,10 +124,33 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         if tool != self.tool { previous = self.tool }
         self.tool = tool
         controller.pen.tool = tool
-        if case let .pen(hex) = tool {
+        switch tool {
+        case let .pen(hex):
             color = hex
             UserDefaults.standard.set(hex, forKey: "pen.color")
+            lastInk = tool
+        case let .highlighter(hex):
+            TextMarks.color = hex
+            lastInk = tool
+        case .eraser:
+            break
         }
+    }
+
+    /// The pen with its color.
+    func choosePen() { choose(.pen(color)) }
+
+    /// The highlighter with its color (the one highlights made from the menu take too).
+    func chooseHighlighter() { choose(.highlighter(TextMarks.color)) }
+
+    /// A color for the pen or highlighter in hand (the last one, while erasing).
+    func choose(color hex: String) { choose((tool == .eraser ? lastInk : tool).with(hex)) }
+
+    /// The color shown as chosen: the pen's or highlighter's in hand (the last one's, while erasing).
+    var ink: String { (tool == .eraser ? lastInk : tool).ink ?? color }
+
+    var highlighting: Bool {
+        if case .highlighter = tool { true } else { false }
     }
 
     func undo() {
@@ -147,7 +173,7 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         guard canDraw else { return }
         switch action {
         case .switchEraser:
-            if !drawing { drawing = true } else { choose(tool == .eraser ? .pen(color) : .eraser) }
+            if !drawing { drawing = true } else { choose(tool == .eraser ? lastInk : .eraser) }
         case .switchPrevious:
             if !drawing { drawing = true } else { choose(previous) }
         case .showColorPalette, .showInkAttributes, .showContextualPalette:
@@ -571,27 +597,17 @@ private struct SearchPanel: View {
     }
 }
 
-/// The pen's colors (the desktop's mark colors), the eraser, and Undo and Redo.
+/// The pen and the highlighter, their colors (the desktop's mark colors), the eraser, and Undo and Redo.
 struct PenPalette: View {
     @ObservedObject var model: ReaderModel
-    private static let names = ["Blue", "Yellow", "Green", "Pink", "Purple", "Navy"]
 
     var body: some View {
         HStack(spacing: 12) {
-            ForEach(Array(PenTool.colors.enumerated()), id: \.element) { index, hex in
-                Button {
-                    model.choose(.pen(hex))
-                } label: {
-                    Circle()
-                        .fill(Color(uiColor: UIColor(hex: hex) ?? .black))
-                        .frame(width: 22, height: 22)
-                        .padding(4)
-                        .overlay(Circle().strokeBorder(model.tool == .pen(hex) ? Theme.accent : .clear, lineWidth: 2))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Self.names[index])
-                .accessibilityAddTraits(model.tool == .pen(hex) ? .isSelected : [])
-            }
+            tool("Pen", "pencil.tip", chosen: { if case .pen = $0 { true } else { false } }, model.choosePen)
+            tool("Highlighter", "highlighter", chosen: { if case .highlighter = $0 { true } else { false } },
+                 model.chooseHighlighter)
+            Divider().frame(height: 24)
+            InkChoice(color: Binding(get: { model.ink }, set: { model.choose(color: $0) }))
             Divider().frame(height: 24)
             Button {
                 model.choose(.eraser)
@@ -619,5 +635,15 @@ struct PenPalette: View {
         }
         .tint(.primary)
         .font(.body)
+    }
+
+    private func tool(_ name: String, _ symbol: String, chosen: (PenTool) -> Bool,
+                      _ choose: @escaping () -> Void) -> some View {
+        Button(action: choose) {
+            Image(systemName: symbol).frame(width: 30, height: 30)
+        }
+        .foregroundStyle(chosen(model.tool) ? Theme.accent : Color.primary)
+        .accessibilityLabel(name)
+        .accessibilityAddTraits(chosen(model.tool) ? .isSelected : [])
     }
 }

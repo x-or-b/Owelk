@@ -13,6 +13,9 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
     private let history = UndoManager()
     private lazy var undoTap = UITapGestureRecognizer(target: self, action: #selector(undoTapped))
     private lazy var eraser = UIPanGestureRecognizer(target: self, action: #selector(erasing(_:)))
+    private lazy var marker = UIPanGestureRecognizer(target: self, action: #selector(marking(_:)))
+    /// Where the highlighter went down.
+    private var markedFrom: (page: PDFPage, point: CGPoint)?
     private var erasedTo: CGPoint?
     /// Apple Pencil's double tap and squeeze, with the action the reader chose in Settings and where the tip hovers.
     var onPencil: ((UIPencilPreferredAction, CGPoint?) -> Void)?
@@ -64,11 +67,12 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
             pdfView.isInMarkupMode = drawing
             undoTap.isEnabled = drawing
             eraser.isEnabled = drawing
+            marker.isEnabled = drawing
             // The Pencil draws and erases then; only fingers scroll, zoom, select and open notes. PDFKit's own double
             // tap took the Pencil too, and zoomed the page away when a stroke began with a quick touch.
             if drawing {
                 fingersOnly = Self.recognizers(in: pdfView, outside: PKCanvasView.self).filter {
-                    $0 !== eraser && $0 !== undoTap && !($0 is UIHoverGestureRecognizer)
+                    $0 !== eraser && $0 !== marker && $0 !== undoTap && !($0 is UIHoverGestureRecognizer)
                 }.map { ($0, $0.allowedTouchTypes) }
                 let finger = UITouch.TouchType.direct.rawValue
                 for (recognizer, touches) in fingersOnly {
@@ -159,6 +163,11 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
         eraser.isEnabled = false
         eraser.delegate = self
         pdfView.addGestureRecognizer(eraser)
+        marker.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.pencil.rawValue)]
+        marker.maximumNumberOfTouches = 1
+        marker.isEnabled = false
+        marker.delegate = self
+        pdfView.addGestureRecognizer(marker)
         let pencil = UIPencilInteraction()
         pencil.delegate = self
         view.addInteraction(pencil)
@@ -417,7 +426,9 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
     @objc private func undoTapped() { onUndo?() }
 
     func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
-        gesture === eraser ? pen.tool == .eraser : true
+        if gesture === eraser { return pen.tool == .eraser }
+        if gesture === marker, case .highlighter = pen.tool { return marksAllowed }
+        return gesture !== marker
     }
 
     @objc private func erasing(_ gesture: UIPanGestureRecognizer) {
@@ -435,6 +446,52 @@ final class ReaderViewController: UIViewController, UIGestureRecognizerDelegate,
         default:
             break
         }
+    }
+
+    // MARK: The highlighter
+
+    /// The Pencil passes over the text with the highlighter: the text from where it went down to where it is now is
+    /// selected as it goes, and highlighted when it lifts.
+    @objc private func marking(_ gesture: UIPanGestureRecognizer) {
+        let location = gesture.location(in: pdfView), moved = gesture.translation(in: pdfView)
+        switch gesture.state {
+        case .began:
+            // The pan begins a little after the Pencil went down: the text from there.
+            beginMarking(at: CGPoint(x: location.x - moved.x, y: location.y - moved.y))
+            markText(to: location)
+        case .changed:
+            markText(to: location)
+        case .ended:
+            markText(to: location)
+            finishMarking()
+        default:
+            markedFrom = nil
+            pdfView.clearSelection()
+        }
+    }
+
+    func beginMarking(at point: CGPoint) {
+        guard let page = pdfView.page(for: point, nearest: true) else { return }
+        markedFrom = (page, pdfView.convert(point, to: page))
+    }
+
+    func markText(to point: CGPoint) {
+        guard let start = markedFrom, let document = pdfView.document,
+              let page = pdfView.page(for: point, nearest: true) else { return }
+        let selection = document.selection(from: start.page, at: start.point, to: page, at: pdfView.convert(point, to: page))
+        if let selection, !(selection.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            pdfView.setCurrentSelection(selection, animate: false)
+        } else {
+            pdfView.clearSelection()
+        }
+    }
+
+    func finishMarking() {
+        defer { markedFrom = nil }
+        guard markedFrom != nil, let selection = pdfView.currentSelection, let document = pdfView.document,
+              case let .highlighter(color) = pen.tool else { return pdfView.clearSelection() }
+        pen.place(TextMarks.rows(for: selection, in: document, kind: "highlight", color: color), named: "Highlight")
+        pdfView.clearSelection()
     }
 
     // MARK: Apple Pencil

@@ -69,6 +69,32 @@ final class TextMarksTests: XCTestCase {
         XCTAssertEqual(offered(), [], "not where the paper's PDF is unknown")
     }
 
+    /// With the highlighter, the Pencil going along a line selects the text it passes over, and lifting it highlights
+    /// that text in the highlighter's color (once, as one step).
+    func testTheHighlighterHighlightsTheTextItPassesOver() async throws {
+        let (controller, window, document) = try await reader()
+        defer { window.isHidden = true }
+        var placed: [Row] = []
+        controller.pen.placed = { placed += $0 }
+        controller.drawing = true
+        controller.pen.tool = .highlighter("#54a878")
+        let selection = try XCTUnwrap(document.findString("second paper", withOptions: []).first)
+        let page = try XCTUnwrap(selection.pages.first)
+        let text = controller.pdfView.convert(selection.bounds(for: page), from: page)
+        controller.beginMarking(at: CGPoint(x: text.minX + 2, y: text.midY))
+        controller.markText(to: CGPoint(x: text.midX, y: text.midY))
+        XCTAssertNotNil(controller.pdfView.currentSelection, "selected as it goes")
+        controller.markText(to: CGPoint(x: text.maxX - 2, y: text.midY))
+        controller.finishMarking()
+        XCTAssertEqual(placed.count, 1)
+        XCTAssertEqual(placed.first?.string("kind"), "highlight")
+        XCTAssertEqual(placed.first?.string("color"), "#54a878")
+        XCTAssertTrue(placed.first?.string("text").contains("second pape") ?? false, placed.first?.string("text") ?? "")
+        XCTAssertNil(controller.pdfView.currentSelection)
+        controller.finishMarking()
+        XCTAssertEqual(placed.count, 1, "lifting again makes nothing")
+    }
+
     /// Highlight puts the mark on the page at once and reports it; Undo takes it off (erased), Redo brings it back.
     /// The list of the paper's marks runs page by page, and deleting from it is one step Undo reverses.
     func testHighlightingIsOneStepAndListed() async throws {
