@@ -26,7 +26,8 @@ final class AiChat: ObservableObject {
     /// The conversation shown (nil: a new one, made with its first answer).
     @Published private(set) var thread: String?
     /// The conversation shown is about something else (another paper, a collection, nothing in particular): what it
-    /// is about ("" when nothing), to be read here. A question about this paper starts a new one.
+    /// is about ("" when nothing). It is read here until the reader goes on with it (`goOn`) or forks it (`fork`); a
+    /// question asked before that (Explain, Summarize) starts a new conversation about this paper.
     @Published private(set) var elsewhere: String?
     private var task: Task<Void, Never>?
     private var paperText: String?
@@ -73,6 +74,17 @@ final class AiChat: ObservableObject {
             }
         }
         return turns
+    }
+
+    /// Goes on with the conversation about something else, as it is: questions are kept in it, with this paper's
+    /// text sent along.
+    func goOn() { elsewhere = nil }
+
+    /// Goes on with a copy of the conversation about something else, kept with this paper ("Branch · …").
+    func fork() async {
+        guard !running, let store, let thread, let copy = await store.forkThread(thread, about: paper) else { return }
+        await open(copy)
+        elsewhere = nil
     }
 
     /// The question typed (about the attached selection, if any).

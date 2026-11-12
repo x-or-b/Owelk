@@ -184,6 +184,7 @@ private struct WindowChats: View {
             group("Other Chats", rest, places: true)
         }
         .listStyle(.plain)
+        .contentMargins(.horizontal, 12, for: .scrollContent)
         .overlay {
             if library.threads.isEmpty {
                 Text("No chats yet.").foregroundStyle(.secondary)
@@ -210,6 +211,7 @@ private struct WindowChats: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .accessibilityAddTraits(item.id == chat.thread ? .isSelected : [])
                 }
             }
@@ -286,11 +288,24 @@ struct AiPanel: View {
     @ViewBuilder
     private var composer: some View {
         if let elsewhere = chat.elsewhere, chat.attached == nil {
-            VStack(alignment: .leading, spacing: 8) {
+            // Asked here, a question carries this paper's text: kept in that chat, or in a copy kept with this paper.
+            VStack(alignment: .leading, spacing: 10) {
                 Text(elsewhere.isEmpty ? "This chat isn't about this paper." : "This chat is about “\(elsewhere)”.")
                     .font(.callout).foregroundStyle(.secondary).lineLimit(2)
-                Button("New Chat About This Paper") { chat.clear() }
-                    .buttonStyle(.bordered)
+                HStack(spacing: 10) {
+                    Button {
+                        chat.goOn()
+                    } label: {
+                        Label("Continue", systemImage: "arrow.turn.down.right").frame(maxWidth: .infinity)
+                    }
+                    Button {
+                        Task { await chat.fork() }
+                    } label: {
+                        Label("Fork for This Paper", systemImage: "arrow.triangle.branch").frame(maxWidth: .infinity)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(chat.running)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)

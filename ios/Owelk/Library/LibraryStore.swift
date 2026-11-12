@@ -276,6 +276,14 @@ final class LibraryStore: ObservableObject {
         return id
     }
 
+    /// A copy of a conversation about another paper or a collection, to go on with about this paper; returns its ID.
+    func forkThread(_ thread: String, about paper: Paper) async -> String? {
+        guard let engine else { return nil }
+        let id = await engine.forkThread(thread, about: paper)
+        edit { _ in }
+        return id
+    }
+
     /// A new note (shown at once); returns its ID.
     func createNote(title: String, body: String) async -> String? {
         guard let engine else { return nil }

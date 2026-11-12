@@ -289,6 +289,24 @@ actor SyncEngine {
         return id
     }
 
+    /// A copy of a conversation to go on with about a paper, as the desktop's `forkAiThread` makes one ("Branch · …",
+    /// its turns copied with their times, so they stay in order), but kept with the paper read here: in its folder,
+    /// sent with its ID and linked to it. Returns its ID.
+    func forkThread(_ thread: String, about paper: Paper) -> String? {
+        guard let row = state.entry("ai_threads", key: [thread])?.row else { return nil }
+        let title = row.string("title")
+        let id = startThread(about: paper, title: title.hasPrefix("Branch · ") ? title : "Branch · " + title,
+                             provider: row.string("provider"), model: row.string("model"))
+        for var message in state.entries("ai_messages").values.compactMap(\.row)
+            where message.string("thread_id") == thread {
+            let copy = newId()
+            message["id"] = copy
+            message["thread_id"] = id
+            stage("ai_messages", key: [copy], row: message)
+        }
+        return id
+    }
+
     /// A question and its answer, as the desktop's `appendAiMessage` saves them once the answer is in: the request as
     /// sent, what the reader typed, and the model; the conversation is then the latest.
     func addTurn(to thread: String, sent: String, display: String, answer: String, selection: String = "",

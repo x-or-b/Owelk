@@ -47,8 +47,11 @@ struct ChatRow: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(chat.title.isEmpty ? "Chat" : chat.title).font(.body.weight(.medium)).lineLimit(2)
             if !place.isEmpty {
-                Label(place, systemImage: chat.paper.isEmpty ? "folder" : "doc.text")
-                    .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                HStack(spacing: 5) {
+                    Image(systemName: chat.paper.isEmpty ? "folder" : "doc.text").imageScale(.small)
+                    Text(place).lineLimit(1)
+                }
+                .font(.subheadline).foregroundStyle(.secondary)
             }
             if let date = ISO8601DateFormatter.withFraction.date(from: chat.updatedAt) {
                 Text(date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.tertiary)

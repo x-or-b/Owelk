@@ -608,6 +608,37 @@ final class AddPaperTests: XCTestCase {
         XCTAssertGreaterThan(back.version.time, ConformanceTests.clock)
     }
 
+    /// A chat about another paper forked to go on with about the paper read here: "Branch · …" (once), kept with this
+    /// paper, its turns copied with their times under new IDs; the chat itself stays as it was.
+    func testAChatForkedForThePaperRead() async throws {
+        let library = try XCTUnwrap(folder.library())
+        let engine = SyncEngine(storage: temporary.appendingPathComponent("app"), device: ConformanceTests.ipad,
+                                clock: { ConformanceTests.clock + 5 })
+        _ = await engine.pass(folder, library: library, about: [:])
+        let papers = await engine.current().papers
+        let about = try XCTUnwrap(papers.first), read = try XCTUnwrap(papers.last)
+        let chat = await engine.saveTurn(in: nil, about: about, title: "Why echoes?", sent: "<q>Why echoes?</q>",
+                                         display: "Why echoes?", answer: "Hard walls.", selection: "", cutOff: false,
+                                         provider: "claude", model: "claude-opus-5-5")
+        let forked = await engine.forkThread(chat, about: read)
+        let fork = try XCTUnwrap(forked)
+        XCTAssertNotEqual(fork, chat)
+        let threads = await engine.current().threads
+        let copy = try XCTUnwrap(threads.first { $0.id == fork })
+        XCTAssertEqual(copy.title, "Branch · Why echoes?")
+        XCTAssertEqual(copy.paper, read.id)
+        XCTAssertEqual(copy.folder, "document:" + read.documentId)
+        XCTAssertEqual(threads.first { $0.id == chat }?.paper, about.id)
+        let original = await engine.messages(of: chat), copied = await engine.messages(of: fork)
+        XCTAssertEqual(copied.map(\.content), original.map(\.content))
+        XCTAssertEqual(copied.map(\.display), original.map(\.display))
+        XCTAssertEqual(copied.map(\.createdAt), original.map(\.createdAt))
+        XCTAssertTrue(Set(copied.map(\.id)).isDisjoint(with: original.map(\.id)))
+        let again = await engine.forkThread(fork, about: read)
+        let titles = await engine.current().threads.filter { $0.id == again }.map(\.title)
+        XCTAssertEqual(titles, ["Branch · Why echoes?"])
+    }
+
     /// A paper deleted for good on a computer: the same PDF added here is a new paper, not the old one back.
     func testAPaperDeletedForGoodComesBackNew() async throws {
         let library = try XCTUnwrap(folder.library())
