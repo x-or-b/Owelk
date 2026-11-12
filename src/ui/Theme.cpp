@@ -96,7 +96,7 @@ bool knownTheme(const QString &id)
         if (id == QLatin1String(t.id)) return true;
     return false;
 }
-// Settings › Appearance › Picture › Change picture, in minutes (-1: at each launch, 0: never).
+// Settings › Picture › Change picture, in minutes (-1: at each launch, 0: never).
 bool knownInterval(int minutes)
 {
     return QList<int>{-1, 0, 30, 60, 360, 720, 1440}.contains(minutes);

@@ -22,12 +22,14 @@ ColumnLayout {
             : qsTr("Keeps this library the same on your other computers. Choose a folder inside Google Drive, Dropbox or Syncthing (for example My Drive) on each computer; Owelk works in an Owelk folder there and copies the Library's PDFs into it, so there is nothing to move by hand. On Ubuntu, reach Google Drive with rclone or Insync. Papers, annotations, notes, collections, reading state and AI threads travel; when one item changes on two computers, the later change wins.")
         noteColor: root.syncProblem.length ? Theme.danger : Theme.textTertiary
         SettingsRow {
+            objectName: "settingsRow-syncFolder"
             label: qsTr("Sync folder")
             detail: root.syncing ? root.sync.folder : qsTr("Off")
             Button { objectName: "syncOff"; visible: root.syncing; text: qsTr("Turn Off"); onClicked: root.sync.turnOff() }
             Button { objectName: "syncFolder"; text: qsTr("Choose Folder…"); onClicked: syncFolderDialog.open() }
         }
         SettingsRow {
+            objectName: "settingsRow-syncStatus"
             visible: root.syncing
             label: root.sync.status.length ? root.sync.status : qsTr("Waiting to sync")
             detail: root.sync.computers.length ? qsTr("With ") + root.sync.computers.join(", ") : qsTr("No other computer has synced yet")
@@ -45,6 +47,7 @@ ColumnLayout {
         note: root.result.length ? root.result
             : qsTr("A backup copies the library (papers' details, notes, annotations, AI threads) and its images into a folder. Your PDFs stay where they are and are not copied. Automatic backups go to the data folder's backups/auto.")
         SettingsRow {
+            objectName: "settingsRow-autoBackup"
             label: qsTr("Back up automatically")
             detail: qsTr("Once a day; keeps the last 7")
             Switch {
@@ -54,6 +57,7 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            objectName: "settingsRow-backUpNow"
             label: qsTr("Back up now")
             Button {
                 objectName: "backUpNow"
@@ -63,6 +67,7 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            objectName: "settingsRow-restoreBackup"
             label: qsTr("Restore from a backup")
             Button { objectName: "restoreBackup"; text: qsTr("Choose Backup…"); onClicked: restoreFolderDialog.open() }
         }
@@ -72,6 +77,7 @@ ColumnLayout {
         title: qsTr("Export")
         note: qsTr("Each note becomes a Markdown file. A paper's annotations are exported from the reader's ⋯ menu.")
         SettingsRow {
+            objectName: "settingsRow-exportNotes"
             label: qsTr("All notes as Markdown")
             Button { objectName: "exportNotes"; text: qsTr("Export…"); onClicked: notesFolderDialog.open() }
         }

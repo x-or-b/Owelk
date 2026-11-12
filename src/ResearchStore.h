@@ -443,7 +443,7 @@ public:
     // never overwrites an existing file. Returns directory, fileName and url.
     // PDFs go to papers/ while PDFs are kept in Owelk.
     Q_INVOKABLE QVariantMap downloadTarget(const QString &suggestedName, bool pdf = false) const;
-    // File names from paper details: the parts chosen in Settings › Web (pdfNames.parts, e.g.
+    // File names from paper details: the parts chosen in Settings › Library › Paper names (pdfNames.parts, e.g.
     // "author,year,title,-arxiv": order, "-" for off), as on; the title alone by default.
     QStringList fileNameParts() const;
     // How a sample paper would be named with these parts (the settings preview).

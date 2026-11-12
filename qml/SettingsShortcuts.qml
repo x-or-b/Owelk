@@ -34,6 +34,7 @@ ColumnLayout {
         delegate: SettingsGroup {
             id: section
             required property string modelData
+            objectName: "shortcutGroup-" + modelData
             title: qsTranslate("Shortcuts", section.modelData)
             Repeater {
                 model: Shortcuts.actions.filter(function(a) { return a.group === section.modelData })

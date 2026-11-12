@@ -29,7 +29,7 @@ ApplicationWindow {
     readonly property bool topBarHidden: !unifiedTitleBar && !Theme.verticalTabs
         && (topBarChoice.length ? topBarChoice === "hide" : Qt.platform.os !== "osx")
     // Focus mode (⌘⇧F, Ctrl+Shift+F): only the pages and the side panels; no top bar, tab strips or reader toolbars.
-    // The window goes full screen too unless Settings › General says otherwise, and back as it was when it ends. The
+    // The window goes full screen too unless Settings › Reading says otherwise, and back as it was when it ends. The
     // top edge brings a bar back for a moment; the left and right edges open a side panel. Not remembered: Owelk
     // starts as usual.
     property bool focusMode: false
@@ -271,7 +271,7 @@ ApplicationWindow {
         enabled: window.canSwitchTabs
         onActivated: documents.cycleTab(-1)
     }
-    // Control+Tab: the next tab, or back and forth between the last two (Settings › Appearance › Tabs).
+    // Control+Tab: the next tab, or back and forth between the last two (Settings › General › Tabs).
     function controlTab(step) {
         if (researchStore.setting("tabs.controlTab", "next") === "recent" && documents.switchToPreviousTab()) return
         documents.cycleTab(step)
@@ -536,7 +536,7 @@ ApplicationWindow {
         enabled: Theme.picture.toString().length > 0
         onActivated: Theme.pictureHidden = !Theme.pictureHidden
     }
-    // The desktop pet (Settings › Appearance › Picture), only while it is on.
+    // The desktop pet (Settings › Picture), only while it is on.
     Loader {
         id: petLoader
         objectName: "petLoader"

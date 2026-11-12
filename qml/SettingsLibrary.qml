@@ -1,13 +1,21 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs as Native
 import Owelk.Ui
 
-// Where the Library's PDFs live, what papers are called, and how long the Trash keeps things.
+// Where the Library's PDFs and other downloads go, what papers and their files are called, what Owelk looks up
+// about them, and how long the Trash keeps things.
 ColumnLayout {
     id: root
     objectName: "librarySettings"
     spacing: 22
+    function downloadFolder() { const f = researchStore.setting("downloadFolder"); return f.length ? f : researchStore.downloadTarget("x").directory }
+    Native.FolderDialog {
+        id: folderDialog
+        title: qsTr("Download folder for web PDFs")
+        onAccepted: if (researchStore.setSetting("downloadFolder", researchStore.localPath(selectedFolder))) folderField.text = root.downloadFolder()
+    }
     // Read again after a change here.
     property int revision: 0
     property bool keepPdfs: researchStore.setting("library.keepPdfs", "1") === "1"
@@ -45,8 +53,9 @@ ColumnLayout {
     }
     SettingsGroup {
         objectName: "settingsGroup-pdfFiles"
-        title: qsTr("PDF files")
+        title: qsTr("Files")
         note: qsTr("Like a note app, Owelk keeps its own copy of every PDF you open, add or download, in its data folder. The original files are never moved or deleted; you can remove them yourself.")
+            + (root.keepPdfs ? " " + qsTr("Downloaded PDFs go there too; other downloads go to the folder set here.") : "")
         SettingsRow {
             objectName: "settingsRow-keepPdfs"
             label: qsTr("Keep PDFs in Owelk")
@@ -57,6 +66,7 @@ ColumnLayout {
             }
         }
         SettingsRow {
+            objectName: "settingsRow-copyPdfs"
             visible: root.keepPdfs && (root.outside > 0 || researchStore.copyingPdfs)
             label: researchStore.copyingPdfs ? qsTr("Copying PDFs…") : root.outside + (root.outside === 1 ? qsTr(" paper still reads its PDF from elsewhere") : qsTr(" papers still read their PDFs from elsewhere"))
             detail: qsTr("Each copy is checked byte for byte before the paper uses it.")
@@ -72,8 +82,16 @@ ColumnLayout {
             label: qsTr("PDF folder")
             Button { objectName: "showPapersFolder"; text: qsTr("Show Folder"); onClicked: Qt.openUrlExternally(researchStore.papersFolderUrl()) }
         }
+        SettingsRow {
+            objectName: "settingsRow-downloadFolder"
+            label: root.keepPdfs ? qsTr("Other downloads to") : qsTr("Download to")
+            wide: true
+            TextField { id: folderField; objectName: "downloadFolderField"; Layout.fillWidth: true; readOnly: true; text: root.downloadFolder() }
+            IconButton { icon.name: "open"; description: qsTr("Choose a folder…"); onClicked: folderDialog.open() }
+        }
     }
     SettingsGroup {
+        objectName: "settingsGroup-insights"
         title: qsTr("Paper insights")
         note: qsTr("When enabled, Owelk sends only DOI or arXiv IDs to Semantic Scholar for summaries and citation counts. PDFs and notes are not sent. Checks once a day; refreshes results after 30 days.")
         SettingsRow {
@@ -98,10 +116,11 @@ ColumnLayout {
     }
     // Which paper details make a paper's name (shown in Owelk and given to its file), in which order.
     SettingsGroup {
-        objectName: "pdfNameGroup"
+        objectName: "settingsGroup-pdfNames"
         title: qsTr("Paper names")
         note: qsTr("Example: ") + researchStore.sampleFileName(root.namesOn).replace(/\.pdf$/, "")
             + qsTr(". Owelk shows papers by this name (Library, tabs, search); downloads and Rename Now name their files the same way.")
+            + " " + qsTr("A downloaded PDF is named from its paper when its first page shows the title; files already in the Library keep their names, and existing files are never overwritten.")
         Repeater {
             model: root.nameParts
             delegate: SettingsRow {
@@ -141,6 +160,17 @@ ColumnLayout {
                 objectName: "renameKeptPdfs"
                 text: qsTr("Rename Now")
                 onClicked: researchStore.renamePapersToTitles(researchStore.libraryDocuments({}).map(function(d) { return d.url }))
+            }
+        }
+        SettingsRow {
+            objectName: "settingsRow-namePdfs"
+            label: qsTr("Downloaded PDFs")
+            ComboBox {
+                objectName: "webPdfNamesBox"
+                Layout.preferredWidth: 260
+                model: [qsTr("From the paper"), qsTr("Name from the website")]
+                currentIndex: researchStore.setting("web.pdfNames", "title") === "original" ? 1 : 0
+                onActivated: function(index) { researchStore.setSetting("web.pdfNames", index === 1 ? "original" : "title") }
             }
         }
     }

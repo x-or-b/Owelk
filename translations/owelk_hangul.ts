@@ -2071,8 +2071,8 @@ Same file as another library entry</source>
 세임 파일 애즈 어나더 라이브러리 엔트리</translation>
     </message>
     <message>
-        <source> (Settings › Data). A paper deleted for good loses its annotations; a PDF Owelk keeps goes to the system Trash.</source>
-        <translation> (세팅스 › 데이터). 어 페이퍼 딜리티드 포 굿 루지즈 잇츠 애노테이션스; 어 피디에프 오웰크 킵스 고즈 투 더 시스템 트래시.</translation>
+        <source> (Settings › Library). A paper deleted for good loses its annotations; a PDF Owelk keeps goes to the system Trash.</source>
+        <translation> (세팅스 › 라이브러리). 어 페이퍼 딜리티드 포 굿 루지즈 잇츠 애노테이션스; 어 피디에프 오웰크 킵스 고즈 투 더 시스템 트래시.</translation>
     </message>
     <message>
         <source> (it reads “Deleted conversation”).</source>
@@ -5709,30 +5709,16 @@ You can open the same document twice.</source>
         <translation> 애즈 </translation>
     </message>
     <message>
-        <source> pt</source>
-        <translation> 피티</translation>
-    </message>
-    <message>
         <source>%1 · answers use your ChatGPT plan</source>
         <translation>%1 · 앤서스 유즈 유어 챗지피티 플랜</translation>
     </message>
     <message>
-        <source>**Attention** lets each word look at the others and weigh which matter here.
-
-- Each word asks a question.
-- The others answer, and the closest answers count most.
-
-The result is a new meaning for every word, read in its sentence.</source>
-        <translation>**어텐션** 렛츠 이치 워드 룩 앳 더 아더스 앤드 웨이 위치 매터 히어.
-
-- 이치 워드 애스크스 어 퀘스천.
-- 더 아더스 앤서, 앤드 더 클로지스트 앤서스 카운트 모스트.
-
-더 리절트 이즈 어 뉴 미닝 포 에브리 워드, 리드 인 잇츠 센텐스.</translation>
-    </message>
-    <message>
         <source>A short summary of the model's reasoning, folded above each answer</source>
         <translation>어 쇼트 서머리 오브 더 모델스 리즈닝, 폴디드 어보브 이치 앤서</translation>
+    </message>
+    <message>
+        <source>A word's meaning or a passage's translation beside the selection, with this provider.</source>
+        <translation>어 워즈 미닝 오어 어 패시지스 트랜슬레이션 비사이드 더 셀렉션, 위드 디스 프로바이더.</translation>
     </message>
     <message>
         <source>A work or school account may need ChatGPT account (Codex).</source>
@@ -5751,10 +5737,6 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>애디드 투 에브리 퀘스천, 포 이그잼플: "풋 잉글리시 텀스 인 브래킷츠" 오어 "아이 노 칼만 필터스"</translation>
     </message>
     <message>
-        <source>Answer text</source>
-        <translation>앤서 텍스트</translation>
-    </message>
-    <message>
         <source>Answers</source>
         <translation>앤서스</translation>
     </message>
@@ -5767,16 +5749,8 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>비포 더 퍼스트 리퀘스트 투 어 프로바이더, 오웰크 쇼즈 왓 윌 비 센트.</translation>
     </message>
     <message>
-        <source>Between lines and between paragraphs</source>
-        <translation>비트윈 라인스 앤드 비트윈 패러그래프스</translation>
-    </message>
-    <message>
         <source>Brief</source>
         <translation>브리프</translation>
-    </message>
-    <message>
-        <source>Chinese (Simplified)</source>
-        <translation>차이니즈 (심플리파이드)</translation>
     </message>
     <message>
         <source>Claude is available with an API key; signing in with a Claude.ai account is not offered because Anthropic does not allow it for third-party apps.</source>
@@ -5785,14 +5759,6 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Codex CLI not found — install it to sign in</source>
         <translation>코덱스 씨엘아이 낫 파운드 — 인스톨 잇 투 사인 인</translation>
-    </message>
-    <message>
-        <source>Comfortable</source>
-        <translation>컴퍼터블</translation>
-    </message>
-    <message>
-        <source>Compact</source>
-        <translation>컴팩트</translation>
     </message>
     <message>
         <source>Connection</source>
@@ -5811,10 +5777,6 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>이지, 위드 이그잼플스</translation>
     </message>
     <message>
-        <source>English</source>
-        <translation>잉글리시</translation>
-    </message>
-    <message>
         <source>Explanations</source>
         <translation>익스플레네이션스</translation>
     </message>
@@ -5827,24 +5789,12 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>피니시 사이닝 인 인 더 브라우저</translation>
     </message>
     <message>
-        <source>French</source>
-        <translation>프렌치</translation>
-    </message>
-    <message>
-        <source>German</source>
-        <translation>저먼</translation>
-    </message>
-    <message>
         <source>Get a key…</source>
         <translation>겟 어 키…</translation>
     </message>
     <message>
-        <source>Gloss model</source>
-        <translation>글로스 모델</translation>
-    </message>
-    <message>
-        <source>Gloss reasoning</source>
-        <translation>글로스 리즈닝</translation>
+        <source>Gloss</source>
+        <translation>글로스</translation>
     </message>
     <message>
         <source>Higher thinks longer and costs more</source>
@@ -5855,44 +5805,16 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>호스트</translation>
     </message>
     <message>
-        <source>How answers look in the AI panel and chat tabs.</source>
-        <translation>하우 앤서스 룩 인 더 에이아이 패널 앤드 챗 탭스.</translation>
-    </message>
-    <message>
         <source>How every answer is written</source>
         <translation>하우 에브리 앤서 이즈 리튼</translation>
-    </message>
-    <message>
-        <source>In a wide chat tab, the conversation stays a readable width in the middle</source>
-        <translation>인 어 와이드 챗 탭, 더 컨버세이션 스테이즈 어 리더블 위드스 인 더 미들</translation>
     </message>
     <message>
         <source>Instructions</source>
         <translation>인스트럭션스</translation>
     </message>
     <message>
-        <source>Japanese</source>
-        <translation>재패니즈</translation>
-    </message>
-    <message>
         <source>Keys are stored in %1.</source>
         <translation>키스 아 스토어드 인 %1.</translation>
-    </message>
-    <message>
-        <source>Korean</source>
-        <translation>코리언</translation>
-    </message>
-    <message>
-        <source>Letters drawn by the system, as in other apps; turn off if they look blurry</source>
-        <translation>레터스 드론 바이 더 시스템, 애즈 인 아더 앱스; 턴 오프 이프 데이 룩 블러리</translation>
-    </message>
-    <message>
-        <source>Limit line length</source>
-        <translation>리밋 라인 렝스</translation>
-    </message>
-    <message>
-        <source>Line spacing</source>
-        <translation>라인 스페이싱</translation>
     </message>
     <message>
         <source>Loading…</source>
@@ -5915,10 +5837,6 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>낫 사인드 인</translation>
     </message>
     <message>
-        <source>Once a paper's symbols are listed (Document panel › Symbols), pointing at one shows its meaning</source>
-        <translation>원스 어 페이퍼스 심벌스 아 리스티드 (다큐먼트 패널 › 심벌스), 포인팅 앳 원 쇼즈 잇츠 미닝</translation>
-    </message>
-    <message>
         <source>Optional</source>
         <translation>옵셔널</translation>
     </message>
@@ -5935,20 +5853,12 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>페이스트 유어 에이피아이 키</translation>
     </message>
     <message>
-        <source>Preferred language</source>
-        <translation>프리퍼드 랭귀지</translation>
-    </message>
-    <message>
         <source>Provider</source>
         <translation>프로바이더</translation>
     </message>
     <message>
         <source>Reasoning</source>
         <translation>리즈닝</translation>
-    </message>
-    <message>
-        <source>Relaxed</source>
-        <translation>릴랙스트</translation>
     </message>
     <message>
         <source>Remove</source>
@@ -5963,16 +5873,8 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>리무브 더 스토어드 키?</translation>
     </message>
     <message>
-        <source>Same as the paper</source>
-        <translation>세임 애즈 더 페이퍼</translation>
-    </message>
-    <message>
         <source>Save</source>
         <translation>세이브</translation>
-    </message>
-    <message>
-        <source>Sharp text</source>
-        <translation>샤프 텍스트</translation>
     </message>
     <message>
         <source>Show thinking</source>
@@ -5995,20 +5897,12 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>사인드 인 위다웃 퍼미션 투 유즈 유어 챗지피티 플랜</translation>
     </message>
     <message>
-        <source>Spanish</source>
-        <translation>스패니시</translation>
-    </message>
-    <message>
         <source>Stored securely</source>
         <translation>스토어드 시큐얼리</translation>
     </message>
     <message>
         <source>Suggest next questions</source>
         <translation>서제스트 넥스트 퀘스천스</translation>
-    </message>
-    <message>
-        <source>Symbol hints</source>
-        <translation>심벌 힌츠</translation>
     </message>
     <message>
         <source>Test</source>
@@ -6019,16 +5913,8 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>테스팅…</translation>
     </message>
     <message>
-        <source>Text size</source>
-        <translation>텍스트 사이즈</translation>
-    </message>
-    <message>
         <source>Two or three questions under the last answer; a click asks one</source>
         <translation>투 오어 스리 퀘스천스 언더 더 라스트 앤서; 어 클릭 애스크스 원</translation>
-    </message>
-    <message>
-        <source>Used for Explain, Summarize and other one-click actions, and as the Translate target. A question you type is answered in the language you wrote it in.</source>
-        <translation>유즈드 포 익스플레인, 서머라이즈 앤드 아더 원-클릭 액션스, 앤드 애즈 더 트랜슬레이트 타깃. 어 퀘스천 유 타입 이즈 앤서드 인 더 랭귀지 유 로트 잇 인.</translation>
     </message>
 </context>
 <context>
@@ -6046,52 +5932,30 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation> 테마</translation>
     </message>
     <message>
-        <source>15 minutes</source>
-        <translation>15 미닛츠</translation>
+        <source>**Attention** lets each word look at the others and weigh which matter here.
+
+- Each word asks a question.
+- The others answer, and the closest answers count most.
+
+The result is a new meaning for every word, read in its sentence.</source>
+        <translation>**어텐션** 렛츠 이치 워드 룩 앳 더 아더스 앤드 웨이 위치 매터 히어.
+
+- 이치 워드 애스크스 어 퀘스천.
+- 더 아더스 앤서, 앤드 더 클로지스트 앤서스 카운트 모스트.
+
+더 리절트 이즈 어 뉴 미닝 포 에브리 워드, 리드 인 잇츠 센텐스.</translation>
     </message>
     <message>
-        <source>25 minutes</source>
-        <translation>25 미닛츠</translation>
+        <source>AI answers</source>
+        <translation>에이아이 앤서스</translation>
     </message>
     <message>
-        <source>30 minutes</source>
-        <translation>30 미닛츠</translation>
-    </message>
-    <message>
-        <source>50 minutes</source>
-        <translation>50 미닛츠</translation>
-    </message>
-    <message>
-        <source>60 minutes</source>
-        <translation>60 미닛츠</translation>
-    </message>
-    <message>
-        <source>90 minutes</source>
-        <translation>90 미닛츠</translation>
+        <source>AI answers' letters drawn by the system, as in other apps; turn off if they look blurry</source>
+        <translation>에이아이 앤서스' 레터스 드론 바이 더 시스템, 애즈 인 아더 앱스; 턴 오프 이프 데이 룩 블러리</translation>
     </message>
     <message>
         <source>Accent color</source>
         <translation>액센트 컬러</translation>
-    </message>
-    <message>
-        <source>Accent from the picture</source>
-        <translation>액센트 프롬 더 픽처</translation>
-    </message>
-    <message>
-        <source>Add faces</source>
-        <translation>애드 페이시즈</translation>
-    </message>
-    <message>
-        <source>Add…</source>
-        <translation>애드…</translation>
-    </message>
-    <message>
-        <source>An answer is being written</source>
-        <translation>언 앤서 이즈 빙 리튼</translation>
-    </message>
-    <message>
-        <source>An answer is ready, work is done</source>
-        <translation>언 앤서 이즈 레디, 워크 이즈 던</translation>
     </message>
     <message>
         <source>App icon</source>
@@ -6102,26 +5966,6 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>어라운드 피디에프 페이지스</translation>
     </message>
     <message>
-        <source>Being dragged</source>
-        <translation>빙 드래그드</translation>
-    </message>
-    <message>
-        <source>Break</source>
-        <translation>브레이크</translation>
-    </message>
-    <message>
-        <source>Break reminder</source>
-        <translation>브레이크 리마인더</translation>
-    </message>
-    <message>
-        <source>Center</source>
-        <translation>센터</translation>
-    </message>
-    <message>
-        <source>Change picture</source>
-        <translation>체인지 픽처</translation>
-    </message>
-    <message>
         <source>Changes the icon in the Dock and on the app in Finder. If the Dock keeps the old one, it updates after Owelk restarts.</source>
         <translation>체인지스 더 아이콘 인 더 독 앤드 온 더 앱 인 파인더. 이프 더 독 킵스 더 올드 원, 잇 업데이츠 애프터 오웰크 리스타츠.</translation>
     </message>
@@ -6130,20 +5974,16 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>체인지스 더 아이콘 인 더 태스크바 앤드 타이틀 바스.</translation>
     </message>
     <message>
-        <source>Choose Faces for the Pet</source>
-        <translation>추즈 페이시즈 포 더 펫</translation>
-    </message>
-    <message>
         <source>Choose a Picture</source>
         <translation>추즈 어 픽처</translation>
     </message>
     <message>
-        <source>Click one to use it. Right-click to remove it.</source>
-        <translation>클릭 원 투 유즈 잇. 라이트-클릭 투 리무브 잇.</translation>
+        <source>Comfortable</source>
+        <translation>컴퍼터블</translation>
     </message>
     <message>
-        <source>Clicked</source>
-        <translation>클릭트</translation>
+        <source>Compact</source>
+        <translation>컴팩트</translation>
     </message>
     <message>
         <source>Custom</source>
@@ -6154,10 +5994,6 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>커스텀 테마</translation>
     </message>
     <message>
-        <source>Daily reading goal</source>
-        <translation>데일리 리딩 골</translation>
-    </message>
-    <message>
         <source>Dark</source>
         <translation>다크</translation>
     </message>
@@ -6166,76 +6002,24 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>다크 어피어런스</translation>
     </message>
     <message>
-        <source>Dark pages</source>
-        <translation>다크 페이지스</translation>
-    </message>
-    <message>
-        <source>Dark pages invert lightness and keep hues, so figures stay recognizable. Exports and printing use the original colors.</source>
-        <translation>다크 페이지스 인버트 라이트니스 앤드 킵 휴즈, 소 피겨스 스테이 레커그나이저블. 익스포츠 앤드 프린팅 유즈 더 오리지널 컬러스.</translation>
-    </message>
-    <message>
-        <source>Desktop pet</source>
-        <translation>데스크톱 펫</translation>
-    </message>
-    <message>
         <source>Documents and lists</source>
         <translation>다큐먼츠 앤드 리스츠</translation>
-    </message>
-    <message>
-        <source>Each launch</source>
-        <translation>이치 런치</translation>
-    </message>
-    <message>
-        <source>Every 12 hours</source>
-        <translation>에브리 12 아워스</translation>
-    </message>
-    <message>
-        <source>Every 30 minutes</source>
-        <translation>에브리 30 미닛츠</translation>
-    </message>
-    <message>
-        <source>Every 6 hours</source>
-        <translation>에브리 6 아워스</translation>
-    </message>
-    <message>
-        <source>Every day</source>
-        <translation>에브리 데이</translation>
-    </message>
-    <message>
-        <source>Every hour</source>
-        <translation>에브리 아워</translation>
-    </message>
-    <message>
-        <source>Happy</source>
-        <translation>해피</translation>
-    </message>
-    <message>
-        <source>Held</source>
-        <translation>헬드</translation>
-    </message>
-    <message>
-        <source>Hide in screen sharing</source>
-        <translation>하이드 인 스크린 셰어링</translation>
     </message>
     <message>
         <source>Hover, selection and secondary text are worked out from these colors, so the theme stays consistent.</source>
         <translation>호버, 셀렉션 앤드 세컨더리 텍스트 아 워크트 아웃 프롬 디즈 컬러스, 소 더 테마 스테이즈 컨시스턴트.</translation>
     </message>
     <message>
-        <source>In turn</source>
-        <translation>인 턴</translation>
+        <source>In AI answers, between lines and between paragraphs</source>
+        <translation>인 에이아이 앤서스, 비트윈 라인스 앤드 비트윈 패러그래프스</translation>
     </message>
     <message>
-        <source>Keep this picture</source>
-        <translation>킵 디스 픽처</translation>
+        <source>In a wide chat tab, the conversation stays a readable width in the middle</source>
+        <translation>인 어 와이드 챗 탭, 더 컨버세이션 스테이즈 어 리더블 위드스 인 더 미들</translation>
     </message>
     <message>
-        <source>Large</source>
-        <translation>라지</translation>
-    </message>
-    <message>
-        <source>Left</source>
-        <translation>레프트</translation>
+        <source>In the AI panel and chat tabs</source>
+        <translation>인 더 에이아이 패널 앤드 챗 탭스</translation>
     </message>
     <message>
         <source>Light appearance</source>
@@ -6250,6 +6034,14 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>라이트 오어 다크 위드 유어 시스템. 더 픽처 테마 스테이즈 앤드 턴스 라이트 오어 다크 위드 잇.</translation>
     </message>
     <message>
+        <source>Limit line length</source>
+        <translation>리밋 라인 렝스</translation>
+    </message>
+    <message>
+        <source>Line spacing</source>
+        <translation>라인 스페이싱</translation>
+    </message>
+    <message>
         <source>Lines</source>
         <translation>라인스</translation>
     </message>
@@ -6258,132 +6050,28 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>매치 시스템</translation>
     </message>
     <message>
-        <source>Medium</source>
-        <translation>미디엄</translation>
-    </message>
-    <message>
         <source>Menus and popovers</source>
         <translation>메뉴스 앤드 팝오버스</translation>
-    </message>
-    <message>
-        <source>Nothing for a while</source>
-        <translation>낫싱 포 어 와일</translation>
-    </message>
-    <message>
-        <source>Off</source>
-        <translation>오프</translation>
-    </message>
-    <message>
-        <source>Off, Custom has your own colors again and the pet goes away. The pictures are kept.</source>
-        <translation>오프, 커스텀 해즈 유어 오운 컬러스 어게인 앤드 더 펫 고즈 어웨이. 더 픽처스 아 켑트.</translation>
-    </message>
-    <message>
-        <source>On, Custom takes the picture's colors and the picture shows behind Home and pages. Off, the themes above are as they are; the picture is the pet's.</source>
-        <translation>온, 커스텀 테이크스 더 픽처스 컬러스 앤드 더 픽처 쇼즈 비하인드 홈 앤드 페이지스. 오프, 더 테마즈 어보브 아 애즈 데이 아; 더 픽처 이즈 더 펫츠.</translation>
-    </message>
-    <message>
-        <source>Opacity</source>
-        <translation>오패시티</translation>
-    </message>
-    <message>
-        <source>PDF pages</source>
-        <translation>피디에프 페이지스</translation>
-    </message>
-    <message>
-        <source>Pet faces</source>
-        <translation>펫 페이시즈</translation>
-    </message>
-    <message>
-        <source>Pet size</source>
-        <translation>펫 사이즈</translation>
-    </message>
-    <message>
-        <source>Picture</source>
-        <translation>픽처</translation>
-    </message>
-    <message>
-        <source>Picture colors</source>
-        <translation>픽처 컬러스</translation>
-    </message>
-    <message>
-        <source>Picture theme</source>
-        <translation>픽처 테마</translation>
     </message>
     <message>
         <source>Pictures</source>
         <translation>픽처스</translation>
     </message>
     <message>
-        <source>Poked</source>
-        <translation>포크트</translation>
-    </message>
-    <message>
-        <source>Position</source>
-        <translation>포지션</translation>
-    </message>
-    <message>
-        <source>Random</source>
-        <translation>랜덤</translation>
-    </message>
-    <message>
-        <source>Remove Face</source>
-        <translation>리무브 페이스</translation>
-    </message>
-    <message>
-        <source>Remove Picture</source>
-        <translation>리무브 픽처</translation>
-    </message>
-    <message>
-        <source>Right</source>
-        <translation>라이트</translation>
-    </message>
-    <message>
-        <source>Saying something</source>
-        <translation>세잉 섬싱</translation>
-    </message>
-    <message>
-        <source>Scales all text and the controls around it. PDF pages keep their own zoom.</source>
-        <translation>스케일스 올 텍스트 앤드 더 컨트롤스 어라운드 잇. 피디에프 페이지스 킵 데어 오운 줌.</translation>
-    </message>
-    <message>
-        <source>Screen sharing and recordings leave out the pet. Some recorders on recent macOS show it anyway, stuck in place.</source>
-        <translation>스크린 셰어링 앤드 리코딩스 리브 아웃 더 펫. 섬 리코더즈 온 리센트 맥오에스 쇼 잇 애니웨이, 스턱 인 플레이스.</translation>
+        <source>Relaxed</source>
+        <translation>릴랙스트</translation>
     </message>
     <message>
         <source>Set by Match System. Turn it off to change this.</source>
         <translation>셋 바이 매치 시스템. 턴 잇 오프 투 체인지 디스.</translation>
     </message>
     <message>
-        <source>Shown behind Home and PDF pages while the Custom theme is in use. Exports and printing keep the original pages.</source>
-        <translation>숀 비하인드 홈 앤드 피디에프 페이지스 와일 더 커스텀 테마 이즈 인 유즈. 익스포츠 앤드 프린팅 킵 더 오리지널 페이지스.</translation>
+        <source>Sharp text</source>
+        <translation>샤프 텍스트</translation>
     </message>
     <message>
         <source>Sidebars</source>
         <translation>사이드바스</translation>
-    </message>
-    <message>
-        <source>Size</source>
-        <translation>사이즈</translation>
-    </message>
-    <message>
-        <source>Sleepy</source>
-        <translation>슬리피</translation>
-    </message>
-    <message>
-        <source>Small</source>
-        <translation>스몰</translation>
-    </message>
-    <message>
-        <source>Some pictures could not be added (unreadable, or six already).</source>
-        <translation>섬 픽처스 쿠드 낫 비 애디드 (언리더블, 오어 식스 올레디).</translation>
-    </message>
-    <message>
-        <source>Something failed</source>
-        <translation>섬싱 페일드</translation>
-    </message>
-    <message>
-        <source>Talking</source>
-        <translation>토킹</translation>
     </message>
     <message>
         <source>Text</source>
@@ -6394,20 +6082,8 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>텍스트 사이즈</translation>
     </message>
     <message>
-        <source>The pet cheers once you have read this much in a day, and at 7, 30 and 100 days in a row</source>
-        <translation>더 펫 치어즈 원스 유 해브 리드 디스 머치 인 어 데이, 앤드 앳 7, 30 앤드 100 데이즈 인 어 로우</translation>
-    </message>
-    <message>
-        <source>The pet suggests a short break after this much reading in Owelk</source>
-        <translation>더 펫 서제스츠 어 쇼트 브레이크 애프터 디스 머치 리딩 인 오웰크</translation>
-    </message>
-    <message>
-        <source>The picture floats above other apps while Owelk is open. Click it to come back here.</source>
-        <translation>더 픽처 플로츠 어보브 아더 앱스 와일 오웰크 이즈 오픈. 클릭 잇 투 컴 백 히어.</translation>
-    </message>
-    <message>
-        <source>The rest of the time, in place of the picture</source>
-        <translation>더 레스트 오브 더 타임, 인 플레이스 오브 더 픽처</translation>
+        <source>Text size scales all text and the controls around it; PDF pages keep their own zoom. The rest is how AI answers read.</source>
+        <translation>텍스트 사이즈 스케일스 올 텍스트 앤드 더 컨트롤스 어라운드 잇; 피디에프 페이지스 킵 데어 오운 줌. 더 레스트 이즈 하우 에이아이 앤서스 리드.</translation>
     </message>
     <message>
         <source>Theme</source>
@@ -6418,20 +6094,8 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>테마 컬러</translation>
     </message>
     <message>
-        <source>Thinking</source>
-        <translation>싱킹</translation>
-    </message>
-    <message>
         <source>This picture could not be opened.</source>
         <translation>디스 픽처 쿠드 낫 비 오픈드.</translation>
-    </message>
-    <message>
-        <source>Time for a break</source>
-        <translation>타임 포 어 브레이크</translation>
-    </message>
-    <message>
-        <source>Up to six for each moment, a different one each time or one after another; right-click one to remove it. Without any, the pet shows its usual face, else the picture (for news, its talking face).</source>
-        <translation>업 투 식스 포 이치 모먼트, 어 디퍼런트 원 이치 타임 오어 원 애프터 어나더; 라이트-클릭 원 투 리무브 잇. 위다웃 애니, 더 펫 쇼즈 잇츠 유주얼 페이스, 엘스 더 픽처 (포 뉴스, 잇츠 토킹 페이스).</translation>
     </message>
     <message>
         <source>Use light text and dark controls</source>
@@ -6442,16 +6106,8 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>유즈드 포 셀렉션, 더 메인 버튼 오브 이치 에어리어, 포커스 앤드 링크스. 애노테이션 잉크스 킵 데어 오운 컬러스.</translation>
     </message>
     <message>
-        <source>Usual</source>
-        <translation>유주얼</translation>
-    </message>
-    <message>
         <source>Window and toolbars</source>
         <translation>윈도 앤드 툴바스</translation>
-    </message>
-    <message>
-        <source>Worried</source>
-        <translation>워리드</translation>
     </message>
 </context>
 <context>
@@ -6483,6 +6139,14 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>No setting found.</source>
         <translation>노 세팅 파운드.</translation>
+    </message>
+    <message>
+        <source>Picture</source>
+        <translation>픽처</translation>
+    </message>
+    <message>
+        <source>Reading</source>
+        <translation>리딩</translation>
     </message>
     <message>
         <source>Search</source>
@@ -6635,6 +6299,14 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>에이아이 컨버세이션스</translation>
     </message>
     <message>
+        <source>AI answers</source>
+        <translation>에이아이 앤서스</translation>
+    </message>
+    <message>
+        <source>AI answers: for Explain, Summarize and other one-click actions, and the Translate target. A question you type is answered in the language you wrote it in.</source>
+        <translation>에이아이 앤서스: 포 익스플레인, 서머라이즈 앤드 아더 원-클릭 액션스, 앤드 더 트랜슬레이트 타깃. 어 퀘스천 유 타입 이즈 앤서드 인 더 랭귀지 유 로트 잇 인.</translation>
+    </message>
+    <message>
         <source>Allow Owelk in System Settings › General › Login Items.</source>
         <translation>얼라우 오웰크 인 시스템 세팅스 › 제너럴 › 로그인 아이템스.</translation>
     </message>
@@ -6647,24 +6319,28 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>백, 포워드, 서치 앤드 더 메뉴 어보브 더 윈도. 잇 스테이즈 위드 버티컬 탭스.</translation>
     </message>
     <message>
+        <source>Chinese (Simplified)</source>
+        <translation>차이니즈 (심플리파이드)</translation>
+    </message>
+    <message>
         <source>Collections</source>
         <translation>컬렉션스</translation>
     </message>
     <message>
-        <source>Focus mode</source>
-        <translation>포커스 모드</translation>
+        <source>English</source>
+        <translation>잉글리시</translation>
     </message>
     <message>
         <source>For You</source>
         <translation>포 유</translation>
     </message>
     <message>
-        <source>Full screen</source>
-        <translation>풀 스크린</translation>
+        <source>French</source>
+        <translation>프렌치</translation>
     </message>
     <message>
-        <source>Hides the bars above the pages; the side panels still open, from their keys or the window's edges, and the top edge brings a bar back for a moment. %1 turns it on and off.</source>
-        <translation>하이즈 더 바스 어보브 더 페이지스; 더 사이드 패널스 스틸 오픈, 프롬 데어 키스 오어 더 윈도스 엣지스, 앤드 더 톱 엣지 브링스 어 바 백 포 어 모먼트. %1 턴스 잇 온 앤드 오프.</translation>
+        <source>German</source>
+        <translation>저먼</translation>
     </message>
     <message>
         <source>Home</source>
@@ -6673,6 +6349,18 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Horizontal</source>
         <translation>호리존털</translation>
+    </message>
+    <message>
+        <source>Interface</source>
+        <translation>인터페이스</translation>
+    </message>
+    <message>
+        <source>Japanese</source>
+        <translation>재패니즈</translation>
+    </message>
+    <message>
+        <source>Korean</source>
+        <translation>코리언</translation>
     </message>
     <message>
         <source>Language</source>
@@ -6731,6 +6419,14 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>리셋</translation>
     </message>
     <message>
+        <source>Same as the paper</source>
+        <translation>세임 애즈 더 페이퍼</translation>
+    </message>
+    <message>
+        <source>Spanish</source>
+        <translation>스패니시</translation>
+    </message>
+    <message>
         <source>Tab layout</source>
         <translation>탭 레이아웃</translation>
     </message>
@@ -6758,40 +6454,128 @@ The result is a new meaning for every word, read in its sentence.</source>
 <context>
     <name>SettingsIndex</name>
     <message>
+        <source>AI answer language</source>
+        <translation>에이아이 앤서 랭귀지</translation>
+    </message>
+    <message>
+        <source>AI answer size</source>
+        <translation>에이아이 앤서 사이즈</translation>
+    </message>
+    <message>
+        <source>AI model</source>
+        <translation>에이아이 모델</translation>
+    </message>
+    <message>
         <source>AI provider</source>
         <translation>에이아이 프로바이더</translation>
+    </message>
+    <message>
+        <source>API key</source>
+        <translation>에이피아이 키</translation>
     </message>
     <message>
         <source>Accent color</source>
         <translation>액센트 컬러</translation>
     </message>
     <message>
-        <source>Answer text size</source>
-        <translation>앤서 텍스트 사이즈</translation>
+        <source>Accent from the picture</source>
+        <translation>액센트 프롬 더 픽처</translation>
+    </message>
+    <message>
+        <source>Add a search engine</source>
+        <translation>애드 어 서치 엔진</translation>
+    </message>
+    <message>
+        <source>Answers</source>
+        <translation>앤서스</translation>
     </message>
     <message>
         <source>App icon</source>
         <translation>앱 아이콘</translation>
     </message>
     <message>
+        <source>Back up automatically</source>
+        <translation>백 업 오토매티컬리</translation>
+    </message>
+    <message>
+        <source>Back up now</source>
+        <translation>백 업 나우</translation>
+    </message>
+    <message>
         <source>Backup</source>
         <translation>백업</translation>
+    </message>
+    <message>
+        <source>Break reminder</source>
+        <translation>브레이크 리마인더</translation>
+    </message>
+    <message>
+        <source>Change picture</source>
+        <translation>체인지 픽처</translation>
+    </message>
+    <message>
+        <source>ChatGPT account</source>
+        <translation>챗지피티 어카운트</translation>
+    </message>
+    <message>
+        <source>Check for new papers now</source>
+        <translation>체크 포 뉴 페이퍼스 나우</translation>
     </message>
     <message>
         <source>Check for new papers once a day</source>
         <translation>체크 포 뉴 페이퍼스 원스 어 데이</translation>
     </message>
     <message>
+        <source>Checking</source>
+        <translation>체킹</translation>
+    </message>
+    <message>
+        <source>Checking for new papers</source>
+        <translation>체킹 포 뉴 페이퍼스</translation>
+    </message>
+    <message>
+        <source>Codex account</source>
+        <translation>코덱스 어카운트</translation>
+    </message>
+    <message>
+        <source>Copy PDFs into Owelk</source>
+        <translation>카피 피디에프스 인투 오웰크</translation>
+    </message>
+    <message>
         <source>Ctrl+Tab</source>
         <translation>컨트롤+탭</translation>
+    </message>
+    <message>
+        <source>Custom theme</source>
+        <translation>커스텀 테마</translation>
+    </message>
+    <message>
+        <source>Daily reading goal</source>
+        <translation>데일리 리딩 골</translation>
+    </message>
+    <message>
+        <source>Dark custom theme</source>
+        <translation>다크 커스텀 테마</translation>
     </message>
     <message>
         <source>Dark pages</source>
         <translation>다크 페이지스</translation>
     </message>
     <message>
+        <source>Desktop pet</source>
+        <translation>데스크톱 펫</translation>
+    </message>
+    <message>
         <source>Download folder</source>
         <translation>다운로드 폴더</translation>
+    </message>
+    <message>
+        <source>Downloaded PDF names</source>
+        <translation>다운로디드 피디에프 네임스</translation>
+    </message>
+    <message>
+        <source>Embedding model</source>
+        <translation>임베딩 모델</translation>
     </message>
     <message>
         <source>Empty the Trash</source>
@@ -6806,28 +6590,64 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>익스플레네이션스</translation>
     </message>
     <message>
+        <source>Export</source>
+        <translation>익스포트</translation>
+    </message>
+    <message>
         <source>Export notes as Markdown</source>
         <translation>익스포트 노츠 애즈 마크다운</translation>
+    </message>
+    <message>
+        <source>Files</source>
+        <translation>파일스</translation>
     </message>
     <message>
         <source>Focus mode</source>
         <translation>포커스 모드</translation>
     </message>
     <message>
+        <source>Full screen</source>
+        <translation>풀 스크린</translation>
+    </message>
+    <message>
+        <source>Gloss</source>
+        <translation>글로스</translation>
+    </message>
+    <message>
         <source>Gloss model</source>
         <translation>글로스 모델</translation>
+    </message>
+    <message>
+        <source>Gloss reasoning</source>
+        <translation>글로스 리즈닝</translation>
+    </message>
+    <message>
+        <source>Hide in screen sharing</source>
+        <translation>하이드 인 스크린 셰어링</translation>
     </message>
     <message>
         <source>Home</source>
         <translation>홈</translation>
     </message>
     <message>
+        <source>Home layout</source>
+        <translation>홈 레이아웃</translation>
+    </message>
+    <message>
         <source>How far back For You looks</source>
         <translation>하우 파 백 포 유 룩스</translation>
     </message>
     <message>
+        <source>Index status</source>
+        <translation>인덱스 스테이터스</translation>
+    </message>
+    <message>
         <source>Instructions</source>
         <translation>인스트럭션스</translation>
+    </message>
+    <message>
+        <source>Interface language</source>
+        <translation>인터페이스 랭귀지</translation>
     </message>
     <message>
         <source>Keep For You papers</source>
@@ -6842,6 +6662,10 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>랭귀지</translation>
     </message>
     <message>
+        <source>Launch</source>
+        <translation>런치</translation>
+    </message>
+    <message>
         <source>Limit line length</source>
         <translation>리밋 라인 렝스</translation>
     </message>
@@ -6850,20 +6674,40 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>라인 스페이싱</translation>
     </message>
     <message>
+        <source>Links</source>
+        <translation>링크스</translation>
+    </message>
+    <message>
         <source>Match System</source>
         <translation>매치 시스템</translation>
+    </message>
+    <message>
+        <source>Meaning index</source>
+        <translation>미닝 인덱스</translation>
     </message>
     <message>
         <source>Meaning search</source>
         <translation>미닝 서치</translation>
     </message>
     <message>
-        <source>Name PDFs</source>
-        <translation>네임 피디에프스</translation>
+        <source>Meaning search engine</source>
+        <translation>미닝 서치 엔진</translation>
+    </message>
+    <message>
+        <source>Model name</source>
+        <translation>모델 네임</translation>
     </message>
     <message>
         <source>Newer arXiv versions</source>
         <translation>뉴어 아카이브 버전스</translation>
+    </message>
+    <message>
+        <source>OCR languages</source>
+        <translation>오시알 랭귀지스</translation>
+    </message>
+    <message>
+        <source>Ollama host</source>
+        <translation>올라마 호스트</translation>
     </message>
     <message>
         <source>On launch</source>
@@ -6886,16 +6730,64 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>피디에프 링크스</translation>
     </message>
     <message>
+        <source>PDF pages</source>
+        <translation>피디에프 페이지스</translation>
+    </message>
+    <message>
         <source>PDF text index</source>
         <translation>피디에프 텍스트 인덱스</translation>
+    </message>
+    <message>
+        <source>Paper insights</source>
+        <translation>페이퍼 인사이츠</translation>
     </message>
     <message>
         <source>Paper names</source>
         <translation>페이퍼 네임스</translation>
     </message>
     <message>
-        <source>Preferred language</source>
-        <translation>프리퍼드 랭귀지</translation>
+        <source>Pet faces</source>
+        <translation>펫 페이시즈</translation>
+    </message>
+    <message>
+        <source>Pet on the desktop</source>
+        <translation>펫 온 더 데스크톱</translation>
+    </message>
+    <message>
+        <source>Pet size</source>
+        <translation>펫 사이즈</translation>
+    </message>
+    <message>
+        <source>Picture</source>
+        <translation>픽처</translation>
+    </message>
+    <message>
+        <source>Picture colors</source>
+        <translation>픽처 컬러스</translation>
+    </message>
+    <message>
+        <source>Picture opacity</source>
+        <translation>픽처 오패시티</translation>
+    </message>
+    <message>
+        <source>Picture position</source>
+        <translation>픽처 포지션</translation>
+    </message>
+    <message>
+        <source>Picture size</source>
+        <translation>픽처 사이즈</translation>
+    </message>
+    <message>
+        <source>Picture theme</source>
+        <translation>픽처 테마</translation>
+    </message>
+    <message>
+        <source>Pictures</source>
+        <translation>픽처스</translation>
+    </message>
+    <message>
+        <source>Provider</source>
+        <translation>프로바이더</translation>
     </message>
     <message>
         <source>Read text with OCR</source>
@@ -6908,6 +6800,14 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Rename kept PDFs</source>
         <translation>리네임 켑트 피디에프스</translation>
+    </message>
+    <message>
+        <source>Restore from a backup</source>
+        <translation>리스토어 프롬 어 백업</translation>
+    </message>
+    <message>
+        <source>Scanned pages</source>
+        <translation>스캔드 페이지스</translation>
     </message>
     <message>
         <source>Search engines</source>
@@ -6934,12 +6834,36 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>심벌 힌츠</translation>
     </message>
     <message>
+        <source>Symbols</source>
+        <translation>심벌스</translation>
+    </message>
+    <message>
         <source>Sync</source>
         <translation>싱크</translation>
     </message>
     <message>
+        <source>Sync folder</source>
+        <translation>싱크 폴더</translation>
+    </message>
+    <message>
+        <source>Sync now</source>
+        <translation>싱크 나우</translation>
+    </message>
+    <message>
         <source>Tab layout</source>
         <translation>탭 레이아웃</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>탭스</translation>
+    </message>
+    <message>
+        <source>Test the connection</source>
+        <translation>테스트 더 커넥션</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>텍스트</translation>
     </message>
     <message>
         <source>Text size</source>
@@ -6948,6 +6872,14 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Theme</source>
         <translation>테마</translation>
+    </message>
+    <message>
+        <source>Top bar</source>
+        <translation>톱 바</translation>
+    </message>
+    <message>
+        <source>Trash</source>
+        <translation>트래시</translation>
     </message>
     <message>
         <source>What For You follows</source>
@@ -6969,12 +6901,20 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>. 오웰크 쇼즈 페이퍼스 바이 디스 네임 (라이브러리, 탭스, 서치); 다운로즈 앤드 리네임 나우 네임 데어 파일스 더 세임 웨이.</translation>
     </message>
     <message>
+        <source>A downloaded PDF is named from its paper when its first page shows the title; files already in the Library keep their names, and existing files are never overwritten.</source>
+        <translation>어 다운로디드 피디에프 이즈 네임드 프롬 잇츠 페이퍼 웬 잇츠 퍼스트 페이지 쇼즈 더 타이틀; 파일스 올레디 인 더 라이브러리 킵 데어 네임스, 앤드 이그지스팅 파일스 아 네버 오버리튼.</translation>
+    </message>
+    <message>
         <source>After 30 days</source>
         <translation>애프터 30 데이즈</translation>
     </message>
     <message>
         <source>After 7 days</source>
         <translation>애프터 7 데이즈</translation>
+    </message>
+    <message>
+        <source>Choose a folder…</source>
+        <translation>추즈 어 폴더…</translation>
     </message>
     <message>
         <source>Copy Into Owelk</source>
@@ -6989,6 +6929,22 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>딜리티드 페이퍼스, 노츠 앤드 에이아이 컨버세이션스 웨이트 인 라이브러리 › 트래시 언틸 덴</translation>
     </message>
     <message>
+        <source>Download folder for web PDFs</source>
+        <translation>다운로드 폴더 포 웹 피디에프스</translation>
+    </message>
+    <message>
+        <source>Download to</source>
+        <translation>다운로드 투</translation>
+    </message>
+    <message>
+        <source>Downloaded PDFs</source>
+        <translation>다운로디드 피디에프스</translation>
+    </message>
+    <message>
+        <source>Downloaded PDFs go there too; other downloads go to the folder set here.</source>
+        <translation>다운로디드 피디에프스 고 데어 투; 아더 다운로즈 고 투 더 폴더 셋 히어.</translation>
+    </message>
+    <message>
         <source>Each copy is checked byte for byte before the paper uses it.</source>
         <translation>이치 카피 이즈 체크트 바이트 포 바이트 비포 더 페이퍼 유지즈 잇.</translation>
     </message>
@@ -7001,8 +6957,16 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>이그잼플: </translation>
     </message>
     <message>
+        <source>Files</source>
+        <translation>파일스</translation>
+    </message>
+    <message>
         <source>First author</source>
         <translation>퍼스트 오서</translation>
+    </message>
+    <message>
+        <source>From the paper</source>
+        <translation>프롬 더 페이퍼</translation>
     </message>
     <message>
         <source>Keep PDFs in Owelk</source>
@@ -7025,6 +6989,10 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>무브 업</translation>
     </message>
     <message>
+        <source>Name from the website</source>
+        <translation>네임 프롬 더 웹사이트</translation>
+    </message>
+    <message>
         <source>Never</source>
         <translation>네버</translation>
     </message>
@@ -7037,8 +7005,8 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>원스 어 데이, 센즈 온리 더 아카이브 아이디즈 오브 유어 페이퍼스 투 arxiv.org 투 파인드 뉴어 버전스.</translation>
     </message>
     <message>
-        <source>PDF files</source>
-        <translation>피디에프 파일스</translation>
+        <source>Other downloads to</source>
+        <translation>아더 다운로즈 투</translation>
     </message>
     <message>
         <source>PDF folder</source>
@@ -7087,6 +7055,340 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>arXiv ID</source>
         <translation>아카이브 아이디</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsPicture</name>
+    <message>
+        <source>15 minutes</source>
+        <translation>15 미닛츠</translation>
+    </message>
+    <message>
+        <source>25 minutes</source>
+        <translation>25 미닛츠</translation>
+    </message>
+    <message>
+        <source>30 minutes</source>
+        <translation>30 미닛츠</translation>
+    </message>
+    <message>
+        <source>50 minutes</source>
+        <translation>50 미닛츠</translation>
+    </message>
+    <message>
+        <source>60 minutes</source>
+        <translation>60 미닛츠</translation>
+    </message>
+    <message>
+        <source>90 minutes</source>
+        <translation>90 미닛츠</translation>
+    </message>
+    <message>
+        <source>Accent color</source>
+        <translation>액센트 컬러</translation>
+    </message>
+    <message>
+        <source>Accent from the picture</source>
+        <translation>액센트 프롬 더 픽처</translation>
+    </message>
+    <message>
+        <source>Add faces</source>
+        <translation>애드 페이시즈</translation>
+    </message>
+    <message>
+        <source>Add…</source>
+        <translation>애드…</translation>
+    </message>
+    <message>
+        <source>An answer is being written</source>
+        <translation>언 앤서 이즈 빙 리튼</translation>
+    </message>
+    <message>
+        <source>An answer is ready, work is done</source>
+        <translation>언 앤서 이즈 레디, 워크 이즈 던</translation>
+    </message>
+    <message>
+        <source>Being dragged</source>
+        <translation>빙 드래그드</translation>
+    </message>
+    <message>
+        <source>Break</source>
+        <translation>브레이크</translation>
+    </message>
+    <message>
+        <source>Break reminder</source>
+        <translation>브레이크 리마인더</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>센터</translation>
+    </message>
+    <message>
+        <source>Change picture</source>
+        <translation>체인지 픽처</translation>
+    </message>
+    <message>
+        <source>Choose Faces for the Pet</source>
+        <translation>추즈 페이시즈 포 더 펫</translation>
+    </message>
+    <message>
+        <source>Choose a Picture</source>
+        <translation>추즈 어 픽처</translation>
+    </message>
+    <message>
+        <source>Click one to use it. Right-click to remove it.</source>
+        <translation>클릭 원 투 유즈 잇. 라이트-클릭 투 리무브 잇.</translation>
+    </message>
+    <message>
+        <source>Clicked</source>
+        <translation>클릭트</translation>
+    </message>
+    <message>
+        <source>Daily reading goal</source>
+        <translation>데일리 리딩 골</translation>
+    </message>
+    <message>
+        <source>Desktop pet</source>
+        <translation>데스크톱 펫</translation>
+    </message>
+    <message>
+        <source>Each launch</source>
+        <translation>이치 런치</translation>
+    </message>
+    <message>
+        <source>Every 12 hours</source>
+        <translation>에브리 12 아워스</translation>
+    </message>
+    <message>
+        <source>Every 30 minutes</source>
+        <translation>에브리 30 미닛츠</translation>
+    </message>
+    <message>
+        <source>Every 6 hours</source>
+        <translation>에브리 6 아워스</translation>
+    </message>
+    <message>
+        <source>Every day</source>
+        <translation>에브리 데이</translation>
+    </message>
+    <message>
+        <source>Every hour</source>
+        <translation>에브리 아워</translation>
+    </message>
+    <message>
+        <source>Happy</source>
+        <translation>해피</translation>
+    </message>
+    <message>
+        <source>Held</source>
+        <translation>헬드</translation>
+    </message>
+    <message>
+        <source>Hide in screen sharing</source>
+        <translation>하이드 인 스크린 셰어링</translation>
+    </message>
+    <message>
+        <source>In turn</source>
+        <translation>인 턴</translation>
+    </message>
+    <message>
+        <source>Keep this picture</source>
+        <translation>킵 디스 픽처</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>라지</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>레프트</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>미디엄</translation>
+    </message>
+    <message>
+        <source>Nothing for a while</source>
+        <translation>낫싱 포 어 와일</translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation>오프</translation>
+    </message>
+    <message>
+        <source>Off, Custom has your own colors again and the pet goes away. The pictures are kept.</source>
+        <translation>오프, 커스텀 해즈 유어 오운 컬러스 어게인 앤드 더 펫 고즈 어웨이. 더 픽처스 아 켑트.</translation>
+    </message>
+    <message>
+        <source>On the desktop</source>
+        <translation>온 더 데스크톱</translation>
+    </message>
+    <message>
+        <source>On, Custom takes the picture's colors and the picture shows behind Home and pages. Off, the themes above are as they are; the picture is the pet's.</source>
+        <translation>온, 커스텀 테이크스 더 픽처스 컬러스 앤드 더 픽처 쇼즈 비하인드 홈 앤드 페이지스. 오프, 더 테마즈 어보브 아 애즈 데이 아; 더 픽처 이즈 더 펫츠.</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>오패시티</translation>
+    </message>
+    <message>
+        <source>Pet faces</source>
+        <translation>펫 페이시즈</translation>
+    </message>
+    <message>
+        <source>Picture</source>
+        <translation>픽처</translation>
+    </message>
+    <message>
+        <source>Picture colors</source>
+        <translation>픽처 컬러스</translation>
+    </message>
+    <message>
+        <source>Picture theme</source>
+        <translation>픽처 테마</translation>
+    </message>
+    <message>
+        <source>Pictures</source>
+        <translation>픽처스</translation>
+    </message>
+    <message>
+        <source>Poked</source>
+        <translation>포크트</translation>
+    </message>
+    <message>
+        <source>Position</source>
+        <translation>포지션</translation>
+    </message>
+    <message>
+        <source>Random</source>
+        <translation>랜덤</translation>
+    </message>
+    <message>
+        <source>Remove Face</source>
+        <translation>리무브 페이스</translation>
+    </message>
+    <message>
+        <source>Remove Picture</source>
+        <translation>리무브 픽처</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>라이트</translation>
+    </message>
+    <message>
+        <source>Saying something</source>
+        <translation>세잉 섬싱</translation>
+    </message>
+    <message>
+        <source>Screen sharing and recordings leave out the pet. Some recorders on recent macOS show it anyway, stuck in place.</source>
+        <translation>스크린 셰어링 앤드 리코딩스 리브 아웃 더 펫. 섬 리코더즈 온 리센트 맥오에스 쇼 잇 애니웨이, 스턱 인 플레이스.</translation>
+    </message>
+    <message>
+        <source>Shown behind Home and PDF pages while the Custom theme is in use. Exports and printing keep the original pages.</source>
+        <translation>숀 비하인드 홈 앤드 피디에프 페이지스 와일 더 커스텀 테마 이즈 인 유즈. 익스포츠 앤드 프린팅 킵 더 오리지널 페이지스.</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>사이즈</translation>
+    </message>
+    <message>
+        <source>Sleepy</source>
+        <translation>슬리피</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>스몰</translation>
+    </message>
+    <message>
+        <source>Some pictures could not be added (unreadable, or six already).</source>
+        <translation>섬 픽처스 쿠드 낫 비 애디드 (언리더블, 오어 식스 올레디).</translation>
+    </message>
+    <message>
+        <source>Something failed</source>
+        <translation>섬싱 페일드</translation>
+    </message>
+    <message>
+        <source>Talking</source>
+        <translation>토킹</translation>
+    </message>
+    <message>
+        <source>The pet cheers once you have read this much in a day, and at 7, 30 and 100 days in a row</source>
+        <translation>더 펫 치어즈 원스 유 해브 리드 디스 머치 인 어 데이, 앤드 앳 7, 30 앤드 100 데이즈 인 어 로우</translation>
+    </message>
+    <message>
+        <source>The pet suggests a short break after this much reading in Owelk</source>
+        <translation>더 펫 서제스츠 어 쇼트 브레이크 애프터 디스 머치 리딩 인 오웰크</translation>
+    </message>
+    <message>
+        <source>The picture floats above other apps while Owelk is open. Click it to come back here.</source>
+        <translation>더 픽처 플로츠 어보브 아더 앱스 와일 오웰크 이즈 오픈. 클릭 잇 투 컴 백 히어.</translation>
+    </message>
+    <message>
+        <source>The rest of the time, in place of the picture</source>
+        <translation>더 레스트 오브 더 타임, 인 플레이스 오브 더 픽처</translation>
+    </message>
+    <message>
+        <source>Thinking</source>
+        <translation>싱킹</translation>
+    </message>
+    <message>
+        <source>This picture could not be opened.</source>
+        <translation>디스 픽처 쿠드 낫 비 오픈드.</translation>
+    </message>
+    <message>
+        <source>Time for a break</source>
+        <translation>타임 포 어 브레이크</translation>
+    </message>
+    <message>
+        <source>Up to six for each moment, a different one each time or one after another; right-click one to remove it. Without any, the pet shows its usual face, else the picture (for news, its talking face).</source>
+        <translation>업 투 식스 포 이치 모먼트, 어 디퍼런트 원 이치 타임 오어 원 애프터 어나더; 라이트-클릭 원 투 리무브 잇. 위다웃 애니, 더 펫 쇼즈 잇츠 유주얼 페이스, 엘스 더 픽처 (포 뉴스, 잇츠 토킹 페이스).</translation>
+    </message>
+    <message>
+        <source>Usual</source>
+        <translation>유주얼</translation>
+    </message>
+    <message>
+        <source>Worried</source>
+        <translation>워리드</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsReading</name>
+    <message>
+        <source>Dark pages</source>
+        <translation>다크 페이지스</translation>
+    </message>
+    <message>
+        <source>Dark pages invert lightness and keep hues, so figures stay recognizable. Exports and printing use the original colors.</source>
+        <translation>다크 페이지스 인버트 라이트니스 앤드 킵 휴즈, 소 피겨스 스테이 레커그나이저블. 익스포츠 앤드 프린팅 유즈 더 오리지널 컬러스.</translation>
+    </message>
+    <message>
+        <source>Focus mode</source>
+        <translation>포커스 모드</translation>
+    </message>
+    <message>
+        <source>Full screen</source>
+        <translation>풀 스크린</translation>
+    </message>
+    <message>
+        <source>Hides the bars above the pages; the side panels still open, from their keys or the window's edges, and the top edge brings a bar back for a moment. %1 turns it on and off.</source>
+        <translation>하이즈 더 바스 어보브 더 페이지스; 더 사이드 패널스 스틸 오픈, 프롬 데어 키스 오어 더 윈도스 엣지스, 앤드 더 톱 엣지 브링스 어 바 백 포 어 모먼트. %1 턴스 잇 온 앤드 오프.</translation>
+    </message>
+    <message>
+        <source>Once a paper's symbols are listed (Document panel › Symbols), pointing at one shows its meaning</source>
+        <translation>원스 어 페이퍼스 심벌스 아 리스티드 (다큐먼트 패널 › 심벌스), 포인팅 앳 원 쇼즈 잇츠 미닝</translation>
+    </message>
+    <message>
+        <source>PDF pages</source>
+        <translation>피디에프 페이지스</translation>
+    </message>
+    <message>
+        <source>Symbol hints</source>
+        <translation>심벌 힌츠</translation>
+    </message>
+    <message>
+        <source>Symbols</source>
+        <translation>심벌스</translation>
     </message>
 </context>
 <context>
@@ -7377,20 +7679,12 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>, 홈) 오퍼스 더 엔진스 숀 히어 앤드 스타츠 온 더 디폴트 원. </translation>
     </message>
     <message>
-        <source>A downloaded PDF is named from its paper (Settings › Library › Paper names) when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.</source>
-        <translation>어 다운로디드 피디에프 이즈 네임드 프롬 잇츠 페이퍼 (세팅스 › 라이브러리 › 페이퍼 네임스) 웬 잇츠 퍼스트 페이지 쇼즈 더 타이틀; 파일스 올레디 인 더 라이브러리 킵 데어 네임스. 이그지스팅 파일스 아 네버 오버리튼. 인 어 웹 탭, 쇼 히어 리즈 어 피디에프 인 플레이스; 오픈 인 리더 센즈 잇 투 더 리더, 웨어 애노테이션스 앤드 노츠 워크.</translation>
-    </message>
-    <message>
         <source>Add</source>
         <translation>애드</translation>
     </message>
     <message>
         <source>Add a site (google.com) or an address with %s</source>
         <translation>애드 어 사이트 (google.com) 오어 언 어드레스 위드 %s</translation>
-    </message>
-    <message>
-        <source>Choose a folder…</source>
-        <translation>추즈 어 폴더…</translation>
     </message>
     <message>
         <source>Default</source>
@@ -7401,44 +7695,20 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>다운로드 앤드 오픈 인 더 리더</translation>
     </message>
     <message>
-        <source>Download folder for web PDFs</source>
-        <translation>다운로드 폴더 포 웹 피디에프스</translation>
-    </message>
-    <message>
-        <source>Download to</source>
-        <translation>다운로드 투</translation>
-    </message>
-    <message>
-        <source>Downloaded PDFs go to Owelk's own PDF folder (Settings › Library); other files go to the folder above. </source>
-        <translation>다운로디드 피디에프스 고 투 오웰크스 오운 피디에프 폴더 (세팅스 › 라이브러리); 아더 파일스 고 투 더 폴더 어보브. </translation>
-    </message>
-    <message>
-        <source>Downloads</source>
-        <translation>다운로즈</translation>
-    </message>
-    <message>
-        <source>From the paper</source>
-        <translation>프롬 더 페이퍼</translation>
-    </message>
-    <message>
         <source>Hide from the search box</source>
         <translation>하이드 프롬 더 서치 박스</translation>
     </message>
     <message>
+        <source>In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.</source>
+        <translation>인 어 웹 탭, 쇼 히어 리즈 어 피디에프 인 플레이스; 오픈 인 리더 센즈 잇 투 더 리더, 웨어 애노테이션스 앤드 노츠 워크.</translation>
+    </message>
+    <message>
+        <source>Links</source>
+        <translation>링크스</translation>
+    </message>
+    <message>
         <source>Name</source>
         <translation>네임</translation>
-    </message>
-    <message>
-        <source>Name PDFs</source>
-        <translation>네임 피디에프스</translation>
-    </message>
-    <message>
-        <source>Name from the website</source>
-        <translation>네임 프롬 더 웹사이트</translation>
-    </message>
-    <message>
-        <source>Other downloads to</source>
-        <translation>아더 다운로즈 투</translation>
     </message>
     <message>
         <source>PDF links</source>

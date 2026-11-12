@@ -6,7 +6,7 @@
 class ResearchStore;
 
 // The interface language: English as written, or "hangul" (every word spelled out in Hangul, see
-// tools/hangul.py). Chosen in Settings › Appearance and kept as the "ui.language" setting; on a change
+// tools/hangul.py). Chosen in Settings › General › Language and kept as the "ui.language" setting; on a change
 // the QML engine is asked to translate again (main.cpp), so it shows at once.
 class UiLanguage final : public QObject {
     Q_OBJECT

@@ -1040,7 +1040,7 @@ Rectangle {
                             Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSmall; color: Theme.textTertiary
                             text: (researchStore.trashDays() > 0 ? qsTr("Papers, notes and AI conversations are deleted for good after ") + researchStore.trashDays() + qsTr(" days")
                                                                   : qsTr("Papers, notes and AI conversations stay until you empty the Trash"))
-                                + qsTr(" (Settings › Data). A paper deleted for good loses its annotations; a PDF Owelk keeps goes to the system Trash.")
+                                + qsTr(" (Settings › Library). A paper deleted for good loses its annotations; a PDF Owelk keeps goes to the system Trash.")
                         }
                     }
                     Button {

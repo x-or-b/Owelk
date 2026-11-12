@@ -100,7 +100,7 @@ Rectangle {
                 // A PDF shown in this tab opens beside it; the tab stays on the page.
                 if (pdf) {
                     root.downloadOpening = true
-                    // Opens under the paper's name once the store has read it (Settings › Web).
+                    // Opens under the paper's name once the store has read it (Settings › Library › Paper names).
                     const named = function(file, to) {
                         if (file.toString() !== target.url.toString()) return
                         researchStore.downloadNamed.disconnect(named)

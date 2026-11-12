@@ -1,48 +1,24 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Dialogs as Native
 import Owelk.Ui
 import "Platform.js" as Platform
 import "WebSearch.js" as WebSearch
 
+// What a PDF link in a web tab does, and the engines of the search box. Where downloads go and what they are called
+// is in Library.
 ColumnLayout {
     id: root
+    objectName: "webSettings"
     spacing: 22
     // Read again after a change here (Settings › Web keeps them in the settings table).
     property int revision: 0
     readonly property var engines: (revision, WebSearch.all(researchStore))
     readonly property string defaultEngine: (revision, WebSearch.template(researchStore))
-    readonly property bool keepsPdfs: researchStore.setting("library.keepPdfs", "1") === "1"
-    function folder() { const f = researchStore.setting("downloadFolder"); return f.length ? f : researchStore.downloadTarget("x").directory }
-    Native.FolderDialog {
-        id: folderDialog
-        title: qsTr("Download folder for web PDFs")
-        onAccepted: if (researchStore.setSetting("downloadFolder", researchStore.localPath(selectedFolder))) folderField.text = root.folder()
-    }
     SettingsGroup {
-        objectName: "settingsGroup-downloads"
-        title: qsTr("Downloads")
-        note: (root.keepsPdfs ? qsTr("Downloaded PDFs go to Owelk's own PDF folder (Settings › Library); other files go to the folder above. ") : "")
-            + qsTr("A downloaded PDF is named from its paper (Settings › Library › Paper names) when its first page shows the title; files already in the Library keep their names. Existing files are never overwritten. In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.")
-        SettingsRow {
-            objectName: "settingsRow-downloadFolder"
-            label: root.keepsPdfs ? qsTr("Other downloads to") : qsTr("Download to")
-            wide: true
-            TextField { id: folderField; objectName: "downloadFolderField"; Layout.fillWidth: true; readOnly: true; text: root.folder() }
-            IconButton { icon.name: "open"; description: qsTr("Choose a folder…"); onClicked: folderDialog.open() }
-        }
-        SettingsRow {
-            objectName: "settingsRow-namePdfs"
-            label: qsTr("Name PDFs")
-            ComboBox {
-                objectName: "webPdfNamesBox"
-                Layout.preferredWidth: 260
-                model: [qsTr("From the paper"), qsTr("Name from the website")]
-                currentIndex: researchStore.setting("web.pdfNames", "title") === "original" ? 1 : 0
-                onActivated: function(index) { researchStore.setSetting("web.pdfNames", index === 1 ? "original" : "title") }
-            }
-        }
+        objectName: "settingsGroup-links"
+        title: qsTr("Links")
+        note: qsTr("In a web tab, Show Here reads a PDF in place; Open in Reader sends it to the reader, where annotations and notes work.")
         SettingsRow {
             objectName: "settingsRow-pdfLinks"
             label: qsTr("PDF links")
@@ -65,6 +41,7 @@ ColumnLayout {
             delegate: SettingsRow {
                 id: engineRow
                 required property var modelData
+                objectName: "engineRow-" + modelData.name
                 readonly property bool isDefault: root.defaultEngine === modelData.template
                 readonly property bool isHidden: (root.revision, WebSearch.hidden(researchStore).indexOf(modelData.template) >= 0) && !isDefault
                 label: modelData.name
@@ -109,6 +86,7 @@ ColumnLayout {
         }
         // A site is enough ("google.com"); its search address is filled in.
         SettingsRow {
+            objectName: "settingsRow-addEngine"
             wide: true
             detail: engineAddress.text.trim().length ? (root.typedTemplate.length ? "\u2192 " + root.typedTemplate : qsTr("Type a site such as google.com, or an address with %s for the words.")) : ""
             TextField {

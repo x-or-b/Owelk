@@ -7,7 +7,10 @@ import "Platform.js" as Platform
 
 ColumnLayout {
     id: root
+    objectName: "appearanceSettings"
     spacing: 22
+    // Another page to show (the Picture page, once five taps have chosen a picture).
+    signal pageRequested(string page)
     // The custom theme's seeds, edited one color at a time; read again whenever the theme changes (choosing,
     // adding or removing a picture changes them too).
     readonly property var custom: (Theme.window, Theme.seeds("custom"))
@@ -94,7 +97,7 @@ ColumnLayout {
             taps = 0
             note = ""
             // Turned off with pictures kept: on again with them; otherwise a picture to start from.
-            if (!Theme.pictureOn && Theme.pictures.length) Theme.pictureOn = true
+            if (!Theme.pictureOn && Theme.pictures.length) { Theme.pictureOn = true; root.pageRequested("picture") }
             else pictureDialog.open()
         }
         Item {
@@ -124,6 +127,7 @@ ColumnLayout {
             delegate: SettingsRow {
                 id: appearanceRow
                 required property var modelData
+                objectName: "appearanceTheme-" + modelData.key
                 visible: Theme.matchSystem && !root.pictureTheme
                 label: modelData.label
                 ComboBox {
@@ -141,251 +145,40 @@ ColumnLayout {
         }
     }
     SettingsGroup {
-        visible: Theme.picture.toString().length > 0
-        objectName: "settingsGroup-picture"
-        title: qsTr("Picture")
-        note: qsTr("Shown behind Home and PDF pages while the Custom theme is in use. Exports and printing keep the original pages.")
-        SettingsRow {
-            label: qsTr("Picture theme")
-            detail: qsTr("Off, Custom has your own colors again and the pet goes away. The pictures are kept.")
-            Switch {
-                objectName: "pictureOnSwitch"
-                checked: Theme.pictureOn
-                onToggled: Theme.pictureOn = checked
-            }
-        }
-        SettingsRow {
-            label: qsTr("Picture colors")
-            detail: qsTr("On, Custom takes the picture's colors and the picture shows behind Home and pages. Off, the themes above are as they are; the picture is the pet's.")
-            Switch {
-                objectName: "pictureColorsSwitch"
-                checked: Theme.usePictureColors
-                onToggled: Theme.usePictureColors = checked
-            }
-        }
-        SettingsRow {
-            label: qsTr("Pictures")
-            detail: qsTr("Click one to use it. Right-click to remove it.")
-            Button { objectName: "addPicture"; text: qsTr("Add…"); onClicked: pictureDialog.open() }
-        }
-        // Every kept picture; the one in use has the accent border.
-        Item {
-            width: parent.width
-            implicitHeight: pictureFlow.implicitHeight + 12
-            Flow {
-                id: pictureFlow
-                x: 12; width: parent.width - 24
-                spacing: 8
-                Repeater {
-                    model: Theme.pictures
-                    delegate: Rectangle {
-                        id: thumb
-                        required property var modelData
-                        required property int index
-                        objectName: "pictureThumb-" + index
-                        width: 56; height: 56; radius: Theme.radius
-                        color: "transparent"
-                        border.width: 2
-                        border.color: modelData.current ? Theme.accent : thumbHover.hovered ? Theme.border : Theme.separator
-                        Image {
-                            anchors.fill: parent; anchors.margins: 5
-                            source: thumb.modelData.url
-                            fillMode: Image.PreserveAspectFit
-                            sourceSize: Qt.size(112, 112)
-                            asynchronous: true
-                        }
-                        HoverHandler { id: thumbHover; cursorShape: Qt.PointingHandCursor }
-                        TapHandler { onTapped: Theme.choosePicture(thumb.modelData.id) }
-                        ContextTap { onRequested: { pictureMenu.pictureId = thumb.modelData.id; pictureMenu.popup() } }
-                        Accessible.role: Accessible.RadioButton
-                        Accessible.name: qsTr("Picture") + " " + (index + 1)
-                    }
-                }
-            }
-        }
-        SettingsRow {
-            visible: Theme.pictureColors.length > 0
-            label: qsTr("Accent from the picture")
-            Repeater {
-                model: Theme.pictureColors
-                delegate: Rectangle {
-                    id: swatch
-                    required property string modelData
-                    readonly property bool chosen: Theme.accentName === "custom" && Qt.colorEqual(Theme.customAccent, modelData)
-                    objectName: "pictureColor-" + modelData
-                    width: Theme.iconButton; height: width; radius: width / 2
-                    color: "transparent"
-                    border.width: 2
-                    border.color: chosen ? Theme.text : swatchHover.hovered ? Theme.border : "transparent"
-                    Rectangle { anchors.fill: parent; anchors.margins: 4; radius: width / 2; color: swatch.modelData }
-                    HoverHandler { id: swatchHover; cursorShape: Qt.PointingHandCursor }
-                    TapHandler { onTapped: Theme.setCustomAccent(swatch.modelData) }
-                    Accessible.role: Accessible.RadioButton
-                    Accessible.name: qsTr("Accent color") + " " + modelData
-                }
-            }
-        }
-        SettingsRow {
-            label: qsTr("Position")
-            ComboBox {
-                objectName: "pictureAlignBox"
-                Layout.preferredWidth: 140
-                readonly property var values: ["left", "center", "right"]
-                model: [qsTr("Left"), qsTr("Center"), qsTr("Right")]
-                currentIndex: Math.max(0, values.indexOf(Theme.pictureAlign))
-                onActivated: function(index) { Theme.pictureAlign = values[index] }
-            }
-        }
-        SettingsRow {
-            // A cut-out's height, for each picture (a full picture covers the area).
-            visible: Theme.pictureCutout
-            label: qsTr("Size")
-            Slider {
-                objectName: "pictureScaleSlider"
-                Layout.preferredWidth: 180
-                from: 40; to: 100; stepSize: 5; snapMode: Slider.SnapAlways
-                value: Theme.pictureScale
-                onMoved: Theme.pictureScale = value
-            }
-            Label { text: Theme.pictureScale + "%"; color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
-        }
-        SettingsRow {
-            // One strength for Home, around the pages and through the paper alike.
-            label: qsTr("Opacity")
-            Slider {
-                objectName: "pictureStrengthSlider"
-                Layout.preferredWidth: 180
-                from: 0; to: 100; stepSize: 5; snapMode: Slider.SnapAlways
-                value: Theme.pictureStrength
-                onMoved: Theme.pictureStrength = value
-            }
-            Label { text: Theme.pictureStrength + "%"; color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
-        }
-        SettingsRow {
-            visible: Theme.pictures.length > 1
-            label: qsTr("Change picture")
-            ComboBox {
-                objectName: "pictureIntervalBox"
-                Layout.preferredWidth: 180
-                readonly property var intervals: [0, 30, 60, 360, 720, 1440, -1]
-                model: [qsTr("Keep this picture"), qsTr("Every 30 minutes"), qsTr("Every hour"), qsTr("Every 6 hours"), qsTr("Every 12 hours"), qsTr("Every day"), qsTr("Each launch")]
-                currentIndex: Math.max(0, intervals.indexOf(Theme.pictureInterval))
-                onActivated: function(index) { Theme.pictureInterval = intervals[index] }
-            }
-        }
-        SettingsRow {
-            visible: DesktopPet.supported
-            label: qsTr("Desktop pet")
-            detail: qsTr("The picture floats above other apps while Owelk is open. Click it to come back here.")
-            Switch { objectName: "petSwitch"; checked: DesktopPet.enabled; onToggled: DesktopPet.enabled = checked }
-        }
-        SettingsRow {
-            visible: DesktopPet.supported && DesktopPet.enabled
-            label: qsTr("Pet size")
-            ComboBox {
-                objectName: "petSizeBox"
-                Layout.preferredWidth: 140
-                readonly property var values: ["small", "medium", "large"]
-                model: [qsTr("Small"), qsTr("Medium"), qsTr("Large")]
-                currentIndex: Math.max(0, values.indexOf(DesktopPet.size))
-                onActivated: function(index) { DesktopPet.size = values[index] }
-            }
-        }
-        SettingsRow {
-            visible: DesktopPet.supported && DesktopPet.enabled
-            label: qsTr("Break reminder")
-            detail: qsTr("The pet suggests a short break after this much reading in Owelk")
-            ComboBox {
-                objectName: "petBreakBox"
-                Layout.preferredWidth: 140
-                readonly property var values: [0, 25, 50, 90]
-                model: [qsTr("Off"), qsTr("25 minutes"), qsTr("50 minutes"), qsTr("90 minutes")]
-                currentIndex: Math.max(0, values.indexOf(DesktopPet.breakMinutes))
-                onActivated: function(index) { DesktopPet.breakMinutes = values[index] }
-            }
-        }
-        SettingsRow {
-            visible: DesktopPet.supported && DesktopPet.enabled
-            label: qsTr("Daily reading goal")
-            detail: qsTr("The pet cheers once you have read this much in a day, and at 7, 30 and 100 days in a row")
-            ComboBox {
-                objectName: "petGoalBox"
-                Layout.preferredWidth: 140
-                readonly property var values: [0, 15, 30, 60, 90]
-                model: [qsTr("Off"), qsTr("15 minutes"), qsTr("30 minutes"), qsTr("60 minutes"), qsTr("90 minutes")]
-                currentIndex: Math.max(0, values.indexOf(DesktopPet.dailyGoal))
-                onActivated: function(index) { DesktopPet.dailyGoal = values[index] }
-            }
-        }
-        SettingsRow {
-            visible: DesktopPet.supported && DesktopPet.enabled && (Qt.platform.os === "osx" || Qt.platform.os === "windows")
-            label: qsTr("Hide in screen sharing")
-            detail: qsTr("Screen sharing and recordings leave out the pet. Some recorders on recent macOS show it anyway, stuck in place.")
-            Switch { objectName: "petHideWhenShared"; checked: DesktopPet.hiddenWhenShared; onToggled: DesktopPet.hiddenWhenShared = checked }
-        }
-    }
-    // The pet's faces with the picture in use, for each moment: up to six, one picked each time or one after
-    // another while it lasts. A moment without faces shows talking's for news, else the picture.
-    SettingsGroup {
-        visible: Theme.picture.toString().length > 0 && DesktopPet.supported && DesktopPet.enabled
-        objectName: "settingsGroup-petFaces"
-        title: qsTr("Pet faces")
-        note: qsTr("Up to six for each moment, a different one each time or one after another; right-click one to remove it. Without any, the pet shows its usual face, else the picture (for news, its talking face).")
+        visible: Theme.theme === "custom"
+        objectName: "settingsGroup-customTheme"
+        title: qsTr("Custom theme")
+        note: qsTr("Hover, selection and secondary text are worked out from these colors, so the theme stays consistent.")
         Repeater {
-            model: [{mood: "usual", name: qsTr("Usual"), detail: qsTr("The rest of the time, in place of the picture")},
-                {mood: "talk", name: qsTr("Talking"), detail: qsTr("Saying something")},
-                {mood: "think", name: qsTr("Thinking"), detail: qsTr("An answer is being written")},
-                {mood: "happy", name: qsTr("Happy"), detail: qsTr("An answer is ready, work is done")},
-                {mood: "worried", name: qsTr("Worried"), detail: qsTr("Something failed")},
-                {mood: "rest", name: qsTr("Break"), detail: qsTr("Time for a break")},
-                {mood: "sleepy", name: qsTr("Sleepy"), detail: qsTr("Nothing for a while")},
-                {mood: "held", name: qsTr("Held"), detail: qsTr("Being dragged")},
-                {mood: "poke", name: qsTr("Poked"), detail: qsTr("Clicked")}]
+            model: root.seedNames
             delegate: SettingsRow {
-                id: moodRow
+                id: seedRow
                 required property var modelData
-                readonly property var faces: Theme.pictureMoods[modelData.mood] || null
-                readonly property int count: faces ? faces.frames.length : 0
-                objectName: "petMood-" + modelData.mood
+                objectName: "seedRow-" + modelData.key
                 label: modelData.name
-                detail: modelData.detail
-                Repeater {
-                    model: moodRow.faces ? moodRow.faces.frames : []
-                    delegate: Rectangle {
-                        id: faceTile
-                        required property var modelData
-                        required property int index
-                        objectName: "petFace-" + moodRow.modelData.mood + "-" + index
-                        width: 40; height: 40; radius: Theme.radiusSmall
-                        color: "transparent"
-                        border.width: 1
-                        border.color: tileHover.hovered ? Theme.border : Theme.separator
-                        Image {
-                            anchors.fill: parent; anchors.margins: 3
-                            source: faceTile.modelData.url
-                            fillMode: Image.PreserveAspectFit
-                            sourceSize: Qt.size(80, 80)
-                            asynchronous: true
-                        }
-                        HoverHandler { id: tileHover }
-                        ContextTap { onRequested: { faceMenu.mood = moodRow.modelData.mood; faceMenu.index = faceTile.index; faceMenu.popup() } }
-                        Accessible.role: Accessible.Graphic
-                        Accessible.name: moodRow.modelData.name + " " + (index + 1)
-                    }
+                Rectangle {
+                    objectName: "seed-" + seedRow.modelData.key
+                    width: 44; height: Theme.controlHeightSmall; radius: Theme.radiusSmall
+                    color: root.custom[seedRow.modelData.key] || "transparent"
+                    border.color: Theme.border
+                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: { root.editing = seedRow.modelData.key; seedDialog.selectedColor = root.custom[seedRow.modelData.key]; seedDialog.open() } }
                 }
-                IconButton {
-                    objectName: "petFaceAdd-" + moodRow.modelData.mood
-                    visible: moodRow.count < 6
-                    icon.name: "add"; description: qsTr("Add faces")
-                    onClicked: { faceDialog.mood = moodRow.modelData.mood; faceDialog.open() }
-                }
-                ComboBox {
-                    objectName: "petFaceMode-" + moodRow.modelData.mood
-                    visible: moodRow.count > 1
-                    Layout.preferredWidth: 110
-                    model: [qsTr("Random"), qsTr("In turn")]
-                    currentIndex: moodRow.faces && moodRow.faces.mode === "cycle" ? 1 : 0
-                    onActivated: function(index) { Theme.setPictureMoodMode(moodRow.modelData.mood, index ? "cycle" : "random") }
+            }
+        }
+        SettingsRow {
+            objectName: "settingsRow-customDark"
+            label: qsTr("Dark")
+            detail: Theme.matchSystem ? qsTr("Set by Match System. Turn it off to change this.") : qsTr("Use light text and dark controls")
+            Switch {
+                objectName: "customDarkSwitch"
+                enabled: !Theme.matchSystem
+                checked: !!root.custom.dark
+                onToggled: {
+                    // A picture's theme is tinted again for the other brightness; other custom colors are kept.
+                    const next = Theme.picture.toString().length ? Theme.tintedSeeds(Theme.pictureColors.length ? Theme.pictureColors[0] : "", checked)
+                                                                 : Object.assign({}, root.custom, {dark: checked})
+                    Theme.setCustomSeeds(next)
                 }
             }
         }
@@ -395,6 +188,7 @@ ColumnLayout {
         title: qsTr("Accent color")
         note: qsTr("Used for selection, the main button of each area, focus and links. Annotation inks keep their own colors.")
         SettingsRow {
+            objectName: "accentRow"
             label: qsTranslate("Owelk", Theme.accents.find(function(a) { return a.id === Theme.accentName }).name)
             Repeater {
                 model: Theme.accents
@@ -415,11 +209,90 @@ ColumnLayout {
         }
     }
     SettingsGroup {
+        objectName: "settingsGroup-text"
+        title: qsTr("Text")
+        note: qsTr("Text size scales all text and the controls around it; PDF pages keep their own zoom. The rest is how AI answers read.")
+        SettingsRow {
+            objectName: "settingsRow-textSize"
+            label: qsTr("Text size")
+            Icon { name: "text"; size: Theme.fontCaption; color: Theme.textTertiary }
+            Slider {
+                objectName: "textSizeSlider"
+                Layout.preferredWidth: 180
+                from: 11; to: 17; stepSize: 1; snapMode: Slider.SnapAlways
+                value: Theme.textSize
+                onMoved: Theme.textSize = value
+            }
+            Icon { name: "text"; size: Theme.fontTitle; color: Theme.textTertiary }
+            Label { text: Theme.textSize + qsTr(" pt"); color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
+        }
+        SettingsRow {
+            objectName: "settingsRow-answerSize"
+            label: qsTr("AI answers")
+            detail: qsTr("In the AI panel and chat tabs")
+            Icon { name: "text"; size: Theme.fontCaption; color: Theme.textTertiary }
+            Slider {
+                objectName: "answerSizeSlider"
+                Layout.preferredWidth: 180
+                from: Theme.textSize - 1; to: Theme.textSize + 5; stepSize: 1; snapMode: Slider.SnapAlways
+                value: Theme.answerSize
+                onMoved: Theme.answerSize = value
+            }
+            Icon { name: "text"; size: Theme.fontTitle; color: Theme.textTertiary }
+            Label { text: Theme.answerSize + qsTr(" pt"); color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
+        }
+        SettingsRow {
+            objectName: "settingsRow-answerSpacing"
+            label: qsTr("Line spacing")
+            detail: qsTr("In AI answers, between lines and between paragraphs")
+            ComboBox {
+                readonly property var spacings: ["compact", "comfortable", "relaxed"]
+                objectName: "answerSpacingBox"
+                Layout.preferredWidth: 200
+                model: [qsTr("Compact"), qsTr("Comfortable"), qsTr("Relaxed")]
+                currentIndex: Math.max(0, spacings.indexOf(Theme.answerSpacing))
+                onActivated: function(index) { Theme.answerSpacing = spacings[index] }
+            }
+        }
+        SettingsRow {
+            objectName: "settingsRow-answerColumn"
+            label: qsTr("Limit line length")
+            detail: qsTr("In a wide chat tab, the conversation stays a readable width in the middle")
+            Switch { objectName: "answerColumnSwitch"; checked: Theme.answerColumn; onToggled: Theme.answerColumn = checked }
+        }
+        SettingsRow {
+            objectName: "settingsRow-answerNative"
+            label: qsTr("Sharp text")
+            detail: qsTr("AI answers' letters drawn by the system, as in other apps; turn off if they look blurry")
+            Switch { objectName: "answerNativeSwitch"; checked: Theme.answerNative; onToggled: Theme.answerNative = checked }
+        }
+        SettingsRow {
+            objectName: "answerPreviewRow"
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: preview.implicitHeight + 20
+                radius: Theme.radius; color: Theme.content; border.color: Theme.separator
+                TextEdit {
+                    id: preview
+                    objectName: "answerPreview"
+                    x: 12; y: 10; width: Math.min(parent.width - 24, Theme.answerWidth || parent.width)
+                    readOnly: true; activeFocusOnPress: false
+                    textFormat: TextEdit.RichText; wrapMode: TextEdit.Wrap
+                    renderType: Theme.answerNative ? TextEdit.NativeRendering : TextEdit.QtRendering
+                    color: Theme.text; font.pixelSize: Theme.answerSize
+                    text: researchStore.markdownHtml(qsTr("**Attention** lets each word look at the others and weigh which matter here.\n\n- Each word asks a question.\n- The others answer, and the closest answers count most.\n\nThe result is a new meaning for every word, read in its sentence."),
+                                                     Theme.accent, Theme.text, Theme.answerSize, Theme.textTertiary, Theme.answerLineHeight)
+                }
+            }
+        }
+    }
+    SettingsGroup {
         objectName: "settingsGroup-appIcon"
         title: qsTr("App icon")
         note: Qt.platform.os === "osx" ? qsTr("Changes the icon in the Dock and on the app in Finder. If the Dock keeps the old one, it updates after Owelk restarts.")
                                        : qsTr("Changes the icon in the taskbar and title bars.")
         SettingsRow {
+            objectName: "appIconRow"
             label: qsTranslate("Owelk", (Theme.appIcons.find(function(i) { return i.id === Theme.appIcon }) || {name: ""}).name)
             Repeater {
                 model: Theme.appIcons
@@ -441,117 +314,15 @@ ColumnLayout {
             }
         }
     }
-    SettingsGroup {
-        objectName: "settingsGroup-text"
-        title: qsTr("Text")
-        note: qsTr("Scales all text and the controls around it. PDF pages keep their own zoom.")
-        SettingsRow {
-            objectName: "settingsRow-textSize"
-            label: qsTr("Text size")
-            Icon { name: "text"; size: Theme.fontCaption; color: Theme.textTertiary }
-            Slider {
-                objectName: "textSizeSlider"
-                Layout.preferredWidth: 180
-                from: 11; to: 17; stepSize: 1; snapMode: Slider.SnapAlways
-                value: Theme.textSize
-                onMoved: Theme.textSize = value
-            }
-            Icon { name: "text"; size: Theme.fontTitle; color: Theme.textTertiary }
-            Label { text: Theme.textSize + qsTr(" pt"); color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
-        }
-    }
-    SettingsGroup {
-        visible: Theme.canInvertPages
-        objectName: "settingsGroup-pdfPages"
-        title: qsTr("PDF pages")
-        note: qsTr("Dark pages invert lightness and keep hues, so figures stay recognizable. Exports and printing use the original colors.")
-        SettingsRow {
-            objectName: "settingsRow-darkPages"
-            label: qsTr("Dark pages")
-            Switch { objectName: "invertPagesSwitch"; checked: Theme.invertPages; onToggled: Theme.invertPages = checked }
-        }
-    }
-    SettingsGroup {
-        visible: Theme.theme === "custom"
-        objectName: "settingsGroup-customTheme"
-        title: qsTr("Custom theme")
-        note: qsTr("Hover, selection and secondary text are worked out from these colors, so the theme stays consistent.")
-        Repeater {
-            model: root.seedNames
-            delegate: SettingsRow {
-                id: seedRow
-                required property var modelData
-                label: modelData.name
-                Rectangle {
-                    objectName: "seed-" + seedRow.modelData.key
-                    width: 44; height: Theme.controlHeightSmall; radius: Theme.radiusSmall
-                    color: root.custom[seedRow.modelData.key] || "transparent"
-                    border.color: Theme.border
-                    HoverHandler { cursorShape: Qt.PointingHandCursor }
-                    TapHandler { onTapped: { root.editing = seedRow.modelData.key; seedDialog.selectedColor = root.custom[seedRow.modelData.key]; seedDialog.open() } }
-                }
-            }
-        }
-        SettingsRow {
-            label: qsTr("Dark")
-            detail: Theme.matchSystem ? qsTr("Set by Match System. Turn it off to change this.") : qsTr("Use light text and dark controls")
-            Switch {
-                objectName: "customDarkSwitch"
-                enabled: !Theme.matchSystem
-                checked: !!root.custom.dark
-                onToggled: {
-                    // A picture's theme is tinted again for the other brightness; other custom colors are kept.
-                    const next = Theme.picture.toString().length ? Theme.tintedSeeds(Theme.pictureColors.length ? Theme.pictureColors[0] : "", checked)
-                                                                 : Object.assign({}, root.custom, {dark: checked})
-                    Theme.setCustomSeeds(next)
-                }
-            }
-        }
-    }
     Timer { id: tapPause; interval: 1000; onTriggered: themeGroup.taps = 0 }
-    Menu {
-        id: pictureMenu
-        objectName: "pictureMenu"
-        property string pictureId: ""
-        MenuItem {
-            objectName: "removePicture"
-            text: qsTr("Remove Picture")
-            palette.windowText: Theme.danger
-            onTriggered: Theme.removePicture(pictureMenu.pictureId)
-        }
-    }
-    Menu {
-        id: faceMenu
-        objectName: "petFaceMenu"
-        property string mood: ""
-        property int index: -1
-        MenuItem {
-            objectName: "removePetFace"
-            text: qsTr("Remove Face")
-            palette.windowText: Theme.danger
-            onTriggered: Theme.removePictureMood(faceMenu.mood, faceMenu.index)
-        }
-    }
     Native.FileDialog {
         id: pictureDialog
         objectName: "pictureDialog"
         title: qsTr("Choose a Picture")
         nameFilters: [qsTr("Pictures") + " (" + Theme.pictureFilter + ")"]
         onAccepted: {
-            if (!Theme.usePicture(selectedFile)) themeGroup.note = qsTr("This picture could not be opened.")
-        }
-    }
-    Native.FileDialog {
-        id: faceDialog
-        objectName: "petFaceDialog"
-        property string mood: "talk"
-        title: qsTr("Choose Faces for the Pet")
-        fileMode: Native.FileDialog.OpenFiles
-        nameFilters: [qsTr("Pictures") + " (" + Theme.pictureFilter + ")"]
-        // Each one that can be read, while there is room.
-        onAccepted: {
-            const failed = selectedFiles.filter(function(file) { return !Theme.addPictureMood(mood, file) })
-            if (failed.length) themeGroup.note = qsTr("Some pictures could not be added (unreadable, or six already).")
+            if (Theme.usePicture(selectedFile)) root.pageRequested("picture")
+            else themeGroup.note = qsTr("This picture could not be opened.")
         }
     }
     Native.ColorDialog {

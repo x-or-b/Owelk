@@ -266,7 +266,7 @@ Item {
         }
     }
     // An answer: Markdown as rich text that can be selected and copied; links open in Owelk. Its size,
-    // spacing and drawing are the reader's (Settings › AI › Answer text).
+    // spacing and drawing are the reader's (Settings › Appearance › Text).
     component AnswerText: TextEdit {
         property string markdown
         readOnly: true; selectByMouse: true

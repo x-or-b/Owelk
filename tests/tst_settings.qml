@@ -22,6 +22,16 @@ Item {
             return null
         }
         function page() { return findChild(settings, "settingsPageLoader").item }
+        // A page of the open Settings, once it is made.
+        function show(id) {
+            settings.page = id
+            tryVerify(function() { return page() !== null && page().objectName === pageNames[id] })
+            waitForPolish(settings.contentItem)
+            return page()
+        }
+        readonly property var pageNames: ({general: "generalSettings", appearance: "appearanceSettings", picture: "pictureSettings",
+            shortcuts: "shortcutSettings", reading: "readingSettings", library: "librarySettings", foryou: "forYouSettings",
+            web: "webSettings", search: "searchSettings", ai: "aiSettings", sync: "syncSettings"})
         function cleanup() {
             settings.close(); tryCompare(settings, "visible", false)
             while (Theme.pictures.length) Theme.removePicture()
@@ -33,7 +43,7 @@ Item {
         }
         function test_categoriesLoadOneAtATime() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
-            for (const id of ["general", "appearance", "shortcuts", "library", "foryou", "web", "search", "ai", "sync"]) {
+            for (const id of ["general", "appearance", "shortcuts", "reading", "library", "foryou", "web", "search", "ai", "sync"]) {
                 mouseClick(visualChild(settings.contentItem, "settingsPage-" + id))
                 compare(settings.page, id)
                 tryVerify(function() { return page() !== null })
@@ -59,7 +69,7 @@ Item {
             visualChild(settings.contentItem, "pdfNameUp-year").clicked()
             compare(p.namesOn, ["year", "title"])
             compare(researchStore.sampleFileName(p.namesOn), "2017 - Attention Is All You Need.pdf")
-            verify(findChild(settings, "pdfNameGroup").note.indexOf("2017 - Attention") >= 0)
+            verify(findChild(settings, "settingsGroup-pdfNames").note.indexOf("2017 - Attention") >= 0)
             researchStore.setSetting("pdfNames.parts", "")
         }
         function test_hiddenEngineShowsCrossedEye() {
@@ -93,14 +103,44 @@ Item {
             settings.close()
         }
         function test_searchIndexPointsAtRealSettings() {
+            // With a picture, so its page is listed too.
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
             settings.openPage("general"); tryCompare(settings, "opened", true)
             const missing = []
             for (const entry of SettingsIndex.all()) {
-                settings.page = entry.page
-                tryVerify(function() { return page() !== null })
+                show(entry.page)
                 if (!settings.findAnchor(page(), entry.anchor)) missing.push(entry.page + ":" + entry.anchor)
             }
             compare(missing, [])
+        }
+        // And the other way: every group and row on every page has a name, and is found by search, itself (named
+        // settingsGroup-… or settingsRow-…) or through its group (rows a Repeater makes).
+        function test_everySettingIsFoundBySearch() {
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            settings.openPage("general"); tryCompare(settings, "opened", true)
+            const listed = {}
+            SettingsIndex.all().forEach(function(e) { listed[e.page + ":" + e.anchor] = true })
+            const indexed = function(name) { return name.indexOf("settingsRow-") === 0 || name.indexOf("settingsGroup-") === 0 }
+            const problems = []
+            let seen = 0
+            for (const entry of settings.pages) {
+                show(entry.id)
+                const walk = function(item, group) {
+                    const isGroup = "noteColor" in item && "rows" in item, isRow = "wide" in item && "detail" in item && "control" in item
+                    if (isGroup || isRow) {
+                        ++seen
+                        const name = item.objectName, where = entry.id + ":" + (name || (isGroup ? item.title : item.label))
+                        if (!name.length) problems.push("unnamed " + where)
+                        else if (indexed(name)) { if (!listed[entry.id + ":" + name]) problems.push("not in search " + where) }
+                        else if (isRow && !(group && indexed(group.objectName))) problems.push("in no listed group " + where)
+                    }
+                    const children = item.children || []
+                    for (let i = 0; i < children.length; ++i) walk(children[i], isGroup ? item : group)
+                }
+                walk(page(), null)
+            }
+            compare(problems, [])
+            verify(seen > 150, "every page's groups and rows were looked at: " + seen)
         }
         function test_searchOpensTheSetting() {
             settings.openPage("general"); tryCompare(settings, "opened", true)
@@ -108,9 +148,10 @@ Item {
             field.text = "dark pdf"; field.textEdited()
             verify(settings.results.length >= 1)
             compare(settings.results[0].anchor, "settingsRow-darkPages")
+            compare(settings.results[0].where, "Reading \u203a PDF pages")
             verify(visualChild(settings.contentItem, "settingsPage-general") === null, "results take the place of the pages")
             mouseClick(visualChild(settings.contentItem, "settingsResult-0"))
-            compare(settings.page, "appearance")
+            compare(settings.page, "reading")
             const flash = findChild(settings, "settingsFlash")
             tryVerify(function() { return flash.opacity > 0 })
             // Words people type for a setting find it too, and shortcuts are found by their action.
@@ -118,6 +159,13 @@ Item {
             verify(settings.results.some(function(r) { return r.anchor === "settingsRow-textSize" }))
             field.text = "close tab"; field.textEdited()
             verify(settings.results.some(function(r) { return r.anchor === "settingsRow-shortcut-closeTab" }))
+            // The picture's settings are found only while its page is listed.
+            field.text = "pet"; field.textEdited()
+            verify(!settings.results.some(function(r) { return r.page === "picture" }))
+            verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
+            field.text = "pet"; field.textEdited()
+            verify(settings.results.some(function(r) { return r.anchor === "settingsRow-petBreak" }))
+            Theme.removePicture()
             field.text = "zzzz nothing"; field.textEdited()
             compare(settings.results.length, 0)
             settings.close(); tryCompare(settings, "visible", false)
@@ -293,8 +341,8 @@ Item {
             researchStore.setSetting("ai.instructions", "")
             settings.close()
         }
-        function test_answerTextChosenInTheAiPage() {
-            settings.openPage("ai"); tryCompare(settings, "opened", true)
+        function test_answerTextChosenWithTheTextSize() {
+            settings.openPage("appearance"); tryCompare(settings, "opened", true)
             tryVerify(function() { return findChild(settings, "answerSizeSlider") !== null })
             // A little larger than the rest by default; it follows the text size.
             compare(Theme.answerSize, Theme.textSize + 2)
@@ -318,23 +366,23 @@ Item {
             Theme.answerSize = 15; Theme.answerSpacing = "comfortable"; Theme.answerColumn = true; Theme.answerNative = true
             compare(preview.renderType, TextEdit.NativeRendering)
         }
-        function test_pictureGroupOnlyWithAPicture() {
+        function test_picturePageOnlyWithAPicture() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
-            tryVerify(function() { return visualChild(settings.contentItem, "settingsGroup-picture") !== null })
-            const group = visualChild(settings.contentItem, "settingsGroup-picture")
-            compare(group.visible, false)
+            verify(visualChild(settings.contentItem, "settingsPage-picture") === null, "no Picture page without a picture")
             verify(Theme.usePicture(testInput.pictureFile(500, 1300, true)))
-            compare(group.visible, true)
+            tryVerify(function() { return visualChild(settings.contentItem, "settingsPage-picture") !== null })
+            show("picture")
             verify(!visualChild(settings.contentItem, "pictureIntervalBox").visible)
             verify(visualChild(settings.contentItem, "pictureColor-" + Theme.pictureColors[0]).chosen, "the main color is the accent")
             // A color of the picture becomes the accent.
             const color = Theme.pictureColors[0]
             Theme.accentName = "green"
-            waitForPolish(settings.contentItem); wait(50)
+            wait(50)
             mouseClick(visualChild(settings.contentItem, "pictureColor-" + color))
             compare(Theme.accentName, "custom")
             verify(Qt.colorEqual(Theme.customAccent, color))
-            // Dark tints the picture's colors again, for dark surfaces.
+            // Dark (Appearance › Custom theme) tints the picture's colors again, for dark surfaces.
+            show("appearance")
             tryVerify(function() { return visualChild(settings.contentItem, "customDarkSwitch") !== null })
             const darkSwitch = visualChild(settings.contentItem, "customDarkSwitch")
             darkSwitch.toggle(); darkSwitch.toggled()
@@ -343,6 +391,7 @@ Item {
             verify(Theme.seeds("custom").window !== Theme.tintedSeeds(Theme.pictureColors[0], false).window)
             darkSwitch.toggle(); darkSwitch.toggled()
             compare(Theme.dark, false)
+            show("picture")
             const petSwitch = visualChild(settings.contentItem, "petSwitch")
             petSwitch.toggle(); petSwitch.toggled()
             compare(DesktopPet.enabled, true)
@@ -388,11 +437,14 @@ Item {
             const tinted = Theme.seeds("custom").window
             Theme.theme = "nord"
             compare(Theme.pictureShown, false)
+            show("appearance")
+            wait(50)
             mouseClick(visualChild(settings.contentItem, "themeTile-custom"), 40, 30)
             compare(Theme.theme, "custom")
             compare(Theme.seeds("custom").window, tinted)
             verify(Theme.pictureShown)
             // A second picture is kept beside the first; a thumbnail goes back to the first.
+            show("picture")
             const first = String(Theme.picture)
             verify(Theme.usePicture(testInput.pictureFile(1000, 1000, true, "#6ec8f5")))
             verify(String(Theme.picture) !== first)
@@ -402,40 +454,45 @@ Item {
             interval.activated(2)
             compare(Theme.pictureInterval, 60)
             Theme.pictureInterval = 0
-            // The Custom theme's colors below follow the picture in use.
             const secondWindow = Theme.seeds("custom").window
-            verify(Qt.colorEqual(visualChild(settings.contentItem, "seed-window").color, secondWindow))
-            waitForPolish(settings.contentItem); wait(50)
+            wait(50)
             tryVerify(function() { return visualChild(settings.contentItem, "pictureThumb-1") !== null })
             verify(visualChild(settings.contentItem, "pictureThumb-1").modelData.current)
             mouseClick(visualChild(settings.contentItem, "pictureThumb-0"))
             compare(String(Theme.picture), first)
             compare(Theme.pictureScale, 60)
             verify(Theme.seeds("custom").window !== secondWindow)
+            // The Custom theme's colors on Appearance follow the picture in use.
+            show("appearance")
             tryVerify(function() { return Qt.colorEqual(visualChild(settings.contentItem, "seed-window").color, Theme.seeds("custom").window) })
             // Right-click removes one (once the thumbnails, made again for the new one in use, are laid out).
-            waitForPolish(settings.contentItem); wait(50)
+            show("picture")
+            wait(50)
             mouseClick(visualChild(settings.contentItem, "pictureThumb-1"), 20, 20, Qt.RightButton)
             const menu = findChild(page(), "pictureMenu")
             tryCompare(menu, "opened", true)
             findChild(menu, "removePicture").triggered()
             compare(Theme.pictures.length, 1)
             compare(String(Theme.picture), first)
-            // Off: hidden again, Custom is the reader's own; five taps bring it back with the kept picture.
+            // Off: the page goes and Settings shows Appearance; five taps there bring it back with the kept picture.
             const pictureOn = visualChild(settings.contentItem, "pictureOnSwitch")
             pictureOn.toggle(); pictureOn.toggled()
             compare(Theme.pictureOn, false)
             compare(String(Theme.picture), "")
-            compare(group.visible, false)
+            tryCompare(settings, "page", "appearance")
+            verify(visualChild(settings.contentItem, "settingsPage-picture") === null)
+            show("appearance")
+            wait(50)
             const dialog = findChild(page(), "pictureDialog")
             const heading = visualChild(settings.contentItem, "settingsGroup-theme")
             for (let i = 0; i < 5; ++i) mouseClick(heading, 20, 6)
             compare(Theme.pictureOn, true)
             compare(dialog.visible, false)
             compare(String(Theme.picture), first)
+            tryCompare(settings, "page", "picture")
             Theme.removePicture()
             compare(String(Theme.picture), "")
-            compare(group.visible, false)
+            tryCompare(settings, "page", "appearance")
             compare(Theme.theme, "neutral")
         }
         function test_pictureShowsThroughThePaper() {
@@ -473,7 +530,7 @@ Item {
             tryVerify(function() { return findChild(canvas, "pageImage0") !== null })
             const image = findChild(canvas, "pageImage0")
             compare(image.layer.enabled, false, "no effect costs while the option is off")
-            settings.openPage("appearance"); tryCompare(settings, "opened", true)
+            settings.openPage("reading"); tryCompare(settings, "opened", true)
             tryVerify(function() { return visualChild(settings.contentItem, "invertPagesSwitch") !== null })
             visualChild(settings.contentItem, "invertPagesSwitch").toggle()
             visualChild(settings.contentItem, "invertPagesSwitch").toggled()

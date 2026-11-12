@@ -3,8 +3,10 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Owelk.Ui
 
+// The PDF text index, meaning search and OCR for scanned pages.
 ColumnLayout {
     id: root
+    objectName: "searchSettings"
     spacing: 22
     readonly property var semantic: researchStore.semantic
     readonly property var engines: [{name: qsTr("Off"), value: ""}, {name: qsTr("Ollama (this computer)"), value: "ollama"}, {name: qsTr("OpenAI"), value: "openai"}]

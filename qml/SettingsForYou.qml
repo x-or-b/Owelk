@@ -21,7 +21,7 @@ ColumnLayout {
         forYou.topics().length + people.length + researchStore.collections().filter(function(c) { return root.forYou.following(c.id) }).length)
     // What is followed is chosen in For You itself (Library › For You › Following); here, how For You looks.
     SettingsGroup {
-        objectName: "settingsGroup-following"
+        objectName: "followingGroup"
         title: qsTr("Following")
         SettingsRow {
             objectName: "settingsRow-following"

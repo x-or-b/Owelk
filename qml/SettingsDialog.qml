@@ -19,29 +19,36 @@ Dialog {
     header: null
     footer: null
     property string page: "general"
-    // In three groups: the app itself, papers and where they come from, then AI and keeping the library.
+    // By what they are for, in three groups: the app itself; reading papers and where they come from; then AI and
+    // keeping the library. Picture is listed only while a picture is in use.
+    readonly property bool pictureListed: Theme.picture.toString().length > 0
     readonly property var pages: [
         {id: "general", name: qsTr("General"), icon: "settings"},
-        {id: "appearance", name: qsTr("Appearance"), icon: "appearance"},
+        {id: "appearance", name: qsTr("Appearance"), icon: "appearance"}
+    ].concat(pictureListed ? [{id: "picture", name: qsTr("Picture"), icon: "image"}] : []).concat([
         {id: "shortcuts", name: qsTr("Shortcuts"), icon: "keyboard", last: true},
+        {id: "reading", name: qsTr("Reading"), icon: "document"},
         {id: "library", name: qsTr("Library"), icon: "library"},
         {id: "foryou", name: qsTr("For You"), icon: "forYou"},
         {id: "web", name: qsTr("Web"), icon: "globe"},
         {id: "search", name: qsTr("Search"), icon: "search", last: true},
         {id: "ai", name: qsTr("AI"), icon: "ai"},
         {id: "sync", name: qsTr("Sync & Backup"), icon: "data"}
-    ]
+    ])
+    // The picture put away while its page is shown: Appearance, where five taps bring it back.
+    onPictureListedChanged: if (!pictureListed && page === "picture") page = "appearance"
+    function listed(id) { return pages.some(function(p) { return p.id === id }) }
     // A page, or a setting on it ("general#settingsGroup-home"), lit up as a search does.
     function openPage(id) {
         const parts = id.split("#")
-        page = parts[0]
+        page = listed(parts[0]) ? parts[0] : parts[0] === "picture" ? "appearance" : "general"
         open()
-        if (parts.length > 1) reveal({page: parts[0], anchor: parts[1]})
+        if (parts.length > 1 && page === parts[0]) reveal({page: parts[0], anchor: parts[1]})
     }
     function pageName(id) { const p = pages.find(function(x) { return x.id === id }); return p ? p.name : "" }
     // Search: settings whose name or related words hold what is typed; choosing one opens its page there.
     property string query: ""
-    readonly property var results: query.trim().length ? SettingsIndex.find(query, qsTranslate, pageName) : []
+    readonly property var results: query.trim().length ? SettingsIndex.find(query, qsTranslate, pageName, pictureListed) : []
     property string revealing: ""
     function reveal(entry) {
         revealing = entry.anchor
@@ -119,7 +126,7 @@ Dialog {
                             id: resultColumn
                             spacing: 0
                             Label { Layout.fillWidth: true; text: modelData.shown; elide: Text.ElideRight; textFormat: Text.PlainText; color: Theme.text }
-                            Label { Layout.fillWidth: true; text: root.pageName(modelData.page); elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
+                            Label { Layout.fillWidth: true; text: modelData.where; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary }
                         }
                     }
                 }
@@ -194,14 +201,19 @@ Dialog {
                         opacity: 0
                         NumberAnimation on opacity { id: flashFade; running: false; from: 1; to: 0; duration: 1400; easing.type: Easing.InQuad }
                     }
+                    Connections {
+                        target: pageLoader.item
+                        ignoreUnknownSignals: true
+                        function onPageRequested(id) { if (root.listed(id)) root.page = id }
+                    }
                     Loader {
                         id: pageLoader
                         objectName: "settingsPageLoader"
                         x: 24; y: 20
                         width: parent.width - 48
                         active: root.visible
-                        sourceComponent: ({general: generalPage, appearance: appearancePage, shortcuts: shortcutsPage, library: libraryPage, foryou: forYouPage,
-                                           web: webPage, search: searchPage, ai: aiPage, sync: syncPage})[root.page] || generalPage
+                        sourceComponent: ({general: generalPage, appearance: appearancePage, picture: picturePage, shortcuts: shortcutsPage, reading: readingPage,
+                                           library: libraryPage, foryou: forYouPage, web: webPage, search: searchPage, ai: aiPage, sync: syncPage})[root.page] || generalPage
                     }
                 }
             }
@@ -209,6 +221,8 @@ Dialog {
     }
     Component { id: generalPage; SettingsGeneral {} }
     Component { id: appearancePage; SettingsAppearance {} }
+    Component { id: picturePage; SettingsPicture {} }
+    Component { id: readingPage; SettingsReading {} }
     Component { id: shortcutsPage; SettingsShortcuts {} }
     Component { id: libraryPage; SettingsLibrary {} }
     Component { id: forYouPage; SettingsForYou {} }

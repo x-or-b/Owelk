@@ -3,7 +3,7 @@ import QtQuick.Controls
 import Owelk.Ui
 
 // The desktop pet: the picture theme's picture in a small window that floats above other apps while
-// Owelk runs (Settings › Appearance › Picture). Drag it anywhere; a click pokes it (poke(): the screen stays
+// Owelk runs (Settings › Picture). Drag it anywhere; a click pokes it (poke(): the screen stays
 // where it is); its menu (right button) opens Owelk. While Owelk is behind other apps it says when an AI answer is ready or
 // failed and when For You has new papers, in a bubble above it; it bobs while an answer is written.
 // PDFs dropped on it open in Owelk; text dropped on it is explained by the AI. After a stretch of
@@ -326,7 +326,7 @@ Window {
     }
     // Its face, by what is happening (the first that applies): held (dragged), poke (just clicked), what the bubble
     // says (happy, worried, rest, else talk), think (an answer being written), sleepy (nothing for a while). A mood
-    // without faces of its own shows talking's for news, else the picture (Settings › Appearance › Pet faces).
+    // without faces of its own shows talking's for news, else the picture (Settings › Picture › Pet faces).
     readonly property string mood: held ? "held" : poking ? "poke"
         : message && !message.writing ? (message.mood || (message.reminder ? "rest" : "talk"))
         : writing ? "think" : sleepy ? "sleepy" : ""

@@ -3,14 +3,16 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Owelk.Ui
 import "Platform.js" as Platform
-import "Shortcuts.js" as Shortcuts
 import "HomeLayout.js" as HomeLayout
 
-// What Owelk does on launch, how tabs behave, and the interface language.
+// What Owelk does on launch, what Home shows, how tabs behave, and the languages of the interface and of AI answers.
 ColumnLayout {
     id: root
     objectName: "generalSettings"
     spacing: 22
+    readonly property var aiLanguages: [{name: qsTr("Korean"), value: "ko"}, {name: qsTr("English"), value: "en"}, {name: qsTr("Japanese"), value: "ja"},
+        {name: qsTr("Chinese (Simplified)"), value: "zh"}, {name: qsTr("German"), value: "de"}, {name: qsTr("French"), value: "fr"},
+        {name: qsTr("Spanish"), value: "es"}, {name: qsTr("Same as the paper"), value: "source"}]
     SettingsGroup {
         objectName: "settingsGroup-launch"
         title: qsTr("Launch")
@@ -181,36 +183,32 @@ ColumnLayout {
             }
         }
     }
-    // Focus mode: only the pages and the side panels; the window full screen too unless turned off here.
-    SettingsGroup {
-        objectName: "settingsGroup-focus"
-        title: qsTr("Focus mode")
-        note: qsTr("Hides the bars above the pages; the side panels still open, from their keys or the window's edges, and the top edge brings a bar back for a moment. %1 turns it on and off.").arg(Platform.keys(Shortcuts.keys("focusMode", Shortcuts.parse(researchStore.setting("shortcuts")), Qt.platform.os)))
-        SettingsRow {
-            id: focusRow
-            objectName: "settingsRow-focusFullScreen"
-            property bool fullScreen: researchStore.setting("focus.fullScreen", "1") === "1"
-            label: qsTr("Full screen")
-            Switch {
-                objectName: "focusFullScreen"
-                checked: focusRow.fullScreen
-                onToggled: { researchStore.setSetting("focus.fullScreen", checked ? "1" : "0"); focusRow.fullScreen = checked }
-            }
-        }
-    }
+    // The interface's language, and the one AI answers are written in.
     SettingsGroup {
         objectName: "settingsGroup-language"
         title: qsTr("Language")
+        note: qsTr("AI answers: for Explain, Summarize and other one-click actions, and the Translate target. A question you type is answered in the language you wrote it in.")
         // English as written, or every word spelled out in Hangul. The choices keep their own names.
         SettingsRow {
             objectName: "settingsRow-language"
             visible: typeof uiLanguage !== "undefined" && uiLanguage.available
-            label: qsTr("Language")
+            label: qsTr("Interface")
             TabBar {
                 objectName: "interfaceLanguage"
                 currentIndex: typeof uiLanguage !== "undefined" && uiLanguage.language === "hangul" ? 1 : 0
                 TabButton { text: "English"; width: 96; onClicked: uiLanguage.choose("en") }
                 TabButton { objectName: "hangulOption"; text: "\ud55c\uae00"; width: 96; onClicked: uiLanguage.choose("hangul") }
+            }
+        }
+        SettingsRow {
+            objectName: "settingsRow-aiLanguage"
+            label: qsTr("AI answers")
+            ComboBox {
+                objectName: "aiLanguageBox"
+                Layout.preferredWidth: 200
+                model: root.aiLanguages.map(function(l) { return l.name })
+                currentIndex: Math.max(0, root.aiLanguages.findIndex(function(l) { return l.value === researchStore.setting("aiLanguage", "ko") }))
+                onActivated: function(index) { researchStore.setSetting("aiLanguage", root.aiLanguages[index].value) }
             }
         }
     }

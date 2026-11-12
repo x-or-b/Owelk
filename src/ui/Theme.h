@@ -156,7 +156,7 @@ class Theme : public QObject {
     Q_PROPERTY(int fontBody READ fontBody NOTIFY changed)
     Q_PROPERTY(int fontHeadline READ fontHeadline NOTIFY changed)
     Q_PROPERTY(int fontTitle READ fontTitle NOTIFY changed)
-    // AI answers (Settings › AI › Answer text, persisted under ai.answer*): a size that follows the text
+    // AI answers (Settings › Appearance › Text, persisted under ai.answer*): a size that follows the text
     // size, line spacing ("compact", "comfortable", "relaxed") as a percentage of the font's own line
     // height, a column 48 times the answer size wide in a wide chat (answerWidth, 0 when off), and the
     // system's own glyph drawing, sharper than Qt's for small text and Hangul.

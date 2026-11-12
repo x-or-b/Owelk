@@ -4,12 +4,11 @@ import QtQuick.Layouts
 import Owelk.Ui
 import "AiNames.js" as AiNames
 
+// The AI provider and its models, Gloss, and how answers are written.
 ColumnLayout {
     id: root
+    objectName: "aiSettings"
     spacing: 22
-    readonly property var languages: [{name: qsTr("Korean"), value: "ko"}, {name: qsTr("English"), value: "en"}, {name: qsTr("Japanese"), value: "ja"},
-        {name: qsTr("Chinese (Simplified)"), value: "zh"}, {name: qsTr("German"), value: "de"}, {name: qsTr("French"), value: "fr"},
-        {name: qsTr("Spanish"), value: "es"}, {name: qsTr("Same as the paper"), value: "source"}]
     readonly property var ai: researchStore.ai
     readonly property var current: ai.providers.find(function(p) { return p.id === ai.provider }) || ({})
     readonly property bool needsKey: current.kind === "api"
@@ -50,144 +49,7 @@ ColumnLayout {
     }
     Component.onCompleted: refreshProvider()
     SettingsGroup {
-        objectName: "settingsGroup-answers"
-        title: qsTr("Answers")
-        note: qsTr("Used for Explain, Summarize and other one-click actions, and as the Translate target. A question you type is answered in the language you wrote it in.")
-        SettingsRow {
-            objectName: "settingsRow-aiLanguage"
-            label: qsTr("Preferred language")
-            ComboBox {
-                objectName: "aiLanguageBox"
-                Layout.preferredWidth: 200
-                model: root.languages.map(function(l) { return l.name })
-                currentIndex: Math.max(0, root.languages.findIndex(function(l) { return l.value === researchStore.setting("aiLanguage", "ko") }))
-                onActivated: function(index) { researchStore.setSetting("aiLanguage", root.languages[index].value) }
-            }
-        }
-        SettingsRow {
-            objectName: "settingsRow-explanations"
-            label: qsTr("Explanations")
-            detail: qsTr("How every answer is written")
-            ComboBox {
-                objectName: "aiExplainLevelBox"
-                Layout.preferredWidth: 200
-                model: [qsTr("Easy, with examples"), qsTr("Brief")]
-                currentIndex: researchStore.setting("ai.explainLevel", "easy") === "brief" ? 1 : 0
-                onActivated: function(index) { researchStore.setSetting("ai.explainLevel", index === 1 ? "brief" : "easy") }
-            }
-        }
-        SettingsRow {
-            objectName: "settingsRow-instructions"
-            label: qsTr("Instructions")
-            detail: qsTr("Added to every question, for example: \"Put English terms in brackets\" or \"I know Kalman filters\"")
-            wide: true
-            TextArea {
-                objectName: "aiInstructions"
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.max(60, implicitHeight)
-                wrapMode: TextEdit.Wrap
-                placeholderText: qsTr("Optional")
-                text: researchStore.setting("ai.instructions")
-                onEditingFinished: researchStore.setSetting("ai.instructions", text.trim().slice(0, 2000))
-            }
-        }
-        SettingsRow {
-            objectName: "settingsRow-symbolHints"
-            label: qsTr("Symbol hints")
-            detail: qsTr("Once a paper's symbols are listed (Document panel › Symbols), pointing at one shows its meaning")
-            Switch {
-                objectName: "aiSymbolHints"
-                checked: researchStore.setting("ai.symbolHints", "1") === "1"
-                onToggled: researchStore.setSetting("ai.symbolHints", checked ? "1" : "0")
-            }
-        }
-        SettingsRow {
-            objectName: "settingsRow-followUps"
-            label: qsTr("Suggest next questions")
-            detail: qsTr("Two or three questions under the last answer; a click asks one")
-            Switch {
-                objectName: "aiFollowUpsSwitch"
-                checked: researchStore.setting("ai.followUps", "1") === "1"
-                onToggled: researchStore.setSetting("ai.followUps", checked ? "1" : "0")
-            }
-        }
-        SettingsRow {
-            objectName: "settingsRow-showThinking"
-            label: qsTr("Show thinking")
-            detail: qsTr("A short summary of the model's reasoning, folded above each answer")
-            Switch {
-                objectName: "aiShowThinking"
-                checked: researchStore.setting("ai.showThinking", "1") === "1"
-                onToggled: researchStore.setSetting("ai.showThinking", checked ? "1" : "0")
-            }
-        }
-    }
-    // How answers read in the AI panel and chat tabs (kept by Theme, like the text size).
-    SettingsGroup {
-        objectName: "settingsGroup-answerText"
-        title: qsTr("Answer text")
-        note: qsTr("How answers look in the AI panel and chat tabs.")
-        SettingsRow {
-            objectName: "settingsRow-answerSize"
-            label: qsTr("Text size")
-            Icon { name: "text"; size: Theme.fontCaption; color: Theme.textTertiary }
-            Slider {
-                objectName: "answerSizeSlider"
-                Layout.preferredWidth: 180
-                from: Theme.textSize - 1; to: Theme.textSize + 5; stepSize: 1; snapMode: Slider.SnapAlways
-                value: Theme.answerSize
-                onMoved: Theme.answerSize = value
-            }
-            Icon { name: "text"; size: Theme.fontTitle; color: Theme.textTertiary }
-            Label { text: Theme.answerSize + qsTr(" pt"); color: Theme.textSecondary; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
-        }
-        SettingsRow {
-            objectName: "settingsRow-answerSpacing"
-            label: qsTr("Line spacing")
-            detail: qsTr("Between lines and between paragraphs")
-            ComboBox {
-                readonly property var spacings: ["compact", "comfortable", "relaxed"]
-                objectName: "answerSpacingBox"
-                Layout.preferredWidth: 200
-                model: [qsTr("Compact"), qsTr("Comfortable"), qsTr("Relaxed")]
-                currentIndex: Math.max(0, spacings.indexOf(Theme.answerSpacing))
-                onActivated: function(index) { Theme.answerSpacing = spacings[index] }
-            }
-        }
-        SettingsRow {
-            objectName: "settingsRow-answerColumn"
-            label: qsTr("Limit line length")
-            detail: qsTr("In a wide chat tab, the conversation stays a readable width in the middle")
-            Switch { objectName: "answerColumnSwitch"; checked: Theme.answerColumn; onToggled: Theme.answerColumn = checked }
-        }
-        SettingsRow {
-            objectName: "settingsRow-answerNative"
-            label: qsTr("Sharp text")
-            detail: qsTr("Letters drawn by the system, as in other apps; turn off if they look blurry")
-            Switch { objectName: "answerNativeSwitch"; checked: Theme.answerNative; onToggled: Theme.answerNative = checked }
-        }
-        SettingsRow {
-            objectName: "settingsRow-answerPreview"
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: preview.implicitHeight + 20
-                radius: Theme.radius; color: Theme.content; border.color: Theme.separator
-                TextEdit {
-                    id: preview
-                    objectName: "answerPreview"
-                    x: 12; y: 10; width: Math.min(parent.width - 24, Theme.answerWidth || parent.width)
-                    readOnly: true; activeFocusOnPress: false
-                    textFormat: TextEdit.RichText; wrapMode: TextEdit.Wrap
-                    renderType: Theme.answerNative ? TextEdit.NativeRendering : TextEdit.QtRendering
-                    color: Theme.text; font.pixelSize: Theme.answerSize
-                    text: researchStore.markdownHtml(qsTr("**Attention** lets each word look at the others and weigh which matter here.\n\n- Each word asks a question.\n- The others answer, and the closest answers count most.\n\nThe result is a new meaning for every word, read in its sentence."),
-                                                     Theme.accent, Theme.text, Theme.answerSize, Theme.textTertiary, Theme.answerLineHeight)
-                }
-            }
-        }
-    }
-    SettingsGroup {
-        objectName: "settingsGroup-provider"
+        objectName: "providerGroup"
         title: qsTr("Provider")
         note: qsTr("Keys are stored in %1.").arg(root.ai.keyStorage()) + " " + qsTr("Before the first request to a provider, Owelk shows what will be sent.") + " "
             + qsTr("Claude is available with an API key; signing in with a Claude.ai account is not offered because Anthropic does not allow it for third-party apps.")
@@ -327,10 +189,23 @@ ColumnLayout {
                 onActivated: function(index) { researchStore.setSetting("ai.effort." + root.currentId, efforts[index]) }
             }
         }
-        // Gloss (a word's meaning or a passage's translation beside the selection): quick by default.
+        SettingsRow {
+            objectName: "settingsRow-connection"
+            label: qsTr("Connection")
+            detail: root.testResult
+            Icon { visible: root.testResult.length > 0 && root.testResult !== "Testing…"; name: root.testOk ? "ok" : "alert"; color: root.testOk ? Theme.accent : Theme.danger }
+            Label { objectName: "aiTestResult"; visible: false; text: root.testResult }
+            Button { objectName: "aiTestConnection"; text: qsTr("Test"); onClicked: { root.testOk = false; root.testResult = qsTr("Testing…"); root.ai.testConnection(root.current.id) } }
+        }
+    }
+    // Gloss (a word's meaning or a passage's translation beside the selection): quick by default.
+    SettingsGroup {
+        objectName: "settingsGroup-gloss"
+        title: qsTr("Gloss")
+        note: qsTr("A word's meaning or a passage's translation beside the selection, with this provider.")
         SettingsRow {
             objectName: "settingsRow-glossModel"
-            label: qsTr("Gloss model")
+            label: qsTr("Model")
             ComboBox {
                 objectName: "aiGlossModelBox"
                 Layout.preferredWidth: 220
@@ -342,7 +217,7 @@ ColumnLayout {
         SettingsRow {
             visible: (root.glossInfo.efforts || []).length > 0
             objectName: "settingsRow-glossReasoning"
-            label: qsTr("Gloss reasoning")
+            label: qsTr("Reasoning")
             ComboBox {
                 id: glossEffortBox
                 objectName: "aiGlossEffortBox"
@@ -356,13 +231,56 @@ ColumnLayout {
                 onActivated: function(index) { root.ai.setGloss(root.currentId, root.glossChoice === "auto" ? "" : root.glossChoice, efforts[index]) }
             }
         }
+    }
+    SettingsGroup {
+        objectName: "settingsGroup-answers"
+        title: qsTr("Answers")
         SettingsRow {
-            objectName: "settingsRow-connection"
-            label: qsTr("Connection")
-            detail: root.testResult
-            Icon { visible: root.testResult.length > 0 && root.testResult !== "Testing…"; name: root.testOk ? "ok" : "alert"; color: root.testOk ? Theme.accent : Theme.danger }
-            Label { objectName: "aiTestResult"; visible: false; text: root.testResult }
-            Button { objectName: "aiTestConnection"; text: qsTr("Test"); onClicked: { root.testOk = false; root.testResult = qsTr("Testing…"); root.ai.testConnection(root.current.id) } }
+            objectName: "settingsRow-explanations"
+            label: qsTr("Explanations")
+            detail: qsTr("How every answer is written")
+            ComboBox {
+                objectName: "aiExplainLevelBox"
+                Layout.preferredWidth: 200
+                model: [qsTr("Easy, with examples"), qsTr("Brief")]
+                currentIndex: researchStore.setting("ai.explainLevel", "easy") === "brief" ? 1 : 0
+                onActivated: function(index) { researchStore.setSetting("ai.explainLevel", index === 1 ? "brief" : "easy") }
+            }
+        }
+        SettingsRow {
+            objectName: "settingsRow-instructions"
+            label: qsTr("Instructions")
+            detail: qsTr("Added to every question, for example: \"Put English terms in brackets\" or \"I know Kalman filters\"")
+            wide: true
+            TextArea {
+                objectName: "aiInstructions"
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.max(60, implicitHeight)
+                wrapMode: TextEdit.Wrap
+                placeholderText: qsTr("Optional")
+                text: researchStore.setting("ai.instructions")
+                onEditingFinished: researchStore.setSetting("ai.instructions", text.trim().slice(0, 2000))
+            }
+        }
+        SettingsRow {
+            objectName: "settingsRow-followUps"
+            label: qsTr("Suggest next questions")
+            detail: qsTr("Two or three questions under the last answer; a click asks one")
+            Switch {
+                objectName: "aiFollowUpsSwitch"
+                checked: researchStore.setting("ai.followUps", "1") === "1"
+                onToggled: researchStore.setSetting("ai.followUps", checked ? "1" : "0")
+            }
+        }
+        SettingsRow {
+            objectName: "settingsRow-showThinking"
+            label: qsTr("Show thinking")
+            detail: qsTr("A short summary of the model's reasoning, folded above each answer")
+            Switch {
+                objectName: "aiShowThinking"
+                checked: researchStore.setting("ai.showThinking", "1") === "1"
+                onToggled: researchStore.setSetting("ai.showThinking", checked ? "1" : "0")
+            }
         }
     }
     ConfirmDialog {
