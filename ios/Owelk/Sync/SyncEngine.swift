@@ -144,6 +144,8 @@ actor SyncEngine {
         row["document_id"] = paper.documentId
         row["opened_at"] = Self.timestamp(date)
         stage("recent_documents", key: [paper.documentId], row: row)
+        // An unread paper opened is being read, as the desktop's `startReading` has it.
+        if paper.readingState == "unread" { setReadingState("reading", of: paper) }
         return library
     }
 
@@ -170,6 +172,79 @@ actor SyncEngine {
             row["deleted_at"] = erased ? now : NSNull()
             stage("highlights", key: [id], row: row)
         }
+    }
+
+    // MARK: Library edits
+
+    /// A paper's rows in the Library (one per copy of its PDF that the computers merged): its details are changed in
+    /// each, so the newest says the same whichever it is.
+    private func rows(of paper: Paper) -> [Row] {
+        state.entries("documents").values.compactMap(\.row).filter {
+            library.paperOf[$0.string("id")] == paper.id && isNull($0["removed_at"]) && isNull($0["trashed_at"])
+        }
+    }
+
+    /// Unread, reading or read, as the desktop's `reading_state`.
+    func setReadingState(_ value: String, of paper: Paper) {
+        guard ["unread", "reading", "read"].contains(value) else { return }
+        for var row in rows(of: paper) where row.string("reading_state") != value {
+            row["reading_state"] = value
+            stage("documents", key: [row.string("id")], row: row)
+        }
+    }
+
+    func setFavorite(_ on: Bool, of paper: Paper) {
+        for var row in rows(of: paper) where (row.int("favorite") != 0) != on {
+            row["favorite"] = on ? 1 : 0
+            stage("documents", key: [row.string("id")], row: row)
+        }
+    }
+
+    /// Puts the paper in a tag or takes it out (under every ID the paper has).
+    func setTag(_ tag: String, _ on: Bool, of paper: Paper) {
+        member("document_tags", ["document_id", "tag_id"], other: tag, on, of: paper)
+    }
+
+    /// Puts the paper in a collection or takes it out.
+    func setCollection(_ collection: String, _ on: Bool, of paper: Paper) {
+        member("collection_documents", ["collection_id", "document_id"], other: collection, on, of: paper)
+    }
+
+    private func member(_ table: String, _ columns: [String], other: String, _ on: Bool, of paper: Paper) {
+        let otherColumn = columns.first { $0 != "document_id" }!
+        let present = state.entries(table).values.compactMap(\.row).filter {
+            $0.string(otherColumn) == other && library.paperOf[$0.string("document_id")] == paper.id
+        }
+        if on, present.isEmpty {
+            let row: Row = ["document_id": paper.documentId, otherColumn: other]
+            stage(table, key: columns.map { row[$0]! }, row: row)
+        } else if !on {
+            for row in present { stage(table, key: columns.map { row[$0]! }, row: nil) }
+        }
+    }
+
+    /// A tag by its name: the one there is (letter case aside), or a new one. Returns its ID.
+    func tag(named name: String) -> String? {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name.count <= 200 else { return nil }
+        if let known = library.tags.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+            return known.id
+        }
+        let id = newId()
+        stage("tags", key: [id], row: ["id": id, "name": name])
+        return id
+    }
+
+    /// A new collection at the top, as the desktop's `createCollection` saves one. Returns its ID.
+    func collection(named name: String) -> String? {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name.count <= 200 else { return nil }
+        let id = newId()
+        stage("collections", key: [id], row: [
+            "id": id, "name": name, "parent_id": NSNull(),
+            "created_at": Self.timestamp(Date(timeIntervalSince1970: TimeInterval(clock()) / 1000)),
+        ])
+        return id
     }
 
     // MARK: Text marks
@@ -322,7 +397,7 @@ actor SyncEngine {
         return format.string(from: date)
     }
 
-    private func stage(_ table: String, key: [Any], row: Row) {
+    private func stage(_ table: String, key: [Any], row: Row?) {
         // Never older than what is here, even with this iPad's clock behind: else the change would lose everywhere.
         let previous = state.entry(table, key: key)?.version.time ?? 0
         let change = Change(table: table, key: key, version: Version(time: max(clock(), previous + 1), device: device), row: row)

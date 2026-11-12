@@ -28,6 +28,10 @@ final class ConformanceTests: XCTestCase {
     static let highlightId = "0a11ce00-0000-4000-8000-00000000c001"
     static let commentId = "0a11ce00-0000-4000-8000-00000000c002"
     static let macHighlight = "1474cf62-bae3-4649-ac90-d077a1513e14"
+    /// The tag and collection this iPad makes (after the paper it adds), and the Mac's tag it takes off.
+    static let newTag = "0a11ce00-0000-4000-8000-00000000a002"
+    static let newCollection = "0a11ce00-0000-4000-8000-00000000a003"
+    static let toRead = "ae1dea02-3284-46c6-b55f-102e159aa883"
     static let highlightLines = [CGRect(x: 0.1, y: 0.3, width: 0.5, height: 0.02),
                                  CGRect(x: 0.1, y: 0.325, width: 0.3, height: 0.02)]
     /// The PDF it adds (tests/data/sync/ipad/Papers), with a title of its own.
@@ -103,8 +107,9 @@ final class ConformanceTests: XCTestCase {
         try FileManager.default.copyItem(at: Self.mac, to: drive)
         let folder = SyncFolder(root: drive)
         let library = try XCTUnwrap(folder.library())
+        var ids = [Self.addedId, Self.newTag, Self.newCollection]
         let engine = SyncEngine(storage: temporary.appendingPathComponent("app"), device: Self.ipad, clock: { Self.clock },
-                                newId: { Self.addedId })
+                                newId: { ids.isEmpty ? UUID().uuidString.lowercased() : ids.removeFirst() })
         let about = ["name": "iPad", "system": "iPadOS"]
         _ = await engine.pass(folder, library: library, about: about)
         let cached = await engine.cachedLibrary()
@@ -160,6 +165,27 @@ final class ConformanceTests: XCTestCase {
         let papers = await engine.current().papers
         XCTAssertEqual(papers.count, 2)
 
+        // The Mac's paper: a favorite, read, out of "to read", into a new tag and a new collection.
+        await engine.setFavorite(true, of: paper)
+        await engine.setReadingState("read", of: paper)
+        await engine.setTag(Self.toRead, false, of: paper)
+        let tag = await engine.tag(named: "from iPad")
+        XCTAssertEqual(tag, Self.newTag)
+        let sameTag = await engine.tag(named: "FROM ipad")
+        XCTAssertEqual(sameTag, Self.newTag, "a name there is already")
+        await engine.setTag(Self.newTag, true, of: paper)
+        await engine.setTag(Self.newTag, true, of: paper)
+        let collection = await engine.collection(named: "Reading list")
+        XCTAssertEqual(collection, Self.newCollection)
+        await engine.setCollection(Self.newCollection, true, of: paper)
+        let filed = await engine.current().papers.first { $0.id == paper.id }
+        let changed = try XCTUnwrap(filed)
+        XCTAssertTrue(changed.favorite)
+        XCTAssertEqual(changed.readingState, "read")
+        XCTAssertEqual(changed.tags, ["from iPad", "radar"])
+        XCTAssertEqual(Set(changed.collections), Set([mapping, Self.newCollection]))
+        XCTAssertTrue(changed.annotated)
+
         let failure = await engine.flush(folder, library: library, about: about)
         XCTAssertNil(failure)
         let position = await engine.position(of: paper)
@@ -176,8 +202,10 @@ final class ConformanceTests: XCTestCase {
         XCTAssertEqual(lines, try Self.lines(committed.appendingPathComponent("00000001.jsonl")),
                        "the iPad's change file differs from tests/data/sync/ipad: run with OWELK_WRITE_FIXTURES=1 and check the desktop's sync_conformance test")
         XCTAssertEqual(lines.map { $0["t"] as? String },
-                       ["documents", "highlights", "highlights", "highlights", "highlights", "highlights",
-                        "recent_documents", "reading_positions", "collection_documents", "document_tags"])
+                       ["documents", "documents", "tags", "collections",
+                        "highlights", "highlights", "highlights", "highlights", "highlights",
+                        "recent_documents", "reading_positions", "collection_documents", "collection_documents",
+                        "document_tags", "document_tags", "document_tags"])
         // The stroke with every column the desktop writes for one, the Mac's mark with only `deleted_at` changed.
         let macMark = try XCTUnwrap(try expected()["highlights"]?.first { $0.string("id") == Self.macStroke })
         let marksWritten = lines.filter { $0["t"] as? String == "highlights" }.compactMap { $0["r"] as? Row }
@@ -228,8 +256,9 @@ final class ConformanceTests: XCTestCase {
         for key in macHighlight.keys where !["color", "body", "deleted_at"].contains(key) {
             XCTAssertEqual(edited[key] as? NSObject, macHighlight[key] as? NSObject, key)
         }
-        lines.removeAll { $0["t"] as? String == "highlights" }
-        let document = try XCTUnwrap(lines[0]["r"] as? Row)
+        func rows(_ table: String) -> [NSDictionary] { lines.filter { $0["t"] as? String == table } }
+        let documents = rows("documents").compactMap { $0["r"] as? Row }
+        let document = try XCTUnwrap(documents.first { $0.string("id") == Self.addedId })
         // Every column the desktop sends for a paper, so a computer that inserts it has them all.
         let macRow = try XCTUnwrap(try expected()["documents"]?.first)
         XCTAssertEqual(Set(document.keys), Set(macRow.keys))
@@ -237,16 +266,33 @@ final class ConformanceTests: XCTestCase {
         XCTAssertEqual(document.string("sha256"), newPaper.sha256)
         XCTAssertEqual(document.string("metadata_origin"), "", "the computers read the rest of the details")
         XCTAssertEqual(document.string("added_at"), "2030-01-01T00:00:00.000Z")
-        lines.removeFirst()
-        let row = try XCTUnwrap(lines[1]["r"] as? Row)
-        XCTAssertEqual(Set(row.keys), ["document_id", "position"])
-        XCTAssertEqual(row.string("document_id"), paper.documentId)
-        let json = try XCTUnwrap(JSON.value(row.string("position")) as? Row)
+        // The Mac's paper: only favorite and reading state changed.
+        let favored = try XCTUnwrap(documents.first { $0.string("id") == paper.documentId })
+        XCTAssertEqual(favored.int("favorite"), 1)
+        XCTAssertEqual(favored.string("reading_state"), "read")
+        for key in macRow.keys where !["favorite", "reading_state", "removed_at", "trashed_at"].contains(key) {
+            XCTAssertEqual(favored[key] as? NSObject, macRow[key] as? NSObject, key)
+        }
+        XCTAssertEqual(rows("tags").first?["r"] as? NSDictionary, ["id": Self.newTag, "name": "from iPad"])
+        let made = try XCTUnwrap(rows("collections").first?["r"] as? Row)
+        XCTAssertEqual(made.string("name"), "Reading list")
+        XCTAssertTrue(isNull(made["parent_id"]))
+        XCTAssertEqual(made.string("created_at"), "2030-01-01T00:00:00.000Z")
+        let taken = try XCTUnwrap(rows("document_tags").first { ($0["k"] as? [String])?.last == Self.toRead })
+        XCTAssertTrue(isNull(taken["r"]), "out of the tag: no row")
+        XCTAssertTrue(rows("document_tags").contains { ($0["r"] as? Row)?.string("tag_id") == Self.newTag })
+        XCTAssertTrue(rows("collection_documents").contains {
+            ($0["r"] as? Row)?.string("collection_id") == Self.newCollection
+        })
+        let left = try XCTUnwrap(rows("reading_positions").first?["r"] as? Row)
+        XCTAssertEqual(Set(left.keys), ["document_id", "position"])
+        XCTAssertEqual(left.string("document_id"), paper.documentId)
+        let json = try XCTUnwrap(JSON.value(left.string("position")) as? Row)
         XCTAssertEqual(json.int("page"), 2)
         XCTAssertEqual(json.double("y"), 0.5)
         XCTAssertEqual(json.string("fit"), "width")
         XCTAssertEqual(json.double("zoom"), 1)
-        XCTAssertEqual((lines[0]["r"] as? Row)?.string("opened_at"), "2030-01-01T00:00:00.000Z")
+        XCTAssertEqual((rows("recent_documents").first?["r"] as? Row)?.string("opened_at"), "2030-01-01T00:00:00.000Z")
         XCTAssertEqual(folder.computers(except: "nobody").sorted(), ["Mac", "iPad"])
     }
 

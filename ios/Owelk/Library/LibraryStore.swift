@@ -242,6 +242,39 @@ final class LibraryStore: ObservableObject {
         }
     }
 
+    func setReadingState(_ value: String, of paper: Paper) { edit { await $0.setReadingState(value, of: paper) } }
+    func setFavorite(_ on: Bool, of paper: Paper) { edit { await $0.setFavorite(on, of: paper) } }
+    func setTag(_ tag: String, _ on: Bool, of paper: Paper) { edit { await $0.setTag(tag, on, of: paper) } }
+    func setCollection(_ id: String, _ on: Bool, of paper: Paper) { edit { await $0.setCollection(id, on, of: paper) } }
+
+    /// A new tag (or the one with that name) with the paper in it.
+    func tag(_ paper: Paper, named name: String) {
+        edit { engine in
+            if let tag = await engine.tag(named: name) { await engine.setTag(tag, true, of: paper) }
+        }
+    }
+
+    /// A new collection with the paper in it.
+    func collect(_ paper: Paper, inNew name: String) {
+        edit { engine in
+            if let collection = await engine.collection(named: name) { await engine.setCollection(collection, true, of: paper) }
+        }
+    }
+
+    /// A change to the library made here: shown at once, then written (in order with the pen's changes).
+    private func edit(_ change: @escaping (SyncEngine) async -> Void) {
+        guard let engine, let folder else { return }
+        let about = about, id = libraryId, before = penWork
+        let task = UIApplication.shared.beginBackgroundTask(withName: "Owelk library")
+        penWork = Task {
+            await before?.value
+            await change(engine)
+            library = await engine.current()
+            await engine.flush(folder, library: id, about: about)
+            UIApplication.shared.endBackgroundTask(task)
+        }
+    }
+
     private func pen(_ change: @escaping (SyncEngine) async -> Bool) {
         guard let engine, let folder else { return }
         let about = about, id = libraryId, before = penWork

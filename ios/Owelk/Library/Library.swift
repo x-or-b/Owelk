@@ -19,6 +19,8 @@ struct Paper: Identifiable, Hashable {
     /// When it was last opened on any computer (ISO 8601), or "".
     let openedAt: String
     let hasFile: Bool
+    /// It has marks (highlights, comments, pen strokes…) from any computer.
+    var annotated = false
 
     var readingLabel: String {
         switch readingState {
@@ -99,6 +101,13 @@ struct Library {
             opened[paper] = max(opened[paper] ?? "", row.string("opened_at"))
         }
 
+        var annotated: Set<String> = []
+        for entry in state.entries("highlights").values {
+            guard let row = entry.row, isNull(row["deleted_at"]), let paper = library.paperOf[row.string("document_id")]
+            else { continue }
+            annotated.insert(paper)
+        }
+
         library.papers = groups.map { key, rows in
             // The latest edit of the paper's details; the smallest ID to write under.
             let newest = rows.max { !$0.0.replaces($1.0) }!.1
@@ -109,7 +118,7 @@ struct Library {
                          readingState: newest.string("reading_state"), favorite: newest.int("favorite") != 0,
                          addedAt: newest.string("added_at"), collections: Array(collectionsOf[key] ?? []).sorted(),
                          tags: Array(tagsOf[key] ?? []).sorted { $0.localizedStandardCompare($1) == .orderedAscending },
-                         openedAt: opened[key] ?? "", hasFile: files.contains(key))
+                         openedAt: opened[key] ?? "", hasFile: files.contains(key), annotated: annotated.contains(key))
         }
 
         // Collections nest by parent_id; a parent that is gone leaves its children at the top.

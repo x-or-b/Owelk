@@ -278,6 +278,23 @@ private slots:
         QCOMPARE(edited[0].toMap()["body"].toString(), QString("Checked on the iPad"));
         QVERIFY(edited[0].toMap()["text"].toString().startsWith("Research finding 1.1"));
 
+        // The paper filed on the iPad: a favorite, read, out of "to read", in a new tag and a new collection.
+        const auto filed
+            = rows(mac, "SELECT favorite,reading_state FROM documents WHERE id='ec0dbb6f-06b8-4012-b0b2-eb317af23825'");
+        QCOMPARE(filed[0].toMap()["favorite"].toInt(), 1);
+        QCOMPARE(filed[0].toMap()["reading_state"].toString(), QString("read"));
+        const auto tags = rows(mac,
+            "SELECT t.name FROM document_tags m JOIN tags t ON t.id=m.tag_id WHERE "
+            "m.document_id='ec0dbb6f-06b8-4012-b0b2-eb317af23825' ORDER BY t.name");
+        QCOMPARE(tags.size(), 2);
+        QCOMPARE(tags[0].toMap()["name"].toString(), QString("from iPad"));
+        QCOMPARE(tags[1].toMap()["name"].toString(), QString("radar"));
+        QCOMPARE(scalar(mac,
+                     "SELECT c.name FROM collection_documents m JOIN collections c ON c.id=m.collection_id WHERE "
+                     "m.document_id='ec0dbb6f-06b8-4012-b0b2-eb317af23825' AND c.parent_id IS NULL")
+                     .toString(),
+            QString("Reading list"));
+
         // The paper added on the iPad: in the Library under its file's name, with the PDF copied in, in the
         // collection and tag it was added to, and its details left for this computer to read.
         const auto added = rows(mac,

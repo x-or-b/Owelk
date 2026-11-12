@@ -5,7 +5,7 @@
 ## v1에서 되는 것
 
 - 동기화 폴더 고르기: 파일 앱에서 Synctrain이 맞추는 `Owelk` 폴더(또는 그 위 폴더)를 고릅니다. 접근 권한은 북마크로 기억합니다. iPadOS는 다른 앱의 폴더가 바뀌어도 알려 주지 않으므로, 앱이 앞으로 올 때, 앞에 있는 동안 30초마다, 목록을 당겨 새로 고칠 때 다시 읽습니다.
-- 라이브러리: 제목·저자·연도·읽기 상태·태그, Collections(중첩)와 Tags, 제목·저자 검색, 정렬(Last Opened(어느 컴퓨터에서 열었든, 기본)·Title·Date Added). Recent 목록은 기본 정렬과 같아서 두지 않습니다(연 기록은 그대로 동기화). PDF가 아직 도착하지 않은 논문은 흐리게 "Waiting for the PDF".
+- 라이브러리: 제목·저자·연도·읽기 상태·태그, 왼쪽 열의 All Papers·Favorites·Reading·Annotated(표시가 있는 논문)·Collections(중첩)·Tags, 제목·저자 검색, 정렬(Last Opened(어느 컴퓨터에서 열었든, 기본)·Title·Date Added). Recent 목록은 기본 정렬과 같아서 두지 않습니다(연 기록은 그대로 동기화). 논문을 오른쪽으로 밀면 Favorites에 넣고 빼며, 길게 누르면 Favorites·읽기 상태(Unread·Reading·Read)·Tags…·Collections…(체크해서 넣고 빼기, 새 Tag·맨 위 Collection 만들기)가 나옵니다. 처음 연 논문은 데스크톱처럼 Reading이 됩니다. PDF가 아직 도착하지 않은 논문은 흐리게 "Waiting for the PDF".
 - 읽기: PDFKit의 스크롤·확대·글자 선택과 복사, 쪽 썸네일, 목차, 논문 안 찾기(⌘F).
 - 주석 보기: 컴퓨터에서 단 하이라이트·코멘트·텍스트 상자·그림·펜·영역을 같은 자리·같은 모양으로 그립니다. 원본 PDF에는 아무것도 쓰지 않습니다(메모리에서만 그림).
 - 하이라이트·코멘트: 글자를 고르면 메뉴의 Copy 옆에 **Highlight**·**Comment…**가 나옵니다(`PageView.buildMenu`). 데스크톱의 `saveTextSelection`과 같은 행(쪽마다 하나, 줄마다 사각형, 글자 위치)을 씁니다(`TextMarks.swift`). 하이라이트·코멘트·영역(그리고 노트가 있는 펜 표시)을 누르면 노트(타이핑 또는 Pencil 손글씨 Scribble)와 여섯 색을 바꾸고 지울 수 있고, 바뀐 것은 색·노트 열만 보냅니다. 막대의 **Annotations**는 이 논문의 표시를 쪽 순서로 보여 주고, 누르면 그 자리로, 밀면 지웁니다(실행 취소로 되돌림). PDF를 모르는 논문(SHA-256 없음)은 노트만 봅니다.

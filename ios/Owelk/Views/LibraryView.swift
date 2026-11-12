@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 /// Which papers the list shows.
 enum Shelf: Hashable {
-    case all
+    case all, favorites, reading, annotated
     case collection(String)
     case tag(String)
 }
@@ -101,6 +101,9 @@ struct LibraryView: View {
     private var title: String {
         switch shelf ?? .all {
         case .all: "All Papers"
+        case .favorites: "Favorites"
+        case .reading: "Reading"
+        case .annotated: "Annotated"
         case let .collection(id): store.library.collections.first { $0.id == id }?.name ?? "Collection"
         case let .tag(name): name
         }
@@ -142,13 +145,21 @@ struct LibraryView: View {
         if store.library.papers.isEmpty {
             return store.syncing ? "Reading the sync folder…" : "No papers yet. Add PDFs with + or drop them here."
         }
-        return "No papers here."
+        switch shelf ?? .all {
+        case .favorites: return "Papers you favorite (swipe right on one, or hold it) appear here."
+        case .reading: return "Papers you are reading appear here."
+        case .annotated: return "Papers with highlights, comments or pen marks appear here."
+        default: return "No papers here."
+        }
     }
 
     private var papers: [Paper] {
         var list = store.library.papers
         switch shelf ?? .all {
         case .all: break
+        case .favorites: list = list.filter(\.favorite)
+        case .reading: list = list.filter { $0.readingState == "reading" }
+        case .annotated: list = list.filter(\.annotated)
         case let .collection(id): list = list.filter { $0.collections.contains(id) }
         case let .tag(name): list = list.filter { $0.tags.contains(name) }
         }
@@ -181,6 +192,9 @@ private struct Sidebar: View {
         List(selection: $shelf) {
             Section {
                 Label("All Papers", systemImage: "books.vertical").tag(Shelf.all)
+                Label("Favorites", systemImage: "star").tag(Shelf.favorites)
+                Label("Reading", systemImage: "book").tag(Shelf.reading)
+                Label("Annotated", systemImage: "highlighter").tag(Shelf.annotated)
             }
             if !store.library.collections.isEmpty {
                 Section("Collections") {
@@ -276,10 +290,30 @@ private struct SettingsSheet: View {
     }
 }
 
+/// A paper's tags or collections being chosen.
+private enum Filing: Identifiable {
+    case tags(Paper), collections(Paper)
+
+    var id: String {
+        switch self {
+        case let .tags(paper): "tags " + paper.id
+        case let .collections(paper): "collections " + paper.id
+        }
+    }
+
+    var paper: Paper {
+        switch self {
+        case let .tags(paper), let .collections(paper): paper
+        }
+    }
+}
+
 private struct PaperList: View {
+    @EnvironmentObject private var store: LibraryStore
     let papers: [Paper]
     let empty: String
     @Binding var opened: Paper?
+    @State private var filing: Filing?
 
     var body: some View {
         List(papers) { paper in
@@ -289,7 +323,44 @@ private struct PaperList: View {
                 PaperRow(paper: paper)
             }
             .disabled(!paper.hasFile)
+            .swipeActions(edge: .leading) {
+                Button {
+                    store.setFavorite(!paper.favorite, of: paper)
+                } label: {
+                    Label(paper.favorite ? "Remove from Favorites" : "Add to Favorites",
+                          systemImage: paper.favorite ? "star.slash" : "star")
+                }
+                .tint(Theme.accent)
+            }
+            .contextMenu {
+                Button {
+                    store.setFavorite(!paper.favorite, of: paper)
+                } label: {
+                    Label(paper.favorite ? "Remove from Favorites" : "Add to Favorites",
+                          systemImage: paper.favorite ? "star.slash" : "star")
+                }
+                Picker(selection: Binding(get: { paper.readingState.isEmpty ? "unread" : paper.readingState },
+                                          set: { store.setReadingState($0, of: paper) })) {
+                    Text("Unread").tag("unread")
+                    Text("Reading").tag("reading")
+                    Text("Read").tag("read")
+                } label: {
+                    Label("Reading State", systemImage: "book")
+                }
+                .pickerStyle(.menu)
+                Button {
+                    filing = .tags(paper)
+                } label: {
+                    Label("Tags…", systemImage: "tag")
+                }
+                Button {
+                    filing = .collections(paper)
+                } label: {
+                    Label("Collections…", systemImage: "folder")
+                }
+            }
         }
+        .sheet(item: $filing) { FilingSheet(filing: $0) }
         .listStyle(.plain)
         .overlay {
             if papers.isEmpty {
@@ -304,10 +375,16 @@ private struct PaperRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(paper.title)
-                .font(.body.weight(.medium))
-                .foregroundStyle(paper.hasFile ? .primary : .secondary)
-                .lineLimit(2)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(paper.title)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(paper.hasFile ? .primary : .secondary)
+                    .lineLimit(2)
+                if paper.favorite {
+                    Image(systemName: "star.fill").font(.caption).foregroundStyle(.secondary)
+                        .accessibilityLabel("Favorite")
+                }
+            }
             let details = [paper.authors, paper.year].filter { !$0.isEmpty }.joined(separator: " · ")
             if !details.isEmpty {
                 Text(details).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
@@ -322,6 +399,76 @@ private struct PaperRow: View {
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
+    }
+}
+
+/// A paper's tags or collections: a tap puts it in or takes it out, and a new one can be made with it in.
+private struct FilingSheet: View {
+    @EnvironmentObject private var store: LibraryStore
+    @Environment(\.dismiss) private var dismiss
+    let filing: Filing
+    @State private var name = ""
+
+    private var tags: Bool { if case .tags = filing { true } else { false } }
+    /// The paper as it is now (it changes while the sheet is open).
+    private var paper: Paper { store.library.papers.first { $0.id == filing.paper.id } ?? filing.paper }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    if tags {
+                        ForEach(store.library.tags.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }) { tag in
+                            row(tag.name, depth: 0, in: paper.tags.contains(tag.name)) {
+                                store.setTag(tag.id, !paper.tags.contains(tag.name), of: paper)
+                            }
+                        }
+                    } else {
+                        ForEach(store.library.collections) { collection in
+                            row(collection.name, depth: collection.depth, in: paper.collections.contains(collection.id)) {
+                                store.setCollection(collection.id, !paper.collections.contains(collection.id), of: paper)
+                            }
+                        }
+                    }
+                }
+                Section {
+                    HStack {
+                        TextField(tags ? "New Tag" : "New Collection", text: $name)
+                            .onSubmit(add)
+                        Button("Add", action: add)
+                            .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+            }
+            .navigationTitle(tags ? "Tags" : "Collections")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .tint(Theme.accent)
+    }
+
+    private func row(_ title: String, depth: Int, in member: Bool, toggle: @escaping () -> Void) -> some View {
+        Button(action: toggle) {
+            HStack {
+                Text(title).padding(.leading, CGFloat(depth) * 16)
+                Spacer()
+                if member { Image(systemName: "checkmark").foregroundStyle(Theme.accent) }
+            }
+            .contentShape(Rectangle())
+        }
+        .foregroundStyle(.primary)
+        .accessibilityAddTraits(member ? .isSelected : [])
+    }
+
+    private func add() {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        if tags { store.tag(paper, named: name) } else { store.collect(paper, inNew: name) }
+        self.name = ""
     }
 }
 
