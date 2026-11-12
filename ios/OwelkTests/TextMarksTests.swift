@@ -71,8 +71,9 @@ final class TextMarksTests: XCTestCase {
         XCTAssertEqual(offered(), ["Explain", "Ask AI…"], "no marks where the paper's PDF is unknown")
     }
 
-    /// With the highlighter, the Pencil going along a line selects the text it passes over, and lifting it highlights
-    /// that text in the highlighter's color (once, as one step).
+    /// With the highlighter, the Pencil going along a line shows the text it passes over as the highlight it will be,
+    /// from where it went down to where it is now (going back takes text off), and lifting it highlights that text in
+    /// the highlighter's color (once, as one step).
     func testTheHighlighterHighlightsTheTextItPassesOver() async throws {
         let (controller, window, document) = try await reader()
         defer { window.isHidden = true }
@@ -80,19 +81,25 @@ final class TextMarksTests: XCTestCase {
         controller.pen.placed = { placed += $0 }
         controller.drawing = true
         controller.pen.tool = .highlighter("#54a878")
-        let selection = try XCTUnwrap(document.findString("second paper", withOptions: []).first)
-        let page = try XCTUnwrap(selection.pages.first)
-        let text = controller.pdfView.convert(selection.bounds(for: page), from: page)
-        controller.beginMarking(at: CGPoint(x: text.minX + 2, y: text.midY))
-        controller.markText(to: CGPoint(x: text.midX, y: text.midY))
-        XCTAssertNotNil(controller.pdfView.currentSelection, "selected as it goes")
-        controller.markText(to: CGPoint(x: text.maxX - 2, y: text.midY))
+        let words = try XCTUnwrap(document.findString("second paper", withOptions: []).first)
+        let first = try XCTUnwrap(document.findString("second", withOptions: []).first)
+        let page = try XCTUnwrap(words.pages.first)
+        let text = controller.pdfView.convert(words.bounds(for: page), from: page)
+        let second = controller.pdfView.convert(first.bounds(for: page), from: page)
+        controller.beginMarking(at: CGPoint(x: text.minX + 1, y: text.midY))
+        XCTAssertEqual(controller.pen.previewed, 0)
+        controller.markText(to: CGPoint(x: text.maxX - 1, y: text.midY))
+        XCTAssertEqual(controller.pen.previewed, 1, "shown as it goes")
+        XCTAssertEqual(controller.pen.shapes(on: page), [], "not a mark yet")
+        // Back to the end of "second": only that much.
+        controller.markText(to: CGPoint(x: second.maxX - 1, y: text.midY))
         controller.finishMarking()
+        XCTAssertEqual(controller.pen.previewed, 0)
         XCTAssertEqual(placed.count, 1)
         XCTAssertEqual(placed.first?.string("kind"), "highlight")
         XCTAssertEqual(placed.first?.string("color"), "#54a878")
-        XCTAssertTrue(placed.first?.string("text").contains("second pape") ?? false, placed.first?.string("text") ?? "")
-        XCTAssertNil(controller.pdfView.currentSelection)
+        let marked = placed.first?.string("text") ?? ""
+        XCTAssertTrue(marked.hasPrefix("secon") && !marked.contains("paper"), marked)
         controller.finishMarking()
         XCTAssertEqual(placed.count, 1, "lifting again makes nothing")
     }

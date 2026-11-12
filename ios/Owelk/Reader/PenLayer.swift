@@ -183,6 +183,8 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider {
 
     private var sheets: [ObjectIdentifier: Sheet] = [:]
     private var stroke: Stroke?
+    /// The highlight the highlighter's text will become, shown while it passes over the text.
+    private var previews: [CALayer] = []
     /// Marks taken by the eraser stroke under way.
     private var erasing: [(MarkAnnotation, PDFPage)] = []
 
@@ -231,6 +233,28 @@ final class PenLayer: NSObject, @preconcurrency PDFPageOverlayViewProvider {
     func shapes(on page: PDFPage) -> [String] {
         (sheets[ObjectIdentifier(page)]?.view.marks.sublayers ?? []).compactMap(\.name).sorted()
     }
+
+    // MARK: The highlighter
+
+    /// Shows rows (from `TextMarks`) as the highlights they will become, in place of what was shown before.
+    func preview(_ rows: [(Row, PDFPage)]) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        previews.forEach { $0.removeFromSuperlayer() }
+        previews = rows.compactMap { row, page in
+            guard let sheet = sheets[ObjectIdentifier(page)], let mark = Mark(row: row),
+                  let shape = MarkShape.layer(mark, on: sheet.geometry) else { return nil }
+            shape.name = nil
+            sheet.view.layer.addSublayer(shape)
+            return shape
+        }
+        CATransaction.commit()
+    }
+
+    func clearPreview() { preview([]) }
+
+    /// How many shapes the preview shows.
+    var previewed: Int { previews.count }
 
     // MARK: Drawing
 
