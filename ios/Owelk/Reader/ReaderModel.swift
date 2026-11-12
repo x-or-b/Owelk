@@ -313,9 +313,9 @@ struct ReaderScreen: View {
                     .padding(16)
                 }
             }
-            .inspector(isPresented: $model.showsAI) {
-                AiPanel(chat: model.ai) { model.go(toPage: $0) }
-                    .inspectorColumnWidth(min: 320, ideal: 400, max: 560)
+            // The AI in a small window over the paper, moved and sized as the reader likes.
+            .overlay {
+                if model.showsAI { FloatingAiPanel(model: model) }
             }
             .navigationTitle(model.paper.title)
             .navigationBarTitleDisplayMode(.inline)

@@ -101,4 +101,19 @@ final class AiTests: XCTestCase {
         let linked = AnswerText.inline(#"See [p. 2: "x y"]"#)
         XCTAssertTrue(linked.runs.contains { $0.link?.absoluteString == "owelk-page:2" })
     }
+
+    /// The AI's window: at first at the top right, then where it was left, always inside the reader and no smaller than
+    /// it can be used.
+    func testTheWindowStaysInside() {
+        let area = CGSize(width: 1366, height: 938)
+        let first = FloatingAiPanel.frame(in: area, at: nil, width: 400, height: 560)
+        XCTAssertEqual(first, CGRect(x: 950, y: 16, width: 400, height: 560))
+        let moved = FloatingAiPanel.frame(in: area, at: CGPoint(x: 2000, y: -300), width: 400, height: 560)
+        XCTAssertEqual(moved.maxX, area.width - 8)
+        XCTAssertEqual(moved.minY, 8)
+        let tiny = FloatingAiPanel.frame(in: area, at: CGPoint(x: 100, y: 100), width: 10, height: 10)
+        XCTAssertEqual(tiny.size, FloatingAiPanel.smallest)
+        let huge = FloatingAiPanel.frame(in: area, at: .zero, width: 5000, height: 5000)
+        XCTAssertEqual(huge.size, CGSize(width: area.width - 16, height: area.height - 16))
+    }
 }
