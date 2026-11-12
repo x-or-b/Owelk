@@ -714,6 +714,7 @@ ApplicationWindow {
             case "/customize home": settingsDialog.openPage("general#settingsGroup-home"); break
             case "/settings appearance": settingsDialog.openPage("appearance"); break
             case "/settings shortcuts": settingsDialog.openPage("shortcuts"); break
+            case "/settings reading": settingsDialog.openPage("reading"); break
             case "/settings foryou": settingsDialog.openPage("foryou"); break
             case "/settings ai": settingsDialog.openPage("ai"); break
             case "/settings sync": settingsDialog.openPage("sync"); break

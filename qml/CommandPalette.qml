@@ -92,6 +92,7 @@ Popup {
         {command: "/customize home", title: qsTr("Settings: Customize Home"), enabled: true},
         {command: "/settings appearance", title: qsTr("Settings: Appearance"), enabled: true},
         {command: "/settings shortcuts", title: qsTr("Settings: Shortcuts"), enabled: true},
+        {command: "/settings reading", title: qsTr("Settings: Reading"), enabled: true},
         {command: "/settings foryou", title: qsTr("Settings: For You"), enabled: true},
         {command: "/settings ai", title: qsTr("Settings: AI"), enabled: true},
         {command: "/settings sync", title: qsTr("Settings: Sync & Backup"), enabled: true}

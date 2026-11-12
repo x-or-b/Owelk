@@ -809,6 +809,12 @@ Item {
                 const view = findChild(workspace.documents.groupView(workspace.documents.activeGroup), "libraryView")
                 return view !== null && view.view === "words"
             }, 5000)
+            // A page of Settings.
+            commands.commandChosen("/settings reading")
+            const settings = findChild(workspace, "settingsDialog")
+            tryCompare(settings, "opened", true)
+            compare(settings.page, "reading")
+            settings.close(); tryCompare(settings, "visible", false)
         }
         function test_statusActivityGoesWhereTheWorkIs() {
             workspace.openDocument(fixtureSource); canvas()

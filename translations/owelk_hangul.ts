@@ -1041,6 +1041,10 @@
         <translation>세팅스: 오픈</translation>
     </message>
     <message>
+        <source>Settings: Reading</source>
+        <translation>세팅스: 리딩</translation>
+    </message>
+    <message>
         <source>Settings: Shortcuts</source>
         <translation>세팅스: 쇼트컷츠</translation>
     </message>
