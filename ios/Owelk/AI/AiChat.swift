@@ -1,13 +1,16 @@
 import Foundation
 import PDFKit
 
-/// A conversation with the AI about the paper open in the reader, kept while it is open (on this iPad only).
+/// A conversation with the AI about the paper open in the reader, kept in the library as the desktop keeps its chats
+/// (`ai_threads`, `ai_messages`), so it goes on on any computer. Opening the paper goes on with its latest one.
 @MainActor
 final class AiChat: ObservableObject {
     struct Turn: Identifiable {
         let id = UUID()
         /// What was asked, as the reader sees it.
         let asked: String
+        /// The request as it was sent (what follow-up questions carry).
+        var sent = ""
         var answer = ""
         var running = true
         var error: String?
@@ -20,17 +23,45 @@ final class AiChat: ObservableObject {
     /// Selected text the next question is about.
     @Published var attached: String?
     @Published private(set) var running = false
+    /// The conversation shown (nil: a new one, made with its first answer).
+    @Published private(set) var thread: String?
     private var task: Task<Void, Never>?
     private var paperText: String?
-    private let title: String
+    private let paper: Paper
     private let document: () -> PDFDocument?
+    private weak var store: LibraryStore?
 
-    init(title: String, document: @escaping () -> PDFDocument?) {
-        self.title = title
+    init(paper: Paper, document: @escaping () -> PDFDocument?) {
+        self.paper = paper
         self.document = document
     }
 
     var hasKey: Bool { !AiSettings.key(for: AiSettings.service).isEmpty }
+
+    /// The library the conversation is kept in; the paper's latest conversation is shown.
+    func keep(in store: LibraryStore) async {
+        self.store = store
+        guard turns.isEmpty, let latest = store.library.threads.first(where: { $0.paper == paper.id }) else { return }
+        await open(latest.id)
+    }
+
+    /// Shows a conversation (from any computer), to go on with it.
+    func open(_ id: String) async {
+        guard !running, let store else { return }
+        let messages = await store.messages(of: id)
+        var turns: [Turn] = []
+        for message in messages {
+            if message.role == "user" {
+                turns.append(Turn(asked: message.display.isEmpty ? message.content : message.display,
+                                  sent: message.content, running: false))
+            } else if message.role == "assistant", !turns.isEmpty {
+                turns[turns.count - 1].answer = message.content
+                turns[turns.count - 1].model = message.model
+            }
+        }
+        thread = id
+        self.turns = turns
+    }
 
     /// The question typed (about the attached selection, if any).
     func ask() {
@@ -51,20 +82,22 @@ final class AiChat: ObservableObject {
 
     func stop() { task?.cancel() }
 
+    /// A new conversation (the one shown stays in the library).
     func clear() {
         task?.cancel()
         turns = []
+        thread = nil
     }
 
     private func run(_ action: AiPrompt.Action, label: String, selection: String = "", effort: String = "medium") {
         guard !running else { return }
         let service = AiSettings.service
         let earlier = turns.filter { !$0.running && $0.error == nil && !$0.answer.isEmpty }.suffix(6)
-        let history = earlier.flatMap { [("user", $0.asked), ("assistant", $0.answer)] }
+        let history = earlier.flatMap { [("user", $0.sent.isEmpty ? $0.asked : $0.sent), ("assistant", $0.answer)] }
         let turn = Turn(asked: label)
         turns.append(turn)
         running = true
-        let title = title, document = document()
+        let paper = paper, document = document()
         let known = paperText
         task = Task { [weak self] in
             // The paper's text, once per paper, read off the main thread.
@@ -78,15 +111,19 @@ final class AiChat: ObservableObject {
                 text = ""
             }
             self?.paperText = text
+            let prompt = AiPrompt.build(action, title: paper.title, paperText: text, selection: selection)
+            self?.update(turn.id) { $0.sent = prompt.text }
             let request = AiRequest(service: service, model: AiSettings.model(for: service),
-                                    key: AiSettings.key(for: service),
-                                    prompt: AiPrompt.build(action, title: title, paperText: text, selection: selection),
-                                    history: history, effort: effort, maxTokens: effort == "low" ? 4000 : 64000)
+                                    key: AiSettings.key(for: service), prompt: prompt, history: history,
+                                    effort: effort, maxTokens: effort == "low" ? 4000 : 64000)
+            var finished = false
             do {
                 for try await event in AiClient.stream(request) {
                     switch event {
                     case let .text(part): self?.update(turn.id) { $0.answer += part }
-                    case let .finished(model, cutOff): self?.update(turn.id) { $0.model = model; $0.cutOff = cutOff }
+                    case let .finished(model, cutOff):
+                        finished = true
+                        self?.update(turn.id) { $0.model = model; $0.cutOff = cutOff }
                     }
                 }
             } catch {
@@ -94,6 +131,14 @@ final class AiChat: ObservableObject {
             }
             self?.update(turn.id) { $0.running = false }
             self?.running = false
+            // A finished answer is kept with its question, as the desktop keeps them.
+            if finished, let self, let done = self.turns.first(where: { $0.id == turn.id }), !done.answer.isEmpty,
+               let store = self.store {
+                self.thread = await store.saveTurn(in: self.thread, about: paper, title: label, sent: done.sent,
+                                                   display: label, answer: done.answer, selection: selection,
+                                                   cutOff: done.cutOff, provider: service.rawValue,
+                                                   model: done.model.isEmpty ? request.model : done.model)
+            }
         }
     }
 

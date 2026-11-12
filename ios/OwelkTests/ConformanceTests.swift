@@ -34,6 +34,10 @@ final class ConformanceTests: XCTestCase {
     static let toRead = "ae1dea02-3284-46c6-b55f-102e159aa883"
     /// The note this iPad writes about the Mac's paper.
     static let noteId = "0a11ce00-0000-4000-8000-00000000a004"
+    /// The AI conversation this iPad has about the Mac's paper, and its question and answer.
+    static let chatId = "0a11ce00-0000-4000-8000-00000000a005"
+    static let askedId = "0a11ce00-0000-4000-8000-00000000a006"
+    static let answeredId = "0a11ce00-0000-4000-8000-00000000a007"
     static let highlightLines = [CGRect(x: 0.1, y: 0.3, width: 0.5, height: 0.02),
                                  CGRect(x: 0.1, y: 0.325, width: 0.3, height: 0.02)]
     /// The PDF it adds (tests/data/sync/ipad/Papers), with a title of its own.
@@ -109,7 +113,7 @@ final class ConformanceTests: XCTestCase {
         try FileManager.default.copyItem(at: Self.mac, to: drive)
         let folder = SyncFolder(root: drive)
         let library = try XCTUnwrap(folder.library())
-        var ids = [Self.addedId, Self.newTag, Self.newCollection, Self.noteId]
+        var ids = [Self.addedId, Self.newTag, Self.newCollection, Self.noteId, Self.chatId, Self.askedId, Self.answeredId]
         let engine = SyncEngine(storage: temporary.appendingPathComponent("app"), device: Self.ipad, clock: { Self.clock },
                                 newId: { ids.isEmpty ? UUID().uuidString.lowercased() : ids.removeFirst() })
         let about = ["name": "iPad", "system": "iPadOS"]
@@ -198,6 +202,19 @@ final class ConformanceTests: XCTestCase {
         XCTAssertEqual(notes.first?.title, "From the iPad")
         XCTAssertEqual(notes.first?.papers, [paper.id], "linked to the paper")
 
+        // An AI conversation about the paper: a question and its answer.
+        let chat = await engine.saveTurn(in: nil, about: paper, title: "Why do the walls echo?",
+                                         sent: "<selection>\nthe walls\n</selection>\n\nWhy do the walls echo?",
+                                         display: "Why do the walls echo?", answer: "They are hard [p. 1: \"the walls\"].",
+                                         selection: "the walls", cutOff: false, provider: "claude", model: "claude-opus-5-5")
+        XCTAssertEqual(chat, Self.chatId)
+        let threads = await engine.current().threads
+        XCTAssertEqual(threads.map(\.id), [Self.chatId])
+        XCTAssertEqual(threads.first?.paper, paper.id)
+        let turns = await engine.messages(of: Self.chatId)
+        XCTAssertEqual(turns.map(\.role), ["user", "assistant"])
+        XCTAssertEqual(turns.first?.display, "Why do the walls echo?")
+
         let failure = await engine.flush(folder, library: library, about: about)
         XCTAssertNil(failure)
         let position = await engine.position(of: paper)
@@ -217,7 +234,8 @@ final class ConformanceTests: XCTestCase {
                        ["documents", "documents", "tags", "collections", "notes",
                         "highlights", "highlights", "highlights", "highlights", "highlights",
                         "recent_documents", "reading_positions", "collection_documents", "collection_documents",
-                        "document_tags", "document_tags", "document_tags", "links"])
+                        "document_tags", "document_tags", "document_tags", "links", "links",
+                        "ai_folders", "ai_threads", "ai_messages", "ai_messages"])
         // The stroke with every column the desktop writes for one, the Mac's mark with only `deleted_at` changed.
         let macMark = try XCTUnwrap(try expected()["highlights"]?.first { $0.string("id") == Self.macStroke })
         let marksWritten = lines.filter { $0["t"] as? String == "highlights" }.compactMap { $0["r"] as? Row }
@@ -301,10 +319,26 @@ final class ConformanceTests: XCTestCase {
         XCTAssertEqual(notedRow.string("body"), "About [Kinship](owelk://document/\(paper.documentId))\n\nThe walls echo.")
         XCTAssertEqual(notedRow.string("updated_at"), "2030-01-01T00:00:00.000Z")
         XCTAssertTrue(isNull(notedRow["deleted_at"]))
-        XCTAssertEqual(rows("links").first?["r"] as? NSDictionary, [
+        XCTAssertEqual(rows("links").compactMap { $0["r"] as? NSDictionary }.first { $0["from_kind"] as? String == "note" }, [
             "from_kind": "note", "from_id": Self.noteId, "to_kind": "document", "to_id": paper.documentId,
             "created_at": "2030-01-01T00:00:00.000Z",
         ])
+        // The conversation as the desktop's createAiThread and appendAiMessage write it.
+        XCTAssertEqual(rows("ai_folders").first?["r"] as? NSDictionary, [
+            "id": "document:\(paper.documentId)", "name": "", "created_at": "2030-01-01T00:00:00.000Z",
+            "updated_at": "2030-01-01T00:00:00.000Z", "position": NSNull(),
+        ])
+        let started = try XCTUnwrap(rows("ai_threads").first?["r"] as? Row)
+        XCTAssertEqual(started.string("folder_id"), "document:\(paper.documentId)")
+        XCTAssertEqual(started.string("_source_document"), paper.documentId, "each computer sets its own file")
+        XCTAssertEqual(started.string("provider"), "claude")
+        XCTAssertTrue(isNull(started["trashed_at"]))
+        let said = rows("ai_messages").compactMap { $0["r"] as? Row }
+        XCTAssertEqual(Set(said.map { $0.string("thread_id") }), [Self.chatId])
+        XCTAssertEqual(Set(said.first.map { Set($0.keys) } ?? []), ["id", "thread_id", "role", "content", "display",
+                                                                  "context_json", "model", "created_at"])
+        XCTAssertEqual(said.first { $0.string("role") == "user" }?.string("context_json"), #"{"selection":"the walls"}"#)
+        XCTAssertTrue(rows("links").contains { ($0["r"] as? Row)?.string("from_kind") == "ai" })
         let left = try XCTUnwrap(rows("reading_positions").first?["r"] as? Row)
         XCTAssertEqual(Set(left.keys), ["document_id", "position"])
         XCTAssertEqual(left.string("document_id"), paper.documentId)

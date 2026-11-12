@@ -44,6 +44,26 @@ struct Note: Identifiable, Hashable {
     var displayTitle: String { title.isEmpty ? "Untitled note" : title }
 }
 
+/// An AI conversation (the desktop's `ai_threads`), about a paper when it has one.
+struct AiThread: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let updatedAt: String
+    /// The paper (`Paper.id`) it is about, or "".
+    let paper: String
+}
+
+/// One turn of a conversation (the desktop's `ai_messages`): `content` is exactly what was sent or answered, `display`
+/// what the reader typed.
+struct AiMessage: Hashable {
+    let id: String
+    let role: String
+    let content: String
+    let display: String
+    let model: String
+    let createdAt: String
+}
+
 struct PaperCollection: Identifiable, Hashable {
     let id: String
     let name: String
@@ -69,6 +89,8 @@ struct Library {
     var tags: [PaperTag] = []
     /// Notes not in the Trash, the latest changed first.
     var notes: [Note] = []
+    /// AI conversations not in the Trash, the latest first.
+    var threads: [AiThread] = []
     /// documents.id → paper id, for every row ever seen (removed papers too), so annotations and positions saved
     /// under any of a paper's IDs find it.
     var paperOf: [String: String] = [:]
@@ -135,6 +157,23 @@ struct Library {
             return Note(id: row.string("id"), title: row.string("title"), body: row.string("body"),
                         updatedAt: row.string("updated_at"),
                         papers: Array(Set(linked[row.string("id")] ?? [])).sorted())
+        }.sorted { ($0.updatedAt, $0.id) > ($1.updatedAt, $1.id) }
+
+        // A conversation's paper: the one it was sent with, its paper's folder, or its link to it.
+        var chatPaper: [String: String] = [:]
+        for entry in state.entries("links").values {
+            guard let row = entry.row, row.string("from_kind") == "ai", row.string("to_kind") == "document",
+                  let paper = library.paperOf[row.string("to_id")] else { continue }
+            chatPaper[row.string("from_id")] = paper
+        }
+        library.threads = state.entries("ai_threads").values.compactMap { entry -> AiThread? in
+            guard let row = entry.row, !row.string("id").isEmpty, isNull(row["trashed_at"]) else { return nil }
+            let folder = row.string("folder_id")
+            let document = row.string("_source_document").isEmpty
+                ? (folder.hasPrefix("document:") ? String(folder.dropFirst(9)) : "") : row.string("_source_document")
+            let paper = library.paperOf[document] ?? chatPaper[row.string("id")] ?? ""
+            return AiThread(id: row.string("id"), title: row.string("title"), updatedAt: row.string("updated_at"),
+                            paper: paper)
         }.sorted { ($0.updatedAt, $0.id) > ($1.updatedAt, $1.id) }
 
         library.papers = groups.map { key, rows in

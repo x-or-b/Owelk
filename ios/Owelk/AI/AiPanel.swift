@@ -3,6 +3,7 @@ import SwiftUI
 /// The AI over the paper, in a small window of its own: moved by its bar, sized from its corner, and as see-through
 /// as the reader likes (the paper shows under it). Where it was, its size and its opacity are kept.
 struct FloatingAiPanel: View {
+    @EnvironmentObject private var store: LibraryStore
     @ObservedObject var model: ReaderModel
     /// Moved or sized by the reader (until then it sits at the top right).
     @AppStorage("ai.window.placed") private var placed = false
@@ -53,6 +54,25 @@ struct FloatingAiPanel: View {
             Spacer(minLength: 8)
             Image(systemName: "circle.lefthalf.filled").foregroundStyle(.secondary).accessibilityHidden(true)
             Slider(value: $opacity, in: 0.35...1).frame(width: 90).accessibilityLabel("Opacity")
+            // This paper's conversations, the Mac's among them.
+            let chats = store.library.threads.filter { $0.paper == model.paper.id }
+            Menu {
+                ForEach(chats) { chat in
+                    Button {
+                        Task { await model.ai.open(chat.id) }
+                    } label: {
+                        if chat.id == model.ai.thread {
+                            Label(chat.title.isEmpty ? "Chat" : chat.title, systemImage: "checkmark")
+                        } else {
+                            Text(chat.title.isEmpty ? "Chat" : chat.title)
+                        }
+                    }
+                }
+            } label: {
+                Label("Chats", systemImage: "clock.arrow.circlepath")
+            }
+            .labelStyle(.iconOnly)
+            .disabled(chats.isEmpty || model.ai.running)
             Button {
                 model.ai.clear()
             } label: {

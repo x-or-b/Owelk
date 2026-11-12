@@ -310,6 +310,29 @@ private slots:
                      .toInt(),
             1);
 
+        // An AI conversation had on the iPad about the paper: in the paper's folder, about this computer's file of
+        // the paper, with the question as typed and the answer, as one had here.
+        const auto chat = mac.aiThread("0a11ce00-0000-4000-8000-00000000a005");
+        QCOMPARE(chat["title"].toString(), QString("Why do the walls echo?"));
+        QCOMPARE(chat["provider"].toString(), QString("claude"));
+        QCOMPARE(chat["folder"].toString(), QString("document:ec0dbb6f-06b8-4012-b0b2-eb317af23825"));
+        QCOMPARE(chat["source"].toUrl(), paper);
+        QVERIFY(!chat["trashed"].toBool());
+        const auto said = chat["messages"].toList();
+        QCOMPARE(said.size(), 2);
+        QCOMPARE(said[0].toMap()["role"].toString(), QString("user"));
+        QCOMPARE(said[0].toMap()["display"].toString(), QString("Why do the walls echo?"));
+        QVERIFY(said[0].toMap()["content"].toString().endsWith("Why do the walls echo?"));
+        QCOMPARE(said[0].toMap()["context"].toMap()["selection"].toString(), QString("the walls"));
+        QCOMPARE(said[1].toMap()["role"].toString(), QString("assistant"));
+        QVERIFY(said[1].toMap()["content"].toString().startsWith("They are hard"));
+        QCOMPARE(scalar(mac,
+                     "SELECT count(*) FROM links WHERE from_kind='ai' AND "
+                     "from_id='0a11ce00-0000-4000-8000-00000000a005' AND to_kind='document' AND "
+                     "to_id='ec0dbb6f-06b8-4012-b0b2-eb317af23825'")
+                     .toInt(),
+            1);
+
         // The paper added on the iPad: in the Library under its file's name, with the PDF copied in, in the
         // collection and tag it was added to, and its details left for this computer to read.
         const auto added = rows(mac,

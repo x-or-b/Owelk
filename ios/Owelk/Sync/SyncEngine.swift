@@ -247,6 +247,69 @@ actor SyncEngine {
         return id
     }
 
+    // MARK: AI conversations
+
+    /// A conversation's turns, in order (as the desktop's `aiThread` reads them).
+    func messages(of thread: String) -> [AiMessage] {
+        state.entries("ai_messages").values.compactMap(\.row).filter { $0.string("thread_id") == thread }
+            .map { AiMessage(id: $0.string("id"), role: $0.string("role"), content: $0.string("content"),
+                             display: $0.string("display"), model: $0.string("model"), createdAt: $0.string("created_at")) }
+            .sorted { ($0.createdAt, $0.role == "user" ? 0 : 1) < ($1.createdAt, $1.role == "user" ? 0 : 1) }
+    }
+
+    /// A new conversation about a paper, as the desktop's `createAiThread` makes one: in the paper's own folder (the
+    /// same ID on every computer), sent with the paper's ID so each computer sets its own file there, and linked to
+    /// the paper. Returns its ID.
+    func startThread(about paper: Paper, title: String, provider: String, model: String) -> String {
+        let id = newId(), now = Self.timestamp(Date(timeIntervalSince1970: TimeInterval(clock()) / 1000))
+        let folder = "document:" + paper.documentId
+        if state.entry("ai_folders", key: [folder])?.row == nil {
+            stage("ai_folders", key: [folder],
+                  row: ["id": folder, "name": "", "created_at": now, "updated_at": now, "position": NSNull()])
+        }
+        stage("ai_threads", key: [id], row: [
+            "id": id, "title": String(title.split(whereSeparator: \.isWhitespace).joined(separator: " ").prefix(160)),
+            "provider": provider, "model": model, "source": "", "_source_document": paper.documentId,
+            "created_at": now, "updated_at": now, "trashed_at": NSNull(), "folder_id": folder, "position": NSNull(),
+        ])
+        stage("links", key: ["ai", id, "document", paper.documentId], row: [
+            "from_kind": "ai", "from_id": id, "to_kind": "document", "to_id": paper.documentId, "created_at": now,
+        ])
+        return id
+    }
+
+    /// A question and its answer saved in a conversation about the paper (a new one when `thread` is nil). Returns the
+    /// conversation's ID.
+    func saveTurn(in thread: String?, about paper: Paper, title: String, sent: String, display: String, answer: String,
+                  selection: String, cutOff: Bool, provider: String, model: String) -> String {
+        let id = thread.flatMap { state.entry("ai_threads", key: [$0])?.row == nil ? nil : $0 }
+            ?? startThread(about: paper, title: title, provider: provider, model: model)
+        addTurn(to: id, sent: sent, display: display, answer: answer, selection: selection, cutOff: cutOff,
+                provider: provider, model: model)
+        return id
+    }
+
+    /// A question and its answer, as the desktop's `appendAiMessage` saves them once the answer is in: the request as
+    /// sent, what the reader typed, and the model; the conversation is then the latest.
+    func addTurn(to thread: String, sent: String, display: String, answer: String, selection: String = "",
+                 cutOff: Bool = false, provider: String, model: String) {
+        guard var row = state.entry("ai_threads", key: [thread])?.row else { return }
+        let now = Self.timestamp(Date(timeIntervalSince1970: TimeInterval(clock()) / 1000))
+        let asked: [String: Any] = selection.isEmpty ? [:] : ["selection": String(selection.prefix(4000))]
+        for (role, content, display, context) in [("user", sent, display, asked),
+                                                  ("assistant", answer, "", cutOff ? ["cutOff": true] : [:])] {
+            let id = newId()
+            stage("ai_messages", key: [id], row: [
+                "id": id, "thread_id": thread, "role": role, "content": content, "display": display,
+                "context_json": JSON.text(context as [String: Any]), "model": model, "created_at": now,
+            ])
+        }
+        row["updated_at"] = now
+        if !provider.isEmpty { row["provider"] = provider }
+        if !model.isEmpty { row["model"] = model }
+        stage("ai_threads", key: [thread], row: row)
+    }
+
     // MARK: Notes
 
     /// A new note, as the desktop's `createNote` saves one (and the links in its body). Returns its ID.

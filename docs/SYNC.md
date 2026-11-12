@@ -72,7 +72,7 @@ Owelk/
 iPad 앱(`ios/`, 설치와 구조는 [ios/README.md](../ios/README.md))은 같은 폴더에 **컴퓨터 한 대로** 참여합니다. iPad에서는 Synctrain(Syncthing 앱)이 폴더를 맞추고(iCloud는 Ubuntu에 닿지 않으므로 쓰지 않음), 앱에서 파일 앱으로 그 `Owelk` 폴더를 한 번 고릅니다.
 
 - 라이브러리·Collection·Tag·최근 논문·읽던 위치와 모든 주석(하이라이트·코멘트·텍스트·그림·펜·영역)을 읽어 보여 줍니다. 같은 PDF(SHA-256)의 논문은 하나로 보입니다.
-- iPad가 써 보내는 것은 **읽던 위치, 연 시각, iPad에서 추가한 논문, Apple Pencil 펜 획과 지운 표시, 글자 하이라이트·코멘트, 표시의 색·메모 바꾸기, Favorites·읽기 상태, Tag·Collection 넣고 빼기와 새 Tag·Collection, 노트와 노트의 링크**이고, iPad 자기 폴더 `devices/<iPad ID>/`와 `Papers/`에만 씁니다. Mac에서 그 논문을 열면 iPad에서 읽던 쪽으로 가고, 확대 방식은 Mac 것을 그대로 씁니다. Settings › Sync의 함께 쓰는 컴퓨터에 "iPad"가 보입니다.
+- iPad가 써 보내는 것은 **읽던 위치, 연 시각, iPad에서 추가한 논문, Apple Pencil 펜 획과 지운 표시, 글자 하이라이트·코멘트, 표시의 색·메모 바꾸기, Favorites·읽기 상태, Tag·Collection 넣고 빼기와 새 Tag·Collection, 노트와 노트의 링크, AI 대화(`ai_folders`·`ai_threads`·`ai_messages`와 논문 링크)**이고, iPad 자기 폴더 `devices/<iPad ID>/`와 `Papers/`에만 씁니다. Mac에서 그 논문을 열면 iPad에서 읽던 쪽으로 가고, 확대 방식은 Mac 것을 그대로 씁니다. Settings › Sync의 함께 쓰는 컴퓨터에 "iPad"가 보입니다.
 - iPad에서 추가한 PDF(파일 앱에서 고르거나 끌어다 놓기)는 컴퓨터의 Library에 원래 파일 이름으로 복사되고, 보고 있던 Collection·Tag에도 들어갑니다. 저자·연도 같은 정보는 컴퓨터가 다음에 실행할 때나 그 논문을 열 때 PDF에서 읽어 채웁니다. 이미 있는 PDF는 다시 들어가지 않습니다.
 - iPadOS는 다른 앱의 폴더 변경을 알려 주지 않아서, 앱이 앞으로 올 때·30초마다·목록을 당길 때 폴더를 다시 읽습니다.
 - 데스크톱과 iPad가 같은 형식을 쓰는지는 양쪽 테스트가 같은 파일(`tests/data/sync`)로 확인합니다.

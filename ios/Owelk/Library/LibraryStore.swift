@@ -261,6 +261,21 @@ final class LibraryStore: ObservableObject {
         }
     }
 
+    /// A conversation's turns.
+    func messages(of thread: String) async -> [AiMessage] { await engine?.messages(of: thread) ?? [] }
+
+    /// A question and its answer saved in a conversation about the paper (a new one when `thread` is nil); returns
+    /// the conversation's ID. The computers have it with the next sync.
+    func saveTurn(in thread: String?, about paper: Paper, title: String, sent: String, display: String, answer: String,
+                  selection: String, cutOff: Bool, provider: String, model: String) async -> String? {
+        guard let engine else { return nil }
+        let id = await engine.saveTurn(in: thread, about: paper, title: title, sent: sent, display: display,
+                                       answer: answer, selection: selection, cutOff: cutOff, provider: provider,
+                                       model: model)
+        edit { _ in }
+        return id
+    }
+
     /// A new note (shown at once); returns its ID.
     func createNote(title: String, body: String) async -> String? {
         guard let engine else { return nil }

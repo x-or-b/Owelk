@@ -14,6 +14,7 @@ enum SyncProtocol {
         ("recent_documents", ["document_id"]), ("reading_positions", ["document_id"]),
         ("collection_documents", ["collection_id", "document_id"]), ("document_tags", ["document_id", "tag_id"]),
         ("links", ["from_kind", "from_id", "to_kind", "to_id"]),
+        ("ai_folders", ["id"]), ("ai_threads", ["id"]), ("ai_messages", ["id"]),
     ]
     static func keys(of table: String) -> [String]? { tables.first { $0.name == table }?.keys }
     static func order(of table: String) -> Int { tables.firstIndex { $0.name == table } ?? tables.count }

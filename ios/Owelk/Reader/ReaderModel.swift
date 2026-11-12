@@ -22,7 +22,7 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
     @Published private(set) var pageCount = 0
     /// The AI beside the paper, and its conversation about it (kept while the paper is open).
     @Published var showsAI = false
-    private(set) lazy var ai = AiChat(title: paper.title) { [weak self] in self?.controller.document }
+    private(set) lazy var ai = AiChat(paper: paper) { [weak self] in self?.controller.document }
     @Published var showsThumbnails = false {
         didSet { controller.showsThumbnails = showsThumbnails }
     }
@@ -109,6 +109,7 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         page = start?.page ?? 0
         loaded = true
         controller.marksAllowed = canDraw
+        await ai.keep(in: store)
         store.opened(paper)
     }
 
