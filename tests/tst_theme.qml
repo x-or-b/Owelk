@@ -21,6 +21,7 @@ Item {
             Theme.pictureStrength = 25
             Theme.clearCustomAccent()
             Theme.theme = "neutral"; Theme.accentName = "blue"; Theme.textSize = 13
+            Theme.myThemes.forEach(function(t) { Theme.removeTheme(t.id) })
             researchStore.setSetting("appearance.custom", "")
         }
         // WCAG relative luminance.
@@ -138,8 +139,40 @@ Item {
             Theme.followAppearance(true)
             verify(!Theme.dark)
         }
+        // A theme of one's own: added and used at once, with the accent it brings; renamed, given other colors, offered
+        // for each appearance, and once deleted, Neutral or Dark wherever it was chosen.
+        function test_themesOfOnesOwn() {
+            const id = Theme.addTheme("Sky", Theme.tintedSeeds("#9ab8db", false), "#4a7fb8")
+            verify(id.indexOf("my-") === 0)
+            compare(Theme.theme, id)
+            compare(Theme.accentName, "custom")
+            compare(Theme.customAccent.toString(), "#4a7fb8")
+            compare(Theme.myThemes.map(function(t) { return t.name }), ["Sky"])
+            compare(Theme.addTheme("Broken", {window: "nonsense"}, ""), "")
+            // Another theme leaves the accent; coming back brings the theme's again.
+            Theme.theme = "paper"
+            compare(Theme.accentName, "custom")
+            Theme.accentName = "green"
+            Theme.theme = id
+            compare(Theme.accentName, "custom")
+            verify(Theme.renameTheme(id, "  Autumn sky "))
+            compare(Theme.myThemes[0].name, "Autumn sky")
+            const seeds = Object.assign({}, Theme.seeds(id), {window: "#ff0000"})
+            verify(Theme.setThemeSeeds(id, seeds))
+            verify(Qt.colorEqual(Theme.window, "#ff0000"))
+            compare(JSON.parse(researchStore.setting("appearance.themes"))[0].window, "#ff0000")
+            Theme.matchSystem = true
+            Theme.lightTheme = id
+            compare(Theme.lightTheme, id)
+            verify(Theme.removeTheme(id))
+            compare(Theme.lightTheme, "neutral")
+            verify(Theme.theme === "neutral" || Theme.theme === "dark", "the one for the system's appearance: " + Theme.theme)
+            compare(Theme.myThemes.length, 0)
+            compare(researchStore.setting("appearance.themes"), "")
+        }
         function test_themesSwitchLiveAndPersist() {
-            compare(Theme.themes.map(function(t) { return t.id }), ["neutral", "paper", "solarized", "dark", "nord", "onedark", "dracula"])
+            compare(Theme.themes.map(function(t) { return t.id }), ["neutral", "paper", "solarized", "sage", "dark", "nord", "dracula", "espresso"])
+            compare(Theme.themes.filter(function(t) { return t.dark }).length, 4)
             compare(Theme.dark, false)
             const light = Qt.color(Theme.window)
             Theme.theme = "dark"
@@ -154,7 +187,7 @@ Item {
                 verify(Math.abs((a.r + a.g + a.b) - (b.r + b.g + b.b)) > 1.6, t.id)
             }
             Theme.theme = "nonsense"
-            compare(Theme.theme, "dracula", "unknown themes are ignored")
+            compare(Theme.theme, "espresso", "unknown themes are ignored")
         }
         function test_accentNeverChangesInks() {
             const inks = JSON.stringify(Theme.annotationInks)

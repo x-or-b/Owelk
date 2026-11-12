@@ -149,7 +149,7 @@ Qt로 옮긴 iPad 빌드는 스크롤·확대·Pencil·글자 선택·키보드�
 
 ## 지난 단계 (2026-10-05): 디자인 개편
 
-- 테마 엔진(`Theme`, 7종 + 사용자 테마, 강조색 7, 글자 크기 11–17, Dark pages), 앱 전체 컨트롤 스타일 `OwelkStyle`(호버·선택·포커스·주요 버튼 한 가지씩), 아이콘 글꼴(Lucide 일부) 하나와 `IconButton`, 글자 대신 아이콘.
+- 테마 엔진(`Theme`, 기본 8종: 밝은 Neutral·Paper·Solarized Light·Sage, 어두운 Dark·Nord·Dracula·Espresso + 내 테마(Appearance › Theme의 +, 개수 제한 없음, 이름·색 바꾸기·지우기, 자기 강조색을 가질 수 있고 고르면 그 강조색으로; `appearance.themes`에 이 컴퓨터만), 강조색 7, 글자 크기 11–17, Dark pages). 예전 기본 One Dark를 쓰던 사람은 내 테마로 옮겨짐, 앱 전체 컨트롤 스타일 `OwelkStyle`(호버·선택·포커스·주요 버튼 한 가지씩), 아이콘 글꼴(Lucide 일부) 하나와 `IconButton`, 글자 대신 아이콘.
 - 목록 행 구분선·둥근 그룹 카드·알약 탭·공통 칩, 잘린 글자 호버 툴팁, 메뉴 너비 자동.
 - 우클릭 규칙 통일(논문 메뉴 하나, 탭 종류별 메뉴, 위험 동작은 맨 끝 빨강), 중복 ⋯ 제거, 형광펜·그리기 색은 도구 우클릭, 페이지 우클릭은 그 위치의 동작만.
 - Settings 카테고리화(Appearance·Web·Search·AI·Shortcuts·Data). 인쇄: 프린터가 없으면 인쇄용 PDF 저장.

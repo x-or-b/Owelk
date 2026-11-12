@@ -2,6 +2,7 @@
 #include "ImagePalette.h"
 #include "ResearchStore.h"
 #include "AppIcon.h"
+#include "UiText.h"
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
@@ -28,11 +29,13 @@ namespace {
 struct Named {
     const char *id, *name;
 };
-// Built-in themes, in the order Settings shows them.
-constexpr Named themeNames[] = {{"neutral", QT_TRANSLATE_NOOP("Owelk", "Neutral")},
-    {"paper", QT_TRANSLATE_NOOP("Owelk", "Paper")}, {"solarized", QT_TRANSLATE_NOOP("Owelk", "Solarized Light")},
-    {"dark", QT_TRANSLATE_NOOP("Owelk", "Dark")}, {"nord", QT_TRANSLATE_NOOP("Owelk", "Nord")},
-    {"onedark", QT_TRANSLATE_NOOP("Owelk", "One Dark")}, {"dracula", QT_TRANSLATE_NOOP("Owelk", "Dracula")}};
+// Built-in themes, in the order Settings shows them: four light, four dark. One Dark was one until 2026-11; a
+// reader who had it chosen gets it as a theme of their own (Theme::Theme), and the gallery has it.
+constexpr Named themeNames[]
+    = {{"neutral", QT_TRANSLATE_NOOP("Owelk", "Neutral")}, {"paper", QT_TRANSLATE_NOOP("Owelk", "Paper")},
+        {"solarized", QT_TRANSLATE_NOOP("Owelk", "Solarized Light")}, {"sage", QT_TRANSLATE_NOOP("Owelk", "Sage")},
+        {"dark", QT_TRANSLATE_NOOP("Owelk", "Dark")}, {"nord", QT_TRANSLATE_NOOP("Owelk", "Nord")},
+        {"dracula", QT_TRANSLATE_NOOP("Owelk", "Dracula")}, {"espresso", QT_TRANSLATE_NOOP("Owelk", "Espresso")}};
 // Accents: light-theme value, dark-theme value. Red is reserved for errors.
 struct Accent {
     const char *id, *name, *light, *dark;
@@ -89,9 +92,8 @@ const Accent &accentFor(const QString &id)
         if (id == QLatin1String(a.id)) return a;
     return accentList[0];
 }
-bool knownTheme(const QString &id)
+bool builtInTheme(const QString &id)
 {
-    if (id == "custom") return true;
     for (const auto &t : themeNames)
         if (id == QLatin1String(t.id)) return true;
     return false;
@@ -173,8 +175,22 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
     if (const auto families = QFontDatabase::applicationFontFamilies(font); !families.isEmpty())
         m_iconFont = families.first();
     if (m_store) {
+        for (const auto &value : QJsonDocument::fromJson(m_store->setting("appearance.themes").toUtf8()).array()) {
+            const auto o = value.toObject();
+            Mine kept{o.value("id").toString(), o.value("name").toString(), {}, QColor(o.value("accent").toString())};
+            if (kept.id.startsWith("my-") && !mine(kept.id) && seedsFrom(o.toVariantMap(), &kept.seeds))
+                m_mine.append(kept);
+        }
+        // One Dark, chosen while it was built in, stays as a theme of one's own.
+        for (const auto *key : {"appearance.theme", "appearance.lightTheme", "appearance.darkTheme"}) {
+            if (m_store->setting(key) != "onedark") continue;
+            if (!mine("my-onedark")) m_mine.append({"my-onedark", "One Dark", preset("onedark"), QColor("#61afef")});
+            m_store->setSetting(key, "my-onedark");
+        }
+        saveMine();
+        m_customStored = !m_store->setting("appearance.custom").isEmpty();
         const auto theme = m_store->setting("appearance.theme");
-        if (knownTheme(theme)) m_theme = theme;
+        if (known(theme)) m_theme = theme;
         m_customAccent = QColor(m_store->setting("appearance.customAccent"));
         const auto accent = m_store->setting("appearance.accent");
         m_accentName = accent == "custom" && m_customAccent.isValid() ? accent : QString(accentFor(accent).id);
@@ -223,8 +239,8 @@ Theme::Theme(ResearchStore *store, QObject *parent) : QObject(parent), m_store(s
         if (const auto align = m_store->setting("appearance.pictureAlign"); align == "left" || align == "center")
             m_pictureAlign = align;
         m_matchSystem = m_store->setting("appearance.matchSystem") == "1";
-        if (const auto light = m_store->setting("appearance.lightTheme"); knownTheme(light)) m_lightTheme = light;
-        if (const auto dark = m_store->setting("appearance.darkTheme"); knownTheme(dark)) m_darkTheme = dark;
+        if (const auto light = m_store->setting("appearance.lightTheme"); known(light)) m_lightTheme = light;
+        if (const auto dark = m_store->setting("appearance.darkTheme"); known(dark)) m_darkTheme = dark;
         if (const int interval = m_store->setting("appearance.pictureInterval", "0").toInt(); knownInterval(interval))
             m_pictureInterval = interval;
         m_pictureNext = QDateTime::fromString(m_store->setting("appearance.pictureNext"), Qt::ISODate);
@@ -299,6 +315,8 @@ Theme::Seeds Theme::preset(const QString &id)
     if (id == "nord") return s(true, "#272c36", "#2b303b", "#2e3440", "#3b4252", "#e5e9f0", "#3b4252", "#232831");
     if (id == "onedark") return s(true, "#21252b", "#252930", "#282c34", "#30353f", "#d7dae0", "#363b46", "#1d2026");
     if (id == "dracula") return s(true, "#21222c", "#252731", "#282a36", "#343746", "#f8f8f2", "#393c4c", "#1c1d25");
+    if (id == "sage") return s(false, "#e7ebe4", "#eff2ec", "#fafbf8", "#ffffff", "#222a22", "#d8dfd3", "#dde3d8");
+    if (id == "espresso") return s(true, "#221d19", "#27211c", "#2a2420", "#352d27", "#ece3d8", "#3d342d", "#1a1613");
     return s(false, "#efefef", "#f7f7f7", "#ffffff", "#ffffff", "#1f1f1f", "#e3e3e3", "#e6e6e6");
 }
 
@@ -333,7 +351,7 @@ Theme::AccentPair Theme::accentPair() const
 
 void Theme::apply()
 {
-    const auto s = m_theme == "custom" ? custom() : preset(m_theme);
+    const auto s = seedsOf(m_theme);
     m_dark = s.dark;
     const auto accent = accentPair();
     m_accent = m_dark ? accent.dark : accent.light;
@@ -379,9 +397,10 @@ void Theme::save(const QString &key, const QString &value)
 
 void Theme::setTheme(const QString &id)
 {
-    if (!knownTheme(id) || id == m_theme) return;
+    if (!known(id) || id == m_theme) return;
     m_theme = id;
     save("appearance.theme", id);
+    takeAccentOf(id);
     if (m_matchSystem && m_systemDark) {
         if (pictureInUse()) {
             // The picture theme is for both appearances: tinted for the one the system has now.
@@ -404,7 +423,7 @@ void Theme::setMatchSystem(bool on)
         // The theme in use stays the one for its kind of appearance; the picture theme, for both, leaves the
         // themes chosen for each as they were.
         if (!pictureInUse()) {
-            const bool dark = m_theme == "custom" ? custom().dark : preset(m_theme).dark;
+            const bool dark = seedsOf(m_theme).dark;
             (dark ? m_darkTheme : m_lightTheme) = m_theme;
             save(dark ? "appearance.darkTheme" : "appearance.lightTheme", m_theme);
         }
@@ -415,7 +434,7 @@ void Theme::setMatchSystem(bool on)
 
 void Theme::setLightTheme(const QString &id)
 {
-    if (!knownTheme(id) || id == m_lightTheme) return;
+    if (!known(id) || id == m_lightTheme) return;
     m_lightTheme = id;
     save("appearance.lightTheme", id);
     if (m_matchSystem && m_systemDark && !*m_systemDark) useThemeFor(false);
@@ -424,7 +443,7 @@ void Theme::setLightTheme(const QString &id)
 
 void Theme::setDarkTheme(const QString &id)
 {
-    if (!knownTheme(id) || id == m_darkTheme) return;
+    if (!known(id) || id == m_darkTheme) return;
     m_darkTheme = id;
     save("appearance.darkTheme", id);
     if (m_matchSystem && m_systemDark && *m_systemDark) useThemeFor(true);
@@ -448,6 +467,7 @@ void Theme::useThemeFor(bool dark)
     if (id == m_theme) return;
     m_theme = id;
     save("appearance.theme", id);
+    takeAccentOf(id);
 }
 
 void Theme::tintPictureFor(bool dark)
@@ -614,7 +634,7 @@ void Theme::clearCustomAccent()
 
 QVariantMap Theme::seeds(const QString &id) const
 {
-    const auto s = id == "custom" ? custom() : preset(id);
+    const auto s = seedsOf(id);
     const QColor *fields[] = {&s.window, &s.sidebar, &s.content, &s.raised, &s.text, &s.separator, &s.backdrop};
     QVariantMap map{{"dark", s.dark}};
     for (int i = 0; i < 7; ++i) map.insert(seedKeys[i], fields[i]->name());
@@ -647,6 +667,7 @@ bool Theme::writeCustomSeeds(const QVariantMap &seeds)
         json.insert(key, c.name());
     }
     save("appearance.custom", QString::fromUtf8(QJsonDocument(json).toJson(QJsonDocument::Compact)));
+    m_customStored = true;
     return true;
 }
 
@@ -658,6 +679,129 @@ bool Theme::setCustomSeeds(const QVariantMap &seeds)
     else
         setTheme("custom");
     return true;
+}
+
+const Theme::Mine *Theme::mine(const QString &id) const
+{
+    for (const auto &theme : m_mine)
+        if (theme.id == id) return &theme;
+    return nullptr;
+}
+
+bool Theme::known(const QString &id) const
+{
+    return id == "custom" || builtInTheme(id) || mine(id);
+}
+
+Theme::Seeds Theme::seedsOf(const QString &id) const
+{
+    if (id == "custom") return custom();
+    if (const auto *theme = mine(id)) return theme->seeds;
+    return preset(id);
+}
+
+bool Theme::seedsFrom(const QVariantMap &map, Seeds *seeds)
+{
+    QColor *fields[] = {&seeds->window, &seeds->sidebar, &seeds->content, &seeds->raised, &seeds->text,
+        &seeds->separator, &seeds->backdrop};
+    for (int i = 0; i < 7; ++i) {
+        *fields[i] = QColor(map.value(seedKeys[i]).toString());
+        if (!fields[i]->isValid()) return false;
+    }
+    seeds->dark = map.value("dark").toBool();
+    return true;
+}
+
+void Theme::saveMine()
+{
+    QJsonArray list;
+    for (const auto &theme : std::as_const(m_mine)) {
+        QJsonObject o = QJsonObject::fromVariantMap(seeds(theme.id));
+        o.insert("id", theme.id);
+        o.insert("name", theme.name);
+        if (theme.accent.isValid()) o.insert("accent", theme.accent.name());
+        list.append(o);
+    }
+    const auto text
+        = m_mine.isEmpty() ? QString() : QString::fromUtf8(QJsonDocument(list).toJson(QJsonDocument::Compact));
+    if (m_store && m_store->setting("appearance.themes") != text) save("appearance.themes", text);
+}
+
+void Theme::takeAccentOf(const QString &id)
+{
+    const auto *theme = mine(id);
+    if (!theme || !theme->accent.isValid() || (m_accentName == "custom" && m_customAccent == theme->accent)) return;
+    m_customAccent = theme->accent;
+    m_accentName = "custom";
+    save("appearance.customAccent", m_customAccent.name());
+    save("appearance.accent", m_accentName);
+}
+
+QVariantList Theme::myThemes() const
+{
+    QVariantList list;
+    for (const auto &theme : m_mine)
+        list.append(QVariantMap{{"id", theme.id}, {"name", theme.name}, {"dark", theme.seeds.dark},
+            {"accent", theme.accent.isValid() ? theme.accent.name() : QString()}});
+    return list;
+}
+
+QString Theme::addTheme(const QString &name, const QVariantMap &seeds, const QString &accent)
+{
+    Mine theme{QString(), name.simplified().left(80), {}, QColor(accent)};
+    if (!seedsFrom(seeds, &theme.seeds)) return {};
+    if (theme.name.isEmpty()) theme.name = ui("My theme");
+    do theme.id = "my-" + QString::number(QRandomGenerator::global()->generate(), 16);
+    while (mine(theme.id));
+    m_mine.append(theme);
+    saveMine();
+    setTheme(theme.id);
+    return theme.id;
+}
+
+bool Theme::renameTheme(const QString &id, const QString &name)
+{
+    const auto trimmed = name.simplified().left(80);
+    for (auto &theme : m_mine)
+        if (theme.id == id && !trimmed.isEmpty()) {
+            theme.name = trimmed;
+            saveMine();
+            emit changed();
+            return true;
+        }
+    return false;
+}
+
+bool Theme::removeTheme(const QString &id)
+{
+    const auto *theme = mine(id);
+    if (!theme) return false;
+    const bool dark = theme->seeds.dark;
+    m_mine.removeIf([&id](const Mine &t) { return t.id == id; });
+    saveMine();
+    if (m_lightTheme == id) save("appearance.lightTheme", m_lightTheme = "neutral");
+    if (m_darkTheme == id) save("appearance.darkTheme", m_darkTheme = "dark");
+    if (m_theme == id) {
+        // As if chosen: with Match System, the theme for the appearance the system has now.
+        m_theme = m_matchSystem && m_systemDark ? (*m_systemDark ? m_darkTheme : m_lightTheme)
+                                                : QString(dark ? "dark" : "neutral");
+        save("appearance.theme", m_theme);
+    }
+    apply();
+    return true;
+}
+
+bool Theme::setThemeSeeds(const QString &id, const QVariantMap &seeds)
+{
+    if (id == "custom") return setCustomSeeds(seeds);
+    for (auto &theme : m_mine)
+        if (theme.id == id) {
+            if (!seedsFrom(seeds, &theme.seeds)) return false;
+            saveMine();
+            apply();
+            return true;
+        }
+    return false;
 }
 
 QString Theme::keepPictureFile(const QImage &image, bool cutout, const QString &mood) const
@@ -860,7 +1004,7 @@ void Theme::restoreBeforePicture()
     m_customAccent = QColor();
     save("appearance.customAccent", QString());
     const auto theme = before.value("theme").toString(), accent = before.value("accent").toString();
-    m_theme = knownTheme(theme) ? theme : QStringLiteral("neutral");
+    m_theme = known(theme) ? theme : QStringLiteral("neutral");
     // With Match System, the theme chosen for the appearance the system has now.
     if (m_matchSystem && m_systemDark) m_theme = *m_systemDark ? m_darkTheme : m_lightTheme;
     m_accentName = accentFor(accent).id;

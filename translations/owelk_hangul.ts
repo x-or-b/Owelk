@@ -3765,6 +3765,10 @@ Same file as another library entry</source>
         <translation>엔터 어 코멘트 (업 투 10,000 캐릭터스).</translation>
     </message>
     <message>
+        <source>Espresso</source>
+        <translation>에스프레소</translation>
+    </message>
+    <message>
         <source>Every PDF already has this name.</source>
         <translation>에브리 피디에프 올레디 해즈 디스 네임.</translation>
     </message>
@@ -3889,6 +3893,10 @@ Same file as another library entry</source>
         <translation>무브드 더 페이퍼 투 더 트래시.</translation>
     </message>
     <message>
+        <source>My theme</source>
+        <translation>마이 테마</translation>
+    </message>
+    <message>
         <source>Navy</source>
         <translation>네이비</translation>
     </message>
@@ -3975,10 +3983,6 @@ Same file as another library entry</source>
     <message>
         <source>Ollama: </source>
         <translation>올라마: </translation>
-    </message>
-    <message>
-        <source>One Dark</source>
-        <translation>원 다크</translation>
     </message>
     <message>
         <source>One more step: the sign-in opens again in a moment. You can close this tab.</source>
@@ -4159,6 +4163,10 @@ Same file as another library entry</source>
     <message>
         <source>Review what is sent to this provider before the first request.</source>
         <translation>리뷰 왓 이즈 센트 투 디스 프로바이더 비포 더 퍼스트 리퀘스트.</translation>
+    </message>
+    <message>
+        <source>Sage</source>
+        <translation>세이지</translation>
     </message>
     <message>
         <source>Saved a printable PDF to </source>
@@ -5932,8 +5940,8 @@ You can open the same document twice.</source>
         <translation> 피티</translation>
     </message>
     <message>
-        <source> theme</source>
-        <translation> 테마</translation>
+        <source>%1 copy</source>
+        <translation>%1 카피</translation>
     </message>
     <message>
         <source>**Attention** lets each word look at the others and weigh which matter here.
@@ -5960,6 +5968,10 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Accent color</source>
         <translation>액센트 컬러</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>애드</translation>
     </message>
     <message>
         <source>App icon</source>
@@ -5990,6 +6002,10 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>컴팩트</translation>
     </message>
     <message>
+        <source>Copy This Theme</source>
+        <translation>카피 디스 테마</translation>
+    </message>
+    <message>
         <source>Custom</source>
         <translation>커스텀</translation>
     </message>
@@ -6004,6 +6020,14 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Dark appearance</source>
         <translation>다크 어피어런스</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>딜리트</translation>
+    </message>
+    <message>
+        <source>Delete Theme</source>
+        <translation>딜리트 테마</translation>
     </message>
     <message>
         <source>Documents and lists</source>
@@ -6056,6 +6080,10 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Menus and popovers</source>
         <translation>메뉴스 앤드 팝오버스</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>네임</translation>
     </message>
     <message>
         <source>Pictures</source>
@@ -6550,10 +6578,6 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>컨트롤+탭</translation>
     </message>
     <message>
-        <source>Custom theme</source>
-        <translation>커스텀 테마</translation>
-    </message>
-    <message>
         <source>Daily reading goal</source>
         <translation>데일리 리딩 골</translation>
     </message>
@@ -6876,6 +6900,14 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Theme</source>
         <translation>테마</translation>
+    </message>
+    <message>
+        <source>Theme colors</source>
+        <translation>테마 컬러스</translation>
+    </message>
+    <message>
+        <source>Theme name</source>
+        <translation>테마 네임</translation>
     </message>
     <message>
         <source>Top bar</source>
@@ -8069,6 +8101,13 @@ The result is a new meaning for every word, read in its sentence.</source>
     <message>
         <source>Undo</source>
         <translation>언두</translation>
+    </message>
+</context>
+<context>
+    <name>ThemePreview</name>
+    <message>
+        <source> theme</source>
+        <translation> 테마</translation>
     </message>
 </context>
 <context>

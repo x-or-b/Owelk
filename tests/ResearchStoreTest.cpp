@@ -182,6 +182,31 @@ private slots:
         // The seven days before the last seven.
         QCOMPARE(store.readingCalendar(7)["previousWeek"].toInt(), 500);
     }
+    // One Dark, built in until 2026-11: whoever had it chosen keeps it, as a theme of their own, kept with the others.
+    void oneDarkStaysAsAThemeOfOnesOwn()
+    {
+        QTemporaryDir directory;
+        ResearchStore store(directory.path());
+        QString error;
+        QVERIFY2(store.initialize(&error), qPrintable(error));
+        store.setSetting("appearance.theme", "onedark");
+        store.setSetting("appearance.darkTheme", "onedark");
+        QString added;
+        {
+            Theme theme(&store);
+            QCOMPARE(theme.theme(), QString("my-onedark"));
+            QCOMPARE(theme.darkTheme(), QString("my-onedark"));
+            QCOMPARE(theme.myThemes().size(), 1);
+            QCOMPARE(theme.myThemes()[0].toMap()["name"].toString(), QString("One Dark"));
+            QVERIFY(theme.dark());
+            added = theme.addTheme("Sky", theme.tintedSeeds(QColor("#9ab8db"), false));
+            QVERIFY(!added.isEmpty());
+        }
+        Theme again(&store);
+        QCOMPARE(again.myThemes().size(), 2);
+        QCOMPARE(again.theme(), added);
+        QCOMPARE(again.darkTheme(), QString("my-onedark"));
+    }
     void picturesRotateOnlyWhenReadingAllowsIt()
     {
         QTemporaryDir directory;

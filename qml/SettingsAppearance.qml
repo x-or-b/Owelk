@@ -11,9 +11,23 @@ ColumnLayout {
     spacing: 22
     // Another page to show (the Picture page, once five taps have chosen a picture).
     signal pageRequested(string page)
-    // The custom theme's seeds, edited one color at a time; read again whenever the theme changes (choosing,
-    // adding or removing a picture changes them too).
-    readonly property var custom: (Theme.window, Theme.seeds("custom"))
+    // The colors of the theme in use, edited one at a time when it is Custom or one's own; read again whenever the
+    // theme changes (choosing, adding or removing a picture changes them too).
+    readonly property var custom: (Theme.window, Theme.seeds(Theme.theme))
+    readonly property bool editable: Theme.theme === "custom" || Theme.isMine(Theme.theme)
+    readonly property var mine: Theme.myThemes.find(function(t) { return t.id === Theme.theme }) || null
+    // Every theme for Match System's lists: the built-in ones, Custom while kept, then one's own.
+    readonly property var allThemes: Theme.themes.map(function(t) { return {id: t.id, name: qsTranslate("Owelk", t.name)} })
+        .concat(Theme.customKept ? [{id: "custom", name: qsTr("Custom")}] : []).concat(Theme.myThemes)
+    function accentOf(dark) {
+        const a = Theme.accents.find(function(x) { return x.id === Theme.accentName })
+        return a ? (dark ? a.dark : a.light) : Theme.accent
+    }
+    // The theme in use as a theme of one's own, to change from there.
+    function copyTheme() {
+        const current = root.allThemes.find(function(t) { return t.id === Theme.theme })
+        Theme.addTheme(qsTr("%1 copy").arg(current ? current.name : qsTr("Theme")), Theme.seeds(Theme.theme), "")
+    }
     readonly property var seedNames: [{key: "window", name: qsTr("Window and toolbars")}, {key: "sidebar", name: qsTr("Sidebars")},
         {key: "content", name: qsTr("Documents and lists")}, {key: "raised", name: qsTr("Menus and popovers")},
         {key: "text", name: qsTr("Text")}, {key: "separator", name: qsTr("Lines")}, {key: "backdrop", name: qsTr("Around PDF pages")}]
@@ -28,60 +42,20 @@ ColumnLayout {
         if (Theme.picture.toString().length && Theme.usePictureColors) { Theme.theme = "custom"; return }
         Theme.setCustomSeeds(Theme.seeds(Theme.theme))
     }
-    // A small picture of a theme: toolbar, sidebar, page with lines of text and an accent mark.
-    component ThemeTile: Item {
-        id: tile
+    // A theme in Settings: the built-in ones, Custom and one's own.
+    component ThemeTile: ThemePreview {
         required property string themeId
-        required property string name
         // Read again whenever the theme changes (the Custom colors can change under it).
-        readonly property var seeds: (Theme.window, Theme.seeds(themeId))
-        readonly property bool current: Theme.theme === themeId
-        width: 104; height: 92
+        seeds: (Theme.window, Theme.seeds(themeId))
+        // One's own theme shows the accent it brings.
+        readonly property var own: Theme.myThemes.find(function(t) { return t.id === themeId }) || null
+        accent: own && own.accent.length ? own.accent : root.accentOf(!!seeds.dark)
+        current: Theme.theme === themeId
         objectName: "themeTile-" + themeId
-        Rectangle {
-            id: preview
-            width: parent.width; height: 64
-            radius: Theme.radius
-            color: tile.seeds.window
-            border.width: tile.current ? 2 : 1
-            border.color: tile.current ? Theme.accent : hover.hovered ? Theme.border : Theme.separator
-            clip: true
-            Rectangle { x: 6; y: 12; width: 24; height: parent.height - 18; radius: 3; color: tile.seeds.sidebar }
-            Rectangle {
-                x: 34; y: 12; width: parent.width - 40; height: parent.height - 18; radius: 3; color: tile.seeds.content
-                Column {
-                    x: 6; y: 7; spacing: 4
-                    Repeater { model: [44, 52, 30]; Rectangle { width: modelData; height: 3; radius: 1.5; color: tile.seeds.text; opacity: index === 0 ? .9 : .45 } }
-                }
-                Rectangle { anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 6; width: 14; height: 6; radius: 3; color: tile.seeds.dark ? Theme.accents.find(function(a) { return a.id === Theme.accentName }).dark : Theme.accents.find(function(a) { return a.id === Theme.accentName }).light }
-            }
-            Row { x: 6; y: 4; spacing: 3; Repeater { model: 3; Rectangle { width: 4; height: 4; radius: 2; color: tile.seeds.text; opacity: .25 } } }
-            // Custom made from a picture shows it.
-            Image {
-                visible: tile.themeId === "custom" && Theme.picture.toString().length > 0 && Theme.usePictureColors
-                source: visible ? Theme.picture : ""
-                anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 2
-                width: parent.height - 8; height: width
-                fillMode: Image.PreserveAspectFit
-                horizontalAlignment: Image.AlignRight; verticalAlignment: Image.AlignBottom
-                sourceSize: Qt.size(128, 128)
-                asynchronous: true
-            }
-        }
-        Label {
-            anchors.top: preview.bottom; anchors.topMargin: 5
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            text: tile.name
-            elide: Text.ElideRight
-            font.pixelSize: Theme.fontSmall
-            font.weight: tile.current ? Font.DemiBold : Font.Normal
-            color: tile.current ? Theme.text : Theme.textSecondary
-        }
-        HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
-        TapHandler { onTapped: { if (tile.themeId === "custom") root.startCustom(); else Theme.theme = tile.themeId } }
-        Accessible.role: Accessible.RadioButton
-        Accessible.name: tile.name + qsTr(" theme")
+        // Custom made from a picture shows it.
+        picture: themeId === "custom" && Theme.picture.toString().length > 0 && Theme.usePictureColors ? Theme.picture : ""
+        onTapped: { if (themeId === "custom") root.startCustom(); else Theme.theme = themeId }
+        onMenuRequested: if (Theme.isMine(themeId)) { themeMenu.themeId = themeId; themeMenu.popup() }
     }
     SettingsGroup {
         id: themeGroup
@@ -100,17 +74,44 @@ ColumnLayout {
             if (!Theme.pictureOn && Theme.pictures.length) { Theme.pictureOn = true; root.pageRequested("picture") }
             else pictureDialog.open()
         }
+        // Four light, four dark, then the reader's own and + to add one.
         Item {
             width: parent.width
             implicitHeight: themes.implicitHeight + 24
-            Flow {
+            Column {
                 id: themes
                 x: 12; y: 12
                 width: parent.width - 24
                 spacing: 12
                 Repeater {
-                    model: Theme.themes.concat([{id: "custom", name: "Custom"}])
-                    delegate: ThemeTile { required property var modelData; themeId: modelData.id; name: modelData.id === "custom" ? qsTr("Custom") : qsTranslate("Owelk", modelData.name) }
+                    model: [false, true]
+                    delegate: Flow {
+                        id: kind
+                        required property bool modelData
+                        width: themes.width
+                        spacing: 12
+                        Repeater {
+                            model: Theme.themes.filter(function(t) { return t.dark === kind.modelData })
+                            delegate: ThemeTile { required property var modelData; themeId: modelData.id; name: qsTranslate("Owelk", modelData.name) }
+                        }
+                    }
+                }
+                Flow {
+                    objectName: "yourThemes"
+                    width: themes.width
+                    spacing: 12
+                    ThemeTile { visible: Theme.customKept; themeId: "custom"; name: qsTr("Custom") }
+                    Repeater {
+                        model: Theme.myThemes
+                        delegate: ThemeTile { required property var modelData; themeId: modelData.id; name: modelData.name }
+                    }
+                    ThemePreview {
+                        id: addTile
+                        objectName: "addTheme"
+                        adding: true
+                        name: qsTr("Add")
+                        onTapped: addMenu.popup(addTile, 0, addTile.height)
+                    }
                 }
             }
         }
@@ -132,9 +133,9 @@ ColumnLayout {
                 label: modelData.label
                 ComboBox {
                     objectName: "matchSystem-" + appearanceRow.modelData.key
-                    Layout.preferredWidth: 160
-                    readonly property var ids: Theme.themes.map(function(t) { return t.id }).concat(["custom"])
-                    model: Theme.themes.map(function(t) { return qsTranslate("Owelk", t.name) }).concat([qsTr("Custom")])
+                    Layout.preferredWidth: 180
+                    readonly property var ids: root.allThemes.map(function(t) { return t.id })
+                    model: root.allThemes.map(function(t) { return t.name })
                     currentIndex: Math.max(0, ids.indexOf(appearanceRow.modelData.key === "dark" ? Theme.darkTheme : Theme.lightTheme))
                     onActivated: function(index) {
                         if (appearanceRow.modelData.key === "dark") Theme.darkTheme = ids[index]
@@ -144,11 +145,31 @@ ColumnLayout {
             }
         }
     }
+    // The colors of Custom or of a theme of one's own, its name and Delete.
     SettingsGroup {
-        visible: Theme.theme === "custom"
-        objectName: "settingsGroup-customTheme"
-        title: qsTr("Custom theme")
+        visible: root.editable
+        objectName: "settingsGroup-themeColors"
+        title: root.mine ? root.mine.name : qsTr("Custom theme")
         note: qsTr("Hover, selection and secondary text are worked out from these colors, so the theme stays consistent.")
+        SettingsRow {
+            objectName: "settingsRow-themeName"
+            visible: !!root.mine
+            label: qsTr("Name")
+            wide: true
+            TextField {
+                id: themeName
+                objectName: "themeNameField"
+                Layout.fillWidth: true
+                text: root.mine ? root.mine.name : ""
+                onEditingFinished: if (root.mine && text.trim().length) Theme.renameTheme(root.mine.id, text)
+            }
+            Button {
+                objectName: "deleteTheme"
+                text: qsTr("Delete")
+                palette.buttonText: Theme.danger
+                onClicked: Theme.removeTheme(root.mine.id)
+            }
+        }
         Repeater {
             model: root.seedNames
             delegate: SettingsRow {
@@ -168,6 +189,7 @@ ColumnLayout {
         }
         SettingsRow {
             objectName: "settingsRow-customDark"
+            visible: Theme.theme === "custom"
             label: qsTr("Dark")
             detail: Theme.matchSystem ? qsTr("Set by Match System. Turn it off to change this.") : qsTr("Use light text and dark controls")
             Switch {
@@ -315,6 +337,22 @@ ColumnLayout {
         }
     }
     Timer { id: tapPause; interval: 1000; onTriggered: themeGroup.taps = 0 }
+    Menu {
+        id: addMenu
+        objectName: "addThemeMenu"
+        MenuItem { objectName: "copyTheme"; text: qsTr("Copy This Theme"); onTriggered: root.copyTheme() }
+    }
+    Menu {
+        id: themeMenu
+        objectName: "themeMenu"
+        property string themeId: ""
+        MenuItem {
+            objectName: "removeTheme"
+            text: qsTr("Delete Theme")
+            palette.windowText: Theme.danger
+            onTriggered: Theme.removeTheme(themeMenu.themeId)
+        }
+    }
     Native.FileDialog {
         id: pictureDialog
         objectName: "pictureDialog"
@@ -331,7 +369,7 @@ ColumnLayout {
         onAccepted: {
             const next = Object.assign({}, root.custom)
             next[root.editing] = selectedColor.toString()
-            Theme.setCustomSeeds(next)
+            Theme.setThemeSeeds(Theme.theme, next)
         }
     }
 }

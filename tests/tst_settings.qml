@@ -40,6 +40,7 @@ Item {
             Theme.matchSystem = false; Theme.lightTheme = "neutral"; Theme.darkTheme = "dark"
             Theme.theme = "neutral"; Theme.accentName = "blue"; Theme.textSize = 13; Theme.invertPages = false; Theme.appIcon = "paper"
             researchStore.setSetting("appearance.custom", "")
+            Theme.myThemes.forEach(function(t) { Theme.removeTheme(t.id) })
         }
         function test_categoriesLoadOneAtATime() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
@@ -257,17 +258,31 @@ Item {
             Theme.appIcon = "unknown"
             compare(Theme.appIcon, "paper")
         }
-        function test_customThemeStartsFromTheCurrentOne() {
+        function test_copyThisThemeMakesOneOfYourOwn() {
             Theme.theme = "paper"
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
-            tryVerify(function() { return visualChild(settings.contentItem, "themeTile-custom") !== null })
+            tryVerify(function() { return visualChild(settings.contentItem, "addTheme") !== null })
             waitForPolish(settings.contentItem); wait(50)
-            mouseClick(visualChild(settings.contentItem, "themeTile-custom"), 40, 30)
-            compare(Theme.theme, "custom")
-            compare(Theme.seeds("custom").window, Theme.seeds("paper").window)
-            tryVerify(function() { return visualChild(settings.contentItem, "seed-window") !== null })
-            mouseClick(visualChild(settings.contentItem, "customDarkSwitch"))
-            compare(Theme.dark, true)
+            mouseClick(visualChild(settings.contentItem, "addTheme"), 40, 30)
+            const menu = findChild(page(), "addThemeMenu")
+            tryCompare(menu, "opened", true)
+            findChild(menu, "copyTheme").triggered()
+            menu.close()
+            verify(Theme.isMine(Theme.theme))
+            compare(Theme.seeds(Theme.theme).window, Theme.seeds("paper").window)
+            compare(Theme.myThemes[0].name, "Paper copy")
+            // Its colors, its name and Delete below; Match System offers it.
+            const name = visualChild(settings.contentItem, "themeNameField")
+            tryVerify(function() { return name.visible })
+            name.text = "Evening paper"; name.editingFinished()
+            compare(Theme.myThemes[0].name, "Evening paper")
+            verify(visualChild(settings.contentItem, "seed-window") !== null)
+            verify(!visualChild(settings.contentItem, "customDarkSwitch").visible)
+            verify(visualChild(settings.contentItem, "matchSystem-light").ids.indexOf(Theme.theme) >= 0)
+            verify(visualChild(settings.contentItem, "themeTile-" + Theme.theme).current)
+            visualChild(settings.contentItem, "deleteTheme").clicked()
+            compare(Theme.myThemes.length, 0)
+            compare(Theme.theme, "neutral")
         }
         function test_fiveTapsOnTheThemeHeadingChooseAPicture() {
             settings.openPage("appearance"); tryCompare(settings, "opened", true)
