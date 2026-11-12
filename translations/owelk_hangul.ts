@@ -5998,6 +5998,10 @@ The result is a new meaning for every word, read in its sentence.</source>
         <translation>추즈 어 픽처</translation>
     </message>
     <message>
+        <source>Choose a color…</source>
+        <translation>추즈 어 컬러…</translation>
+    </message>
+    <message>
         <source>Comfortable</source>
         <translation>컴퍼터블</translation>
     </message>

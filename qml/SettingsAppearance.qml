@@ -228,6 +228,12 @@ ColumnLayout {
                     ToolTip.visible: dotHover.hovered; ToolTip.delay: 500; ToolTip.text: qsTranslate("Owelk", modelData.name)
                 }
             }
+            // Any color: it becomes the accent (as light or dark as white labels on it need).
+            AddColorButton {
+                objectName: "accentAdd"
+                description: qsTr("Choose a color…")
+                onClicked: { accentDialog.selectedColor = Theme.accent; accentDialog.open() }
+            }
         }
     }
     SettingsGroup {
@@ -375,6 +381,12 @@ ColumnLayout {
             if (Theme.usePicture(selectedFile)) root.pageRequested("picture")
             else themeGroup.note = qsTr("This picture could not be opened.")
         }
+    }
+    Native.ColorDialog {
+        id: accentDialog
+        objectName: "accentColorDialog"
+        title: qsTr("Accent color")
+        onAccepted: Theme.setCustomAccent(selectedColor)
     }
     Native.ColorDialog {
         id: seedDialog
