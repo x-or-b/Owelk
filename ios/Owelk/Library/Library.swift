@@ -51,6 +51,8 @@ struct AiThread: Identifiable, Hashable {
     let updatedAt: String
     /// The paper (`Paper.id`) it is about, or "".
     let paper: String
+    /// The desktop's folder it is kept in (`document:<ID>`, `collection:<ID>`, one of the reader's own, or "").
+    let folder: String
 }
 
 /// One turn of a conversation (the desktop's `ai_messages`): `content` is exactly what was sent or answered, `display`
@@ -91,6 +93,8 @@ struct Library {
     var notes: [Note] = []
     /// AI conversations not in the Trash, the latest first.
     var threads: [AiThread] = []
+    /// The names of the desktop's conversation folders (`ai_folders`), by ID.
+    var chatFolders: [String: String] = [:]
     /// documents.id → paper id, for every row ever seen (removed papers too), so annotations and positions saved
     /// under any of a paper's IDs find it.
     var paperOf: [String: String] = [:]
@@ -173,8 +177,12 @@ struct Library {
                 ? (folder.hasPrefix("document:") ? String(folder.dropFirst(9)) : "") : row.string("_source_document")
             let paper = library.paperOf[document] ?? chatPaper[row.string("id")] ?? ""
             return AiThread(id: row.string("id"), title: row.string("title"), updatedAt: row.string("updated_at"),
-                            paper: paper)
+                            paper: paper, folder: folder)
         }.sorted { ($0.updatedAt, $0.id) > ($1.updatedAt, $1.id) }
+        for entry in state.entries("ai_folders").values {
+            guard let row = entry.row, !row.string("id").isEmpty else { continue }
+            library.chatFolders[row.string("id")] = row.string("name")
+        }
 
         library.papers = groups.map { key, rows in
             // The latest edit of the paper's details; the smallest ID to write under.

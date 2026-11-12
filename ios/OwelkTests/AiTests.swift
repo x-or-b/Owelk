@@ -102,6 +102,26 @@ final class AiTests: XCTestCase {
         XCTAssertTrue(linked.runs.contains { $0.link?.absoluteString == "owelk-page:2" })
     }
 
+    /// A conversation from any computer reads as questions with their answers: what the reader typed when the
+    /// desktop kept it apart from what was sent.
+    func testChatsReadAsTurns() {
+        func message(_ role: String, _ content: String, display: String = "", at time: String) -> AiMessage {
+            AiMessage(id: time, role: role, content: content, display: display, model: role == "user" ? "" : "m",
+                      createdAt: time)
+        }
+        let turns = AiChat.turns(of: [
+            message("assistant", "Stray", at: "1"),
+            message("user", "<paper>…</paper>\n\nWhy?", display: "Why?", at: "2"),
+            message("assistant", "Because.", at: "3"),
+            message("user", "And then?", at: "4"),
+        ])
+        XCTAssertEqual(turns.map(\.asked), ["Why?", "And then?"])
+        XCTAssertEqual(turns.map(\.sent), ["<paper>…</paper>\n\nWhy?", "And then?"])
+        XCTAssertEqual(turns.map(\.answer), ["Because.", ""])
+        XCTAssertEqual(turns.first?.model, "m")
+        XCTAssertFalse(turns.contains(where: \.running))
+    }
+
     /// The AI's window: at first at the top right, then where it was left, always inside the reader and no smaller than
     /// it can be used.
     func testTheWindowStaysInside() {

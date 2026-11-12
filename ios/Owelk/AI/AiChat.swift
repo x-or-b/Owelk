@@ -38,17 +38,25 @@ final class AiChat: ObservableObject {
 
     var hasKey: Bool { !AiSettings.key(for: AiSettings.service).isEmpty }
 
-    /// The library the conversation is kept in; the paper's latest conversation is shown.
-    func keep(in store: LibraryStore) async {
+    /// The library the conversation is kept in; the conversation chosen in the library is shown, or else the paper's
+    /// latest one.
+    func keep(in store: LibraryStore, showing chosen: String? = nil) async {
         self.store = store
-        guard turns.isEmpty, let latest = store.library.threads.first(where: { $0.paper == paper.id }) else { return }
-        await open(latest.id)
+        guard turns.isEmpty,
+              let id = chosen ?? store.library.threads.first(where: { $0.paper == paper.id })?.id else { return }
+        await open(id)
     }
 
     /// Shows a conversation (from any computer), to go on with it.
     func open(_ id: String) async {
         guard !running, let store else { return }
-        let messages = await store.messages(of: id)
+        let turns = Self.turns(of: await store.messages(of: id))
+        thread = id
+        self.turns = turns
+    }
+
+    /// A conversation's turns: each question with the answer after it.
+    nonisolated static func turns(of messages: [AiMessage]) -> [Turn] {
         var turns: [Turn] = []
         for message in messages {
             if message.role == "user" {
@@ -59,8 +67,7 @@ final class AiChat: ObservableObject {
                 turns[turns.count - 1].model = message.model
             }
         }
-        thread = id
-        self.turns = turns
+        return turns
     }
 
     /// The question typed (about the attached selection, if any).

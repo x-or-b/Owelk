@@ -211,6 +211,9 @@ final class ConformanceTests: XCTestCase {
         let threads = await engine.current().threads
         XCTAssertEqual(threads.map(\.id), [Self.chatId])
         XCTAssertEqual(threads.first?.paper, paper.id)
+        XCTAssertEqual(threads.first?.folder, "document:" + paper.documentId)
+        let chatFolders = await engine.current().chatFolders
+        XCTAssertEqual(chatFolders, ["document:" + paper.documentId: ""])
         let turns = await engine.messages(of: Self.chatId)
         XCTAssertEqual(turns.map(\.role), ["user", "assistant"])
         XCTAssertEqual(turns.first?.display, "Why do the walls echo?")

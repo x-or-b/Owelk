@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 /// Which papers the list shows.
 enum Shelf: Hashable {
-    case all, favorites, reading, annotated, notes
+    case all, favorites, reading, annotated, notes, chats
     case collection(String)
     case tag(String)
 }
@@ -20,6 +20,8 @@ struct LibraryView: View {
     @State private var query = ""
     @State private var order = PaperOrder.lastOpened
     @State private var opened: Paper?
+    /// The conversation to show in the paper opened from Chats.
+    @State private var openedChat: String?
     @State private var addingFiles = false
     @State private var searching = false
     /// A paper to open once the web search has closed.
@@ -32,6 +34,11 @@ struct LibraryView: View {
         } detail: {
             if shelf == .notes {
                 NotesScreen()
+            } else if shelf == .chats {
+                ChatsScreen { paper, chat in
+                    openedChat = chat
+                    opened = paper
+                }
             } else {
                 papersPane
             }
@@ -45,8 +52,8 @@ struct LibraryView: View {
             let (collection, tag) = destination
             WebSearchScreen(collection: collection, tag: tag, openAfter: $openAfterSearch).environmentObject(store)
         }
-        .fullScreenCover(item: $opened) { paper in
-            ReaderScreen(paper: paper).environmentObject(store)
+        .fullScreenCover(item: $opened, onDismiss: { openedChat = nil }) { paper in
+            ReaderScreen(paper: paper, chat: openedChat).environmentObject(store)
         }
     }
 
@@ -113,6 +120,7 @@ struct LibraryView: View {
         case .reading: "Reading"
         case .annotated: "Annotated"
         case .notes: "Notes"
+        case .chats: "Chats"
         case let .collection(id): store.library.collections.first { $0.id == id }?.name ?? "Collection"
         case let .tag(name): name
         }
@@ -169,7 +177,7 @@ struct LibraryView: View {
         case .favorites: list = list.filter(\.favorite)
         case .reading: list = list.filter { $0.readingState == "reading" }
         case .annotated: list = list.filter(\.annotated)
-        case .notes: break
+        case .notes, .chats: break
         case let .collection(id): list = list.filter { $0.collections.contains(id) }
         case let .tag(name): list = list.filter { $0.tags.contains(name) }
         }
@@ -224,6 +232,7 @@ private struct Sidebar: View {
             }
             Section {
                 Label("Notes", systemImage: "note.text").tag(Shelf.notes)
+                Label("Chats", systemImage: "bubble.left.and.bubble.right").tag(Shelf.chats)
             }
         }
         .navigationTitle("Owelk")

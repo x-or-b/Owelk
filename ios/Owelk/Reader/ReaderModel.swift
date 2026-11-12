@@ -23,6 +23,8 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
     /// The AI beside the paper, and its conversation about it (kept while the paper is open).
     @Published var showsAI = false
     private(set) lazy var ai = AiChat(paper: paper) { [weak self] in self?.controller.document }
+    /// A conversation chosen in the library's Chats, shown when the paper opens.
+    private let chat: String?
     @Published var showsThumbnails = false {
         didSet { controller.showsThumbnails = showsThumbnails }
     }
@@ -40,8 +42,9 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
     private var lastInk: PenTool
     private var lastSaved: ReadingPosition?
 
-    init(paper: Paper) {
+    init(paper: Paper, chat: String? = nil) {
         self.paper = paper
+        self.chat = chat
         let saved = UserDefaults.standard.string(forKey: "pen.color") ?? ""
         color = PenTool.colors.contains(saved) ? saved : PenTool.colors[0]
         tool = .pen(color)
@@ -109,7 +112,8 @@ final class ReaderModel: NSObject, ObservableObject, PDFDocumentDelegate {
         page = start?.page ?? 0
         loaded = true
         controller.marksAllowed = canDraw
-        await ai.keep(in: store)
+        await ai.keep(in: store, showing: chat)
+        if chat != nil { showsAI = true }
         store.opened(paper)
     }
 
@@ -271,7 +275,9 @@ struct ReaderScreen: View {
     @State private var showsNotes = false
     private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
-    init(paper: Paper) { _model = StateObject(wrappedValue: ReaderModel(paper: paper)) }
+    init(paper: Paper, chat: String? = nil) {
+        _model = StateObject(wrappedValue: ReaderModel(paper: paper, chat: chat))
+    }
 
     var body: some View {
         NavigationStack {

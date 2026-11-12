@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The AI over the paper, in a small window of its own: moved by its bar, sized from either bottom corner, and its
-/// conversation as see-through as the reader likes (the paper shows under it; the bar stays solid, so it can always be
-/// found, moved and closed). Where it was, its size and its opacity are kept.
+/// The AI over the paper, in a small window of its own: moved by its bar, sized from either bottom corner (unmarked),
+/// and its conversation as see-through as the reader likes (the paper shows under it; the bar stays solid, so it can
+/// always be found, moved and closed). Where it was, its size and its opacity are kept.
 struct FloatingAiPanel: View {
     @EnvironmentObject private var store: LibraryStore
     @ObservedObject var model: ReaderModel
@@ -147,10 +147,9 @@ struct FloatingAiPanel: View {
         .tint(.primary)
     }
 
+    /// A bottom corner, unmarked, that sizes the window when dragged.
     private func grip(_ corner: Corner, _ rest: CGRect, in area: CGSize) -> some View {
-        Image(systemName: corner == .left ? "arrow.down.left" : "arrow.down.right")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.tertiary)
+        Color.clear
             .frame(width: 28, height: 28)
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
@@ -219,7 +218,8 @@ struct AiPanel: View {
                 .buttonStyle(.bordered)
             } else {
                 Text("Add your Claude or OpenAI API key in Settings (the gear in the library). The paper's text and "
-                     + "your question go to that service when you ask.")
+                     + "your question go to that service when you ask. Past chats, the Mac's among them, are in the "
+                     + "library's Chats.")
                     .foregroundStyle(.secondary)
             }
         }
@@ -275,7 +275,7 @@ struct AiPanel: View {
     }
 }
 
-private struct TurnView: View {
+struct TurnView: View {
     let turn: AiChat.Turn
 
     var body: some View {
