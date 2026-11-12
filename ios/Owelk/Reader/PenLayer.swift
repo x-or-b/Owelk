@@ -106,7 +106,9 @@ enum InkWidth {
 }
 
 /// A canvas that keeps no undo history of its own: strokes leave it at once, and the reader's history has them.
-private final class InkCanvas: PKCanvasView {
+/// It takes only the Pencil: PencilKit's own selection gestures took fingers too, so a finger could not drag the
+/// pages while drawing. Fingers pass to the page (scroll, zoom, select).
+final class InkCanvas: PKCanvasView {
     private let ignored: UndoManager = {
         let manager = UndoManager()
         manager.disableUndoRegistration()
@@ -114,6 +116,24 @@ private final class InkCanvas: PKCanvasView {
     }()
 
     override var undoManager: UndoManager? { ignored }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        Self.pencilOnly(self)
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        Self.pencilOnly(self)
+    }
+
+    private static func pencilOnly(_ view: UIView) {
+        let finger = UITouch.TouchType.direct.rawValue
+        for recognizer in view.gestureRecognizers ?? [] where recognizer.allowedTouchTypes.contains(where: { $0.intValue == finger }) {
+            recognizer.allowedTouchTypes = recognizer.allowedTouchTypes.filter { $0.intValue != finger }
+        }
+        view.subviews.forEach(pencilOnly)
+    }
 }
 
 /// A page's overlay: its marks' shapes, and while drawing the Pencil's canvas over them. Touches the canvas does not
