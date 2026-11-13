@@ -375,17 +375,24 @@ struct TurnView: View {
 }
 
 /// An answer's Markdown, line by line: headings bold, list items with bullets, inline styles and links (page
-/// citations among them) as Markdown has them. Math stays as written.
+/// citations among them) as Markdown has them, and LaTeX math drawn (`MathText`), set apart or in the line.
 struct AnswerText: View {
     let text: String
+    /// The column's width: a formula in the line wider than it gets a line of its own.
+    @State private var width: CGFloat = 0
 
     var body: some View {
+        // Formulas are taken out before the lines and the Markdown are read, and drawn back in.
+        let (masked, spans) = MathText.masked(text)
+        let size = UIFont.preferredFont(forTextStyle: .body).pointSize
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(Array(Self.lines(text).enumerated()), id: \.offset) { _, line in
-                Self.view(for: line)
+            ForEach(Array(Self.lines(masked).enumerated()), id: \.offset) { _, line in
+                Self.view(for: line, spans: spans, size: size, width: width)
             }
         }
         .textSelection(.enabled)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
     }
 
     static func lines(_ text: String) -> [String] {
@@ -396,21 +403,48 @@ struct AnswerText: View {
         }
     }
 
-    @ViewBuilder
-    private static func view(for line: String) -> some View {
+    @MainActor @ViewBuilder
+    private static func view(for line: String, spans: [MathText.Span], size: CGFloat, width: CGFloat) -> some View {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         if trimmed.isEmpty {
             Color.clear.frame(height: 2)
+        } else if trimmed.count == 1, let number = trimmed.first.flatMap(MathText.placeholder), number < spans.count,
+                  spans[number].display {
+            MathText.block(spans[number], size: size)
         } else if trimmed.hasPrefix("#") {
-            Text(inline(trimmed.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces))).font(.headline)
+            MathText.text(inline(trimmed.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces)), spans: spans,
+                          size: size)
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
         } else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("•")
-                Text(inline(String(trimmed.dropFirst(2))))
+                paragraph(String(trimmed.dropFirst(2)), spans: spans, size: size, width: width - 14)
             }
             .padding(.leading, CGFloat(line.prefix { $0 == " " }.count / 2) * 12)
         } else {
-            Text(inline(trimmed))
+            paragraph(trimmed, spans: spans, size: size, width: width)
+        }
+    }
+
+    /// Text with its formulas, those too wide for the column on lines of their own.
+    @MainActor @ViewBuilder
+    private static func paragraph(_ text: String, spans: [MathText.Span], size: CGFloat, width: CGFloat) -> some View {
+        let pieces = MathText.pieces(text, spans: spans, size: size, width: width)
+        if pieces.count <= 1, case .text = pieces.first ?? .text("") {
+            MathText.text(inline(text), spans: spans, size: size).fixedSize(horizontal: false, vertical: true)
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(pieces.enumerated()), id: \.offset) { _, piece in
+                    switch piece {
+                    case let .text(words):
+                        MathText.text(inline(words.trimmingCharacters(in: .whitespaces)), spans: spans, size: size)
+                            .fixedSize(horizontal: false, vertical: true)
+                    case let .formula(number):
+                        MathText.block(spans[number], size: size)
+                    }
+                }
+            }
         }
     }
 
