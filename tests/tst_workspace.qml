@@ -58,6 +58,15 @@ Item {
             compare(bar.text, "https://arxiv.org/abs/1706.03762")
             reporter.link = ""
             compare(bar.text, "Saved for later.")
+            // After long work, a line and some room keep it apart; none without work.
+            const divider = findChild(workspace, "statusDivider"), activity = findChild(workspace, "statusActivity")
+            verify(!divider.visible)
+            researchStore.startTask("forYou", "Looking for new papers in For You…")
+            tryCompare(divider, "visible", true)
+            waitForPolish(bar.parent)
+            verify(bar.x - (activity.x + activity.width) >= 12, "room between them: " + (bar.x - activity.x - activity.width))
+            researchStore.finishTask("forYou")
+            tryCompare(divider, "visible", false)
             // Focus mode hides the bar: it floats at the bottom, at the right while the pointer is down at the left.
             researchStore.setSetting("focus.fullScreen", "0")
             workspace.setFocusMode(true)

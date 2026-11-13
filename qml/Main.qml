@@ -1718,9 +1718,18 @@ ApplicationWindow {
                     }
                 }
             }
+            // Between long work and a link or notice after it, a short line and some room.
+            Rectangle {
+                objectName: "statusDivider"
+                visible: activity.visible && statusText.text.length > 0
+                Layout.leftMargin: 8; Layout.rightMargin: 6
+                implicitWidth: 1; implicitHeight: Theme.fontCaption + 2
+                color: Theme.border
+            }
             // While the pointer is on a link, where it goes (as a browser's status bar shows it; the middle of a long
             // address is left out); otherwise a notice while there is one.
             Label {
+                id: statusText
                 objectName: "statusText"
                 readonly property bool showsLink: window.hoveredLink.length > 0
                 Layout.fillWidth: true
