@@ -1481,6 +1481,12 @@ Item {
                                             linkItem.mapToItem(root, p.x, p.y), true)
                             }
                         }
+                        // Where any link goes, at the bottom of the window: a page of this paper, or its address.
+                        HoverHandler { id: linkAddressHover; enabled: !root.captureMode }
+                        LinkReporter {
+                            link: !linkAddressHover.hovered ? "" : parent.page >= 0 ? "#page=" + (parent.page + 1) : parent.url.toString()
+                            label: parent.page >= 0 ? qsTr("Page %1").arg(parent.page + 1) : ""
+                        }
                         // Hovering a reference ([12], Fig. 3, Eq. 2) shows where it points, in place.
                         // A link scrolled away or closed while under the pointer never reports leaving.
                         Component.onDestruction: if (workingLinkHover.hovered) root.hoveredLink = null

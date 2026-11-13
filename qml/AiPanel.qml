@@ -281,6 +281,7 @@ Item {
         onCursorPositionChanged: Theme.redrawText(this)
         onLinkActivated: function(link) { root.linkActivated(link) }
         HoverHandler { cursorShape: parent.hoveredLink.length > 0 ? Qt.PointingHandCursor : Qt.IBeamCursor }
+        LinkReporter { link: parent.hoveredLink }
         ContextTap { onRequested: function(point) { root.openTextMenu(parent, point.position) } }
         Keys.onPressed: function(event) {
             if (event.matches(StandardKey.Copy) && selectedText.length) { researchStore.copyText(root.selectionText(this)); event.accepted = true }

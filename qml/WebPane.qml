@@ -318,6 +318,10 @@ Rectangle {
                 else researchStore.notify(qsTr("Blocked a pop-up from this page."))
             }
             onActiveFocusChanged: if (activeFocus) root.activated()
+            // Where the link under the pointer goes, at the bottom of the window (until another tab is shown).
+            onLinkHovered: function(hoveredUrl) { webLink.link = hoveredUrl.toString() }
+            onVisibleChanged: if (!visible) webLink.link = ""
+            LinkReporter { id: webLink }
             onLoadingChanged: function(request) {
                 if (request.status === WebEngineView.LoadStartedStatus) { root.embeddedPdf = ""; root.embeddedFills = false }
                 else if (request.status === WebEngineView.LoadSucceededStatus) root.detectEmbeddedPdf()

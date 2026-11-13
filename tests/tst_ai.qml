@@ -1002,6 +1002,26 @@ Item {
             verify(researchStore.ai.setApiKey("claude", "sk-ui-test-key"))
             workspace.rightDockWidth = 224
         }
+        // A link in an answer under the pointer: where it goes, at the bottom of the window.
+        function test_6aa_aLinkInAnAnswerShowsWhereItGoes() {
+            const ai = findChild(workspace, "aiController")
+            ai.thread = {id: ai.threadId, title: "Links", messages: [{role: "user", display: "Where?", content: "q"},
+                {role: "assistant", content: "See [the paper](https://arxiv.org/abs/1706.03762) for more."}]}
+            const p = panel()
+            let answer = null
+            tryVerify(function() { answer = findChild(p, "aiMessage-1"); return !!answer && answer.visible && answer.width > 0 })
+            waitForPolish(p)
+            const at = answer.getText(0, answer.length).indexOf("the paper")
+            verify(at >= 0)
+            const r = answer.positionToRectangle(at + 2)
+            mouseMove(answer, r.x + 2, r.y + r.height / 2)
+            tryCompare(answer, "hoveredLink", "https://arxiv.org/abs/1706.03762")
+            const text = findChild(workspace, "linkStatusText")
+            tryCompare(text, "text", "https://arxiv.org/abs/1706.03762")
+            verify(findChild(workspace, "linkStatus").visible)
+            mouseMove(answer, answer.width - 2, answer.height - 2)
+            tryCompare(findChild(workspace, "linkStatus"), "visible", false)
+        }
         function test_6a_theScrollBarMovesTheChatEvenly() {
             const ai = findChild(workspace, "aiController")
             // Short questions between long answers: a view that guessed the height of turns it had not made

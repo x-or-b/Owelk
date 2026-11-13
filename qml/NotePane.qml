@@ -194,6 +194,7 @@ Rectangle {
                 onLinkActivated: function(link) { root.openLink(link) }
                 TapHandler { onDoubleTapped: { root.preview = false; body.forceActiveFocus() } }
                 HoverHandler { cursorShape: parent.hoveredLink.length ? Qt.PointingHandCursor : Qt.IBeamCursor }
+                LinkReporter { link: parent.hoveredLink }
             }
         }
         ColumnLayout {

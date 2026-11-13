@@ -2749,12 +2749,20 @@ Same file as another library entry</source>
 <context>
     <name>Main</name>
     <message>
+        <source> · p. </source>
+        <translation> · 피. </translation>
+    </message>
+    <message>
         <source>AI Chat</source>
         <translation>에이아이 챗</translation>
     </message>
     <message>
         <source>AI chat</source>
         <translation>에이아이 챗</translation>
+    </message>
+    <message>
+        <source>Annotation · </source>
+        <translation>애노테이션 · </translation>
     </message>
     <message>
         <source>Back</source>
@@ -2893,6 +2901,14 @@ Same file as another library entry</source>
         <translation>낫 나우</translation>
     </message>
     <message>
+        <source>Not in Owelk any more</source>
+        <translation>낫 인 오웰크 애니 모어</translation>
+    </message>
+    <message>
+        <source>Note · </source>
+        <translation>노트 · </translation>
+    </message>
+    <message>
         <source>Open My Copy</source>
         <translation>오픈 마이 카피</translation>
     </message>
@@ -2919,6 +2935,10 @@ Same file as another library entry</source>
     <message>
         <source>Owelk closed unexpectedly last time. Your tabs are back; unsaved notes are offered when you reopen them.</source>
         <translation>오웰크 클로즈드 언익스펙티들리 라스트 타임. 유어 탭스 아 백; 언세이브드 노츠 아 오퍼드 웬 유 리오픈 뎀.</translation>
+    </message>
+    <message>
+        <source>Paper · </source>
+        <translation>페이퍼 · </translation>
     </message>
     <message>
         <source>Quit</source>
@@ -4808,6 +4828,10 @@ Same file as another library entry</source>
     <message>
         <source>PDF password</source>
         <translation>피디에프 패스워드</translation>
+    </message>
+    <message>
+        <source>Page %1</source>
+        <translation>페이지 %1</translation>
     </message>
     <message>
         <source>Pin over the pages</source>

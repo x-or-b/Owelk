@@ -10,6 +10,7 @@ Item {
     App.Main { id: workspace }
     Component { id: restoredWindow; App.Main { visible: false } }
     SignalSpy { id: closingSpy; target: workspace; signalName: "closing" }
+    Component { id: linkReporter; App.LinkReporter {} }
     TestCase {
         name: "WorkspacePanels"
         when: windowShown
@@ -26,6 +27,41 @@ Item {
             return c
         }
         function cleanupTestCase() { workspace.visible = false }
+        // The link under the pointer, wherever it is (an answer, a note, a PDF, a web tab): where it goes, at the bottom
+        // left; at the right while the pointer is down there; gone when its item goes.
+        function test_linkUnderThePointerShowsWhereItGoes() {
+            const status = findChild(workspace, "linkStatus"), text = findChild(workspace, "linkStatusText")
+            verify(status !== null && !status.visible)
+            const reporter = linkReporter.createObject(workspace.contentItem)
+            reporter.link = "https://arxiv.org/abs/1706.03762"
+            tryCompare(status, "visible", true)
+            compare(text.text, "https://arxiv.org/abs/1706.03762")
+            verify(status.x < workspace.width / 2)
+            verify(status.y > workspace.height / 2 && status.y + status.height < workspace.height - 1, "at the bottom, above the status bar")
+            reporter.link = "https://example.org/%ED%95%9C%EA%B8%80"
+            compare(text.text, "https://example.org/\ud55c\uae00")
+            const note = researchStore.createNote("Reading list", "")
+            reporter.link = "owelk://note/" + note
+            compare(text.text, "Note · Reading list")
+            reporter.link = "owelk://note/gone"
+            compare(text.text, "Not in Owelk any more")
+            reporter.label = "Page 3"; reporter.link = "#page=3"
+            compare(text.text, "Page 3")
+            reporter.label = ""
+            // Another item without a link leaves it; its own does not.
+            const other = linkReporter.createObject(workspace.contentItem)
+            other.link = "https://other.example"; other.link = ""
+            reporter.link = "https://arxiv.org/abs/1706.03762"
+            verify(status.visible)
+            // The pointer down at the bottom left: it moves to the right.
+            mouseMove(workspace.contentItem, 20, workspace.contentItem.height - 20)
+            tryVerify(function() { return status.x > workspace.width / 2 })
+            mouseMove(workspace.contentItem, workspace.contentItem.width / 2, workspace.contentItem.height / 2)
+            tryVerify(function() { return status.x < workspace.width / 2 })
+            reporter.destroy()
+            tryCompare(status, "visible", false)
+            other.destroy()
+        }
         function test_revealStaysOnMatchingTab() {
             workspace.documents.restore({}); workspace.homeVisible = true
             const pair = testInput.relinkFixture(true) // Spaces/Unicode; two paths containing identical sentences.

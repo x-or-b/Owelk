@@ -144,6 +144,36 @@ ApplicationWindow {
     property bool initialized: false
     property bool restoreFailed: false
     property string notification: ""
+    // The link under the pointer (LinkReporter): where it goes, at the bottom left like a browser's; the item that
+    // told it, so only that item takes it away.
+    property string hoveredLink: ""
+    property string hoveredLinkLabel: ""
+    property var hoveredLinkOwner: null
+    function hoverLink(link, owner, label) {
+        if (link.length) {
+            hoveredLinkOwner = owner
+            hoveredLink = link
+            hoveredLinkLabel = label && label.length ? label : linkLabel(link)
+        } else if (owner === hoveredLinkOwner) {
+            hoveredLink = ""; hoveredLinkLabel = ""; hoveredLinkOwner = null
+        }
+    }
+    // A link in words: Owelk's own by what they lead to, other addresses as they are (escaped letters read).
+    function linkLabel(link) {
+        const own = /^owelk:\/\/(note|highlight|document|ai)\/([A-Za-z0-9-]+)/.exec(link)
+        if (own) {
+            const target = researchStore.linkTarget(own[1], own[2])
+            if (!target.kind) return qsTr("Not in Owelk any more")
+            const page = /#page=(\d+)/.exec(link)
+            if (own[1] === "document") return qsTr("Paper · ") + target.title + (page ? qsTr(" · p. ") + page[1] : "")
+            if (own[1] === "note") return qsTr("Note · ") + target.title
+            if (own[1] === "highlight") return qsTr("Annotation · ") + target.title
+            return target.title // "AI · …"
+        }
+        if (/^file:/i.test(link)) { try { return decodeURIComponent(link.replace(/^file:\/\//i, "")) } catch (e) { return link } }
+        try { return decodeURI(link) } catch (e) { return link }
+    }
+    onActiveChanged: if (!active && hoveredLinkOwner) hoverLink("", hoveredLinkOwner)
     property alias documents: documents
     readonly property var currentReader: documents.currentReader
     // Shortcuts the reader changed in Settings (id → keys; "" turns one off).
@@ -412,6 +442,35 @@ ApplicationWindow {
         target: swipeNavigation
         function onBack() { window.goBack() }
         function onForward() { window.goForward() }
+    }
+    // Where the link under the pointer goes: at the bottom left above the status bar, and at the right while the
+    // pointer is down there itself, as browsers show it. The pointer is followed only while there is a link.
+    HoverHandler { id: linkPointer; enabled: window.hoveredLink.length > 0 }
+    Rectangle {
+        id: linkStatus
+        objectName: "linkStatus"
+        parent: Overlay.overlay
+        z: 100
+        visible: window.hoveredLink.length > 0
+        readonly property real above: (parent ? parent.height : 0) - (statusBar.visible ? statusBar.height : 0) - 6
+        readonly property bool atRight: linkPointer.hovered && linkPointer.point.scenePosition.x < 8 + width + 24
+                                        && linkPointer.point.scenePosition.y > above - height - 24
+        x: atRight ? parent.width - width - 8 : 8
+        y: above - height
+        width: Math.min(linkText.implicitWidth + 16, (parent ? parent.width : 0) * .5)
+        height: linkText.implicitHeight + 8
+        radius: Theme.radiusSmall
+        color: Theme.raised
+        border.color: Theme.border
+        Label {
+            id: linkText
+            objectName: "linkStatusText"
+            x: 8; width: parent.width - 16
+            anchors.verticalCenter: parent.verticalCenter
+            text: window.hoveredLinkLabel
+            elide: Text.ElideMiddle; textFormat: Text.PlainText
+            font.pixelSize: Theme.fontSmall; color: Theme.textSecondary
+        }
     }
     Rectangle {
         parent: Overlay.overlay
