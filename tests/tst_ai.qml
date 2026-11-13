@@ -1016,11 +1016,10 @@ Item {
             const r = answer.positionToRectangle(at + 2)
             mouseMove(answer, r.x + 2, r.y + r.height / 2)
             tryCompare(answer, "hoveredLink", "https://arxiv.org/abs/1706.03762")
-            const text = findChild(workspace, "linkStatusText")
-            tryCompare(text, "text", "https://arxiv.org/abs/1706.03762")
-            verify(findChild(workspace, "linkStatus").visible)
+            const bar = findChild(workspace, "statusText")
+            tryCompare(bar, "text", "https://arxiv.org/abs/1706.03762")
             mouseMove(answer, answer.width - 2, answer.height - 2)
-            tryCompare(findChild(workspace, "linkStatus"), "visible", false)
+            tryVerify(function() { return bar.text !== "https://arxiv.org/abs/1706.03762" })
         }
         function test_6a_theScrollBarMovesTheChatEvenly() {
             const ai = findChild(workspace, "aiController")

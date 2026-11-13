@@ -144,8 +144,8 @@ ApplicationWindow {
     property bool initialized: false
     property bool restoreFailed: false
     property string notification: ""
-    // The link under the pointer (LinkReporter): where it goes, at the bottom left like a browser's; the item that
-    // told it, so only that item takes it away.
+    // The link under the pointer (LinkReporter): where it goes, in the status bar (above the bottom edge in focus mode,
+    // when the bar is hidden); the item that told it, so only that item takes it away.
     property string hoveredLink: ""
     property string hoveredLinkLabel: ""
     property var hoveredLinkOwner: null
@@ -443,15 +443,15 @@ ApplicationWindow {
         function onBack() { window.goBack() }
         function onForward() { window.goForward() }
     }
-    // Where the link under the pointer goes: at the bottom left above the status bar, and at the right while the
-    // pointer is down there itself, as browsers show it. The pointer is followed only while there is a link.
-    HoverHandler { id: linkPointer; enabled: window.hoveredLink.length > 0 }
+    // In focus mode (no status bar), where the link under the pointer goes floats at the bottom left, and at the right
+    // while the pointer is down there itself, as browsers show it. The pointer is followed only while it shows.
+    HoverHandler { id: linkPointer; enabled: linkStatus.visible }
     Rectangle {
         id: linkStatus
         objectName: "linkStatus"
         parent: Overlay.overlay
         z: 100
-        visible: window.hoveredLink.length > 0
+        visible: window.hoveredLink.length > 0 && !statusBar.visible
         readonly property real above: (parent ? parent.height : 0) - (statusBar.visible ? statusBar.height : 0) - 6
         readonly property bool atRight: linkPointer.hovered && linkPointer.point.scenePosition.x < 8 + width + 24
                                         && linkPointer.point.scenePosition.y > above - height - 24
@@ -1718,11 +1718,15 @@ ApplicationWindow {
                     }
                 }
             }
+            // While the pointer is on a link, where it goes (as a browser's status bar shows it; the middle of a long
+            // address is left out); otherwise a notice while there is one.
             Label {
+                objectName: "statusText"
+                readonly property bool showsLink: window.hoveredLink.length > 0
                 Layout.fillWidth: true
-                // A notice while there is one.
-                text: window.notification.length ? window.notification : researchStore.busy ? qsTr("Saving…") : ""
-                elide: Text.ElideRight; font.pixelSize: Theme.fontCaption; color: Theme.textTertiary
+                text: showsLink ? window.hoveredLinkLabel : window.notification.length ? window.notification : researchStore.busy ? qsTr("Saving…") : ""
+                elide: showsLink ? Text.ElideMiddle : Text.ElideRight; textFormat: Text.PlainText
+                font.pixelSize: Theme.fontCaption; color: showsLink ? Theme.textSecondary : Theme.textTertiary
             }
             StatusIcon { kind: "split"; description: qsTr("Duplicate to right split · ") + Platform.keys("Ctrl+\\"); visible: !window.homeVisible; selected: documents.groupCount > 1; onTriggered: documents.duplicateSplit("right") }
             Repeater {

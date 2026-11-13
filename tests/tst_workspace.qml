@@ -27,39 +27,53 @@ Item {
             return c
         }
         function cleanupTestCase() { workspace.visible = false }
-        // The link under the pointer, wherever it is (an answer, a note, a PDF, a web tab): where it goes, at the bottom
-        // left; at the right while the pointer is down there; gone when its item goes.
+        // The link under the pointer, wherever it is (an answer, a note, a PDF, a web tab): where it goes, in the status
+        // bar in place of a notice; in focus mode floating at the bottom left, at the right while the pointer is down
+        // there; gone when its item goes.
         function test_linkUnderThePointerShowsWhereItGoes() {
-            const status = findChild(workspace, "linkStatus"), text = findChild(workspace, "linkStatusText")
-            verify(status !== null && !status.visible)
+            const bar = findChild(workspace, "statusText"), floating = findChild(workspace, "linkStatus")
+            const floatingText = findChild(workspace, "linkStatusText")
+            verify(bar !== null && floating !== null)
+            workspace.notify("Saved for later.")
+            compare(bar.text, "Saved for later.")
             const reporter = linkReporter.createObject(workspace.contentItem)
             reporter.link = "https://arxiv.org/abs/1706.03762"
-            tryCompare(status, "visible", true)
-            compare(text.text, "https://arxiv.org/abs/1706.03762")
-            verify(status.x < workspace.width / 2)
-            verify(status.y > workspace.height / 2 && status.y + status.height < workspace.height - 1, "at the bottom, above the status bar")
+            compare(bar.text, "https://arxiv.org/abs/1706.03762")
+            compare(bar.color.toString(), Theme.textSecondary.toString())
+            verify(!floating.visible)
             reporter.link = "https://example.org/%ED%95%9C%EA%B8%80"
-            compare(text.text, "https://example.org/\ud55c\uae00")
+            compare(bar.text, "https://example.org/\ud55c\uae00")
             const note = researchStore.createNote("Reading list", "")
             reporter.link = "owelk://note/" + note
-            compare(text.text, "Note · Reading list")
+            compare(bar.text, "Note · Reading list")
             reporter.link = "owelk://note/gone"
-            compare(text.text, "Not in Owelk any more")
+            compare(bar.text, "Not in Owelk any more")
             reporter.label = "Page 3"; reporter.link = "#page=3"
-            compare(text.text, "Page 3")
+            compare(bar.text, "Page 3")
             reporter.label = ""
-            // Another item without a link leaves it; its own does not.
+            // Another item without a link leaves it; its own takes it away, and the notice is back.
             const other = linkReporter.createObject(workspace.contentItem)
             other.link = "https://other.example"; other.link = ""
             reporter.link = "https://arxiv.org/abs/1706.03762"
-            verify(status.visible)
-            // The pointer down at the bottom left: it moves to the right.
+            compare(bar.text, "https://arxiv.org/abs/1706.03762")
+            reporter.link = ""
+            compare(bar.text, "Saved for later.")
+            // Focus mode hides the bar: it floats at the bottom, at the right while the pointer is down at the left.
+            researchStore.setSetting("focus.fullScreen", "0")
+            workspace.setFocusMode(true)
+            reporter.link = "https://arxiv.org/abs/1706.03762"
+            tryCompare(floating, "visible", true)
+            compare(floatingText.text, "https://arxiv.org/abs/1706.03762")
+            verify(floating.x < workspace.width / 2)
+            verify(floating.y > workspace.height / 2 && floating.y + floating.height < workspace.height - 1, "at the bottom")
             mouseMove(workspace.contentItem, 20, workspace.contentItem.height - 20)
-            tryVerify(function() { return status.x > workspace.width / 2 })
+            tryVerify(function() { return floating.x > workspace.width / 2 })
             mouseMove(workspace.contentItem, workspace.contentItem.width / 2, workspace.contentItem.height / 2)
-            tryVerify(function() { return status.x < workspace.width / 2 })
+            tryVerify(function() { return floating.x < workspace.width / 2 })
             reporter.destroy()
-            tryCompare(status, "visible", false)
+            tryCompare(floating, "visible", false)
+            workspace.setFocusMode(false)
+            researchStore.setSetting("focus.fullScreen", "")
             other.destroy()
         }
         function test_revealStaysOnMatchingTab() {
